@@ -1,0 +1,79 @@
+[
+  {
+    "id": "q-zy-1",
+    "category": "字音字形",
+    "type": "单选题",
+    "question": "下列词语中加点字读音完全正确的一项是：",
+    "options": ["A. 酝酿 niang  倔强 qiang", "B. 贮蓄 zhu  狭隘 ai", "C. 粗犷 kuang  静谧 mi", "D. 确凿 zao  莅临 wei"],
+    "answer": "B",
+    "explanation": "A项“强”应读 jiang；C项“犷”应读 guang；D项“莅”应读 li。",
+    "knowledgePoint": "常见易错字音",
+    "difficulty": "基础"
+  },
+  {
+    "id": "q-cy-1",
+    "category": "成语运用",
+    "type": "单选题",
+    "question": "下列句子中成语使用恰当的一项是：",
+    "options": ["A. 他做题时总是不求甚解，所以成绩稳步提高。", "B. 这场辩论双方观点鲜明，真是骇人听闻。", "C. 老师讲解后，同学们恍然大悟。", "D. 这篇作文语言平淡，却美轮美奂。"],
+    "answer": "C",
+    "explanation": "“恍然大悟”指忽然明白，符合语境。其他选项成语感情色彩或适用对象不当。",
+    "knowledgePoint": "成语语境辨析",
+    "difficulty": "基础"
+  },
+  {
+    "id": "q-bj-1",
+    "category": "病句修改",
+    "type": "单选题",
+    "question": "下列句子没有语病的一项是：",
+    "options": ["A. 通过这次活动，使我明白了坚持的重要。", "B. 我们要防止校园安全事故不再发生。", "C. 阅读经典能拓宽我们的视野。", "D. 他的写作水平明显改善了。"],
+    "answer": "C",
+    "explanation": "A项缺主语；B项否定不当；D项“水平”应搭配“提高”。",
+    "knowledgePoint": "常见病句类型",
+    "difficulty": "中等"
+  },
+  {
+    "id": "q-bd-1",
+    "category": "标点符号",
+    "type": "判断题",
+    "question": "“你今天读《朝花夕拾》了吗？”这句话标点使用正确。",
+    "options": ["A. 正确", "B. 错误"],
+    "answer": "A",
+    "explanation": "书名号用于书籍名称，整句为疑问句，句末使用问号，标点正确。",
+    "knowledgePoint": "问句与书名号",
+    "difficulty": "基础"
+  },
+  {
+    "id": "q-wx-1",
+    "category": "文学常识",
+    "type": "单选题",
+    "question": "《背影》的作者是：",
+    "options": ["A. 鲁迅", "B. 朱自清", "C. 老舍", "D. 冰心"],
+    "answer": "B",
+    "explanation": "《背影》是朱自清的经典散文，刻画了父子深情。",
+    "knowledgePoint": "现代文学作家作品",
+    "difficulty": "基础"
+  },
+  {
+    "id": "q-gs-1",
+    "category": "古诗文默写",
+    "type": "填空题",
+    "question": "请补全诗句：海日生残夜，____。",
+    "options": [],
+    "answer": "江春入旧年",
+    "explanation": "出自王湾《次北固山下》，上下句表现时序交替中的自然理趣。",
+    "knowledgePoint": "古诗名句默写",
+    "difficulty": "基础"
+  },
+  {
+    "id": "q-wy-1",
+    "category": "文言实词虚词",
+    "type": "单选题",
+    "question": "“学而时习之”中“而”的用法是：",
+    "options": ["A. 表转折", "B. 表并列或承接", "C. 表修饰", "D. 表假设"],
+    "answer": "B",
+    "explanation": "句中“而”连接“学”和“时习”，表示顺承关系。",
+    "knowledgePoint": "文言虚词“而”",
+    "difficulty": "中等"
+  }
+]

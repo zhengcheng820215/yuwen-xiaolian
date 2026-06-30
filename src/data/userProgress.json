@@ -1,0 +1,19 @@
+{
+  "streakDays": 5,
+  "todayFinished": 12,
+  "accuracy": 82,
+  "totalQuestions": 168,
+  "badges": ["坚持 3 天", "成语达人", "古诗小能手"],
+  "recentMistakes": [
+    {
+      "id": "q-bj-1",
+      "summary": "下列句子没有语病的一项是",
+      "knowledgePoint": "常见病句类型"
+    },
+    {
+      "id": "q-wy-1",
+      "summary": "“学而时习之”中“而”的用法",
+      "knowledgePoint": "文言虚词“而”"
+    }
+  ]
+}
