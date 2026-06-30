@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, CheckCircle2, Flame, Target, TrendingUp } from 'lucide-react';
+import { ArrowRight, CircleAlert, CircleCheck, CheckCircle2, NotebookPen, ThumbsUp, TrendingUp } from 'lucide-react';
 import Card from '../components/Card.jsx';
 import { useStudy } from '../context/StudyContext.jsx';
 
@@ -17,25 +17,14 @@ const taskSummary = {
   reward: '+50 学习经验',
 };
 
-const mistakeLabels = {
-  病句修改: '病句',
-  文言实词虚词: '文言文',
-  成语运用: '成语',
-  古文作者背景: '古文',
-  字音字形: '字词',
-  标点符号: '标点',
-  古诗文默写: '默写',
-  文学常识: '文学',
-};
-
 const ProgressBar = ({ value }) => (
   <div className="h-2 overflow-hidden rounded-full bg-slate-100">
     <div className="h-full rounded-full bg-gradient-to-r from-blue-600 to-violet-600" style={{ width: `${value}%` }} />
   </div>
 );
 
-const StatIcon = ({ children }) => (
-  <span className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-50 text-blue-600">
+const StatIcon = ({ children, className = 'bg-slate-50 text-blue-600' }) => (
+  <span className={`flex h-8 w-8 items-center justify-center rounded-md ${className}`}>
     {children}
   </span>
 );
@@ -88,7 +77,7 @@ const TodayTaskCard = () => (
   <Card className="border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/70">
     <div className="flex items-start justify-between gap-3">
       <div>
-        <h2 className="text-2xl font-semibold text-slate-950">今日任务</h2>
+        <h2 className="text-2xl font-semibold text-slate-950">今日学习</h2>
       </div>
     </div>
     <div className="mt-5 space-y-3">
@@ -127,7 +116,7 @@ const ContinueCard = () => (
           <p className="font-semibold text-slate-900">阅读理解</p>
           <p className="mt-1 text-sm text-slate-500">已做到第 3 题</p>
         </div>
-        <Link to="/practice/ability" className="shrink-0 rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+        <Link to="/practice/ability" className="shrink-0 rounded-md bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-600">
           继续学习
         </Link>
       </div>
@@ -143,13 +132,14 @@ const ContinueCard = () => (
 );
 
 export default function Home() {
-  const { progress, activeMistakes } = useStudy();
+  const { progress } = useStudy();
   const stats = [
-    { label: '今天完成', value: `${progress.todayFinished}题`, icon: <Flame size={18} /> },
-    { label: '正确率', value: `${progress.accuracy}%`, icon: <Target size={18} /> },
+    { label: '今天完成', value: `${progress.todayFinished}题`, icon: <NotebookPen size={18} /> },
+    { label: '正确率', value: `${progress.accuracy}%`, icon: <CircleCheck size={18} /> },
     { label: '比昨天提高', value: '+3%', icon: <TrendingUp size={18} /> },
-    { label: '累计完成', value: '128题', icon: <BookOpen size={18} /> },
+    { label: '累计完成', value: '128题', icon: <ThumbsUp size={18} /> },
   ];
+  const mistakeStat = { label: '错题数量', value: '13题', icon: <CircleAlert size={18} /> };
 
   return (
     <div className="px-5 py-5">
@@ -185,31 +175,23 @@ export default function Home() {
       </section>
 
       <section className="mt-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-slate-900">最近错题</h2>
-          <Link to="/mistakes" className="text-sm font-medium text-blue-600">查看</Link>
+        <div className="mb-3">
+          <h2 className="text-base font-semibold text-slate-900">错题回顾</h2>
         </div>
-        <div className="space-y-3">
-          {activeMistakes.slice(0, 2).map((item) => (
-            <Card key={item.id}>
-              <div className="flex items-start gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-md bg-red-50 px-2 py-1 text-xs font-semibold text-red-600">{mistakeLabels[item.category] || item.category}</span>
-                    <p className="truncate text-xs text-slate-500">{item.knowledgePoint}</p>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-slate-600">
-                    <span>连续错误 2 次</span>
-                    <span>预计复习 2 分钟</span>
-                  </div>
-                </div>
-                <Link to={`/quiz/${encodeURIComponent(item.category)}`} className="shrink-0 rounded-md bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600">
-                  重新练习
-                </Link>
+        <Card>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 rounded-lg bg-white">
+              <StatIcon className="bg-red-50 text-red-500">{mistakeStat.icon}</StatIcon>
+              <div>
+                <p className="text-xs text-slate-500">{mistakeStat.label}</p>
+                <p className="mt-0.5 text-base font-semibold text-slate-950">{mistakeStat.value}</p>
               </div>
-            </Card>
-          ))}
-        </div>
+            </div>
+            <Link to="/mistakes" className="shrink-0 rounded-md bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-600">
+              查看
+            </Link>
+          </div>
+        </Card>
       </section>
     </div>
   );
