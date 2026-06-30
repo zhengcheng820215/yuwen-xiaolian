@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, CheckCircle2, Flame, RotateCcw, Target, TrendingUp } from 'lucide-react';
+import { ArrowRight, BookOpen, CheckCircle2, Flame, Target, TrendingUp } from 'lucide-react';
 import Card from '../components/Card.jsx';
 import { useStudy } from '../context/StudyContext.jsx';
 
@@ -93,23 +93,23 @@ const TodayTaskCard = () => (
     </div>
     <div className="mt-5 space-y-3">
       {todayTasks.map(({ title, progress, shortTitle }, index) => (
-        <div key={title} className="grid min-h-10 grid-cols-[24px_1fr_64px] items-center gap-3">
+        <div key={title} className="grid min-h-10 grid-cols-[24px_1fr_52px] items-center gap-3">
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-600">
             {index + 1}
           </span>
-          <p className="text-sm font-medium text-slate-500">{shortTitle}</p>
-          <span className="text-right text-xl font-semibold text-slate-950">{progress}</span>
+          <p className="text-base font-semibold text-slate-600">{shortTitle}</p>
+          <span className="text-right text-lg font-semibold leading-none text-slate-950">{progress}</span>
         </div>
       ))}
     </div>
     <div className="mt-5 grid grid-cols-2 gap-3">
       <div className="rounded-lg bg-slate-50 p-3">
         <p className="text-xs text-slate-500">预计用时</p>
-        <p className="mt-1 text-base font-semibold text-slate-900">{taskSummary.minutes} 分钟</p>
+        <p className="mt-1 text-sm font-semibold text-slate-900">{taskSummary.minutes} 分钟</p>
       </div>
       <div className="rounded-lg bg-slate-50 p-3">
         <p className="text-xs text-slate-500">完成奖励</p>
-        <p className="mt-1 text-base font-semibold text-blue-700">{taskSummary.reward}</p>
+        <p className="mt-1 text-sm font-semibold text-blue-700">{taskSummary.reward}</p>
       </div>
     </div>
     <Link to="/quiz/all" className="mt-5 flex min-h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-blue-200">
@@ -121,26 +121,21 @@ const TodayTaskCard = () => (
 
 const ContinueCard = () => (
   <Card>
-    <div className="flex items-start gap-3">
-      <span className="flex h-11 w-11 items-center justify-center rounded-md bg-violet-50 text-violet-600">
-        <BookOpen size={21} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="font-semibold text-slate-900">阅读理解</p>
-            <p className="mt-1 text-sm text-slate-500">已做到第 3 题</p>
-          </div>
-          <Link to="/practice/ability" className="shrink-0 rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
-            继续学习
-          </Link>
+    <div className="min-w-0">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="font-semibold text-slate-900">阅读理解</p>
+          <p className="mt-1 text-sm text-slate-500">已做到第 3 题</p>
         </div>
-        <div className="mt-4">
-          <ProgressBar value={40} />
-          <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-            <span>已完成 40%</span>
-            <span>预计剩余 5 分钟</span>
-          </div>
+        <Link to="/practice/ability" className="shrink-0 rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+          继续学习
+        </Link>
+      </div>
+      <div className="mt-4">
+        <ProgressBar value={40} />
+        <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+          <span>已完成 40%</span>
+          <span>预计剩余 5 分钟</span>
         </div>
       </div>
     </div>
@@ -198,9 +193,6 @@ export default function Home() {
           {activeMistakes.slice(0, 2).map((item) => (
             <Card key={item.id}>
               <div className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-md bg-red-50 text-red-500">
-                  <RotateCcw size={17} />
-                </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="rounded-md bg-red-50 px-2 py-1 text-xs font-semibold text-red-600">{mistakeLabels[item.category] || item.category}</span>
