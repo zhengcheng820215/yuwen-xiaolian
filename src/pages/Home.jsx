@@ -76,9 +76,9 @@ const TodayTaskCard = () => (
   <Card className="border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/70">
     <div className="flex items-start justify-between gap-3">
       <div>
-        <h2 className="text-xl font-semibold text-slate-950">今日任务</h2>
+        <h2 className="text-2xl font-semibold text-slate-950">今日任务</h2>
       </div>
-      <span className="shrink-0 rounded-md bg-gradient-to-r from-blue-50 to-violet-50 px-3 py-1 text-sm font-semibold text-blue-700">0%</span>
+      <span className="w-12 shrink-0 text-right text-lg font-semibold text-blue-700">0%</span>
     </div>
     <div className="mt-5 space-y-3">
       {todayTasks.map(({ title, progress }, index) => (
@@ -86,8 +86,8 @@ const TodayTaskCard = () => (
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-600">
             {index + 1}
           </span>
-          <p className="flex-1 text-sm font-medium text-slate-800">{title}</p>
-          <span className="text-sm font-semibold text-slate-600">{progress}</span>
+          <p className="flex-1 text-base font-semibold text-slate-800">{title}</p>
+          <span className="w-12 text-right text-base font-semibold text-slate-600">{progress}</span>
         </div>
       ))}
     </div>
