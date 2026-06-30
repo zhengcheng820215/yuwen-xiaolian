@@ -3,9 +3,9 @@ import { BookOpenCheck, ChevronRight, Gamepad2, GraduationCap } from 'lucide-rea
 import PageHeader from '../components/PageHeader.jsx';
 
 const modules = [
-  { title: '知识练习', desc: '短题快练，立即反馈', to: '/practice/knowledge', icon: BookOpenCheck, color: 'bg-blue-600' },
-  { title: '趣味挑战', desc: '成语、诗句、错字关卡', to: '/practice/fun', icon: Gamepad2, color: 'bg-violet-600' },
-  { title: '能力训练', desc: '阅读理解与作文片段', to: '/practice/ability', icon: GraduationCap, color: 'bg-emerald-600' },
+  { title: '知识练习', desc: '字词、成语、病句、古诗文', to: '/practice/knowledge', icon: BookOpenCheck, color: 'bg-blue-600' },
+  { title: '趣味挑战', desc: '成语接龙、诗句配对、错字侦探', to: '/practice/fun', icon: Gamepad2, color: 'bg-violet-600' },
+  { title: '能力训练', desc: '阅读理解、作文片段、文言文阅读', to: '/practice/ability', icon: GraduationCap, color: 'bg-emerald-600' },
 ];
 
 export default function Practice() {
