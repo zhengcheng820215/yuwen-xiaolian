@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, CalendarDays, Check, CheckCircle2, Flame, RotateCcw, Target, Trophy } from 'lucide-react';
+import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, Flame, RotateCcw, Target } from 'lucide-react';
 import Card from '../components/Card.jsx';
 import { useStudy } from '../context/StudyContext.jsx';
 
@@ -82,10 +82,10 @@ const TodayTaskCard = () => (
       <span className="shrink-0 rounded-md bg-gradient-to-r from-blue-50 to-violet-50 px-3 py-1 text-sm font-semibold text-blue-700">0%</span>
     </div>
     <div className="mt-5 space-y-3">
-      {todayTasks.map(({ title, progress }) => (
+      {todayTasks.map(({ title, progress }, index) => (
         <div key={title} className="flex min-h-9 items-center gap-3">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-            <Check size={15} />
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-600">
+            {index + 1}
           </span>
           <p className="flex-1 text-sm font-medium text-slate-800">{title}</p>
           <span className="text-sm font-semibold text-slate-600">{progress}</span>
