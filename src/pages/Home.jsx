@@ -77,7 +77,6 @@ const TodayTaskCard = () => (
     <div className="flex items-start justify-between gap-3">
       <div>
         <h2 className="text-xl font-semibold text-slate-950">今日任务</h2>
-        <p className="mt-1 text-sm text-slate-500">系统已安排好今天的练习顺序。</p>
       </div>
       <span className="shrink-0 rounded-md bg-gradient-to-r from-blue-50 to-violet-50 px-3 py-1 text-sm font-semibold text-blue-700">0%</span>
     </div>
@@ -149,13 +148,10 @@ export default function Home() {
   return (
     <div className="px-5 py-5">
       <header className="mb-4">
-        <p className="text-sm font-medium text-blue-600">语文小练</p>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-950">今天也来练一点语文吧</h1>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           <span className="rounded-md bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">Lv.3 小秀才</span>
           <span className="rounded-md bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700">已连续学习 {progress.streakDays} 天</span>
         </div>
-        <p className="mt-3 text-sm text-slate-500">再坚持 2 天即可获得连续学习徽章。</p>
       </header>
 
       {taskSummary.isTodayComplete ? <CompletedTaskCard /> : <TodayTaskCard />}
