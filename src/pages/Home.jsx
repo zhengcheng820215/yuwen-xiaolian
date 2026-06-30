@@ -29,26 +29,26 @@ export default function Home() {
         </div>
       </header>
 
-      <Card className="bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 p-5 text-white shadow-lg shadow-blue-200">
+      <Card className="border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/70">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">今日任务</h2>
-            <p className="mt-1 text-sm text-blue-100">完成 3 个小目标，保持语文手感。</p>
+            <h2 className="text-xl font-semibold text-slate-950">今日任务</h2>
+            <p className="mt-1 text-sm text-slate-500">完成 3 个小目标，保持语文手感。</p>
           </div>
-          <span className="rounded-md bg-white/15 px-3 py-1 text-sm font-semibold">0%</span>
+          <span className="rounded-md bg-gradient-to-r from-blue-50 to-violet-50 px-3 py-1 text-sm font-semibold text-blue-700">0%</span>
         </div>
         <div className="mt-5 space-y-3">
           {todayTasks.map(({ title, progress: taskProgress, icon: Icon }) => (
-            <div key={title} className="flex min-h-12 items-center gap-3 rounded-lg bg-white/12 px-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-white/15">
+            <div key={title} className="flex min-h-12 items-center gap-3 rounded-lg bg-gradient-to-r from-blue-50 to-violet-50 px-3">
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-white text-blue-600 shadow-sm">
                 <Icon size={17} />
               </span>
-              <p className="flex-1 text-sm font-medium">{title}</p>
-              <span className="text-sm text-blue-100">{taskProgress}</span>
+              <p className="flex-1 text-sm font-semibold text-slate-800">{title}</p>
+              <span className="text-sm font-semibold text-blue-700">{taskProgress}</span>
             </div>
           ))}
         </div>
-        <Link to="/quiz/all" className="mt-5 flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white font-semibold text-blue-700">
+        <Link to="/quiz/all" className="mt-5 flex min-h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-blue-200">
           开始今日学习
           <ArrowRight size={18} />
         </Link>
