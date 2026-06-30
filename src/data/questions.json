@@ -75,5 +75,71 @@
     "explanation": "句中“而”连接“学”和“时习”，表示顺承关系。",
     "knowledgePoint": "文言虚词“而”",
     "difficulty": "中等"
+  },
+  {
+    "id": "q-gwzz-1",
+    "category": "古文作者背景",
+    "type": "单选题",
+    "question": "《桃花源记》的作者及其所处时代对应正确的一项是：",
+    "options": ["A. 陶渊明 东晋", "B. 柳宗元 唐代", "C. 欧阳修 北宋", "D. 周敦颐 北宋"],
+    "answer": "A",
+    "explanation": "《桃花源记》作者陶渊明，名潜，东晋诗人，作品常表现田园生活与理想社会想象。",
+    "knowledgePoint": "陶渊明与《桃花源记》",
+    "difficulty": "基础"
+  },
+  {
+    "id": "q-gwzz-2",
+    "category": "古文作者背景",
+    "type": "单选题",
+    "question": "《陋室铭》的作者刘禹锡是哪个朝代的文学家？",
+    "options": ["A. 西汉", "B. 东晋", "C. 唐代", "D. 北宋"],
+    "answer": "C",
+    "explanation": "刘禹锡是唐代文学家、哲学家，《陋室铭》借陋室表达安贫乐道、高洁自守的志趣。",
+    "knowledgePoint": "刘禹锡与《陋室铭》",
+    "difficulty": "基础"
+  },
+  {
+    "id": "q-gwzz-3",
+    "category": "古文作者背景",
+    "type": "判断题",
+    "question": "《爱莲说》的作者周敦颐是北宋理学家，文中借莲花表达君子品格。",
+    "options": ["A. 正确", "B. 错误"],
+    "answer": "A",
+    "explanation": "周敦颐是北宋理学家，《爱莲说》托物言志，以莲象征洁身自好、不随流俗的君子人格。",
+    "knowledgePoint": "周敦颐与《爱莲说》",
+    "difficulty": "基础"
+  },
+  {
+    "id": "q-gwzz-4",
+    "category": "古文作者背景",
+    "type": "单选题",
+    "question": "《小石潭记》的作者柳宗元被贬永州期间写下多篇山水游记，这组作品常被称为：",
+    "options": ["A. 永州八记", "B. 唐宋八大家", "C. 乐府双璧", "D. 建安七子"],
+    "answer": "A",
+    "explanation": "柳宗元贬居永州期间写下《小石潭记》等山水游记，合称“永州八记”。“唐宋八大家”是作家合称，不是作品组名。",
+    "knowledgePoint": "柳宗元与永州八记",
+    "difficulty": "中等"
+  },
+  {
+    "id": "q-gwzz-5",
+    "category": "古文作者背景",
+    "type": "单选题",
+    "question": "《醉翁亭记》的作者欧阳修号“醉翁”，晚年又号：",
+    "options": ["A. 香山居士", "B. 六一居士", "C. 易安居士", "D. 青莲居士"],
+    "answer": "B",
+    "explanation": "欧阳修是北宋文学家、史学家，号醉翁，晚年号六一居士，是唐宋八大家之一。",
+    "knowledgePoint": "欧阳修与《醉翁亭记》",
+    "difficulty": "中等"
+  },
+  {
+    "id": "q-gwzz-6",
+    "category": "古文作者背景",
+    "type": "填空题",
+    "question": "《陈涉世家》节选自司马迁的纪传体通史《____》。",
+    "options": [],
+    "answer": "史记",
+    "explanation": "《陈涉世家》选自司马迁《史记》。《史记》是我国第一部纪传体通史。",
+    "knowledgePoint": "司马迁与《史记》",
+    "difficulty": "基础"
   }
 ]

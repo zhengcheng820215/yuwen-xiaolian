@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
 
-const categories = ['字音字形', '成语运用', '病句修改', '标点符号', '文学常识', '古诗文默写', '文言实词虚词'];
+const categories = ['字音字形', '成语运用', '病句修改', '标点符号', '文学常识', '古诗文默写', '文言实词虚词', '古文作者背景'];
 
 export default function KnowledgePractice() {
   return (
