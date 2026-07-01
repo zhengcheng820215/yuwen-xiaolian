@@ -153,6 +153,21 @@ export default function Home() {
       {taskSummary.isTodayComplete ? <CompletedTaskCard /> : <TodayTaskCard />}
 
       <section className="mt-5">
+        <h2 className="mb-3 text-base font-semibold text-slate-900">AI 能力诊断</h2>
+        <Card>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold text-slate-900">Diagnosis Demo</p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">验证学生答案到能力诊断 JSON 的链路</p>
+            </div>
+            <Link to="/diagnosis-demo" className="shrink-0 rounded-md bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-600">
+              打开
+            </Link>
+          </div>
+        </Card>
+      </section>
+
+      <section className="mt-5">
         <h2 className="mb-3 text-base font-semibold text-slate-900">学习反馈</h2>
         <Card>
           <div className="grid grid-cols-2 gap-3">
