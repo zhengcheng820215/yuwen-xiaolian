@@ -1,6 +1,10 @@
 import type { TrainingInput } from '../schemas/training.schema';
 
 const EDUCATION_MODEL_REFERENCES = [
+  'docs/education/ABILITY_MODEL.md',
+  'docs/education/TRAINING_MODEL.md',
+  'docs/education/QUESTION_MODEL.md',
+  'docs/education/STUDENT_PROFILE_MODEL.md',
   'education-system/ABILITY_MODEL.md',
   'education-system/TRAINING_MODEL.md',
   'education-system/QUESTION_MODEL.md',

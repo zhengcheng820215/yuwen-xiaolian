@@ -1,6 +1,9 @@
 import type { DiagnosisInput } from '../schemas/diagnosis.schema';
 
 const EDUCATION_MODEL_REFERENCES = [
+  'docs/education/ABILITY_MODEL.md',
+  'docs/education/DIAGNOSIS_MODEL.md',
+  'docs/education/QUESTION_MODEL.md',
   'education-system/ABILITY_MODEL.md',
   'education-system/DIAGNOSIS_MODEL.md',
   'education-system/QUESTION_MODEL.md',
