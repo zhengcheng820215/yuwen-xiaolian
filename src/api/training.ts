@@ -1,9 +1,9 @@
-import { runTrainingAgent } from '../ai/agents/trainingAgent';
+import { runTrainingAgent } from '../ai/agents/trainingAgent.ts';
 import {
   type TrainingInput,
   type TrainingResult,
   isTrainingInput,
-} from '../ai/schemas/training.schema';
+} from '../ai/schemas/training.schema.ts';
 
 export async function training(input: TrainingInput): Promise<TrainingResult> {
   return runTrainingAgent(input);

@@ -1,4 +1,4 @@
-import type { TrainingInput } from '../schemas/training.schema';
+import type { TrainingInput } from '../schemas/training.schema.ts';
 
 const EDUCATION_MODEL_REFERENCES = [
   'docs/education/ABILITY_MODEL.md',

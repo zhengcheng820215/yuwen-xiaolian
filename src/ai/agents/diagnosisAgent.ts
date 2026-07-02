@@ -1,9 +1,9 @@
-import { buildDiagnosisPrompt } from '../prompts/buildDiagnosisPrompt';
+import { buildDiagnosisPrompt } from '../prompts/buildDiagnosisPrompt.ts';
 import {
   type DiagnosisInput,
   type DiagnosisResult,
   normalizeDiagnosisResult,
-} from '../schemas/diagnosis.schema';
+} from '../schemas/diagnosis.schema.ts';
 
 type LLMCaller = (prompt: string, input: DiagnosisInput) => Promise<string>;
 
@@ -71,9 +71,10 @@ async function mockCallLLM(_prompt: string, input: DiagnosisInput): Promise<stri
 function inferMainAbility(question: string): string {
   if (/概括|主旨|大意|主要内容|中心/.test(question)) return '概括';
   if (/赏析|分析|作用|手法|人物形象|结构|情感变化/.test(question)) return '分析';
-  if (/推断|推测|为什么|原因|说明了什么|看出什么|体现/.test(question)) return '推理';
+  if (/推断|推测|可以推断/.test(question)) return '推理';
   if (/含义|理解|意思|如何理解/.test(question)) return '理解';
   if (/找出|哪些|哪几|根据原文|文中/.test(question)) return '信息提取';
+  if (/为什么|原因|说明了什么|看出什么|体现/.test(question)) return '推理';
   if (/表达|仿写|改写|扩写|缩写|写一段/.test(question)) return '表达';
   return '理解';
 }
@@ -118,8 +119,16 @@ function inferRootCause(
   overlap: number,
   hasEvidenceSignal: boolean,
 ): string {
-  if (overlap < 0.15) {
+  if (mainAbility === '信息提取' && overlap < 0.3) {
     return '学生可能尚未定位到关键文本信息，真实短板优先追溯为信息提取或题意理解不稳定。';
+  }
+
+  if (mainAbility === '概括') {
+    return '学生可能尚未稳定区分主要信息与次要信息，核心信息筛选能力需要继续验证。';
+  }
+
+  if (mainAbility === '理解') {
+    return '学生在理解能力路径上已有作答尝试，但对词句含义或语境关系的把握不稳定。';
   }
 
   if (!hasEvidenceSignal && ['分析', '推理'].includes(mainAbility)) {

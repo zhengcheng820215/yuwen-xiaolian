@@ -1,9 +1,9 @@
-import { buildTrainingPrompt } from '../prompts/buildTrainingPrompt';
+import { buildTrainingPrompt } from '../prompts/buildTrainingPrompt.ts';
 import {
   type TrainingInput,
   type TrainingResult,
   normalizeTrainingResult,
-} from '../schemas/training.schema';
+} from '../schemas/training.schema.ts';
 
 type LLMCaller = (prompt: string, input: TrainingInput) => Promise<string>;
 

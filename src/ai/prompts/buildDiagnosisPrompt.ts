@@ -1,4 +1,4 @@
-import type { DiagnosisInput } from '../schemas/diagnosis.schema';
+import type { DiagnosisInput } from '../schemas/diagnosis.schema.ts';
 
 const EDUCATION_MODEL_REFERENCES = [
   'docs/education/ABILITY_MODEL.md',
