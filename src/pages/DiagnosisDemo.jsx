@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import PageHeader from '../components/PageHeader.jsx';
 import { diagnosis } from '../api/diagnosis';
+import { training } from '../api/training';
 
 const initialForm = {
   question: '请概括这段文字的主要内容，并结合文本说明理由。',
@@ -11,8 +12,10 @@ const initialForm = {
 export default function DiagnosisDemo() {
   const [form, setForm] = useState(initialForm);
   const [result, setResult] = useState(null);
+  const [trainingResult, setTrainingResult] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [trainingLoading, setTrainingLoading] = useState(false);
 
   const updateField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -22,6 +25,7 @@ export default function DiagnosisDemo() {
     setLoading(true);
     setError('');
     setResult(null);
+    setTrainingResult(null);
 
     try {
       const diagnosisResult = await diagnosis(form);
@@ -30,6 +34,27 @@ export default function DiagnosisDemo() {
       setError(err instanceof Error ? err.message : '诊断失败，请稍后重试。');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGenerateTraining = async () => {
+    if (!result) return;
+
+    setTrainingLoading(true);
+    setError('');
+    setTrainingResult(null);
+
+    try {
+      const plan = await training({
+        diagnosisResult: result,
+        question: form.question,
+        studentAnswer: form.studentAnswer,
+      });
+      setTrainingResult(plan);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '训练方案生成失败，请稍后重试。');
+    } finally {
+      setTrainingLoading(false);
     }
   };
 
@@ -69,7 +94,21 @@ export default function DiagnosisDemo() {
           </div>
         )}
 
-        {result && <DiagnosisResult result={result} />}
+        {result && (
+          <>
+            <DiagnosisResult result={result} />
+            <button
+              type="button"
+              onClick={handleGenerateTraining}
+              disabled={trainingLoading}
+              className="min-h-12 w-full rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white transition disabled:bg-slate-300"
+            >
+              {trainingLoading ? '生成中...' : '生成训练方案'}
+            </button>
+          </>
+        )}
+
+        {trainingResult && <TrainingResult result={trainingResult} />}
       </div>
     </div>
   );
@@ -105,6 +144,35 @@ function DiagnosisResult({ result }) {
         <ResultList label="abilityEvidence" items={result.abilityEvidence} />
         <ResultRow label="diagnosisSummary" value={result.diagnosisSummary} />
         <ResultRow label="nextTraining" value={result.nextTraining} />
+      </div>
+
+      <pre className="mt-4 overflow-auto rounded-md bg-slate-950 p-3 text-xs leading-5 text-slate-50">
+        {JSON.stringify(result, null, 2)}
+      </pre>
+    </section>
+  );
+}
+
+function TrainingResult({ result }) {
+  return (
+    <section className="rounded-md border border-emerald-200 bg-white p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-base font-semibold text-slate-900">结构化训练方案</h2>
+        <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+          confidence {Math.round(result.confidence * 100)}%
+        </span>
+      </div>
+
+      <div className="space-y-3 text-sm">
+        <ResultRow label="targetAbility" value={result.targetAbility} />
+        <ResultRow label="rootCause" value={result.rootCause} />
+        <ResultRow label="trainingGoal" value={result.trainingGoal} />
+        <ResultRow label="trainingStrategy" value={result.trainingStrategy} />
+        <ResultList label="trainingSteps" items={result.trainingSteps} />
+        <ResultList label="practiceTasks" items={result.practiceTasks} />
+        <ResultList label="coachGuidance" items={result.coachGuidance} />
+        <ResultList label="completionCriteria" items={result.completionCriteria} />
+        <ResultRow label="nextEvaluation" value={result.nextEvaluation} />
       </div>
 
       <pre className="mt-4 overflow-auto rounded-md bg-slate-950 p-3 text-xs leading-5 text-slate-50">
