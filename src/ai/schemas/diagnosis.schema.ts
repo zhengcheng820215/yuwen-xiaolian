@@ -9,7 +9,12 @@ export type DiagnosisErrorType =
   | '迁移失败'
   | '待验证';
 
+export type TaskType = 'exact_match' | 'open_response' | 'process_task';
+
 export type DiagnosisResult = {
+  taskType: TaskType;
+  correct: boolean | null;
+  strategyUsed: string;
   mainAbility: string;
   relatedAbilities: string[];
   surfaceError: string;
@@ -40,6 +45,9 @@ export const DIAGNOSIS_ERROR_TYPES: DiagnosisErrorType[] = [
 ];
 
 export const DIAGNOSIS_RESULT_FIELDS: Array<keyof DiagnosisResult> = [
+  'taskType',
+  'correct',
+  'strategyUsed',
   'mainAbility',
   'relatedAbilities',
   'surfaceError',
@@ -57,6 +65,9 @@ export function normalizeDiagnosisResult(value: Partial<DiagnosisResult>): Diagn
     : 0.5;
 
   return {
+    taskType: value.taskType || 'open_response',
+    correct: typeof value.correct === 'boolean' ? value.correct : null,
+    strategyUsed: value.strategyUsed || 'open_response_ability_diagnosis',
     mainAbility: value.mainAbility || '待诊断',
     relatedAbilities: Array.isArray(value.relatedAbilities) ? value.relatedAbilities : [],
     surfaceError: value.surfaceError || '暂未发现明确表面错误',
