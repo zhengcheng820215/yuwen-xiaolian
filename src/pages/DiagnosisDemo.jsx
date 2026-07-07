@@ -34,13 +34,18 @@ export default function DiagnosisDemo() {
   };
 
   const handleDiagnose = async () => {
+    const selectedConfig = getQuestionConfigById(selectedConfigId);
+
     setLoading(true);
     setError('');
     setResult(null);
     setTrainingResult(null);
 
     try {
-      const diagnosisResult = await diagnosis(buildDiagnosisPayload(form));
+      const payload = buildDiagnosisPayload(form, selectedConfig);
+      console.log('[DiagnosisDemo] selected questionConfig', selectedConfig);
+      console.log('[DiagnosisDemo] diagnosis payload metadata', payload.questionMetadata);
+      const diagnosisResult = await diagnosis(payload);
       setResult(diagnosisResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : '诊断失败，请稍后重试。');
@@ -51,6 +56,7 @@ export default function DiagnosisDemo() {
 
   const handleGenerateTraining = async () => {
     if (!result) return;
+    const selectedConfig = getQuestionConfigById(selectedConfigId);
 
     setTrainingLoading(true);
     setError('');
@@ -59,7 +65,7 @@ export default function DiagnosisDemo() {
     try {
       const plan = await training({
         diagnosisResult: result,
-        question: form.question,
+        question: selectedConfig.questionText,
         studentAnswer: form.studentAnswer,
       });
       setTrainingResult(plan);
@@ -69,6 +75,9 @@ export default function DiagnosisDemo() {
       setTrainingLoading(false);
     }
   };
+
+  const selectedConfig = getQuestionConfigById(selectedConfigId);
+  const metadataPreview = JSON.stringify(toQuestionMetadata(selectedConfig), null, 2);
 
   return (
     <div className="min-h-screen bg-[#f5f7fb]">
@@ -93,12 +102,12 @@ export default function DiagnosisDemo() {
         <InputBlock
           label="题目"
           value={form.question}
-          onChange={(value) => updateField('question', value)}
+          readOnly
         />
         <InputBlock
           label="参考答案"
           value={form.referenceAnswer}
-          onChange={(value) => updateField('referenceAnswer', value)}
+          readOnly
         />
         <InputBlock
           label="学生答案"
@@ -107,7 +116,7 @@ export default function DiagnosisDemo() {
         />
         <InputBlock
           label="Question Metadata"
-          value={form.questionMetadata}
+          value={metadataPreview}
           readOnly
           rows={10}
         />
@@ -152,34 +161,26 @@ function buildFormFromConfig(config) {
     question: config.questionText,
     referenceAnswer: config.referenceAnswer,
     studentAnswer: config.studentAnswer,
-    questionMetadata: JSON.stringify(toQuestionMetadata(config), null, 2),
   };
 }
 
-function buildDiagnosisPayload(form) {
-  const payload = {
-    question: form.question,
-    referenceAnswer: form.referenceAnswer,
+function buildDiagnosisPayload(form, config) {
+  const questionMetadata = toQuestionMetadata(config);
+  validateQuestionMetadata(questionMetadata, config);
+
+  return {
+    question: config.questionText,
+    referenceAnswer: config.referenceAnswer,
     studentAnswer: form.studentAnswer,
+    questionMetadata,
   };
-
-  const metadataText = form.questionMetadata.trim();
-
-  if (!metadataText) return payload;
-
-  try {
-    payload.questionMetadata = JSON.parse(metadataText);
-    validateQuestionMetadata(payload.questionMetadata);
-    return payload;
-  } catch {
-    throw new Error('Question Metadata 无效，请重新选择题目配置后再诊断。');
-  }
 }
 
-function validateQuestionMetadata(metadata) {
+function validateQuestionMetadata(metadata, config) {
   if (!metadata.assessmentMode) throw new Error('缺少 assessmentMode');
   if (!metadata.mainAbility) throw new Error('缺少 mainAbility');
   if (!Array.isArray(metadata.rubric) || metadata.rubric.length === 0) throw new Error('缺少 rubric');
+  if (metadata.questionId !== config.id) throw new Error('Question Metadata 与当前题目配置不一致');
 
   const expectedModeByType = {
     反义词: 'exact_match',

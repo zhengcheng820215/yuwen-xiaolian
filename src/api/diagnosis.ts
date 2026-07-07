@@ -6,6 +6,7 @@ import {
 } from '../ai/schemas/diagnosis.schema.ts';
 
 export async function diagnosis(input: DiagnosisInput): Promise<DiagnosisResult> {
+  console.log('[diagnosis API] received metadata', input.questionMetadata);
   return runDiagnosisAgent(input);
 }
 

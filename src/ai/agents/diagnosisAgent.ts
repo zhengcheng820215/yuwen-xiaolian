@@ -15,6 +15,7 @@ export async function runDiagnosisAgent(
   input: DiagnosisInput,
   callLLM: LLMCaller = mockCallLLM,
 ): Promise<DiagnosisResult> {
+  console.log('[DiagnosisAgent] final input metadata', input.questionMetadata);
   const route = routeDiagnosisTask(input);
 
   if (route.taskType === 'exact_match') {
