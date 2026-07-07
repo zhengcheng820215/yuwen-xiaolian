@@ -36,18 +36,25 @@ async function mockCallLLM(_prompt: string, input: TrainingInput): Promise<strin
   const { diagnosisResult } = input;
   const targetAbility = diagnosisResult.mainAbility;
   const rootCause = diagnosisResult.rootCause;
+  const isPositiveEvidence = diagnosisResult.correct === true || diagnosisResult.answerStatus === 'meets_expectation';
   const strategy = inferTrainingStrategy(targetAbility, diagnosisResult.errorType);
 
   const result: TrainingResult = {
     targetAbility,
     rootCause,
-    trainingGoal: buildTrainingGoal(targetAbility),
-    trainingStrategy: strategy,
-    trainingSteps: buildTrainingSteps(targetAbility, diagnosisResult.errorType),
-    practiceTasks: buildPracticeTasks(targetAbility),
-    coachGuidance: buildCoachGuidance(targetAbility),
-    completionCriteria: buildCompletionCriteria(targetAbility),
-    nextEvaluation: `完成训练后，使用同能力但不同文本的任务复测「${targetAbility}」是否能够独立、稳定、迁移应用。`,
+    trainingGoal: isPositiveEvidence
+      ? `巩固「${targetAbility}」能力的正向表现，并通过新任务验证迁移稳定性。`
+      : buildTrainingGoal(targetAbility),
+    trainingStrategy: isPositiveEvidence ? '巩固训练 + 迁移验证' : strategy,
+    trainingSteps: isPositiveEvidence
+      ? buildPositiveTrainingSteps(targetAbility)
+      : buildTrainingSteps(targetAbility, diagnosisResult.errorType),
+    practiceTasks: isPositiveEvidence ? buildPositivePracticeTasks(targetAbility) : buildPracticeTasks(targetAbility),
+    coachGuidance: isPositiveEvidence ? buildPositiveCoachGuidance(targetAbility) : buildCoachGuidance(targetAbility),
+    completionCriteria: isPositiveEvidence ? buildPositiveCompletionCriteria(targetAbility) : buildCompletionCriteria(targetAbility),
+    nextEvaluation: isPositiveEvidence
+      ? `使用更高难度或不同文本任务验证「${targetAbility}」能力是否能够迁移应用。`
+      : `完成训练后，使用同能力但不同文本的任务复测「${targetAbility}」是否能够独立、稳定、迁移应用。`,
     confidence: Math.min(0.85, Math.max(0.35, diagnosisResult.confidence + 0.08)),
   };
 
@@ -116,5 +123,39 @@ function buildCompletionCriteria(targetAbility: string): string[] {
     '学生能够根据反馈完成有效修正。',
     '学生能够在同能力变式任务中保持基本稳定。',
     '系统形成至少一条可进入能力画像的训练证据。',
+  ];
+}
+
+function buildPositiveTrainingSteps(targetAbility: string): string[] {
+  return [
+    `确认本次「${targetAbility}」表现已达到任务要求。`,
+    '让学生复述自己完成任务时使用的思考方法。',
+    '提供一题同能力但不同文本的变式任务。',
+    '减少提示，观察学生是否能独立迁移。',
+  ];
+}
+
+function buildPositivePracticeTasks(targetAbility: string): string[] {
+  return [
+    `完成一题新的「${targetAbility}」变式任务。`,
+    '说明本次答案中哪些要点支撑了自己的判断。',
+    '尝试在更复杂文本中复用同一思考方法。',
+  ];
+}
+
+function buildPositiveCoachGuidance(targetAbility: string): string[] {
+  return [
+    '先肯定学生已经达到本题要求的具体能力表现。',
+    '追问学生使用了什么方法，而不是重复讲答案。',
+    `引导学生把「${targetAbility}」方法迁移到新任务。`,
+    '减少提示，优先观察独立完成情况。',
+  ];
+}
+
+function buildPositiveCompletionCriteria(targetAbility: string): string[] {
+  return [
+    `学生能说明本次「${targetAbility}」任务的完成方法。`,
+    '学生能在新文本或新题型中独立完成同能力任务。',
+    '系统形成一条正向能力证据或迁移证据。',
   ];
 }

@@ -11,10 +11,37 @@ export type DiagnosisErrorType =
 
 export type TaskType = 'exact_match' | 'open_response' | 'process_task';
 
+export type OpenResponseAnswerStatus =
+  | 'meets_expectation'
+  | 'partially_meets'
+  | 'does_not_meet'
+  | 'insufficient_evidence';
+
+export type OpenResponseScoreBand =
+  | 'strong'
+  | 'acceptable'
+  | 'weak'
+  | 'invalid';
+
+export type OpenResponseRubricItem = {
+  id: string;
+  label: string;
+  ability: string;
+  required: boolean;
+  matched: boolean;
+  evidence?: string;
+  missingReason?: string;
+};
+
 export type DiagnosisResult = {
   taskType: TaskType;
   correct: boolean | null;
   strategyUsed: string;
+  answerStatus?: OpenResponseAnswerStatus;
+  scoreBand?: OpenResponseScoreBand;
+  rubricItems?: OpenResponseRubricItem[];
+  matchedRubricItems?: string[];
+  missingRubricItems?: string[];
   mainAbility: string;
   relatedAbilities: string[];
   surfaceError: string;
@@ -48,6 +75,11 @@ export const DIAGNOSIS_RESULT_FIELDS: Array<keyof DiagnosisResult> = [
   'taskType',
   'correct',
   'strategyUsed',
+  'answerStatus',
+  'scoreBand',
+  'rubricItems',
+  'matchedRubricItems',
+  'missingRubricItems',
   'mainAbility',
   'relatedAbilities',
   'surfaceError',
@@ -68,6 +100,11 @@ export function normalizeDiagnosisResult(value: Partial<DiagnosisResult>): Diagn
     taskType: value.taskType || 'open_response',
     correct: typeof value.correct === 'boolean' ? value.correct : null,
     strategyUsed: value.strategyUsed || 'open_response_ability_diagnosis',
+    answerStatus: value.answerStatus,
+    scoreBand: value.scoreBand,
+    rubricItems: Array.isArray(value.rubricItems) ? value.rubricItems : undefined,
+    matchedRubricItems: Array.isArray(value.matchedRubricItems) ? value.matchedRubricItems : undefined,
+    missingRubricItems: Array.isArray(value.missingRubricItems) ? value.missingRubricItems : undefined,
     mainAbility: value.mainAbility || '待诊断',
     relatedAbilities: Array.isArray(value.relatedAbilities) ? value.relatedAbilities : [],
     surfaceError: value.surfaceError || '暂未发现明确表面错误',
