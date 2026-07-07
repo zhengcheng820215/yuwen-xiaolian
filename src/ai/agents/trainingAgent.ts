@@ -36,7 +36,7 @@ async function mockCallLLM(_prompt: string, input: TrainingInput): Promise<strin
   const { diagnosisResult } = input;
   const targetAbility = diagnosisResult.mainAbility;
   const rootCause = diagnosisResult.rootCause;
-  const isPositiveEvidence = diagnosisResult.correct === true || diagnosisResult.answerStatus === 'meets_expectation';
+  const isPositiveEvidence = diagnosisResult.correct === true || diagnosisResult.answerStatus === 'fully_meets';
   const strategy = inferTrainingStrategy(targetAbility, diagnosisResult.errorType);
 
   const result: TrainingResult = {

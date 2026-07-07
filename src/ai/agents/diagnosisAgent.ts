@@ -35,8 +35,8 @@ export async function runDiagnosisAgent(
       taskType: route.taskType,
       correct: null,
       strategyUsed: route.strategyUsed,
-      mainAbility: inferMainAbility(input.question),
-      relatedAbilities: inferRelatedAbilities(input.question),
+      mainAbility: resolveMainAbility(input),
+      relatedAbilities: resolveRelatedAbilities(input),
       surfaceError: 'AI 返回结果无法解析为 JSON',
       rootCause: '当前诊断结果需要重新生成，暂不能形成稳定能力结论',
       errorType: '待验证',
@@ -50,8 +50,8 @@ export async function runDiagnosisAgent(
 
 async function mockCallLLM(_prompt: string, input: DiagnosisInput): Promise<string> {
   const route = routeDiagnosisTask(input);
-  const mainAbility = inferMainAbility(input.question);
-  const relatedAbilities = inferRelatedAbilities(input.question);
+  const mainAbility = resolveMainAbility(input);
+  const relatedAbilities = resolveRelatedAbilities(input);
   const rubricEvaluation = evaluateOpenResponseRubric(input, mainAbility, relatedAbilities);
 
   const result: DiagnosisResult = {
@@ -72,14 +72,14 @@ function diagnoseExactMatch(input: DiagnosisInput, route: DiagnosisRoute): Diagn
     ? candidates.map(normalizeAnswer)
     : [normalizeAnswer(input.referenceAnswer)];
   const correct = normalizedCandidates.some((candidate) => candidate === normalizedStudentAnswer);
-  const mainAbility = inferExactMatchAbility(input.question);
+  const mainAbility = input.questionMetadata?.mainAbility || inferExactMatchAbility(input.question);
 
   return normalizeDiagnosisResult({
     taskType: route.taskType,
     correct,
     strategyUsed: route.strategyUsed,
     mainAbility,
-    relatedAbilities: [mainAbility],
+    relatedAbilities: input.questionMetadata?.relatedAbilities || [mainAbility],
     surfaceError: correct
       ? '学生答案命中参考答案候选项'
       : '学生答案未命中参考答案候选项',
@@ -103,14 +103,14 @@ function diagnoseExactMatch(input: DiagnosisInput, route: DiagnosisRoute): Diagn
 }
 
 function diagnoseProcessTask(input: DiagnosisInput, route: DiagnosisRoute): DiagnosisResult {
-  const mainAbility = inferMainAbility(input.question);
+  const mainAbility = resolveMainAbility(input);
 
   return normalizeDiagnosisResult({
     taskType: route.taskType,
     correct: null,
     strategyUsed: route.strategyUsed,
     mainAbility,
-    relatedAbilities: inferRelatedAbilities(input.question),
+    relatedAbilities: resolveRelatedAbilities(input),
     surfaceError: '过程型任务暂使用 mock 诊断，尚未细分操作步骤完成度。',
     rootCause: '当前任务需要观察学生的过程操作，如找依据、标关键词、修改答案或补全推理链。',
     errorType: '待验证',
@@ -123,6 +123,24 @@ function diagnoseProcessTask(input: DiagnosisInput, route: DiagnosisRoute): Diag
     nextTraining: '进入过程步骤检查：确认依据、关键词、修正点或推理链是否完整。',
     confidence: 0.42,
   });
+}
+
+function resolveMainAbility(input: DiagnosisInput): string {
+  return input.questionMetadata?.mainAbility || inferMainAbility(input.question);
+}
+
+function resolveRelatedAbilities(input: DiagnosisInput): string[] {
+  const metadataAbilities = [
+    ...(input.questionMetadata?.abilityPath || []),
+    ...(input.questionMetadata?.relatedAbilities || []),
+  ].filter(Boolean);
+
+  if (metadataAbilities.length > 0) {
+    const mainAbility = resolveMainAbility(input);
+    return [...new Set([...metadataAbilities, mainAbility, '表达'])];
+  }
+
+  return inferRelatedAbilities(input.question);
 }
 
 function inferMainAbility(question: string): string {

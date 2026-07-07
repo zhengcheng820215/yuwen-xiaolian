@@ -45,6 +45,7 @@ async function runDiagnosisTrainingDebug(): Promise<void> {
       question: sample.question,
       referenceAnswer: sample.referenceAnswer,
       studentAnswer: sample.studentAnswer,
+      questionMetadata: sample.questionMetadata,
     });
     const trainingResult = await training({
       diagnosisResult,
@@ -60,6 +61,33 @@ async function runDiagnosisTrainingDebug(): Promise<void> {
     if (diagnosisResult.mainAbility !== sample.expectedMainAbility) {
       failures.push(
         `Diagnosis mainAbility expected "${sample.expectedMainAbility}", got "${diagnosisResult.mainAbility}".`,
+      );
+    }
+
+    if (
+      typeof sample.expectedCorrect === 'boolean' &&
+      diagnosisResult.correct !== sample.expectedCorrect
+    ) {
+      failures.push(
+        `Diagnosis correct expected "${sample.expectedCorrect}", got "${diagnosisResult.correct}".`,
+      );
+    }
+
+    if (
+      sample.expectedAnswerStatus &&
+      diagnosisResult.answerStatus !== sample.expectedAnswerStatus
+    ) {
+      failures.push(
+        `Diagnosis answerStatus expected "${sample.expectedAnswerStatus}", got "${diagnosisResult.answerStatus}".`,
+      );
+    }
+
+    if (
+      sample.expectedScoreBand &&
+      diagnosisResult.scoreBand !== sample.expectedScoreBand
+    ) {
+      failures.push(
+        `Diagnosis scoreBand expected "${sample.expectedScoreBand}", got "${diagnosisResult.scoreBand}".`,
       );
     }
 

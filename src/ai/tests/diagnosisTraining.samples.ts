@@ -4,12 +4,42 @@ export type DiagnosisTrainingSample = {
   question: string;
   referenceAnswer: string;
   studentAnswer: string;
+  questionMetadata?: Record<string, unknown>;
   expectedMainAbility: string;
   expectedRootCauseKeyword: string;
   expectedTrainingKeyword: string;
+  expectedCorrect?: boolean;
+  expectedAnswerStatus?: string;
+  expectedScoreBand?: string;
 };
 
 export const diagnosisTrainingSamples: DiagnosisTrainingSample[] = [
+  {
+    id: 'sample_antonym_config_001',
+    title: '配置驱动的反义词诊断',
+    question: '写出一对反义词。',
+    referenceAnswer: '黑白、大小、胖瘦、长短',
+    studentAnswer: '长短',
+    questionMetadata: {
+      questionType: '反义词',
+      assessmentMode: 'exact_match',
+      mainAbility: '理解',
+      relatedAbilities: ['词语理解', '关系判断', '表达'],
+      abilityPath: ['词语理解', '关系判断'],
+      rubric: [
+        {
+          name: '词义关系',
+          description: '是否能够识别两个词语之间的相反关系',
+          ability: '理解',
+          weight: 70,
+        },
+      ],
+    },
+    expectedMainAbility: '理解',
+    expectedRootCauseKeyword: '无补弱型',
+    expectedTrainingKeyword: '巩固',
+    expectedCorrect: true,
+  },
   {
     id: 'sample_summary_001',
     title: '概括错误',
@@ -17,7 +47,37 @@ export const diagnosisTrainingSamples: DiagnosisTrainingSample[] = [
     referenceAnswer: '文章通过描写父亲雨中送伞的细节，表现父亲默默付出的关爱，以及作者逐渐理解父爱的过程。',
     studentAnswer: '文章写父亲下雨天来了，还拿了一把伞，后来作者回家了。',
     expectedMainAbility: '概括',
-    expectedRootCauseKeyword: '核心信息',
+    expectedRootCauseKeyword: '核心事件',
+    expectedTrainingKeyword: '概括',
+  },
+  {
+    id: 'sample_summary_metadata_001',
+    title: '元数据驱动的概括诊断',
+    question: '穿过长长的街道。后来我长大离开家，很少再坐父亲的自行车。一次回家时，我发现父亲的头发已经花白，但他仍然习惯站在门口等我。那一刻，我突然明白，那辆旧自行车承载的不只是一次次接送，更是父亲默默的爱。',
+    referenceAnswer: '文章回忆父亲送“我”上学和等待“我”回家的经历，表现了父亲深沉而无言的爱。',
+    studentAnswer: '父亲很辛苦，我很感动。',
+    questionMetadata: {
+      assessmentMode: 'key_points',
+      mainAbility: '概括',
+      relatedAbilities: ['信息提取', '理解', '表达'],
+      abilityPath: ['信息提取', '要点筛选', '事件概括', '主题提炼'],
+      rubric: [
+        {
+          name: '核心事件',
+          description: '是否概括父亲送我上学、等待我回家的主要经历',
+          ability: '概括',
+          weight: 40,
+        },
+        {
+          name: '情感主题',
+          description: '是否提炼父亲深沉而无言的爱',
+          ability: '理解',
+          weight: 35,
+        },
+      ],
+    },
+    expectedMainAbility: '概括',
+    expectedRootCauseKeyword: '核心事件',
     expectedTrainingKeyword: '概括',
   },
   {
@@ -39,6 +99,135 @@ export const diagnosisTrainingSamples: DiagnosisTrainingSample[] = [
     expectedMainAbility: '理解',
     expectedRootCauseKeyword: '能力路径',
     expectedTrainingKeyword: '理解',
+  },
+  {
+    id: 'sample_sentence_literal_001',
+    title: '句子含义诊断 A：停留字面',
+    question: '请分析“照亮了父亲对我的牵挂”的含义。',
+    referenceAnswer: '“照亮”不是指灯光真正照亮，而是指作者通过这盏灯感受到父亲一直以来的关爱和牵挂，表达了作者对父亲爱的理解和感动。',
+    studentAnswer: '父亲用灯给我照亮回家的路。',
+    questionMetadata: {
+      questionType: '句子含义',
+      assessmentMode: 'reasoning_chain',
+      mainAbility: '理解',
+      relatedAbilities: ['信息提取', '表达'],
+      abilityPath: ['字词含义理解', '语境分析', '深层含义理解', '情感体会'],
+      rubric: [
+        {
+          id: 'literal_to_symbolic',
+          name: '字面含义转换',
+          description: '是否理解“照亮”不是实际灯光照亮，而具有象征意义',
+          ability: '理解',
+          weight: 35,
+        },
+        {
+          id: 'context_relation',
+          name: '语境联系',
+          description: '是否结合父亲对作者的关爱理解句子',
+          ability: '理解',
+          weight: 25,
+          required: false,
+        },
+        {
+          id: 'emotional_understanding',
+          name: '情感理解',
+          description: '是否理解作者对父亲爱的感受和感动',
+          ability: '理解',
+          weight: 25,
+        },
+      ],
+    },
+    expectedMainAbility: '理解',
+    expectedRootCauseKeyword: '字面理解',
+    expectedTrainingKeyword: '理解',
+    expectedAnswerStatus: 'does_not_meet',
+    expectedScoreBand: 'low',
+  },
+  {
+    id: 'sample_sentence_partial_001',
+    title: '句子含义诊断 B：部分理解情感',
+    question: '请分析“照亮了父亲对我的牵挂”的含义。',
+    referenceAnswer: '“照亮”不是指灯光真正照亮，而是指作者通过这盏灯感受到父亲一直以来的关爱和牵挂，表达了作者对父亲爱的理解和感动。',
+    studentAnswer: '这句话表现了作者感受到父亲对自己的爱，也表达了作者的感动。',
+    questionMetadata: {
+      questionType: '句子含义',
+      assessmentMode: 'reasoning_chain',
+      mainAbility: '理解',
+      relatedAbilities: ['信息提取', '表达'],
+      abilityPath: ['字词含义理解', '语境分析', '深层含义理解', '情感体会'],
+      rubric: [
+        {
+          id: 'literal_to_symbolic',
+          name: '字面含义转换',
+          description: '是否理解“照亮”不是实际灯光照亮，而具有象征意义',
+          ability: '理解',
+          weight: 35,
+        },
+        {
+          id: 'context_relation',
+          name: '语境联系',
+          description: '是否结合父亲对作者的关爱理解句子',
+          ability: '理解',
+          weight: 25,
+          required: false,
+        },
+        {
+          id: 'emotional_understanding',
+          name: '情感理解',
+          description: '是否理解作者对父亲爱的感受和感动',
+          ability: '理解',
+          weight: 25,
+        },
+      ],
+    },
+    expectedMainAbility: '理解',
+    expectedRootCauseKeyword: '关键词的深层含义',
+    expectedTrainingKeyword: '理解',
+    expectedAnswerStatus: 'partially_meets',
+    expectedScoreBand: 'medium',
+  },
+  {
+    id: 'sample_sentence_full_001',
+    title: '句子含义诊断 C：完整理解',
+    question: '请分析“照亮了父亲对我的牵挂”的含义。',
+    referenceAnswer: '“照亮”不是指灯光真正照亮，而是指作者通过这盏灯感受到父亲一直以来的关爱和牵挂，表达了作者对父亲爱的理解和感动。',
+    studentAnswer: '照亮不是指灯光，而是作者通过灯感受到父亲一直以来的关爱和牵挂。',
+    questionMetadata: {
+      questionType: '句子含义',
+      assessmentMode: 'reasoning_chain',
+      mainAbility: '理解',
+      relatedAbilities: ['信息提取', '表达'],
+      abilityPath: ['字词含义理解', '语境分析', '深层含义理解', '情感体会'],
+      rubric: [
+        {
+          id: 'literal_to_symbolic',
+          name: '字面含义转换',
+          description: '是否理解“照亮”不是实际灯光照亮，而具有象征意义',
+          ability: '理解',
+          weight: 35,
+        },
+        {
+          id: 'context_relation',
+          name: '语境联系',
+          description: '是否结合父亲对作者的关爱理解句子',
+          ability: '理解',
+          weight: 25,
+          required: false,
+        },
+        {
+          id: 'emotional_understanding',
+          name: '情感理解',
+          description: '是否理解作者对父亲爱的感受和感动',
+          ability: '理解',
+          weight: 25,
+        },
+      ],
+    },
+    expectedMainAbility: '理解',
+    expectedRootCauseKeyword: '无补弱型',
+    expectedTrainingKeyword: '巩固',
+    expectedAnswerStatus: 'fully_meets',
+    expectedScoreBand: 'high',
   },
   {
     id: 'sample_inference_001',

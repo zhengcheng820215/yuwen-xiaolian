@@ -78,7 +78,7 @@ Next Training / Next Evaluation
 
 ```ts
 export type OpenResponseAnswerStatus =
-  | 'meets_expectation'
+  | 'fully_meets'
   | 'partially_meets'
   | 'does_not_meet'
   | 'insufficient_evidence';
@@ -86,14 +86,14 @@ export type OpenResponseAnswerStatus =
 
 | answerStatus | 说明 |
 | --- | --- |
-| meets_expectation | 答案基本满足题目要求，关键能力要点完整或接近完整 |
+| fully_meets | 答案完整覆盖核心能力点，可形成正向能力证据 |
 | partially_meets | 答案部分满足要求，但存在关键要点缺失、依据不足或表达不完整 |
 | does_not_meet | 答案明显未满足题目要求，方向偏离或核心能力任务未完成 |
 | insufficient_evidence | 学生答案过短、空泛或无法判断其真实能力状态 |
 
 ### 使用原则
 
-- `meets_expectation` 不等于能力已经稳定掌握，只能作为正向能力证据。
+- `fully_meets` 不等于能力已经稳定掌握，只能作为正向能力证据。
 - `partially_meets` 应进一步定位缺失 rubric 要点。
 - `does_not_meet` 应追溯前置能力。
 - `insufficient_evidence` 不应强行输出明确能力结论。
@@ -106,26 +106,26 @@ export type OpenResponseAnswerStatus =
 
 ```ts
 export type OpenResponseScoreBand =
-  | 'strong'
-  | 'acceptable'
-  | 'weak'
+  | 'high'
+  | 'medium'
+  | 'low'
   | 'invalid';
 ```
 
 | scoreBand | 说明 |
 | --- | --- |
-| strong | 关键要点完整，表达清晰，能形成较强正向能力证据 |
-| acceptable | 基本满足要求，少量次要缺失，不影响核心判断 |
-| weak | 部分满足要求，但关键要点缺失或能力表现不稳定 |
+| high | 关键要点完整，表达清晰，能形成较强正向能力证据 |
+| medium | 部分满足要求，已体现主要能力表现，但仍有关键点缺失 |
+| low | 未完成核心能力任务，仅有少量或表层表现 |
 | invalid | 答案无效、偏题、空泛或无法形成可靠诊断 |
 
 ### 与 answerStatus 的关系
 
 | answerStatus | 推荐 scoreBand |
 | --- | --- |
-| meets_expectation | strong / acceptable |
-| partially_meets | weak / acceptable |
-| does_not_meet | weak / invalid |
+| fully_meets | high |
+| partially_meets | medium |
+| does_not_meet | low / invalid |
 | insufficient_evidence | invalid |
 
 ## 五、Rubric Item 结构
@@ -280,7 +280,7 @@ Rubric 匹配不要求学生答案与参考答案逐字一致。
 
 如果 required 要点缺失，应影响 `answerStatus` 和 `scoreBand`。
 
-如果多个 required 要点缺失，通常不应输出 `meets_expectation`。
+如果多个 required 要点缺失，通常不应输出 `fully_meets`。
 
 ## 八、能力证据生成
 
@@ -351,8 +351,8 @@ Rubric 匹配不要求学生答案与参考答案逐字一致。
 应输出：
 
 ```ts
-answerStatus: 'meets_expectation'
-scoreBand: 'strong' | 'acceptable'
+answerStatus: 'fully_meets'
+scoreBand: 'high'
 correct: true
 rootCause: null 或 '无补弱型 rootCause'
 nextTraining: '进入下一题 / 提高难度 / 迁移验证 / 巩固训练'
@@ -413,7 +413,7 @@ Training Agent 只消费 Diagnosis Result 中的：
 - `abilityEvidence`
 - `nextTraining`
 
-当 `answerStatus='meets_expectation'` 时：
+当 `answerStatus='fully_meets'` 时：
 
 - Training Agent 不应生成补弱训练
 - 可生成提高难度、迁移验证或巩固训练方案

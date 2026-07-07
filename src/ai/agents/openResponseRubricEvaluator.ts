@@ -39,7 +39,7 @@ export function evaluateOpenResponseRubric(
   const requiredMatchedCount = requiredItems.filter((item) => item.matched).length;
   const answerStatus = inferAnswerStatus(isEmpty, requiredItems.length, requiredMatchedCount);
   const scoreBand = inferScoreBand(answerStatus, requiredItems.length, requiredMatchedCount);
-  const correct = answerStatus === 'meets_expectation';
+  const correct = answerStatus === 'fully_meets';
   const rootCause = inferRootCauseFromRubric(mainAbility, answerStatus, missingRubricItems);
   const errorType = correct ? '待验证' : abilityToErrorType(mainAbility);
 
@@ -73,15 +73,17 @@ function buildRubricItems(
   hasEvidenceSignal: boolean,
   exactOrHighMatch: boolean,
 ): OpenResponseRubricItem[] {
+  const rubricTemplate = getRubricTemplate(input, mainAbility);
+
   if (exactOrHighMatch) {
-    return getRubricTemplate(mainAbility).map((item) => ({
+    return rubricTemplate.map((item) => ({
       ...item,
       matched: true,
       evidence: '学生答案与参考答案高度一致，视为满足该能力要点。',
     }));
   }
 
-  return getRubricTemplate(mainAbility).map((item) => {
+  return rubricTemplate.map((item) => {
     const matched = matchRubricItem(item.id, mainAbility, overlap, hasEvidenceSignal, input.studentAnswer);
 
     return {
@@ -93,7 +95,21 @@ function buildRubricItems(
   });
 }
 
-function getRubricTemplate(mainAbility: string): Omit<OpenResponseRubricItem, 'matched' | 'evidence' | 'missingReason'>[] {
+function getRubricTemplate(
+  input: DiagnosisInput,
+  mainAbility: string,
+): Omit<OpenResponseRubricItem, 'matched' | 'evidence' | 'missingReason'>[] {
+  const metadataRubric = input.questionMetadata?.rubric;
+
+  if (metadataRubric && metadataRubric.length > 0) {
+    return metadataRubric.map((item, index) => ({
+      id: item.id || inferRubricId(item.name, mainAbility, index),
+      label: item.description ? `${item.name}：${item.description}` : item.name,
+      ability: item.ability || inferRubricAbility(item.name, mainAbility),
+      required: item.required ?? true,
+    }));
+  }
+
   if (mainAbility === '概括') {
     return [
       { id: 'main_object', label: '是否说清主要对象', ability: '信息提取', required: true },
@@ -146,6 +162,29 @@ function getRubricTemplate(mainAbility: string): Omit<OpenResponseRubricItem, 'm
   ];
 }
 
+function inferRubricId(name: string, mainAbility: string, index: number): string {
+  if (/对象|人物|主体/.test(name)) return 'main_object';
+  if (/事件|经过|经历|内容/.test(name)) return 'core_event';
+  if (/主题|主旨|情感|中心|意义/.test(name)) return 'theme_or_emotion';
+  if (/象征|深层/.test(name)) return 'symbolic_meaning';
+  if (/表达|完整|简洁/.test(name)) return 'complete_expression';
+  if (/依据|文本|原文/.test(name)) return 'text_evidence';
+  if (/推理链|推断过程|原因/.test(name)) return 'inference_chain';
+  if (/线索/.test(name)) return 'clue_extraction';
+  if (/语境|上下文/.test(name)) return 'context_understanding';
+  return `${mainAbility}_rubric_${index + 1}`;
+}
+
+function inferRubricAbility(name: string, mainAbility: string): string {
+  if (/对象|人物|依据|文本|原文|线索/.test(name)) return '信息提取';
+  if (/事件|经过|经历|内容/.test(name)) return '概括';
+  if (/象征|深层/.test(name)) return '理解';
+  if (/主题|主旨|情感|中心|意义|语境|上下文/.test(name)) return '理解';
+  if (/推理链|推断过程|原因/.test(name)) return '推理';
+  if (/表达|完整|简洁/.test(name)) return '表达';
+  return mainAbility;
+}
+
 function matchRubricItem(
   id: string,
   mainAbility: string,
@@ -158,7 +197,9 @@ function matchRubricItem(
   if (answerLength === 0) return false;
   if (id === 'main_object' || id === 'analysis_target' || id === 'literal_meaning' || id === 'task_scope') return overlap >= 0.05;
   if (id === 'core_event' || id === 'context_understanding' || id === 'answer_relevance') return overlap >= 0.18;
-  if (id === 'theme_or_emotion' || id === 'deep_meaning') return overlap >= 0.45;
+  if (id === 'theme_or_emotion' || id === 'deep_meaning' || id === 'symbolic_meaning') return overlap >= 0.45;
+  if (id === 'literal_to_symbolic') return /不是.*灯光|不是.*真正|不只是.*灯|象征|深层|牵挂/.test(studentAnswer);
+  if (id === 'emotional_understanding') return /爱|关爱|牵挂|感动|感受|理解/.test(studentAnswer);
   if (id === 'text_evidence' || id === 'clue_extraction' || id === 'key_text') return hasEvidenceSignal || overlap >= 0.45;
   if (id === 'analysis_explanation') return hasEvidenceSignal && overlap >= 0.35;
   if (id === 'inference_chain') return hasEvidenceSignal && overlap >= 0.35;
@@ -176,7 +217,7 @@ function inferAnswerStatus(
   requiredMatchedCount: number,
 ): OpenResponseAnswerStatus {
   if (isEmpty) return 'insufficient_evidence';
-  if (requiredMatchedCount === requiredCount) return 'meets_expectation';
+  if (requiredMatchedCount === requiredCount) return 'fully_meets';
   if (requiredMatchedCount === 0) return 'does_not_meet';
   return 'partially_meets';
 }
@@ -187,15 +228,15 @@ function inferScoreBand(
   requiredMatchedCount: number,
 ): OpenResponseScoreBand {
   if (answerStatus === 'insufficient_evidence') return 'invalid';
-  if (answerStatus === 'meets_expectation') return 'strong';
-  if (requiredCount > 0 && requiredMatchedCount / requiredCount >= 0.67) return 'acceptable';
-  if (answerStatus === 'partially_meets') return 'weak';
+  if (answerStatus === 'fully_meets') return 'high';
+  if (answerStatus === 'partially_meets') return 'medium';
+  if (answerStatus === 'does_not_meet') return 'low';
   return 'invalid';
 }
 
 function inferSurfaceError(answerStatus: OpenResponseAnswerStatus): string {
   const map: Record<OpenResponseAnswerStatus, string> = {
-    meets_expectation: '学生答案满足开放题主要作答要求',
+    fully_meets: '学生答案完整满足开放题主要作答要求',
     partially_meets: '学生答案部分满足要求，但存在关键能力要点缺失',
     does_not_meet: '学生答案未完成本题主要能力任务',
     insufficient_evidence: '学生答案证据不足，暂不能形成稳定能力判断',
@@ -209,12 +250,16 @@ function inferRootCauseFromRubric(
   answerStatus: OpenResponseAnswerStatus,
   missingRubricItems: string[],
 ): string {
-  if (answerStatus === 'meets_expectation') {
+  if (answerStatus === 'fully_meets') {
     return '无补弱型 rootCause：学生答案已达到本题开放作答要求。';
   }
 
   if (answerStatus === 'insufficient_evidence') {
     return '学生答案证据不足，需要补充作答后再判断真实能力短板。';
+  }
+
+  if (mainAbility === '概括' && missingRubricItems.includes('core_event')) {
+    return '学生并非没有理解文本情感，而是没有概括核心事件，答案停留在感受或局部判断，缺少“谁做了什么、经历了什么”的主要内容。';
   }
 
   if (missingRubricItems.includes('theme_or_emotion')) {
@@ -223,6 +268,14 @@ function inferRootCauseFromRubric(
 
   if (missingRubricItems.includes('key_text') || missingRubricItems.includes('complete_points')) {
     return '学生可能尚未定位到关键文本信息，真实短板优先追溯为信息提取或题意理解不稳定。';
+  }
+
+  if (missingRubricItems.includes('literal_to_symbolic') && !missingRubricItems.includes('emotional_understanding')) {
+    return '学生已理解句子表达的情感主题，但没有解释关键词的深层含义，尚未完成从字面含义到象征含义的转换。';
+  }
+
+  if (missingRubricItems.includes('literal_to_symbolic') || missingRubricItems.includes('symbolic_meaning')) {
+    return '学生停留在字面理解，尚未完成语境推理，未能说明词句背后的象征含义或人物情感。';
   }
 
   if (missingRubricItems.includes('context_relation') || missingRubricItems.includes('deep_meaning')) {
@@ -245,8 +298,10 @@ function inferNextTraining(
   answerStatus: OpenResponseAnswerStatus,
   missingRubricItems: string[],
 ): string {
-  if (answerStatus === 'meets_expectation') return '进入下一题 / 提高难度 / 迁移验证 / 巩固训练';
+  if (answerStatus === 'fully_meets') return '进入下一题 / 提高难度 / 迁移验证 / 巩固训练';
   if (answerStatus === 'insufficient_evidence') return '先补充作答或重新作答，再进行能力诊断。';
+  if (mainAbility === '概括' && missingRubricItems.includes('core_event')) return '进入核心事件提取与主要内容概括训练。';
+  if (missingRubricItems.includes('literal_to_symbolic') || missingRubricItems.includes('symbolic_meaning')) return '进入关键词深层含义转换与语境理解训练。';
   if (missingRubricItems.includes('theme_or_emotion')) return '进入核心信息筛选与主旨提炼训练。';
   if (missingRubricItems.includes('text_evidence')) return '进入文本依据提取与“依据 + 分析 + 结论”表达训练。';
   if (missingRubricItems.includes('inference_chain')) return '进入基于文本依据的推理链训练。';
@@ -274,7 +329,7 @@ function buildAbilityEvidence(
     );
   }
 
-  if (answerStatus === 'meets_expectation') {
+  if (answerStatus === 'fully_meets') {
     evidence.push('学生答案满足主要 rubric 要点，可形成正向能力证据。');
   }
 
@@ -290,7 +345,7 @@ function buildDiagnosisSummary(
 }
 
 function inferConfidence(answerStatus: OpenResponseAnswerStatus, overlap: number): number {
-  if (answerStatus === 'meets_expectation') return overlap >= 0.95 ? 0.9 : 0.78;
+  if (answerStatus === 'fully_meets') return overlap >= 0.95 ? 0.9 : 0.78;
   if (answerStatus === 'insufficient_evidence') return 0.35;
   if (answerStatus === 'does_not_meet') return 0.62;
   return 0.68;

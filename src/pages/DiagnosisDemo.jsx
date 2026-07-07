@@ -2,14 +2,17 @@ import { useState } from 'react';
 import PageHeader from '../components/PageHeader.jsx';
 import { diagnosis } from '../api/diagnosis';
 import { training } from '../api/training';
+import {
+  getQuestionConfigById,
+  questionConfigs,
+  toQuestionMetadata,
+} from '../data/questionConfigs';
 
-const initialForm = {
-  question: '请概括这段文字的主要内容，并结合文本说明理由。',
-  referenceAnswer: '本文主要写作者通过回忆父亲送别时的细节，表现了父亲深沉含蓄的爱，以及作者对父爱的理解和感念。',
-  studentAnswer: '这篇文章写了父亲送作者，表现父亲很爱孩子。',
-};
+const initialConfig = questionConfigs[0];
+const initialForm = buildFormFromConfig(initialConfig);
 
 export default function DiagnosisDemo() {
+  const [selectedConfigId, setSelectedConfigId] = useState(initialConfig.id);
   const [form, setForm] = useState(initialForm);
   const [result, setResult] = useState(null);
   const [trainingResult, setTrainingResult] = useState(null);
@@ -21,6 +24,15 @@ export default function DiagnosisDemo() {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  const handleConfigChange = (configId) => {
+    const config = getQuestionConfigById(configId);
+    setSelectedConfigId(config.id);
+    setForm(buildFormFromConfig(config));
+    setResult(null);
+    setTrainingResult(null);
+    setError('');
+  };
+
   const handleDiagnose = async () => {
     setLoading(true);
     setError('');
@@ -28,7 +40,7 @@ export default function DiagnosisDemo() {
     setTrainingResult(null);
 
     try {
-      const diagnosisResult = await diagnosis(form);
+      const diagnosisResult = await diagnosis(buildDiagnosisPayload(form));
       setResult(diagnosisResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : '诊断失败，请稍后重试。');
@@ -63,6 +75,21 @@ export default function DiagnosisDemo() {
       <PageHeader title="Diagnosis Demo" subtitle="验证前端到 Diagnosis Agent 的结构化 JSON 链路" />
 
       <div className="space-y-4 px-4 pb-8">
+        <label className="block rounded-md border border-slate-200 bg-white p-3">
+          <span className="mb-2 block text-sm font-semibold text-slate-700">题目配置</span>
+          <select
+            value={selectedConfigId}
+            onChange={(event) => handleConfigChange(event.target.value)}
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white"
+          >
+            {questionConfigs.map((config) => (
+              <option key={config.id} value={config.id}>
+                {config.title} - {config.questionType} / {config.assessmentMode} / {config.mainAbility}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <InputBlock
           label="题目"
           value={form.question}
@@ -77,6 +104,12 @@ export default function DiagnosisDemo() {
           label="学生答案"
           value={form.studentAnswer}
           onChange={(value) => updateField('studentAnswer', value)}
+        />
+        <InputBlock
+          label="Question Metadata"
+          value={form.questionMetadata}
+          readOnly
+          rows={10}
         />
 
         <button
@@ -114,15 +147,64 @@ export default function DiagnosisDemo() {
   );
 }
 
-function InputBlock({ label, value, onChange }) {
+function buildFormFromConfig(config) {
+  return {
+    question: config.questionText,
+    referenceAnswer: config.referenceAnswer,
+    studentAnswer: config.studentAnswer,
+    questionMetadata: JSON.stringify(toQuestionMetadata(config), null, 2),
+  };
+}
+
+function buildDiagnosisPayload(form) {
+  const payload = {
+    question: form.question,
+    referenceAnswer: form.referenceAnswer,
+    studentAnswer: form.studentAnswer,
+  };
+
+  const metadataText = form.questionMetadata.trim();
+
+  if (!metadataText) return payload;
+
+  try {
+    payload.questionMetadata = JSON.parse(metadataText);
+    validateQuestionMetadata(payload.questionMetadata);
+    return payload;
+  } catch {
+    throw new Error('Question Metadata 无效，请重新选择题目配置后再诊断。');
+  }
+}
+
+function validateQuestionMetadata(metadata) {
+  if (!metadata.assessmentMode) throw new Error('缺少 assessmentMode');
+  if (!metadata.mainAbility) throw new Error('缺少 mainAbility');
+  if (!Array.isArray(metadata.rubric) || metadata.rubric.length === 0) throw new Error('缺少 rubric');
+
+  const expectedModeByType = {
+    反义词: 'exact_match',
+    概括: 'key_points',
+    句子含义: 'reasoning_chain',
+    推理: 'reasoning_chain',
+    表达: 'expression_quality',
+  };
+  const expectedMode = expectedModeByType[metadata.questionType];
+
+  if (expectedMode && metadata.assessmentMode !== expectedMode) {
+    throw new Error(`${metadata.questionType} 应使用 ${expectedMode}`);
+  }
+}
+
+function InputBlock({ label, value, onChange, rows = 4, readOnly = false }) {
   return (
     <label className="block rounded-md border border-slate-200 bg-white p-3">
       <span className="mb-2 block text-sm font-semibold text-slate-700">{label}</span>
       <textarea
         value={value}
-        onChange={(event) => onChange(event.target.value)}
-        rows={4}
-        className="min-h-24 w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-800 outline-none focus:border-blue-400 focus:bg-white"
+        onChange={(event) => onChange?.(event.target.value)}
+        readOnly={readOnly}
+        rows={rows}
+        className="min-h-24 w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-800 outline-none focus:border-blue-400 focus:bg-white read-only:bg-slate-100"
       />
     </label>
   );

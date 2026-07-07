@@ -11,16 +11,23 @@ export type DiagnosisErrorType =
 
 export type TaskType = 'exact_match' | 'open_response' | 'process_task';
 
+export type AssessmentMode =
+  | 'exact_match'
+  | 'key_points'
+  | 'reasoning_chain'
+  | 'expression_quality'
+  | 'process_operation';
+
 export type OpenResponseAnswerStatus =
-  | 'meets_expectation'
+  | 'fully_meets'
   | 'partially_meets'
   | 'does_not_meet'
   | 'insufficient_evidence';
 
 export type OpenResponseScoreBand =
-  | 'strong'
-  | 'acceptable'
-  | 'weak'
+  | 'high'
+  | 'medium'
+  | 'low'
   | 'invalid';
 
 export type OpenResponseRubricItem = {
@@ -31,6 +38,31 @@ export type OpenResponseRubricItem = {
   matched: boolean;
   evidence?: string;
   missingReason?: string;
+};
+
+export type QuestionMetadataRubricItem = {
+  id?: string;
+  name: string;
+  description?: string;
+  ability?: string;
+  weight?: number;
+  required?: boolean;
+};
+
+export type QuestionMetadata = {
+  questionId?: string;
+  subject?: string;
+  grade?: string;
+  questionType?: string;
+  assessmentMode?: AssessmentMode;
+  mainAbility?: string;
+  relatedAbilities?: string[];
+  abilityPath?: string[];
+  difficulty?: string;
+  knowledgePoint?: string;
+  rubric?: QuestionMetadataRubricItem[];
+  commonErrors?: unknown[];
+  trainingDirection?: string[];
 };
 
 export type DiagnosisResult = {
@@ -57,6 +89,7 @@ export type DiagnosisInput = {
   question: string;
   referenceAnswer: string;
   studentAnswer: string;
+  questionMetadata?: QuestionMetadata;
 };
 
 export const DIAGNOSIS_ERROR_TYPES: DiagnosisErrorType[] = [
@@ -126,6 +159,10 @@ export function isDiagnosisInput(value: unknown): value is DiagnosisInput {
   return (
     typeof input.question === 'string' &&
     typeof input.referenceAnswer === 'string' &&
-    typeof input.studentAnswer === 'string'
+    typeof input.studentAnswer === 'string' &&
+    (
+      input.questionMetadata === undefined ||
+      (typeof input.questionMetadata === 'object' && input.questionMetadata !== null)
+    )
   );
 }

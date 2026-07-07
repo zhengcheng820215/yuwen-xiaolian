@@ -7,6 +7,10 @@ export type DiagnosisRoute = {
 };
 
 export function routeDiagnosisTask(input: DiagnosisInput): DiagnosisRoute {
+  const metadataRoute = routeByQuestionMetadata(input);
+
+  if (metadataRoute) return metadataRoute;
+
   const question = normalizeText(input.question);
   const referenceAnswer = normalizeText(input.referenceAnswer);
 
@@ -30,6 +34,34 @@ export function routeDiagnosisTask(input: DiagnosisInput): DiagnosisRoute {
     taskType: 'open_response',
     strategyUsed: 'open_response_ability_diagnosis',
     reason: '题目需要开放表达、文本理解、分析、概括或推理能力诊断。',
+  };
+}
+
+function routeByQuestionMetadata(input: DiagnosisInput): DiagnosisRoute | null {
+  const assessmentMode = input.questionMetadata?.assessmentMode;
+
+  if (!assessmentMode) return null;
+
+  if (assessmentMode === 'exact_match') {
+    return {
+      taskType: 'exact_match',
+      strategyUsed: 'metadata_exact_match_strategy',
+      reason: '题目元数据指定 assessmentMode=exact_match。',
+    };
+  }
+
+  if (assessmentMode === 'process_operation') {
+    return {
+      taskType: 'process_task',
+      strategyUsed: 'metadata_process_task_strategy',
+      reason: '题目元数据指定 assessmentMode=process_operation。',
+    };
+  }
+
+  return {
+    taskType: 'open_response',
+    strategyUsed: `metadata_${assessmentMode}_rubric_strategy`,
+    reason: `题目元数据指定 assessmentMode=${assessmentMode}，按开放题 rubric 诊断。`,
   };
 }
 
