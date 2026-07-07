@@ -23,6 +23,11 @@ export type OpenResponseRubricEvaluation = Pick<
   | 'confidence'
 >;
 
+type AnswerEvidenceCheck = {
+  canAssess: boolean;
+  reason: string;
+};
+
 export function evaluateOpenResponseRubric(
   input: DiagnosisInput,
   mainAbility: string,
@@ -30,8 +35,35 @@ export function evaluateOpenResponseRubric(
 ): OpenResponseRubricEvaluation {
   const overlap = keywordOverlap(input.referenceAnswer, input.studentAnswer);
   const isEmpty = input.studentAnswer.trim().length === 0;
-  const exactOrHighMatch = isOpenResponseCorrect(input.referenceAnswer, input.studentAnswer, overlap);
+  const answerEvidenceCheck = checkAnswerEvidence(input, overlap);
   const hasEvidenceSignal = /原文|文中|依据|因为|从.*看出|第.*段/.test(input.studentAnswer);
+
+  if (!answerEvidenceCheck.canAssess) {
+    const rubricItems = buildInsufficientEvidenceRubricItems(input, mainAbility);
+
+    return {
+      answerStatus: 'insufficient_evidence',
+      scoreBand: 'invalid',
+      correct: false,
+      rubricItems,
+      matchedRubricItems: [],
+      missingRubricItems: [],
+      surfaceError: '学生答案未提供有效分析内容，暂不能形成稳定能力判断',
+      rootCause: '学生答案未提供有效分析内容，暂无法判断具体能力缺口。',
+      errorType: '待验证',
+      abilityEvidence: buildInsufficientEvidenceAbilityEvidence(
+        mainAbility,
+        relatedAbilities,
+        overlap,
+        answerEvidenceCheck.reason,
+      ),
+      diagnosisSummary: buildDiagnosisSummary(mainAbility, 'insufficient_evidence', 'invalid'),
+      nextTraining: '先补充有效作答，再进行能力诊断。',
+      confidence: inferConfidence('insufficient_evidence', overlap),
+    };
+  }
+
+  const exactOrHighMatch = isOpenResponseCorrect(input.referenceAnswer, input.studentAnswer, overlap);
   const rubricItems = buildRubricItems(input, mainAbility, overlap, hasEvidenceSignal, exactOrHighMatch);
   const matchedRubricItems = rubricItems.filter((item) => item.matched).map((item) => item.id);
   const missingRubricItems = rubricItems.filter((item) => item.required && !item.matched).map((item) => item.id);
@@ -40,7 +72,7 @@ export function evaluateOpenResponseRubric(
   const answerStatus = inferAnswerStatus(isEmpty, requiredItems.length, requiredMatchedCount);
   const scoreBand = inferScoreBand(answerStatus, requiredItems.length, requiredMatchedCount);
   const correct = answerStatus === 'fully_meets';
-  const rootCause = inferRootCauseFromRubric(mainAbility, answerStatus, missingRubricItems);
+  const rootCause = inferRootCauseFromRubric(mainAbility, answerStatus, missingRubricItems, matchedRubricItems);
   const errorType = correct ? '待验证' : abilityToErrorType(mainAbility);
 
   return {
@@ -64,6 +96,51 @@ export function evaluateOpenResponseRubric(
     nextTraining: inferNextTraining(mainAbility, answerStatus, missingRubricItems),
     confidence: inferConfidence(answerStatus, overlap),
   };
+}
+
+function checkAnswerEvidence(input: DiagnosisInput, overlap: number): AnswerEvidenceCheck {
+  const normalizedAnswer = normalizeAnswer(input.studentAnswer);
+  const trimmedAnswer = input.studentAnswer.trim();
+
+  if (!trimmedAnswer) {
+    return {
+      canAssess: false,
+      reason: '学生答案为空。',
+    };
+  }
+
+  if (/^(哈+|呵+|嗯+|啊+|不知道|不会|不懂|没看懂|随便|无|没有|不知道怎么写|[0-9]+)$/i.test(normalizedAnswer)) {
+    return {
+      canAssess: false,
+      reason: '学生答案属于敷衍、占位或无分析内容表达。',
+    };
+  }
+
+  const meaningfulTokens = tokenize(trimmedAnswer).filter((token) => !/^(哈+|呵+|嗯+|啊+)$/.test(token));
+  const isTooShortWithoutSignal = normalizedAnswer.length < 6 && overlap < 0.18;
+
+  if (meaningfulTokens.length === 0 || isTooShortWithoutSignal) {
+    return {
+      canAssess: false,
+      reason: '学生答案过短，且未呈现与参考要点相关的有效内容。',
+    };
+  }
+
+  return {
+    canAssess: true,
+    reason: '学生答案包含可进入 rubric 判断的有效内容。',
+  };
+}
+
+function buildInsufficientEvidenceRubricItems(
+  input: DiagnosisInput,
+  mainAbility: string,
+): OpenResponseRubricItem[] {
+  return getRubricTemplate(input, mainAbility).map((item) => ({
+    ...item,
+    matched: false,
+    missingReason: '学生答案未提供有效分析内容，本轮不据此推断具体能力缺口。',
+  }));
 }
 
 function buildRubricItems(
@@ -249,6 +326,7 @@ function inferRootCauseFromRubric(
   mainAbility: string,
   answerStatus: OpenResponseAnswerStatus,
   missingRubricItems: string[],
+  matchedRubricItems: string[] = [],
 ): string {
   if (answerStatus === 'fully_meets') {
     return '无补弱型 rootCause：学生答案已达到本题开放作答要求。';
@@ -287,6 +365,10 @@ function inferRootCauseFromRubric(
   }
 
   if (missingRubricItems.includes('inference_chain')) {
+    if (!matchedRubricItems.includes('clue_extraction')) {
+      return '学生尚未提供可识别的文本依据或线索，因此不能进一步判定推理链是否完整。';
+    }
+
     return '学生能找到部分线索，但尚未形成完整的文本依据到结论的推理链。';
   }
 
@@ -307,6 +389,20 @@ function inferNextTraining(
   if (missingRubricItems.includes('inference_chain')) return '进入基于文本依据的推理链训练。';
   if (mainAbility === '信息提取') return '进入关键词定位与完整要点提取训练。';
   return `进入「${mainAbility}」能力的针对训练。`;
+}
+
+function buildInsufficientEvidenceAbilityEvidence(
+  mainAbility: string,
+  relatedAbilities: string[],
+  overlap: number,
+  reason: string,
+): string[] {
+  return [
+    `题目主要映射到「${mainAbility}」能力，并关联「${relatedAbilities.join('、')}」能力路径。`,
+    `学生答案与参考答案的关键点重合度约为 ${Math.round(overlap * 100)}%，仅作为有效性检查的辅助信号。`,
+    reason,
+    '本轮仅判断为作答证据不足，不输出“缺少文本依据”“缺少推理链”等具体能力缺口。',
+  ];
 }
 
 function buildAbilityEvidence(

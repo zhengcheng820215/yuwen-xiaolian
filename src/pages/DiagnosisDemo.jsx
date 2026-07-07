@@ -212,6 +212,8 @@ function InputBlock({ label, value, onChange, rows = 4, readOnly = false }) {
 }
 
 function DiagnosisResult({ result }) {
+  const feedback = getDiagnosisFeedback(result);
+
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -222,7 +224,16 @@ function DiagnosisResult({ result }) {
       </div>
 
       <div className="space-y-3 text-sm">
+        <div className={`rounded-md border p-3 ${feedback.className}`}>
+          <div className="text-xs font-semibold">反馈类型</div>
+          <div className="mt-1 text-base font-semibold">{feedback.label}</div>
+          <div className="mt-1 leading-6">{feedback.description}</div>
+        </div>
+        <ResultRow label="answerStatus" value={result.answerStatus || feedback.statusFallback} />
+        <ResultRow label="scoreBand" value={result.scoreBand || feedback.scoreFallback} />
+        <ResultRow label="correct" value={formatCorrect(result.correct)} />
         <ResultRow label="mainAbility" value={result.mainAbility} />
+        <ResultRow label="surfaceError" value={result.surfaceError} />
         <ResultRow label="rootCause" value={result.rootCause} />
         <ResultList label="abilityEvidence" items={result.abilityEvidence} />
         <ResultRow label="diagnosisSummary" value={result.diagnosisSummary} />
@@ -234,6 +245,52 @@ function DiagnosisResult({ result }) {
       </pre>
     </section>
   );
+}
+
+function getDiagnosisFeedback(result) {
+  if (result.answerStatus === 'insufficient_evidence' || result.scoreBand === 'invalid') {
+    return {
+      label: '答案无效 / 无法评估',
+      description: '学生答案缺少有效作答内容，本轮不判断具体能力缺口。',
+      className: 'border-slate-200 bg-slate-50 text-slate-700',
+      statusFallback: 'insufficient_evidence',
+      scoreFallback: 'invalid',
+    };
+  }
+
+  if (result.answerStatus === 'fully_meets' || result.correct === true) {
+    return {
+      label: '答案匹配 / 基本满足',
+      description: '学生答案覆盖主要要求，可作为正向能力证据。',
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+      statusFallback: 'fully_meets',
+      scoreFallback: 'high',
+    };
+  }
+
+  if (result.answerStatus === 'partially_meets') {
+    return {
+      label: '部分匹配 / 部分满足',
+      description: '学生答案有相关内容，但仍缺少关键能力要点。',
+      className: 'border-amber-200 bg-amber-50 text-amber-800',
+      statusFallback: 'partially_meets',
+      scoreFallback: 'medium',
+    };
+  }
+
+  return {
+    label: '答案不匹配 / 未满足',
+    description: '学生答案有作答内容，但尚未满足本题主要要求。',
+    className: 'border-red-200 bg-red-50 text-red-800',
+    statusFallback: result.correct === false ? 'does_not_meet' : '待验证',
+    scoreFallback: 'low',
+  };
+}
+
+function formatCorrect(value) {
+  if (value === true) return 'true';
+  if (value === false) return 'false';
+  return 'null';
 }
 
 function TrainingResult({ result }) {
