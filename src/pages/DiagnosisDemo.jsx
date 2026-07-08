@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import PageHeader from '../components/PageHeader.jsx';
 import { diagnosis } from '../api/diagnosis';
+import { generateQuestionMetadata } from '../api/questionMetadata';
 import { training } from '../api/training';
 import {
   getQuestionConfigById,
@@ -10,18 +11,41 @@ import {
 
 const initialConfig = questionConfigs[0];
 const initialForm = buildFormFromConfig(initialConfig);
+const initialCustomForm = {
+  question: '请分析“照亮了父亲对我的牵挂”的含义。',
+  referenceAnswer: '“照亮”不是指灯光真正照亮，而是指作者通过这盏灯感受到父亲一直以来的关爱和牵挂，表达了作者对父亲爱的理解和感动。',
+  studentAnswer: '父亲用灯给我照亮回家的路。',
+};
 
 export default function DiagnosisDemo() {
+  const [mode, setMode] = useState('preset');
   const [selectedConfigId, setSelectedConfigId] = useState(initialConfig.id);
   const [form, setForm] = useState(initialForm);
+  const [customForm, setCustomForm] = useState(initialCustomForm);
+  const [metadataResult, setMetadataResult] = useState(null);
   const [result, setResult] = useState(null);
   const [trainingResult, setTrainingResult] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [metadataLoading, setMetadataLoading] = useState(false);
   const [trainingLoading, setTrainingLoading] = useState(false);
 
   const updateField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateCustomField = (field, value) => {
+    setCustomForm((current) => ({ ...current, [field]: value }));
+    setMetadataResult(null);
+    setResult(null);
+    setTrainingResult(null);
+  };
+
+  const handleModeChange = (nextMode) => {
+    setMode(nextMode);
+    setResult(null);
+    setTrainingResult(null);
+    setError('');
   };
 
   const handleConfigChange = (configId) => {
@@ -33,6 +57,26 @@ export default function DiagnosisDemo() {
     setError('');
   };
 
+  const handleGenerateMetadata = async () => {
+    setMetadataLoading(true);
+    setError('');
+    setMetadataResult(null);
+    setResult(null);
+    setTrainingResult(null);
+
+    try {
+      const generated = await generateQuestionMetadata({
+        question: customForm.question,
+        referenceAnswer: customForm.referenceAnswer,
+      });
+      setMetadataResult(generated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Metadata 生成失败，请稍后重试。');
+    } finally {
+      setMetadataLoading(false);
+    }
+  };
+
   const handleDiagnose = async () => {
     const selectedConfig = getQuestionConfigById(selectedConfigId);
 
@@ -42,8 +86,11 @@ export default function DiagnosisDemo() {
     setTrainingResult(null);
 
     try {
-      const payload = buildDiagnosisPayload(form, selectedConfig);
-      console.log('[DiagnosisDemo] selected questionConfig', selectedConfig);
+      const payload = mode === 'preset'
+        ? buildDiagnosisPayload(form, selectedConfig)
+        : buildCustomDiagnosisPayload(customForm, metadataResult);
+      console.log('[DiagnosisDemo] mode', mode);
+      console.log('[DiagnosisDemo] selected questionConfig', mode === 'preset' ? selectedConfig : null);
       console.log('[DiagnosisDemo] diagnosis payload metadata', payload.questionMetadata);
       const diagnosisResult = await diagnosis(payload);
       setResult(diagnosisResult);
@@ -57,6 +104,8 @@ export default function DiagnosisDemo() {
   const handleGenerateTraining = async () => {
     if (!result) return;
     const selectedConfig = getQuestionConfigById(selectedConfigId);
+    const currentQuestion = mode === 'preset' ? selectedConfig.questionText : customForm.question;
+    const currentStudentAnswer = mode === 'preset' ? form.studentAnswer : customForm.studentAnswer;
 
     setTrainingLoading(true);
     setError('');
@@ -65,8 +114,8 @@ export default function DiagnosisDemo() {
     try {
       const plan = await training({
         diagnosisResult: result,
-        question: selectedConfig.questionText,
-        studentAnswer: form.studentAnswer,
+        question: currentQuestion,
+        studentAnswer: currentStudentAnswer,
       });
       setTrainingResult(plan);
     } catch (err) {
@@ -78,53 +127,91 @@ export default function DiagnosisDemo() {
 
   const selectedConfig = getQuestionConfigById(selectedConfigId);
   const metadataPreview = JSON.stringify(toQuestionMetadata(selectedConfig), null, 2);
+  const customMetadataPreview = metadataResult
+    ? JSON.stringify(metadataResult.metadata, null, 2)
+    : '';
 
   return (
     <div className="min-h-screen bg-[#f5f7fb]">
       <PageHeader title="Diagnosis Demo" subtitle="验证前端到 Diagnosis Agent 的结构化 JSON 链路" />
 
       <div className="space-y-4 px-4 pb-8">
-        <label className="block rounded-md border border-slate-200 bg-white p-3">
-          <span className="mb-2 block text-sm font-semibold text-slate-700">题目配置</span>
-          <select
-            value={selectedConfigId}
-            onChange={(event) => handleConfigChange(event.target.value)}
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white"
-          >
-            {questionConfigs.map((config) => (
-              <option key={config.id} value={config.id}>
-                {config.title} - {config.questionType} / {config.assessmentMode} / {config.mainAbility}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="grid grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-2">
+          <ModeButton active={mode === 'preset'} onClick={() => handleModeChange('preset')}>
+            内置题目
+          </ModeButton>
+          <ModeButton active={mode === 'custom'} onClick={() => handleModeChange('custom')}>
+            自定义题目
+          </ModeButton>
+        </div>
 
-        <InputBlock
-          label="题目"
-          value={form.question}
-          readOnly
-        />
-        <InputBlock
-          label="参考答案"
-          value={form.referenceAnswer}
-          readOnly
-        />
-        <InputBlock
-          label="学生答案"
-          value={form.studentAnswer}
-          onChange={(value) => updateField('studentAnswer', value)}
-        />
-        <InputBlock
-          label="Question Metadata"
-          value={metadataPreview}
-          readOnly
-          rows={10}
-        />
+        {mode === 'preset' ? (
+          <>
+            <label className="block rounded-md border border-slate-200 bg-white p-3">
+              <span className="mb-2 block text-sm font-semibold text-slate-700">题目配置</span>
+              <select
+                value={selectedConfigId}
+                onChange={(event) => handleConfigChange(event.target.value)}
+                className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white"
+              >
+                {questionConfigs.map((config) => (
+                  <option key={config.id} value={config.id}>
+                    {config.title} - {config.questionType} / {config.assessmentMode} / {config.mainAbility}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <InputBlock label="题目" value={form.question} readOnly />
+            <InputBlock label="参考答案" value={form.referenceAnswer} readOnly />
+            <InputBlock
+              label="学生答案"
+              value={form.studentAnswer}
+              onChange={(value) => updateField('studentAnswer', value)}
+            />
+            <InputBlock label="Question Metadata" value={metadataPreview} readOnly rows={10} />
+          </>
+        ) : (
+          <>
+            <InputBlock
+              label="题目"
+              value={customForm.question}
+              onChange={(value) => updateCustomField('question', value)}
+            />
+            <InputBlock
+              label="参考答案"
+              value={customForm.referenceAnswer}
+              onChange={(value) => updateCustomField('referenceAnswer', value)}
+            />
+            <InputBlock
+              label="学生答案"
+              value={customForm.studentAnswer}
+              onChange={(value) => updateCustomField('studentAnswer', value)}
+            />
+
+            <button
+              type="button"
+              onClick={handleGenerateMetadata}
+              disabled={metadataLoading}
+              className="min-h-12 w-full rounded-md bg-slate-800 px-4 text-sm font-semibold text-white transition disabled:bg-slate-300"
+            >
+              {metadataLoading ? '生成中...' : '生成 Metadata'}
+            </button>
+
+            {metadataResult && <MetadataResult result={metadataResult} />}
+            <InputBlock
+              label="Generated Question Metadata"
+              value={customMetadataPreview}
+              readOnly
+              rows={10}
+            />
+          </>
+        )}
 
         <button
           type="button"
           onClick={handleDiagnose}
-          disabled={loading}
+          disabled={loading || (mode === 'custom' && !metadataResult?.validation?.valid)}
           className="min-h-12 w-full rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition disabled:bg-slate-300"
         >
           {loading ? '诊断中...' : '开始诊断'}
@@ -176,6 +263,19 @@ function buildDiagnosisPayload(form, config) {
   };
 }
 
+function buildCustomDiagnosisPayload(form, metadataResult) {
+  if (!metadataResult?.validation?.valid) {
+    throw new Error('请先生成并通过校验 Question Metadata。');
+  }
+
+  return {
+    question: form.question,
+    referenceAnswer: form.referenceAnswer,
+    studentAnswer: form.studentAnswer,
+    questionMetadata: metadataResult.metadata,
+  };
+}
+
 function validateQuestionMetadata(metadata, config) {
   if (!metadata.assessmentMode) throw new Error('缺少 assessmentMode');
   if (!metadata.mainAbility) throw new Error('缺少 mainAbility');
@@ -196,6 +296,22 @@ function validateQuestionMetadata(metadata, config) {
   }
 }
 
+function ModeButton({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`min-h-10 rounded-md px-3 text-sm font-semibold transition ${
+        active
+          ? 'bg-blue-600 text-white'
+          : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function InputBlock({ label, value, onChange, rows = 4, readOnly = false }) {
   return (
     <label className="block rounded-md border border-slate-200 bg-white p-3">
@@ -208,6 +324,35 @@ function InputBlock({ label, value, onChange, rows = 4, readOnly = false }) {
         className="min-h-24 w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-800 outline-none focus:border-blue-400 focus:bg-white read-only:bg-slate-100"
       />
     </label>
+  );
+}
+
+function MetadataResult({ result }) {
+  const { validation, confidence } = result;
+  const stateClass = validation.valid
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+    : 'border-red-200 bg-red-50 text-red-800';
+
+  return (
+    <section className={`rounded-md border p-3 text-sm ${stateClass}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="font-semibold">
+          Metadata 校验：{validation.valid ? 'valid' : 'invalid'}
+        </div>
+        <div className="rounded-md bg-white/70 px-2 py-1 text-xs font-semibold">
+          confidence {Math.round(confidence * 100)}%
+        </div>
+      </div>
+      {validation.errors.length > 0 && (
+        <ResultList label="errors" items={validation.errors} />
+      )}
+      {validation.warnings.length > 0 && (
+        <ResultList label="warnings" items={validation.warnings} />
+      )}
+      {validation.errors.length === 0 && validation.warnings.length === 0 && (
+        <div className="mt-2 leading-6">Metadata 已通过校验，可以进入诊断。</div>
+      )}
+    </section>
   );
 }
 

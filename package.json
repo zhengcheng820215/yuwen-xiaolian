@@ -3,6 +3,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "debug:diagnosis-training": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runDiagnosisTrainingDebug.ts",
+    "debug:question-metadata": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionMetadataDebug.ts",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
