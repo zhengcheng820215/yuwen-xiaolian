@@ -1,0 +1,37 @@
+[
+  {
+    "id": "mock-evidence-001",
+    "studentId": "demo-student",
+    "ability": "推理",
+    "evidenceType": "weakness",
+    "source": "diagnosis",
+    "observation": "学生能够给出结论，但缺少文本线索支撑。",
+    "rootCause": "缺少文本依据，推理链不完整。",
+    "confidence": 0.72,
+    "createdAt": "2026-07-08T08:00:00.000Z",
+    "taskId": "mock-task-inference-001"
+  },
+  {
+    "id": "mock-evidence-002",
+    "studentId": "demo-student",
+    "ability": "表达",
+    "evidenceType": "weakness",
+    "source": "diagnosis",
+    "observation": "学生答案有观点，但表达不完整。",
+    "rootCause": "答案缺少依据和说明，表达组织不足。",
+    "confidence": 0.66,
+    "createdAt": "2026-07-08T08:10:00.000Z",
+    "taskId": "mock-task-expression-001"
+  },
+  {
+    "id": "mock-evidence-003",
+    "studentId": "demo-student",
+    "ability": "概括",
+    "evidenceType": "positive",
+    "source": "diagnosis",
+    "observation": "学生能够概括主要事件和核心情感。",
+    "confidence": 0.78,
+    "createdAt": "2026-07-08T08:20:00.000Z",
+    "taskId": "mock-task-summary-001"
+  }
+]

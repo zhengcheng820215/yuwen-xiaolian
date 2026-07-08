@@ -1,5 +1,7 @@
 # Phase 2.1：Question Metadata Pattern Library v1
 
+当前状态：已完成基础链路建设，后续暂时冻结为底层能力维护，不作为 Phase 3 主线。
+
 ## 一、项目背景
 
 Phase 1 已完成。
@@ -340,7 +342,7 @@ Validator 或 Debug Benchmark 应能发现明显错误归类或错误 Pattern �
 继续维护：
 
 ```bash
-npm run debug:question-metadata
+pnpm run debug:question-metadata
 ```
 
 要求：

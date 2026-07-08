@@ -10,6 +10,9 @@ import Result from './pages/Result.jsx';
 import Mistakes from './pages/Mistakes.jsx';
 import Profile from './pages/Profile.jsx';
 import DiagnosisDemo from './pages/DiagnosisDemo.jsx';
+import TrainingPlanDemo from './pages/TrainingPlanDemo.jsx';
+import TrainingEvidenceDemo from './pages/TrainingEvidenceDemo.jsx';
+import StudentProfileDemo from './pages/StudentProfileDemo.jsx';
 
 export default function App() {
   return (
@@ -25,6 +28,9 @@ export default function App() {
         <Route path="/mistakes" element={<Mistakes />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/diagnosis-demo" element={<DiagnosisDemo />} />
+        <Route path="/training-plan-demo" element={<TrainingPlanDemo />} />
+        <Route path="/training-evidence-demo" element={<TrainingEvidenceDemo />} />
+        <Route path="/student-profile-demo" element={<StudentProfileDemo />} />
       </Routes>
     </Layout>
   );

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import { diagnosis } from '../api/diagnosis';
 import { generateQuestionMetadata } from '../api/questionMetadata';
@@ -136,6 +137,13 @@ export default function DiagnosisDemo() {
       <PageHeader title="Diagnosis Demo" subtitle="验证前端到 Diagnosis Agent 的结构化 JSON 链路" />
 
       <div className="space-y-4 px-4 pb-8">
+        <Link
+          to="/training-plan-demo"
+          className="flex min-h-12 items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700"
+        >
+          查看 Phase 3.2.1 训练计划 Demo
+        </Link>
+
         <div className="grid grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-2">
           <ModeButton active={mode === 'preset'} onClick={() => handleModeChange('preset')}>
             内置题目

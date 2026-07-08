@@ -1,18 +1,17 @@
-import { ChevronLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function PageHeader({ title, subtitle, back = false }) {
   const navigate = useNavigate();
   return (
     <header className="sticky top-0 z-20 bg-[#f5f7fb]/95 px-5 pb-3 pt-4 backdrop-blur">
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         {back && (
           <button
             aria-label="返回"
             onClick={() => navigate(-1)}
-            className="flex h-10 w-10 items-center justify-center rounded-md bg-white text-slate-700 shadow-sm"
+            className="min-h-10 shrink-0 rounded-md bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm"
           >
-            <ChevronLeft size={22} />
+            返回
           </button>
         )}
         <div>

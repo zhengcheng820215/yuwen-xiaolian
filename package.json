@@ -4,6 +4,10 @@
     "build": "vite build",
     "debug:diagnosis-training": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runDiagnosisTrainingDebug.ts",
     "debug:question-metadata": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionMetadataDebug.ts",
+    "debug:ability-evidence": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runAbilityEvidenceDebug.ts",
+    "debug:training-plan": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runTrainingPlanDebug.ts",
+    "debug:training-evidence": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runTrainingEvidenceDebug.ts",
+    "debug:student-profile": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runStudentAbilityProfileDebug.ts",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

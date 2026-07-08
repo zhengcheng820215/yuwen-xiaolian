@@ -91,7 +91,7 @@ export const questionMetadataPatterns: QuestionMetadataPattern[] = [
     ],
     trainingDirection: ['关键词深层含义理解训练', '语境分析训练', '情感体会训练'],
     examples: ['请分析“照亮了父亲对我的牵挂”的含义。', '如何理解文中这句话？', '说说这句话的深层含义。'],
-    matchers: [/句子.*含义|含义/, /如何理解|理解.*句/, /深层含义|言外之意/, /分析.*含义/],
+    matchers: [/句子.*含义|含义/, /如何理解|理解.*句/, /深层含义|言外之意/, /分析.*含义/, /对.*(这句|这句话|某句).*理解/],
     antiMatchers: [/表达效果|作用|人物形象|概括/],
     priority: 84,
     confidence: 0.82,
