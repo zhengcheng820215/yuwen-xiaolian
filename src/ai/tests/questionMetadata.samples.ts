@@ -193,6 +193,18 @@ export const questionMetadataSamples: QuestionMetadataSample[] = [
     expectedRubricKeywords: ['字面含义转换', '语境联系'],
   },
   {
+    id: 'metadata_sentence_006',
+    title: '句子含义：说说你对某句话的理解',
+    question: '结合上下文，说说你对“那条小路一下子宽了起来”这句话的理解。',
+    referenceAnswer: '这句话不只是写小路变宽，而是表现人物心结解开后内心变得轻松，也暗示人与人之间的理解让生活变得开阔。',
+    studentAnswer: '小路变得更宽了。',
+    expectedPattern: 'sentence_meaning_v1',
+    expectedQuestionType: '句子含义',
+    expectedAssessmentMode: 'reasoning_chain',
+    expectedMainAbility: '理解',
+    expectedRubricKeywords: ['字面含义转换', '语境联系'],
+  },
+  {
     id: 'metadata_inference_001',
     title: '推理：心理',
     question: '从父亲反复整理旧书的行为，可以推断出他怎样的心理？',
