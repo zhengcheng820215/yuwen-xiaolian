@@ -10,6 +10,7 @@ export type QuestionMetadataInput = {
 };
 
 export type QuestionMetadataResult = QuestionMetadata & {
+  patternId?: string;
   questionType: string;
   assessmentMode: AssessmentMode;
   mainAbility: string;
@@ -26,6 +27,7 @@ export type QuestionMetadataValidationResult = {
 
 export type QuestionMetadataAgentResult = {
   metadata: QuestionMetadataResult;
+  matchedPattern: string;
   validation: QuestionMetadataValidationResult;
   confidence: number;
 };
@@ -63,6 +65,7 @@ export function normalizeQuestionMetadata(
   value: Partial<QuestionMetadataResult>,
 ): QuestionMetadataResult {
   return {
+    patternId: value.patternId,
     questionId: value.questionId,
     subject: value.subject || '语文',
     grade: value.grade,
@@ -123,6 +126,46 @@ export function validateQuestionMetadata(
     metadata.assessmentMode !== 'exact_match'
   ) {
     errors.push('反义词题应使用 assessmentMode=exact_match。');
+  }
+
+  if (
+    metadata.questionType === '信息提取' &&
+    metadata.mainAbility &&
+    metadata.mainAbility !== '信息提取'
+  ) {
+    errors.push('信息提取题 mainAbility 应为“信息提取”。');
+  }
+
+  if (
+    metadata.questionType === '人物形象分析' &&
+    metadata.mainAbility &&
+    metadata.mainAbility !== '分析'
+  ) {
+    errors.push('人物形象分析题 mainAbility 应为“分析”。');
+  }
+
+  if (
+    metadata.questionType === '作用分析' &&
+    metadata.mainAbility &&
+    metadata.mainAbility !== '分析'
+  ) {
+    errors.push('作用分析题 mainAbility 应为“分析”。');
+  }
+
+  if (
+    metadata.questionType === '表达效果' &&
+    metadata.mainAbility &&
+    metadata.mainAbility !== '分析'
+  ) {
+    errors.push('表达效果题 mainAbility 应为“分析”。');
+  }
+
+  if (
+    metadata.questionType === '表达' &&
+    metadata.assessmentMode &&
+    metadata.assessmentMode !== 'expression_quality'
+  ) {
+    errors.push('表达题应使用 assessmentMode=expression_quality。');
   }
 
   if (metadata.questionType === '概括' && !hasRubricName(metadata.rubric, /事件|主题|主旨|情感/)) {

@@ -12,6 +12,7 @@ type MetadataDebugReport = {
   mainAbility: string;
   rubric: string[];
   valid: boolean;
+  matchedPattern: string;
 };
 
 async function runQuestionMetadataDebug(): Promise<void> {
@@ -27,6 +28,12 @@ async function runQuestionMetadataDebug(): Promise<void> {
     assertMetadataResult(result, failures);
 
     const { metadata, validation } = result;
+
+    if (result.matchedPattern !== sample.expectedPattern) {
+      failures.push(
+        `matchedPattern expected "${sample.expectedPattern}", got "${result.matchedPattern}".`,
+      );
+    }
 
     if (metadata.questionType !== sample.expectedQuestionType) {
       failures.push(
@@ -69,6 +76,7 @@ async function runQuestionMetadataDebug(): Promise<void> {
       mainAbility: metadata.mainAbility,
       rubric: rubricNames,
       valid: validation.valid,
+      matchedPattern: result.matchedPattern,
     });
   }
 
@@ -106,9 +114,11 @@ function printDebugReport(reports: MetadataDebugReport[]): void {
   console.log('\nQuestion Metadata Debug Report');
   console.log('==============================');
   console.log(`Total: ${reports.length}, PASS: ${passCount}, FAIL: ${failCount}`);
+  printTypeSummary(reports);
 
   for (const report of reports) {
     console.log(`\n[${report.status}] ${report.id} - ${report.title}`);
+    console.log(`matchedPattern: ${report.matchedPattern}`);
     console.log(`questionType: ${report.questionType}`);
     console.log(`assessmentMode: ${report.assessmentMode}`);
     console.log(`mainAbility: ${report.mainAbility}`);
@@ -121,6 +131,24 @@ function printDebugReport(reports: MetadataDebugReport[]): void {
         console.log(`- ${failure}`);
       }
     }
+  }
+}
+
+function printTypeSummary(reports: MetadataDebugReport[]): void {
+  const summary = new Map<string, { total: number; pass: number }>();
+
+  for (const report of reports) {
+    const current = summary.get(report.questionType) || { total: 0, pass: 0 };
+    current.total += 1;
+    if (report.status === 'PASS') current.pass += 1;
+    summary.set(report.questionType, current);
+  }
+
+  console.log('\nQuestion Type Summary');
+  console.log('---------------------');
+
+  for (const [questionType, value] of summary) {
+    console.log(`${questionType}: ${value.pass} / ${value.total}`);
   }
 }
 
