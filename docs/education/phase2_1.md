@@ -380,6 +380,111 @@ Debug 输出还应增加按题型统计通过率。
 
 这样后续可以持续扩展 Benchmark，并快速发现 Pattern 匹配或 Pattern 输出的退化问题。
 
+## 八点一、Sprint 2.1.1：建立第一版 Benchmark
+
+Sprint 2.1.1 的目标不是提升通过率，而是先建立一套可靠、可重复运行的 Metadata Benchmark。
+
+本 Sprint 的 Benchmark 规模为 40 道真实阅读题，覆盖 8 类题型：
+
+| 题型 | 数量 |
+| --- | --- |
+| 信息提取 | 5 |
+| 概括 | 5 |
+| 句子含义 | 5 |
+| 推理 | 5 |
+| 人物分析 | 5 |
+| 作用分析 | 5 |
+| 表达效果 | 5 |
+| 表达 | 5 |
+
+本 Sprint 的收敛标准：
+
+- Benchmark 建立完成。
+- 每道题都包含题目、参考答案、学生答案和预期 Metadata。
+- 每道题都可自动生成 Question Metadata。
+- 每道题都可进入 Metadata Validator。
+- 每道题都可进入 Diagnosis Agent。
+- Debug 输出每道题的 PASS / FAIL。
+- Debug 输出按题型统计结果。
+
+本 Sprint 不要求：
+
+- `PASS = Total`
+- 所有 Pattern 均完全命中预期
+- 所有题型达到稳定可用
+
+本 Sprint 的核心价值是建立基线。失败样例不是阶段失败，而是后续优化 Pattern Library 的证据。
+
+## 八点二、Sprint 2.1.3：质量指标
+
+Sprint 2.1.3 的目标是在 Benchmark Debug 中加入质量指标，使 Pattern Library 的稳定性可以被持续观察。
+
+Debug 输出至少包含：
+
+- PASS 数量
+- FAIL 数量
+- PASS Rate
+- 每类题型通过率
+- 低置信度数量
+- Validator Fail 数量
+- QuestionType 识别错误数量
+- AssessmentMode 错误数量
+
+建议同时保留：
+
+- MainAbility 错误数量
+- Pattern 匹配错误数量
+- Diagnosis 不可进入数量
+
+质量指标不用于替代逐题报告。逐题报告用于定位问题，质量指标用于判断整体趋势。
+
+低置信度阈值可作为调试参数维护，当前建议值为：
+
+```text
+confidence < 0.75
+```
+
+本 Sprint 不改变 QuestionMetadataAgent 的业务逻辑，不改 Diagnosis，不改 Training，不改 UI。
+
+## 八点三、Sprint 2.1.4：验收门槛
+
+Sprint 2.1.4 的目标是在质量指标基础上形成可执行的验收门槛。
+
+Benchmark Debug 不只输出质量指标，还必须判断当前结果是否通过验收。
+
+当前验收门槛如下：
+
+| 指标 | 要求 |
+| --- | --- |
+| 总体通过率 | >= 90% |
+| 每类通过率 | >= 85% |
+| Validator Fail | 0 |
+| 崩溃数量 | 0 |
+| Metadata 缺字段数量 | 0 |
+
+其中：
+
+- 总体通过率用于判断 Pattern Library 整体稳定性。
+- 每类通过率用于避免某一类题型被整体平均值掩盖。
+- Validator Fail 必须为 0，确保所有 Metadata 都满足结构契约。
+- 崩溃数量必须为 0，确保 Debug 可连续运行。
+- Metadata 缺字段数量必须为 0，确保下游 Diagnosis 可消费。
+
+Debug 输出应包含：
+
+```text
+Acceptance Gate
+---------------
+[PASS] Overall PASS Rate: required >= 90%, actual ...
+[PASS] Each Type PASS Rate: required >= 85%, actual ...
+[PASS] Validator Fail: required 0, actual ...
+[PASS] Crash Count: required 0, actual ...
+[PASS] Metadata Missing Fields: required 0, actual ...
+Gate Result: PASS
+```
+
+当任一验收门槛不满足时，Debug 脚本应返回失败状态，阻止将不稳定的 Pattern Library 误判为可验收。
+
 ## 九、本阶段不追求
 
 本阶段不追求：
