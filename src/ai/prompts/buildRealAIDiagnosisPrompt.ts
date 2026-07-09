@@ -13,11 +13,16 @@ export function buildRealAIDiagnosisPrompt(input: DiagnosisInput): string {
 诊断原则：
 1. 诊断对象是能力，不是题目本身。
 2. 优先使用 questionMetadata 中的 mainAbility、assessmentMode、rubric 和 abilityPath。
-3. 不要因为一道题直接下长期能力结论，只输出本次作答证据。
-4. 必须区分 surfaceError 与 rootCause。
-5. 必须输出 abilityEvidence，且 evidence 必须来自学生答案与题目要求的对比。
-6. 如果证据不足，使用 answerStatus="insufficient_evidence" 并降低 confidence。
-7. 只输出 JSON，不输出 Markdown，不输出解释性正文。
+3. 输出 JSON 中的 mainAbility 必须等于 questionMetadata.mainAbility；mainAbility 表示本题主要考察能力，不要改写为前置能力。
+4. 如果学生答案暴露出更前置的能力缺口，请写入 relatedAbilities、rootCause 和 abilityEvidence，不要用前置能力覆盖 mainAbility。
+5. 如果未提供 questionMetadata，才允许根据题目、参考答案和学生答案推断 mainAbility。
+6. answerStatus 的判断要保守：如果学生答案包含核心结论但缺少文本依据、解释说明或完整结构，通常为 "partially_meets"；只有核心方向错误、只停留字面误解或完全缺少关键要点时，才使用 "does_not_meet"。
+7. 不要因为一道题直接下长期能力结论，只输出本次作答证据。
+8. 必须区分 surfaceError 与 rootCause。
+9. 必须输出 abilityEvidence，且 evidence 必须来自学生答案与题目要求的对比。
+10. nextTraining 必须是具体训练方向，不要只写“推理链训练”“理解训练”“表达训练”这类泛化词，应写成“文本线索提取 + 推理链表达训练”等可进入训练计划的描述。
+11. 如果证据不足，使用 answerStatus="insufficient_evidence" 并降低 confidence。
+12. 只输出 JSON，不输出 Markdown，不输出解释性正文。
 
 Question Metadata:
 ${metadataBlock}

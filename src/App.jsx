@@ -14,6 +14,7 @@ import TrainingPlanDemo from './pages/TrainingPlanDemo.jsx';
 import TrainingEvidenceDemo from './pages/TrainingEvidenceDemo.jsx';
 import StudentProfileDemo from './pages/StudentProfileDemo.jsx';
 import RealAIDiagnosisDemo from './pages/RealAIDiagnosisDemo.jsx';
+import PersonalizedNextTaskDemo from './pages/PersonalizedNextTaskDemo.jsx';
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/training-evidence-demo" element={<TrainingEvidenceDemo />} />
         <Route path="/student-profile-demo" element={<StudentProfileDemo />} />
         <Route path="/real-ai-diagnosis-demo" element={<RealAIDiagnosisDemo />} />
+        <Route path="/personalized-next-task-demo" element={<PersonalizedNextTaskDemo />} />
       </Routes>
     </Layout>
   );

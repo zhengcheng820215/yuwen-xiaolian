@@ -210,6 +210,28 @@ async function mockRealAIDiagnosisLLM(_prompt: string, input: RealAIDiagnosisInp
     });
   }
 
+  if (mainAbility === '表达') {
+    return JSON.stringify({
+      taskType: 'open_response',
+      correct: false,
+      strategyUsed: 'phase4_2_dry_run_metadata_based',
+      answerStatus: 'partially_meets',
+      scoreBand: 'medium',
+      mainAbility: '表达',
+      relatedAbilities: ['理解', '表达', '文本依据组织'],
+      surfaceError: '学生答案有基本观点，但缺少结合文本内容的理由说明。',
+      rootCause: '学生能够表达观点，但尚未形成“观点 + 文本依据 + 解释说明”的完整表达结构。',
+      errorType: '表达错误',
+      abilityEvidence: [
+        `题目被识别为「${questionType || '表达'}」任务，主要观察表达能力。`,
+        '学生答案只给出简短观点或态度，缺少文本依据和展开说明。',
+      ],
+      diagnosisSummary: '本次 dry-run 诊断表明，学生能表达基本观点，但表达内容支撑不足。',
+      nextTraining: '进入观点表达训练，重点练习“观点 -> 文本依据 -> 解释说明”的结构化表达。',
+      confidence: 0.7,
+    });
+  }
+
   return JSON.stringify({
     taskType: 'open_response',
     correct: false,

@@ -9,6 +9,8 @@
     "debug:training-evidence": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runTrainingEvidenceDebug.ts",
     "debug:student-profile": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runStudentAbilityProfileDebug.ts",
     "debug:real-ai-diagnosis": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runRealAIDiagnosisDebug.ts",
+    "debug:live-ai-evaluation": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runLiveAIDiagnosisEvaluation.ts",
+    "debug:personalized-next-task": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPersonalizedNextTaskDebug.ts",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

@@ -30,7 +30,12 @@ const phaseSteps = [
   {
     title: '真实诊断 Runtime',
     desc: '验证 Prompt Builder 到 Student Ability Profile 的 Phase 4.2 链路。',
-    status: 'Phase 4.2 验收中',
+    status: 'Phase 4.3 通过',
+  },
+  {
+    title: '个性化下一步任务',
+    desc: '基于学生画像和 Top Weakness 生成下一次训练任务，并回流画像。',
+    status: 'Phase 5.1 Demo',
   },
 ];
 
@@ -82,6 +87,12 @@ export default function Home() {
           title="真实 AI 诊断 Demo"
           desc="验收真实题目如何进入 Prompt、诊断、Evidence 和学生画像。"
           action="运行链路"
+        />
+        <PrimaryAction
+          to="/personalized-next-task-demo"
+          title="个性化下一步任务 Demo"
+          desc="查看学生画像如何驱动下一题，并在作答后回流诊断与画像。"
+          action="体验闭环"
         />
       </section>
 

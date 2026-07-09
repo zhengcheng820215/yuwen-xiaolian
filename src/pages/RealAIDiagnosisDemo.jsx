@@ -36,6 +36,9 @@ export default function RealAIDiagnosisDemo() {
   const [referenceAnswer, setReferenceAnswer] = useState(initialReferenceAnswer);
   const [studentAnswer, setStudentAnswer] = useState(initialStudentAnswer);
   const [targetAbility, setTargetAbility] = useState('理解');
+  const [runMode, setRunMode] = useState('dry_run');
+  const [deepSeekApiKey, setDeepSeekApiKey] = useState('');
+  const [deepSeekModel, setDeepSeekModel] = useState('deepseek-v4-flash');
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [running, setRunning] = useState(false);
@@ -45,7 +48,11 @@ export default function RealAIDiagnosisDemo() {
     setError('');
 
     try {
-      const loopResult = await runRealAIDiagnosisLoop({
+      if (runMode === 'deepseek' && !deepSeekApiKey.trim()) {
+        throw new Error('请先输入 DeepSeek API Key，或切换为 Dry Run。');
+      }
+
+      const loopInput = {
         studentId: 'demo-student',
         question,
         referenceAnswer,
@@ -54,7 +61,14 @@ export default function RealAIDiagnosisDemo() {
         taskId: 'phase42-demo-task',
         diagnosisId: `phase42-demo-${Date.now()}`,
         createdAt: new Date().toISOString(),
-      });
+      };
+      const loopResult = runMode === 'deepseek'
+        ? await runRealAIDiagnosisLoop(loopInput, buildDeepSeekDemoCaller({
+          apiKey: deepSeekApiKey.trim(),
+          model: deepSeekModel.trim() || 'deepseek-v4-flash',
+        }))
+        : await runRealAIDiagnosisLoop(loopInput);
+
       setResult(loopResult);
     } catch (diagnosisError) {
       setError(diagnosisError instanceof Error ? diagnosisError.message : 'Phase 4.2 Demo 运行失败。');
@@ -81,15 +95,36 @@ export default function RealAIDiagnosisDemo() {
             <div>
               <h2 className="text-base font-semibold text-slate-950">输入区</h2>
               <p className="mt-1 text-sm leading-6 text-slate-600">
-                当前页面用于验收 Phase 4.2 运行链路，默认使用干运行模拟 AI。
+                当前页面用于验收 Phase 4.2 / 4.3 运行链路，可在 Dry Run 与 DeepSeek 真实 AI 之间切换。
               </p>
             </div>
             <span className="rounded-md bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700">
-              {result?.usedLiveAI ? '真实 AI' : '干运行'}
+              {runMode === 'deepseek' ? '真实 AI：DeepSeek' : 'Dry Run'}
             </span>
           </div>
 
           <div className="mt-4 grid gap-3">
+            <RunModeSwitch value={runMode} onChange={setRunMode} />
+            {runMode === 'deepseek' ? (
+              <div className="grid gap-3 rounded-md border border-blue-100 bg-blue-50 p-3">
+                <TextInput
+                  label="DeepSeek API Key（仅当前页面内存使用，不写入代码）"
+                  value={deepSeekApiKey}
+                  onChange={setDeepSeekApiKey}
+                  type="password"
+                  placeholder="sk-..."
+                />
+                <TextInput
+                  label="DeepSeek 模型"
+                  value={deepSeekModel}
+                  onChange={setDeepSeekModel}
+                  placeholder="deepseek-v4-flash"
+                />
+                <p className="text-xs leading-5 text-slate-600">
+                  真实 AI 模式会通过本地 Vite Demo 中转接口调用 DeepSeek。修改过 Vite 配置后，请重启 dev server 再测试。
+                </p>
+              </div>
+            ) : null}
             <TextArea label="题目" value={question} onChange={setQuestion} rows={4} />
             <TextArea label="参考答案 / 评分要点" value={referenceAnswer} onChange={setReferenceAnswer} rows={4} />
             <TextArea label="学生答案" value={studentAnswer} onChange={setStudentAnswer} rows={4} />
@@ -107,7 +142,7 @@ export default function RealAIDiagnosisDemo() {
             disabled={running}
             className="mt-4 w-full rounded-md bg-blue-600 px-4 py-3 text-base font-semibold text-white disabled:bg-slate-400"
           >
-            {running ? '运行中...' : '运行阶段 4.2 链路'}
+            {running ? '运行中...' : runMode === 'deepseek' ? '运行真实 AI 诊断链路' : '运行 Dry Run 链路'}
           </button>
 
           {error ? (
@@ -230,16 +265,51 @@ function TextArea({ label, value, onChange, rows }) {
   );
 }
 
-function TextInput({ label, value, onChange }) {
+function TextInput({ label, value, onChange, type = 'text', placeholder = '' }) {
   return (
     <label className="block text-sm">
       <span className="font-semibold text-slate-700">{label}</span>
       <input
+        type={type}
         value={value}
+        placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className="mt-2 w-full rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-950 outline-none focus:border-blue-500"
       />
     </label>
+  );
+}
+
+function RunModeSwitch({ value, onChange }) {
+  const options = [
+    { value: 'dry_run', label: 'Dry Run', description: '本地模拟 AI，适合验证链路结构。' },
+    { value: 'deepseek', label: '真实 AI', description: '调用 DeepSeek，适合验证真实诊断质量。' },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-2 rounded-md bg-slate-100 p-1">
+      {options.map((option) => {
+        const selected = value === option.value;
+
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            className={`rounded-md px-3 py-2 text-left text-sm transition ${
+              selected
+                ? 'bg-white font-semibold text-blue-700 shadow-sm'
+                : 'text-slate-600'
+            }`}
+          >
+            <span className="block">{option.label}</span>
+            <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">
+              {option.description}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -394,4 +464,32 @@ function formatAbilityStatus(value) {
     insufficient_evidence: '证据不足',
   };
   return labels[value] || value || '未知';
+}
+
+function buildDeepSeekDemoCaller({ apiKey, model }) {
+  return async (prompt) => {
+    const response = await fetch('/__demo/deepseek-chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        apiKey,
+        model,
+        prompt,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(payload.error || `DeepSeek Demo 调用失败：${response.status}`);
+    }
+
+    if (!payload.content) {
+      throw new Error('DeepSeek 返回内容为空。');
+    }
+
+    return payload.content;
+  };
 }
