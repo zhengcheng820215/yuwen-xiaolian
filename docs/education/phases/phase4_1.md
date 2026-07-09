@@ -164,14 +164,49 @@ Phase 3 中推理能力已经产生 training / retest growth evidence，因此 P
 - 不做完整学生系统。
 - 不做长期成长曲线。
 - 不证明学生长期能力已经稳定提升。
+- 本阶段验证的是 `Evidence -> Student Ability Profile` 的画像生成闭环。
+- 本阶段不验证 Evidence 是否来自真实 AI 诊断。
+- 本阶段默认 Evidence 可以来自 mock、debug、training 或 retest 流程，只要符合 Ability Evidence Schema 即可被画像模块消费。
+- 真实 AI 诊断生成的 Evidence 可信度验证属于 Phase 4.2。
+
+## 与 Phase 4.2 的衔接
+
+当前 `AbilityEvidence` Schema 已支持 Phase 4.2 的真实 AI 诊断证据输入：
+
+```ts
+{
+  source: 'diagnosis',
+  evidenceType: 'weakness' | 'positive' | 'growth' | 'insufficient',
+  ability: string,
+  observation: string,
+  rootCause?: string,
+  confidence: number,
+  taskId?: string,
+  diagnosisId?: string
+}
+```
+
+因此 Phase 4.2 不需要重构 Student Ability Profile。Phase 4.2 只需要验证：
+
+```text
+Real AI Diagnosis Result
+-> Ability Evidence
+-> Student Ability Profile
+```
+
+是否能够在真实题目和学生答案下稳定运行。
 
 ## 下一阶段建议
 
 Phase 4.2：
 
 ```text
-Student Ability Profile
--> Personalized Next Task
+真实题目 + 学生答案
+-> Prompt Builder
+-> Real AI Diagnosis
+-> Diagnosis Result
+-> Ability Evidence
+-> Student Ability Profile
 ```
 
-也就是基于当前画像，生成下一步个性化训练任务。
+也就是验证真实 AI 是否能够生成可解释、可结构化、可沉淀为 Evidence 的诊断结果。

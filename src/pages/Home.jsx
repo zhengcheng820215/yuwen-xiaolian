@@ -27,6 +27,11 @@ const phaseSteps = [
     desc: '基于累计证据生成当前能力状态和下一步建议。',
     status: 'Phase 4.1 通过',
   },
+  {
+    title: '真实诊断 Runtime',
+    desc: '验证 Prompt Builder 到 Student Ability Profile 的 Phase 4.2 链路。',
+    status: 'Phase 4.2 验收中',
+  },
 ];
 
 const frozenItems = [
@@ -71,6 +76,12 @@ export default function Home() {
           title="学生画像 Demo"
           desc="查看累计证据如何生成当前能力状态和下一步建议。"
           action="查看画像"
+        />
+        <PrimaryAction
+          to="/real-ai-diagnosis-demo"
+          title="真实 AI 诊断 Demo"
+          desc="验收真实题目如何进入 Prompt、诊断、Evidence 和学生画像。"
+          action="运行链路"
         />
       </section>
 

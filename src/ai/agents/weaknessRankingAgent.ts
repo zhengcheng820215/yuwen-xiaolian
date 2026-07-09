@@ -56,7 +56,14 @@ export function summarizeAbilityEvidence(evidenceList: AbilityEvidence[]): Abili
 }
 
 export function rankWeaknesses(evidenceList: AbilityEvidence[], limit = 3): WeaknessRankingItem[] {
-  return summarizeAbilityEvidence(evidenceList)
+  return rankWeaknessSummaries(summarizeAbilityEvidence(evidenceList), limit);
+}
+
+export function rankWeaknessSummaries(
+  summaries: AbilityEvidenceSummary[],
+  limit = 3,
+): WeaknessRankingItem[] {
+  return summaries
     .filter((summary) => summary.weaknessCount > 0)
     .map((summary) => {
       const priority = calculatePriority(summary);
