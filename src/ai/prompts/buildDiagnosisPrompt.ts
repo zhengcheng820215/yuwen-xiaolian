@@ -4,12 +4,6 @@ const EDUCATION_MODEL_REFERENCES = [
   'docs/education/ABILITY_MODEL.md',
   'docs/education/DIAGNOSIS_MODEL.md',
   'docs/education/QUESTION_MODEL.md',
-  'education-system/ABILITY_MODEL.md',
-  'education-system/DIAGNOSIS_MODEL.md',
-  'education-system/QUESTION_MODEL.md',
-  'education/ABILITY_MODEL.md',
-  'education/DIAGNOSIS_MODEL.md',
-  'education/QUESTION_MODEL.md',
 ];
 
 const ABILITY_MODEL_EXCERPT = `
@@ -61,6 +55,14 @@ ${QUESTION_MODEL_EXCERPT}
 
 JSON 字段必须严格为：
 {
+  "taskType": "exact_match" | "open_response" | "process_task",
+  "correct": boolean | null,
+  "strategyUsed": string,
+  "answerStatus": "fully_meets" | "partially_meets" | "does_not_meet" | "insufficient_evidence",
+  "scoreBand": "high" | "medium" | "low" | "invalid",
+  "rubricItems": OpenResponseRubricItem[],
+  "matchedRubricItems": string[],
+  "missingRubricItems": string[],
   "mainAbility": string,
   "relatedAbilities": string[],
   "surfaceError": string,

@@ -6,16 +6,22 @@
 
 本文档不是产品模型文档，也不是 Prompt 文档，而是运行层协议文档。
 
-当前系统已经存在：
+当前系统已经形成的 Runtime 模块包括：
 
-- Diagnosis Agent
-- Training Agent
+- Question Metadata Agent
+- Diagnosis Agent / Real AI Diagnosis Runtime
+- Ability Evidence Extractor
+- Weakness Ranking Agent
+- Training Plan Agent
+- Training Evaluation / Retest Evidence Runtime
+- Student Ability Profile Agent
+- Personalized Next Task Agent
 
-后续还会继续增加：
+后续仍可继续增加：
 
-- Evaluation Agent
 - Coach Agent
-- Profile Agent
+- Long-term Evaluation Agent
+- Growth Report Agent
 
 为了避免不同 Agent 之间职责重复、数据结构混乱、上游结论被下游重新判断，系统必须建立统一的 Agent Protocol。
 
@@ -66,7 +72,7 @@ Runtime Agent 的职责是：
 
 一个 Agent 只完成一个阶段的任务。
 
-例如，Diagnosis Agent 只负责能力诊断，不负责制定详细训练计划；Training Agent 只负责生成训练方案，不重新判断学生错因。
+例如，Diagnosis Agent 只负责能力诊断，不负责制定阶段训练计划；Training Plan Agent 只负责把 Top Weakness / Evidence Summary 转化为训练计划，不重新判断学生错因。
 
 ### 2. JSON 协作原则
 
@@ -80,13 +86,13 @@ Agent 之间不能依赖自然语言描述来传递核心业务结论。
 
 下游 Agent 不能重新判断上游 Agent 已经完成的业务结论。
 
-例如，Training Agent 不能重新判断学生的 rootCause、mainAbility 或 errorType。
+例如，Training Plan Agent 不能重新判断学生的 rootCause、mainAbility 或 errorType。
 
 ### 4. 不修改上游结论原则
 
 下游 Agent 不能修改上游 Agent 的核心结论。
 
-例如，Training Agent 不能修改 Diagnosis Result 中的 rootCause、mainAbility、surfaceError、abilityEvidence 等字段。
+例如，Training Plan Agent 不能修改 Diagnosis Result 中的 rootCause、mainAbility、surfaceError、abilityEvidence 等字段。
 
 如果下游 Agent 发现上游结论缺失或不可信，应返回 warning 或 failed 状态，而不是直接覆盖上游结论。
 
@@ -94,7 +100,7 @@ Agent 之间不能依赖自然语言描述来传递核心业务结论。
 
 下游 Agent 可以基于上游结果生成新的 Runtime Result，但不能覆盖上游结果。
 
-例如，Training Agent 可以基于 Diagnosis Result 生成 Training Plan，但不能改写 Diagnosis Result。
+例如，Ability Evidence Extractor 可以基于 Diagnosis Result 生成 Ability Evidence，Training Plan Agent 可以基于 Top Weakness 生成 Training Plan，但都不能改写 Diagnosis Result。
 
 ### 6. 可追溯原则
 
@@ -112,24 +118,36 @@ Agent 的调用方不应关心底层使用 mockLLM 还是真实 LLM。
 
 ## 三、Agent Pipeline
 
-当前和未来的 Agent Pipeline 如下：
+当前主线 Runtime Pipeline 如下：
 
 ```text
 Question / Student Answer
+↓
+Question Metadata Agent
 ↓
 Diagnosis Agent
 ↓
 Diagnosis Result JSON
 ↓
-Training Agent
+Ability Evidence Extractor
+↓
+Ability Evidence JSON
+↓
+Weakness Ranking Agent
+↓
+Top Weakness JSON
+↓
+Training Plan Agent
 ↓
 Training Plan JSON
 ↓
-Evaluation Agent
+Training Evaluation / Retest Evidence Runtime
 ↓
-Evaluation Result JSON
+Training Evidence / Retest Evidence JSON
 ↓
 Student Ability Profile
+↓
+Personalized Next Task
 ```
 
 每个阶段的输出都是下一个阶段的输入。
@@ -275,33 +293,66 @@ Diagnosis Agent 不负责：
 - 更新完整学生画像
 - 生成面向学生的长期陪练话术
 
-### Training Agent
+### Ability Evidence Extractor
 
-Training Agent 负责：
+Ability Evidence Extractor 负责：
 
-- 根据 Diagnosis Result 生成训练目标
+- 根据 Diagnosis Result 生成 Ability Evidence
+- 区分 `positive`、`weakness`、`growth`、`insufficient`
+- 保留 observation、rootCause、confidence 和 source
+- 为 Weakness Ranking 和 Student Ability Profile 提供可累计证据
+
+Ability Evidence Extractor 不负责：
+
+- 重新判断题目答案质量
+- 修改 Diagnosis Result
+- 生成训练计划
+- 判断长期能力状态
+
+### Weakness Ranking Agent
+
+Weakness Ranking Agent 负责：
+
+- 基于 Ability Evidence Summary 生成 Top Weakness
+- 汇总 weakness / positive / growth / insufficient 数量
+- 输出 reasons 和 suggestedTrainingFocus
+- 为 Training Plan Agent 提供优先训练能力
+
+Weakness Ranking Agent 不负责：
+
+- 生成具体训练任务
+- 判断长期能力等级
+- 修改原始 Ability Evidence
+
+### Training Plan Agent
+
+Training Plan Agent 负责：
+
+- 根据 Top Weakness / Ability Evidence Summary 生成训练目标
 - 生成训练策略
-- 生成训练步骤
-- 生成练习任务建议
+- 生成阶段训练计划
+- 生成每日训练任务建议
 - 生成完成标准
+- 保留 evidence_links
 
-Training Agent 不负责：
+Training Plan Agent 不负责：
 
 - 重新判断错因
 - 修改 Diagnosis Result
 - 判断训练后能力是否提升
 - 更新完整学生画像
 
-### Evaluation Agent
+### Training Evaluation / Retest Evidence Runtime
 
-Evaluation Agent 负责：
+Training Evaluation / Retest Evidence Runtime 负责：
 
 - 判断训练后能力是否提升
-- 判断能力是否保持、迁移或退化
-- 生成 Evaluation Result
+- 生成 Training Evidence
+- 生成 Retest Evidence
+- 判断是否出现改善迹象
 - 为 Profile Agent 提供评估证据
 
-Evaluation Agent 不负责：
+Training Evaluation / Retest Evidence Runtime 不负责：
 
 - 重新诊断原始答案
 - 重新制定训练计划
@@ -342,11 +393,15 @@ Profile Agent 不负责：
 
 | Agent | 输入 | 输出 | 下游 |
 | --- | --- | --- | --- |
-| Diagnosis Agent | question, referenceAnswer, studentAnswer | DiagnosisResult | Training Agent |
-| Training Agent | DiagnosisResult, question, studentAnswer | TrainingPlan | Evaluation Agent |
-| Evaluation Agent | TrainingResult / RetestResult | EvaluationResult | Profile Agent |
+| Question Metadata Agent | question | QuestionMetadata | Diagnosis Agent |
+| Diagnosis Agent | question, referenceAnswer, studentAnswer, metadata | DiagnosisResult | Ability Evidence Extractor |
+| Ability Evidence Extractor | DiagnosisResult | AbilityEvidence | Weakness Ranking Agent / Profile Agent |
+| Weakness Ranking Agent | AbilityEvidence[] | TopWeakness | Training Plan Agent |
+| Training Plan Agent | TopWeakness, EvidenceSummary | TrainingPlan | Training Evaluation / Retest Evidence Runtime |
+| Training Evaluation / Retest Evidence Runtime | TrainingPlan, studentAnswer, retestAnswer | TrainingEvidence / RetestEvidence | Profile Agent |
 | Coach Agent | 当前阶段数据 | CoachMessage | 前端 |
-| Profile Agent | Diagnosis / Training / Evaluation Result | StudentAbilityProfile | 前端 |
+| Profile Agent | AbilityEvidence[] | StudentAbilityProfile | Personalized Next Task Agent / 前端 |
+| Personalized Next Task Agent | StudentAbilityProfile, TopWeakness, EvidenceSummary | PersonalizedNextTask | Diagnosis Agent |
 
 所有输入输出都应为结构化 JSON。
 
@@ -382,7 +437,7 @@ export type AgentWarning = {
 ```json
 {
   "code": "MISSING_DIAGNOSIS_RESULT",
-  "message": "Training Agent 缺少 diagnosisResult，无法生成训练方案。",
+  "message": "Ability Evidence Extractor 缺少 diagnosisResult，无法生成能力证据。",
   "recoverable": true,
   "details": {}
 }
@@ -393,8 +448,8 @@ export type AgentWarning = {
 | code | 说明 |
 | --- | --- |
 | INVALID_INPUT | 输入结构不符合 AgentRequest 要求 |
-| MISSING_DIAGNOSIS_RESULT | Training Agent 缺少 Diagnosis Result |
-| MISSING_TRAINING_RESULT | Evaluation Agent 缺少 Training Result |
+| MISSING_DIAGNOSIS_RESULT | Ability Evidence Extractor 缺少 Diagnosis Result |
+| MISSING_TRAINING_PLAN | Training Evaluation / Retest Evidence Runtime 缺少 Training Plan |
 | UPSTREAM_RESULT_UNTRUSTED | 上游结果置信度过低，需要人工或额外证据确认 |
 | LLM_RESPONSE_PARSE_FAILED | LLM 输出无法解析为目标 JSON |
 | AGENT_VERSION_UNSUPPORTED | 当前 Agent 不支持上游结果版本 |

@@ -458,6 +458,16 @@ AI 必须寻找 Root Cause，而不是停留在 Surface Error。
 | 薄弱证据 | 支撑某项能力存在不足或不稳定的表现 |
 | 待验证证据 | 单次或少量表现形成的线索，需要后续复测确认 |
 
+说明：
+
+本节使用的是长期诊断模型中的中文概念分类。当前工程最小实现中的 Ability Evidence 枚举以 `ABILITY_EVIDENCE_CONTRACT.md` 为准：
+
+```text
+positive / weakness / growth / insufficient
+```
+
+其中“待验证证据”在当前最小实现中通常对应 `insufficient` 或低置信度 evidence，不应直接作为能力薄弱结论。
+
 能力证据应包含以下信息：
 
 | 字段 | 说明 |

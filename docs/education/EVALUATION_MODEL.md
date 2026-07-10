@@ -299,6 +299,16 @@ AI 形成评估依据时，应综合多种证据来源：
 | 衰退证据 | 支持能力状态下降或不稳定的表现 |
 | 待验证证据 | 单次或少量表现形成的线索，需要后续确认 |
 
+说明：
+
+本节描述长期评估模型中的证据语义。当前工程最小 Ability Evidence 枚举暂以 `ABILITY_EVIDENCE_CONTRACT.md` 为准：
+
+```text
+positive / weakness / growth / insufficient
+```
+
+长期模型中的稳定证据、迁移证据、衰退证据暂不作为独立枚举落地，可先通过 `observation`、`source`、`rootCause` 和后续 Profile / Evaluation 聚合逻辑表达。
+
 能力证据应满足：
 
 - 可追溯：能够回到具体作答、训练、修正或复测表现

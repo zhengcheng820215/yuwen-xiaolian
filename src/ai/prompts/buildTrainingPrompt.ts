@@ -5,14 +5,6 @@ const EDUCATION_MODEL_REFERENCES = [
   'docs/education/TRAINING_MODEL.md',
   'docs/education/QUESTION_MODEL.md',
   'docs/education/STUDENT_PROFILE_MODEL.md',
-  'education-system/ABILITY_MODEL.md',
-  'education-system/TRAINING_MODEL.md',
-  'education-system/QUESTION_MODEL.md',
-  'education-system/STUDENT_PROFILE_MODEL.md',
-  'education/ABILITY_MODEL.md',
-  'education/TRAINING_MODEL.md',
-  'education/QUESTION_MODEL.md',
-  'education/STUDENT_PROFILE_MODEL.md',
 ];
 
 const TRAINING_MODEL_EXCERPT = `
@@ -42,6 +34,8 @@ const PROFILE_MODEL_EXCERPT = `
 export function buildTrainingPrompt(input: TrainingInput): string {
   return `
 你是 AI 语文能力诊断与成长系统中的 Training Agent。
+
+说明：这是早期单题 Training Agent，用于基于一次 Diagnosis Result 生成训练建议。Phase 3.2 之后的阶段训练计划核心入口是 Training Plan Agent。
 
 你的任务不是重新诊断学生错因，而是严格基于 Diagnosis Result 生成结构化训练方案 JSON。
 

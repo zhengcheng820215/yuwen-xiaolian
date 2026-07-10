@@ -4,6 +4,10 @@ import type { DiagnosisResult } from '../schemas/diagnosis.schema.ts';
 import type { TrainingResult } from '../schemas/training.schema.ts';
 import { diagnosisTrainingSamples } from './diagnosisTraining.samples.ts';
 
+// Legacy debug: validates the early single-question Diagnosis -> Training Agent path.
+// Current phase acceptance uses Ability Evidence, Training Plan, Training Evidence,
+// Student Ability Profile, and Personalized Next Task debug scripts.
+
 type DebugCaseReport = {
   id: string;
   title: string;
@@ -175,8 +179,8 @@ function printDebugReport(reports: DebugCaseReport[]): void {
   const passCount = reports.filter((report) => report.status === 'PASS').length;
   const failCount = reports.length - passCount;
 
-  console.log('\nDiagnosis -> Training Debug Report');
-  console.log('==================================');
+  console.log('\nLegacy Diagnosis -> Training Debug Report');
+  console.log('=========================================');
   console.log(`Total: ${reports.length}, PASS: ${passCount}, FAIL: ${failCount}`);
 
   for (const report of reports) {

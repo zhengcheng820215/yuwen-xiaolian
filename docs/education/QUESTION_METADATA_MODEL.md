@@ -13,7 +13,7 @@
 - `QUESTION_MODEL.md`：定义题目是能力成长载体
 - `DIAGNOSIS_MODEL.md`：定义能力诊断原则
 - `TRAINING_MODEL.md`：定义能力训练机制
-- `OPEN_RESPONSE_DIAGNOSIS_RULES.md`：定义开放题 Runtime 诊断规则
+- `DIAGNOSIS_MODEL.md` 与 Phase 4.2 文档：定义开放题 Runtime 诊断原则与真实 AI Runtime 链路
 - Diagnosis Agent
 - Diagnosis Router
 
@@ -32,6 +32,12 @@
 核心原则：
 
 > 题目元数据不是题目内容本身，而是 AI 理解题目、选择诊断策略、生成能力证据的运行依据。
+
+当前 Runtime 说明：
+
+> 当前 Question Metadata 主要服务于 Diagnosis、Evidence 和 Task Matching。
+> 早期 Training Agent 相关字段属于 Legacy 设计，不作为当前训练 Runtime 核心入口。
+> 当前训练流程由 Training Plan Agent 和 Personalized Next Task Agent 负责。
 
 ## 一、模型目标
 
@@ -60,7 +66,7 @@
 - 标注具体题目的诊断方式
 - 提供具体题目的 rubric
 - 提供常见错误与训练方向
-- 为 Diagnosis Agent、Training Agent 和 Evaluation Agent 提供结构化输入
+- 为 Diagnosis Agent、Ability Evidence Extractor、Training Plan Agent 和 Personalized Next Task Agent 提供结构化输入
 
 ## 二、Question Metadata 数据结构
 

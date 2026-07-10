@@ -1,4 +1,4 @@
-# Phase 5.1 Acceptance Report
+﻿# Phase 5.1 Acceptance Report
 
 ## 验收对象
 
@@ -41,7 +41,7 @@ src/pages/Home.jsx
 新增命令：
 
 ```bash
-npm run debug:personalized-next-task
+pnpm run debug:personalized-next-task
 ```
 
 ## Debug 验收结果
@@ -228,3 +228,4 @@ Personalized Next Task
 - 将 Phase 5.1 Demo 升级为正式学习入口。
 - 升级为 `Student Ability Profile + Evidence Summary -> AI Task Generator -> Personalized Next Task`。
 - 继续验证任务质量与训练有效性。
+

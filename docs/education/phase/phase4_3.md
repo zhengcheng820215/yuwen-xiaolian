@@ -1,4 +1,4 @@
-# Phase 4.3：Live AI Diagnosis Quality Evaluation
+﻿# Phase 4.3：Live AI Diagnosis Quality Evaluation
 
 ## 阶段背景
 
@@ -143,7 +143,7 @@ Phase 4.3 的质量通过标准：
 Live AI 质量评估命令：
 
 ```bash
-npm run debug:live-ai-evaluation
+pnpm run debug:live-ai-evaluation
 ```
 
 运行 Live AI 评估前需要配置：
@@ -171,8 +171,8 @@ https://api.deepseek.com/chat/completions
 
 本地结构检查可以使用：
 
-```bash
-LIVE_AI_EVALUATION_DRY_RUN=true npm run debug:live-ai-evaluation
+```powershell
+$env:LIVE_AI_EVALUATION_DRY_RUN='true'; pnpm run debug:live-ai-evaluation
 ```
 
 Dry Run 仅用于验证评估脚本结构，不代表真实 AI 质量。
@@ -215,7 +215,7 @@ Phase 4.3 的目标不是证明 AI 已经足够好。
 - mainAbility miss 样例已支持输出能力错配分析。
 - rootCause 不可接受样例已支持输出 rootCause 问题分析。
 - Dry Run 结构检查可重复运行。
-- `npm run build` 已通过。
+- `pnpm run build` 已通过。
 
 Dry Run 结构检查结果：
 
@@ -278,11 +278,15 @@ allowNextPhase: true
 - `live_expression_001`：rootCause 可转化为训练任务，可接受。
 - `live_expression_002`：actual answerStatus=`does_not_meet` 更合理，已修正样例预期。
 
-Phase 4.3 Acceptance Report：
+## 验收报告
+
+本阶段详细验收结果独立记录在：
 
 ```text
-docs/education/phases/phase4_3_acceptance_report.md
+docs/education/phase/phase4_3_acceptance_report.md
 ```
+
+阶段文档仅保留验收摘要；样例级结果、人工复核备注和完整 Acceptance Summary 以 report 为准。
 
 最终结论：
 
@@ -298,3 +302,4 @@ allowNextPhase = true。
 - 不扩大样例集。
 - 不进入 Phase 5.1 代码开发。
 - 不重构 Phase 4.2 Runtime 主链路。
+

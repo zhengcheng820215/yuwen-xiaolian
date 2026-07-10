@@ -1,4 +1,4 @@
-# Phase 4.2：Real AI Diagnosis / Evidence 最小闭环
+﻿# Phase 4.2：Real AI Diagnosis / Evidence 最小闭环
 
 ## 阶段目标
 
@@ -243,8 +243,8 @@ Phase 4.2 不证明：
 验证命令：
 
 ```bash
-npm run debug:real-ai-diagnosis
-npm run build
+pnpm run debug:real-ai-diagnosis
+pnpm run build
 ```
 
 当前本地默认 Node 版本低于 Vite 要求，验证时使用 Codex bundled Node 执行构建。
@@ -267,3 +267,4 @@ Phase 4.2 是从规则 / mock 驱动 Runtime 走向真实 AI Runtime 的第一�
 真实 AI 输出
 是否能够稳定进入现有能力证据和学生画像体系。
 ```
+

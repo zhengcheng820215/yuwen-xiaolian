@@ -1,4 +1,4 @@
-# Phase 5.1：Personalized Next Task 最小闭环
+﻿# Phase 5.1：Personalized Next Task 最小闭环
 
 ## 阶段背景
 
@@ -137,12 +137,6 @@ src/ai/tests/runPersonalizedNextTaskDebug.ts
 ## 新增命令
 
 建议新增：
-
-```bash
-npm run debug:personalized-next-task
-```
-
-如后续使用 pnpm，也可兼容：
 
 ```bash
 pnpm run debug:personalized-next-task
@@ -291,7 +285,7 @@ Student Ability Profile
 Debug 命令：
 
 ```bash
-npm run debug:personalized-next-task
+pnpm run debug:personalized-next-task
 ```
 
 Debug 验收结果：
@@ -334,11 +328,15 @@ Demo 验收结论：
 结果：answerStatus=partially_meets，诊断反馈发生变化。
 ```
 
-Phase 5.1 Acceptance Report：
+## 验收报告
+
+本阶段详细验收结果独立记录在：
 
 ```text
-docs/education/phases/phase5_1_acceptance_report.md
+docs/education/phase/phase5_1_acceptance_report.md
 ```
+
+阶段文档仅保留验收摘要；完整 Debug 链路、Demo 验收记录和冻结边界以 report 为准。
 
 最终结论：
 
@@ -358,3 +356,5 @@ allowNextPhase = true。
 - 不做长期成长报告。
 - 不修改 Diagnosis Result Schema。
 - 不重构 Phase 4.2 Runtime 主链路。
+
+

@@ -1,4 +1,4 @@
-# Phase 4.1：Student Ability Profile 最小版本
+﻿# Phase 4.1：Student Ability Profile 最小版本
 
 ## 阶段目标
 
@@ -210,3 +210,5 @@ Phase 4.2：
 ```
 
 也就是验证真实 AI 是否能够生成可解释、可结构化、可沉淀为 Evidence 的诊断结果。
+
+

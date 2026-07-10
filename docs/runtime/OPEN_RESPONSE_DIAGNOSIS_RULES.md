@@ -6,7 +6,7 @@
 
 本文档不是产品模型文档，不是 Prompt 文档，不是题库设计，也不是考试评分规则。
 
-本文档属于 Runtime Layer，用于指导 Diagnosis Agent 在处理开放式语文题时，如何判断答案质量、识别能力要点、生成能力证据，并为 Training Agent 提供可消费的结构化诊断结果。
+本文档属于 Runtime Layer，用于指导 Diagnosis Agent 在处理开放式语文题时，如何判断答案质量、识别能力要点、生成能力证据，并为 Ability Evidence Extractor、Training Plan Agent 和后续 Training Runtime 提供可消费的结构化诊断结果。
 
 本文档引用但不重新定义以下模型：
 
@@ -354,7 +354,7 @@ Rubric 匹配不要求学生答案与参考答案逐字一致。
 answerStatus: 'fully_meets'
 scoreBand: 'high'
 correct: true
-rootCause: null 或 '无补弱型 rootCause'
+rootCause: '本次答案已满足要求，暂无补弱型 rootCause'
 nextTraining: '进入下一题 / 提高难度 / 迁移验证 / 巩固训练'
 ```
 
@@ -391,7 +391,7 @@ export type OpenResponseDiagnosis = {
   matchedRubricItems: string[];
   missingRubricItems: string[];
   surfaceError: string;
-  rootCause: string | null;
+  rootCause: string;
   abilityEvidence: string[];
   diagnosisSummary: string;
   nextTraining: string;
@@ -399,11 +399,11 @@ export type OpenResponseDiagnosis = {
 };
 ```
 
-## 十二、与 Training Agent 的关系
+## 十二、与 Training Plan / Training Runtime 的关系
 
-Training Agent 不应重新判断开放题答案质量。
+Training Plan Agent / Training Runtime 不应重新判断开放题答案质量。
 
-Training Agent 只消费 Diagnosis Result 中的：
+Training Plan Agent / Training Runtime 只消费 Diagnosis Result 或由其生成的 Ability Evidence 中的：
 
 - `answerStatus`
 - `scoreBand`
@@ -415,16 +415,20 @@ Training Agent 只消费 Diagnosis Result 中的：
 
 当 `answerStatus='fully_meets'` 时：
 
-- Training Agent 不应生成补弱训练
+- Training Plan Agent / Training Runtime 不应生成补弱训练
 - 可生成提高难度、迁移验证或巩固训练方案
 
 当 `answerStatus='partially_meets'` 或 `does_not_meet` 时：
 
-- Training Agent 应基于 missingRubricItems 生成针对训练方案
+- Training Plan Agent / Training Runtime 应基于 missingRubricItems、rootCause 或 Top Weakness 生成针对训练方案
 
 当 `answerStatus='insufficient_evidence'` 时：
 
-- Training Agent 应优先建议补充作答或重新作答，而不是直接训练某个能力短板
+- Training Plan Agent / Training Runtime 应优先建议补充作答或重新作答，而不是直接训练某个能力短板
+
+说明：
+
+早期单题 `Training Agent` 只负责基于一次 Diagnosis Result 生成训练建议。Phase 3.2 之后的核心训练入口是 `Training Plan Agent`，它基于 Top Weakness / Ability Evidence Summary 生成阶段训练计划。
 
 ## 十三、与现有 Agent Protocol 的关系
 

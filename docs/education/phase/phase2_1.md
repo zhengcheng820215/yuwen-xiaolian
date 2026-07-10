@@ -1,4 +1,4 @@
-# Phase 2.1：Question Metadata Pattern Library v1
+﻿# Phase 2.1：Question Metadata Pattern Library v1
 
 当前状态：已完成基础链路建设，后续暂时冻结为底层能力维护，不作为 Phase 3 主线。
 
@@ -551,3 +551,5 @@ Training
 ```text
 Metadata Contract
 ```
+
+

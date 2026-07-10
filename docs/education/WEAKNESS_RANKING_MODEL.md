@@ -154,7 +154,7 @@ Phase 3.1 的 focus 可以是规则生成，不需要 LLM。
 
 ## 七、Debug 输出要求
 
-`npm run debug:ability-evidence` 应输出 Weakness Ranking。
+`pnpm run debug:ability-evidence` 应输出 Weakness Ranking。
 
 示例：
 

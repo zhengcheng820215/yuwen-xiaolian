@@ -143,17 +143,27 @@ Phase 开发应遵循以下顺序：
 Question Metadata Generator
 -> Metadata Validator
 -> Diagnosis Agent
--> Training Agent
+-> Ability Evidence Extractor
+-> Weakness Ranking Agent
+-> Training Plan Agent
+-> Training Evidence / Retest Evidence Runtime
+-> Student Ability Profile Agent
+-> Personalized Next Task Agent
 ```
 
-这些模块组合形成了第一条可运行的学习诊断链路：
+这些模块组合形成了当前可运行的学习成长链路：
 
 ```text
 Question
 -> Question Metadata
 -> Validator
 -> Diagnosis
--> Training
+-> Ability Evidence
+-> Top Weakness
+-> Training Plan
+-> Training Evidence / Retest Evidence
+-> Student Ability Profile
+-> Personalized Next Task
 ```
 
 后续新增能力也应遵循同样原则。

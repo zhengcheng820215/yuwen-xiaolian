@@ -1,4 +1,4 @@
-# Phase 2.2：Question Metadata 验收与冻结记录
+﻿# Phase 2.2：Question Metadata 验收与冻结记录
 
 ## 阶段定位
 
@@ -165,3 +165,5 @@ Phase 3 的核心不再是题目元数据本身，而是：
 - 不做长期成长曲线。
 
 这些能力由 Phase 3.1、Phase 3.2、Phase 3.3 承担。
+
+

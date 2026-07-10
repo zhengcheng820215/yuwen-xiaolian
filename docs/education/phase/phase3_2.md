@@ -1,4 +1,4 @@
-# Phase 3.2：阶段训练计划生成
+﻿# Phase 3.2：阶段训练计划生成
 
 ## 阶段目标
 
@@ -76,6 +76,25 @@ PASS
 - 每一天都有 `reason_from_evidence` 和 `evidence_links`。
 - build 通过。
 
+## Demo 状态
+
+当前 Phase 3.2 已接入最小 Demo 演示页：
+
+```text
+/#/training-plan-demo
+```
+
+Demo 页面用于展示：
+
+- 当前 Top Weakness。
+- 3 天阶段训练计划。
+- 每天的 `reason_from_evidence`。
+- 每天的 `success_criteria`。
+- 与 Phase 3.1 evidence 的关联。
+- Stable JSON 输出。
+
+该 Demo 仅用于阶段验收，不代表正式训练产品 UI。
+
 ## 本阶段不包含
 
 - 不接入真实题库。
@@ -89,3 +108,5 @@ PASS
 进入 Phase 3.3：
 
 让学生按训练计划完成一天训练，并产生新的 training evidence / retest evidence。
+
+
