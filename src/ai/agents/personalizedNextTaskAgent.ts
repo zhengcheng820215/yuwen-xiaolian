@@ -55,9 +55,7 @@ function buildLinkedEvidence(
       return right.confidence - left.confidence;
     });
 
-  const selected = sameAbilityEvidence.length > 0 ? sameAbilityEvidence : updatedEvidence.slice(0, 2);
-
-  return selected.slice(0, 3).map((evidence) => ({
+  return sameAbilityEvidence.slice(0, 3).map((evidence) => ({
     evidence_id: evidence.id,
     ability: evidence.ability,
     evidence_type: evidence.evidenceType,

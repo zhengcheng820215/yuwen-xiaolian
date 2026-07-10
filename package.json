@@ -11,6 +11,10 @@
     "debug:real-ai-diagnosis": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runRealAIDiagnosisDebug.ts",
     "debug:live-ai-evaluation": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runLiveAIDiagnosisEvaluation.ts",
     "debug:personalized-next-task": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPersonalizedNextTaskDebug.ts",
+    "debug:personalized-task-execution": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPersonalizedTaskExecutionDebug.ts",
+    "debug:learning-session": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runLearningSessionDebug.ts",
+    "debug:retest-task": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runRetestTaskDebug.ts",
+    "debug:retest-execution": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runRetestExecutionDebug.ts",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

@@ -124,6 +124,22 @@ src/ai/tests/liveAIDiagnosis.samples.ts
 
 `rootCause` 是否真正合理、是否符合语文学习诊断预期，仍需要人工复核。
 
+## Live AI Diagnosis Quality Evaluation
+
+Phase 4.2 Dry Run 只验证 Runtime 链路是否成立，不验证真实 AI 诊断质量。
+
+Live AI 模式需要使用 5 到 10 道真实题进行人工复核，评估真实 AI 诊断是否具备进入后续 Runtime 的最低可信度。
+
+每道样例至少评估以下维度：
+
+1. `diagnosisResult` 是否符合 Schema。
+2. `mainAbility` 是否与 `questionMetadata` 一致。
+3. `answerStatus` 是否符合学生答案表现。
+4. `rootCause` 是否能解释学生错误。
+5. `evidenceType` 是否与 `answerStatus` 匹配。
+6. `newAbilityEvidence` 是否能被 Student Ability Profile 正确消费。
+7. `rawLLMOutput` 是否存在无法解析、幻觉字段或结构漂移。
+
 ## 验收门槛
 
 Phase 4.3 的质量通过标准：
@@ -133,10 +149,61 @@ Phase 4.3 的质量通过标准：
 | JSON 可解析率 | 100% |
 | Schema 通过率 | 100% |
 | mainAbility 命中率 | >= 80% |
+| answerStatus 人工认可率 | >= 80% |
 | rootCause 人工可接受率 | >= 70% |
+| Evidence Conversion Success | 100% |
+| Student Profile Consumption Success | 100% |
+| Critical Hallucination | 0 |
 | 凭空判断 | 0 |
 | 直接长期能力结论 | 0 |
 | Debug / Evaluation 脚本 | 可重复运行 |
+
+## Live AI Acceptance Gate
+
+Live AI 最小可评估门槛：
+
+- 样例数量：5 到 10 道真实题。
+- JSON Parse Success Rate：100%。
+- Schema Valid Rate：100%。
+- mainAbility Match Rate：>= 80%。
+- answerStatus 人工认可率：>= 80%。
+- rootCause 人工认可率：>= 70%。
+- Evidence Conversion Success：100%。
+- Student Profile Consumption Success：100%。
+- Critical Hallucination：0。
+
+当任一 Runtime 阻断指标不满足时，不能进入下一阶段。
+
+当诊断质量指标未达标但 Runtime 未阻断时，应进入 REVIEW，并沉淀为 Prompt / Metadata / Benchmark 优化样例。
+
+## Live AI Error Categories
+
+### P0：Runtime 阻断错误
+
+- JSON 无法解析。
+- `DiagnosisResult` 缺少关键字段。
+- 无法生成 Ability Evidence。
+- Student Ability Profile 无法消费 Evidence。
+
+P0 必须修复。
+
+### P1：诊断方向错误
+
+- `mainAbility` 明显错误。
+- `answerStatus` 明显错误。
+- `evidenceType` 与诊断结果冲突。
+- `rootCause` 与学生答案无关。
+
+P1 需要进入 Prompt / Metadata / Benchmark 优化。
+
+### P2：表达质量问题
+
+- explanation 不够清楚。
+- `rootCause` 过于笼统。
+- training direction 不够具体。
+- 语言不适合学生或家长理解。
+
+P2 不阻断 Runtime，但影响产品体验。
 
 ## 命令
 
@@ -302,4 +369,3 @@ allowNextPhase = true。
 - 不扩大样例集。
 - 不进入 Phase 5.1 代码开发。
 - 不重构 Phase 4.2 Runtime 主链路。
-

@@ -88,6 +88,8 @@ function TrainingDayCard({ day }) {
       </div>
 
       <div className="mt-4 space-y-4 text-sm">
+        <InfoBlock title="目标技能" value={day.targetSkill} />
+        <InfoBlock title="训练策略" value={day.strategy} />
         <InfoBlock title="训练目标" value={day.training_goal} />
         <InfoBlock title="为什么练" value={day.reason_from_evidence} />
         <ListBlock title="重点技能" items={day.focus_skills} />

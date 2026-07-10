@@ -151,6 +151,87 @@ Live AI 模式用于验证：
 - 真实诊断是否能转成 Ability Evidence。
 - 真实 Evidence 是否能进入 Student Ability Profile。
 
+## Prompt Builder Contract
+
+Real AI Diagnosis Prompt 必须包含：
+
+1. `question`
+2. `referenceAnswer`
+3. `studentAnswer`
+4. `questionMetadata`
+5. expected output schema
+6. diagnosis rules
+7. evidence conversion requirements
+8. JSON-only output instruction
+
+Prompt Builder 不负责判断学生能力，只负责构建稳定、可复用的诊断提示词。
+
+Prompt 中必须要求模型输出结构化 `DiagnosisResult`，不允许输出自由文本作为最终结果。
+
+Prompt Builder 的职责边界：
+
+- 不生成 Ability Evidence。
+- 不更新 Student Ability Profile。
+- 不决定 ability status。
+- 不替代 Diagnosis Normalize。
+
+## Diagnosis Normalize Rules
+
+Real AI 输出进入 Runtime 前必须经过 normalize。
+
+Normalize 至少处理：
+
+1. 字段缺失时补默认值或标记 invalid。
+2. 非法 `answerStatus` 映射为 supported enum。
+3. `confidence` 超出范围时裁剪到 0-1。
+4. `mainAbility` 为空时优先回退 `questionMetadata.mainAbility`。
+5. `rootCause` 为空时生成低置信度 fallback observation。
+6. 无法修复时返回 invalid diagnosis，不进入 Evidence 更新。
+
+当前 Phase 4.2 已实现最小 normalize：
+
+```text
+rawLLMOutput
+-> parseDiagnosisJSON
+-> normalizeDiagnosisResult
+```
+
+后续如出现真实 AI 输出结构漂移，应优先增强 normalize，而不是让下游 Agent 直接消费不稳定输出。
+
+## Evidence Safety Rules
+
+`newAbilityEvidence` 只有在以下条件满足时才能进入 `updatedEvidence`：
+
+1. `diagnosisResult` schema valid。
+2. `evidenceType` 合法。
+3. `ability` 不为空。
+4. `confidence` 达到最低阈值。
+5. `diagnosisResult` 与 `questionMetadata` 没有明显冲突。
+6. normalize 未标记为 invalid。
+
+如果不满足条件，本次结果应输出为 `rejectedEvidence` 或 `insufficient` evidence，不得污染历史 evidence。
+
+当前 Phase 4.2 已完成最小 Runtime 合并：
+
+```text
+previousEvidence + newAbilityEvidence -> updatedEvidence
+```
+
+但严格的 `rejectedEvidence` 分支和最低 confidence 阈值仍属于后续安全增强项。
+
+## Runtime P0 Error Categories
+
+以下错误会阻断 Phase 4.2 Runtime：
+
+- JSON 无法解析。
+- `DiagnosisResult` 缺少关键字段且无法 normalize。
+- 无法生成 Ability Evidence。
+- Student Ability Profile 无法消费 Evidence。
+
+P0 错误必须修复，不能进入 Evidence 更新。
+
+P1 / P2 质量问题由 Phase 4.3 的 Live AI Diagnosis Quality Evaluation 承担。
+
 ## 验收标准
 
 Phase 4.2 的最小验收标准：
@@ -267,4 +348,3 @@ Phase 4.2 是从规则 / mock 驱动 Runtime 走向真实 AI Runtime 的第一�
 真实 AI 输出
 是否能够稳定进入现有能力证据和学生画像体系。
 ```
-

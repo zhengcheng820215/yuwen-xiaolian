@@ -12,6 +12,8 @@ export type AbilityEvidenceSummary = {
   averageConfidence: number;
   rootCauses: string[];
   observations: string[];
+  details: string[];
+  reasonTags: string[];
 };
 
 export type WeaknessRankingItem = {
@@ -50,6 +52,8 @@ export function summarizeAbilityEvidence(evidenceList: AbilityEvidence[]): Abili
         averageConfidence,
         rootCauses: unique(items.map((item) => item.rootCause).filter(Boolean) as string[]),
         observations: unique(items.map((item) => item.observation).filter(Boolean)),
+        details: unique(items.map((item) => item.detail).filter(Boolean)),
+        reasonTags: unique(items.map((item) => item.reason).filter(Boolean) as string[]),
       };
     })
     .sort((left, right) => left.ability.localeCompare(right.ability, 'zh-Hans-CN'));
@@ -111,6 +115,10 @@ function buildReasons(summary: AbilityEvidenceSummary): string[] {
     reasons.push(`重复观察到：${rootCause}`);
   }
 
+  for (const reasonTag of summary.reasonTags.slice(0, 2)) {
+    reasons.push(`结构化原因：${formatReasonTag(reasonTag)}`);
+  }
+
   if (summary.insufficientCount > 0) {
     reasons.push(`${summary.insufficientCount} 条证据不足记录不参与薄弱主排序，仅提示需要补充有效作答。`);
   }
@@ -137,6 +145,19 @@ function suggestTrainingFocus(summary: AbilityEvidenceSummary): string {
 
 function unique(values: string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function formatReasonTag(reason: string): string {
+  const labels: Record<string, string> = {
+    missing_skill: '缺少完成任务需要的能力',
+    incomplete_understanding: '理解停留表层或不完整',
+    reasoning_error: '推理链存在错误或断裂',
+    expression_issue: '表达不完整或组织不足',
+    knowledge_gap: '相关知识缺失',
+    unstable_performance: '能力表现不稳定',
+  };
+
+  return labels[reason] || reason;
 }
 
 function round(value: number): number {

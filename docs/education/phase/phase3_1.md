@@ -131,6 +131,8 @@ Next Training Focus
   studentId: 'demo-student',
   ability: '推理',
   evidenceType: 'weakness',
+  reason: 'reasoning_error',
+  detail: '学生能够给出判断，但没有说明判断来自哪些文本线索。',
   source: 'diagnosis',
   observation: '学生答案部分满足要求，但推理链或文本依据不足。',
   rootCause: '学生尚未提供充分文本依据，推理链不完整。',
@@ -172,7 +174,78 @@ Phase 3.1 采用最小规则：
 - 单条 `weakness` 不能直接证明长期能力薄弱。
 - 多条同能力、相近 rootCause 的 `weakness` 才能提高薄弱点排序优先级。
 
-## 六、Weakness Ranking 最小规则
+## 六、Evidence Reason 规则
+
+Evidence Type 描述本次能力表现状态。
+
+Evidence Reason 描述导致该表现的主要原因。
+
+二者需要分离：
+
+- `evidenceType` 回答：本次表现属于正向、薄弱、成长，还是证据不足。
+- `reason` 回答：为什么会形成这种表现。
+
+最小结构：
+
+```ts
+type AbilityEvidence = {
+  ability: string;
+
+  evidenceType:
+    | "positive"
+    | "weakness"
+    | "growth"
+    | "insufficient";
+
+  reason?:
+    | "missing_skill"
+    | "incomplete_understanding"
+    | "reasoning_error"
+    | "expression_issue"
+    | "knowledge_gap"
+    | "unstable_performance";
+
+  detail: string;
+
+  confidence: number;
+};
+```
+
+Reason 类型：
+
+| Reason | 说明 | 示例 |
+| --- | --- | --- |
+| `missing_skill` | 缺少完成任务需要的能力 | 不会提取关键信息 |
+| `incomplete_understanding` | 理解停留表层 | 知道事件但无法理解意义 |
+| `reasoning_error` | 推理链错误 | 依据正确但结论错误 |
+| `expression_issue` | 表达不足 | 理解正确但答案不完整 |
+| `knowledge_gap` | 知识缺失 | 不知道修辞作用 |
+| `unstable_performance` | 能力表现不稳定 | 同类任务表现波动 |
+
+使用原则：
+
+- `reason` 不替代 `rootCause`，只提供可被程序消费的原因分类。
+- `detail` 描述本次证据的具体依据，优先来自学生作答中的可观察表现。
+- `rootCause` 仍保留具体自然语言解释，用于说明学生本次作答中真实发生的问题。
+- `weakness` 类型证据应尽量包含 `reason`，否则后续训练目标会缺少明确依据。
+- `positive` 类型证据可以不包含 `reason`，也可以在需要时标记稳定表现来源。
+- `insufficient` 类型证据不应强行生成能力原因，避免把无效答案误判为能力短板。
+
+Phase 3.1 对外最小 Evidence 结构可以理解为：
+
+```ts
+{
+  ability,
+  evidenceType,
+  reason,
+  detail,
+  confidence
+}
+```
+
+内部实现可以继续保留 `studentId`、`source`、`observation`、`rootCause`、`createdAt` 等字段，用于追踪、解释和兼容已有闭环。
+
+## 七、Weakness Ranking 最小规则
 
 Phase 3.1 的薄弱点排序只做粗粒度判断。
 
@@ -199,7 +272,7 @@ type WeaknessRankingItem = {
 };
 ```
 
-## 七、Debug 要求
+## 八、Debug 要求
 
 新增脚本：
 
@@ -245,13 +318,14 @@ Top Weakness
    suggestedTrainingFocus: 文本依据提取 + 推理链表达训练
 ```
 
-## 八、Phase 3.1 Definition of Done
+## 九、Phase 3.1 Definition of Done
 
 Phase 3.1 完成标准：
 
 - 定义 `AbilityEvidence` Schema。
 - 能从一条 Diagnosis Result 生成一条 Ability Evidence。
 - 能保留 `studentId`、`ability`、`evidenceType`、`source`、`observation`、`rootCause`、`confidence`、`createdAt`。
+- 能生成对外最小 Evidence 字段：`ability`、`evidenceType`、`reason`、`detail`、`confidence`。
 - 能用 mock evidence 模拟一个学生连续做题。
 - 能按能力聚合 evidence。
 - 能输出 Top 1-3 薄弱能力。
@@ -339,5 +413,3 @@ Diagnosis
 ```
 
 本阶段不验收训练计划生成、训练执行、复测证据或真实长期提升。
-
-

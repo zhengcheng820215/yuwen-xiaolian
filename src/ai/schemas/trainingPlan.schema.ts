@@ -7,15 +7,23 @@ export type TrainingPlanEvidenceLink = {
   reasons: string[];
 };
 
+export type TrainingPlanSuccessCriteria = {
+  measurable: boolean;
+  description: string;
+};
+
 export type TrainingPlanDay = {
   day: number;
   training_goal: string;
   target_ability: string;
+  targetSkill: string;
+  strategy: string;
   reason_from_evidence: string;
   focus_skills: string[];
   tasks: string[];
   practice_type: string;
   success_criteria: string[];
+  successCriteria: TrainingPlanSuccessCriteria;
   evidence_links: TrainingPlanEvidenceLink[];
 };
 
@@ -77,11 +85,14 @@ function normalizeTrainingPlanDay(value: Partial<TrainingPlanDay>): TrainingPlan
     day: typeof value.day === 'number' ? value.day : 1,
     training_goal: value.training_goal || '完成一个可验证的能力训练目标。',
     target_ability: value.target_ability || '待训练能力',
+    targetSkill: value.targetSkill || inferTargetSkill(value.target_ability, value.focus_skills),
+    strategy: value.strategy || '依据 Ability Evidence 的薄弱原因选择针对训练策略。',
     reason_from_evidence: value.reason_from_evidence || '来自 Ability Evidence 的薄弱点排序。',
     focus_skills: Array.isArray(value.focus_skills) ? value.focus_skills : [],
     tasks: Array.isArray(value.tasks) ? value.tasks : [],
     practice_type: value.practice_type || 'targeted_practice',
     success_criteria: Array.isArray(value.success_criteria) ? value.success_criteria : [],
+    successCriteria: normalizeSuccessCriteria(value.successCriteria, value.success_criteria),
     evidence_links: Array.isArray(value.evidence_links) ? value.evidence_links : [],
   };
 }
@@ -95,6 +106,10 @@ function isTrainingPlanDay(value: TrainingPlanDay): boolean {
     value.training_goal.trim().length > 0 &&
     typeof value.target_ability === 'string' &&
     value.target_ability.trim().length > 0 &&
+    typeof value.targetSkill === 'string' &&
+    value.targetSkill.trim().length > 0 &&
+    typeof value.strategy === 'string' &&
+    value.strategy.trim().length > 0 &&
     typeof value.reason_from_evidence === 'string' &&
     value.reason_from_evidence.trim().length > 0 &&
     Array.isArray(value.focus_skills) &&
@@ -105,9 +120,50 @@ function isTrainingPlanDay(value: TrainingPlanDay): boolean {
     value.practice_type.trim().length > 0 &&
     Array.isArray(value.success_criteria) &&
     value.success_criteria.length > 0 &&
+    typeof value.successCriteria === 'object' &&
+    value.successCriteria !== null &&
+    value.successCriteria.measurable === true &&
+    typeof value.successCriteria.description === 'string' &&
+    value.successCriteria.description.trim().length > 0 &&
     Array.isArray(value.evidence_links) &&
     value.evidence_links.length > 0
   );
+}
+
+function inferTargetSkill(targetAbility = '', focusSkills: string[] | undefined): string {
+  if (Array.isArray(focusSkills) && focusSkills.length > 0) return focusSkills[0];
+
+  const fallback: Record<string, string> = {
+    推理: '文本证据 -> 观点推断',
+    表达: '观点 -> 依据 -> 说明',
+    信息提取: '关键词定位与限定条件识别',
+    概括: '核心事件筛选与压缩表达',
+    理解: '语境信息 -> 深层含义转换',
+    分析: '文本依据 -> 作用说明',
+  };
+
+  return fallback[targetAbility] || `${targetAbility || '目标能力'}具体技能`;
+}
+
+function normalizeSuccessCriteria(
+  value: TrainingPlanSuccessCriteria | undefined,
+  legacyCriteria: string[] | undefined,
+): TrainingPlanSuccessCriteria {
+  if (
+    value &&
+    typeof value.measurable === 'boolean' &&
+    typeof value.description === 'string' &&
+    value.description.trim().length > 0
+  ) {
+    return value;
+  }
+
+  return {
+    measurable: true,
+    description: Array.isArray(legacyCriteria) && legacyCriteria.length > 0
+      ? legacyCriteria[0]
+      : '学生能够完成本日训练任务，并留下可复核的作答证据。',
+  };
 }
 
 function buildTrainingPlanId(studentId: string, generatedAt: string): string {

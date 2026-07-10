@@ -18,6 +18,7 @@ const debugInput: Omit<TrainingEvidenceLoopInput, 'previousEvidence'> = {
   ability: '推理',
   weakness: '推理链不完整',
   trainingFocus: '文本依据 + 推理链训练',
+  targetSkill: '文本证据 -> 观点推断',
   dayTask: '阅读短文，回答：作者为什么说“秋天的落叶像信件”？',
   studentTrainingAnswer: '因为落叶很多。',
   retestQuestion: '作者为什么说“落叶记录了季节变化”？',
@@ -84,6 +85,18 @@ function validateResult(
   if (result.retestEvaluation.abilityChange !== '+1') {
     failures.push(`Retest abilityChange should be +1, got ${result.retestEvaluation.abilityChange}.`);
   }
+
+  if (result.retestEvaluation.transferLevel !== 'successful') {
+    failures.push(`Retest transferLevel should be successful, got ${result.retestEvaluation.transferLevel}.`);
+  }
+
+  if (result.abilityChange.change !== 'improved') {
+    failures.push(`Ability change should be improved, got ${result.abilityChange.change}.`);
+  }
+
+  if (!result.targetSkill) {
+    failures.push('Result should include targetSkill.');
+  }
 }
 
 function printReport(
@@ -99,12 +112,14 @@ function printReport(
   console.log(`ability: ${result.ability}`);
   console.log(`weakness: ${result.originalWeakness}`);
   console.log(`trainingFocus: ${result.trainingFocus}`);
+  console.log(`targetSkill: ${result.targetSkill}`);
 
   console.log('\nTraining Task');
   console.log('-------------');
   console.log(`task: ${result.trainingEvaluation.trainingTask}`);
   console.log(`studentAnswer: ${result.trainingEvaluation.studentAnswer}`);
   console.log(`status: ${result.trainingEvaluation.status}`);
+  console.log(`targetSkill: ${result.trainingEvaluation.targetSkill}`);
   console.log(`observation: ${result.trainingEvaluation.observation}`);
   console.log('processFindings:');
   for (const finding of result.trainingEvaluation.processFindings) {
@@ -116,13 +131,26 @@ function printReport(
   console.log(`question: ${result.retestEvaluation.retestQuestion}`);
   console.log(`studentAnswer: ${result.retestEvaluation.studentAnswer}`);
   console.log(`abilityChange: ${result.retestEvaluation.abilityChange}`);
+  console.log(`abilityChangeSignal: ${result.retestEvaluation.abilityChangeSignal}`);
+  console.log(`transferLevel: ${result.retestEvaluation.transferLevel}`);
+  console.log(`targetSkill: ${result.retestEvaluation.targetSkill}`);
   console.log(`comparison: ${result.retestEvaluation.comparison}`);
   console.log(`observation: ${result.retestEvaluation.observation}`);
+
+  console.log('\nAbility Change');
+  console.log('--------------');
+  console.log(`ability: ${result.abilityChange.ability}`);
+  console.log(`before: weakness ${result.abilityChange.before.weaknessCount}, positive ${result.abilityChange.before.positiveCount}, growth ${result.abilityChange.before.growthCount}`);
+  console.log(`after: weakness ${result.abilityChange.after.weaknessCount}, positive ${result.abilityChange.after.positiveCount}, growth ${result.abilityChange.after.growthCount}`);
+  console.log(`change: ${result.abilityChange.change}`);
+  console.log(`reason: ${result.abilityChange.reason}`);
 
   console.log('\nGenerated Evidence');
   console.log('------------------');
   for (const evidence of result.generatedEvidence) {
     console.log(`${evidence.source} / ${evidence.evidenceType} / ${evidence.ability}`);
+    console.log(`  reason: ${evidence.reason || 'none'}`);
+    console.log(`  detail: ${evidence.detail}`);
     console.log(`  observation: ${evidence.observation}`);
     console.log(`  rootCause: ${evidence.rootCause}`);
     console.log(`  confidence: ${formatPercent(evidence.confidence)}`);

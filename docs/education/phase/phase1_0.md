@@ -86,6 +86,19 @@ pnpm run debug:training-evidence
 
 Phase 1.0 已完成其基础使命：项目可以运行、可以构建、可以承载后续 AI 学习闭环开发。
 
+## Phase 1.0 Definition of Done
+
+Phase 1.0 完成标准：
+
+1. 项目可以通过 `pnpm run dev` 正常启动。
+2. 项目可以通过 `pnpm run build` 正常构建。
+3. 基础路由可访问，包括首页、练习、错题本、我的、Diagnosis Demo。
+4. 移动端容器和底部导航可正常展示。
+5. 基础页面组件可复用，例如 `Layout`、`PageHeader`、`Card`。
+6. `src/ai/agents`、`src/ai/schemas`、`src/ai/tests` 等 AI 工程目录已经建立。
+7. Diagnosis Demo 能作为后续 AI 链路的最小入口。
+8. 后续 Phase 2 / Phase 3 可以在当前工程基础上继续扩展，而不需要重建项目。
+
 ## 与 Phase 2 的关系
 
 Phase 2 在 Phase 1.0 的基础上，重点补充题目结构化能力：
@@ -134,6 +147,20 @@ Phase 1.0 中的部分旧模块暂时冻结：
 - 不作为当前开发重点。
 - 后续根据 Phase 3 主线需要，逐步改造为训练任务入口、Evidence Review 或 Student Ability Profile。
 
+## 验收边界
+
+Phase 1.0 只验收工程和产品外壳能力，不验收学习效果。
+
+本阶段通过不代表：
+
+- 题目结构化能力已经稳定。
+- Diagnosis Agent 已经准确。
+- 学生能力画像已经建立。
+- 训练计划已经可用。
+- 产品已经具备真实学习闭环。
+
+以上能力由 Phase 2 / Phase 3 分阶段承担。
+
 ## 本阶段不包含
 
 - 不要求完整题库。
@@ -161,5 +188,4 @@ YES
 ```
 
 后续开发不再围绕 Phase 1.0 扩展旧功能，而是围绕 Phase 3 的能力成长闭环继续推进。
-
 

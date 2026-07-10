@@ -124,6 +124,68 @@ type LinkedEvidence = {
 };
 ```
 
+## Personalized Next Task Generation Rules
+
+Personalized Next Task 必须遵循以下规则：
+
+1. `target_ability` 默认来自 `topWeakness[0].ability`。
+2. `task_goal` 必须落到具体能力表现，而不是只重复 `target_ability`。
+3. `why_this_task` 必须引用 current weakness、evidence summary 或 linked evidence。
+4. `question` 必须能够触发 `expected_diagnosis_focus`。
+5. `reference_answer` 必须足够支持后续 Diagnosis。
+6. `success_criteria` 必须可观察、可诊断。
+7. `linked_evidence` 至少包含一条支撑当前任务生成的 evidence。
+8. 任务不得生成与 `target_ability` 无关的训练内容。
+
+这些规则用于保证 Personalized Next Task 不是随机题目，而是由当前能力画像和能力证据驱动的下一步任务。
+
+## Linked Evidence Selection Rules
+
+`linked_evidence` 应优先选择：
+
+1. 与 `topWeakness[0].ability` 相同的 recent weakness evidence。
+2. 高 confidence 的 weakness evidence。
+3. `rootCause` / `reason` 与本次 `task_goal` 直接相关的 evidence。
+4. training / retest 中尚未充分改善的 evidence。
+
+`linked_evidence` 不应选择：
+
+1. `insufficient` evidence 作为主要任务依据。
+2. 与 `target_ability` 无关的 evidence。
+3. 已经被 `stable_positive` 覆盖的旧 weakness evidence，除非近期再次出现 weakness。
+
+## Success Criteria Rules
+
+`success_criteria` 不用于证明长期能力提升，只用于判断本次任务是否完成了最低表现要求。
+
+`success_criteria` 应至少包含：
+
+1. 学生答案是否回应题目核心要求。
+2. 是否包含文本依据。
+3. 是否完成目标能力动作。
+4. 是否能够被 Diagnosis Agent 继续评估。
+5. 是否能产生 `positive` / `weakness` / `growth` / `insufficient` evidence。
+
+本阶段不能因为一次任务达到 `success_criteria`，就直接推导学生已经稳定掌握该能力。
+
+## Expected Diagnosis Focus
+
+`expected_diagnosis_focus` 用于约束下一次诊断重点。
+
+它不替代 Diagnosis Agent 的判断，但用于提示系统：
+
+> 本次任务完成后，应重点观察学生是否改善了当前 `target_ability` 下的具体能力表现。
+
+示例：
+
+```text
+target_ability: 推理
+task_goal: 依据文本信息完成合理推断
+expected_diagnosis_focus: 学生是否能够从文本证据推出人物情感，而不是只复述表层信息。
+```
+
+`expected_diagnosis_focus` 的作用是连接 Personalized Next Task 和下一轮 Diagnosis，使系统能够围绕同一个能力缺口持续观察，而不是每次重新开始。
+
 ## 新增文件
 
 Phase 5.1 需要新增：
@@ -356,5 +418,4 @@ allowNextPhase = true。
 - 不做长期成长报告。
 - 不修改 Diagnosis Result Schema。
 - 不重构 Phase 4.2 Runtime 主链路。
-
 

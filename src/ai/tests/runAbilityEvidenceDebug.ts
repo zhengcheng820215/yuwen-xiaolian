@@ -194,6 +194,12 @@ function validateGeneratedEvidence(evidenceList: AbilityEvidence[], failures: st
     if (!isAbilityEvidence(evidence)) {
       failures.push(`Invalid AbilityEvidence: ${JSON.stringify(evidence)}`);
     }
+    if (!evidence.detail) {
+      failures.push(`AbilityEvidence should include detail: ${evidence.id}`);
+    }
+    if (evidence.evidenceType === 'weakness' && !evidence.reason) {
+      failures.push(`Weakness evidence should include reason: ${evidence.id}`);
+    }
   }
 
   const generatedTypes = new Set(evidenceList.map((item) => item.evidenceType));
@@ -264,7 +270,8 @@ function printReport(
     const evidence = generatedEvidence[index];
     console.log(`[${index + 1}] ${diagnosisCase.title}`);
     console.log(`    diagnosis: ${diagnosisCase.diagnosisResult.mainAbility} / ${diagnosisCase.diagnosisResult.answerStatus} / confidence ${formatPercent(diagnosisCase.diagnosisResult.confidence)}`);
-    console.log(`    evidence: ${evidence.ability} / ${evidence.evidenceType} / ${evidence.observation}`);
+    console.log(`    evidence: ${evidence.ability} / ${evidence.evidenceType} / ${evidence.reason || 'none'} / ${evidence.observation}`);
+    console.log(`    detail: ${evidence.detail}`);
   }
 
   console.log('\nEvidence Summary');

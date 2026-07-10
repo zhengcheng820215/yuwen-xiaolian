@@ -37,6 +37,11 @@ const phaseSteps = [
     desc: '基于学生画像和 Top Weakness 生成下一次训练任务，并回流画像。',
     status: 'Phase 5.1 Demo',
   },
+  {
+    title: '任务执行回流',
+    desc: '验证个性化任务作答后，如何更新 evidence 并生成下一步决策。',
+    status: 'Phase 5.2 Demo',
+  },
 ];
 
 const frozenItems = [
@@ -93,6 +98,12 @@ export default function Home() {
           title="个性化下一步任务 Demo"
           desc="查看学生画像如何驱动下一题，并在作答后回流诊断与画像。"
           action="体验闭环"
+        />
+        <PrimaryAction
+          to="/personalized-task-execution-demo"
+          title="个性化任务执行回流 Demo"
+          desc="查看个性化任务作答后，如何回流诊断、更新 evidence 和生成下一步决策。"
+          action="执行回流"
         />
       </section>
 

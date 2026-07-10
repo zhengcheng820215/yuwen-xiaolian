@@ -1,6 +1,7 @@
 import type { DiagnosisResult } from '../schemas/diagnosis.schema.ts';
 import {
   type AbilityEvidence,
+  type AbilityEvidenceReason,
   type AbilityEvidenceType,
   normalizeAbilityEvidence,
 } from '../schemas/abilityEvidence.schema.ts';
@@ -23,6 +24,8 @@ export function extractAbilityEvidenceFromDiagnosis(
     studentId: context.studentId,
     ability: diagnosisResult.mainAbility,
     evidenceType,
+    reason: inferEvidenceReason(diagnosisResult, evidenceType),
+    detail: buildDetail(diagnosisResult, evidenceType),
     source: 'diagnosis',
     observation: buildObservation(diagnosisResult, evidenceType),
     rootCause: evidenceType === 'positive' ? undefined : diagnosisResult.rootCause,
@@ -40,6 +43,56 @@ function inferEvidenceType(diagnosisResult: DiagnosisResult): AbilityEvidenceTyp
   if (diagnosisResult.answerStatus === 'does_not_meet' || diagnosisResult.correct === false) return 'weakness';
 
   return 'insufficient';
+}
+
+function inferEvidenceReason(
+  diagnosisResult: DiagnosisResult,
+  evidenceType: AbilityEvidenceType,
+): AbilityEvidenceReason | undefined {
+  if (evidenceType === 'positive' || evidenceType === 'growth' || evidenceType === 'insufficient') {
+    return undefined;
+  }
+
+  const text = [
+    diagnosisResult.mainAbility,
+    diagnosisResult.errorType,
+    diagnosisResult.surfaceError,
+    diagnosisResult.rootCause,
+    diagnosisResult.diagnosisSummary,
+  ].filter(Boolean).join('\n');
+
+  if (diagnosisResult.mainAbility === '信息提取') return 'missing_skill';
+  if (diagnosisResult.mainAbility === '理解') return 'incomplete_understanding';
+  if (diagnosisResult.mainAbility === '推理') return 'reasoning_error';
+  if (diagnosisResult.mainAbility === '表达') return 'expression_issue';
+
+  if (/修辞|说明方法|表现手法|写作手法|知识/.test(text)) return 'knowledge_gap';
+  if (/表达|完整|观点|依据|说明|组织|结构/.test(text)) return 'expression_issue';
+  if (/推理|推断|结论|推理链/.test(text)) return 'reasoning_error';
+  if (/理解|含义|表层|深层|语境|情感|主题/.test(text)) return 'incomplete_understanding';
+  if (/信息|提取|定位|关键词|限定|文本依据|线索/.test(text)) return 'missing_skill';
+  if (/不稳定|波动|偶然|时好时坏/.test(text)) return 'unstable_performance';
+
+  return 'unstable_performance';
+}
+
+function buildDetail(
+  diagnosisResult: DiagnosisResult,
+  evidenceType: AbilityEvidenceType,
+): string {
+  if (Array.isArray(diagnosisResult.abilityEvidence) && diagnosisResult.abilityEvidence.length > 0) {
+    return diagnosisResult.abilityEvidence.join('；');
+  }
+
+  if (evidenceType === 'positive') {
+    return diagnosisResult.diagnosisSummary || `学生在「${diagnosisResult.mainAbility}」任务中形成正向表现。`;
+  }
+
+  if (evidenceType === 'insufficient') {
+    return diagnosisResult.surfaceError || diagnosisResult.diagnosisSummary || '本次作答证据不足，暂不能形成明确能力判断。';
+  }
+
+  return diagnosisResult.rootCause || diagnosisResult.surfaceError || diagnosisResult.diagnosisSummary || `学生在「${diagnosisResult.mainAbility}」任务中存在薄弱表现。`;
 }
 
 function buildObservation(

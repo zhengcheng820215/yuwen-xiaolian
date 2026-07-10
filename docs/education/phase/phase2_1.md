@@ -221,7 +221,83 @@ Pattern Library 可以扩展 Pattern 数量，但不应随意扩展 Metadata 字
 
 字段扩展必须服务长期 Metadata Contract，而不是服务某一道题的临时需求。
 
-## 六、Benchmark 要求
+## 六、Pattern Contract
+
+Question Metadata Pattern 是 Phase 2.1 的核心契约。
+
+一个 Pattern 不只是若干关键词规则，而是一组可复用的题目理解与 Metadata 输出约定。
+
+最小结构：
+
+```ts
+type QuestionMetadataPattern = {
+  patternId: string;
+  questionType: string;
+  assessmentMode: string;
+  mainAbility: string;
+  relatedAbilities: string[];
+  abilityPath: string[];
+  rubric: RubricItem[];
+  examples: string[];
+  negativeExamples: string[];
+  matcherNotes: string;
+};
+```
+
+字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `patternId` | Pattern 的稳定标识 |
+| `questionType` | 题目类型输出 |
+| `assessmentMode` | 答案评价方式 |
+| `mainAbility` | 主要诊断能力 |
+| `relatedAbilities` | 相关能力 |
+| `abilityPath` | 能力路径 |
+| `rubric` | 可观察评分 / 诊断依据 |
+| `examples` | 应匹配该 Pattern 的典型问法 |
+| `negativeExamples` | 不应匹配该 Pattern 的反例 |
+| `matcherNotes` | Pattern 匹配边界说明 |
+
+示例：
+
+```ts
+{
+  patternId: "sentence_meaning",
+  questionType: "句子含义",
+  assessmentMode: "reasoning_chain",
+  mainAbility: "理解",
+  relatedAbilities: ["信息提取", "推理", "表达"],
+  abilityPath: ["字词含义理解", "语境分析", "深层含义理解", "情感体会"],
+  rubric: [
+    {
+      id: "literal_meaning",
+      name: "字面含义转换",
+      description: "是否理解关键词不是停留在表层意思",
+      ability: "理解",
+      weight: 30
+    }
+  ],
+  examples: [
+    "说说这句话的含义",
+    "理解画线句的深层含义"
+  ],
+  negativeExamples: [
+    "推测人物为什么这样做",
+    "分析人物形象"
+  ],
+  matcherNotes: "句子含义题重点判断语境和深层含义，不应默认归为推理题。"
+}
+```
+
+使用原则：
+
+- Pattern 必须同时定义正例和反例。
+- Pattern 输出必须满足 Metadata Schema。
+- Pattern 不能为单道题临时扩展字段。
+- Pattern 匹配失败应回到 Pattern Library 修复，而不是让 Diagnosis 重新解释 Question。
+
+## 七、Benchmark 要求
 
 扩展：
 
@@ -265,7 +341,7 @@ Benchmark 更重要的作用是验证：
 Pattern 输出是否可被 Validator 和 Diagnosis 消费
 ```
 
-## 七、Validation 要求
+## 八、Validation 要求
 
 继续使用现有 Metadata Validator。
 
@@ -282,6 +358,43 @@ Validator 至少应继续检查：
 - `mainAbility` 是否明显偏离题目任务
 - `rubric` 是否为空
 - 同一 Pattern 是否生成稳定的核心 rubric
+
+### Validator Pass 与 Pattern Match Pass
+
+Phase 2.1 必须区分两类通过：
+
+```text
+Validator Pass
+=
+Metadata 结构合法，可被下游消费
+
+Pattern Match Pass
+=
+题目匹配到了正确 Pattern，语义方向正确
+```
+
+`validation.valid == true` 只能说明 Metadata 结构可用，不代表 Pattern 匹配正确。
+
+例如：
+
+```text
+句子含义题
+↓
+错误匹配为推理题
+↓
+字段完整
+↓
+Validator 可能仍然通过
+```
+
+因此 Debug 必须同时输出：
+
+- Validator Pass / Fail
+- Pattern Match Pass / Fail
+- Expected Pattern
+- Actual Matched Pattern
+
+只有两者同时通过，才能认为该样例真正通过。
 
 ### 同类问法一致性
 
@@ -337,7 +450,27 @@ Validator 或 Debug Benchmark 应能发现明显错误归类或错误 Pattern �
 
 这些反例的目标不是扩大题型数量，而是防止 QuestionMetadataAgent 在常见真实题中匹配错误 Pattern。
 
-## 八、Debug 要求
+### negativeExamples 要求
+
+每个稳定 Pattern 都应逐步补充 `negativeExamples`。
+
+`negativeExamples` 用于描述：
+
+- 哪些题目看起来相似，但不应匹配当前 Pattern。
+- 哪些关键词不能作为单独匹配依据。
+- 当前 Pattern 与相邻 Pattern 的边界。
+
+示例：
+
+| Pattern | examples | negativeExamples |
+| --- | --- | --- |
+| 句子含义 | 理解画线句含义、说说这句话的深层含义 | 推测人物为什么这样做、分析人物形象 |
+| 人物形象 | 分析人物形象、父亲是一个怎样的人 | 概括文章主要内容、分析句子表达效果 |
+| 表达效果 | 赏析画线句、分析表达效果 | 写一段话表达观点、概括段落内容 |
+
+Debug Benchmark 后续应逐步利用 `negativeExamples` 发现误匹配。
+
+## 九、Debug 要求
 
 继续维护：
 
@@ -382,7 +515,7 @@ Debug 输出还应增加按题型统计通过率。
 
 这样后续可以持续扩展 Benchmark，并快速发现 Pattern 匹配或 Pattern 输出的退化问题。
 
-## 八点一、Sprint 2.1.1：建立第一版 Benchmark
+## 十、Sprint 2.1.1：建立第一版 Benchmark
 
 Sprint 2.1.1 的目标不是提升通过率，而是先建立一套可靠、可重复运行的 Metadata Benchmark。
 
@@ -417,7 +550,42 @@ Sprint 2.1.1 的目标不是提升通过率，而是先建立一套可靠、可�
 
 本 Sprint 的核心价值是建立基线。失败样例不是阶段失败，而是后续优化 Pattern Library 的证据。
 
-## 八点二、Sprint 2.1.3：质量指标
+## 十一、Sprint 2.1.2：修 Pattern Library
+
+Sprint 2.1.2 的目标是基于 Benchmark 暴露出的失败样例修复 Pattern Library。
+
+流程：
+
+```text
+Benchmark
+↓
+发现 FAIL
+↓
+判断失败原因
+↓
+修 Pattern
+↓
+重新运行完整 Benchmark
+```
+
+本 Sprint 只允许围绕 QuestionMetadataAgent 和 Pattern Library 调整：
+
+- Pattern matcher
+- Pattern anti-matcher
+- examples
+- negativeExamples
+- rubric 稳定输出
+
+不允许：
+
+- 修改 Diagnosis
+- 修改 Training
+- 修改 UI
+- 为单道题写特殊规则
+
+修复完成的标准不是某一道题通过，而是完整 Benchmark 没有明显回归。
+
+## 十二、Sprint 2.1.3：质量指标
 
 Sprint 2.1.3 的目标是在 Benchmark Debug 中加入质量指标，使 Pattern Library 的稳定性可以被持续观察。
 
@@ -448,7 +616,7 @@ confidence < 0.75
 
 本 Sprint 不改变 QuestionMetadataAgent 的业务逻辑，不改 Diagnosis，不改 Training，不改 UI。
 
-## 八点三、Sprint 2.1.4：验收门槛
+## 十三、Sprint 2.1.4：验收门槛
 
 Sprint 2.1.4 的目标是在质量指标基础上形成可执行的验收门槛。
 
@@ -487,7 +655,30 @@ Gate Result: PASS
 
 当任一验收门槛不满足时，Debug 脚本应返回失败状态，阻止将不稳定的 Pattern Library 误判为可验收。
 
-## 九、本阶段不追求
+## 十四、与 Phase 3 的边界
+
+Phase 3 只消费 Phase 2.1 输出的 Question Metadata。
+
+Phase 3 不负责重新解释 Question。
+
+边界原则：
+
+- Diagnosis Agent 使用 Metadata 判断诊断策略和主要能力。
+- Training Agent 使用 Diagnosis / Evidence 生成训练目标。
+- Phase 3 不通过重新理解题干来修正 Metadata。
+- 如果 Metadata 错误，应回到 Phase 2.1 修复 Pattern Library。
+
+这条边界可以避免下游 Agent 重复承担上游职责，保证系统职责清晰：
+
+```text
+Phase 2.1
+负责 Question -> Metadata
+
+Phase 3
+负责 Metadata / Diagnosis -> Evidence -> Training
+```
+
+## 十五、本阶段不追求
 
 本阶段不追求：
 
@@ -505,7 +696,7 @@ Gate Result: PASS
 
 > Question Metadata Pattern Library 是否能够覆盖常见真实阅读题，并稳定生成可供 Diagnosis 使用的统一 Metadata。
 
-## 十、Phase 2.1 Definition of Done
+## 十六、Phase 2.1 Definition of Done
 
 完成以下内容即可收敛：
 
@@ -518,6 +709,8 @@ Gate Result: PASS
 - 每类题至少支持 2 到 3 种不同问法。
 - 同类问法生成的 `questionType`、`assessmentMode`、`mainAbility` 保持一致。
 - Debug Benchmark 能识别并暴露明显错误归类或错误 Pattern 匹配。
+- Debug Benchmark 能区分 Validator Pass 与 Pattern Match Pass。
+- Pattern 能维护 `examples` 与 `negativeExamples`。
 - Debug 输出包含按题型统计通过率。
 - Debug 输出包含 Matched Pattern。
 - 所有样例均可直接进入完整链路：
@@ -536,7 +729,7 @@ Training
 
 并且无需人工修改 Metadata。
 
-## 十一、最终原则
+## 十七、最终原则
 
 本阶段必须始终遵循一个原则：
 
@@ -551,5 +744,4 @@ Training
 ```text
 Metadata Contract
 ```
-
 

@@ -46,11 +46,17 @@ function buildTrainingDays(
       day,
       training_goal: buildTrainingGoal(weakness, day),
       target_ability: weakness?.ability || '待训练能力',
+      targetSkill: buildTargetSkill(weakness?.ability, summary),
+      strategy: buildTrainingStrategy(summary, day),
       reason_from_evidence: buildReasonFromEvidence(weakness, summary),
       focus_skills: buildFocusSkills(weakness?.ability, weakness?.suggestedTrainingFocus),
       tasks: buildTasks(weakness?.ability, day),
       practice_type: buildPracticeType(day),
       success_criteria: buildSuccessCriteria(weakness?.ability, day),
+      successCriteria: {
+        measurable: true,
+        description: buildMeasurableSuccessCriteria(weakness?.ability, day),
+      },
       evidence_links: weakness ? [buildEvidenceLink(weakness)] : [],
     };
   });
@@ -87,6 +93,52 @@ function buildReasonFromEvidence(
 
   const rootCause = summary?.rootCauses[0] || weakness.reasons[0] || '多条 evidence 指向该能力需要优先训练。';
   return `Phase 3.1 显示「${weakness.ability}」有 ${weakness.weaknessCount} 条 weakness evidence，平均置信度 ${formatPercent(weakness.averageConfidence)}；主要依据：${rootCause}`;
+}
+
+function buildTargetSkill(
+  ability = '',
+  summary: AbilityEvidenceSummary | undefined,
+): string {
+  const reasonText = [
+    ...(summary?.reasonTags || []),
+    ...(summary?.rootCauses || []),
+    ...(summary?.details || []),
+  ].join('\n');
+
+  if (ability === '推理') {
+    if (/文本依据|线索|missing_skill/.test(reasonText)) return '文本证据 -> 观点推断';
+    return '证据 -> 关系 -> 结论的推理链构建';
+  }
+  if (ability === '表达') return '观点 -> 依据 -> 说明的答案组织';
+  if (ability === '信息提取') return '关键词定位与限定条件识别';
+  if (ability === '概括') return '核心事件筛选与压缩表达';
+  if (ability === '理解') return '语境信息 -> 深层含义转换';
+  if (ability === '分析') return '文本依据 -> 作用或原因说明';
+
+  return `${ability || '目标能力'}具体技能`;
+}
+
+function buildTrainingStrategy(
+  summary: AbilityEvidenceSummary | undefined,
+  day: number,
+): string {
+  const reasonTags = summary?.reasonTags || [];
+  const primaryReason = reasonTags[0] || '';
+  const rules: Record<string, string> = {
+    missing_skill: '基础能力建立：先补齐完成任务所需的关键步骤。',
+    incomplete_understanding: '增加理解深度：从表层信息推进到语境和深层含义。',
+    reasoning_error: '纠正推理链：训练“证据 -> 关系 -> 结论”的完整过程。',
+    expression_issue: '答案组织训练：训练“观点 + 依据 + 说明”的表达结构。',
+    knowledge_gap: '知识补充：补齐完成题目所需的语文知识或概念。',
+    unstable_performance: '重复验证训练：通过同类和变式任务观察稳定性。',
+  };
+  const phaseStrategy: Record<number, string> = {
+    1: 'Day 1 建立能力：理解方法并拆出关键步骤。',
+    2: 'Day 2 强化能力：在同类任务中应用方法。',
+    3: 'Day 3 迁移验证：换场景完成变式任务。',
+  };
+
+  return `${rules[primaryReason] || '针对薄弱证据选择训练策略。'} ${phaseStrategy[day]}`;
 }
 
 function buildFocusSkills(ability = '', suggestedTrainingFocus = ''): string[] {
@@ -146,6 +198,18 @@ function buildSuccessCriteria(ability = '', day: number): string[] {
   }
 
   return [...base, '学生能在较少提示下完成变式任务，形成可进入后续 retest 的表现记录。'];
+}
+
+function buildMeasurableSuccessCriteria(ability = '', day: number): string {
+  if (day === 1) {
+    return `学生能够说出「${ability || '目标能力'}」的关键步骤，并完成一次带提示的修正。`;
+  }
+
+  if (day === 2) {
+    return `学生能够在同类任务中使用目标技能，答案中出现明确文本依据或思考步骤。`;
+  }
+
+  return `学生能够在变式任务中独立使用目标技能，形成可进入复测的作答证据。`;
 }
 
 function buildEvidenceLink(weakness: WeaknessRankingItem): TrainingPlanEvidenceLink {

@@ -109,6 +109,38 @@ Phase 5.2 输出：
 
 其中 `taskExecutionSummary` 用于解释训练前后变化。
 
+## Evidence Type 使用说明
+
+Phase 5.2 允许使用以下 `evidenceType`：
+
+- `weakness`：本次任务仍暴露目标能力问题。
+- `positive`：本次任务表现达到要求。
+- `growth`：相较于原 weakness 出现改善迹象，但尚不足以证明稳定掌握。
+- `insufficient`：本次答案无法形成有效判断。
+
+其中：
+
+- `growth` 用于支持 `ability_status = improving`。
+- `positive` 可以作为 `stable_positive` 的证据之一，但不能单独证明 `stable_positive`。
+- `weakness` 用于支持继续训练。
+- `insufficient` 不应作为 `next_decision` 的主要依据。
+
+Phase 5.2 不能因为单条 `positive` 或 `growth` evidence 直接判断长期能力已经稳定提升。
+
+## Same Ability Evidence Rule
+
+Phase 5.2 必须验证 `newAbilityEvidence.ability` 与 `personalizedNextTask.target_ability` 保持一致。
+
+如果 `DiagnosisResult.mainAbility` 与 `personalizedNextTask.target_ability` 不一致，则进入 REVIEW 状态，不直接用于更新目标能力判断。
+
+处理规则：
+
+1. 如果 `DiagnosisResult.mainAbility === personalizedNextTask.target_ability`，则正常生成 execution summary。
+2. 如果 `DiagnosisResult.mainAbility` 与 `personalizedNextTask.target_ability` 为相邻能力，可以记录为 secondary observation，但不能直接证明目标能力变化。
+3. 如果 `DiagnosisResult.mainAbility` 明显偏离 `personalizedNextTask.target_ability`，应标记为 `diagnosis_focus_mismatch`，并进入 REVIEW。
+
+该规则用于保证 Personalized Task 的回流诊断仍然围绕同一目标能力，不因诊断焦点漂移而污染长期 evidence。
+
 ## 建议新增结构
 
 新增：
@@ -147,6 +179,8 @@ export type PersonalizedTaskExecutionSummary = {
     target_ability: string;
     student_answer: string;
     diagnosis_answer_status: string;
+    diagnosis_main_ability: string;
+    diagnosis_focus_match: boolean;
     new_evidence_type: string;
   };
   after: {
@@ -160,6 +194,28 @@ export type PersonalizedTaskExecutionSummary = {
   decision_reason: string;
 };
 ```
+
+其中：
+
+- `diagnosis_main_ability` 记录 Diagnosis Runtime 实际返回的主要能力。
+- `diagnosis_focus_match` 用于判断本次诊断是否仍然聚焦任务目标能力。
+- 当 `diagnosis_focus_match === false` 时，本次 execution summary 可以保留，但不得直接证明 `target_ability` 已改善。
+
+## Task Execution Evidence 与 Ability Evidence 的关系
+
+Phase 5.2 不新增独立长期证据类型。
+
+任务执行结果通过 Diagnosis Runtime 转换为 Ability Evidence，进入 `updatedEvidence`。
+
+`taskExecutionSummary` 是本次任务执行的过程摘要，用于解释 before / after / `next_decision`，不作为长期能力证据池的主数据源。
+
+长期累计仍以 `AbilityEvidence` 为准。
+
+因此：
+
+- `AbilityEvidence` 负责长期能力判断。
+- `taskExecutionSummary` 负责解释本次任务执行过程。
+- `next_decision` 必须基于 `AbilityEvidence` 更新结果，而不是只基于任务是否完成。
 
 ## 最小决策规则
 
@@ -223,7 +279,104 @@ Next: continue_reinforcement / increase_difficulty / switch_ability / retest
 
 ## 当前验收结果
 
-待开发 / 待验收
+PASS。
+
+通过性质：
+
+Runtime 最小闭环通过。
+
+已证明：
+
+- `PersonalizedNextTask` 可以进入执行。
+- 学生答案可以进入 Diagnosis Runtime。
+- 诊断结果可以生成 `newAbilityEvidence`。
+- `newAbilityEvidence` 可以合并回 `updatedEvidence`。
+- `updatedEvidence` 可以更新 `StudentAbilityProfile`。
+- 系统可以生成 `taskExecutionSummary`。
+- 系统可以基于执行结果给出 `next_decision`。
+
+未证明：
+
+- 真实 AI 对学生答案的诊断质量已经稳定。
+- 任务本身具备真实教学有效性。
+- 学生能力已经真实提升。
+- 长期训练路径已经成立。
+
+## Phase 5.2 验收冻结记录
+
+验收时间：2026-07-10
+
+验收结论：PASS
+
+通过类型：Runtime 最小闭环通过
+
+本阶段已完成：
+
+- `personalizedTaskExecution.schema.ts`
+- `personalizedTaskExecutionAgent.ts`
+- `runPersonalizedTaskExecutionDebug.ts`
+- `debug:personalized-task-execution`
+- Personalized Task Execution Demo 页面
+- 首页 Demo 入口
+
+本阶段已验证以下链路：
+
+```text
+PersonalizedNextTask
+-> Student Answer
+-> Diagnosis Runtime
+-> newAbilityEvidence
+-> updatedEvidence
+-> updatedStudentAbilityProfile
+-> taskExecutionSummary
+-> next_decision
+```
+
+Debug 验收结果：
+
+- Debug 可重复运行。
+- Debug 输出 PASS。
+- `taskExecutionSummary` 可展示 before / execution / after / `next_decision`。
+- `newAbilityEvidence` 能合并回 `updatedEvidence`。
+- `updatedStudentAbilityProfile` 能基于新证据重新生成。
+- `next_decision` 能根据最小规则输出。
+
+Demo 验收结果：
+
+页面能够展示并运行：
+
+- `PersonalizedNextTask`
+- Student Answer
+- Diagnosis Runtime
+- `newAbilityEvidence`
+- `updatedEvidence`
+- `updatedStudentAbilityProfile`
+- `taskExecutionSummary`
+- `next_decision`
+
+验收边界：
+
+本阶段不证明真实训练效果。
+
+本阶段不验证真实 AI 对学生答案的诊断质量。
+
+本阶段不证明学生能力真实提升。
+
+本阶段不接数据库。
+
+本阶段不保存长期任务历史。
+
+本阶段不做多任务训练计划。
+
+本阶段不做长期学习报告。
+
+本阶段不做真实 AI 任务质量评估。
+
+最终结论：
+
+Phase 5.2 已证明一次 `PersonalizedNextTask` 可以完成执行、诊断、证据沉淀、画像更新和下一步决策。
+
+因此，Phase 5.2 可以冻结，允许进入 Phase 5.3 的规划与最小闭环开发。
 
 ## 本阶段不做
 

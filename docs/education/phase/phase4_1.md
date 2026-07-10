@@ -36,6 +36,182 @@ Evidence
 -> Next Step Recommendation
 ```
 
+## Ability Status Decision Rules
+
+Student Ability Profile 不直接根据单条 Evidence 判断能力状态，而是基于同一 `ability` 下的多条 evidence 进行综合判断。
+
+能力状态至少支持：
+
+- `weak`
+- `improving`
+- `stable_positive`
+- `insufficient_evidence`
+
+### weak
+
+当某能力存在多条 weakness evidence，且近期缺少 training / retest 的 positive 或 growth evidence 时，状态为 `weak`。
+
+典型条件：
+
+- `weaknessCount` 较高。
+- weakness evidence 置信度较高。
+- 最近 evidence 仍为 weakness。
+- 缺少 retest positive / growth evidence。
+
+### improving
+
+当某能力过去存在 weakness evidence，但近期出现 training 或 retest 来源的 growth / positive evidence 时，状态为 `improving`。
+
+典型条件：
+
+- history 中存在 weakness。
+- recent evidence 中出现 growth 或 positive。
+- retest evidence 优先级高于 training evidence。
+- positive / growth 数量仍不足以判断为 `stable_positive`。
+
+### stable_positive
+
+当某能力持续出现 positive evidence，且近期没有明显 weakness evidence 时，状态为 `stable_positive`。
+
+典型条件：
+
+- `positiveCount` 较高。
+- recent evidence 以 positive 为主。
+- 没有高置信度 weakness。
+- retest positive 优先于 training positive。
+
+### insufficient_evidence
+
+当某能力 evidence 数量不足，或主要证据为 insufficient 时，状态为 `insufficient_evidence`。
+
+注意：
+
+`insufficient` evidence 不能推导为 `weak`，也不能推导为 `stable_positive`。
+
+## Evidence Source Weight Rules
+
+不同来源的 Evidence 对 Student Ability Profile 的影响权重不同。
+
+建议优先级：
+
+1. retest evidence
+2. diagnosis evidence
+3. training evidence
+4. insufficient evidence
+
+说明：
+
+- retest evidence 代表迁移验证，优先级最高。
+- diagnosis evidence 代表真实题目表现，是判断当前问题的重要依据。
+- training evidence 代表训练环境表现，能提供改善迹象，但不能单独证明稳定掌握。
+- insufficient evidence 只说明证据不足，不参与强弱判断。
+
+## Current Weakness Selection Rules
+
+`current_weakness` 不等于历史 `weaknessCount` 最高的能力。
+
+系统应综合考虑：
+
+1. 当前 `ability_status` 是否为 `weak`。
+2. weakness evidence 数量。
+3. weakness evidence 平均置信度。
+4. 最近一次 evidence 是否仍为 weakness。
+5. 是否已有 training / retest growth evidence。
+6. 是否缺少 stable positive evidence。
+
+如果某能力已有明确 `improvement_signal`，则不应继续固定为 primary weakness，除非近期 retest 再次失败。
+
+## 关于 growth evidenceType
+
+`growth` 表示学生相较于原 weakness 出现改善迹象。
+
+`growth` 不等于 `stable_positive`。
+
+growth 通常来自：
+
+- training evidence
+- retest evidence
+- 同一 targetSkill 的后续表现改善
+
+growth 用于支持：
+
+```text
+ability_status = improving
+```
+
+Evidence 类型含义：
+
+| 类型 | 含义 |
+| --- | --- |
+| `positive` | 本次表现达到要求 |
+| `growth` | 相对原薄弱点出现改善迹象 |
+| `weakness` | 暴露薄弱表现 |
+| `insufficient` | 证据不足 |
+
+## Student Ability Profile Conceptual Schema
+
+Phase 4.1 的目标模型如下：
+
+```ts
+type StudentAbilityProfile = {
+  studentId: string;
+
+  generatedAt: string;
+
+  currentWeakness: {
+    primary?: string;
+    secondary?: string[];
+    reason: string;
+    evidenceLinks: string[];
+  };
+
+  abilityStatus: {
+    ability: string;
+    status:
+      | "weak"
+      | "improving"
+      | "stable_positive"
+      | "insufficient_evidence";
+    summary: string;
+    evidenceLinks: string[];
+  }[];
+
+  improvementSignals: {
+    ability: string;
+    signal: string;
+    source: "training" | "retest" | "diagnosis";
+    evidenceLinks: string[];
+  }[];
+
+  continueTrainingFocus: {
+    ability: string;
+    targetSkill?: string;
+    reason: string;
+  }[];
+
+  nextStepRecommendation: {
+    type:
+      | "continue_training"
+      | "retest"
+      | "switch_focus"
+      | "collect_more_evidence";
+    description: string;
+    reason: string;
+  };
+};
+```
+
+当前 Runtime 实现仍保留 snake_case 输出，例如：
+
+- `current_weakness`
+- `ability_status`
+- `continue_training_focus`
+- `next_step_recommendation`
+
+这是为了保持已验收 Demo 和 Phase 4.2 / Phase 5.1 链路兼容。
+
+后续如需升级为正式产品 API，可将上述 Conceptual Schema 作为迁移目标。
+
 ## 新增内容
 
 - `src/ai/schemas/studentAbilityProfile.schema.ts`
@@ -210,5 +386,4 @@ Phase 4.2：
 ```
 
 也就是验证真实 AI 是否能够生成可解释、可结构化、可沉淀为 Evidence 的诊断结果。
-
 

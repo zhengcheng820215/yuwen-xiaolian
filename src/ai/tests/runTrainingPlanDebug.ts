@@ -152,6 +152,18 @@ function validateTrainingPlan(
       failures.push(`Day ${day.day} should explicitly reference Phase 3.1 evidence.`);
     }
 
+    if (!day.targetSkill) {
+      failures.push(`Day ${day.day} should include targetSkill.`);
+    }
+
+    if (!day.strategy) {
+      failures.push(`Day ${day.day} should include training strategy.`);
+    }
+
+    if (!day.successCriteria?.measurable || !day.successCriteria.description) {
+      failures.push(`Day ${day.day} should include measurable successCriteria.`);
+    }
+
     if (day.tasks.length === 0) {
       failures.push(`Day ${day.day} should include daily tasks.`);
     }
@@ -197,6 +209,8 @@ function printReport(
 
   for (const day of plan.days) {
     console.log(`\nDay ${day.day}: ${day.target_ability}`);
+    console.log(`  targetSkill: ${day.targetSkill}`);
+    console.log(`  strategy: ${day.strategy}`);
     console.log(`  training_goal: ${day.training_goal}`);
     console.log(`  reason_from_evidence: ${day.reason_from_evidence}`);
     console.log(`  focus_skills: ${day.focus_skills.join(' / ')}`);
@@ -209,6 +223,7 @@ function printReport(
     for (const criterion of day.success_criteria) {
       console.log(`  - ${criterion}`);
     }
+    console.log(`  successCriteria: measurable=${day.successCriteria.measurable}, ${day.successCriteria.description}`);
     console.log('  evidence_links:');
     for (const link of day.evidence_links) {
       console.log(`  - ${link.ability}: weakness ${link.weaknessCount}, confidence ${formatPercent(link.averageConfidence)}`);

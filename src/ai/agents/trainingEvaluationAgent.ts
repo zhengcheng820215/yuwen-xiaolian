@@ -3,6 +3,7 @@ import {
   type AbilityEvidence,
 } from '../schemas/abilityEvidence.schema.ts';
 import {
+  type AbilityChangeSignal,
   normalizeTrainingEvidenceLoopResult,
   type RetestEvaluation,
   type TrainingEvidenceLoopInput,
@@ -18,14 +19,17 @@ export function runTrainingEvidenceLoop(
   const retestEvaluation = evaluateRetest(input, trainingEvaluation);
   const generatedEvidence = buildGeneratedEvidence(input, trainingEvaluation, retestEvaluation);
   const updatedEvidence = [...input.previousEvidence, ...generatedEvidence];
+  const abilityChange = buildAbilityChangeSummary(input, updatedEvidence, retestEvaluation);
 
   return normalizeTrainingEvidenceLoopResult({
     studentId: input.studentId,
     ability: input.ability,
     originalWeakness: input.weakness,
     trainingFocus: input.trainingFocus,
+    targetSkill: getTargetSkill(input),
     trainingEvaluation,
     retestEvaluation,
+    abilityChange,
     generatedEvidence,
     updatedEvidence,
     summary: buildSummary(input, trainingEvaluation, retestEvaluation),
@@ -55,6 +59,7 @@ function evaluateTrainingTask(input: TrainingEvidenceLoopInput): TrainingTaskEva
 
   return {
     ability: input.ability,
+    targetSkill: getTargetSkill(input),
     trainingTask: input.dayTask,
     studentAnswer: input.studentTrainingAnswer,
     status,
@@ -73,12 +78,17 @@ function evaluateRetest(
   const hasExplanation = /因为|表达|说明|感受|所以/.test(answer);
   const hasCompleteReasoning = hasEvidence && hasExplanation;
   const abilityChange = hasCompleteReasoning ? '+1' : trainingEvaluation.status === 'not_improved' ? '0' : '0';
+  const transferLevel = hasCompleteReasoning ? 'successful' : hasEvidence || hasExplanation ? 'partial' : 'none';
+  const abilityChangeSignal = inferAbilityChangeSignal(abilityChange, transferLevel);
 
   return {
     ability: input.ability,
+    targetSkill: getTargetSkill(input),
     retestQuestion: input.retestQuestion,
     studentAnswer: input.studentRetestAnswer,
     abilityChange,
+    abilityChangeSignal,
+    transferLevel,
     comparison: abilityChange === '+1'
       ? `训练前主要问题是「${input.weakness}」；复测中已经能引用文本信息并完成解释。`
       : `训练后仍未稳定解决「${input.weakness}」，需要继续围绕 ${input.trainingFocus} 训练。`,
@@ -101,6 +111,8 @@ function buildGeneratedEvidence(
     studentId: input.studentId,
     ability: input.ability,
     evidenceType: trainingEvaluation.status === 'not_improved' ? 'weakness' : 'growth',
+    reason: trainingEvaluation.status === 'not_improved' ? 'reasoning_error' : undefined,
+    detail: trainingEvaluation.processFindings.join('；'),
     source: 'training',
     observation: trainingEvaluation.observation,
     rootCause: trainingEvaluation.status === 'not_improved'
@@ -115,6 +127,8 @@ function buildGeneratedEvidence(
     studentId: input.studentId,
     ability: input.ability,
     evidenceType: retestEvaluation.abilityChange === '+1' ? 'growth' : 'weakness',
+    reason: retestEvaluation.abilityChange === '+1' ? undefined : 'reasoning_error',
+    detail: `transferLevel=${retestEvaluation.transferLevel}；${retestEvaluation.observation}`,
     source: 'retest',
     observation: retestEvaluation.observation,
     rootCause: retestEvaluation.abilityChange === '+1'
@@ -126,6 +140,55 @@ function buildGeneratedEvidence(
   });
 
   return [trainingEvidence, retestEvidence];
+}
+
+function buildAbilityChangeSummary(
+  input: TrainingEvidenceLoopInput,
+  updatedEvidence: AbilityEvidence[],
+  retestEvaluation: RetestEvaluation,
+) {
+  const previousCounts = countEvidence(input.previousEvidence, input.ability);
+  const afterCounts = countEvidence(updatedEvidence, input.ability);
+  const change = retestEvaluation.abilityChangeSignal;
+
+  return {
+    ability: input.ability,
+    before: previousCounts,
+    after: afterCounts,
+    change,
+    reason: buildAbilityChangeReason(input, previousCounts, afterCounts, change, retestEvaluation),
+  };
+}
+
+function countEvidence(evidenceList: AbilityEvidence[], ability: string) {
+  const items = evidenceList.filter((item) => item.ability === ability);
+  return {
+    weaknessCount: items.filter((item) => item.evidenceType === 'weakness').length,
+    positiveCount: items.filter((item) => item.evidenceType === 'positive').length,
+    growthCount: items.filter((item) => item.evidenceType === 'growth').length,
+  };
+}
+
+function buildAbilityChangeReason(
+  input: TrainingEvidenceLoopInput,
+  before: ReturnType<typeof countEvidence>,
+  after: ReturnType<typeof countEvidence>,
+  change: AbilityChangeSignal,
+  retestEvaluation: RetestEvaluation,
+): string {
+  if (change === 'improved') {
+    return `训练和复测均出现改善信号：${input.ability} 的 growth evidence 从 ${before.growthCount} 增至 ${after.growthCount}，且复测迁移水平为 ${retestEvaluation.transferLevel}。`;
+  }
+
+  if (change === 'unchanged') {
+    return `训练任务中可能出现局部改善，但复测迁移水平为 ${retestEvaluation.transferLevel}，不足以证明稳定提升。`;
+  }
+
+  if (change === 'declined') {
+    return `复测表现低于训练表现，需要重新检查训练目标和任务难度。`;
+  }
+
+  return `当前训练和复测证据不足，不能判断「${input.ability}」是否发生稳定变化。`;
 }
 
 function inferTrainingStatus(
@@ -155,7 +218,21 @@ function buildSummary(
   trainingEvaluation: TrainingTaskEvaluation,
   retestEvaluation: RetestEvaluation,
 ): string {
-  return `围绕「${input.ability}」完成一次训练与复测：训练状态为 ${trainingEvaluation.status}，复测变化为 ${retestEvaluation.abilityChange}。`;
+  return `围绕「${input.ability} / ${getTargetSkill(input)}」完成一次训练与复测：训练状态为 ${trainingEvaluation.status}，复测变化为 ${retestEvaluation.abilityChangeSignal}，迁移水平为 ${retestEvaluation.transferLevel}。`;
+}
+
+function inferAbilityChangeSignal(
+  abilityChange: RetestEvaluation['abilityChange'],
+  transferLevel: RetestEvaluation['transferLevel'],
+): AbilityChangeSignal {
+  if (abilityChange === '+1' && transferLevel === 'successful') return 'improved';
+  if (abilityChange === '-1') return 'declined';
+  if (transferLevel === 'partial') return 'unchanged';
+  return 'insufficient_data';
+}
+
+function getTargetSkill(input: TrainingEvidenceLoopInput): string {
+  return input.targetSkill || input.trainingFocus || `${input.ability}目标技能`;
 }
 
 function compactDate(value: string): string {

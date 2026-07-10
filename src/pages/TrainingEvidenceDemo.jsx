@@ -26,12 +26,14 @@ export default function TrainingEvidenceDemo() {
           <h2 className="mt-1 text-2xl font-semibold text-slate-950">{result.ability}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">{result.originalWeakness}</p>
           <p className="mt-2 text-sm leading-6 text-slate-600">训练方向：{result.trainingFocus}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">目标技能：{result.targetSkill}</p>
         </section>
 
         <section className="rounded-md border border-slate-200 bg-white p-4">
           <h2 className="text-base font-semibold text-slate-900">训练任务</h2>
           <InfoBlock title="Day 1 Task" value={result.trainingEvaluation.trainingTask} />
           <InfoBlock title="学生训练回答" value={result.trainingEvaluation.studentAnswer} />
+          <InfoBlock title="目标技能" value={result.trainingEvaluation.targetSkill} />
           <InfoBlock title="训练状态" value={result.trainingEvaluation.status} />
           <ListBlock title="训练过程发现" items={result.trainingEvaluation.processFindings} />
         </section>
@@ -50,6 +52,22 @@ export default function TrainingEvidenceDemo() {
           <InfoBlock title="学生复测回答" value={result.retestEvaluation.studentAnswer} />
           <InfoBlock title="训练前后对比" value={result.retestEvaluation.comparison} />
           <InfoBlock title="abilityChange" value={result.retestEvaluation.abilityChange} />
+          <InfoBlock title="abilityChangeSignal" value={result.retestEvaluation.abilityChangeSignal} />
+          <InfoBlock title="transferLevel" value={result.retestEvaluation.transferLevel} />
+        </section>
+
+        <section className="rounded-md border border-slate-200 bg-white p-4">
+          <h2 className="text-base font-semibold text-slate-900">Ability Change</h2>
+          <InfoBlock title="change" value={result.abilityChange.change} />
+          <InfoBlock title="reason" value={result.abilityChange.reason} />
+          <InfoBlock
+            title="before"
+            value={`weakness ${result.abilityChange.before.weaknessCount}，positive ${result.abilityChange.before.positiveCount}，growth ${result.abilityChange.before.growthCount}`}
+          />
+          <InfoBlock
+            title="after"
+            value={`weakness ${result.abilityChange.after.weaknessCount}，positive ${result.abilityChange.after.positiveCount}，growth ${result.abilityChange.after.growthCount}`}
+          />
         </section>
 
         {retestEvidence && (
@@ -91,6 +109,8 @@ function EvidenceCard({ title, evidence, extra }) {
       <div className="mt-3 space-y-3 text-sm">
         <InfoBlock title="source" value={evidence.source} />
         <InfoBlock title="evidenceType" value={evidence.evidenceType} />
+        <InfoBlock title="reason" value={evidence.reason || '无'} />
+        <InfoBlock title="detail" value={evidence.detail} />
         <InfoBlock title="observation" value={evidence.observation} />
         <InfoBlock title="rootCause" value={evidence.rootCause || '无'} />
         <InfoBlock title="confidence" value={formatPercent(evidence.confidence)} />

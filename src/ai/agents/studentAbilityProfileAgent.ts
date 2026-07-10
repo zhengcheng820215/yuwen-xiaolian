@@ -30,7 +30,7 @@ export function generateStudentAbilityProfile(
     .slice(1)
     .map((item) => item.ability);
   const abilityStatus = input.evidenceSummary.map((summary) => buildAbilityStatus(summary, input.evidence));
-  const improvementSignals = buildImprovementSignals(input.trainingEvidence, input.retestEvidence);
+  const improvementSignals = buildImprovementSignals(input.evidence, input.trainingEvidence, input.retestEvidence);
   const evidenceLinks = buildEvidenceLinks(input.evidence, primaryWeakness, secondaryWeakness);
 
   return {
@@ -103,12 +103,18 @@ function buildStatusSummary(summary: AbilityEvidenceSummary, status: AbilityStat
 }
 
 function buildImprovementSignals(
+  evidence: AbilityEvidence[],
   trainingEvidence?: AbilityEvidence,
   retestEvidence?: AbilityEvidence,
 ): ImprovementSignal[] {
-  return [trainingEvidence, retestEvidence]
+  return uniqueEvidence([
+    ...evidence,
+    trainingEvidence,
+    retestEvidence,
+  ])
     .filter((item): item is AbilityEvidence => Boolean(item))
-    .filter((item) => item.evidenceType === 'growth' || item.source === 'retest')
+    .filter((item) => item.source === 'training' || item.source === 'retest')
+    .filter((item) => item.evidenceType === 'growth' || item.evidenceType === 'positive')
     .map((item) => ({
       ability: item.ability,
       signal: buildImprovementSignalText(item),
@@ -119,8 +125,16 @@ function buildImprovementSignals(
 }
 
 function buildImprovementSignalText(evidence: AbilityEvidence): string {
+  if (evidence.source === 'retest' && evidence.evidenceType === 'positive') {
+    return `${evidence.ability} 在复测中达到要求：${evidence.observation}`;
+  }
+
   if (evidence.source === 'retest' && evidence.evidenceType === 'growth') {
     return `${evidence.ability} 在复测中出现改善迹象：${evidence.observation}`;
+  }
+
+  if (evidence.source === 'training' && evidence.evidenceType === 'positive') {
+    return `${evidence.ability} 在训练过程中达到要求：${evidence.observation}`;
   }
 
   if (evidence.source === 'training' && evidence.evidenceType === 'growth') {
@@ -128,6 +142,21 @@ function buildImprovementSignalText(evidence: AbilityEvidence): string {
   }
 
   return `${evidence.ability} 有新的训练或复测证据，需要继续观察：${evidence.observation}`;
+}
+
+function uniqueEvidence(
+  evidence: Array<AbilityEvidence | undefined>,
+): AbilityEvidence[] {
+  const seen = new Set<string>();
+  const result: AbilityEvidence[] = [];
+
+  for (const item of evidence) {
+    if (!item || seen.has(item.id)) continue;
+    seen.add(item.id);
+    result.push(item);
+  }
+
+  return result;
 }
 
 function buildEvidenceLinks(
