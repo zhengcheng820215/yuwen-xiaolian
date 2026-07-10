@@ -98,6 +98,28 @@ AbilityEvidence 是系统能够长期理解学生的关键数据。
 
 每次诊断、训练或复测都可以产生新的 AbilityEvidence。多条 Evidence 累积后，系统才有能力判断学生的长期变化。
 
+Runtime 底层约束：
+
+```text
+“能力提升”不是 AI 输出的描述字段，
+而是一个需要经过时间、多次表现和独立复测才能成立的状态。
+```
+
+因此，DiagnosisResult、AbilityEvidence、StudentAbilityProfile、AbilityChangeEvaluation 和后续 StageReport 都只能在证据充分时逐步提高判断强度。
+
+单次结果只能表达：
+
+- 本次表现满足要求；
+- 出现改善迹象；
+- 本次复测优于训练前；
+- 仍需继续观察。
+
+不能仅凭单次结果直接表达：
+
+- 能力已经提升；
+- 能力已经掌握；
+- 薄弱点已经解决。
+
 ### 4. StudentAbilityProfile 不是考试成绩
 
 StudentAbilityProfile 不是分数，也不是一次判断。

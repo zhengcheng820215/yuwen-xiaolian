@@ -1,4 +1,4 @@
-﻿# Growth Loop Overview
+# Growth Loop Overview
 
 ## 文档定位
 
@@ -59,6 +59,12 @@
 > 代码可以复杂，但输入输出必须清楚。  
 > AI 可以复杂，但输出必须进入结构化 Schema。  
 > Runtime 可以变长，但每一步都必须可 Debug。
+
+能力提升判断必须遵守底层约束：
+
+> “能力提升”不是 AI 输出的描述字段，而是一个需要经过时间、多次表现和独立复测才能成立的状态。
+
+因此，Growth Runtime 可以记录改善迹象和复测表现，但不能仅凭单次作答、单次训练或单次 AI 评价宣布能力已经提升。
 
 ## Current Growth Loop Decomposition
 
@@ -131,6 +137,9 @@ LearningSessionMemory -> RetestTask -> RetestEvidence
 | Phase 6.3 | Ability Change Evaluation | Before / Training / Retest Evidence -> AbilityChangeEvaluation -> Next Decision | `pnpm run debug:ability-change-evaluation` |
 | Phase 6 Summary | Retest / Evaluation Runtime 冻结 | Phase 6 复测与能力变化判断冻结记录 | `docs/education/phase/phase6_summary.md` |
 | Phase 7.1 | Student Learning Entry | Start Learning -> First Question Diagnosis -> Initial Session State | `pnpm run debug:learning-entry` |
+| Phase 7.2 | Personalized Training Flow | LearningEntryResult -> Personalized Training -> Evidence 回流 | `pnpm run debug:personalized-training-flow` |
+| Phase 7.3 | Retest & Session Result Flow | PersonalizedTrainingFlowResult -> Retest -> Beta Session Result | `pnpm run debug:beta-learning-session-result` |
+| Phase 7 Summary | Beta Learning Flow 冻结 | Phase 7 单次 Beta 学习闭环验收记录 | `docs/education/phase/phase7_summary.md` |
 
 ## 当前核心链路
 
@@ -150,6 +159,8 @@ Question Metadata
 -> Learning Session Memory
 -> Retest Task
 -> Retest Execution Evidence
+-> Ability Change Evaluation
+-> Beta Learning Session Result
 ```
 
 ## Demo 演示入口
@@ -163,6 +174,9 @@ Question Metadata
 /#/student-profile-demo
 /#/personalized-next-task-demo
 /#/personalized-task-execution-demo
+/#/beta-learning-entry-demo
+/#/beta-personalized-training-demo
+/#/beta-session-result-demo
 ```
 
 ## 当前边界
@@ -202,6 +216,19 @@ Question Metadata
 -> 任务执行回流
 -> 学习 Session 记忆
 -> 复测验证
+-> Beta 学习闭环
 ```
+
+Phase 7 已经证明单次 Beta Learning Flow 可以成立：
+
+```text
+开始学习
+-> 第一题诊断
+-> 个性化训练
+-> 复测验证
+-> 本轮学习结果
+```
+
+Phase 7 冻结后，不建议继续堆叠新的单次流程 Demo；后续应转向更高层问题，例如多次 Session 后的成长记忆、阶段报告或正式产品 Runtime 收敛。
 
 后续新增 Phase 时，应继续围绕“证据是否能进入成长记忆、下一步动作是否可验证”这两个问题展开。

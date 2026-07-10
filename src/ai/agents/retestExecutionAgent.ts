@@ -214,7 +214,7 @@ function mockRetestDiagnosisRuntime(input: RetestExecutionInput): DiagnosisResul
   const answer = input.studentRetestAnswer.trim();
   const mainAbility = input.retestTask.target_ability;
 
-  if (!answer) {
+  if (!hasEffectiveRetestAnswer(answer)) {
     return normalizeDiagnosisResult({
       taskType: 'open_response',
       correct: null,
@@ -223,10 +223,14 @@ function mockRetestDiagnosisRuntime(input: RetestExecutionInput): DiagnosisResul
       scoreBand: 'invalid',
       mainAbility,
       relatedAbilities: ['信息提取', '理解', mainAbility, '表达'],
-      surfaceError: '学生未提交有效复测答案。',
+      surfaceError: answer ? '学生复测答案未提供有效语文分析内容。' : '学生未提交有效复测答案。',
       rootCause: '复测作答证据不足，暂不能判断能力迁移表现。',
       errorType: '待验证',
-      abilityEvidence: ['复测答案为空，无法形成有效迁移证据。'],
+      abilityEvidence: [
+        answer
+          ? '复测答案缺少可用于判断的文本线索、心理推断或解释内容，无法形成有效迁移证据。'
+          : '复测答案为空，无法形成有效迁移证据。',
+      ],
       diagnosisSummary: '本次复测证据不足，需要重新作答或补充文本依据。',
       nextTraining: '重新完成复测题，至少写出文本依据和判断过程。',
       confidence: 0.45,
@@ -302,4 +306,20 @@ function mockRetestDiagnosisRuntime(input: RetestExecutionInput): DiagnosisResul
     nextTraining: '继续进行文本线索提取与推理链表达训练。',
     confidence: 0.7,
   });
+}
+
+function hasEffectiveRetestAnswer(answer: string): boolean {
+  const normalized = answer.replace(/\s+/g, '');
+
+  if (!normalized) return false;
+  if (!/[\u4e00-\u9fff]/.test(normalized)) return false;
+  if (/^(不知道|不会|不懂|没写|无|没有|随便|哈哈+|呵呵+|啊+|额+)$/u.test(normalized)) return false;
+
+  const cjkCount = (normalized.match(/[\u4e00-\u9fff]/g) || []).length;
+
+  if (cjkCount < 4) return false;
+
+  const hasTaskRelevantContent = /雨停|母亲|菜苗|袖口|竹竿|扶正|泥水|心疼|珍惜|牵挂|希望|细心|不舍|爱|照料|因为|说明|依据|所以|可见|心理|推断/.test(normalized);
+
+  return hasTaskRelevantContent;
 }

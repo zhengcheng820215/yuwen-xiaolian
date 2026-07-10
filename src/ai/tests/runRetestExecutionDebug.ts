@@ -79,12 +79,38 @@ async function runRetestExecutionDebug(): Promise<void> {
     previousEvidence,
     createdAt: '2026-07-10T11:00:00.000Z',
   });
+  const invalidAnswerResult = await runRetestExecution({
+    studentId,
+    retestTask,
+    studentRetestAnswer: '445',
+    previousEvidence,
+    createdAt: '2026-07-10T11:05:00.000Z',
+  });
 
   validate(result, failures);
+  validateInvalidAnswerResult(invalidAnswerResult, failures);
   printReport(result, failures);
 
   if (failures.length > 0) {
     throw new Error('Retest Execution debug check failed.');
+  }
+}
+
+function validateInvalidAnswerResult(
+  result: Awaited<ReturnType<typeof runRetestExecution>>,
+  failures: string[],
+): void {
+  if (result.diagnosis_result.answerStatus !== 'insufficient_evidence') {
+    failures.push('Numeric-only retest answer should be diagnosed as insufficient_evidence.');
+  }
+  if (result.diagnosis_result.scoreBand !== 'invalid') {
+    failures.push('Numeric-only retest answer should be invalid scoreBand.');
+  }
+  if (result.new_retest_evidence.evidenceType !== 'insufficient') {
+    failures.push('Numeric-only retest answer should generate insufficient evidence.');
+  }
+  if (!result.validation.passed) {
+    failures.push(`numeric-only validation should pass: ${result.validation.issues.join('; ')}`);
   }
 }
 
