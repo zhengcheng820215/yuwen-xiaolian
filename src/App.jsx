@@ -16,6 +16,9 @@ import StudentProfileDemo from './pages/StudentProfileDemo.jsx';
 import RealAIDiagnosisDemo from './pages/RealAIDiagnosisDemo.jsx';
 import PersonalizedNextTaskDemo from './pages/PersonalizedNextTaskDemo.jsx';
 import PersonalizedTaskExecutionDemo from './pages/PersonalizedTaskExecutionDemo.jsx';
+import BetaLearningEntryDemo from './pages/BetaLearningEntryDemo.jsx';
+import BetaPersonalizedTrainingDemo from './pages/BetaPersonalizedTrainingDemo.jsx';
+import BetaSessionResultDemo from './pages/BetaSessionResultDemo.jsx';
 
 export default function App() {
   return (
@@ -37,6 +40,9 @@ export default function App() {
         <Route path="/real-ai-diagnosis-demo" element={<RealAIDiagnosisDemo />} />
         <Route path="/personalized-next-task-demo" element={<PersonalizedNextTaskDemo />} />
         <Route path="/personalized-task-execution-demo" element={<PersonalizedTaskExecutionDemo />} />
+        <Route path="/beta-learning-entry-demo" element={<BetaLearningEntryDemo />} />
+        <Route path="/beta-personalized-training-demo" element={<BetaPersonalizedTrainingDemo />} />
+        <Route path="/beta-session-result-demo" element={<BetaSessionResultDemo />} />
       </Routes>
     </Layout>
   );

@@ -39,7 +39,7 @@ export type RealAIDiagnosisResult = {
   rawLLMOutput: string;
 };
 
-type RealAILLMCaller = (prompt: string, input: RealAIDiagnosisInput) => Promise<string>;
+export type RealAILLMCaller = (prompt: string, input: RealAIDiagnosisInput) => Promise<string>;
 
 export async function runRealAIDiagnosisLoop(
   input: RealAIDiagnosisInput,

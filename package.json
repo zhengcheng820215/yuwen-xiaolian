@@ -15,6 +15,10 @@
     "debug:learning-session": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runLearningSessionDebug.ts",
     "debug:retest-task": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runRetestTaskDebug.ts",
     "debug:retest-execution": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runRetestExecutionDebug.ts",
+    "debug:ability-change-evaluation": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runAbilityChangeEvaluationDebug.ts",
+    "debug:learning-entry": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runLearningEntryDebug.ts",
+    "debug:personalized-training-flow": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPersonalizedTrainingFlowDebug.ts",
+    "debug:beta-learning-session-result": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runBetaLearningSessionResultDebug.ts",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

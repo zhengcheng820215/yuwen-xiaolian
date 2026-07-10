@@ -42,6 +42,21 @@ const phaseSteps = [
     desc: '验证个性化任务作答后，如何更新 evidence 并生成下一步决策。',
     status: 'Phase 5.2 Demo',
   },
+  {
+    title: '学习入口',
+    desc: '让学生从统一入口完成第一题作答、诊断反馈和初始能力状态生成。',
+    status: 'Phase 7.1 Demo',
+  },
+  {
+    title: '个性化训练入口',
+    desc: '基于第一题诊断结果生成个性化训练任务，并将训练表现回流为新证据。',
+    status: 'Phase 7.2 Demo',
+  },
+  {
+    title: '复测与本轮结果',
+    desc: '基于个性化训练结果生成复测，并输出本轮能力变化判断。',
+    status: 'Phase 7.3 Demo',
+  },
 ];
 
 const frozenItems = [
@@ -63,6 +78,24 @@ export default function Home() {
       </header>
 
       <section className="mt-5 grid gap-3">
+        <PrimaryAction
+          to="/beta-learning-entry-demo"
+          title="开始学习 Beta"
+          desc="从真实学习入口完成第一题作答，并获得学生可读诊断反馈。"
+          action="开始学习"
+        />
+        <PrimaryAction
+          to="/beta-personalized-training-demo"
+          title="个性化训练 Beta"
+          desc="承接学习入口结果，生成针对性训练任务，并回流能力证据。"
+          action="训练体验"
+        />
+        <PrimaryAction
+          to="/beta-session-result-demo"
+          title="复测与本轮结果 Beta"
+          desc="承接个性化训练结果，完成复测验证并生成本轮学习反馈。"
+          action="进入复测"
+        />
         <PrimaryAction
           to="/diagnosis-demo"
           title="能力诊断 Demo"

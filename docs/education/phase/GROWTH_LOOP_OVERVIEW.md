@@ -34,6 +34,82 @@
 
 完成这条链路后，系统才从“AI 诊断工具”进入“AI 学习陪伴系统”的雏形。
 
+## Minimal Loop Principle
+
+本系统采用最小闭环驱动开发。
+
+任何复杂能力都必须拆解为可独立运行、可独立验收的最小闭环。
+
+每个最小闭环只解决一个核心问题，并且必须明确：
+
+- 输入是什么
+- 输出是什么
+- 处理什么
+- 不处理什么
+- 如何 Debug
+- 如何验收
+
+复杂系统不是一次性设计完整，而是由一组边界清晰的最小闭环逐步连接起来。
+
+只要每个闭环足够单一，即使整体 Runtime 逐渐复杂，系统仍然可以保持可理解、可调试、可维护。
+
+本项目的核心原则是：
+
+> 模块可以复杂，但边界必须简单。  
+> 代码可以复杂，但输入输出必须清楚。  
+> AI 可以复杂，但输出必须进入结构化 Schema。  
+> Runtime 可以变长，但每一步都必须可 Debug。
+
+## Current Growth Loop Decomposition
+
+当前系统不是由一个大 Agent 完成全部能力，而是拆分为多个最小闭环：
+
+1. Question Metadata Loop
+
+```text
+Question -> QuestionMetadata -> Metadata Validator
+```
+
+2. Diagnosis Evidence Loop
+
+```text
+DiagnosisResult -> AbilityEvidence -> EvidenceSummary
+```
+
+3. Student Profile Loop
+
+```text
+updatedEvidence -> StudentAbilityProfile
+```
+
+4. Personalized Task Loop
+
+```text
+StudentAbilityProfile + TopWeakness -> PersonalizedNextTask
+```
+
+5. Task Execution Loop
+
+```text
+PersonalizedNextTask + StudentAnswer -> DiagnosisRuntime -> newAbilityEvidence
+```
+
+6. Learning Session Loop
+
+```text
+PersonalizedTaskExecutionSummary x 3 -> LearningSessionMemory
+```
+
+7. Retest Loop
+
+```text
+LearningSessionMemory -> RetestTask -> RetestEvidence
+```
+
+每个闭环都可以单独运行、单独 Debug、单独验收。
+
+多个闭环通过结构化数据连接，最终组成完整的 Growth Runtime。
+
 ## 阶段脉络
 
 | Phase | 阶段定位 | 核心产物 | 验收入口 |
@@ -49,6 +125,12 @@
 | Phase 4.3 | Live AI Diagnosis Quality Evaluation | 真实 AI 诊断质量评估与人工复核门槛 | `pnpm run debug:live-ai-evaluation` |
 | Phase 5.1 | Personalized Next Task | Student Ability Profile -> 下一次个性化任务 -> Evidence 更新 | `pnpm run debug:personalized-next-task` |
 | Phase 5.2 | Personalized Task Execution Evidence | PersonalizedTask -> Student Answer -> 同能力 Evidence 更新 -> 下一步决策 | `pnpm run debug:personalized-task-execution` |
+| Phase 5.3 | Learning Session Memory | 多次 Task Execution -> LearningSessionMemory -> Session Outcome | `pnpm run debug:learning-session` |
+| Phase 6.1 | Retest Task Generation | LearningSessionMemory -> RetestTask | `pnpm run debug:retest-task` |
+| Phase 6.2 | Retest Execution Evidence | RetestTask + Student Answer -> Retest Evidence -> Profile Update | `pnpm run debug:retest-execution` |
+| Phase 6.3 | Ability Change Evaluation | Before / Training / Retest Evidence -> AbilityChangeEvaluation -> Next Decision | `pnpm run debug:ability-change-evaluation` |
+| Phase 6 Summary | Retest / Evaluation Runtime 冻结 | Phase 6 复测与能力变化判断冻结记录 | `docs/education/phase/phase6_summary.md` |
+| Phase 7.1 | Student Learning Entry | Start Learning -> First Question Diagnosis -> Initial Session State | `pnpm run debug:learning-entry` |
 
 ## 当前核心链路
 
@@ -65,6 +147,9 @@ Question Metadata
 -> Student Ability Profile
 -> Personalized Next Task
 -> Personalized Task Execution Evidence
+-> Learning Session Memory
+-> Retest Task
+-> Retest Execution Evidence
 ```
 
 ## Demo 演示入口
@@ -77,6 +162,7 @@ Question Metadata
 /#/training-evidence-demo
 /#/student-profile-demo
 /#/personalized-next-task-demo
+/#/personalized-task-execution-demo
 ```
 
 ## 当前边界
@@ -113,8 +199,9 @@ Question Metadata
 -> 学生画像
 -> 真实 AI 质量评估
 -> 下一次个性化任务
+-> 任务执行回流
+-> 学习 Session 记忆
+-> 复测验证
 ```
 
 后续新增 Phase 时，应继续围绕“证据是否能进入成长记忆、下一步动作是否可验证”这两个问题展开。
-
-

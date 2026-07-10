@@ -1,4 +1,8 @@
-import { runRealAIDiagnosisLoop, type RealAIDiagnosisResult } from './realAIDiagnosisAgent.ts';
+import {
+  runRealAIDiagnosisLoop,
+  type RealAIDiagnosisResult,
+  type RealAILLMCaller,
+} from './realAIDiagnosisAgent.ts';
 import { generateStudentAbilityProfile } from './studentAbilityProfileAgent.ts';
 import {
   rankWeaknessSummaries,
@@ -22,6 +26,7 @@ export type PersonalizedTaskExecutionInput = {
   personalizedNextTask: PersonalizedNextTask;
   studentAnswer: string;
   createdAt?: string;
+  diagnosisCaller?: RealAILLMCaller;
 };
 
 export type PersonalizedTaskExecutionResult = {
@@ -41,7 +46,7 @@ export async function runPersonalizedTaskExecutionAgent(
   const targetAbility = input.personalizedNextTask.target_ability;
   const createdAt = input.createdAt || new Date().toISOString();
   const beforeSummary = findAbilitySummary(input.evidenceSummary, targetAbility);
-  const diagnosisLoopResult = await runRealAIDiagnosisLoop({
+  const diagnosisLoopInput = {
     studentId: input.studentId,
     question: input.personalizedNextTask.question,
     referenceAnswer: buildReferenceAnswer(input.personalizedNextTask),
@@ -51,7 +56,10 @@ export async function runPersonalizedTaskExecutionAgent(
     taskId: input.personalizedNextTask.task_id,
     diagnosisId: `phase52-diagnosis-${input.personalizedNextTask.task_id}`,
     createdAt,
-  });
+  };
+  const diagnosisLoopResult = input.diagnosisCaller
+    ? await runRealAIDiagnosisLoop(diagnosisLoopInput, input.diagnosisCaller)
+    : await runRealAIDiagnosisLoop(diagnosisLoopInput);
   const diagnosisFocusMatch = isDiagnosisFocusMatch({
     targetAbility,
     diagnosisMainAbility: diagnosisLoopResult.diagnosisResult.mainAbility,
