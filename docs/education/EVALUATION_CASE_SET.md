@@ -1,4 +1,4 @@
-# Evaluation Case Set
+# 评估案例集（Evaluation Case Set）
 
 ## 文档定位
 
@@ -46,7 +46,7 @@
 
 因此，单个 case 可以形成 evidence，但不能单独证明长期能力提升。
 
-## Case ID 规则
+## Case ID 规则（Case ID Rules）
 
 | Prefix | 类型 | 说明 |
 | --- | --- | --- |
@@ -64,7 +64,7 @@ TRF-001: 训练 positive，复测 growth
 OVR-001: 单次 positive 禁止宣布能力提升
 ```
 
-## Expectation Type
+## 预期类型（Expectation Type）
 
 | 类型 | 含义 | 示例 |
 | --- | --- | --- |
@@ -77,7 +77,7 @@ OVR-001: 单次 positive 禁止宣布能力提升
 - 部分答案、边界答案可以使用 `Range`。
 - `Range` 不等于随意判断，必须写清楚允许范围和不允许范围。
 
-## Severity
+## 严重程度（Severity）
 
 | 严重程度 | 含义 | 是否阻止 Phase 冻结 |
 | --- | --- | --- |
@@ -92,7 +92,7 @@ OVR-001: 单次 positive 禁止宣布能力提升
 - `partially_meets` 与 `does_not_meet` 边界争议：`Major`
 - 文案略显生硬：`Minor`
 
-## Invalid Answer Cases
+## 无效答案案例（Invalid Answer Cases）
 
 无效答案指学生输入为空、纯数字、纯符号、明显敷衍或与任务无关，无法形成有效能力证据。
 
@@ -190,7 +190,7 @@ OVR-001: 单次 positive 禁止宣布能力提升
 无有效复测证据 -> 不判断训练是否有效
 ```
 
-## Partial Answer Cases
+## 部分答案案例（Partial Answer Cases）
 
 部分答案指学生答案包含一些相关内容，但缺少关键能力要素。
 
@@ -246,7 +246,7 @@ OVR-001: 单次 positive 禁止宣布能力提升
 有相关内容，但缺少文本依据、推理链或解释关系 -> 可以形成 weakness / growth evidence
 ```
 
-## Good Answer Cases
+## 良好答案案例（Good Answer Cases）
 
 较好答案指学生答案包含文本依据、能力动作和解释关系，能够形成正向证据或改善迹象。
 
@@ -292,7 +292,7 @@ OVR-001: 单次 positive 禁止宣布能力提升
 一次复测较好只能说明出现改善迹象，不能证明长期稳定提升。
 ```
 
-## Retest Transfer Cases
+## 复测迁移案例（Retest Transfer Cases）
 
 复测迁移 case 用于判断训练后的方法是否能迁移到新文本、新情境或新表达任务。
 
@@ -366,7 +366,7 @@ Retest evidence 权重高于 training evidence。
 但单次 retest positive / growth 仍只能说明改善迹象或可能改善。
 ```
 
-## Overclaim Risk Cases
+## 过度判断风险案例（Overclaim Risk Cases）
 
 过度结论风险 case 用于约束 AI 不要把单次表现写成长期结论。
 
@@ -418,7 +418,7 @@ Retest evidence 权重高于 training evidence。
 - severity：`Critical`
 - debug：建议后续补充
 
-## 当前已进入 Debug 的 Case
+## 当前已进入 Debug 的案例（Debug Cases）
 
 | Case ID | Debug 入口 | 状态 |
 | --- | --- | --- |

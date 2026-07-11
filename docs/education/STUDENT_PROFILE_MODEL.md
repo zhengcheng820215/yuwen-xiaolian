@@ -7,10 +7,10 @@
 本模型负责定义：
 
 - 学生能力画像记录什么
-- 能力证据如何沉淀
-- 能力状态如何更新
-- 成长趋势如何表达
-- 学生下一步成长方向如何形成
+- 长期能力状态如何保存
+- Evidence 如何被引用而不是重新解释
+- 状态历史如何保留
+- 下一步成长需求如何表达
 
 本文档不是成绩单，不是考试统计，不是排行榜，不是页面设计，也不是数据库设计。
 
@@ -26,6 +26,42 @@
 - AI Coach
 
 学生能力画像记录的是能力成长，不是考试成绩。
+
+### Profile 职责边界
+
+建议职责链：
+
+```text
+Diagnosis Result
+↓
+Ability Evidence
+↓
+Evaluation Result
+↓
+Profile Update Decision
+↓
+Student Ability Profile
+```
+
+Student Ability Profile 不创造教育事实。
+
+它只能保存由 Evidence 和 Evaluation Runtime 已经确认或建议更新的长期能力状态。
+
+Profile 可以：
+
+- 保存当前长期状态；
+- 引用支撑当前状态的 Evidence；
+- 保存历史状态变化；
+- 标记当前置信度、冲突和待验证事项；
+- 向 Coach、Training 和 Task Planner 提供学生上下文。
+
+Profile 不得：
+
+- 根据单次 Evidence 自动升级或降级；
+- 把 Root Cause Hypothesis 当作长期错因；
+- 因长期没有数据自动判定退化；
+- 绕过 Evaluation 宣布能力提升；
+- 直接决定具体下一题。
 
 ## 一、画像模型定义（Profile Definition）
 
@@ -54,9 +90,23 @@
 
 没有证据，不能更新能力等级、能力状态或成长趋势。
 
-### 3. 持续更新
+### 3. 持续记录，条件更新
 
-画像应随着学生每一次作答、修正、训练、复测和迁移任务持续更新。
+每次有效学习行为都应留下记录，但长期能力状态只有在满足 Evaluation 状态转换条件时才更新。
+
+每次都可以：
+
+- 追加 Evidence；
+- 更新最后观察时间；
+- 更新待验证事项；
+- 保存 Session 记录。
+
+不一定每次都：
+
+- 改变能力等级；
+- 改变长期状态；
+- 改变成长趋势；
+- 宣布提升或退化。
 
 ### 4. 可解释
 
@@ -64,7 +114,9 @@
 
 ### 5. 支持下一步行动
 
-画像不只是记录结果，还应支持下一步诊断、训练、复测和成长建议。
+画像不只是记录结果，还应支持下一步诊断、训练、复测和成长需求。
+
+Profile 表达学生当前需要什么，不直接决定具体下一题。
 
 ## 三、画像核心结构（Profile Structure）
 
@@ -72,13 +124,49 @@
 
 | 模块 | 说明 |
 | --- | --- |
-| 基础能力状态 | 六项一级能力的当前等级和状态 |
-| 能力证据 | 支撑每项能力判断的具体表现 |
-| 常见错因 | 学生反复出现的错误类型 |
-| 训练记录 | 学生经历过的训练阶段和训练结果 |
-| 复测记录 | 学生在复测和迁移任务中的表现 |
-| 成长趋势 | 能力在一段时间内的变化方向 |
-| 下一步建议 | 系统建议优先训练、复测或观察的能力 |
+| 基础能力状态 | 六项一级能力的当前长期状态摘要 |
+| Evidence 索引 | 支撑每项能力判断的关键 evidence 引用 |
+| Recurring Issues | 反复出现且被 evidence 支持的问题模式 |
+| 状态历史 | 能力状态变化的历史记录 |
+| Session 索引 | 最近相关 Learning Session |
+| 当前置信度 | 当前画像判断的可靠程度 |
+| 数据新鲜度 | 当前状态是否仍有足够近期 evidence 支撑 |
+| 下一步成长需求 | 需要训练、复测、迁移验证、保持性观察或人工复核的方向 |
+
+Profile 不应嵌入全部 Evidence 内容。
+
+```text
+Profile = 当前可用视图
+Evidence Store = 完整事实历史
+```
+
+Profile 中应保留：
+
+- supportingEvidenceIds；
+- recentEvidenceIds；
+- conflictingEvidenceIds；
+- representativeEvidenceIds。
+
+更稳的核心结构：
+
+```ts
+type StudentAbilityProfile = {
+  studentId: string;
+  profileVersion: string;
+  updatedAt: string;
+
+  abilities: AbilityProfileItem[];
+
+  activeGrowthNeeds: {
+    abilityId: string;
+    needType: string;
+    evidenceLinks: string[];
+    priority: 'low' | 'medium' | 'high';
+  }[];
+
+  recentSessionIds: string[];
+};
+```
 
 ## 四、单项能力画像（Ability Profile Item）
 
@@ -86,18 +174,64 @@
 
 单项能力画像建议包含：
 
-| 字段 | 说明 |
-| --- | --- |
-| 能力名称 | 信息提取、理解、概括、分析、推理、表达 |
-| 当前等级 | Lv1-Lv5 |
-| 当前状态 | 未建立、成长中、基本稳定、稳定掌握、可迁移、持续保持 |
-| 主要证据 | 支撑当前判断的关键能力证据 |
-| 常见问题 | 该能力下反复出现的典型问题 |
-| 提示依赖 | 学生完成该能力任务时对提示的依赖程度 |
-| 迁移表现 | 学生在新文本、新题型或新任务中的表现 |
-| 复测表现 | 学生经过训练后的验证结果 |
-| 成长趋势 | 提升、稳定、波动、下降、待验证 |
-| 下一步目标 | 该能力下一阶段应进入训练、复测、迁移或保持 |
+```ts
+type AbilityProfileItem = {
+  abilityId: string;
+
+  currentLevel?: 1 | 2 | 3 | 4 | 5;
+
+  developmentStage:
+    | 'not_established'
+    | 'developing'
+    | 'basically_stable'
+    | 'stable';
+
+  independence:
+    | 'high_support'
+    | 'guided'
+    | 'mostly_independent'
+    | 'independent';
+
+  transferStatus:
+    | 'not_tested'
+    | 'not_transferred'
+    | 'near_transfer'
+    | 'far_transfer';
+
+  retentionStatus:
+    | 'not_tested'
+    | 'short_term'
+    | 'delayed_confirmed'
+    | 'long_term_maintained';
+
+  trend:
+    | 'improving'
+    | 'stable'
+    | 'fluctuating'
+    | 'declining'
+    | 'insufficient_evidence';
+
+  confidence: 'low' | 'medium' | 'high';
+  dataFreshness:
+    | 'current'
+    | 'aging'
+    | 'stale'
+    | 'not_enough_recent_evidence';
+
+  supportingEvidenceIds: string[];
+  recentEvidenceIds?: string[];
+  conflictingEvidenceIds: string[];
+  recurringIssueIds: string[];
+
+  latestEvaluationResultId?: string;
+  lastObservedAt?: string;
+  lastStateChangedAt?: string;
+};
+```
+
+`currentLevel` 可以保留，但它只是长期能力成熟度的摘要表达，不是画像中唯一或最底层的状态字段。
+
+系统内部应同时保存提示依赖、稳定性、迁移性、保持性和复杂任务表现。
 
 说明：
 
@@ -113,7 +247,13 @@ weak / improving / stable_positive / insufficient_evidence
 
 能力证据是画像更新的基础。
 
-能力证据应来自：
+Profile 不直接保存所有完整 evidence。
+
+完整事实记录应由 Evidence Store 保存。
+
+Student Ability Profile 保存当前摘要状态和关键 evidence 引用。
+
+Evidence 可以来自：
 
 - 作答表现
 - 错因分析
@@ -124,46 +264,139 @@ weak / improving / stable_positive / insufficient_evidence
 - 长期稳定性
 - 提示依赖变化
 
-证据记录建议包含：
+Profile 中保留：
 
 | 字段 | 说明 |
 | --- | --- |
-| 关联能力 | 证据对应的能力 |
-| 证据类型 | 正向证据、薄弱证据、成长证据、迁移证据、退化证据、待验证证据 |
-| 来源场景 | 作答、训练、修正、复测、迁移或评估 |
-| 观察表现 | 学生具体表现 |
-| 诊断解释 | 该表现为什么支持某项能力判断 |
-| 影响结果 | 是否影响能力等级、能力状态或成长趋势 |
+| supportingEvidenceIds | 支撑当前状态的关键 evidence |
+| recentEvidenceIds | 最近相关 evidence |
+| conflictingEvidenceIds | 与当前判断存在冲突的 evidence |
+| representativeEvidenceIds | 用于摘要、报告或人工复核的代表性 evidence |
 
-## 六、画像更新机制（Profile Update）
+具体 Evidence 类型、字段、来源、提示依赖和聚合资格由 `ABILITY_EVIDENCE_CONTRACT.md` 定义。
 
-画像更新应遵循以下流程：
+## 六、Recurring Issues
+
+“常见错因”不能简单累计 Diagnosis 的 `rootCause`。
+
+Diagnosis 中很多 rootCause 只是候选假设。
+
+Profile 应区分：
+
+| 类型 | 说明 |
+| --- | --- |
+| Observed Pattern | 反复出现的可观察表现 |
+| Supported Cause Pattern | 多次 evidence 支持的原因模式 |
+| Unresolved Cause | 尚未确认的候选原因 |
+
+只有满足以下条件，才能进入长期“常见问题”：
+
+- 多次出现；
+- 来自不同任务；
+- 有明确 evidence 支撑；
+- 不是无效作答；
+- 不是单次 Root Cause Hypothesis；
+- 最近仍有现实意义。
+
+建议结构：
+
+```ts
+type RecurringIssue = {
+  issueId: string;
+  abilityId: string;
+  observationPattern: string;
+  evidenceLinks: string[];
+  occurrenceCount: number;
+  status: 'candidate' | 'supported' | 'resolved' | 'recurring';
+  lastObservedAt: string;
+};
+```
+
+## 七、画像更新机制（Profile Update）
+
+画像更新应遵循以下职责链：
 
 ```text
-新任务表现
+Ability Evidence
 ↓
-形成能力证据
+Evaluation Result
 ↓
-关联能力项
+Profile Update Decision
 ↓
-判断证据类型
-↓
-更新能力状态
-↓
-更新成长趋势
-↓
-生成下一步建议
+Student Ability Profile
+```
+
+Profile Runtime 只执行合法的 Update Decision，而不是自由理解 Evaluation 文案。
+
+建议结构：
+
+```ts
+type ProfileUpdateDecision = {
+  studentId: string;
+  abilityId: string;
+
+  action:
+    | 'append_evidence_only'
+    | 'update_confidence'
+    | 'update_dimensions'
+    | 'update_level'
+    | 'request_retest'
+    | 'mark_fluctuating'
+    | 'human_review';
+
+  evidenceLinks: string[];
+  evaluationResultId: string;
+  reason: string;
+
+  proposedChanges?: {
+    level?: number;
+    developmentStage?: string;
+    independence?: string;
+    transferStatus?: string;
+    retentionStatus?: string;
+    trend?: string;
+  };
+};
 ```
 
 画像更新不是简单覆盖。
 
-新证据必须与历史证据共同判断，避免因为单次表现导致能力状态剧烈波动。
+新 evidence 必须通过 Evaluation 与历史 evidence 共同判断，避免因为单次表现导致能力状态剧烈波动。
 
-## 七、画像状态变化（Profile Evolution）
+## 八、画像状态变化（Profile Evolution）
 
 能力画像应支持状态变化。
 
-常见状态变化包括：
+Profile 应保留状态历史，而不只是最新状态。
+
+建议结构：
+
+```ts
+type AbilityStateTransition = {
+  transitionId: string;
+  abilityId: string;
+  fromState: string;
+  toState: string;
+  reason: string;
+  evidenceLinks: string[];
+  evaluationResultId: string;
+  changedAt: string;
+};
+```
+
+长期成长系统不仅要回答：
+
+```text
+现在是什么状态？
+```
+
+还要回答：
+
+```text
+它是怎样变成现在这样的？
+```
+
+状态变化可以包括：
 
 ```text
 未建立 -> 成长中
@@ -183,7 +416,66 @@ weak / improving / stable_positive / insufficient_evidence
 
 状态回落不是惩罚，而是重新诊断和训练的依据。
 
-## 八、画像输出规范（Profile Output）
+长期没有新数据不等于能力退化。
+
+正确处理应为：
+
+```text
+长期没有新 evidence
+-> 当前判断可信度下降
+-> 触发保持性复测
+```
+
+而不是：
+
+```text
+长期没有新 evidence
+-> 自动降级
+```
+
+Profile 状态还应包含：
+
+- profileVersion；
+- evaluationRuleVersion；
+- lastEvaluatedAt；
+- confidence；
+- dataFreshness。
+
+## 九、下一步成长需求（Growth Need）
+
+Profile 可以表达学生当前需要什么，但不应直接决定具体任务。
+
+建议字段：
+
+```ts
+type GrowthNeed = {
+  abilityId: string;
+  needType:
+    | 'continue_training'
+    | 'diagnostic_verification'
+    | 'independent_retest'
+    | 'transfer_test'
+    | 'delayed_retest'
+    | 'maintenance'
+    | 'human_review';
+  evidenceLinks: string[];
+  priority: 'low' | 'medium' | 'high';
+};
+```
+
+职责边界：
+
+```text
+Student Profile
+-> 提供成长需求
+
+Personalized Next Task Agent
+-> 结合题目资源和近期历史生成具体任务
+```
+
+因此，“下一步建议”应更准确地表达为“下一步成长需求”。
+
+## 十、画像输出规范（Profile Output）
 
 标准画像输出应包含：
 
@@ -194,22 +486,64 @@ weak / improving / stable_positive / insufficient_evidence
 | 重点薄弱能力 | 当前最需要训练或复测的能力 |
 | 关键能力证据 | 支撑能力判断的代表性证据 |
 | 常见错因 | 学生近期反复出现的错因 |
-| 下一步建议 | 后续训练、复测或迁移验证方向 |
+| 下一步成长需求 | 后续训练、复测、迁移验证、保持性观察或人工复核需求 |
 
 画像输出应避免只展示分数或正确率。
 
-## 九、本模型与其他模型关系
+Profile Output 与 Profile Model 应分离。
 
-ABILITY_MODEL 定义画像记录的能力标准。
+```text
+Student Ability Profile
+= 长期结构化状态
 
-DIAGNOSIS_MODEL 为画像提供能力短板和错因证据。
+Profile Summary
+= 供 AI Coach、家长端和学生端使用的阶段摘要
 
-TRAINING_MODEL 为画像提供训练阶段和训练结果。
+Growth Report
+= 基于 Evaluation Result 形成的阶段性表达
+```
 
-EVALUATION_MODEL 判断画像中的能力是否成长、保持或退化。
+“重点成长能力”不能由 Profile 自己根据最新几条 evidence 排序，应消费 Evaluation 的阶段结论。
 
-QUESTION_MODEL 为画像提供可追踪的能力任务来源。
+## 十一、本模型与其他模型关系
 
-AI_COACH_MODEL 应根据画像决定反馈、提示和训练节奏。
+ABILITY_MODEL 定义画像记录的能力标准和稳定 abilityId。
+
+DIAGNOSIS_MODEL 生成 Diagnosis Result，但不直接更新 Profile。
+
+ABILITY_EVIDENCE_CONTRACT 定义一次表现如何保存为 evidence。
+
+EVALUATION_MODEL 读取多条 evidence，形成 Evaluation Result 和 Profile Update Decision。
+
+TRAINING_MODEL 为画像提供训练阶段和训练结果引用。
+
+QUESTION_MODEL / QUESTION_METADATA_MODEL 为画像提供可追踪的能力任务来源。
+
+AI_COACH_MODEL 可读取 Profile Summary 决定反馈、提示和训练节奏，但不应直接修改 Profile。
+
+Personalized Next Task Agent 根据 Growth Need、题目资源和近期历史决定具体下一任务。
 
 学生能力画像是整个系统长期成长记录的核心载体。
+
+最终分工：
+
+```text
+Evidence Store
+保存全部事实记录
+
+Evaluation
+形成长期判断和更新决策
+
+Student Ability Profile
+保存当前状态、证据索引和历史变化
+
+Task Planner
+决定下一步具体任务
+
+Report
+把结构化结论表达给用户
+```
+
+Student Ability Profile 是：
+
+> 学生能力长期状态快照 + Evidence 索引 + 成长历史。

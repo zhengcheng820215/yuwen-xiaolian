@@ -6,10 +6,10 @@
 
 本模型负责定义：
 
-- AI 如何评估学生能力
-- AI 如何验证能力是否真正成长
-- AI 如何更新能力画像
-- AI 如何形成长期成长记录
+- AI 如何读取有效 Ability Evidence
+- AI 如何判断证据是否充足、可比、可累计
+- AI 如何验证能力是否出现成长信号
+- AI 如何形成能力状态变化建议和长期成长记录
 
 本文档不是考试评分规则，不是成绩统计，不是排行榜，不是 Prompt，不是算法实现，也不是页面设计。
 
@@ -26,6 +26,10 @@
 
 本文档的核心目标是建立整个系统统一的 Evaluation Language（评估语言）。未来成长报告、能力画像、AI 点评和能力升级，都必须引用本模型。
 
+Evaluation 不重新诊断学生答案。
+
+Evaluation 读取 Diagnosis / Training / Retest / Transfer 已经形成的有效 Ability Evidence，判断这些证据是否足以支持能力状态变化。
+
 本文档用于回答以下问题：
 
 1. 什么是能力评估？
@@ -34,7 +38,8 @@
 4. 能力什么时候升级？
 5. 能力什么时候保持？
 6. 能力什么时候退步？
-7. 能力画像如何更新？
+7. 证据不足或证据冲突时应如何处理？
+8. 能力画像何时只追加记录，何时改变长期状态？
 
 评估对象永远是能力，不是题目。
 
@@ -66,6 +71,31 @@
 - 哪些证据支持这些判断？
 
 评估不是对一次结果的静态判断，而是对长期能力变化的动态确认。
+
+### Evaluation 职责边界
+
+Evaluation 不创造新的作答事实。
+
+Evaluation 可以：
+
+- 读取有效 Ability Evidence；
+- 判断证据是否同能力、可比较、可累计；
+- 识别证据数量、质量、时间跨度和冲突情况；
+- 形成成长层级、能力状态和置信度建议；
+- 提出复测、迁移验证或人工复核需求；
+- 向 Student Profile 提交结构化更新建议。
+
+Evaluation 不得：
+
+- 根据单次作答宣布能力提升；
+- 将训练表现直接视为迁移表现；
+- 忽略提示依赖和任务难度；
+- 在证据冲突时强行输出确定结论；
+- 因长期没有新数据自动判断能力退化；
+- 绕过 Ability Evidence 链路直接更新能力等级；
+- 绕过 Diagnosis Result 和 Ability Evidence 重新诊断原始答案。
+
+必要时，Evaluation 可以回看原始作答进行证据校验或人工审核，但不能自行创造第二套诊断结论。
 
 ## 二、评估原则（Evaluation Principles）
 
@@ -115,7 +145,23 @@
 
 能力画像不是固定档案。
 
-每一次诊断、训练、复测和迁移任务都可能产生新证据，并推动能力状态更新。
+每一次诊断、训练、复测和迁移任务都可能产生新证据，并推动能力状态更新建议。
+
+但并不是每一条新证据都会改变长期能力状态。
+
+### 9. 证据充足优先
+
+Evaluation 在判断成长前，必须先判断 evidence 是否足够。
+
+证据不足时，只能输出观察、限制和下一步验证需求，不能输出阶段性改善或稳定提升。
+
+### 10. 冲突保留
+
+真实学习数据可能波动。
+
+当 positive、growth、weakness 或 insufficient evidence 同时存在时，Evaluation 不应强行消解冲突。
+
+冲突存在时，能力状态应体现波动、待验证或需要复测。
 
 ## 三、能力成长判断（Growth Validation）
 
@@ -125,14 +171,33 @@
 
 评估模型必须区分：
 
-| 判断层级 | 含义 |
-| --- | --- |
-| 改善迹象 | 单次训练、修正或复测中出现比之前更好的表现 |
-| 初步改善 | 多条同能力 evidence 显示表现方向变好，但稳定性仍不足 |
-| 阶段性改善 | 多次任务和至少一次独立复测支持该能力较训练前改善 |
-| 稳定提升 | 较长时间、多情境、多次复测都支持该能力稳定改善 |
+| 判断层级 | 含义 | 最低证据要求 |
+| --- | --- | --- |
+| 无结论 | 证据不足或冲突较强，不能判断成长 | evidenceSufficiency 为 insufficient 或存在显著冲突 |
+| 改善迹象 | 单次训练、修正或复测中出现比之前更好的表现 | 至少一条相对基线更好的有效 evidence |
+| 初步改善 | 多条同能力 evidence 显示表现方向变好，但稳定性仍不足 | 至少两条不同任务的同向 evidence，且不存在强反例 |
+| 阶段性改善 | 多次任务和至少一次独立复测支持该能力较训练前改善 | 多次独立表现 + 至少一次复测或迁移 evidence |
+| 稳定提升 | 较长时间、多情境、多次复测都支持该能力稳定改善 | 跨时间、多任务、独立完成、迁移和延迟复测共同支持 |
 
 除非达到阶段性改善或稳定提升的证据要求，系统不应输出“能力已经提升”“能力已经掌握”或“薄弱点已经解决”。
+
+注意：
+
+```text
+Evidence 数量满足
+≠ 自动达到成长层级
+```
+
+Evaluation 还必须检查：
+
+- 题目是否可比较；
+- 难度是否相近；
+- 是否使用提示；
+- 是否重复原题；
+- evidence 是否来自不同任务；
+- 是否存在冲突证据。
+
+例如，三条 positive evidence 如果都来自同一道题的连续修改，不能等价于三次独立证据。
 
 能力真正成长通常表现为：
 
@@ -178,42 +243,74 @@
 | 持续性 | 学生在间隔复测或长期任务中是否保持能力 | 能力是否能够长期保持 |
 | 复杂任务完成度 | 学生能否在更复杂任务中完成能力活动 | 是否能处理多信息、多步骤任务 |
 | 修正能力 | 学生是否能根据反馈修正错误 | 是否理解错因并补足思维缺口 |
-| 学习效率 | 学生形成稳定能力所需训练和提示程度 | 是否能更快形成有效方法 |
+| 支持需求变化 | 学生完成同类能力任务所需支持是否减少 | 提示层级是否下降、独立尝试是否增加 |
 
 每个维度代表能力成熟度的不同方面。
 
 系统应避免只用正确率替代全部评估。
 
+“支持需求变化”不应用来给学生贴“学习效率高/低”的标签。
+
+它只描述可观察事实，例如：
+
+```text
+相比前几次，本次完成同类任务所需提示更少。
+```
+
 ## 五、能力状态（Ability Status）
 
 能力不只有等级，还有状态。
 
-能力等级描述成熟度，能力状态描述当前发展阶段和稳定程度。
+能力等级描述成熟度，能力状态描述当前发展阶段、独立性、迁移性和保持情况。
 
-本系统采用以下能力状态模型：
+能力状态不应完全设计成单线升级阶梯。
 
-```text
-未建立
-↓
-成长中
-↓
-基本稳定
-↓
-稳定掌握
-↓
-可迁移
-↓
-持续保持
+例如，一个学生可能在常规题中基本稳定，但迁移到新文本时仍不稳定；也可能能近迁移，但长期保持尚未验证。
+
+因此，系统内部应采用多维状态模型。
+
+```ts
+type AbilityEvaluationState = {
+  developmentStage:
+    | 'not_established'
+    | 'developing'
+    | 'basically_stable'
+    | 'stable';
+
+  independence:
+    | 'high_support'
+    | 'guided'
+    | 'mostly_independent'
+    | 'independent';
+
+  transferStatus:
+    | 'not_tested'
+    | 'not_transferred'
+    | 'near_transfer'
+    | 'far_transfer';
+
+  retentionStatus:
+    | 'not_tested'
+    | 'short_term'
+    | 'delayed_confirmed'
+    | 'long_term_maintained';
+};
 ```
 
-| 状态 | 说明 |
+用户侧可以显示为一句简洁描述：
+
+```text
+概括能力基本稳定，已完成近迁移，长期保持仍待验证。
+```
+
+多维状态说明：
+
+| 维度 | 说明 |
 | --- | --- |
-| 未建立 | 学生尚不能完成该能力任务，或只能在大量提示下完成 |
-| 成长中 | 学生开始理解方法，但表现不稳定，需要持续训练 |
-| 基本稳定 | 学生能在常规任务中较稳定完成，但迁移证据不足 |
-| 稳定掌握 | 学生能独立完成多数同类任务，表现相对稳定 |
-| 可迁移 | 学生能在新文本、新题型或新任务中应用该能力 |
-| 持续保持 | 学生能在长期复测、复杂任务或间隔任务中保持稳定表现 |
+| developmentStage | 能力当前处于未建立、发展中、基本稳定还是稳定 |
+| independence | 当前完成任务对提示和引导的依赖程度 |
+| transferStatus | 当前是否经过近迁移或远迁移验证 |
+| retentionStatus | 当前是否经过短期、延迟或长期保持验证 |
 
 能力状态可以与能力等级共同使用。
 
@@ -253,6 +350,8 @@
 | 复测通过 | 学生在复测中保持目标能力表现 |
 | 证据一致 | 新证据与既有证据共同支持升级判断 |
 
+升级前必须通过 Evidence Sufficiency 和 Evidence Conflict 检查。
+
 升级不是对学生的奖励，而是能力成熟度变化的记录。
 
 系统不应因为学生完成了固定数量的题目就自动升级，也不应仅凭一次高正确率判断能力升级。
@@ -265,7 +364,6 @@
 
 能力退化可能来自：
 
-- 长期未使用
 - 连续迁移失败
 - 持续依赖提示
 - 复杂任务失败
@@ -285,6 +383,39 @@
 系统应将退化视为新的诊断信号，用于判断是否需要重新训练前置能力、降低任务难度或增加复测。
 
 退化判断同样必须有证据支持，不能基于单次失败直接下结论。
+
+能力升级与能力退化不完全对称。
+
+能力升级通常需要多条强证据共同支持；能力回落风险可以更早触发，但不等于确认退化。
+
+建议区分：
+
+| 类型 | 说明 |
+| --- | --- |
+| regression_signal | 出现能力回落信号，需要复测或继续观察 |
+| regression_confirmed | 多条高质量证据支持能力状态确认回落 |
+
+规则：
+
+- 一次延迟复测失败可以触发 regression_signal；
+- 连续多次独立任务失败才可能支持 regression_confirmed；
+- 一次复杂任务失败不能直接降级；
+- 长时间没有使用不能自动判定能力退化。
+
+更合理的处理是：
+
+```text
+长期未观察
+-> 当前状态可信度下降
+-> 安排保持性复测
+```
+
+而不是：
+
+```text
+长期未观察
+-> 自动降级
+```
 
 ## 八、能力证据体系（Evidence System）
 
@@ -306,7 +437,7 @@ AI 形成评估依据时，应综合多种证据来源：
 
 | 证据类型 | 说明 |
 | --- | --- |
-| 成长证据 | 支持能力正在提升或已经提升的表现 |
+| 成长证据 | 支持能力出现改善信号或阶段性改善的表现 |
 | 稳定证据 | 支持能力在多次任务中保持稳定的表现 |
 | 迁移证据 | 支持能力能够应用到新情境的表现 |
 | 衰退证据 | 支持能力状态下降或不稳定的表现 |
@@ -334,18 +465,113 @@ positive / weakness / growth / insufficient
 
 没有能力证据，不能输出能力成长、能力升级、能力保持或能力退化结论。
 
+### Evidence Sufficiency
+
+Evaluation 在判断成长层级前，必须先判断 evidence 是否足够形成长期结论。
+
+建议结构：
+
+```ts
+evidenceSufficiency: {
+  status: 'insufficient' | 'limited' | 'sufficient';
+  missingConditions: string[];
+  conflictingEvidenceIds: string[];
+}
+```
+
+至少检查以下条件：
+
+| 条件 | 判断问题 |
+| --- | --- |
+| 数量 | 是否只有单条 evidence |
+| 独立性 | 是否由学生独立完成 |
+| 多样性 | 是否来自不同文本或任务 |
+| 可比性 | 前后任务难度和目标是否可比较 |
+| 时间跨度 | 是否只有即时训练结果 |
+| 提示影响 | 是否依赖较强提示 |
+| 冲突情况 | 是否存在相反 evidence |
+| 来源质量 | 是训练、复测、迁移还是延迟复测 |
+
+严格规则：
+
+```text
+evidenceSufficiency != sufficient
+-> 不允许输出阶段性改善或稳定提升
+```
+
+### Evidence Conflict Handling
+
+真实学习数据很可能不是连续变好。
+
+例如：
+
+```text
+weakness -> positive -> weakness -> growth
+```
+
+Evaluation 不应简单多数投票，也不应只取最新一次。
+
+冲突处理原则：
+
+- 不强行消解冲突；
+- 高质量证据权重大于低质量证据；
+- 最近证据重要，但不能自动覆盖历史；
+- 迁移、延迟复测、独立完成证据优先；
+- 冲突存在时，能力状态应体现波动或待验证。
+
+建议结构：
+
+```ts
+evaluationConflict: {
+  status: 'none' | 'minor' | 'significant';
+  positiveEvidenceIds: string[];
+  negativeEvidenceIds: string[];
+  resolution: 'keep_observing' | 'retest' | 'review_required';
+}
+```
+
+示例表达：
+
+```text
+近期表现出现改善，但复测结果仍有波动，当前不足以确认能力已稳定提升。
+```
+
+### Evidence Comparability
+
+证据权重不能只看来源类型。
+
+在任务目标、难度和 Rubric 可比较的前提下，迁移、独立完成、延迟复测 evidence 才具有更高评估价值。
+
+判断顺序应为：
+
+```text
+是否评估同一能力
+↓
+是否具有可比性
+↓
+再判断来源权重
+```
+
+例如：
+
+- 明显更简单的迁移题，不一定比高质量训练证据更强；
+- 无提示但题目要求很低的作答，不一定能证明稳定能力；
+- 延迟复测如果没有真正考察同一能力，也不能作为强证据。
+
 ## 九、能力画像更新（Profile Evolution）
 
-每次评估以后，能力画像都应根据新证据进行更新。
+每次有效评估都应留下评估记录。
 
 能力画像应该持续成长，不是静态记录。
 
-画像更新内容包括：
+但并不是每次评估都要改变能力等级、核心能力状态或成长趋势。
+
+画像更新内容可以包括：
 
 | 更新项 | 说明 |
 | --- | --- |
 | 能力等级 | 根据能力成熟度更新 Lv1-Lv5 |
-| 能力状态 | 更新未建立、成长中、基本稳定、稳定掌握、可迁移、持续保持等状态 |
+| 能力状态 | 更新 developmentStage、independence、transferStatus、retentionStatus 等多维状态 |
 | 新增证据 | 记录本次评估形成的新证据 |
 | 成长趋势 | 判断能力近期是提升、稳定、波动还是下降 |
 | 训练历史 | 记录该能力经历过的训练阶段和训练结果 |
@@ -361,6 +587,32 @@ positive / weakness / growth / insufficient
 - 复测表现优先级高于即时训练表现
 - 能力画像应保留成长过程，而不是只保留最新结论
 
+建议结构：
+
+```ts
+profileUpdateDecision: {
+  action:
+    | 'append_evidence_only'
+    | 'update_confidence'
+    | 'update_status'
+    | 'promote'
+    | 'regress'
+    | 'request_retest';
+
+  evidenceLinks: string[];
+  reason: string;
+}
+```
+
+原则：
+
+```text
+每次评估都有记录
+≠ 每次评估都要改变画像结论
+```
+
+只有在满足状态转换条件时，才更新长期能力等级或核心状态。
+
 能力画像的核心价值是记录学生能力如何变化，而不是记录学生得了多少分。
 
 ## 十、成长报告（Growth Report）
@@ -368,6 +620,43 @@ positive / weakness / growth / insufficient
 成长报告不是成绩单。
 
 成长报告是能力成长记录，用于说明学生在某一阶段的能力变化、证据基础和后续方向。
+
+Growth Report 不负责生成成长事实。
+
+它只负责表达 Evaluation Runtime 已经形成的结构化评估结果。
+
+推荐链路：
+
+```text
+Ability Evidence
+↓
+Growth Memory
+↓
+Evaluation Result
+↓
+Stage Report Data
+↓
+Growth Report 文案
+```
+
+Report Agent 不应自己阅读几条 evidence 后自由总结“孩子的推理能力明显提升”。
+
+它应读取结构化结果，例如：
+
+```json
+{
+  "growthLevel": "initial_improvement",
+  "confidence": "medium",
+  "evidenceLinks": ["ev-12", "ev-18"],
+  "limitations": ["尚无延迟复测", "远迁移未验证"]
+}
+```
+
+再转换为用户可读表达：
+
+```text
+最近两次新文本任务中，孩子能够更完整地结合依据作答，出现了初步改善；目前还需要通过间隔复测确认稳定性。
+```
 
 标准成长报告应包括：
 
@@ -395,41 +684,123 @@ positive / weakness / growth / insufficient
 - 哪些能力仍需要支持
 - 下一步如何继续成长
 
-## 十一、本模型与其他模型关系
+## 十一、Evaluation Result 结构（Evaluation Result）
 
-Evaluation 位于能力成长闭环的验证环节。
+Phase 8 初期不需要复杂算法，但应先建立稳定的评估结果结构。
+
+建议最小结构：
+
+```ts
+type AbilityEvaluationResult = {
+  abilityId: string;
+  evaluationWindow: {
+    from: string;
+    to: string;
+  };
+
+  evidenceLinks: string[];
+
+  evidenceSufficiency: {
+    status: 'insufficient' | 'limited' | 'sufficient';
+    missingConditions: string[];
+  };
+
+  growthLevel:
+    | 'no_conclusion'
+    | 'improvement_signal'
+    | 'initial_improvement'
+    | 'stage_improvement'
+    | 'stable_improvement';
+
+  developmentStage:
+    | 'not_established'
+    | 'developing'
+    | 'basically_stable'
+    | 'stable';
+
+  transferStatus:
+    | 'not_tested'
+    | 'not_transferred'
+    | 'near_transfer'
+    | 'far_transfer';
+
+  retentionStatus:
+    | 'not_tested'
+    | 'short_term'
+    | 'delayed_confirmed'
+    | 'long_term_maintained';
+
+  confidence: 'low' | 'medium' | 'high';
+
+  conflictStatus: 'none' | 'minor' | 'significant';
+
+  limitations: string[];
+
+  nextAction:
+    | 'continue_training'
+    | 'retest'
+    | 'transfer_test'
+    | 'maintenance'
+    | 'human_review';
+};
+```
+
+该结构用于支持：
+
+- Growth Memory；
+- 阶段成长报告；
+- Profile 状态更新；
+- 个性化下一步任务。
+
+## 十二、本模型与其他模型关系
+
+Evaluation 位于能力成长闭环的长期聚合与验证环节。
 
 系统关系可以表示为：
 
 ```text
-Ability
-↓
-Diagnosis
-↓
-Training
-↓
-Evaluation
-↓
-Question
-↓
-Student Profile
+Ability Model
+      ↓
+Question Model / Metadata
+      ↓
+Student Answer
+      ↓
+Diagnosis Result
+      ↓
+Ability Evidence
+      ↓
+Training / Retest / Transfer
+      ↓
+New Ability Evidence
+      ↓
+Evaluation / Growth Memory
+      ↓
+Student Ability Profile
+      ↓
+Personalized Next Task
 ```
 
 EVALUATION_MODEL 的职责是验证：
 
-- Diagnosis 是否正确
+- 后续 evidence 是否持续支持先前诊断假设
 - Training 是否有效
 - 能力是否真正成长
 - 能力画像是否需要更新
 - 下一阶段目标是否需要调整
 
+Evaluation 不能总是证明一次 Diagnosis “正确或错误”。
+
+更准确的表达是：
+
+> Evaluation 根据后续训练、复测与迁移证据，验证先前诊断假设是否持续得到支持，并在证据冲突时提出修正需求。
+
 ABILITY_MODEL 定义评估对象和能力等级基础。
 
-DIAGNOSIS_MODEL 生成能力短板和能力证据。
+DIAGNOSIS_MODEL 生成 Diagnosis Result 和 Ability Evidence。
 
 TRAINING_MODEL 组织能力改善过程。
 
-QUESTION_MODEL 提供用于评估、复测和迁移验证的任务载体。
+QUESTION_MODEL / QUESTION_METADATA_MODEL 提供用于评估、复测和迁移验证的任务载体与运行契约。
 
 Student Profile 记录评估结果、能力状态、成长趋势和长期证据。
 

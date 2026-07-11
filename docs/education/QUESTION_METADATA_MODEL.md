@@ -45,7 +45,7 @@ vNext 增强方向：
 > 它需要明确答案接受规则、rubric 命中规则、训练方向映射、常见错误边界以及 metadata 版本来源。
 > 当前代码 Schema 可分阶段落地，本文档先定义目标契约。
 
-## 一、模型目标
+## 一、模型目标（Model Goal）
 
 `QUESTION_METADATA_MODEL` 的目标是建立一道具体题目的运行层描述。
 
@@ -74,7 +74,7 @@ vNext 增强方向：
 - 提供常见错误与训练方向候选空间
 - 为 Diagnosis Agent、Ability Evidence Extractor、Training Plan Agent 和 Personalized Next Task Agent 提供结构化输入
 
-## 二、Question Metadata 数据结构
+## 二、数据结构（Data Structure）
 
 标准题目元数据可以使用 JSON 或 YAML 表达。
 
@@ -278,7 +278,7 @@ export type QuestionCommonError = {
 }
 ```
 
-## 三、assessmentMode 定义
+## 三、评估模式定义（Assessment Mode）
 
 `assessmentMode` 不按照具体题型分类，而按照答案评价方式分类。
 
@@ -417,7 +417,7 @@ answerAcceptance: {
 - 操作结果是否能支撑后续诊断
 - 是否形成过程性能力证据
 
-## 四、rubric 诊断规则模型
+## 四、Rubric 诊断规则（Rubric Rules）
 
 `rubric` 不是评分结果，而是 AI 诊断依据。
 
@@ -551,7 +551,7 @@ Rubric item 不应只靠名称或描述让 Runtime 自由猜测。
 
 这可以避免系统仅因为答案中出现“心疼”就判断推理能力满足。
 
-## 五、commonErrors 模型
+## 五、常见错误模型（Common Errors）
 
 `commonErrors` 用于描述该题常见错误类型。
 
@@ -635,7 +635,7 @@ export type QuestionCommonError = {
 - 语言空泛
 - 缺少层次
 
-## 六、训练方向映射
+## 六、训练方向映射（Training Mapping）
 
 Question Metadata 可以描述这道题可能支持哪些训练方向，但不能直接决定某个学生下一步应该训练什么。
 
@@ -703,7 +703,7 @@ trainingMappings?: {
 - Evidence 记录可追溯表现；
 - Training Plan Agent / Personalized Next Task Agent 决定最终训练任务。
 
-## 七、版本与来源追溯
+## 七、版本与来源追溯（Version and Source）
 
 题目元数据本身需要版本和来源。
 
@@ -749,7 +749,7 @@ rubricVersion: string;
 - 学生答案证据不足；
 - Prompt / Runtime 策略发生变化。
 
-## 八、与现有系统关系
+## 八、与现有系统关系（System Relationship）
 
 ### QUESTION_MODEL
 
@@ -819,7 +819,7 @@ Evaluation Agent 应读取 rubric 判断本次训练或复测是否出现改善�
 - 不应仅凭单次复测宣布“能力已经提升”或“能力已经稳定”。
 - 长期能力提升必须由多次 evidence、独立复测和 Student Ability Profile 综合判断。
 
-## 九、完整示例
+## 九、完整示例（Examples）
 
 ### 示例 1：exact_match 反义词题
 
@@ -1056,7 +1056,7 @@ Evaluation Agent 应读取 rubric 判断本次训练或复测是否出现改善�
 }
 ```
 
-## 十、运行层使用建议
+## 十、运行层使用建议（Runtime Usage）
 
 后续进入 Runtime 时，题目输入不应只包含：
 
