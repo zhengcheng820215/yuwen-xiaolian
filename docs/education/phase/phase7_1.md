@@ -486,6 +486,21 @@ LearningEntryResult
 - Phase 7.2：基于诊断结果进入个性化任务；
 - Phase 7.3：完成训练、复测和本轮反馈。
 
+## 与长期协议的关系
+
+Phase 7.1 中的 `Ability Evidence -> Student Ability Profile` 表示当前 Beta 入口最小实现可以完成第一题诊断后的 Evidence 回流和初始画像生成。
+
+长期标准协议中，画像状态更新应由 Evaluation 与 ProfileUpdateDecision 约束：
+
+```text
+AbilityEvidence
+-> EvaluationResult
+-> ProfileUpdateDecision
+-> StudentAbilityProfile
+```
+
+因此，Phase 7.1 的 PASS 结论仍然有效，但不代表第一题单次 Evidence 可以直接确认长期能力状态。
+
 ## Definition of Done
 
 Phase 7.1 完成时，应能通过一个入口证明：

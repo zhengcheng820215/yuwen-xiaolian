@@ -88,6 +88,12 @@ DiagnosisResult -> AbilityEvidence -> EvidenceSummary
 updatedEvidence -> StudentAbilityProfile
 ```
 
+这是当前最小实现中的画像重算链路。长期标准协议中，Evidence 不应直接改变长期画像状态，而应先进入 Evaluation：
+
+```text
+AbilityEvidence -> EvaluationResult -> ProfileUpdateDecision -> StudentAbilityProfile
+```
+
 4. Personalized Task Loop
 
 ```text
@@ -143,6 +149,8 @@ LearningSessionMemory -> RetestTask -> RetestEvidence
 
 ## 当前核心链路
 
+当前已实现链路：
+
 ```text
 Question Metadata
 -> Diagnosis Result
@@ -162,6 +170,21 @@ Question Metadata
 -> Ability Change Evaluation
 -> Beta Learning Session Result
 ```
+
+长期标准协议应逐步收敛为：
+
+```text
+DiagnosisResult
+-> AbilityEvidence
+-> EvaluationResult
+-> ProfileUpdateDecision
+-> StudentAbilityProfile
+-> PersonalizedNextTask
+```
+
+其中 `AbilityChangeEvaluation` 是 Phase 6 / Phase 7 的早期实现名称，长期语义应收敛到 `EvaluationResult` 与 `ProfileUpdateDecision`。
+
+因此，本总览中的历史 Phase 链路仍然有效，但不表示单条 Evidence 可以直接确认长期能力状态变化。
 
 ## Demo 演示入口
 

@@ -324,6 +324,21 @@ Personalized Next Task
 
 因此 Phase 5.1 是系统从“诊断 Runtime”走向“连续成长 Runtime”的第一步。
 
+## 与长期协议的关系
+
+Phase 5.1 中的 `updatedEvidence -> Student Ability Profile 更新` 表示当前最小 Runtime 可以完成 Evidence 回流和 Profile 重算。
+
+长期标准协议中，Profile 更新应由 Evaluation 层约束：
+
+```text
+AbilityEvidence
+-> EvaluationResult
+-> ProfileUpdateDecision
+-> StudentAbilityProfile
+```
+
+因此，Phase 5.1 的 PASS 结论仍然有效，但不代表一次 Personalized Next Task 或单条新 Evidence 可以直接改变长期能力状态。
+
 ## 阶段完成定义
 
 Phase 5.1 完成时，应能够通过一个命令证明：
@@ -418,4 +433,3 @@ allowNextPhase = true。
 - 不做长期成长报告。
 - 不修改 Diagnosis Result Schema。
 - 不重构 Phase 4.2 Runtime 主链路。
-

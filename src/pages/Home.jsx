@@ -57,6 +57,11 @@ const phaseSteps = [
     desc: '基于个性化训练结果生成复测，并输出本轮能力变化判断。',
     status: 'Phase 7.3 Demo',
   },
+  {
+    title: '评估与画像决策',
+    desc: '让 Evidence 先经过 EvaluationResult 和 ProfileUpdateDecision，再更新学生画像。',
+    status: 'Phase 8.1 Demo',
+  },
 ];
 
 const frozenItems = [
@@ -95,6 +100,12 @@ export default function Home() {
           title="复测与本轮结果 Beta"
           desc="承接个性化训练结果，完成复测验证并生成本轮学习反馈。"
           action="进入复测"
+        />
+        <PrimaryAction
+          to="/phase81-evaluation-demo"
+          title="评估与画像决策 Demo"
+          desc="查看 Evidence 如何经过 EvaluationResult 和 ProfileUpdateDecision 后再更新画像。"
+          action="查看决策"
         />
         <PrimaryAction
           to="/diagnosis-demo"

@@ -345,6 +345,23 @@ Phase 3 中推理能力已经产生 training / retest growth evidence，因此 P
 - 本阶段默认 Evidence 可以来自 mock、debug、training 或 retest 流程，只要符合 Ability Evidence Schema 即可被画像模块消费。
 - 真实 AI 诊断生成的 Evidence 可信度验证属于 Phase 4.2。
 
+## 与长期协议的关系
+
+本阶段记录的是 Phase 4.1 当时已验收的最小实现。
+
+当前实现中，Student Ability Profile 可以基于 Evidence Summary / Top Weakness 生成画像。
+
+长期标准协议应收敛为：
+
+```text
+AbilityEvidence
+-> EvaluationResult
+-> ProfileUpdateDecision
+-> StudentAbilityProfile
+```
+
+因此，Phase 4.1 的 PASS 结论仍然有效，但不代表单条 Evidence 可以直接确认长期能力状态变化。
+
 ## 与 Phase 4.2 的衔接
 
 当前 `AbilityEvidence` Schema 已支持 Phase 4.2 的真实 AI 诊断证据输入：
@@ -386,4 +403,3 @@ Phase 4.2：
 ```
 
 也就是验证真实 AI 是否能够生成可解释、可结构化、可沉淀为 Evidence 的诊断结果。
-

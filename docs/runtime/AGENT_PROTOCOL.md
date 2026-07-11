@@ -13,14 +13,14 @@
 - Ability Evidence Extractor
 - Weakness Ranking Agent
 - Training Plan Agent
-- Training Evaluation / Retest Evidence Runtime
-- Student Ability Profile Agent
+- Training Execution / Retest Evidence Runtime
+- Evaluation Agent / Long-term Evaluation Runtime
+- Student Ability Profile Runtime
 - Personalized Next Task Agent
 
 后续仍可继续增加：
 
 - Coach Agent
-- Long-term Evaluation Agent
 - Growth Report Agent
 
 为了避免不同 Agent 之间职责重复、数据结构混乱、上游结论被下游重新判断，系统必须建立统一的 Agent Protocol。
@@ -72,7 +72,7 @@ Runtime Agent 的职责是：
 
 一个 Agent 只完成一个阶段的任务。
 
-例如，Diagnosis Agent 只负责能力诊断，不负责制定阶段训练计划；Training Plan Agent 只负责把 Top Weakness / Evidence Summary 转化为训练计划，不重新判断学生错因。
+例如，Diagnosis Agent 只负责作答有效性、当前答案状态、可观察表现和根因假设，不负责生成正式 Ability Evidence；Training Plan Agent 只负责生成训练计划，不重新判断学生错因。
 
 ### 2. JSON 协作原则
 
@@ -82,33 +82,49 @@ Agent 之间必须通过结构化 JSON 传递结果。
 
 Agent 之间不能依赖自然语言描述来传递核心业务结论。
 
-### 3. 不重复推理原则
+### 3. 不无依据改写原则
 
-下游 Agent 不能重新判断上游 Agent 已经完成的业务结论。
+下游 Agent 不得无依据改写上游事实。
 
-例如，Training Plan Agent 不能重新判断学生的 rootCause、mainAbility 或 errorType。
+下游 Agent 可以进行：
 
-### 4. 不修改上游结论原则
+- 契约校验
+- 可信度审查
+- 证据充分性判断
+- Evidence 冲突识别
+- 版本兼容检查
 
-下游 Agent 不能修改上游 Agent 的核心结论。
+如果下游 Agent 发现上游结论缺失、不可信或与其他 Evidence 冲突，应返回 `warning`、`review_required`、`failed` 或在业务 data 中标记拒绝聚合，而不是偷偷覆盖上游结论。
 
-例如，Training Plan Agent 不能修改 Diagnosis Result 中的 rootCause、mainAbility、surfaceError、abilityEvidence 等字段。
-
-如果下游 Agent 发现上游结论缺失或不可信，应返回 warning 或 failed 状态，而不是直接覆盖上游结论。
-
-### 5. 只追加不覆盖原则
+### 4. 只追加不覆盖原则
 
 下游 Agent 可以基于上游结果生成新的 Runtime Result，但不能覆盖上游结果。
 
-例如，Ability Evidence Extractor 可以基于 Diagnosis Result 生成 Ability Evidence，Training Plan Agent 可以基于 Top Weakness 生成 Training Plan，但都不能改写 Diagnosis Result。
+例如：
 
-### 6. 可追溯原则
+- Ability Evidence Extractor 可以基于 Diagnosis Result 生成 Ability Evidence。
+- Evaluation Agent 可以基于多条 Evidence 生成 Evaluation Result 和 Profile Update Decision。
+- Profile Runtime 可以执行 Profile Update Decision。
+
+但这些 Agent 都不能改写原始 Diagnosis Result 或原始 Ability Evidence。
+
+### 5. 可追溯原则
 
 每个 Agent 输出都应保留来源、版本、时间和输入摘要。
 
-可追溯信息应写入 response.meta。
+可追溯信息应写入 `response.meta`。
 
-### 7. 可替换原则
+凡输出以下内容的 Agent，必须包含 `evidenceLinks` 或等价的证据引用：
+
+- Root Cause Hypothesis
+- Weakness Ranking
+- Evaluation Result
+- Profile Update Decision
+- Growth Report
+
+自然语言解释不能代替证据链接。
+
+### 6. 可替换原则
 
 mockLLM 与真实 LLM 应保持相同输入输出协议。
 
@@ -118,39 +134,63 @@ Agent 的调用方不应关心底层使用 mockLLM 还是真实 LLM。
 
 ## 三、Agent Pipeline
 
-当前主线 Runtime Pipeline 如下：
+当前主线 Runtime Pipeline 是可分支运行图，不是每次 Session 都必须完整经过的固定流水线。
+
+建议主线如下：
 
 ```text
-Question / Student Answer
+Question
 ↓
-Question Metadata Agent
+Question Metadata
 ↓
+Student Answer
+↓
+Answer Validity
+├─ invalid → Insufficient Evidence / Retry
+└─ valid
+    ↓
 Diagnosis Agent
-↓
-Diagnosis Result JSON
-↓
+    ↓
+Diagnosis Result
+    ↓
 Ability Evidence Extractor
+    ↓
+Ability Evidence
+    ↓
+Weakness Ranking / Evaluation
+    ├─ 候选问题与行动需求
+    └─ 长期证据聚合
+         ↓
+Training Plan / Personalized Next Task
 ↓
-Ability Evidence JSON
+Training Execution + Coach
 ↓
-Weakness Ranking Agent
+Training Evidence
 ↓
-Top Weakness JSON
+Independent Retest / Transfer
 ↓
-Training Plan Agent
+Retest Evidence
 ↓
-Training Plan JSON
+Evaluation Agent
 ↓
-Training Evaluation / Retest Evidence Runtime
+Evaluation Result
 ↓
-Training Evidence / Retest Evidence JSON
+Profile Update Decision
 ↓
 Student Ability Profile
 ↓
 Personalized Next Task
 ```
 
-每个阶段的输出都是下一个阶段的输入。
+关键链路约束：
+
+```text
+Diagnosis Result
+→ Ability Evidence
+→ Evaluation Result
+→ Profile Update Decision
+→ Student Ability Profile
+```
 
 Pipeline 中的任何阶段都必须满足：
 
@@ -236,9 +276,26 @@ export type AgentResponse<TData = unknown> = {
 
 | status | 说明 |
 | --- | --- |
-| success | Agent 成功完成任务，并返回完整结构化结果 |
+| success | Agent 执行成功，并返回结构化结果 |
 | partial | Agent 返回部分结果，但存在证据不足、输入缺失或低置信度问题 |
 | failed | Agent 无法完成任务，data 应为 null，并返回结构化错误 |
+
+`success` 只表示 Agent 成功执行，不表示：
+
+- 学生回答正确
+- Evidence 充分
+- 能力提升
+- 训练有效
+- Profile 已更新
+
+教育业务判断必须写入业务 data，例如：
+
+- answerStatus
+- evidenceType
+- evaluationStatus
+- profileUpdateAction
+
+人工复核需求优先放入 `warnings` 或业务字段，例如 `reviewRequired: true`，避免把执行状态与教育判断混合。
 
 ### 字段说明
 
@@ -276,22 +333,68 @@ export type AgentResponse<TData = unknown> = {
 
 ## 六、Agent 职责边界
 
+### Question Metadata Agent
+
+Question Metadata Agent 负责：
+
+- 解析题目目标
+- 标注题目能力映射
+- 输出题目运行契约
+- 提供 Rubric、answerAcceptance、commonError candidates 和 questionRole
+
+Question Metadata Agent 不负责：
+
+- 判断学生答案
+- 生成 Diagnosis Result
+- 生成 Ability Evidence
+- 决定训练计划
+
+### Answer Validity Gate
+
+Answer Validity Gate 可以是独立 Agent，也可以是 Diagnosis Agent 内部的强制前置阶段。
+
+它负责：
+
+- 判断学生答案是否提供最低限度的可分析内容
+- 区分空答案、纯数字、敷衍回答、无关回答和有效回答
+- 对无效作答输出 insufficient evidence / retry 需求
+
+它不负责：
+
+- 判断具体能力短板
+- 输出 rootCause
+- 生成 weakness
+- 推进长期能力判断
+
+协议约束：
+
+```text
+Diagnosis Agent 在进行能力诊断前，必须先完成作答有效性判断。
+无效作答不得继续生成具体错误类型、rootCause 或 weakness。
+```
+
 ### Diagnosis Agent
 
 Diagnosis Agent 负责：
 
-- 判断能力短板
-- 判断错因
-- 定位 rootCause
-- 生成 abilityEvidence
+- 作答有效性判断
+- 当前答案状态
+- 可观察表现
+- 表面错误
+- 有证据支持的 rootCause hypothesis / supported cause
+- Evidence 生成所需的诊断数据
 - 输出 Diagnosis Result
 
 Diagnosis Agent 不负责：
 
+- 生成正式 Ability Evidence
 - 制定详细训练计划
 - 判断训练是否有效
+- 判断长期能力等级
 - 更新完整学生画像
 - 生成面向学生的长期陪练话术
+
+Diagnosis Agent 不创造长期能力事实。
 
 ### Ability Evidence Extractor
 
@@ -299,8 +402,8 @@ Ability Evidence Extractor 负责：
 
 - 根据 Diagnosis Result 生成 Ability Evidence
 - 区分 `positive`、`weakness`、`growth`、`insufficient`
-- 保留 observation、rootCause、confidence 和 source
-- 为 Weakness Ranking 和 Student Ability Profile 提供可累计证据
+- 保留 observation、rootCause、confidence、source 和 evidenceLinks
+- 为 Weakness Ranking、Evaluation 和 Student Ability Profile 提供可累计证据
 
 Ability Evidence Extractor 不负责：
 
@@ -313,22 +416,28 @@ Ability Evidence Extractor 不负责：
 
 Weakness Ranking Agent 负责：
 
-- 基于 Ability Evidence Summary 生成 Top Weakness
+- 基于 Ability Evidence Summary 生成候选薄弱能力排序
 - 汇总 weakness / positive / growth / insufficient 数量
-- 输出 reasons 和 suggestedTrainingFocus
-- 为 Training Plan Agent 提供优先训练能力
+- 输出 reasons 和 evidenceLinks
+- 输出候选问题模式和候选行动方向
+- 为 Training Plan Agent 或 Personalized Next Task Agent 提供候选输入
 
 Weakness Ranking Agent 不负责：
 
 - 生成具体训练任务
 - 判断长期能力等级
 - 修改原始 Ability Evidence
+- 直接决定下一题
+- 给学生形成固定能力标签
+
+`suggestedTrainingFocus` 是 Phase 3.1 的最小字段。长期语义应理解为 `candidateTrainingFocus`。
 
 ### Training Plan Agent
 
 Training Plan Agent 负责：
 
-- 根据 Top Weakness / Ability Evidence Summary 生成训练目标
+- 根据 Top Weakness / Ability Evidence Summary 生成候选训练目标
+- 结合 Student Ability Profile、Evaluation Result、当前成长需求和最近训练历史生成训练计划
 - 生成训练策略
 - 生成阶段训练计划
 - 生成每日训练任务建议
@@ -341,22 +450,62 @@ Training Plan Agent 不负责：
 - 修改 Diagnosis Result
 - 判断训练后能力是否提升
 - 更新完整学生画像
+- 把 Top Weakness 当作直接训练命令
 
-### Training Evaluation / Retest Evidence Runtime
+Training Plan Agent 的输入不应长期只依赖 Top Weakness。
 
-Training Evaluation / Retest Evidence Runtime 负责：
+长期至少还应读取：
 
-- 判断训练后能力是否提升
+- Student Ability Profile
+- Evaluation Result
+- 当前成长需求
+- 最近训练历史
+- 根因确认状态
+- 当前是训练、复测还是迁移需求
+- 可用题目与任务资源
+
+### Training Execution / Retest Evidence Runtime
+
+Training Execution / Retest Evidence Runtime 负责：
+
+- 判断训练或复测作答状态
 - 生成 Training Evidence
 - 生成 Retest Evidence
-- 判断是否出现改善迹象
-- 为 Profile Agent 提供评估证据
+- 判断本次是否相对基线出现改善信号
+- 保留提示依赖、任务角色和比较基线
+- 为 Evaluation Agent 提供评估证据
 
-Training Evaluation / Retest Evidence Runtime 不负责：
+Training Execution / Retest Evidence Runtime 不负责：
 
+- 判断长期能力已经提升
+- 判断能力状态应升级
+- 判断训练已经被证明有效
 - 重新诊断原始答案
 - 重新制定训练计划
 - 修改 Diagnosis Result 或 Training Plan
+
+### Evaluation Agent / Long-term Evaluation Runtime
+
+Evaluation Agent 负责：
+
+- 筛选可聚合 Evidence
+- 判断 Evidence 是否同能力且可比较
+- 判断证据是否充分
+- 识别正反 Evidence 冲突
+- 判断原 Diagnosis 假设是否仍得到后续证据支持
+- 形成成长层级与置信度
+- 输出 Evaluation Result
+- 输出 Profile Update Decision
+- 提出训练、复测、迁移或人工复核需求
+
+Evaluation Agent 不负责：
+
+- 重新改写原始 Diagnosis Result
+- 重新生成 Ability Evidence
+- 直接写入 Student Ability Profile
+- 直接决定具体训练题
+
+Evaluation Agent 可以拒绝消费证据，但必须显式输出原因。
 
 ### Coach Agent
 
@@ -372,36 +521,50 @@ Coach Agent 不负责：
 - 改变诊断结论
 - 改变评估结论
 - 修改训练计划的核心结构
+- 独立宣布长期能力状态
 
-### Profile Agent
+### Profile Agent / Profile Runtime
 
-Profile Agent 负责：
+Profile Agent / Profile Runtime 负责执行合法的 Profile Update Decision。
 
-- 更新 Student Ability Profile
-- 写入能力证据
-- 更新能力状态和成长趋势
+它可以：
+
+- 追加 Evidence 引用
+- 保存 Evaluation Result
+- 更新置信度
+- 按决策修改维度或等级
+- 保存状态变化历史
+- 标记待验证需求
 - 生成下一阶段画像摘要
 
-Profile Agent 不负责：
+Profile Agent / Profile Runtime 不负责：
 
+- 自行重新聚合并判断是否提升
+- 自行判断是否退化
+- 自行判断状态如何变化
+- 自行判断哪项能力最弱
 - 重新解释题目
 - 重新诊断学生答案
 - 重新制定训练计划
 - 覆盖上游 Agent 结论
 
+Profile 更像状态存储与受约束更新 Runtime，不一定必须依靠 LLM。
+
 ## 七、Agent 输入输出关系
 
 | Agent | 输入 | 输出 | 下游 |
 | --- | --- | --- | --- |
-| Question Metadata Agent | question | QuestionMetadata | Diagnosis Agent |
-| Diagnosis Agent | question, referenceAnswer, studentAnswer, metadata | DiagnosisResult | Ability Evidence Extractor |
-| Ability Evidence Extractor | DiagnosisResult | AbilityEvidence | Weakness Ranking Agent / Profile Agent |
-| Weakness Ranking Agent | AbilityEvidence[] | TopWeakness | Training Plan Agent |
-| Training Plan Agent | TopWeakness, EvidenceSummary | TrainingPlan | Training Evaluation / Retest Evidence Runtime |
-| Training Evaluation / Retest Evidence Runtime | TrainingPlan, studentAnswer, retestAnswer | TrainingEvidence / RetestEvidence | Profile Agent |
+| Question Metadata Agent | question | QuestionMetadata | Answer Validity Gate / Diagnosis Agent |
+| Answer Validity Gate | studentAnswer, questionMetadata | AnswerValidityResult | Diagnosis Agent / Retry |
+| Diagnosis Agent | question, referenceAnswer, studentAnswer, metadata, answerValidity | DiagnosisResult | Ability Evidence Extractor |
+| Ability Evidence Extractor | DiagnosisResult | AbilityEvidence | Weakness Ranking Agent / Evaluation Agent |
+| Weakness Ranking Agent | AbilityEvidence[] | TopWeakness / CandidateAction | Training Plan Agent / Personalized Next Task Agent |
+| Training Plan Agent | TopWeakness, EvidenceSummary, StudentAbilityProfile, EvaluationResult | TrainingPlan | Training Execution / Retest Evidence Runtime |
+| Training Execution / Retest Evidence Runtime | TrainingPlan, studentAnswer, retestAnswer, baselineEvidence | TrainingEvidence / RetestEvidence | Evaluation Agent |
+| Evaluation Agent | AbilityEvidence[], TrainingEvidence, RetestEvidence | EvaluationResult / ProfileUpdateDecision | Profile Runtime |
+| Profile Runtime | ProfileUpdateDecision, EvaluationResult, Evidence references | StudentAbilityProfile | Personalized Next Task Agent / 前端 |
 | Coach Agent | 当前阶段数据 | CoachMessage | 前端 |
-| Profile Agent | AbilityEvidence[] | StudentAbilityProfile | Personalized Next Task Agent / 前端 |
-| Personalized Next Task Agent | StudentAbilityProfile, TopWeakness, EvidenceSummary | PersonalizedNextTask | Diagnosis Agent |
+| Personalized Next Task Agent | StudentAbilityProfile, CandidateAction, EvidenceSummary | PersonalizedNextTask | Diagnosis Agent |
 
 所有输入输出都应为结构化 JSON。
 
@@ -448,9 +611,14 @@ export type AgentWarning = {
 | code | 说明 |
 | --- | --- |
 | INVALID_INPUT | 输入结构不符合 AgentRequest 要求 |
+| INVALID_ANSWER | 学生答案没有提供最低限度的可分析内容 |
 | MISSING_DIAGNOSIS_RESULT | Ability Evidence Extractor 缺少 Diagnosis Result |
-| MISSING_TRAINING_PLAN | Training Evaluation / Retest Evidence Runtime 缺少 Training Plan |
+| MISSING_TRAINING_PLAN | Training Execution / Retest Evidence Runtime 缺少 Training Plan |
+| MISSING_EVIDENCE_LINKS | 需要证据链接的输出缺少 evidenceLinks |
+| EVIDENCE_NOT_COMPARABLE | Evaluation Agent 判断 Evidence 不具备可比较性 |
+| EVIDENCE_CONFLICT | 多条 Evidence 存在明显冲突，需要复测或人工复核 |
 | UPSTREAM_RESULT_UNTRUSTED | 上游结果置信度过低，需要人工或额外证据确认 |
+| REVIEW_REQUIRED | 当前结果需要人工复核 |
 | LLM_RESPONSE_PARSE_FAILED | LLM 输出无法解析为目标 JSON |
 | AGENT_VERSION_UNSUPPORTED | 当前 Agent 不支持上游结果版本 |
 
@@ -479,6 +647,7 @@ export type AgentMeta = {
   upstreamVersion?: string;
   modelReferences?: string[];
   inputSummary?: Record<string, unknown>;
+  evidenceLinks?: string[];
 };
 ```
 
@@ -493,6 +662,9 @@ AGENT_PROTOCOL.md 属于 Runtime Layer。
 - TRAINING_MODEL.md
 - EVALUATION_MODEL.md
 - QUESTION_MODEL.md
+- QUESTION_METADATA_MODEL.md
+- ABILITY_EVIDENCE_CONTRACT.md
+- WEAKNESS_RANKING_MODEL.md
 - AI_COACH_MODEL.md
 - STUDENT_PROFILE_MODEL.md
 

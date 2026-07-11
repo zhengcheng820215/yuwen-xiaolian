@@ -411,6 +411,23 @@ Phase 6.2 只回答：
 
 这些属于后续 Phase。
 
+## 与长期协议的关系
+
+本阶段中的 `Retest Evidence -> Evidence Summary -> Student Ability Profile` 是 Phase 6.2 的最小回流链路，用于证明复测证据可以被后续 Runtime 消费。
+
+长期标准协议中，Retest Evidence 虽然比训练内 Evidence 具有更高评估价值，但仍不应直接升级长期画像状态。
+
+长期链路应收敛为：
+
+```text
+Retest Evidence
+-> EvaluationResult
+-> ProfileUpdateDecision
+-> StudentAbilityProfile
+```
+
+因此，Phase 6.2 的 PASS 结论仍然有效，但不代表一次复测可以直接确认长期能力提升。
+
 ## 与 Phase 6.3 的关系
 
 Phase 6.2 生成：

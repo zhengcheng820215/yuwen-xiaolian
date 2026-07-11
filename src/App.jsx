@@ -19,6 +19,7 @@ import PersonalizedTaskExecutionDemo from './pages/PersonalizedTaskExecutionDemo
 import BetaLearningEntryDemo from './pages/BetaLearningEntryDemo.jsx';
 import BetaPersonalizedTrainingDemo from './pages/BetaPersonalizedTrainingDemo.jsx';
 import BetaSessionResultDemo from './pages/BetaSessionResultDemo.jsx';
+import Phase81EvaluationDemo from './pages/Phase81EvaluationDemo.jsx';
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="/beta-learning-entry-demo" element={<BetaLearningEntryDemo />} />
         <Route path="/beta-personalized-training-demo" element={<BetaPersonalizedTrainingDemo />} />
         <Route path="/beta-session-result-demo" element={<BetaSessionResultDemo />} />
+        <Route path="/phase81-evaluation-demo" element={<Phase81EvaluationDemo />} />
       </Routes>
     </Layout>
   );

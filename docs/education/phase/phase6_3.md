@@ -648,6 +648,19 @@ Phase 6.4 Retest Acceptance / Phase 6 Summary
 Phase 7 Long-term Student Growth Memory
 ```
 
+## 与长期协议的关系
+
+`AbilityChangeEvaluation` 是 Phase 6.3 / Phase 7.3 阶段用于跑通能力变化判断的早期实现名称。
+
+长期模型中，它的语义应逐步收敛为：
+
+```text
+EvaluationResult
+-> ProfileUpdateDecision
+```
+
+也就是说，Phase 6.3 可以判断当前证据是否出现可解释变化，并输出下一步学习决策；但长期 Student Ability Profile 是否更新，仍应由 ProfileUpdateDecision 执行。
+
 ## 验收结论口径
 
 Phase 6.3 通过后，只能说明：

@@ -132,6 +132,21 @@ Phase 5 不证明：
 
 Phase 5 证明的是 Runtime 链路成立，不证明真实学习效果已经成立。
 
+## 与长期协议的关系
+
+Phase 5 文档中的 `Evidence -> Profile` 回流表示当前最小 Runtime 可以把任务执行结果重新沉淀为 Ability Evidence，并触发 Student Ability Profile 重算。
+
+长期标准协议中，Profile 更新应由 Evaluation 层约束：
+
+```text
+AbilityEvidence
+-> EvaluationResult
+-> ProfileUpdateDecision
+-> StudentAbilityProfile
+```
+
+因此，Phase 5 的 PASS 结论仍然有效，但不代表一次个性化任务或单条新 Evidence 可以直接改变长期能力状态。
+
 ## 九、进入 Phase 6 的原因
 
 Phase 5 已经证明：

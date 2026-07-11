@@ -408,6 +408,21 @@ Phase 5.2 回答：
 做完这道任务后，系统是否能产生同能力新证据，并更新下一步判断？
 ```
 
+## 与长期协议的关系
+
+Phase 5.2 中的 `updatedStudentAbilityProfile` 表示当前最小实现可以基于任务执行后的新证据重新生成画像。
+
+长期标准协议中，任务执行 Evidence 应先进入 Evaluation，再由 ProfileUpdateDecision 决定画像是否更新：
+
+```text
+AbilityEvidence
+-> EvaluationResult
+-> ProfileUpdateDecision
+-> StudentAbilityProfile
+```
+
+因此，Phase 5.2 的 PASS 结论仍然有效，但不代表单次任务执行可以直接确认长期能力状态变化。
+
 ## 阶段完成定义
 
 Phase 5.2 完成时，应能够通过一个命令证明：

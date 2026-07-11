@@ -88,3 +88,53 @@ LEARNING_RUNTIME_OVERVIEW
 - 当前暂不移动目录。
 - Phase 8 前后，根据文档增长情况再评估是否迁移到 `models/` 分层目录。
 - 后续新增教育模型文档，必须先在本 README 中登记。
+
+## 五、文档层级关系
+
+### Knowledge Layer
+
+`docs/education/` 根目录下的核心模型文档定义长期教育语义，包括能力、题目、诊断、训练、证据、评估和学生画像。
+
+这些文档回答：
+
+```text
+系统应该如何理解学习、能力、证据和成长？
+```
+
+### Runtime Layer
+
+`docs/runtime/` 定义 Agent、Runtime 和开放题诊断的执行规范。
+
+这些文档回答：
+
+```text
+模型语义如何进入可运行的 Agent / Runtime 协作？
+```
+
+### Phase Records
+
+`docs/education/phase/` 记录各阶段当时完成的最小实现、验收标准、冻结边界和历史结论。
+
+Phase 文档是历史记录，不会因为长期模型增强而自动重写。若 Phase 记录与最新核心模型存在差异，以最新核心模型和 Runtime 协议作为长期语义标准。
+
+## 六、当前实现与长期协议
+
+当前 Phase 1-7 已经跑通多条最小 Runtime 链路，其中部分实现仍采用早期组合方式，例如：
+
+```text
+AbilityEvidence
+-> EvidenceSummary
+-> StudentAbilityProfile
+```
+
+长期标准协议应逐步收敛为：
+
+```text
+DiagnosisResult
+-> AbilityEvidence
+-> EvaluationResult
+-> ProfileUpdateDecision
+-> StudentAbilityProfile
+```
+
+因此，当前工程中的 Evidence 回流和 Profile 重算可以继续作为兼容实现保留，但不代表单条 Evidence、一次训练、一次复测或一次 Session 可以直接确认长期能力状态变化。

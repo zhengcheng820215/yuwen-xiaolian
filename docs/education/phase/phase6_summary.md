@@ -148,6 +148,21 @@ Phase 6 证明的是：
 
 > 系统可以通过复测证据，对训练后的能力变化做出结构化、可解释、可继续追踪的判断。
 
+## 与长期协议的关系
+
+Phase 6 中的 `AbilityChangeEvaluation` 是当前阶段的能力变化判断实现。
+
+长期标准协议中，应将其语义收敛到：
+
+```text
+AbilityEvidence
+-> EvaluationResult
+-> ProfileUpdateDecision
+-> StudentAbilityProfile
+```
+
+因此，Phase 6 的 PASS 结论仍然有效，但不代表 Retest Evidence 或 AbilityChangeEvaluation 可以绕过 Evaluation / Profile Update Decision，直接确认长期能力状态升级。
+
 ## 九、进入 Phase 7 的原因
 
 Phase 6 已经完成复测与能力变化判断。

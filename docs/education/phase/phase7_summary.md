@@ -228,6 +228,25 @@ Phase 7 证明的是：
 
 > 一次 Beta Learning Flow 可以从学生入口开始，经过诊断、训练、复测，最终形成本轮学习结果。
 
+## 与长期协议的关系
+
+Phase 7 是单次 Beta Learning Flow 的完整闭环验收记录。
+
+文档中的 `Ability Evidence 可以更新 Student Ability Profile`、`训练结果可以更新 Student Ability Profile`，表示当前最小 Runtime 可以完成 Evidence 回流和 Profile 重算。
+
+长期标准协议中，长期画像状态更新应由以下链路约束：
+
+```text
+AbilityEvidence
+-> EvaluationResult
+-> ProfileUpdateDecision
+-> StudentAbilityProfile
+```
+
+`AbilityChangeEvaluation` 是 Phase 6 / Phase 7 阶段的早期实现对象，长期语义应收敛到 `EvaluationResult` 和 `ProfileUpdateDecision`。
+
+因此，Phase 7 的 PASS 结论仍然有效，但不代表单次 Beta Session 可以确认学生长期能力已经提升。
+
 ## 十一、进入 Phase 8 的原因
 
 Phase 7 已经证明单次 Beta 学习闭环成立。
