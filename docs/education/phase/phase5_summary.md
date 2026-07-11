@@ -1,4 +1,4 @@
-# Phase 5：Personalized Learning Runtime Acceptance Summary
+# Phase 5：个性化学习运行时验收总结（Personalized Learning Runtime Acceptance Summary）
 
 ## 一、阶段定位
 

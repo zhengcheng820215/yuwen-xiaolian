@@ -1,4 +1,4 @@
-# Phase 7：Beta Learning Flow Acceptance Summary
+# Phase 7：Beta 学习流程验收总结（Beta Learning Flow Acceptance Summary）
 
 ## 一、阶段定位
 

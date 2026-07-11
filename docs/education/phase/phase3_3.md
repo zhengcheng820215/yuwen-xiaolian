@@ -1,4 +1,4 @@
-﻿# Phase 3.3：训练执行与复测证据
+# Phase 3.3：训练执行与复测证据（Training Execution and Retest Evidence）
 
 ## 阶段目标
 

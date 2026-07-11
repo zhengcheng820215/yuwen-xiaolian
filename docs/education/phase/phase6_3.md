@@ -1,4 +1,4 @@
-# Phase 6.3：Ability Change Evaluation 最小闭环
+# Phase 6.3：能力变化评估最小闭环（Ability Change Evaluation）
 
 ## 一句话定义
 

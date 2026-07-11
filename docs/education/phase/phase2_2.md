@@ -1,4 +1,4 @@
-﻿# Phase 2.2：Question Metadata 验收与冻结记录
+# Phase 2.2：题目元数据验收与冻结记录（Question Metadata Acceptance）
 
 ## 一、阶段定位
 

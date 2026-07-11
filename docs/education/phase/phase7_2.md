@@ -1,4 +1,4 @@
-# Phase 7.2：Personalized Training Flow 最小闭环
+# Phase 7.2：个性化训练流程最小闭环（Personalized Training Flow）
 
 ## 一句话定义
 

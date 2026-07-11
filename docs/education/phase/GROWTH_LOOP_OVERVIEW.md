@@ -1,4 +1,4 @@
-# Growth Loop Overview
+# 成长闭环总览（Growth Loop Overview）
 
 ## 文档定位
 

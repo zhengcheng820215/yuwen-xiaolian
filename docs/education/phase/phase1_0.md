@@ -1,4 +1,4 @@
-# Phase 1.0：工程与产品基础能力基线
+# Phase 1.0：工程与产品基础能力基线（Engineering and Product Foundation）
 
 ## 阶段定位
 
@@ -188,4 +188,3 @@ YES
 ```
 
 后续开发不再围绕 Phase 1.0 扩展旧功能，而是围绕 Phase 3 的能力成长闭环继续推进。
-

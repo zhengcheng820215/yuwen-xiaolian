@@ -1,4 +1,4 @@
-# Phase 5.3：Learning Session Memory 最小闭环
+# Phase 5.3：学习 Session 记忆最小闭环（Learning Session Memory）
 
 ## 一句话定义
 

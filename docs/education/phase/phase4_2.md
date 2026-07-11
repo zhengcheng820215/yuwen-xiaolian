@@ -1,4 +1,4 @@
-﻿# Phase 4.2：Real AI Diagnosis / Evidence 最小闭环
+# Phase 4.2：真实 AI 诊断与证据最小闭环（Real AI Diagnosis / Evidence）
 
 ## 阶段目标
 

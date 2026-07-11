@@ -1,4 +1,4 @@
-# Phase 3.1：Ability Evidence Foundation
+# Phase 3.1：能力证据基础（Ability Evidence Foundation）
 
 ## 一、阶段背景
 

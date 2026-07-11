@@ -1,4 +1,4 @@
-﻿# Phase 3.2：阶段训练计划生成
+# Phase 3.2：阶段训练计划生成（Training Plan Generation）
 
 ## 阶段目标
 

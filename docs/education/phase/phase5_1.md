@@ -1,4 +1,4 @@
-﻿# Phase 5.1：Personalized Next Task 最小闭环
+# Phase 5.1：个性化下一题最小闭环（Personalized Next Task）
 
 ## 阶段背景
 

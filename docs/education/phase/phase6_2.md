@@ -1,4 +1,4 @@
-# Phase 6.2：Retest Execution Evidence 最小闭环
+# Phase 6.2：复测执行证据最小闭环（Retest Execution Evidence）
 
 ## 一句话定义
 

@@ -1,4 +1,4 @@
-﻿# Phase 4.1：Student Ability Profile 最小版本
+# Phase 4.1：学生能力画像最小版本（Student Ability Profile）
 
 ## 阶段目标
 

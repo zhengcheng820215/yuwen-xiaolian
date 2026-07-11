@@ -1,4 +1,4 @@
-# Phase 7.1：Student Learning Entry 最小闭环
+# Phase 7.1：学生学习入口最小闭环（Student Learning Entry）
 
 ## 一句话定义
 

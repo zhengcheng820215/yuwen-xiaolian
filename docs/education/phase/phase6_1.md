@@ -1,4 +1,4 @@
-# Phase 6.1：Retest Task Generation 最小闭环
+# Phase 6.1：复测任务生成最小闭环（Retest Task Generation）
 
 ## 一句话定义
 

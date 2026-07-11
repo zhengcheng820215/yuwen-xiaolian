@@ -1,4 +1,4 @@
-﻿# Phase 4.3：Live AI Diagnosis Quality Evaluation
+# Phase 4.3：真实 AI 诊断质量评估（Live AI Diagnosis Quality Evaluation）
 
 ## 阶段背景
 
