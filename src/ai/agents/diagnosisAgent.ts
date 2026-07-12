@@ -2,6 +2,7 @@ import { buildDiagnosisPrompt } from '../prompts/buildDiagnosisPrompt.ts';
 import { routeDiagnosisTask, splitAnswerCandidates, type DiagnosisRoute } from './diagnosisRouter.ts';
 import { evaluateOpenResponseRubric } from './openResponseRubricEvaluator.ts';
 import {
+  type AnswerAcceptance,
   type DiagnosisInput,
   type DiagnosisResult,
   normalizeDiagnosisResult,
@@ -67,12 +68,18 @@ async function mockCallLLM(_prompt: string, input: DiagnosisInput): Promise<stri
 }
 
 function diagnoseExactMatch(input: DiagnosisInput, route: DiagnosisRoute): DiagnosisResult {
-  const candidates = splitAnswerCandidates(input.referenceAnswer);
-  const normalizedStudentAnswer = normalizeAnswer(input.studentAnswer);
-  const normalizedCandidates = candidates.length > 0
-    ? candidates.map(normalizeAnswer)
-    : [normalizeAnswer(input.referenceAnswer)];
-  const correct = normalizedCandidates.some((candidate) => candidate === normalizedStudentAnswer);
+  const acceptance = input.questionMetadata?.answerAcceptance;
+  const candidateAnswers = buildAcceptedAnswerCandidates(input);
+  const normalizedStudentAnswer = normalizeAnswerByAcceptance(input.studentAnswer, acceptance);
+  const normalizedCandidates = candidateAnswers.map((candidate) => normalizeAnswerByAcceptance(candidate, acceptance));
+  const acceptedKeywords = acceptance?.acceptedKeywords || [];
+  const normalizedKeywords = acceptedKeywords.map((keyword) => normalizeAnswerByAcceptance(keyword, acceptance));
+  const correct = matchesAnswerAcceptance(
+    normalizedStudentAnswer,
+    normalizedCandidates,
+    normalizedKeywords,
+    acceptance,
+  );
   const mainAbility = input.questionMetadata?.mainAbility || inferExactMatchAbility(input.question);
 
   return normalizeDiagnosisResult({
@@ -89,7 +96,7 @@ function diagnoseExactMatch(input: DiagnosisInput, route: DiagnosisRoute): Diagn
       : '学生答案未命中参考答案候选项，需先确认基础记忆、词义理解或作答规范是否稳定。',
     errorType: correct ? '待验证' : '理解错误',
     abilityEvidence: [
-      `任务类型被路由为 exact_match，使用候选答案命中策略。`,
+      `任务类型被路由为 exact_match，使用${acceptance ? 'answerAcceptance' : '参考答案候选项'}命中策略。`,
       `参考答案候选项数量：${normalizedCandidates.length}。`,
       correct ? '学生答案与候选项完全匹配。' : '学生答案与候选项未形成完全匹配。',
     ],
@@ -101,6 +108,44 @@ function diagnoseExactMatch(input: DiagnosisInput, route: DiagnosisRoute): Diagn
       : '进行候选答案复认、词义辨析或基础记忆巩固训练。',
     confidence: correct ? 0.88 : 0.72,
   });
+}
+
+function buildAcceptedAnswerCandidates(input: DiagnosisInput): string[] {
+  const acceptedAnswers = input.questionMetadata?.answerAcceptance?.acceptedAnswers || [];
+
+  if (acceptedAnswers.length > 0) {
+    return acceptedAnswers;
+  }
+
+  const candidates = splitAnswerCandidates(input.referenceAnswer);
+
+  return candidates.length > 0 ? candidates : [input.referenceAnswer];
+}
+
+function matchesAnswerAcceptance(
+  normalizedStudentAnswer: string,
+  normalizedCandidates: string[],
+  normalizedKeywords: string[],
+  acceptance: AnswerAcceptance | undefined,
+): boolean {
+  if (!normalizedStudentAnswer) return false;
+  if (normalizedCandidates.some((candidate) => candidate === normalizedStudentAnswer)) return true;
+
+  if (normalizedKeywords.length > 0) {
+    const matchedKeywordCount = normalizedKeywords.filter((keyword) => (
+      keyword.length > 0 && normalizedStudentAnswer.includes(keyword)
+    )).length;
+    if (matchedKeywordCount > 0) return true;
+  }
+
+  if (acceptance?.semanticEquivalentAllowed) {
+    return normalizedCandidates.some((candidate) => (
+      candidate.length > 0 &&
+      (candidate.includes(normalizedStudentAnswer) || normalizedStudentAnswer.includes(candidate))
+    ));
+  }
+
+  return false;
 }
 
 function diagnoseProcessTask(input: DiagnosisInput, route: DiagnosisRoute): DiagnosisResult {
@@ -176,4 +221,21 @@ function normalizeAnswer(value: string): string {
     .replace(/\s+/g, '')
     .replace(/[，。！？；：“”‘’、,.!?;:"'()\[\]{}]/g, '')
     .trim();
+}
+
+function normalizeAnswerByAcceptance(
+  value: string,
+  acceptance: AnswerAcceptance | undefined,
+): string {
+  const rules = acceptance?.normalizationRules || ['trim', 'ignore_punctuation', 'ignore_whitespace'];
+  let normalized = value;
+
+  if (rules.includes('trim')) normalized = normalized.trim();
+  if (rules.includes('case_insensitive')) normalized = normalized.toLowerCase();
+  if (rules.includes('ignore_whitespace')) normalized = normalized.replace(/\s+/g, '');
+  if (rules.includes('ignore_punctuation')) {
+    normalized = normalized.replace(/[，。！？；：“”‘’、,.!?;:"'()\[\]{}]/g, '');
+  }
+
+  return normalized.trim();
 }

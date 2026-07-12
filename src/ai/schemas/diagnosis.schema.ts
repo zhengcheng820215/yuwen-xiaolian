@@ -49,6 +49,18 @@ export type QuestionMetadataRubricItem = {
   required?: boolean;
 };
 
+export type AnswerAcceptance = {
+  acceptedAnswers?: string[];
+  acceptedKeywords?: string[];
+  semanticEquivalentAllowed?: boolean;
+  normalizationRules?: Array<
+    | 'trim'
+    | 'ignore_punctuation'
+    | 'ignore_whitespace'
+    | 'case_insensitive'
+  >;
+};
+
 export type QuestionMetadata = {
   questionId?: string;
   subject?: string;
@@ -60,6 +72,7 @@ export type QuestionMetadata = {
   abilityPath?: string[];
   difficulty?: string;
   knowledgePoint?: string;
+  answerAcceptance?: AnswerAcceptance;
   rubric?: QuestionMetadataRubricItem[];
   commonErrors?: unknown[];
   trainingDirection?: string[];

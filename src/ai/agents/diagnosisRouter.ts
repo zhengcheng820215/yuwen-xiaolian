@@ -39,6 +39,15 @@ export function routeDiagnosisTask(input: DiagnosisInput): DiagnosisRoute {
 
 function routeByQuestionMetadata(input: DiagnosisInput): DiagnosisRoute | null {
   const assessmentMode = input.questionMetadata?.assessmentMode;
+  const answerAcceptance = input.questionMetadata?.answerAcceptance;
+
+  if (answerAcceptance && hasAnswerAcceptanceBoundary(answerAcceptance)) {
+    return {
+      taskType: 'exact_match',
+      strategyUsed: 'metadata_answer_acceptance_strategy',
+      reason: '题目元数据提供 answerAcceptance，优先按答案接受边界判断。',
+    };
+  }
 
   if (!assessmentMode) return null;
 
@@ -66,11 +75,25 @@ function routeByQuestionMetadata(input: DiagnosisInput): DiagnosisRoute | null {
 }
 
 function isExactMatchTask(question: string, referenceAnswer: string): boolean {
+  // These are typical bounded-answer signals only. Metadata answerAcceptance
+  // should be preferred whenever it is available.
   const exactTaskSignal = /反义词|近义词|填空|默写|选择|选出|下列|词语解释|解释词语|拼音|字音|字形|写出/.test(question);
   const answerLooksLikeCandidates = splitAnswerCandidates(referenceAnswer).length > 1;
   const shortAnswer = referenceAnswer.length > 0 && referenceAnswer.length <= 24;
 
   return exactTaskSignal || (answerLooksLikeCandidates && shortAnswer);
+}
+
+function hasAnswerAcceptanceBoundary(
+  answerAcceptance: NonNullable<DiagnosisInput['questionMetadata']>['answerAcceptance'],
+): boolean {
+  if (!answerAcceptance) return false;
+
+  return (
+    (Array.isArray(answerAcceptance.acceptedAnswers) && answerAcceptance.acceptedAnswers.length > 0) ||
+    (Array.isArray(answerAcceptance.acceptedKeywords) && answerAcceptance.acceptedKeywords.length > 0) ||
+    answerAcceptance.semanticEquivalentAllowed === true
+  );
 }
 
 function isProcessTask(question: string): boolean {

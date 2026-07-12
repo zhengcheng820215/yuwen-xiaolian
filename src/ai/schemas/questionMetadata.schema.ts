@@ -78,6 +78,7 @@ export function normalizeQuestionMetadata(
     abilityPath: Array.isArray(value.abilityPath) ? value.abilityPath : ['信息提取', '理解', '表达'],
     difficulty: value.difficulty,
     knowledgePoint: value.knowledgePoint,
+    answerAcceptance: value.answerAcceptance,
     rubric: Array.isArray(value.rubric) ? value.rubric : [],
     commonErrors: Array.isArray(value.commonErrors) ? value.commonErrors : [],
     trainingDirection: Array.isArray(value.trainingDirection) ? value.trainingDirection : [],

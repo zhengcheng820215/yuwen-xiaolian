@@ -188,6 +188,8 @@ export const questionMetadataPatterns: QuestionMetadataPattern[] = [
     ],
     trainingDirection: ['词义辨析训练', '反义关系识别训练'],
     examples: ['写出一对反义词。'],
+    // Typical bounded-answer signals only. Runtime should prefer explicit
+    // answerAcceptance when metadata provides it.
     matchers: [/反义词|近义词|词语解释|解释词语|填空|默写|选择|选出|拼音|字音|字形/],
     priority: 60,
     confidence: 0.86,
