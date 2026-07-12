@@ -14,6 +14,8 @@
 
 定义 Agent、Runtime 和开放题诊断的执行规范。
 
+其中 `SYSTEM_MAP.md` 是当前系统的人类可读地图，用于快速理解总链路、当前进度、当前 Phase 目标和下一步方向。
+
 ### `docs/education/phase/`
 
 记录各阶段目标、任务、验收与冻结状态。
@@ -53,6 +55,8 @@
 建议按以下顺序理解系统：
 
 ```text
+SYSTEM_MAP
+↓
 PRODUCT
 ↓
 ABILITY_MODEL

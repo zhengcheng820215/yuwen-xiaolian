@@ -59,7 +59,7 @@
 示例：
 
 ```text
-INV-002: 纯数字复测答案 445
+INV-002: 纯数字或数字串答案
 TRF-001: 训练 positive，复测 growth
 OVR-001: 单次 positive 禁止宣布能力提升
 ```
@@ -68,7 +68,7 @@ OVR-001: 单次 positive 禁止宣布能力提升
 
 | 类型 | 含义 | 示例 |
 | --- | --- | --- |
-| `Strict` | 预期结果必须唯一匹配 | `445 -> insufficient_evidence / insufficient` |
+| `Strict` | 预期结果必须唯一匹配 | `纯数字答案 -> insufficient_evidence / insufficient` |
 | `Range` | 存在合理判断区间 | `因为母亲很心疼 -> growth 或 weakness` |
 
 使用原则：
@@ -113,35 +113,37 @@ OVR-001: 单次 positive 禁止宣布能力提升
   - 缺少文本依据
 - debug：待补充或由现有 invalid case 覆盖
 
-### INV-002：纯数字复测答案 445
+### INV-002：纯数字或数字串答案
 
-- 输入：`445`
-- 场景：Retest
+- 输入：`5` / `445` / `889` / `12345`
+- 场景：Diagnosis / Retest
 - Expectation Type：`Strict`
 - strict_expected:
   - answerStatus: `insufficient_evidence`
   - evidenceType: `insufficient`
   - sessionStatus: `needs_more_evidence`
-- rationale：没有可分析的语义内容，不能形成复测迁移证据。
+- rationale：答案主要由数字组成，没有提供可分析的语文判断、文本依据或解释，不能形成诊断或复测迁移证据。
 - severity：`Critical`
 - 不允许输出：
   - `still_weak`
   - `likely_improved`
   - 训练有效
   - 训练无效
+  - 能力不稳定
+  - 出现改善迹象
 - debug：
   - `runRetestExecutionDebug.ts`
 
-### INV-003：纯数字复测答案 889
+### INV-003：纯符号或乱码答案
 
-- 输入：`889`
-- 场景：Retest
+- 输入：`???` / `...` / `@@@` / `asdf`
+- 场景：Diagnosis / Retest
 - Expectation Type：`Strict`
 - strict_expected:
   - answerStatus: `insufficient_evidence`
   - evidenceType: `insufficient`
   - sessionStatus: `needs_more_evidence`
-- rationale：与 `INV-002` 同类，属于非空但无有效语文作答内容。
+- rationale：输入不是有效语文作答内容，无法判断学生是否理解题目、是否找到依据或是否具备目标能力表现。
 - severity：`Critical`
 - 不允许输出：
   - `still_weak`
@@ -150,15 +152,15 @@ OVR-001: 单次 positive 禁止宣布能力提升
   - 出现改善迹象
 - debug：建议后续加入 `runRetestExecutionDebug.ts`
 
-### INV-004：敷衍回答“哈哈”
+### INV-004：敷衍或无分析内容回答
 
-- 输入：`哈哈`
+- 输入：`哈哈` / `呵呵` / `随便` / `没有` / 只写语气词或无关短句
 - 场景：Diagnosis / Retest
 - Expectation Type：`Strict`
 - strict_expected:
   - answerStatus: `insufficient_evidence`
   - evidenceType: `insufficient`
-- rationale：输入虽然包含中文，但没有与题目任务相关的分析内容。
+- rationale：输入虽然可能包含中文或情绪表达，但没有回应题目要求，也没有提供可分析的判断、依据或解释。
 - severity：`Critical`
 - 不允许输出：
   - 缺少推理链

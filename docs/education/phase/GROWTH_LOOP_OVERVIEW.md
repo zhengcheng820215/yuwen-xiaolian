@@ -146,6 +146,7 @@ LearningSessionMemory -> RetestTask -> RetestEvidence
 | Phase 7.2 | Personalized Training Flow | LearningEntryResult -> Personalized Training -> Evidence 回流 | `pnpm run debug:personalized-training-flow` |
 | Phase 7.3 | Retest & Session Result Flow | PersonalizedTrainingFlowResult -> Retest -> Beta Session Result | `pnpm run debug:beta-learning-session-result` |
 | Phase 7 Summary | Beta Learning Flow 冻结 | Phase 7 单次 Beta 学习闭环验收记录 | `docs/education/phase/phase7_summary.md` |
+| Phase 8.1 | EvaluationResult / ProfileUpdateDecision | AbilityEvidence[] -> EvaluationResult -> ProfileUpdateDecision -> StudentAbilityProfile | `pnpm run debug:phase8-1` |
 
 ## 当前核心链路
 
@@ -169,6 +170,9 @@ Question Metadata
 -> Retest Execution Evidence
 -> Ability Change Evaluation
 -> Beta Learning Session Result
+-> Evaluation Result
+-> Profile Update Decision
+-> Profile Decision Execution
 ```
 
 长期标准协议应逐步收敛为：
@@ -200,6 +204,7 @@ DiagnosisResult
 /#/beta-learning-entry-demo
 /#/beta-personalized-training-demo
 /#/beta-session-result-demo
+/#/phase81-evaluation-demo
 ```
 
 ## 当前边界
@@ -240,6 +245,7 @@ DiagnosisResult
 -> 学习 Session 记忆
 -> 复测验证
 -> Beta 学习闭环
+-> Evaluation / Profile Decision 层
 ```
 
 Phase 7 已经证明单次 Beta Learning Flow 可以成立：
@@ -253,5 +259,18 @@ Phase 7 已经证明单次 Beta Learning Flow 可以成立：
 ```
 
 Phase 7 冻结后，不建议继续堆叠新的单次流程 Demo；后续应转向更高层问题，例如多次 Session 后的成长记忆、阶段报告或正式产品 Runtime 收敛。
+
+Phase 8.1 已经补上长期标准协议中的关键中间层：
+
+```text
+AbilityEvidence[]
+-> EvaluationResult
+-> ProfileUpdateDecision
+-> StudentAbilityProfile
+```
+
+它的意义是：每条 Evidence 都可以被记录，但不是每条 Evidence 都足以改变长期能力状态。学生画像不应直接重新解释 Evidence，而应先经过 EvaluationResult 判断证据是否充分、是否冲突，再由 ProfileUpdateDecision 决定是否追加证据、更新置信度、请求复测或改变画像状态。
+
+Phase 8.1 当前已完成 Debug、Build 和 Demo 验收，可作为后续 Phase 8.2 继续接入多 Session 成长记忆、阶段评估或正式 Runtime 收敛的基础。
 
 后续新增 Phase 时，应继续围绕“证据是否能进入成长记忆、下一步动作是否可验证”这两个问题展开。

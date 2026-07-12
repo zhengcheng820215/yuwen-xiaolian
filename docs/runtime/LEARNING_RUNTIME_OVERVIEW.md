@@ -243,6 +243,13 @@ RetestExecutionResult
 | LearningSessionAgent | PersonalizedTaskExecutionSummary[] | LearningSessionMemory | 汇总多次任务执行，形成学习 Session 记忆和本轮变化信号。 | Phase 5.3 |
 | RetestTaskAgent | LearningSessionMemory | RetestTask | 在需要复测时生成新情境复测任务。 | Phase 6.1 |
 | RetestExecutionAgent | RetestTask、studentRetestAnswer、previousEvidence | RetestExecutionResult | 执行复测，生成 retest evidence，并交给 Evaluation 与 Profile 更新链路。 | Phase 6.2 |
+| AbilityChangeEvaluationAgent | beforeEvidence、trainingEvidence、retestEvidence | AbilityChangeEvaluation | 早期能力变化判断对象，用于比较训练前、训练中和复测证据；长期语义应收敛到 EvaluationResult。 | Phase 6.3 |
+| LearningEntryAgent | question、studentAnswer、questionMetadata | LearningEntryResult | 生成 Beta 学习入口结果，让学生从第一题诊断进入学习流程。 | Phase 7.1 |
+| PersonalizedTrainingFlowAgent | LearningEntryResult、studentTrainingAnswer | PersonalizedTrainingFlowResult | 消费入口诊断结果，生成并执行一次个性化训练流程。 | Phase 7.2 |
+| BetaLearningSessionResultAgent | PersonalizedTrainingFlowResult、studentRetestAnswer | BetaLearningSessionResult | 串起训练、复测和本轮学习结果反馈，形成单次 Beta 学习闭环。 | Phase 7.3 |
+| EvaluationAgent | AbilityEvidence[] | EvaluationResult | 判断多条证据是否充分、是否冲突，以及最多能支持多强的能力状态或改善信号。 | Phase 8.1.1 |
+| ProfileUpdateDecisionAgent | EvaluationResult、currentProfile | ProfileUpdateDecision | 根据 EvaluationResult 生成画像更新决策，避免 Profile 直接重新解释 Evidence。 | Phase 8.1.2 |
+| ProfileUpdateExecutor | StudentAbilityProfile、ProfileUpdateDecision | StudentAbilityProfile | 只执行合法的 ProfileUpdateDecision，完成受约束的画像更新。 | Phase 8.1.3 |
 
 ## 七、当前 Runtime 的一句话总结
 
@@ -257,7 +264,9 @@ RetestExecutionResult
 -> 任务执行
 -> Session 记忆
 -> 复测
--> 再次更新画像
+-> Evaluation 评估
+-> Profile Update Decision
+-> 受约束地更新画像
 ```
 
 这说明产品已经具备一个最小可运行的学习 Runtime 骨架。

@@ -561,7 +561,11 @@ Profile 更像状态存储与受约束更新 Runtime，不一定必须依靠 LLM
 | Weakness Ranking Agent | AbilityEvidence[] | TopWeakness / CandidateAction | Training Plan Agent / Personalized Next Task Agent |
 | Training Plan Agent | TopWeakness, EvidenceSummary, StudentAbilityProfile, EvaluationResult | TrainingPlan | Training Execution / Retest Evidence Runtime |
 | Training Execution / Retest Evidence Runtime | TrainingPlan, studentAnswer, retestAnswer, baselineEvidence | TrainingEvidence / RetestEvidence | Evaluation Agent |
-| Evaluation Agent | AbilityEvidence[], TrainingEvidence, RetestEvidence | EvaluationResult / ProfileUpdateDecision | Profile Runtime |
+| Learning Entry Agent | question, studentAnswer, questionMetadata | LearningEntryResult | Personalized Training Flow Agent / 前端 |
+| Personalized Training Flow Agent | LearningEntryResult, studentTrainingAnswer | PersonalizedTrainingFlowResult | Beta Learning Session Result Agent |
+| Beta Learning Session Result Agent | PersonalizedTrainingFlowResult, studentRetestAnswer | BetaLearningSessionResult | Evaluation Agent / 前端 |
+| Evaluation Agent | AbilityEvidence[], TrainingEvidence, RetestEvidence | EvaluationResult | Profile Update Decision Agent |
+| Profile Update Decision Agent | EvaluationResult, currentProfile | ProfileUpdateDecision | Profile Runtime |
 | Profile Runtime | ProfileUpdateDecision, EvaluationResult, Evidence references | StudentAbilityProfile | Personalized Next Task Agent / 前端 |
 | Coach Agent | 当前阶段数据 | CoachMessage | 前端 |
 | Personalized Next Task Agent | StudentAbilityProfile, CandidateAction, EvidenceSummary | PersonalizedNextTask | Diagnosis Agent |
