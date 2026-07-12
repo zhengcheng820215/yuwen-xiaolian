@@ -62,6 +62,21 @@ const phaseSteps = [
     desc: '让 Evidence 先经过 EvaluationResult 和 ProfileUpdateDecision，再更新学生画像。',
     status: 'Phase 8.1 Demo',
   },
+  {
+    title: '成长记忆',
+    desc: '把 EvaluationResult、ProfileUpdateDecision 和画像前后变化沉淀为可查询的 Growth Memory。',
+    status: 'Phase 8.2 Demo',
+  },
+  {
+    title: '下一步学习策略',
+    desc: '基于成长记忆、学生画像和当前情境生成并校验下一步学习策略。',
+    status: 'Phase 8.3 Demo',
+  },
+  {
+    title: '任务请求落地',
+    desc: '把 TaskRequest 转换为资源需求，并完成最小任务匹配或生成请求分流。',
+    status: 'Phase 8.4 Demo',
+  },
 ];
 
 const frozenItems = [
@@ -106,6 +121,24 @@ export default function Home() {
           title="评估与画像决策 Demo"
           desc="查看 Evidence 如何经过 EvaluationResult 和 ProfileUpdateDecision 后再更新画像。"
           action="查看决策"
+        />
+        <PrimaryAction
+          to="/phase82-growth-memory-demo"
+          title="成长记忆 Demo"
+          desc="查看评估结果和画像更新决策如何记录为 Growth Memory，并生成历史轨迹摘要。"
+          action="查看记忆"
+        />
+        <PrimaryAction
+          to="/phase83-next-strategy-demo"
+          title="下一步学习策略 Demo"
+          desc="查看成长记忆如何生成策略，校验后再转换为 TaskRequest。"
+          action="查看策略"
+        />
+        <PrimaryAction
+          to="/phase84-task-fulfillment-demo"
+          title="任务请求落地 Demo"
+          desc="查看 TaskRequest 如何匹配任务资源，或在失败时转为生成请求。"
+          action="查看落地"
         />
         <PrimaryAction
           to="/diagnosis-demo"

@@ -59,7 +59,17 @@ AbilityEvidence[]
    ↓
    StudentAbilityProfile
 ↓
-PersonalizedNextTask
+GrowthMemoryRecord
+↓
+GrowthMemorySummary
+↓
+NextLearningStrategy
+↓
+StrategyValidationResult
+├─ valid -> TaskRequest
+└─ invalid -> blocked / review / regenerate
+↓
+PersonalizedNextTask / Task Generator
 ↓
 New Student Answer
 ↓
@@ -137,6 +147,12 @@ Evidence 只有经过 `EvaluationResult` 评估，并形成 `ProfileUpdateDecisi
 | EvaluationResult | 判断多条 Evidence 是否足以支持改善信号或状态判断。 |
 | ProfileUpdateDecision | 决定学生画像是否以及如何更新。 |
 | StudentAbilityProfile | 保存学生当前能力状态、主要薄弱点、改善信号和待验证方向。 |
+| GrowthMemoryRecord | 记录一次 Evaluation、ProfileUpdateDecision 和画像前后变化事件。 |
+| GrowthMemoryStore | 保存并查询 GrowthMemoryRecord。 |
+| GrowthMemorySummary | 汇总近期成长记忆轨迹，不重新生成能力评价结论。 |
+| NextLearningStrategy | 基于成长记忆、画像和当前情境决定下一步学习动作。 |
+| StrategyValidationResult | 校验学习策略是否具备进入任务请求的条件。 |
+| TaskRequest | 把合法策略转换为下游任务模块可消费的任务请求。 |
 | TrainingPlan | 把候选薄弱点转成阶段训练安排。 |
 | PersonalizedNextTask | 基于画像、证据状态和当前阶段决定下一步训练、复测或迁移任务。 |
 | LearningSession | 记录一次学习过程中的作答、反馈、训练、复测和证据变化。 |
@@ -213,6 +229,69 @@ Phase 8.1 的意义：
 而是必须经过 EvaluationResult 和 ProfileUpdateDecision。
 ```
 
+### Phase 8.2
+
+已完成 Growth Memory 最小闭环。
+
+核心能力：
+
+```text
+EvaluationResult
++ ProfileUpdateDecision
++ beforeProfile
++ afterProfile
+-> GrowthMemoryRecord
+-> GrowthMemoryStore
+-> GrowthMemorySummary
+```
+
+验收状态：
+
+```text
+Debug  PASS
+Build  PASS
+Demo   PASS
+```
+
+Phase 8.2 的意义：
+
+```text
+评估结果、画像更新决策及其前后状态，
+已经能够被记录、查询、回放，
+并形成最小成长记忆摘要。
+```
+
+### Phase 8.3
+
+已完成 Next Learning Strategy 最小闭环。
+
+核心能力：
+
+```text
+GrowthMemorySummary
++ StudentAbilityProfile
++ CurrentLearningContext
+-> NextLearningStrategy
+-> StrategyValidationResult
+├─ valid -> TaskRequest
+└─ invalid -> blocked / review / regenerate
+```
+
+验收状态：
+
+```text
+Debug  PASS
+Build  PASS
+Demo   PASS
+```
+
+Phase 8.3 的意义：
+
+```text
+系统开始把成长记忆转化为经过校验的下一步学习策略，
+但仍不负责生成具体题目。
+```
+
 ## 五、当前 Phase 目标
 
 当前产品正处于 Phase 8。
@@ -237,44 +316,68 @@ Phase 8 的核心目标是：
 - 什么时候允许更新学生画像。
 - 一次改善、持续改善和稳定提升如何区分。
 - 如何让系统跨 Session 理解学生状态。
+- 如何把 Growth Memory 转化为经过校验的下一步学习策略。
 
 ## 六、下一步
 
-建议下一步进入 Phase 8.2。
+Phase 8.4 已完成 Task Request Fulfillment 最小工程闭环。
 
-Phase 8.2 的建议目标：
+Phase 8.4 的目标：
 
 ```text
-把 Phase 8.1 的 EvaluationResult / ProfileUpdateDecision
-接入真实 Beta Learning Flow。
+把经过校验的 TaskRequest
+转化为具体任务生成或任务资源匹配请求。
 ```
 
 也就是从：
 
 ```text
-BetaSessionResult
--> AbilityChangeEvaluation
--> 反馈展示
+TaskRequest
 ```
 
 逐步演进为：
 
 ```text
-BetaSessionResult
--> AbilityEvidence
--> EvaluationResult
--> ProfileUpdateDecision
--> StudentAbilityProfile
--> PersonalizedNextTask
+Task Resource Matching
+或
+Concrete Learning Task Draft
 ```
 
-Phase 8.2 不应一次性做长期学习系统。
+Phase 8.4 不应一次性做完整题库系统。
 
 它只需要证明：
 
 ```text
-真实 Beta 学习流程产生的新 Evidence，
-能够进入 Phase 8.1 的评估与画像决策层。
+系统能够消费 TaskRequest，
+选择或生成一个最小可执行学习任务草案，
+并保留它来自哪个策略与验证目标。
+```
+
+Phase 8.4 会拆成三个最小闭环：
+
+```text
+8.4.1 TaskRequest -> TaskFulfillmentRequest
+8.4.2 TaskFulfillmentRequest + mock resources -> TaskResourceMatchResult
+8.4.3 matched -> ExecutableLearningTask / no_match -> TaskGenerationRequest
+```
+
+当前验收状态：
+
+```text
+Debug  PASS
+Build  PASS
+Demo   PASS
+```
+
+Phase 8.4 已完成 Debug、Build 和 Demo 人工验收。
+
+后续可以再评估 Phase 8.5 或 Phase 9：
+
+```text
+TaskRequest Fulfillment
+-> 真实任务资源管理
+-> 真实学习任务执行
+-> New AbilityEvidence
 ```
 
 ## 七、尚未实现的能力

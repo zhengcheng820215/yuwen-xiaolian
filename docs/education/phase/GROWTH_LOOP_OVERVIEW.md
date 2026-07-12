@@ -147,6 +147,9 @@ LearningSessionMemory -> RetestTask -> RetestEvidence
 | Phase 7.3 | Retest & Session Result Flow | PersonalizedTrainingFlowResult -> Retest -> Beta Session Result | `pnpm run debug:beta-learning-session-result` |
 | Phase 7 Summary | Beta Learning Flow 冻结 | Phase 7 单次 Beta 学习闭环验收记录 | `docs/education/phase/phase7_summary.md` |
 | Phase 8.1 | EvaluationResult / ProfileUpdateDecision | AbilityEvidence[] -> EvaluationResult -> ProfileUpdateDecision -> StudentAbilityProfile | `pnpm run debug:phase8-1` |
+| Phase 8.2 | Growth Memory 最小闭环 | EvaluationResult + ProfileUpdateDecision + Profile 前后状态 -> GrowthMemoryRecord -> GrowthMemorySummary | `docs/education/phase/phase8_2.md` |
+| Phase 8.3 | Next Learning Strategy 最小闭环 | GrowthMemorySummary + StudentAbilityProfile + CurrentLearningContext -> NextLearningStrategy -> StrategyValidationResult -> TaskRequest | `docs/education/phase/phase8_3.md` |
+| Phase 8.4 | Task Request Fulfillment 最小闭环 | TaskRequest -> TaskFulfillmentRequest -> TaskResourceMatchResult -> ExecutableLearningTask / TaskGenerationRequest | `pnpm run debug:phase8-4` |
 
 ## 当前核心链路
 
