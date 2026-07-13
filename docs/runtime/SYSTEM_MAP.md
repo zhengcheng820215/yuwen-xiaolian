@@ -371,16 +371,294 @@ Demo   PASS
 
 Phase 8.4 已完成 Debug、Build 和 Demo 人工验收。
 
-后续可以再评估 Phase 8.5 或 Phase 9：
+后续主线进入 Phase 9：
 
 ```text
 TaskRequest Fulfillment
--> 真实任务资源管理
--> 真实学习任务执行
+-> ConcreteLearningTask
+-> TaskExecutionSession
+-> StudentResponse
+-> ResponseValidityResult
+-> TaskExecutionResult
 -> New AbilityEvidence
 ```
 
-## 七、尚未实现的能力
+Phase 9 的目标不是一次性做完整题库或正式学习产品，而是验证：
+
+```text
+真实任务执行结果能否经过有效性判断，
+进入 Diagnosis / AbilityEvidence，
+并重新接入 Existing Phase 8 Runtime。
+```
+
+### Phase 9.1
+
+Phase 9.1 已完成任务实例化最小工程闭环。
+
+核心能力：
+
+```text
+ExecutableLearningTask / TaskGenerationRequest
+-> ConcreteLearningTask
+-> TaskReadinessValidation
+```
+
+验收状态：
+
+```text
+Debug  PASS
+Build  PASS
+Demo   Not Required
+```
+
+Phase 9.1 的意义：
+
+```text
+系统已经能够把 Phase 8.4 的任务落地结果，
+转化为学生下一阶段可执行的 ConcreteLearningTask，
+并通过 TaskReadinessValidation 判断是否可以进入任务执行。
+```
+
+### Phase 9.2
+
+Phase 9.2 已完成任务执行与作答有效性最小工程闭环。
+
+```text
+ConcreteLearningTask
+-> TaskExecutionSession
+-> StudentResponse
+-> ResponseValidityResult
+-> TaskExecutionResult
+```
+
+验收状态：
+
+```text
+Debug  PASS
+Build  PASS
+Demo   Not Required
+```
+
+Phase 9.2 的意义：
+
+```text
+系统已经能够接收学生对 Ready ConcreteLearningTask 的真实作答，
+并在进入 Diagnosis Runtime 前判断本次作答是否有效。
+```
+
+### Phase 9.3
+
+Phase 9.3 已完成执行结果回流最小工程闭环。
+
+```text
+Valid TaskExecutionResult
++ ConcreteLearningTask
+-> DiagnosisResult
+-> AbilityEvidence
+-> Existing Phase 8 Runtime
+```
+
+验收状态：
+
+```text
+Debug  PASS
+Build  PASS
+Demo   Not Required
+```
+
+Phase 9.3 已补齐以下四类分支：
+
+```text
+blocked_invalid_execution
+diagnosis_failed
+review_required
+evidence_returned
+```
+
+Phase 9.3 的意义：
+
+```text
+系统已经能够把经过有效性校验的真实任务作答，
+安全接入 Diagnosis Runtime，
+生成可追溯 AbilityEvidence，
+并复用 Existing Phase 8 Runtime 形成 EvaluationResult、
+ProfileUpdateDecision 和 GrowthMemoryRecord。
+```
+
+## 七、Phase 10：Learning Round Orchestration
+
+Phase 10 文档已建立：
+
+```text
+docs/education/phase/phase10.md
+docs/education/phase/phase10_1.md
+docs/education/phase/phase10_2.md
+docs/education/phase/phase10_3.md
+```
+
+Phase 10 的目标：
+
+```text
+把 Phase 8 的策略链和 Phase 9 的任务执行链
+编排成一次可连续运行、可结束、可产生下一步结果的真实学习回合。
+```
+
+Phase 10 拆为三个最小闭环：
+
+```text
+Phase 10.1 Learning Round Start
+Phase 10.2 Learning Round Execution
+Phase 10.3 Learning Round Completion
+```
+
+### Phase 10.1
+
+Phase 10.1 已完成学习回合启动最小工程闭环。
+
+```text
+StudentAbilityProfile
++ GrowthMemorySummary
++ CurrentLearningContext
+-> NextLearningStrategy
+-> TaskRequest
+-> TaskFulfillment
+-> ConcreteLearningTask
+-> LearningRoundStartResult
+```
+
+验收状态：
+
+```text
+Debug  PASS
+Build  PASS
+Demo   Not Required
+```
+
+Phase 10.1 已覆盖以下分支：
+
+```text
+ready_for_execution
+blocked
+review_required
+```
+
+Phase 10.1 的意义：
+
+```text
+系统已经能够从当前学生画像、成长记忆和学习上下文出发，
+生成本轮学习策略，
+完成任务请求与任务履约，
+并准备好可执行的 ConcreteLearningTask。
+```
+
+后续主线进入 Phase 10.2：
+
+```text
+LearningRoundStartResult
++ StudentResponse
+-> LearningRoundExecutionResult
+```
+
+### Phase 10.2
+
+Phase 10.2 已完成学习回合执行最小工程闭环。
+
+```text
+LearningRoundStartResult
++ StudentResponse
+-> TaskExecutionSession
+-> ResponseValidityResult
+-> TaskExecutionResult
+-> LearningRoundExecutionResult
+```
+
+验收状态：
+
+```text
+Debug  PASS
+Build  PASS
+Demo   Not Required
+```
+
+Phase 10.2 已覆盖以下分支：
+
+```text
+evidence_return_ready
+retry_required
+blocked
+review_required
+abandoned
+```
+
+Phase 10.2 的意义：
+
+```text
+系统已经能够消费一轮 ready_for_execution 的启动结果，
+接收学生作答，
+判断本次作答是否有效，
+并明确是否允许进入 Phase 10.3 的 Evidence 回流。
+```
+
+后续主线进入 Phase 10.3：
+
+```text
+LearningRoundExecutionResult
++ ConcreteLearningTask
+-> TaskEvidenceReturnResult
+-> Updated GrowthMemory
+-> LearningRoundResult
+```
+
+Phase 10.3 已完成工程实现与 Debug 验收。
+
+### Phase 10.3
+
+Phase 10.3 已完成学习回合完成最小工程闭环。
+
+```text
+LearningRoundExecutionResult
++ ConcreteLearningTask
+-> TaskEvidenceReturnResult
+-> LearningRoundResult
+```
+
+验收状态：
+
+```text
+Debug  PASS
+Build  PASS
+Demo   Not Required
+```
+
+Phase 10.3 已覆盖以下分支：
+
+```text
+completed
+retry_required
+blocked
+review_required
+abandoned
+```
+
+Phase 10.3 的意义：
+
+```text
+系统已经能够消费一轮 evidence_return_ready 的执行结果，
+通过 Phase 9.3 完成 Evidence 回流，
+并把本轮结果映射为 LearningRoundResult。
+```
+
+Phase 10.3 已验证：
+
+```text
+GrowthMemoryRecord
+-> GrowthMemorySummary
+-> 下一轮 Phase 8.3 输入
+```
+
+Phase 10 三段最小闭环已经全部完成 Debug / Build 验收。
+
+## 八、尚未实现的能力
 
 以下能力尚未完成，后续应分阶段实现。
 

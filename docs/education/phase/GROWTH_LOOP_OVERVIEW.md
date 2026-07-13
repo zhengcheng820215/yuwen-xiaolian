@@ -150,6 +150,14 @@ LearningSessionMemory -> RetestTask -> RetestEvidence
 | Phase 8.2 | Growth Memory 最小闭环 | EvaluationResult + ProfileUpdateDecision + Profile 前后状态 -> GrowthMemoryRecord -> GrowthMemorySummary | `docs/education/phase/phase8_2.md` |
 | Phase 8.3 | Next Learning Strategy 最小闭环 | GrowthMemorySummary + StudentAbilityProfile + CurrentLearningContext -> NextLearningStrategy -> StrategyValidationResult -> TaskRequest | `docs/education/phase/phase8_3.md` |
 | Phase 8.4 | Task Request Fulfillment 最小闭环 | TaskRequest -> TaskFulfillmentRequest -> TaskResourceMatchResult -> ExecutableLearningTask / TaskGenerationRequest | `pnpm run debug:phase8-4` |
+| Phase 9 | 真实任务执行与证据回流规划 | ExecutableLearningTask / TaskGenerationRequest -> ConcreteLearningTask -> StudentResponse -> AbilityEvidence -> Existing Phase 8 Runtime | `docs/education/phase/phase9.md` |
+| Phase 9.1 | 任务实例化最小闭环 | ExecutableLearningTask / TaskGenerationRequest -> ConcreteLearningTask -> TaskReadinessValidation | `pnpm run debug:phase9-1` |
+| Phase 9.2 | 任务执行与作答有效性最小闭环 | Ready ConcreteLearningTask -> TaskExecutionSession -> StudentResponse -> ResponseValidityResult -> TaskExecutionResult | `pnpm run debug:phase9-2` |
+| Phase 9.3 | 执行结果回流最小闭环 | Valid TaskExecutionResult + ConcreteLearningTask -> DiagnosisResult -> AbilityEvidence -> Existing Phase 8 Runtime | `pnpm run debug:phase9-3` |
+| Phase 10 | Learning Round Orchestration | Phase 8 策略链 + Phase 9 执行链 -> LearningRoundResult | `docs/education/phase/phase10.md` |
+| Phase 10.1 | Learning Round Start | Profile + GrowthMemory + Context -> ConcreteLearningTask -> LearningRoundStartResult | `pnpm run debug:phase10-1` |
+| Phase 10.2 | Learning Round Execution | LearningRoundStartResult + StudentResponse -> LearningRoundExecutionResult | `pnpm run debug:phase10-2` |
+| Phase 10.3 | Learning Round Completion | LearningRoundExecutionResult -> TaskEvidenceReturnResult -> LearningRoundResult | `pnpm run debug:phase10-3` |
 
 ## 当前核心链路
 
@@ -176,6 +184,13 @@ Question Metadata
 -> Evaluation Result
 -> Profile Update Decision
 -> Profile Decision Execution
+-> Growth Memory
+-> Next Learning Strategy
+-> Task Fulfillment
+-> Concrete Learning Task
+-> Learning Round Start
+-> Learning Round Execution
+-> Learning Round Completion
 ```
 
 长期标准协议应逐步收敛为：
