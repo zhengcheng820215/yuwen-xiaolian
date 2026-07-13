@@ -77,6 +77,11 @@ const phaseSteps = [
     desc: '把 TaskRequest 转换为资源需求，并完成最小任务匹配或生成请求分流。',
     status: 'Phase 8.4 Demo',
   },
+  {
+    title: '学习回合编排',
+    desc: '把策略、任务、学生作答、Evidence 回流和下一步动作串成一轮可验收学习回合。',
+    status: 'Phase 10 Demo',
+  },
 ];
 
 const frozenItems = [
@@ -139,6 +144,12 @@ export default function Home() {
           title="任务请求落地 Demo"
           desc="查看 TaskRequest 如何匹配任务资源，或在失败时转为生成请求。"
           action="查看落地"
+        />
+        <PrimaryAction
+          to="/phase10-learning-round-demo"
+          title="Phase 10 学习回合 Demo"
+          desc="把策略、任务、学生作答、Evidence 回流和下一步动作串成一轮可验收学习回合。"
+          action="查看回合"
         />
         <PrimaryAction
           to="/diagnosis-demo"

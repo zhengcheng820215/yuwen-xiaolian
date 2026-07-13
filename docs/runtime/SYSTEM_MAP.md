@@ -292,33 +292,59 @@ Phase 8.3 的意义：
 但仍不负责生成具体题目。
 ```
 
-## 五、当前 Phase 目标
+## 五、当前进度位置
 
-当前产品正处于 Phase 8。
+当前产品已完成 Phase 10 的 Learning Round Orchestration 最小闭环。
 
-Phase 8 的核心目标是：
+Phase 8-10 已经分别完成三层关键能力：
 
 ```text
-建立长期评估与学习记忆层。
+Phase 8：长期评估、成长记忆与下一步策略
+Phase 9：真实任务执行与证据回流
+Phase 10：学习回合编排
+```
+
+也就是说，系统已经从“单个 Runtime 节点可运行”，推进到：
+
+```text
+GrowthMemorySummary
+-> NextLearningStrategy
+-> TaskRequest / Task Fulfillment
+-> ConcreteLearningTask
+-> TaskExecutionResult
+-> AbilityEvidence
+-> EvaluationResult
+-> ProfileUpdateDecision
+-> GrowthMemoryRecord
+-> LearningRoundResult
+```
+
+当前阶段不再只是 Phase 8 的记忆层建设。
+
+当前更准确的位置是：
+
+```text
+Runtime Beta 已成型，
+下一步应从 Debug Runtime 收敛到可试用学习体验。
 ```
 
 当前最重要的不是：
 
-- 扩展题库。
-- 美化 UI。
-- 做排行榜。
-- 做复杂奖励系统。
+- 继续扩展大型题库；
+- 美化 UI；
+- 做排行榜；
+- 做复杂奖励系统；
 - 直接宣布学生能力提升。
 
 当前最重要的是：
 
-- 多条 Evidence 如何被评估。
-- 什么时候允许更新学生画像。
-- 一次改善、持续改善和稳定提升如何区分。
-- 如何让系统跨 Session 理解学生状态。
-- 如何把 Growth Memory 转化为经过校验的下一步学习策略。
+- 将 LearningRound 转化为一个孩子可以完成的最小学习页面；
+- 保持无效作答、诊断失败、能力不一致等闸门；
+- 保证本轮学习结果能够稳定回流 GrowthMemory；
+- 让下一轮学习仍由 Phase 8.3 的 NextLearningStrategy 决定；
+- 避免 Orchestrator 直接生成教育结论或补造缺失数据。
 
-## 六、下一步
+## 六、Phase 8-10 完成脉络
 
 Phase 8.4 已完成 Task Request Fulfillment 最小工程闭环。
 
@@ -494,6 +520,7 @@ docs/education/phase/phase10.md
 docs/education/phase/phase10_1.md
 docs/education/phase/phase10_2.md
 docs/education/phase/phase10_3.md
+docs/education/phase/phase10_acceptance_report.md
 ```
 
 Phase 10 的目标：
@@ -531,7 +558,7 @@ StudentAbilityProfile
 ```text
 Debug  PASS
 Build  PASS
-Demo   Not Required
+Demo   PASS
 ```
 
 Phase 10.1 已覆盖以下分支：
@@ -577,7 +604,7 @@ LearningRoundStartResult
 ```text
 Debug  PASS
 Build  PASS
-Demo   Not Required
+Demo   PASS
 ```
 
 Phase 10.2 已覆盖以下分支：
@@ -627,7 +654,7 @@ LearningRoundExecutionResult
 ```text
 Debug  PASS
 Build  PASS
-Demo   Not Required
+Demo   PASS
 ```
 
 Phase 10.3 已覆盖以下分支：
@@ -657,6 +684,39 @@ GrowthMemoryRecord
 ```
 
 Phase 10 三段最小闭环已经全部完成 Debug / Build 验收。
+
+### Learning Round 状态语义
+
+Phase 10 的状态必须区分流程完成、作答质量和长期能力结论：
+
+```text
+作答有效 != 答案正确
+本轮流程完成 != 答案正确
+Evidence 回流 != 能力提升
+```
+
+`作答有效` 只表示答案具备最低可分析内容，可以进入 Diagnosis。
+
+`本轮流程完成` 只表示 Learning Round 已经完成运行链路，并完成必要结构化处理。
+
+答案即使不正确，只要包含可分析内容，也可以生成 weakness evidence。
+
+无效答案、空答案、纯数字、占位回答或过短关键词回答，不应进入 Diagnosis，也不应进入 Evidence 回流。
+
+长期能力结论仍必须由 Evaluation 基于多条 AbilityEvidence 判断。
+
+Phase 10 之后，下一步主线不应继续只堆叠底层 Runtime。
+
+更合理的方向是：
+
+```text
+LearningRound Runtime
+-> 最小学生学习页面
+-> 学生完成一轮真实学习
+-> 本轮反馈与下一步动作展示
+```
+
+目标是把当前已经成立的 Runtime 闭环收敛成可试用产品体验。
 
 ## 八、尚未实现的能力
 

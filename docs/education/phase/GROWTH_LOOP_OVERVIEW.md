@@ -292,3 +292,37 @@ AbilityEvidence[]
 Phase 8.1 当前已完成 Debug、Build 和 Demo 验收，可作为后续 Phase 8.2 继续接入多 Session 成长记忆、阶段评估或正式 Runtime 收敛的基础。
 
 后续新增 Phase 时，应继续围绕“证据是否能进入成长记忆、下一步动作是否可验证”这两个问题展开。
+
+## Phase 10 Demo 验收补充
+
+Phase 10 已完成 Learning Round Demo 人工验收。
+
+已验收四类关键分支：
+
+- 正常学习回合：策略、任务、学生作答、Evidence 回流和下一步动作可以串成一轮完整学习回合。
+- 无效作答阻断：空答案、纯数字、占位回答或过短关键词回答不会进入 Evidence 回流。
+- 启动阶段阻断：上游条件不足时不会强行生成任务。
+- 诊断失败复核：Diagnosis 异常时进入人工复核，不自动生成长期结论。
+
+本阶段同时确认状态语义：
+
+```text
+作答有效 != 答案正确
+本轮流程完成 != 答案正确
+Evidence 回流 != 能力提升
+```
+
+Phase 10 当前可视为 Runtime Beta 闭环成立：
+
+```text
+GrowthMemorySummary
+-> NextLearningStrategy
+-> TaskRequest / Task Fulfillment
+-> ConcreteLearningTask
+-> StudentResponse
+-> TaskExecutionResult
+-> TaskEvidenceReturnResult
+-> LearningRoundResult
+```
+
+Phase 10 之后，下一步主线应从底层 Runtime 收敛到最小可试用学习体验。

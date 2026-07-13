@@ -136,6 +136,15 @@ export function evaluateResponseValidity(
     };
   }
 
+  if (requiresSubstantiveOpenResponse(task) && compactAnswer.length < 8) {
+    return {
+      responseId: response.responseId,
+      status: 'insufficient',
+      canDiagnose: false,
+      reasons: ['答案过短，尚未提供可分析的判断、依据或说明。'],
+    };
+  }
+
   return {
     responseId: response.responseId,
     status: 'valid',
@@ -222,6 +231,20 @@ function isHighConfidenceIrrelevantAnswer(value: string): boolean {
   if (irrelevantSamples.includes(value)) return true;
   if (/^[a-z]{6,}$/i.test(value)) return true;
   return false;
+}
+
+function requiresSubstantiveOpenResponse(task: ConcreteLearningTask): boolean {
+  const assessmentMode = task.questionMetadata.assessmentMode || '';
+  const questionType = task.questionMetadata.questionType || '';
+
+  return (
+    assessmentMode === 'reasoning_chain' ||
+    assessmentMode === 'key_points' ||
+    questionType === '推理' ||
+    questionType === '分析' ||
+    questionType === '概括' ||
+    questionType === '开放表达'
+  );
 }
 
 function compact(value: string): string {

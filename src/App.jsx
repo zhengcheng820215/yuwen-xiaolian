@@ -23,6 +23,7 @@ import Phase81EvaluationDemo from './pages/Phase81EvaluationDemo.jsx';
 import Phase82GrowthMemoryDemo from './pages/Phase82GrowthMemoryDemo.jsx';
 import Phase83NextStrategyDemo from './pages/Phase83NextStrategyDemo.jsx';
 import Phase84TaskFulfillmentDemo from './pages/Phase84TaskFulfillmentDemo.jsx';
+import Phase10LearningRoundDemo from './pages/Phase10LearningRoundDemo.jsx';
 
 export default function App() {
   return (
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="/phase82-growth-memory-demo" element={<Phase82GrowthMemoryDemo />} />
         <Route path="/phase83-next-strategy-demo" element={<Phase83NextStrategyDemo />} />
         <Route path="/phase84-task-fulfillment-demo" element={<Phase84TaskFulfillmentDemo />} />
+        <Route path="/phase10-learning-round-demo" element={<Phase10LearningRoundDemo />} />
       </Routes>
     </Layout>
   );
