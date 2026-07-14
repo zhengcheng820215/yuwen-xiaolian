@@ -158,6 +158,8 @@ LearningSessionMemory -> RetestTask -> RetestEvidence
 | Phase 10.1 | Learning Round Start | Profile + GrowthMemory + Context -> ConcreteLearningTask -> LearningRoundStartResult | `pnpm run debug:phase10-1` |
 | Phase 10.2 | Learning Round Execution | LearningRoundStartResult + StudentResponse -> LearningRoundExecutionResult | `pnpm run debug:phase10-2` |
 | Phase 10.3 | Learning Round Completion | LearningRoundExecutionResult -> TaskEvidenceReturnResult -> LearningRoundResult | `pnpm run debug:phase10-3` |
+| Phase 11 | Student Learning Experience | LearningRound Runtime -> 学生可试用学习体验 | `docs/education/phase/phase11.md` |
+| Phase 11.1 | Student Learning Entry | LearningRoundStartResult / ConcreteLearningTask -> StudentLearningEntryState | `pnpm run debug:student-learning-entry` |
 
 ## 当前核心链路
 
@@ -191,6 +193,8 @@ Question Metadata
 -> Learning Round Start
 -> Learning Round Execution
 -> Learning Round Completion
+-> Student Learning Experience
+-> Student Learning Entry
 ```
 
 长期标准协议应逐步收敛为：
@@ -326,3 +330,291 @@ GrowthMemorySummary
 ```
 
 Phase 10 之后，下一步主线应从底层 Runtime 收敛到最小可试用学习体验。
+
+## Phase 11 体验层规划补充
+
+Phase 11 已进入文档规划阶段。
+
+Phase 11 的目标不是新增能力判断模型，而是把已经成立的 LearningRound Runtime 转化为学生可以实际完成的一轮最小学习体验。
+
+核心方向：
+
+```text
+LearningRound Runtime
+-> 学生学习入口
+-> 真实任务展示
+-> 学生作答
+-> 学生可读反馈
+-> 本轮结束状态
+-> 下一步入口
+```
+
+Phase 11.1 已完成学生学习入口最小工程闭环：
+
+```text
+LearningRoundStartResult
+或
+ConcreteLearningTask
+↓
+StudentLearningEntryState
+↓
+学生进入可作答状态
+```
+
+Phase 11.1 特别强调：
+
+- 任务 ready 不等于答案可提交；
+- `canAnswer` 与 `canSubmit` 必须分离；
+- 作答要求必须保持结构化数组；
+- 学生端不得暴露 Runtime 原始字段、Prompt、Evidence、Profile 或内部追溯 ID；
+- 开发者调试区必须与学生主体验区隔离。
+
+Phase 11.1 当前验收状态：
+
+```text
+Debug  PASS
+Build  PASS
+Demo   PASS
+Status Frozen
+```
+
+Phase 11.2 已完成文档输出，进入学生作答后的反馈层规划：
+
+```text
+LearningRoundExecutionResult
+或
+TaskExecutionResult
+或
+TaskEvidenceReturnResult
+或
+LearningRoundResult
+↓
+StudentFeedbackAdapter
+↓
+StudentLearningFeedback
+```
+
+Phase 11.2 的核心边界：
+
+- 只把 Runtime 状态翻译为学生可理解反馈；
+- 不重新诊断；
+- 不重新生成 Evidence；
+- 不更新 GrowthMemory；
+- 不替代 NextLearningStrategy；
+- 不把单次提交描述为长期能力结论；
+- 多个 Runtime Result 同时存在时，优先使用链路中最靠后的正式结果；
+- 过程反馈与正式结果反馈必须分离；
+- 正向反馈必须来自可靠 Runtime 依据，不能由展示层凭空生成。
+
+Phase 11.2 当前验收状态：
+
+```text
+Debug  PASS
+Build  PASS
+Demo   PASS
+Status Frozen
+```
+
+Phase 11.3 已完成文档输出，进入本轮学习结束页规划：
+
+```text
+LearningRoundResult
++
+StudentLearningFeedback
+↓
+StudentRoundSummaryAdapter
+↓
+StudentRoundSummary
+```
+
+Phase 11.3 的核心边界：
+
+- 只把本轮最终结果转换为学生结束页；
+- 不重新诊断；
+- 不重新生成 Evidence；
+- 不更新 GrowthMemory；
+- 不替代 NextLearningStrategy；
+- 不把“本轮完成”描述为“答对、掌握或能力提升”；
+- `LearningRoundResult` 决定最终流程状态；
+- `StudentLearningFeedback` 只提供学生可读表现内容；
+- 多输入状态冲突时必须保守处理；
+- `learningRoundId` / `studentId` 不一致时必须阻断，避免跨轮反馈串线。
+
+Phase 11.3 当前状态：
+
+```text
+Docs   READY
+Debug  PASS
+Build  PASS
+Demo   PASS
+Status Frozen
+```
+
+Phase 11 当前总体验收状态：
+
+```text
+Phase 11.1  PASS
+Phase 11.2  PASS
+Phase 11.3  PASS
+Phase 11    Frozen
+```
+
+Phase 11 完成后，系统状态应从：
+
+```text
+Runtime Beta 成立
+```
+
+推进到：
+
+```text
+Student Experience Alpha 成立
+```
+
+## Phase 12：单学生可持续学习基础
+
+Phase 12 已完成总纲和 Phase 12.1 工程最小闭环。
+
+Phase 12 的目标是让 Phase 11 已经成立的一轮学生体验，具备可持续使用基础：
+
+```text
+学习结果能保存；
+真实题目能进入 Runtime；
+上一轮结果能驱动下一轮学习。
+```
+
+Phase 12 拆分为三个最小闭环：
+
+```text
+Phase 12.1  学习回合持久化与恢复
+Phase 12.2  真实题目输入与任务准备
+Phase 12.3  连续多轮学习运行
+```
+
+Phase 12.1 当前已实现链路：
+
+```text
+LearningRoundResult
++
+StudentResponse
++
+StudentLearningFeedback
++
+StudentRoundSummary
++
+GrowthMemoryRecord / GrowthMemorySummary
+↓
+LearningPersistenceRecord
+↓
+Local Persistence Store
+↓
+RestoredLearningState
+```
+
+Phase 12.1 已完成：
+
+- `LearningPersistenceRecord`；
+- `RestoredLearningState`；
+- `LearningPersistenceRepository`；
+- `InMemoryLearningPersistenceRepository`；
+- `IndexedDBLearningPersistenceRepository`；
+- `LearningPersistenceAgent`；
+- `debug:learning-persistence`。
+
+Phase 12 持久化边界：
+
+- `localStorage` 只保存少量入口和恢复指针；
+- 正式学习记录优先通过 IndexedDB / Repository 保存；
+- 页面不得直接读写存储实现；
+- 恢复不得重复提交、重复 Diagnosis、重复 Evidence 或重复 Profile 更新；
+- 数据版本不兼容时必须阻断恢复。
+
+Phase 12.1 当前状态：
+
+```text
+Docs   READY
+Debug  PASS
+Build  PASS
+Demo   PASS
+```
+
+Phase 12.2 当前规划链路：
+
+```text
+Raw Question Input
+↓
+TaskResourceDraft
+↓
+Resource Validation
+↓
+TaskResource
+↓
+Phase 8 TaskFulfillment
+↓
+ConcreteLearningTask
+```
+
+Phase 12.2 当前边界：
+
+- Draft 可以保存，但正式 `TaskResource` 必须通过完整性校验；
+- `resourceId` 由系统生成，外部编号只能作为 `externalResourceId`；
+- `questionType` 使用受控集合；
+- 空 `rubric` 不算有效评价依据；
+- 真实题目必须通过 `TaskFulfillment` 生成 `ConcreteLearningTask`；
+- 不得重新定义 `QuestionMetadata`。
+
+Phase 12.2 当前状态：
+
+```text
+Docs   READY
+Debug  PASS
+Build  PASS
+Demo   PASS
+Phase  PASS
+```
+
+Phase 12.2 已于 2026-07-14 完成轻量 Demo 验收，真实题目能够完成 Draft 保存、正式资源校验，并通过既有 `TaskFulfillment` 生成 `ConcreteLearningTask`。缺少评价依据、必要阅读材料或可追溯来源的数据会被阻断，不会作为正式任务资源进入学生学习链路。
+
+Phase 12.3 已完成文档、工程实现、Debug、Build 与轻量 Demo 验收，当前链路：
+
+```text
+Round 1 正式结果
+↓
+Persistence Save / Restore
+↓
+GrowthMemorySummary
+↓
+NextLearningStrategy
+↓
+Round 2 TaskRequest / ConcreteLearningTask
+↓
+Round 2 正式结果
+↓
+Round 3 或正常结束
+```
+
+Phase 12.3 的核心验收不是连续展示多道固定题，而是证明上一轮保存后的正式 `GrowthMemory` 与 `StudentAbilityProfile` 能生成下一轮策略和任务，并保留完整轮次追溯关系。
+
+Phase 12.3 已明确以下连续运行安全边界：
+
+- `status` 描述运行结果，`endReason` 描述结束原因；
+- 达到 `maxRounds` 不代表能力目标已经完成；
+- `transitionType` 只能由正式 `NextLearningStrategy` / `TaskRequest` 映射；
+- 回合完成但保存失败时，只重试 Persistence，不重复 Diagnosis、Evidence、Profile Update 或 GrowthMemory；
+- 保存并恢复成功之前不得启动下一轮。
+
+Phase 12.3 当前状态：
+
+```text
+Docs   READY
+Debug  PASS
+Build  PASS
+Demo   PASS
+Phase  PASS
+```
+
+Phase 12.3 Debug 已覆盖正常三轮、同能力正式衔接、无效作答阻断、任务资源不足、保存恢复后继续、恢复身份错误、Diagnosis 能力错位和持久化失败重试共 8 类场景，结果为 `8/8 PASS`。
+
+Phase 12.3 已于 2026-07-14 完成轻量 Demo 人工验收。Demo 证明三轮固定、同能力、不同情境的任务能够完成草稿恢复、正式结果保存、上一轮状态驱动下一轮以及计划轮数结束；重新开始仍使用相同三题，不代表题库轮换、随机选题或真实教学效果已经成立。
+
+Phase 12 三个最小闭环已全部通过，当前具备总体验收与冻结条件。

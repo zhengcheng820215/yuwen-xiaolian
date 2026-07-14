@@ -82,6 +82,21 @@ const phaseSteps = [
     desc: '把策略、任务、学生作答、Evidence 回流和下一步动作串成一轮可验收学习回合。',
     status: 'Phase 10 Demo',
   },
+  {
+    title: '学生学习体验',
+    desc: '从进入任务、提交反馈到本轮结束页，验证学生能独立理解一轮学习。',
+    status: 'Phase 11.1-11.3 Demo',
+  },
+  {
+    title: '真实题目资源',
+    desc: '把人工录入的真实题目转换为可复用 TaskResource，并生成可执行任务。',
+    status: 'Phase 12.2 Demo',
+  },
+  {
+    title: '连续多轮学习',
+    desc: '让上一轮正式结果保存后，成为下一轮策略与任务的真实输入。',
+    status: 'Phase 12.3 Demo',
+  },
 ];
 
 const frozenItems = [
@@ -150,6 +165,24 @@ export default function Home() {
           title="Phase 10 学习回合 Demo"
           desc="把策略、任务、学生作答、Evidence 回流和下一步动作串成一轮可验收学习回合。"
           action="查看回合"
+        />
+        <PrimaryAction
+          to="/student-learning-entry-demo"
+          title="学生学习 Alpha"
+          desc="从学习入口、提交反馈到本轮结束页，验收学生可读的一轮最小体验。"
+          action="开始学习"
+        />
+        <PrimaryAction
+          to="/task-resource-preparation-demo"
+          title="真实题目资源准备"
+          desc="录入真实阅读题，校验后生成 TaskResource 和 ConcreteLearningTask。"
+          action="准备题目"
+        />
+        <PrimaryAction
+          to="/continuous-learning-demo"
+          title="连续多轮学习 Demo"
+          desc="完成三轮不同任务，验证保存恢复、证据连续和上一轮结果驱动下一轮。"
+          action="开始三轮"
         />
         <PrimaryAction
           to="/diagnosis-demo"
