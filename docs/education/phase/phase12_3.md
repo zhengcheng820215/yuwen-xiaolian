@@ -1072,3 +1072,33 @@ Single-Student Usable Learning Foundation
 ```
 
 它仍然不证明学生能力已经长期提升，也不代表正式 Beta 已完成。
+
+## 二十三、Phase 12 基础全链路集成补充
+
+2026-07-14 已完成 Phase 12 基础全链路集成验收。
+
+Phase 12.3 的正式资源来源已调整为共享 `TaskResourceRepository`：
+
+```text
+Phase 12.2 Resource Validation
+-> Repository.saveResource
+-> Phase 12.3 Repository.findMatchingResources
+-> 排除上一轮 resourceId
+-> Existing TaskFulfillment
+-> 下一轮 ConcreteLearningTask
+```
+
+连续运行模块不再在内部创建固定正式题目。集成 Debug 使用两道同能力、不同文本的正式资源验证 Round 1 保存恢复后生成新 Strategy、TaskRequest，并匹配 Resource 2。9 类正常、幂等与阻断场景全部通过。
+
+三轮正式资源匹配补充规则：
+
+- 同一阅读文本可以为不同 `taskRole` 提供正式资源变体；
+- 资源角色必须同时具备对应的 `contentType`、`capabilities` 和 `validationTags`；
+- 连续运行按 `externalResourceId` 排除已使用文本，不允许只更换角色变体后重复同一材料；
+- 当前三轮 Demo 已完成 `3 / 3` 验收，三轮分别使用不同阅读文本。
+
+人工 Demo 验收结果：`PASS`。
+
+已确认有效输入可完成三轮，空答案不能继续，无效输入被阻断。完成三轮后重新验收会清除当前 Demo 记录，并按固定资源顺序回到同一份第一轮内容。该行为用于保证验收可重复，不代表跨 Session 资源轮换已经实现。
+
+完整记录见 `phase12_integration_acceptance.md`。

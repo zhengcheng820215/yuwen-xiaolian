@@ -44,6 +44,7 @@
     "debug:learning-persistence": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runLearningPersistenceDebug.ts",
     "debug:task-resource-preparation": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runTaskResourcePreparationDebug.ts",
     "debug:continuous-learning": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runContinuousLearningDebug.ts",
+    "debug:phase12-integration": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase12IntegrationDebug.ts",
     "debug:learning-entry": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runLearningEntryDebug.ts",
     "debug:personalized-training-flow": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPersonalizedTrainingFlowDebug.ts",
     "debug:beta-learning-session-result": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runBetaLearningSessionResultDebug.ts",

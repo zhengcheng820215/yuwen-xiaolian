@@ -64,6 +64,7 @@ export type ContinuousLearningRoundSnapshot = {
   status: LearningRoundResult['status'];
   strategyId?: string;
   taskRequestId?: string;
+  resourceId?: string;
   concreteTaskId?: string;
   executionSessionId?: string;
   responseId?: string;

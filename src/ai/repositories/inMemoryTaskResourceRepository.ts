@@ -1,5 +1,8 @@
 import type { TaskResource, TaskResourceDraft } from '../schemas/taskResource.schema.ts';
-import type { TaskResourceRepository } from './taskResourceRepository.ts';
+import type {
+  TaskResourceMatchQuery,
+  TaskResourceRepository,
+} from './taskResourceRepository.ts';
 
 export class InMemoryTaskResourceRepository implements TaskResourceRepository {
   private drafts = new Map<string, TaskResourceDraft>();
@@ -26,8 +29,24 @@ export class InMemoryTaskResourceRepository implements TaskResourceRepository {
     return this.resources.get(resourceId) || null;
   }
 
+  async getResource(resourceId: string): Promise<TaskResource | null> {
+    return this.loadResource(resourceId);
+  }
+
   async listResources(): Promise<TaskResource[]> {
     return [...this.resources.values()];
+  }
+
+  async findMatchingResources(query: TaskResourceMatchQuery): Promise<TaskResource[]> {
+    const excluded = new Set(query.excludedResourceIds || []);
+    const excludedExternal = new Set(query.excludedExternalResourceIds || []);
+    return [...this.resources.values()].filter((resource) => (
+      resource.status === 'ready' &&
+      resource.targetAbilityId === query.targetAbilityId &&
+      !excluded.has(resource.resourceId) &&
+      (!resource.externalResourceId || !excludedExternal.has(resource.externalResourceId)) &&
+      (!query.questionType || resource.questionType === query.questionType)
+    ));
   }
 
   async clear(): Promise<void> {

@@ -773,6 +773,8 @@ Phase 12.2 完成时，应能证明：
 
 根据 Debug、Build 与轻量 Demo 验收结果，Phase 12.2 已达到本阶段完成定义，可以进入 Phase 12.3 连续多轮学习运行。
 
+Phase 12 基础全链路集成进一步确认：正式 `TaskResource` 已通过共享 `TaskResourceRepository` 保存；浏览器使用 `IndexedDBTaskResourceRepository`，Debug 使用同一接口的 `InMemoryTaskResourceRepository`。Phase 12.3 不再依赖本模块之外的固定正式资源副本。
+
 但它还不证明：
 
 ```text

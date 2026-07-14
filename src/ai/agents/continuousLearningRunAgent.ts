@@ -12,6 +12,7 @@ import { buildStudentLearningEntryState } from './studentLearningEntryAgent.ts';
 import { buildStudentRoundSummary } from './studentRoundSummaryAdapter.ts';
 import { prepareConcreteLearningTaskFromResource } from './taskResourcePreparationAgent.ts';
 import type { LearningPersistenceRepository } from '../repositories/learningPersistenceRepository.ts';
+import type { TaskResourceRepository } from '../repositories/taskResourceRepository.ts';
 import type { AbilityEvidence } from '../schemas/abilityEvidence.schema.ts';
 import type {
   ContinuousLearningRoundSnapshot,
@@ -33,11 +34,12 @@ import type {
   RecommendedTaskRole,
 } from '../schemas/nextLearningStrategy.schema.ts';
 import type { StudentAbilityProfile } from '../schemas/studentAbilityProfile.schema.ts';
-import type { StudentAnswerInput } from '../schemas/taskExecution.schema.ts';
+import type { StudentAnswerInput, StudentResponse } from '../schemas/taskExecution.schema.ts';
 import type { TaskResource } from '../schemas/taskResource.schema.ts';
 
 export type ContinuousLearningRoundSubmission = {
   studentAnswer?: StudentAnswerInput;
+  responseOverrides?: Partial<StudentResponse>;
   diagnosisResult?: Partial<DiagnosisResult> | null;
   diagnosisResultId?: string;
   diagnosisFailed?: boolean;
@@ -54,6 +56,7 @@ export type ContinuousLearningRunInput = {
   studentAbilityProfile: StudentAbilityProfile;
   currentLearningContext: CurrentLearningContext;
   availableTaskResources: TaskResource[];
+  taskResourceRepository?: TaskResourceRepository;
   submissions: ContinuousLearningRoundSubmission[];
   previousEvidence?: AbilityEvidence[];
   maxRounds: 2 | 3;
@@ -83,6 +86,15 @@ export async function runContinuousLearning(
   const rounds: ContinuousLearningRoundSnapshot[] = [];
   const transitions: LearningRoundTransition[] = [];
   const recentTaskIds: string[] = [];
+  const recentExternalResourceIds: string[] = [];
+  const processedResponseIds = new Set<string>([
+    input.restoredLearningState.restoredRecord?.studentResponse?.responseId || '',
+  ].filter(Boolean));
+  const restoredResourceId = input.restoredLearningState.restoredRecord?.concreteTask?.questionMetadata.questionId;
+  if (input.taskResourceRepository && restoredResourceId) {
+    const restoredResource = await input.taskResourceRepository.getResource(restoredResourceId);
+    if (restoredResource?.externalResourceId) recentExternalResourceIds.push(restoredResource.externalResourceId);
+  }
 
   if (inputIssues.length > 0) {
     return buildOutput({
@@ -104,6 +116,13 @@ export async function runContinuousLearning(
   for (let roundIndex = 1; roundIndex <= input.maxRounds; roundIndex += 1) {
     const roundAt = timestampForRound(startedAt, roundIndex);
     const learningRoundId = `${runId}-round-${roundIndex}`;
+    const roundResources = input.taskResourceRepository
+      ? await input.taskResourceRepository.findMatchingResources({
+        targetAbilityId: growthSummary.abilityId,
+        excludedResourceIds: recentTaskIds,
+        excludedExternalResourceIds: recentExternalResourceIds,
+      })
+      : input.availableTaskResources.filter((item) => !recentTaskIds.includes(item.resourceId));
     const startResult = startLearningRound({
       studentAbilityProfile: profile,
       growthMemorySummary: growthSummary,
@@ -111,7 +130,7 @@ export async function runContinuousLearning(
         ...input.currentLearningContext,
         targetAbilityId: growthSummary.abilityId,
       },
-      availableTaskResources: input.availableTaskResources.map((item) => item.availableTaskResource),
+      availableTaskResources: roundResources.map((item) => item.availableTaskResource),
       learningRoundId,
       createdAt: roundAt,
       recentTaskIds,
@@ -137,7 +156,7 @@ export async function runContinuousLearning(
       });
     }
 
-    const selectedResource = findSelectedResource(startResult.taskResourceMatchResult?.selectedTaskId, input.availableTaskResources);
+    const selectedResource = findSelectedResource(startResult.taskResourceMatchResult?.selectedTaskId, roundResources);
     if (!selectedResource) {
       rounds.push(buildStartFailureSnapshot(roundIndex, {
         ...startResult,
@@ -235,9 +254,39 @@ export async function runContinuousLearning(
     const executionResult = executeLearningRound({
       startResult: hydratedStart,
       studentAnswer: submission.studentAnswer,
+      responseOverrides: submission.responseOverrides,
       abandon: submission.abandon,
       abandonedAt: submission.completedAt,
     });
+    const responseId = executionResult.studentResponse?.responseId;
+    if (responseId && processedResponseIds.has(responseId)) {
+      const snapshot = buildRoundSnapshot(roundIndex, completeLearningRound({
+        executionResult: {
+          ...executionResult,
+          status: 'retry_required',
+          canEnterEvidenceReturn: false,
+          nextAction: 'supplement_response',
+          issues: ['duplicate_response: StudentResponse.responseId has already been processed.'],
+        },
+        concreteTask,
+        completedAt: submission.completedAt || roundAt,
+      }), selectedResource.resourceId);
+      rounds.push(snapshot);
+      return buildOutput({
+        runId,
+        input,
+        startedAt,
+        status: 'retry_required',
+        endReason: 'response_retry_required',
+        rounds,
+        transitions,
+        evidence,
+        profile,
+        growthSummary,
+        latestPersistenceRecordId,
+        issues: ['duplicate_response: StudentResponse.responseId has already been processed.'],
+      });
+    }
     const roundResult = completeLearningRound({
       executionResult,
       concreteTask,
@@ -248,7 +297,7 @@ export async function runContinuousLearning(
       diagnosisFailed: submission.diagnosisFailed,
       completedAt: submission.completedAt || roundAt,
     });
-    const snapshot = buildRoundSnapshot(roundIndex, roundResult);
+    const snapshot = buildRoundSnapshot(roundIndex, roundResult, selectedResource.resourceId);
     rounds.push(snapshot);
 
     if (roundResult.status !== 'completed' || !roundResult.taskEvidenceReturnResult) {
@@ -342,6 +391,8 @@ export async function runContinuousLearning(
       latestPersistenceRecordId = saved.recordId;
       previousState = restored;
       recentTaskIds.push(selectedResource.resourceId);
+      if (selectedResource.externalResourceId) recentExternalResourceIds.push(selectedResource.externalResourceId);
+      if (responseId) processedResponseIds.add(responseId);
     } catch (error) {
       snapshot.persistenceStatus = 'retry_required';
       snapshot.issues.push(error instanceof Error ? error.message : String(error));
@@ -486,6 +537,7 @@ function mapTransitionType(
 function buildRoundSnapshot(
   roundIndex: number,
   roundResult: ReturnType<typeof completeLearningRound>,
+  resourceId?: string,
 ): ContinuousLearningRoundSnapshot {
   const start = roundResult.startResult;
   const execution = roundResult.executionResult;
@@ -496,6 +548,7 @@ function buildRoundSnapshot(
     status: roundResult.status,
     strategyId: start.nextLearningStrategy?.strategyId,
     taskRequestId: start.taskRequest?.taskRequestId,
+    resourceId,
     concreteTaskId: start.concreteTask?.taskId,
     executionSessionId: execution.taskExecutionResult?.executionSessionId,
     responseId: execution.studentResponse?.responseId,

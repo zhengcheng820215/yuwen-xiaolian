@@ -1145,7 +1145,44 @@ Round 1 作答与保存
 
 当前 Demo 使用三道固定、同能力、不同情境的推理题；重新开始后仍会重复这三题。该限制用于保持最小闭环可重复验收，不代表题库轮换或自动出题能力。
 
-Phase 12.1、12.2、12.3 均已通过，Phase 12 当前具备总体验收与冻结条件。
+Phase 12.1、12.2、12.3 均已通过，Phase 12 已完成总体验收并正式冻结。
+
+```text
+Status Frozen
+Freeze Date 2026-07-14
+```
+
+Phase 12 基础全链路集成状态：`PASS`。
+
+Phase 12 Integrated Acceptance：`PASS`。
+
+Phase 12.1、Phase 12.2、Phase 12.3 及基础全链路集成验收均已通过。当前产品状态：
+
+```text
+Single-Student Usable Learning Foundation
+```
+
+已确认正式 TaskResource 共享读写、真实资源进入 TaskFulfillment、Round 1 保存恢复后驱动 Round 2、两轮正式数据单次回流、异常与重复操作不污染数据，以及学生体验区隐藏 Runtime 内部字段。
+
+连续学习 Demo 已完成三轮正式资源验收。Repository 使用 `externalResourceId` 隔离同一文本的角色变体，确保 Round 1、Round 2、Round 3 使用不同阅读材料；资源角色、内容类型、能力标签和校验标签必须与 TaskFulfillmentRequest 对齐。
+
+人工 Demo 验收：`PASS`。有效输入可完成三轮；空答案不能继续；无效输入被阻断。重新验收会清除当前 Demo 记录，并按固定资源顺序回到第一轮。跨 Session 已做题历史与资源轮换仍属于后续能力。
+
+当前仍使用 mock Diagnosis 完成 Debug；该验收不证明真实 AI 诊断质量、教学策略有效性或长期能力提升。项目运行和验收使用项目配置的 Node 24 Runtime。
+
+新增正式资源共享边界：
+
+```text
+TaskResourcePreparationAgent
+-> TaskResourceRepository
+   |- InMemoryTaskResourceRepository（Debug）
+   `- IndexedDBTaskResourceRepository（Browser Demo）
+-> findMatchingResources
+-> Existing TaskFulfillment
+-> Continuous Learning Round
+```
+
+Phase 12.2 与 Phase 12.3 不再各自持有互不相通的正式资源。连续运行按目标能力查询 Repository，并排除已使用的 `resourceId`；页面不直接操作 IndexedDB。
 
 Phase 12.3 运行协议补充：
 

@@ -238,10 +238,10 @@ function buildAvailableTaskResource(
     taskRole,
     targetAbilityIds: [input.targetAbilityId],
     difficulty: 'same',
-    contentType: requiresReadingText(input.questionType) ? 'comparable_text' : 'short_text',
+    contentType: contentTypeForRole(taskRole, input.questionType),
     questionType: 'open_response',
     responseMode: 'written',
-    capabilities: inferCapabilities(input),
+    capabilities: inferCapabilities(input, taskRole),
     validationTags: inferValidationTags(taskRole),
     source: 'manual',
     title: input.title || buildDefaultTitle(input),
@@ -330,11 +330,16 @@ function normalizeRubric(
     }));
 }
 
-function inferCapabilities(input: TaskResourceInput): string[] {
+function inferCapabilities(
+  input: TaskResourceInput,
+  taskRole: RecommendedTaskRole,
+): string[] {
   const base = ['open_response', 'ability_observation', 'independent_answer'];
   if (requiresReadingText(input.questionType)) base.push('text_evidence');
   if (input.targetAbilityId === '推理') base.push('inference_chain');
-  if (input.targetAbilityId === '表达') base.push('focused_practice');
+  if (input.targetAbilityId === '表达' || taskRole === 'training') base.push('focused_practice');
+  if (taskRole === 'transfer') base.push('new_context_transfer');
+  if (taskRole === 'diagnosis') base.push('root_cause_probe');
   return unique(base);
 }
 
@@ -344,6 +349,17 @@ function inferValidationTags(taskRole: RecommendedTaskRole): string[] {
   if (taskRole === 'transfer') return ['transfer_validation', 'general_validation'];
   if (taskRole === 'diagnosis') return ['diagnostic_probe', 'general_validation'];
   return ['general_validation'];
+}
+
+function contentTypeForRole(
+  taskRole: RecommendedTaskRole,
+  questionType: TaskResourceQuestionType,
+): string {
+  if (taskRole === 'training') return 'short_text';
+  if (taskRole === 'transfer') return 'new_text';
+  if (taskRole === 'retest') return 'comparable_text';
+  if (taskRole === 'diagnosis' || taskRole === 'observation') return 'diagnostic_text';
+  return requiresReadingText(questionType) ? 'comparable_text' : 'short_text';
 }
 
 function requiresReadingText(questionType: TaskResourceQuestionType): boolean {

@@ -22,6 +22,12 @@
 | LearningSessionMemory | 把多次个性化任务执行合并成一次学习 Session 记忆。 |
 | RetestTask | 基于 LearningSessionMemory 生成一题复测任务，用来验证能力是否能迁移。 |
 | RetestExecutionResult | 记录复测执行后的诊断结果、复测证据和后续评估输入。 |
+| TaskResource | 保存一份经过校验、可追溯并可重复匹配的正式题目资源。 |
+| ConcreteLearningTask | 把匹配到的 TaskResource 实例化为学生当前回合可以完成的具体任务。 |
+| TaskExecutionResult | 记录学生对具体任务的真实提交，以及该提交是否可以进入 Diagnosis Runtime。 |
+| LearningRoundResult | 汇总一次学习回合从任务准备、作答到证据回流的正式运行结果。 |
+| PersistedLearningRound | 保存可恢复的正式回合结果、草稿、反馈和成长记忆，防止刷新后丢失或重复执行。 |
+| ContinuousLearningRunResult | 汇总多轮连续学习的资源、策略、证据、持久化和轮次追溯结果。 |
 
 ## 二、核心 Agent
 
@@ -37,6 +43,11 @@
 | LearningSessionAgent | 多条 PersonalizedTaskExecutionSummary | LearningSessionMemory | 把多次任务执行汇总成一个学习 Session，记录本轮表现变化和下一步建议。 |
 | RetestTaskAgent | LearningSessionMemory | RetestTask | 当 Session 建议复测时，生成一题新情境复测任务。 |
 | RetestExecutionAgent | RetestTask、studentRetestAnswer、previousEvidence | RetestExecutionResult | 学生完成复测后生成 retest evidence，并把结果交给后续 Evaluation 与 Profile 更新链路。 |
+| TaskResourcePreparationAgent | 人工录入题目、评价依据和来源信息 | TaskResource、resource validation | 把真实题目整理为可被任务匹配链消费的正式资源。 |
+| TaskExecutionAgent | ConcreteLearningTask、StudentResponse | TaskExecutionResult | 接收真实作答并判断是否值得进入诊断，不负责解释能力。 |
+| LearningRoundOrchestrator | GrowthMemory、Profile、TaskResource、StudentResponse | LearningRoundResult | 复用策略、任务、执行、诊断和证据模块，完成一轮学习编排。 |
+| LearningPersistenceRepository | 正式回合结果、草稿、反馈和恢复指针 | 可恢复的学习记录 | 隔离页面与存储实现，并保证恢复不会重复回流 Evidence。 |
+| ContinuousLearningRunAgent | 已恢复的正式状态、共享 TaskResourceRepository | ContinuousLearningRunResult | 让上一轮保存结果成为下一轮策略和任务的真实输入。 |
 
 ## 三、完整数据流
 
@@ -70,6 +81,25 @@ Question + StudentAnswer
 10. 多次任务执行后，LearningSessionAgent 生成 LearningSessionMemory。
 11. 如果 Session 建议复测，RetestTaskAgent 生成新情境复测题。
 12. 学生完成复测后，RetestExecutionAgent 生成 RetestExecutionResult，并把复测证据交给后续 Evaluation 与 Profile 更新链路。
+
+Phase 9 到 Phase 12 又把这条能力链放入真实任务与连续运行环境：
+
+```text
+TaskResourceRepository
+-> TaskResource
+-> ConcreteLearningTask
+-> StudentResponse
+-> TaskExecutionResult
+-> DiagnosisResult
+-> AbilityEvidence
+-> Evaluation / ProfileUpdateDecision / GrowthMemory
+-> PersistedLearningRound
+-> restore
+-> NextLearningStrategy
+-> next TaskResource
+```
+
+这里最重要的约束是：Phase 12.2 负责把真实题目写入共享资源仓库，Phase 12.3 只查询同一个仓库。连续运行层不得在内部临时造一份固定题目绕过 TaskFulfillment。
 
 ## 四、当前实现与长期标准协议
 
@@ -250,6 +280,26 @@ RetestExecutionResult
 | EvaluationAgent | AbilityEvidence[] | EvaluationResult | 判断多条证据是否充分、是否冲突，以及最多能支持多强的能力状态或改善信号。 | Phase 8.1.1 |
 | ProfileUpdateDecisionAgent | EvaluationResult、currentProfile | ProfileUpdateDecision | 根据 EvaluationResult 生成画像更新决策，避免 Profile 直接重新解释 Evidence。 | Phase 8.1.2 |
 | ProfileUpdateExecutor | StudentAbilityProfile、ProfileUpdateDecision | StudentAbilityProfile | 只执行合法的 ProfileUpdateDecision，完成受约束的画像更新。 | Phase 8.1.3 |
+| TaskResourcePreparationAgent | 真实题目草稿 | TaskResource、ResourceValidation | 校验并保存正式题目资源，评价依据不足时只保留草稿。 | Phase 12.2 |
+| TaskResourceRepository | TaskResource、能力与题型查询条件 | 可匹配的 TaskResource[] | 为题目录入和连续学习提供同一个资源读写边界；浏览器使用 IndexedDB，Debug 使用内存适配器。 | Phase 12.2 / 12.3 |
+| LearningPersistenceRepository | 学习回合正式结果与恢复请求 | PersistedLearningRound | 保存和恢复回合，按正式 ID 保证幂等，避免重复 Diagnosis、Evidence 和 Profile 更新。 | Phase 12.1 |
+| ContinuousLearningRunAgent | 恢复后的 GrowthMemory / Profile、TaskResourceRepository、学生作答 | ContinuousLearningRunResult | 让上一轮正式结果驱动下一轮策略，并从共享仓库获取不同的真实题目。 | Phase 12.3 |
+
+### Phase 12 基础集成边界
+
+浏览器端以 IndexedDB 保存正式题目资源和学习回合；自动化 Debug 使用相同 Repository Contract 的内存适配器。页面只调用应用服务，不直接读写 IndexedDB。
+
+恢复代表读取已经保存的正式结果，不代表重新执行本轮。相同 `learningRoundId`、`responseId`、Evidence ID 或正式执行结果不得因刷新、恢复或重试而重复写入。
+
+当前基础集成使用两道同属「推理」但阅读文本不同的正式 TaskResource，验证：
+
+```text
+Round 1 正式结果保存
+-> 恢复 GrowthMemory / Profile
+-> 生成 Round 2 Strategy / TaskRequest
+-> 查询另一道正式 TaskResource
+-> 完成 Round 2
+```
 
 ## 七、当前 Runtime 的一句话总结
 

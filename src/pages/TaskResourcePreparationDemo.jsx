@@ -63,7 +63,7 @@ export default function TaskResourcePreparationDemo() {
       setStatus({
         type: 'success',
         title: '已清除 Demo 资源',
-        message: '当前页面的内存资源已清空。',
+        message: '浏览器中的共享题目资源与草稿已清空。',
       });
     } catch (error) {
       setStatus(toErrorStatus(error, '清除失败'));

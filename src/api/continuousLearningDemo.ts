@@ -8,8 +8,6 @@ import { buildStudentLearningFeedback } from '../ai/agents/studentFeedbackAdapte
 import { buildStudentLearningEntryState } from '../ai/agents/studentLearningEntryAgent.ts';
 import { buildStudentRoundSummary } from '../ai/agents/studentRoundSummaryAdapter.ts';
 import {
-  createTaskResource,
-  createTaskResourceDraft,
   prepareConcreteLearningTaskFromResource,
 } from '../ai/agents/taskResourcePreparationAgent.ts';
 import { IndexedDBLearningPersistenceRepository } from '../ai/repositories/indexedDBLearningPersistenceRepository.ts';
@@ -18,41 +16,23 @@ import type { DiagnosisResult } from '../ai/schemas/diagnosis.schema.ts';
 import type { GrowthMemoryRecord, GrowthMemorySummary } from '../ai/schemas/growthMemory.schema.ts';
 import type { LearningPersistenceRecord } from '../ai/schemas/learningPersistence.schema.ts';
 import type { LearningRoundStartResult } from '../ai/schemas/learningRound.schema.ts';
-import type { RecommendedTaskRole } from '../ai/schemas/nextLearningStrategy.schema.ts';
 import type { StudentAbilityProfile } from '../ai/schemas/studentAbilityProfile.schema.ts';
 import type { StudentLearningEntryState } from '../ai/schemas/studentLearningEntry.schema.ts';
 import type { StudentLearningFeedback } from '../ai/schemas/studentLearningFeedback.schema.ts';
 import type { StudentRoundSummary } from '../ai/schemas/studentRoundSummary.schema.ts';
-import type { TaskResource } from '../ai/schemas/taskResource.schema.ts';
 import {
   buildCurrentLearningContextFixture,
   buildGrowthMemorySummaryFixture,
   buildStudentAbilityProfileFixture,
 } from '../ai/tests/nextLearningStrategyDebugFixtures.ts';
+import { ensurePhase12IntegrationResources } from './taskResourcePreparation.ts';
+import { taskResourceRepository } from './taskResourceRepository.ts';
 
 const STUDENT_ID = 'phase12-3-demo-student';
 const ROUND_PREFIX = 'phase12-3-demo-round-';
 const MAX_ROUNDS = 3;
 const TARGET_ABILITY = '推理';
 const repository = new IndexedDBLearningPersistenceRepository();
-
-const ROUND_CONTENT = [
-  {
-    readingText: '父亲整理书柜时，从一本旧书里发现一片已经褪色的树叶。他捏着树叶站了很久，最后把它小心地夹回原处。',
-    question: '结合父亲的动作，推断他此时的心理，并说明文本依据。',
-    referenceAnswer: '父亲想起过去与孩子共同读书的时光，内心怀念、不舍。“站了很久”“小心地夹回原处”是推断依据。',
-  },
-  {
-    readingText: '搬家前，母亲把一只缺角的旧杯子洗了又洗。家人劝她换掉，她却说：“这个还能用。”说完，她把杯子单独包好放进行李箱。',
-    question: '从母亲处理旧杯子的行为，可以推断出她怎样的心理？请结合文本说明。',
-    referenceAnswer: '母亲珍惜旧物承载的生活记忆，对过去有留恋。“洗了又洗”“单独包好”说明她舍不得丢弃这段记忆。',
-  },
-  {
-    readingText: '比赛结束后，小林没有立刻离开。他把队友落在场边的号码牌一一收好，又回头看了几次已经熄灯的球场。',
-    question: '小林离开前的表现反映了怎样的心理？请写出推断过程。',
-    referenceAnswer: '小林珍惜与队友共同比赛的经历，对结束的比赛有留恋。“收好号码牌”“回头看球场”支持这一推断。',
-  },
-];
 
 export type ContinuousLearningDemoMode = 'task' | 'feedback' | 'finished' | 'error';
 
@@ -308,7 +288,7 @@ async function buildRoundContext(
 }> {
   const completed = completedRecords(records);
   const latestCompleted = completed[completed.length - 1];
-  const growthSummary = latestCompleted?.growthMemorySummary || buildGrowthMemorySummaryFixture('retest_pending', {
+  const growthSummary = latestCompleted?.growthMemorySummary || buildGrowthMemorySummaryFixture('continued_observation', {
     studentId: STUDENT_ID,
     abilityId: TARGET_ABILITY,
   });
@@ -320,7 +300,21 @@ async function buildRoundContext(
   const growthRecords = dedupeGrowthRecords(
     completed.flatMap((item) => item.growthMemoryRecord ? [item.growthMemoryRecord] : []),
   );
-  const resources = buildResourcesForRound(roundIndex);
+  await ensurePhase12IntegrationResources();
+  const usedResourceIds = completed
+    .map((item) => item.concreteTask?.questionMetadata.questionId)
+    .filter((item): item is string => Boolean(item));
+  const allResources = await taskResourceRepository.listResources();
+  const usedExternalResourceIds = allResources
+    .filter((item) => usedResourceIds.includes(item.resourceId))
+    .map((item) => item.externalResourceId)
+    .filter((item): item is string => Boolean(item));
+  const resources = await taskResourceRepository.findMatchingResources({
+    targetAbilityId: growthSummary.abilityId,
+    excludedResourceIds: usedResourceIds,
+    excludedExternalResourceIds: usedExternalResourceIds,
+    questionType: 'reading_open_response',
+  });
   const start = startLearningRound({
     studentAbilityProfile: profile,
     growthMemorySummary: growthSummary,
@@ -419,70 +413,6 @@ function debugState(
     latestStrategyId: startResult?.nextLearningStrategy?.strategyId,
     latestTaskRequestId: startResult?.taskRequest?.taskRequestId,
     issues,
-  };
-}
-
-function buildResourcesForRound(roundIndex: number): TaskResource[] {
-  const roles: RecommendedTaskRole[] = ['training', 'retest', 'transfer', 'diagnosis', 'observation'];
-  return roles.map((role) => buildResource(roundIndex, role));
-}
-
-function buildResource(roundIndex: number, role: RecommendedTaskRole): TaskResource {
-  const content = ROUND_CONTENT[roundIndex - 1];
-  const resourceId = `phase12-3-demo-resource-${roundIndex}-${role}`;
-  const draft = createTaskResourceDraft({
-    draftId: `draft-${resourceId}`,
-    createdAt: `2026-07-14T${16 + roundIndex}:00:00.000Z`,
-    input: {
-      title: `第 ${roundIndex} 轮推理任务`,
-      readingText: content.readingText,
-      questionText: content.question,
-      answerRequirements: ['写出人物心理。', '引用至少一处文本行为。', '说明行为与心理之间的关系。'],
-      questionType: 'reading_open_response',
-      targetAbilityId: TARGET_ABILITY,
-      referenceAnswer: content.referenceAnswer,
-      assessmentBasis: ['是否提取行为线索。', '是否推出人物心理。', '是否说明依据与结论的关系。'],
-      source: { type: 'manual', description: `Phase 12.3 Demo 第 ${roundIndex} 轮资源` },
-    },
-  });
-  const created = createTaskResource({
-    draft,
-    resourceId,
-    taskRole: role,
-    createdAt: `2026-07-14T${16 + roundIndex}:00:00.000Z`,
-  });
-  if (!created.resource) throw new Error(`无法创建第 ${roundIndex} 轮 ${role} 资源。`);
-  const roleContentType: Record<RecommendedTaskRole, string> = {
-    training: 'short_text',
-    retest: 'comparable_text',
-    transfer: 'new_text',
-    diagnosis: 'diagnostic_text',
-    observation: 'diagnostic_text',
-  };
-  const roleTag: Record<RecommendedTaskRole, string> = {
-    training: 'focused_training',
-    retest: 'independent_retest',
-    transfer: 'transfer_validation',
-    diagnosis: 'diagnostic_probe',
-    observation: 'general_validation',
-  };
-  return {
-    ...created.resource,
-    availableTaskResource: {
-      ...created.resource.availableTaskResource,
-      contentType: roleContentType[role],
-      capabilities: [
-        'open_response',
-        'ability_observation',
-        'text_evidence',
-        'inference_chain',
-        'independent_answer',
-        'focused_practice',
-        'new_context_transfer',
-        'root_cause_probe',
-      ],
-      validationTags: [roleTag[role], 'general_validation'],
-    },
   };
 }
 

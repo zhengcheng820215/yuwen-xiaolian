@@ -4,11 +4,11 @@ import {
   prepareConcreteLearningTaskFromResource,
   validateTaskResourceDraft,
 } from '../ai/agents/taskResourcePreparationAgent.ts';
-import { InMemoryTaskResourceRepository } from '../ai/repositories/inMemoryTaskResourceRepository.ts';
-import type { TaskResourceInput } from '../ai/schemas/taskResource.schema.ts';
+import type { TaskResource, TaskResourceInput } from '../ai/schemas/taskResource.schema.ts';
 import { buildFulfillmentRequestFixture } from '../ai/tests/taskFulfillmentDebugFixtures.ts';
+import { PHASE12_INTEGRATION_RESOURCES } from '../data/phase12IntegrationResources.ts';
+import { taskResourceRepository as repository } from './taskResourceRepository.ts';
 
-const repository = new InMemoryTaskResourceRepository();
 const demoRunAt = '2026-07-14T15:20:00.000Z';
 
 export function getTaskResourcePreparationDemoInput(): TaskResourceInput {
@@ -104,4 +104,36 @@ export async function createTaskResourceDemo(input: TaskResourceInput) {
 
 export async function clearTaskResourcePreparationDemo() {
   await repository.clear();
+}
+
+export async function ensurePhase12IntegrationResources(): Promise<TaskResource[]> {
+  for (const definition of PHASE12_INTEGRATION_RESOURCES) {
+    const existing = await repository.getResource(definition.resourceId);
+    if (existing) continue;
+
+    const draft = createTaskResourceDraft({
+      input: definition.input,
+      draftId: `draft-${definition.resourceId}`,
+      createdAt: demoRunAt,
+    });
+    await repository.saveDraft(draft);
+    const creation = createTaskResource({
+      draft,
+      existingResourceIds: (await repository.listResources()).map((item) => item.resourceId),
+      resourceId: definition.resourceId,
+      taskRole: definition.taskRole,
+      createdAt: demoRunAt,
+    });
+    if (!creation.resource || !creation.validation.canEnterTaskFulfillment) {
+      throw new Error(`集成资源 ${definition.resourceId} 未通过 Phase 12.2 正式校验。`);
+    }
+    try {
+      await repository.saveResource(creation.resource);
+    } catch (error) {
+      const concurrentlySaved = await repository.getResource(definition.resourceId);
+      if (!concurrentlySaved) throw error;
+    }
+  }
+
+  return repository.listResources();
 }

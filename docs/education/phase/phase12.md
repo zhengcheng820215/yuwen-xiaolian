@@ -93,6 +93,36 @@ Phase 12 的核心是：
 每一轮学习结果都能成为下一轮学习的真实输入。
 ```
 
+## 四点一、基础全链路集成验收
+
+2026-07-14 已完成 Phase 12 基础全链路集成验收：
+
+```text
+Phase 12.2 正式 TaskResource
+-> Shared TaskResourceRepository
+-> Phase 12.3 Round 1
+-> Evidence / Evaluation / Profile / GrowthMemory
+-> Save / Restore
+-> New Strategy / TaskRequest
+-> Repository Resource 2
+-> Existing TaskFulfillment
+-> Round 2
+```
+
+集成结果：`9 / 9 PASS`，Build `PASS`，浏览器轻量 Demo `PASS`。
+
+Phase 12 Integrated Acceptance：`PASS`。
+
+Phase 12.1、Phase 12.2、Phase 12.3 与基础全链路集成验收均已通过，当前产品状态为：
+
+```text
+Single-Student Usable Learning Foundation
+```
+
+该状态只证明单学生、真实资源、持久化恢复和连续多轮 Runtime 基础成立。Debug 仍使用 mock Diagnosis，不证明真实 AI 诊断质量、教学策略有效性或长期能力提升。项目 Debug 与构建使用项目配置的 Node 24 Runtime。
+
+正式验收记录见 `phase12_integration_acceptance.md`。
+
 ## 五、与 Phase 8 / 9 / 10 / 11 的关系
 
 ### Phase 8
@@ -548,3 +578,25 @@ Single-Student Usable Learning Foundation
 - 数据安全；
 - 账号与同步；
 - 长期效果观察。
+
+## 十三、冻结状态
+
+冻结日期：2026-07-14
+
+冻结状态：`PASS / Frozen`
+
+Phase 12.1、Phase 12.2、Phase 12.3、基础全链路集成 Debug、生产构建与浏览器 Demo 人工验收均已通过。
+
+冻结时产品状态：
+
+```text
+Single-Student Usable Learning Foundation
+```
+
+详细验收指标、人工体验结果、已知限制和冻结后维护边界见：
+
+```text
+docs/education/phase/phase12_integration_acceptance.md
+```
+
+Phase 12 冻结不代表真实 AI 诊断质量、教学策略有效性或学生长期能力提升已经得到证明。
