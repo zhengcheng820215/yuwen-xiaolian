@@ -321,3 +321,5 @@ Browser Demo                     PASS
 最终冻结结论：
 
 Phase 12 已完成并冻结。后续阶段可以稳定消费其正式 `TaskResource`、持久化记录、连续学习运行结果和 GrowthMemory 回流结果；Phase 12 本身不再继续扩展功能。
+
+Phase 12 冻结后的 PC / 平板体验校准单独记录于 `docs/product/PC_LEARNING_WORKSPACE_UX_CALIBRATION.md`。该记录只约束学生学习工作台的信息层级、文案、布局、视觉与交互体验，不新增 Phase 12 Runtime 能力，也不改变本冻结结论。

@@ -25,6 +25,7 @@ import {
   buildGrowthMemorySummaryFixture,
   buildStudentAbilityProfileFixture,
 } from '../ai/tests/nextLearningStrategyDebugFixtures.ts';
+import { PHASE12_INTEGRATION_RESOURCES } from '../data/phase12IntegrationResources.ts';
 import { ensurePhase12IntegrationResources } from './taskResourcePreparation.ts';
 import { taskResourceRepository } from './taskResourceRepository.ts';
 
@@ -32,6 +33,7 @@ const STUDENT_ID = 'phase12-3-demo-student';
 const ROUND_PREFIX = 'phase12-3-demo-round-';
 const MAX_ROUNDS = 3;
 const TARGET_ABILITY = '推理';
+const DEMO_SOURCE_VERSION = 'phase12_3_demo_v2';
 const repository = new IndexedDBLearningPersistenceRepository();
 
 export type ContinuousLearningDemoMode = 'task' | 'feedback' | 'finished' | 'error';
@@ -69,6 +71,10 @@ export async function startContinuousLearningDemo(): Promise<ContinuousLearningD
 export async function loadContinuousLearningDemo(): Promise<ContinuousLearningDemoState> {
   const records = await listDemoRecords();
   if (records.length === 0) return prepareRound(1, '');
+  if (records.some((record) => record.sourceVersion !== DEMO_SOURCE_VERSION)) {
+    await repository.clear(STUDENT_ID);
+    return prepareRound(1, '');
+  }
 
   const currentRecord = highestRoundRecord(records);
   const roundIndex = roundIndexFromId(currentRecord.learningRoundId);
@@ -96,7 +102,7 @@ export async function saveContinuousLearningDraft(answerDraft: string): Promise<
     learningRoundId: context.startResult.learningRoundId,
     savedAt: current?.savedAt || now,
     updatedAt: now,
-    sourceVersion: 'phase12_3_demo_v1',
+    sourceVersion: DEMO_SOURCE_VERSION,
     concreteTask: context.startResult.concreteTask,
     answerDraft,
     growthMemorySummary: context.growthSummary,
@@ -206,7 +212,7 @@ export async function submitContinuousLearningAnswer(input: {
     learningRoundId: context.startResult.learningRoundId,
     savedAt: current?.savedAt || completedAt,
     updatedAt: completedAt,
-    sourceVersion: 'phase12_3_demo_v1',
+    sourceVersion: DEMO_SOURCE_VERSION,
     learningRoundResult: roundResult,
     concreteTask: context.startResult.concreteTask,
     studentResponse: execution.studentResponse,
@@ -264,7 +270,7 @@ async function prepareRound(roundIndex: number, answerDraft: string): Promise<Co
     learningRoundId: context.startResult.learningRoundId,
     savedAt: now,
     updatedAt: now,
-    sourceVersion: 'phase12_3_demo_v1',
+    sourceVersion: DEMO_SOURCE_VERSION,
     concreteTask: context.startResult.concreteTask,
     answerDraft,
     growthMemorySummary: context.growthSummary,
@@ -315,6 +321,13 @@ async function buildRoundContext(
     excludedExternalResourceIds: usedExternalResourceIds,
     questionType: 'reading_open_response',
   });
+  const integrationResourceOrder = new Map(
+    PHASE12_INTEGRATION_RESOURCES.map((definition, index) => [definition.resourceId, index]),
+  );
+  resources.sort((a, b) => (
+    (integrationResourceOrder.get(a.resourceId) ?? Number.MAX_SAFE_INTEGER)
+    - (integrationResourceOrder.get(b.resourceId) ?? Number.MAX_SAFE_INTEGER)
+  ));
   const start = startLearningRound({
     studentAbilityProfile: profile,
     growthMemorySummary: growthSummary,
@@ -419,11 +432,12 @@ function debugState(
 function buildDiagnosisResult(answer: string, mainAbility: string): DiagnosisResult {
   const normalized = answer.replace(/\s+/g, '');
   const hasClue = /旧书|树叶|站了很久|小心|杯子|洗了又洗|包好|号码牌|球场|回头|文中|行为/.test(normalized);
-  const hasInference = /怀念|不舍|牵挂|珍惜|留恋|想起|回忆|心理/.test(normalized);
+  const hasInference = /怀念|不舍|舍不得|牵挂|珍惜|留恋|想起|回忆|心理/.test(normalized);
   const hasLink = /说明|因此|所以|反映|可见|因为/.test(normalized);
   const fullyMeets = hasClue && hasInference && hasLink;
   const partiallyMeets = hasClue || hasInference;
   const answerStatus = fullyMeets ? 'fully_meets' : partiallyMeets ? 'partially_meets' : 'does_not_meet';
+  const positiveObservation = buildSpecificPositiveObservation(normalized);
   return {
     taskType: 'open_response',
     correct: fullyMeets,
@@ -446,11 +460,61 @@ function buildDiagnosisResult(answer: string, mainAbility: string): DiagnosisRes
     surfaceError: fullyMeets ? '本次回答已回应任务要求。' : '答案还需要更清楚地连接文本行为和人物心理。',
     rootCause: fullyMeets ? '学生能够完成文本线索到人物心理的推理说明。' : '学生尚未完整建立“文本线索 -> 人物心理 -> 结论表达”的推理链。',
     errorType: fullyMeets ? '待验证' : '推理错误',
-    abilityEvidence: fullyMeets ? ['学生能够结合文本行为说明人物心理。'] : ['学生的推理依据或推理说明仍不完整。'],
+    abilityEvidence: fullyMeets ? [positiveObservation] : ['学生的推理依据或推理说明仍不完整。'],
     diagnosisSummary: fullyMeets ? '本次回答基本满足推理任务要求。' : '本次回答形成继续练习推理链的依据。',
     nextTraining: fullyMeets ? '保存本轮结果，并根据成长记忆决定下一轮。' : '继续练习文本线索到人物心理的推理说明。',
     confidence: fullyMeets ? 0.82 : partiallyMeets ? 0.72 : 0.64,
   };
+}
+
+function buildSpecificPositiveObservation(answer: string): string {
+  const emotions = collectExactMatches(answer, [
+    /怀念/,
+    /不舍|舍不得/,
+    /珍惜/,
+    /留恋/,
+    /牵挂/,
+    /难过/,
+  ]).slice(0, 2);
+  const memoryExpressions = collectExactMatches(answer, [/想起/, /回忆/]).slice(0, 1);
+  const clues = collectExactMatches(answer, [
+    /站了很久/,
+    /小心(?:地)?(?:把它)?夹回原处/,
+    /洗了又洗/,
+    /单独包好(?:后)?(?:放进)?行李箱/,
+    /收好号码牌/,
+    /回头看(?:了)?(?:一眼)?球场/,
+    /孩子小时候写下的日期/,
+  ]).slice(0, 2);
+
+  const clueText = formatExactQuotes(clues);
+
+  if (emotions.length > 0 && clues.length > 0) {
+    return `学生写出了${formatExactQuotes(emotions)}的心理判断，并结合${clueText}说明了理由。`;
+  }
+  if (emotions.length > 0) {
+    return `学生写出了${formatExactQuotes(emotions)}的心理判断，回答体现了对人物心理的理解。`;
+  }
+  if (memoryExpressions.length > 0 && clues.length > 0) {
+    return `学生在回答中写到了${formatExactQuotes(memoryExpressions)}，并结合${clueText}说明了人物心理。`;
+  }
+  if (clues.length > 0) {
+    return `学生引用了${clueText}，回答体现了用文本细节支持心理判断的过程。`;
+  }
+
+  return '回答体现了对人物心理和文本细节关系的理解。';
+}
+
+function collectExactMatches(value: string, patterns: RegExp[]): string[] {
+  const matches = patterns.flatMap((pattern) => {
+    const match = value.match(pattern);
+    return match?.[0] ? [match[0]] : [];
+  });
+  return [...new Set(matches)];
+}
+
+function formatExactQuotes(values: string[]): string {
+  return values.map((value) => `“${value}”`).join('和');
 }
 
 function buildInitialEvidence(): AbilityEvidence {

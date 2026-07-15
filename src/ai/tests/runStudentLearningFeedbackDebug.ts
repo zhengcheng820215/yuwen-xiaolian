@@ -84,7 +84,9 @@ const successfulRound = completeLearningRound({
   concreteTask: readyStartResult.concreteTask,
   diagnosisResult: buildDiagnosisResult('推理', 'fully_meets', {
     matchedRubricItems: ['文本线索', '心理推断'],
-    abilityEvidence: ['学生能够结合文本线索说明人物心理。'],
+    abilityEvidence: [
+      '学生写出了“想起”“不舍”“怀念”的心理内容，并结合“旧书”和“树叶”说明了理由。',
+    ],
   }),
   completedAt: '2026-07-14T10:05:00.000Z',
 });
@@ -332,6 +334,17 @@ function runCase(debugCase: DebugCase): CaseReport {
     }
   }
 
+  const sourceAnswer = getSourceAnswer(debugCase.input);
+  for (const item of feedback.whatYouDidWell) {
+    if (!item.includes('你写出了')) continue;
+    const quotedValues = Array.from(item.matchAll(/“([^”]+)”/g), (match) => match[1]);
+    for (const quotedValue of quotedValues) {
+      if (!sourceAnswer.includes(quotedValue)) {
+        failReasons.push(`Quoted feedback must exist in student answer: ${quotedValue}.`);
+      }
+    }
+  }
+
   return {
     name: debugCase.name,
     stage: feedback.stage,
@@ -348,6 +361,14 @@ function runCase(debugCase: DebugCase): CaseReport {
     passed: failReasons.length === 0,
     failReasons,
   };
+}
+
+function getSourceAnswer(input: DebugCase['input']): string {
+  return input.learningRoundResult?.taskEvidenceReturnResult?.taskExecutionResult.studentResponse?.answerText ||
+    input.taskEvidenceReturnResult?.taskExecutionResult.studentResponse?.answerText ||
+    input.learningRoundExecutionResult?.taskExecutionResult?.studentResponse?.answerText ||
+    input.taskExecutionResult?.studentResponse?.answerText ||
+    '';
 }
 
 function buildDiagnosisResult(

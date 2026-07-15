@@ -9,15 +9,18 @@ export type Phase12IntegrationResourceDefinition = {
 
 const PHASE12_OBSERVATION_RESOURCES: Phase12IntegrationResourceDefinition[] = [
   {
-    resourceId: 'phase12-real-inference-v1-001',
+    resourceId: 'phase12-real-inference-v2-001',
     taskRole: 'observation',
     input: {
       title: '旧书里的树叶',
-      externalResourceId: 'phase12-reading-inference-001',
+      externalResourceId: 'phase12-reading-inference-v2-001',
       readingText:
         '父亲整理书柜时，从一本旧书里发现一片已经褪色的树叶。' +
+        '书页旁还留着孩子小时候写下的日期。' +
         '他捏着树叶站了很久，最后把它小心地夹回原处。',
-      questionText: '结合父亲的动作，推断他此时的心理，并说明文本依据。',
+      questionText:
+        '父亲“捏着树叶站了很久”，又把它“小心地夹回原处”。' +
+        '这些动作表现了他怎样的心理？请结合文中内容说明理由。',
       answerRequirements: [
         '写出父亲此时的心理。',
         '引用至少一处文本行为作为依据。',
@@ -26,10 +29,11 @@ const PHASE12_OBSERVATION_RESOURCES: Phase12IntegrationResourceDefinition[] = [
       questionType: 'reading_open_response',
       targetAbilityId: '推理',
       referenceAnswer:
-        '父亲想起过去与孩子共同读书的时光，内心怀念、不舍。“站了很久”“小心地夹回原处”是推断依据。',
+        '孩子小时候留下的日期勾起了父亲过去的回忆，他内心怀念、不舍，也很珍惜这段记忆。' +
+        '“站了很久”“小心地夹回原处”是判断依据。',
       assessmentBasis: [
-        '能提取“站了很久”“小心地夹回原处”等行为线索。',
-        '能从行为线索推断父亲的怀念或不舍。',
+        '能提取“孩子小时候写下的日期”“站了很久”“小心地夹回原处”等线索。',
+        '能从日期与行为线索推断父亲的怀念、不舍或珍惜。',
         '能说明文本依据与心理结论之间的关系。',
       ],
       source: {

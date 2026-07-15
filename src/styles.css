@@ -28,3 +28,19 @@ textarea {
 .safe-bottom {
   padding-bottom: calc(86px + env(safe-area-inset-bottom));
 }
+
+.workspace-viewport {
+  background: #f1f5f9;
+}
+
+@media (min-width: 1024px) {
+  .workspace-viewport {
+    background: linear-gradient(
+      to right,
+      #f7f9fc 0%,
+      #f7f9fc 50%,
+      #ffffff 50%,
+      #ffffff 100%
+    );
+  }
+}

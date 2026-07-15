@@ -331,6 +331,7 @@ PRODUCT.md 只负责：
 | AI 如何陪伴学生 | `AI_COACH_MODEL.md` |
 | 整体流程如何编排 | `LEARNING_FLOW.md` |
 | Agent 如何协作 | `AGENT_PROTOCOL.md` |
+| PC / 平板学习工作台如何组织学生体验 | `PC_LEARNING_WORKSPACE_UX_CALIBRATION.md` |
 
 PRODUCT.md 不维护上述模型的详细规则，避免与模型文档重复或冲突。
 

@@ -472,7 +472,7 @@ function buildAttentionFromEvidenceReturn(result: TaskEvidenceReturnResult): str
 
   for (const evidence of result.abilityEvidence) {
     if (evidence.evidenceType === 'weakness') {
-      attention.push(evidence.rootCause || evidence.detail || evidence.observation);
+      attention.push(toStudentText(evidence.rootCause || evidence.detail || evidence.observation));
     }
     if (evidence.evidenceType === 'insufficient') {
       attention.push('这次回答还需要更多依据，才能形成稳定判断。');
@@ -493,6 +493,10 @@ function buildAttentionFromEvidenceReturn(result: TaskEvidenceReturnResult): str
 
 function toStudentText(value: string): string {
   return value
+    .replace(
+      /(?:学生|你)尚未完整建立[“"]?文本线索\s*->\s*人物心理\s*->\s*结论表达[”"]?的推理链[。.]?/g,
+      '还需要把文中的动作和人物心理联系得更清楚。',
+    )
     .replace(/^学生/, '你')
     .replace(/学生/g, '你')
     .replace(/可形成正向能力证据/g, '表现达到本次要求')
