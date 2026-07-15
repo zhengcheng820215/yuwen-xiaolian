@@ -35,6 +35,18 @@ button {
     background: linear-gradient(
       to right,
       #f7f9fc 0,
+      #f7f9fc 45%,
+      #ffffff 45%,
+      #ffffff 100%
+    );
+  }
+}
+
+@media (min-width: 1280px) {
+  .learning-workspace-split-background {
+    background: linear-gradient(
+      to right,
+      #f7f9fc 0,
       #f7f9fc calc(50% - min(10%, 140px)),
       #ffffff calc(50% - min(10%, 140px)),
       #ffffff 100%

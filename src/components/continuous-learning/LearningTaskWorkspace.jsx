@@ -14,7 +14,7 @@ export default function LearningTaskWorkspace({
 
   return (
     <div className="learning-workspace-split-background relative bg-[#f7f9fc] lg:h-[calc(100vh-64px)] lg:min-h-[620px]">
-      <div className="relative mx-auto grid w-full max-w-[1400px] border-b border-slate-200 lg:h-full lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <div className="relative mx-auto grid w-full max-w-[1400px] border-b border-slate-200 lg:h-full lg:grid-cols-[minmax(0,9fr)_minmax(0,11fr)] xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <section className="border-b border-slate-200 bg-[#f7f9fc] px-4 py-5 md:px-6 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-8 lg:py-7">
         <div className="mx-auto max-w-[640px]">
           <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
