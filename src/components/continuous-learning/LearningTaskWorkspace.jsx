@@ -5,16 +5,17 @@ export default function LearningTaskWorkspace({
   state,
   answer,
   busy,
+  draftStatus,
   onAnswerChange,
-  onAnswerBlur,
   onSaveDraft,
   onSubmit,
 }) {
   const entry = state.entryState;
 
   return (
-    <div className="grid border-b border-slate-200 bg-white lg:h-[calc(100vh-64px)] lg:min-h-[620px] lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
-      <section className="bg-[#f7f9fc] px-4 py-5 md:px-6 lg:overflow-y-auto lg:border-r lg:border-slate-200 lg:px-8 lg:py-7">
+    <div className="learning-workspace-split-background relative bg-[#f7f9fc] lg:h-[calc(100vh-64px)] lg:min-h-[620px]">
+      <div className="relative mx-auto grid w-full max-w-[1400px] border-b border-slate-200 lg:h-full lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <section className="border-b border-slate-200 bg-[#f7f9fc] px-4 py-5 md:px-6 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-8 lg:py-7">
         <div className="mx-auto max-w-[640px]">
           <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
             <BookOpen size={18} className="text-slate-500" />
@@ -22,10 +23,10 @@ export default function LearningTaskWorkspace({
           </div>
           <p className="mt-5 whitespace-pre-wrap text-base leading-7 text-slate-800">{entry?.readingText}</p>
         </div>
-      </section>
+        </section>
 
-      <section className="px-4 py-5 md:px-6 lg:overflow-y-auto lg:px-8 lg:py-7">
-        <div className="mx-auto max-w-[560px] space-y-6">
+        <section className="bg-white px-4 py-5 md:px-6 lg:overflow-y-auto lg:px-8 lg:py-7">
+        <div className="mx-auto w-full max-w-[640px] space-y-6">
           <div>
             <h2 className="text-lg font-semibold leading-7 text-slate-950">
               本轮重点：{toStudentFocusTitle(entry?.studentRoundFocus?.title)}
@@ -46,7 +47,6 @@ export default function LearningTaskWorkspace({
               aria-label="我的回答"
               value={answer}
               onChange={(event) => onAnswerChange(event.target.value)}
-              onBlur={(event) => onAnswerBlur(event.currentTarget.value)}
               rows={8}
               placeholder="请在这里输入你的回答。"
               className="min-h-52 w-full resize-y rounded-md border border-slate-300 bg-[#f7f9fc] p-4 text-base leading-7 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
@@ -54,18 +54,18 @@ export default function LearningTaskWorkspace({
             <div className="mt-3 flex flex-col-reverse gap-3 sm:grid sm:grid-cols-2">
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || draftStatus === 'saving'}
                 onClick={onSaveDraft}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                className="flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-normal text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
               >
-                <Save size={16} />
-                保存草稿
+                {draftStatus === 'saving' ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
+                {draftStatus === 'saving' ? '保存中…' : '保存草稿'}
               </button>
               <button
                 type="button"
-                disabled={!answer.trim() || busy}
+                disabled={busy || draftStatus === 'saving'}
                 onClick={onSubmit}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-normal text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
               >
                 {busy ? <RefreshCw className="animate-spin" size={16} /> : <ArrowRight size={16} />}
                 {busy ? '正在分析并保存' : '提交本轮回答'}
@@ -75,7 +75,8 @@ export default function LearningTaskWorkspace({
 
           {state.feedback ? <StudentFeedbackPanel feedback={state.feedback} /> : null}
         </div>
-      </section>
+        </section>
+      </div>
     </div>
   );
 }

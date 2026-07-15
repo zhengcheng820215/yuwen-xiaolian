@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, CheckCircle2, RefreshCw } from 'lucide-react';
 import LearningTaskWorkspace from '../components/continuous-learning/LearningTaskWorkspace.jsx';
 import LearningWorkspaceHeader from '../components/continuous-learning/LearningWorkspaceHeader.jsx';
 import { StudentFeedbackPanel, WorkspaceNotice } from '../components/continuous-learning/StudentFeedbackPanel.jsx';
+import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
 import {
   clearContinuousLearningDemo,
   continueContinuousLearningDemo,
@@ -16,7 +17,10 @@ export default function ContinuousLearningDemo() {
   const [answer, setAnswer] = useState('');
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
+  const [errorKind, setErrorKind] = useState('system');
+  const [draftStatus, setDraftStatus] = useState('idle');
   const [simulatePersistenceFailure, setSimulatePersistenceFailure] = useState(false);
+  const draftSaveRequest = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -25,7 +29,7 @@ export default function ContinuousLearningDemo() {
         if (active) applyState(nextState);
       })
       .catch((loadError) => {
-        if (active) setError(toMessage(loadError));
+        if (active) showError(toMessage(loadError));
       })
       .finally(() => {
         if (active) setBusy(false);
@@ -41,17 +45,40 @@ export default function ContinuousLearningDemo() {
     setError('');
   }
 
+  function showError(message, kind = 'system') {
+    setErrorKind(kind);
+    setError(message);
+  }
+
   async function saveDraft(currentAnswer = answer) {
     if (!state || state.mode !== 'task') return;
+    if (!currentAnswer.trim()) {
+      setDraftStatus('idle');
+      showError('当前没有可保存的内容', 'operation');
+      return;
+    }
+    const requestId = ++draftSaveRequest.current;
+    setError('');
+    setDraftStatus('saving');
     try {
-      applyState(await saveContinuousLearningDraft(currentAnswer));
-    } catch (saveError) {
-      setError(`草稿保存失败：${toMessage(saveError)}`);
+      const nextState = await saveContinuousLearningDraft(currentAnswer);
+      if (requestId !== draftSaveRequest.current) return;
+      applyState(nextState);
+      setDraftStatus('saved');
+    } catch {
+      if (requestId !== draftSaveRequest.current) return;
+      setDraftStatus('error');
     }
   }
 
   async function submitAnswer() {
-    if (!answer.trim() || busy) return;
+    if (busy) return;
+    draftSaveRequest.current += 1;
+    setDraftStatus('idle');
+    if (!answer.trim()) {
+      showError('请先输入回答再提交', 'operation');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -61,7 +88,7 @@ export default function ContinuousLearningDemo() {
       }));
       setSimulatePersistenceFailure(false);
     } catch (submitError) {
-      setError(`本轮提交失败：${toMessage(submitError)}`);
+      showError(`本轮提交失败：${toMessage(submitError)}`);
     } finally {
       setBusy(false);
     }
@@ -69,22 +96,26 @@ export default function ContinuousLearningDemo() {
 
   async function continueLearning() {
     if (!state?.canContinue || busy) return;
+    draftSaveRequest.current += 1;
+    setDraftStatus('idle');
     setBusy(true);
     try {
       applyState(await continueContinuousLearningDemo());
     } catch (continueError) {
-      setError(`下一轮启动失败：${toMessage(continueError)}`);
+      showError(`下一轮启动失败：${toMessage(continueError)}`);
     } finally {
       setBusy(false);
     }
   }
 
   async function resetDemo() {
+    draftSaveRequest.current += 1;
+    setDraftStatus('idle');
     setBusy(true);
     try {
       applyState(await clearContinuousLearningDemo());
     } catch (resetError) {
-      setError(`重置失败：${toMessage(resetError)}`);
+      showError(`重置失败：${toMessage(resetError)}`);
     } finally {
       setBusy(false);
     }
@@ -100,13 +131,27 @@ export default function ContinuousLearningDemo() {
         totalRounds={state?.maxRounds || 3}
       />
 
-      <main>
-        {error ? (
-          <div className="mx-auto max-w-[1208px] px-4 pt-4 md:px-6">
-            <WorkspaceNotice tone="error" title="暂时无法继续" text={error} />
-          </div>
-        ) : null}
+      {error ? (
+        <WorkspaceToast
+          tone="error"
+          message={error}
+          duration={errorKind === 'operation' ? 3000 : 6000}
+          onDismiss={() => setError('')}
+        />
+      ) : null}
+      {!error && draftStatus === 'saved' ? (
+        <WorkspaceToast message="草稿已保存" duration={2000} onDismiss={() => setDraftStatus('idle')} />
+      ) : null}
+      {!error && draftStatus === 'error' ? (
+        <WorkspaceToast
+          tone="error"
+          message="草稿保存失败，请重试"
+          duration={6000}
+          onDismiss={() => setDraftStatus('idle')}
+        />
+      ) : null}
 
+      <main>
         {busy && !state ? <LoadingPanel /> : null}
 
         {state?.mode === 'task' ? (
@@ -114,11 +159,14 @@ export default function ContinuousLearningDemo() {
             state={state}
             answer={answer}
             busy={busy}
+            draftStatus={draftStatus}
             onAnswerChange={(value) => {
+              draftSaveRequest.current += 1;
+              setError('');
+              setDraftStatus('idle');
               setAnswer(value);
               setState((current) => current ? { ...current, feedback: undefined } : current);
             }}
-            onAnswerBlur={saveDraft}
             onSaveDraft={() => saveDraft(answer)}
             onSubmit={submitAnswer}
           />
@@ -155,8 +203,11 @@ function CompletedRoundPanel({ state, busy, onContinue }) {
   const attentionFeedback = state.feedback?.whatNeedsAttention?.slice(0, 1) || [];
 
   return (
-    <div className="mx-auto min-h-[calc(100vh-64px)] max-w-[720px] px-4 py-10 md:px-6 md:py-14">
-      <section aria-live="polite">
+    <div className="mx-auto flex min-h-[calc(100vh-64px)] w-full flex-col items-center bg-[#f7f9fc] px-4 py-10 md:px-6 md:py-14">
+      <section
+        className="w-full max-w-[720px] rounded-md bg-white px-6 py-7 shadow-[0_10px_32px_rgba(15,23,42,0.08)] md:px-8 md:py-8"
+        aria-live="polite"
+      >
         <h1 className="text-lg font-semibold leading-7 text-slate-950">反馈</h1>
 
         <div className="mt-7 space-y-6">
@@ -165,12 +216,12 @@ function CompletedRoundPanel({ state, busy, onContinue }) {
         </div>
       </section>
 
-      <div className="mt-12 flex justify-center">
+      <div className="mt-8 flex w-full max-w-[720px] justify-center">
         <button
           type="button"
           disabled={!state.canContinue || busy}
           onClick={onContinue}
-          className="flex min-h-11 min-w-48 items-center justify-center gap-2 rounded-md bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+          className="flex min-h-11 min-w-48 items-center justify-center gap-2 rounded-md bg-slate-900 px-5 text-sm font-normal text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
         >
           {busy ? <RefreshCw className="animate-spin" size={16} /> : <ArrowRight size={16} />}
           进入下一轮任务
@@ -201,22 +252,22 @@ function RoundFeedbackList({ title, items, tone }) {
 
 function FinishedPanel({ state, busy, onReset }) {
   return (
-    <div className="mx-auto max-w-[820px] space-y-5 px-4 py-6 md:px-6 md:py-8">
-      <section className="rounded-md border border-emerald-200 bg-emerald-50 px-5 py-6 text-center">
+    <div className="mx-auto flex min-h-[calc(100vh-64px)] w-full flex-col items-center bg-[#f7f9fc] px-4 py-10 md:px-6 md:py-14">
+      <section className="w-full max-w-[720px] rounded-md bg-white px-6 py-8 text-center shadow-[0_10px_32px_rgba(15,23,42,0.08)] md:px-8 md:py-10">
         <CheckCircle2 className="mx-auto text-emerald-600" size={32} />
         <h2 className="mt-3 text-lg font-semibold leading-7 text-slate-950">三轮学习已完成</h2>
         <p className="mt-2 text-sm leading-6 text-slate-700">{state.message}</p>
       </section>
-      <StudentFeedbackPanel feedback={state.feedback} />
-      <div className="flex justify-end border-t border-slate-200 pt-5">
+
+      <div className="mt-8 flex w-full max-w-[720px] justify-center">
         <button
           type="button"
           disabled={busy}
           onClick={onReset}
-          className="flex min-h-11 min-w-48 items-center justify-center gap-2 rounded-md bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+          className="flex min-h-11 min-w-48 items-center justify-center gap-2 rounded-md bg-slate-900 px-5 text-sm font-normal text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
         >
           <RefreshCw size={16} />
-          重新验收三轮流程
+          重新开始
         </button>
       </div>
     </div>
@@ -233,7 +284,7 @@ function ErrorRoundPanel({ state, busy, onRetry, onReset }) {
           type="button"
           disabled={busy}
           onClick={onReset}
-          className="min-h-11 min-w-40 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+          className="min-h-11 min-w-40 rounded-md border border-slate-300 bg-white px-4 text-sm font-normal text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
         >
           重置 Demo
         </button>
@@ -241,7 +292,7 @@ function ErrorRoundPanel({ state, busy, onRetry, onReset }) {
           type="button"
           disabled={busy || !state.answerDraft?.trim()}
           onClick={onRetry}
-          className="min-h-11 min-w-40 rounded-md bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+          className="min-h-11 min-w-40 rounded-md bg-slate-900 px-4 text-sm font-normal text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
         >
           重试本轮
         </button>
@@ -288,7 +339,7 @@ function DeveloperPanel({ state, simulatePersistenceFailure, onSimulationChange,
           type="button"
           disabled={busy}
           onClick={onReset}
-          className="flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+          className="flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
         >
           <RefreshCw size={16} />
           重置三轮 Demo

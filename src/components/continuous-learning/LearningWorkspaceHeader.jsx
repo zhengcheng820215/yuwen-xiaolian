@@ -6,10 +6,7 @@ export default function LearningWorkspaceHeader({
   totalRounds,
 }) {
   return (
-    <header
-      className="sticky top-0 z-30 w-screen border-b border-slate-200 bg-white/95 backdrop-blur"
-      style={{ marginLeft: 'calc(50% - 50vw)' }}
-    >
+    <header className="sticky top-0 z-30 w-full border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex min-h-16 max-w-[1208px] items-center justify-end px-4 py-2 md:px-6">
         <RoundSteps current={currentRound} completed={completedRounds} total={totalRounds} />
       </div>
@@ -28,7 +25,7 @@ function RoundSteps({ current, completed, total }) {
         return (
           <div
             key={round}
-            className={`flex min-h-10 min-w-24 items-center justify-center gap-2 rounded-md border px-3 text-sm font-semibold leading-5 ${
+            className={`flex min-h-10 min-w-24 items-center justify-center gap-2 rounded-md border px-3 text-sm font-normal leading-5 ${
               isCompleted
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                 : isCurrent

@@ -15,7 +15,7 @@ export default function Layout({ children }) {
   const isWorkspace = workspacePaths.some((path) => location.pathname.startsWith(path));
   const hideTabs = isWorkspace || noTabPaths.some((path) => location.pathname.startsWith(path));
   const containerClassName = isWorkspace
-    ? 'mx-auto min-h-screen w-full max-w-[1208px] bg-white'
+    ? 'min-h-screen w-full bg-white'
     : 'mx-auto min-h-screen max-w-[430px] bg-[#f5f7fb] shadow-2xl shadow-slate-200/70';
 
   return (

@@ -22,7 +22,24 @@ body {
 button,
 input,
 textarea {
-  font: inherit;
+  font-family: inherit;
+}
+
+button {
+  font-size: 14px;
+  font-weight: 400;
+}
+
+@media (min-width: 1024px) {
+  .learning-workspace-split-background {
+    background: linear-gradient(
+      to right,
+      #f7f9fc 0,
+      #f7f9fc calc(50% - min(10%, 140px)),
+      #ffffff calc(50% - min(10%, 140px)),
+      #ffffff 100%
+    );
+  }
 }
 
 .safe-bottom {
@@ -31,6 +48,43 @@ textarea {
 
 .workspace-viewport {
   background: #f1f5f9;
+}
+
+.workspace-toast-enter {
+  animation: workspace-toast-enter 180ms ease-out both;
+}
+
+.workspace-toast-exit {
+  animation: workspace-toast-exit 180ms ease-in both;
+}
+
+@keyframes workspace-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes workspace-toast-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-toast-enter,
+  .workspace-toast-exit {
+    animation-duration: 1ms;
+  }
 }
 
 @media (min-width: 1024px) {
