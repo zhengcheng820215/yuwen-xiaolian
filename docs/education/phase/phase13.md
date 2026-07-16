@@ -41,6 +41,10 @@ Phase 13 是跨 Session 学习与延迟复测基础。
 延迟复测产生的新 Evidence 能够形成克制、可追溯的保持性观察。
 ```
 
+### Phase 13 产品声明
+
+> 系统能够在单学生、单浏览器本地环境下，跨 Session 保存和恢复正式学习历史，根据 Evidence 时间生成可追溯的延迟复测计划，并在复测后形成克制、可比较的保持性观察，同时验证延迟 Evidence 已完整进入既有 Evaluation、ProfileUpdateDecision 与 GrowthMemory 链路。
+
 ## 三、核心问题
 
 Phase 13 只回答三个核心问题：
@@ -491,6 +495,8 @@ Production Build               PASS
 ```
 
 Phase 13 已证明跨 Session 学习历史、延迟复测调度和保持性观察最小闭环成立，可以冻结。完整记录见 `phase13_acceptance_report.md`。
+
+该冻结结论验证的是本地持久化、调度规则、保持性比较和正式结果关联，不表示系统已经在真实自然日内自动完成 `DelayedRetestPlan -> TaskRequest -> TaskFulfillment -> LearningRound` 的端到端执行。
 
 ## 十三、本阶段不做
 

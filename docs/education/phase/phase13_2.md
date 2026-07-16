@@ -825,6 +825,8 @@ Debug 共覆盖 13 个场景：
 - 第一版固定使用 growth 3 天、positive 7 天策略；
 - `currentTime` 必须由调用方注入；
 - 计划仅为 Runtime 对象，尚未接 UI、通知或日历；
+- 当前尚未建立正式 `DelayedRetestPlanRepository`，`existingPlans` 由调用方提供；
+- 计划的跨刷新恢复、到期查询和自动消费属于后续集成边界；
 - 计划尚未实际转入 TaskRequest / TaskFulfillment；
 - 不证明复测已经执行；
 - 不证明能力保持、提升或退步；

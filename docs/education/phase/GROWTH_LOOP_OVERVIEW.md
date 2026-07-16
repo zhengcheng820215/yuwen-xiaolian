@@ -687,3 +687,9 @@ Baseline Evidence + Delayed Evidence
 `RetentionEvaluationResult` 比较和解释 Evidence，但不生产 Evidence，也不再次执行正式能力更新。可比性状态必须由 Agent 根据正式事实派生，调用方不能直接指定；`positive` 与 `growth` 也不被默认解释为高低等级。
 
 Phase 13.1、13.2、13.3 与 Browser Persistence Smoke 均通过，Phase 13 总体状态为 `PASS / Frozen`。跨标签页原子唯一性仍是已知边界，不属于当前单学生、单标签页 MVP 的已验证能力。
+
+Phase 13 产品声明：
+
+> 系统能够在单学生、单浏览器本地环境下，跨 Session 保存和恢复正式学习历史，根据 Evidence 时间生成可追溯的延迟复测计划，并在复测后形成克制、可比较的保持性观察，同时验证延迟 Evidence 已完整进入既有 Evaluation、ProfileUpdateDecision 与 GrowthMemory 链路。
+
+这里的“完整进入”指延迟 Evidence 的正式追溯关联已经通过验收，不表示延迟计划已在真实自然日内自动完成任务准备与复测执行。

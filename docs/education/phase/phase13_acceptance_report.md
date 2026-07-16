@@ -8,7 +8,7 @@
 
 Phase 13 已完成跨 Session 学习历史、延迟复测调度与保持性观察最小闭环。
 
-## 二、已验证链路
+## 二、已验证的职责链与正式结果关联
 
 ```text
 LearningRoundResult[]
@@ -19,6 +19,8 @@ LearningRoundResult[]
 -> EvaluationResult / ProfileUpdateDecision / GrowthMemoryRecord
 -> RetentionEvaluationResult
 ```
+
+上述链路表示对象职责、正式结果关联与回归边界已经得到验证，不表示系统已经在真实自然日内自动完成从 `DelayedRetestPlan` 到任务准备、学习执行和延迟复测的完整产品流程。
 
 ## 三、验收结果
 
@@ -57,9 +59,13 @@ Phase 13 当前基于单学生、单标签页 Runtime MVP。
 - 一次延迟复测较弱代表能力退化；
 - 学生已经长期保持或掌握目标能力；
 - 延迟复测策略已经具备长期教学有效性。
+- `DelayedRetestPlan` 已具备正式 Repository、跨刷新恢复、到期查询和自动消费能力；
+- 系统已经完成真实自然日内由 Plan 自动进入 TaskRequest、TaskFulfillment 和 LearningRound 的端到端执行。
 
 ## 六、最终结论
 
 Phase 13 可以冻结。
 
-系统已具备跨 Session 保存正式学习历史、按时间生成可追溯延迟复测计划，并在新的延迟 Evidence 完成一次正式回流后形成克制保持性观察的能力。
+### Phase 13 产品声明
+
+> 系统能够在单学生、单浏览器本地环境下，跨 Session 保存和恢复正式学习历史，根据 Evidence 时间生成可追溯的延迟复测计划，并在复测后形成克制、可比较的保持性观察，同时验证延迟 Evidence 已完整进入既有 Evaluation、ProfileUpdateDecision 与 GrowthMemory 链路。
