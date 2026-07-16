@@ -274,7 +274,7 @@ Phase 13.1 只记录事实，不判断保持性。
 
 已完成 LearningSessionRecord、Repository、内存与 IndexedDB Adapter、查询 Agent 和 15 场景 Debug。
 
-无效历史已经与正式 `sessions` 隔离，completed Session 已与 Round 完成事实建立严格不变量。IndexedDB Browser Persistence Smoke Test 入口已完成，浏览器运行验收仍为 PENDING；该浏览器待验项不阻断 Phase 13.2 的纯 Runtime 调度开发。
+无效历史已经与正式 `sessions` 隔离，completed Session 已与 Round 完成事实建立严格不变量。IndexedDB Browser Persistence Smoke Test 已完成真实跨刷新验收，刷新恢复、索引查询、未完成 Session 恢复、版本隔离、幂等保存、Round 冲突阻断与清空均通过。
 
 ### Phase 13.2：Delayed Retest Scheduling
 
@@ -301,7 +301,7 @@ DelayedRetestPlan
 
 当前工程状态：Runtime PASS（2026-07-16）。
 
-Phase 13.2 已完成 Candidate、Plan、Scheduling Result、确定性时间策略、幂等规则、失败分支和与既有 TaskRequest / TaskFulfillment 的边界，共 12 个 Debug 场景通过。该阶段只生成延迟复测计划，不创建题目、不启动复测、不形成保持性判断。
+Phase 13.2 已完成 Candidate、Plan、Scheduling Result、确定性时间策略、幂等规则、取消后重调度追溯、失败分支和与既有 TaskRequest / TaskFulfillment 的边界，共 13 个 Debug 场景通过。该阶段只生成延迟复测计划，不创建题目、不启动复测、不形成保持性判断。
 
 ### Phase 13.3：Retention Evaluation
 
@@ -331,7 +331,7 @@ Phase 13.3 不直接更新 Profile。
 
 当前工程状态：Runtime PASS（2026-07-16）。
 
-Phase 13.3 已完成 RetentionComparisonFacts、RetentionComparabilityResult、RetentionEvaluationResult、可比性派生闸门、提示依赖、材料与难度约束及 Existing Phase 8 结果关联。16 / 16 Debug、Phase 13.1 / 13.2 / 9.3 / Phase 12 回归与 Production Build 均通过；RetentionResult 不重复更新 Profile 或 GrowthMemory。
+Phase 13.3 已完成 RetentionComparisonFacts、RetentionComparabilityResult、RetentionEvaluationResult、可比性派生闸门、提示依赖、材料与难度约束及 Existing Phase 8 结果关联。18 / 18 Debug、Phase 13.1 / 13.2 / 9.3 / Phase 12 回归与 Production Build 均通过；EvaluationResult、ProfileUpdateDecision 与 GrowthMemoryRecord 必须全部追溯本次 delayed Evidence，RetentionResult 不重复更新 Profile 或 GrowthMemory。
 
 ## 八、Phase 13 核心数据对象
 
@@ -474,7 +474,25 @@ Phase 13 完成时，应能证明：
 15. Debug 可重复运行；
 16. Production Build 通过。
 
-## 十二、本阶段不做
+## 十二、冻结结论
+
+验收日期：2026-07-16
+
+验收结论：PASS / Frozen
+
+```text
+Phase 13.1 Debug                 15 / 15 PASS
+Phase 13.1 Browser Smoke        12 / 12 PASS
+Phase 13.2 Debug                13 / 13 PASS
+Phase 13.3 Debug                18 / 18 PASS
+Phase 9.3 Regression            PASS
+Phase 12 Integration             9 / 9 PASS
+Production Build               PASS
+```
+
+Phase 13 已证明跨 Session 学习历史、延迟复测调度和保持性观察最小闭环成立，可以冻结。完整记录见 `phase13_acceptance_report.md`。
+
+## 十三、本阶段不做
 
 Phase 13 不做：
 
@@ -492,7 +510,7 @@ Phase 13 不做：
 - 不做多学生账号系统；
 - 不证明长期学习效果。
 
-## 十三、阶段完成定义
+## 十四、阶段完成定义
 
 Phase 13 完成时，系统应能证明：
 

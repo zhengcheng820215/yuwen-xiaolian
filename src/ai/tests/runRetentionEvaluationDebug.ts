@@ -266,6 +266,45 @@ const cases: Array<{ name: string; run: () => CaseReport }> = [
       ]);
     },
   },
+  {
+    name: 'Case 17 ProfileUpdateDecision 缺少 delayed Evidence：review_required',
+    run: () => {
+      const input = buildInput({ delayedTypes: ['positive'] });
+      const decision = input.delayedTaskEvidenceReturnResult.profileUpdateDecision as ProfileUpdateDecision;
+      input.delayedTaskEvidenceReturnResult = {
+        ...input.delayedTaskEvidenceReturnResult,
+        profileUpdateDecision: {
+          ...decision,
+          appendEvidenceIds: ['unrelated-evidence'],
+          evidenceLinks: ['unrelated-evidence'],
+        },
+      };
+      return runCase('Case 17 ProfileUpdateDecision 缺少 delayed Evidence：review_required', input, (result) => [
+        check(result.status === 'review_required', `status=${result.status}`),
+        check(result.existingPhase8ResultLink.mode === 'blocked', `link=${result.existingPhase8ResultLink.mode}`),
+        check(result.validation.issues.some((issue) => issue.includes('ProfileUpdateDecision does not link every delayed Evidence')), result.validation.issues.join(' | ')),
+      ]);
+    },
+  },
+  {
+    name: 'Case 18 GrowthMemoryRecord 缺少 delayed Evidence：review_required',
+    run: () => {
+      const input = buildInput({ delayedTypes: ['positive'] });
+      const memory = input.delayedTaskEvidenceReturnResult.growthMemoryRecord as GrowthMemoryRecord;
+      input.delayedTaskEvidenceReturnResult = {
+        ...input.delayedTaskEvidenceReturnResult,
+        growthMemoryRecord: {
+          ...memory,
+          evidenceLinks: ['unrelated-evidence'],
+        },
+      };
+      return runCase('Case 18 GrowthMemoryRecord 缺少 delayed Evidence：review_required', input, (result) => [
+        check(result.status === 'review_required', `status=${result.status}`),
+        check(result.existingPhase8ResultLink.mode === 'blocked', `link=${result.existingPhase8ResultLink.mode}`),
+        check(result.validation.issues.some((issue) => issue.includes('GrowthMemoryRecord does not link every delayed Evidence')), result.validation.issues.join(' | ')),
+      ]);
+    },
+  },
 ];
 
 const reports = cases.map((item) => item.run());

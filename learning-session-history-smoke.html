@@ -26,13 +26,19 @@
 
       try {
         const report = await runLearningSessionHistoryBrowserSmoke();
-        status.textContent = report.passed ? 'PASS' : 'FAIL';
-        status.className = report.passed ? 'pass' : 'fail';
-        for (const item of report.checks) {
-          const row = document.createElement('li');
-          row.className = item.passed ? 'pass' : 'fail';
-          row.textContent = `${item.passed ? 'PASS' : 'FAIL'} - ${item.detail}`;
-          checks.append(row);
+        if (report.reloadRequired) {
+          status.textContent = '已写入 IndexedDB，正在刷新页面验证恢复...';
+          status.className = 'pass';
+          window.setTimeout(() => window.location.reload(), 300);
+        } else {
+          status.textContent = report.passed ? 'PASS' : 'FAIL';
+          status.className = report.passed ? 'pass' : 'fail';
+          for (const item of report.checks) {
+            const row = document.createElement('li');
+            row.className = item.passed ? 'pass' : 'fail';
+            row.textContent = `${item.passed ? 'PASS' : 'FAIL'} - ${item.detail}`;
+            checks.append(row);
+          }
         }
       } catch (error) {
         status.textContent = `FAIL - ${error instanceof Error ? error.message : String(error)}`;

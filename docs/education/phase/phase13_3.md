@@ -756,6 +756,17 @@ existingPhase8ResultLink.mode = reuse_existing
 
 并记录对应 ID。
 
+正式关联必须闭合：
+
+```text
+Delayed Evidence
+-> EvaluationResult.evidenceLinks
+-> ProfileUpdateDecision.evidenceLinks / appendEvidenceIds
+-> GrowthMemoryRecord.evidenceLinks
+```
+
+三段对象的 studentId、abilityId、Evaluation ID、Decision ID 和 delayed Evidence ID 必须一致。任何一段缺失或错位，`existingPhase8ResultLink.mode = blocked`，并进入 `review_required`。
+
 不得：
 
 - 再次调用 `evaluateAbilityEvidence`；
@@ -1144,7 +1155,7 @@ Phase 13.3 完成后，Phase 13 可以进入总体冻结评估。
 9. Existing Phase 8 正式回流不会重复执行；
 10. Phase 12 集成回归和 Production Build 继续通过。
 
-Phase 13.1 IndexedDB Browser Persistence Smoke Test 如果仍未运行，必须继续保留为明确待验项，不得在 Phase 13 冻结记录中误写为 PASS。
+Phase 13.1 IndexedDB Browser Persistence Smoke Test 必须真实跨刷新运行通过，不能只以接口实现或生产构建代替。
 
 ## 二十七、完成定义
 
@@ -1185,9 +1196,10 @@ Phase 13.3 完成时，应能证明：
 验收结果：
 
 ```text
-Phase 13.3 Debug             16 / 16 PASS
+Phase 13.3 Debug             18 / 18 PASS
 Phase 13.1 Regression        15 / 15 PASS
-Phase 13.2 Regression        12 / 12 PASS
+Phase 13.1 Browser Smoke     12 / 12 PASS
+Phase 13.2 Regression        13 / 13 PASS
 Phase 9.3 Evidence Return    PASS
 Phase 12 Integration          9 / 9 PASS
 Production Build             PASS
@@ -1204,4 +1216,4 @@ Production Build             PASS
 7. 已由 Phase 9.3 完成回流的 delayed Evidence 只关联已有正式结果；
 8. 相同输入重复执行会得到稳定 ID 和稳定关联键。
 
-当前边界保持不变：Phase 13.1 IndexedDB Browser Persistence Smoke Test 仍为 `PENDING`。因此 Phase 13.3 可以冻结，但 Phase 13 总体冻结仍需等待该浏览器验收完成。
+Phase 13.1 Browser Smoke、Phase 13.2 取消重调度边界和 Phase 13.3 正式结果关联闭合规则均已通过验收。Phase 13.3 与 Phase 13 总体均具备冻结条件。

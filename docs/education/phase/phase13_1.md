@@ -679,6 +679,7 @@ Debug 共覆盖 15 个场景：
 验收结果：
 
 - Phase 13.1 Debug：15 / 15 PASS；
+- IndexedDB Browser Persistence Smoke：12 / 12 PASS；
 - Phase 12.1 Persistence Regression：PASS；
 - Phase 12 Integrated Acceptance Regression：PASS；
 - Production Build：PASS；
@@ -693,7 +694,7 @@ Debug 共覆盖 15 个场景：
 - Debug 使用内存 Repository；
 - 浏览器端 IndexedDB Adapter 已实现并通过生产构建；
 - 独立 Browser Persistence Smoke Test 入口已完成：`/learning-session-history-smoke.html`；
-- 当前自动浏览器安全策略阻止打开本地测试页，因此浏览器跨刷新运行验收仍为 PENDING，不记录为 PASS；
+- Browser Smoke 已实际执行“写入 IndexedDB -> 页面刷新 -> 新 Repository 查询恢复”，并验证学生、能力、时间、未完成 Session、`latestLearningAt`、版本隔离、幂等保存、Round 冲突与清空；
 - 跨标签页原子唯一性未验证，当前只保证单标签页 Runtime；
 - 本阶段不生成延迟复测计划；
 - 本阶段不形成保持性判断；

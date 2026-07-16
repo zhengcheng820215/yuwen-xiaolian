@@ -516,11 +516,23 @@ function validateExistingPhase8ResultLink(
   }
   if (decision.studentId !== input.studentId) issues.push('Existing ProfileUpdateDecision studentId mismatch.');
   if (decision.abilityId !== input.targetAbilityId) issues.push('Existing ProfileUpdateDecision abilityId mismatch.');
+  if (!evidenceIds.every((id) => decision.evidenceLinks.includes(id))) {
+    issues.push('Existing ProfileUpdateDecision does not link every delayed Evidence.');
+  }
+  if (!evidenceIds.every((id) => decision.appendEvidenceIds.includes(id))) {
+    issues.push('Existing ProfileUpdateDecision does not append every delayed Evidence.');
+  }
   if (decision.evidenceLinks.some((id) => !evaluation.evidenceLinks.includes(id))) {
     issues.push('Existing ProfileUpdateDecision evidenceLinks are not aligned with EvaluationResult.');
   }
   if (memory.studentId !== input.studentId) issues.push('Existing GrowthMemoryRecord studentId mismatch.');
   if (memory.abilityId !== input.targetAbilityId) issues.push('Existing GrowthMemoryRecord abilityId mismatch.');
+  if (!evidenceIds.every((id) => memory.evidenceLinks.includes(id))) {
+    issues.push('Existing GrowthMemoryRecord does not link every delayed Evidence.');
+  }
+  if (memory.evidenceLinks.some((id) => !evaluation.evidenceLinks.includes(id))) {
+    issues.push('Existing GrowthMemoryRecord evidenceLinks are not aligned with EvaluationResult.');
+  }
   if (memory.evaluationResultId !== evaluation.evaluationId) {
     issues.push('Existing GrowthMemoryRecord evaluationResultId mismatch.');
   }

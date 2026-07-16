@@ -341,7 +341,7 @@ Round 1 正式结果保存
 
 ### Phase 13 跨 Session 边界
 
-Phase 13.1、13.2、13.3 Runtime 均已通过；Phase 13.3 为 16 / 16 Debug PASS，相关回归与 Production Build 通过。Phase 13.1 的 IndexedDB Browser Persistence Smoke Test 仍为待验项，因此 Phase 13 总体尚未冻结。
+Phase 13.1、13.2、13.3 Runtime 均已通过；Phase 13.1 Browser Smoke 为 12 / 12 PASS，Phase 13.2 为 13 / 13 PASS，Phase 13.3 为 18 / 18 PASS，相关回归与 Production Build 通过。Phase 13 总体已冻结。
 
 Session History 只记录发生过什么；Delayed Retest Scheduling 只决定何时需要新的观察；Retention Evaluation 只比较和解释正式 Evidence。三者都不能因为 Session 结束、Evidence 变旧或一次延迟复测较弱，就直接生成长期能力结论。
 

@@ -61,6 +61,8 @@ export type DelayedRetestCandidate = {
 
 export type DelayedRetestPlan = {
   planId: string;
+  replacesPlanId?: string;
+  rescheduleRevision?: number;
   candidateId: string;
   studentId: string;
   targetAbilityId: string;
@@ -185,8 +187,13 @@ export function isDelayedRetestCandidate(
 export function isDelayedRetestPlan(value: unknown): value is DelayedRetestPlan {
   if (!value || typeof value !== 'object') return false;
   const plan = value as DelayedRetestPlan;
+  const rescheduleValid = (
+    (plan.replacesPlanId === undefined && (plan.rescheduleRevision === undefined || plan.rescheduleRevision === 0)) ||
+    (isNonEmptyString(plan.replacesPlanId) && isPositiveInteger(plan.rescheduleRevision))
+  );
   return (
     isNonEmptyString(plan.planId) &&
+    rescheduleValid &&
     isNonEmptyString(plan.candidateId) &&
     isNonEmptyString(plan.studentId) &&
     isNonEmptyString(plan.targetAbilityId) &&

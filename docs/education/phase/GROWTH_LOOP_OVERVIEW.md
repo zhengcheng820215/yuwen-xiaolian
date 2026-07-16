@@ -650,25 +650,25 @@ Phase 13.1 Runtime 已通过，能够把多个正式 LearningRound 归入 `Learn
 ```text
 Debug          15 / 15 PASS
 Runtime        PASS
-Browser Smoke  PENDING
+Browser Smoke  12 / 12 PASS
 ```
 
-浏览器跨刷新持久化验收仍是明确待验项，不影响 Phase 13.2 的纯 Runtime 开发，但在 Phase 13 总体冻结前必须保留真实状态。
+IndexedDB 已通过真实页面刷新和新 Repository 恢复验收；损坏版本不会参与正式历史，未完成 Session、索引查询、幂等保存与清空行为均成立。
 
 ### Phase 13.2 当前状态
 
 Phase 13.2 Runtime 已通过。系统能够根据合法 Session History、GrowthMemory、Evidence 时间和明确策略生成可追溯、可去重的 `DelayedRetestPlan`。
 
 ```text
-Debug    12 / 12 PASS
+Debug    13 / 13 PASS
 Runtime  PASS
 ```
 
-Evidence 变旧只表示需要重新观察，不代表能力自动下降。计划到期也不自动拼题或启动复测，仍须进入 TaskRequest、TaskFulfillment 和正式 LearningRound。
+Evidence 变旧只表示需要重新观察，不代表能力自动下降。计划到期也不自动拼题或启动复测，仍须进入 TaskRequest、TaskFulfillment 和正式 LearningRound。`cancelled` 计划允许生成带替代关系的新计划，`completed` 计划不会被自动重开。
 
 ### Phase 13.3 当前状态与边界
 
-Phase 13.3 Runtime 已通过，16 / 16 Debug、相关冻结回归与 Production Build 均通过。
+Phase 13.3 Runtime 已通过，18 / 18 Debug、相关冻结回归与 Production Build 均通过。
 
 它采用两条职责清楚的并行关系：
 
@@ -686,4 +686,4 @@ Baseline Evidence + Delayed Evidence
 
 `RetentionEvaluationResult` 比较和解释 Evidence，但不生产 Evidence，也不再次执行正式能力更新。可比性状态必须由 Agent 根据正式事实派生，调用方不能直接指定；`positive` 与 `growth` 也不被默认解释为高低等级。
 
-Phase 13.3 已具备冻结条件。Phase 13 总体仍未冻结，唯一明确待验项是 Phase 13.1 Browser Persistence Smoke Test；在该项完成前不得将跨刷新浏览器持久化误写为 PASS。
+Phase 13.1、13.2、13.3 与 Browser Persistence Smoke 均通过，Phase 13 总体状态为 `PASS / Frozen`。跨标签页原子唯一性仍是已知边界，不属于当前单学生、单标签页 MVP 的已验证能力。

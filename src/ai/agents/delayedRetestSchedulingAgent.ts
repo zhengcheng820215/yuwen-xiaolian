@@ -120,12 +120,13 @@ export function scheduleDelayedRetest(
     input.policy.policyVersion,
   ]);
 
-  const duplicate = input.existingPlans?.find((plan) => (
+  const matchingPlans = input.existingPlans?.filter((plan) => (
     plan.studentId === input.studentId &&
     plan.targetAbilityId === input.targetAbilityId &&
     plan.baselineEvidenceId === baseline.id &&
     plan.policyVersion === input.policy.policyVersion
-  ));
+  )) || [];
+  const duplicate = selectLatestPlan(matchingPlans.filter((plan) => plan.status !== 'cancelled'));
   if (duplicate) {
     const duplicateIssues = validateExistingPlanAlignment({
       plan: duplicate,
@@ -163,6 +164,8 @@ export function scheduleDelayedRetest(
     });
   }
 
+  const cancelledPlan = selectLatestPlan(matchingPlans.filter((plan) => plan.status === 'cancelled'));
+
   const due = currentTime >= Date.parse(plannedRetestAt);
   const candidate = createCandidate({
     input,
@@ -176,7 +179,7 @@ export function scheduleDelayedRetest(
     plannedRetestAt,
     candidateId,
   });
-  const plan = createPlan(input, candidate, baseline, due);
+  const plan = createPlan(input, candidate, baseline, due, cancelledPlan);
 
   return finalizeResult({
     input,
@@ -314,8 +317,12 @@ function createPlan(
   candidate: DelayedRetestCandidate,
   baseline: AbilityEvidence,
   due: boolean,
+  cancelledPlan?: DelayedRetestPlan,
 ): DelayedRetestPlan {
   const plannedRetestAt = candidate.plannedRetestAt as string;
+  const rescheduleRevision = cancelledPlan
+    ? (cancelledPlan.rescheduleRevision || 0) + 1
+    : 0;
   const plan: DelayedRetestPlan = {
     planId: buildStableId('delayed-retest-plan', [
       input.studentId,
@@ -323,7 +330,10 @@ function createPlan(
       baseline.id,
       input.policy.policyVersion,
       plannedRetestAt,
+      `revision-${rescheduleRevision}`,
     ]),
+    replacesPlanId: cancelledPlan?.planId,
+    rescheduleRevision,
     candidateId: candidate.candidateId,
     studentId: input.studentId,
     targetAbilityId: input.targetAbilityId,
@@ -447,6 +457,16 @@ function findSourceSessions(
   evidenceId: string,
 ): LearningSessionRecord[] {
   return sessions.filter((session) => session.evidenceIds.includes(evidenceId));
+}
+
+function selectLatestPlan(plans: DelayedRetestPlan[]): DelayedRetestPlan | undefined {
+  return [...plans].sort((left, right) => {
+    const revisionDifference = (right.rescheduleRevision || 0) - (left.rescheduleRevision || 0);
+    if (revisionDifference !== 0) return revisionDifference;
+    const timeDifference = Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
+    if (timeDifference !== 0) return timeDifference;
+    return right.planId.localeCompare(left.planId);
+  })[0];
 }
 
 function buildStableId(prefix: string, parts: string[]): string {

@@ -1238,7 +1238,7 @@ Learning Session History Runtime 已通过，完成：
 - 内存与 IndexedDB Repository Adapter；
 - 15 / 15 Debug PASS。
 
-IndexedDB Browser Persistence Smoke Test 入口已完成，但浏览器跨刷新运行验收仍为 `PENDING`。
+IndexedDB Browser Persistence Smoke Test 已完成真实跨刷新运行验收，12 / 12 PASS。
 
 ### Phase 13.2
 
@@ -1249,7 +1249,8 @@ Delayed Retest Scheduling Runtime 已通过，完成：
 - 确定性时间规则；
 - 计划来源追溯与幂等；
 - 与既有 TaskRequest / TaskFulfillment 的边界；
-- 12 / 12 Debug PASS。
+- 13 / 13 Debug PASS；
+- cancelled Plan 可生成带替代关系的新计划，completed Plan 不自动重开。
 
 Phase 13.2 只生成待复测事项，不创建题目、不自动启动复测，也不形成能力退化或保持结论。
 
@@ -1276,11 +1277,12 @@ Phase 13 当前状态：
 
 ```text
 13.1 Runtime       PASS
-13.1 Browser Smoke PENDING
+13.1 Browser Smoke 12 / 12 PASS
 13.2 Runtime       PASS
-13.3 Debug         16 / 16 PASS
+13.2 Debug         13 / 13 PASS
+13.3 Debug         18 / 18 PASS
 13.3 Runtime       PASS
-Phase 13 Freeze    NOT READY
+Phase 13 Freeze    PASS / FROZEN
 ```
 
 ## 十一、尚未实现的能力
@@ -1289,8 +1291,8 @@ Phase 13 Freeze    NOT READY
 
 ### 长期学习记忆
 
-- Phase 13.1 浏览器跨刷新持久化验收。
 - 更长期、多次延迟复测后的保持性趋势。
+- 跨标签页原子唯一性与并发写入保护。
 
 ### 更强评估能力
 

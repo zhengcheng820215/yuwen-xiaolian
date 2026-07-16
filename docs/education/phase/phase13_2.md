@@ -325,6 +325,8 @@ type DelayedRetestPlanStatus =
 
 type DelayedRetestPlan = {
   planId: string;
+  replacesPlanId?: string;
+  rescheduleRevision?: number;
   candidateId: string;
   studentId: string;
   targetAbilityId: string;
@@ -381,6 +383,8 @@ Candidate.status = review_required / blocked
 -> 不生成可执行计划
 ```
 
+第一版取消语义为临时取消：`cancelled` 计划不再阻止重新调度。重新调度必须生成新的 `planId`，通过 `replacesPlanId` 指向被取消计划，并递增 `rescheduleRevision`。`pending`、`available`、`review_required` 与 `completed` 仍阻止同一基线、同一 Policy 的重复计划。
+
 `create_task_request` 只表示可以交给既有 Phase 8 策略与任务请求链路，不表示 Phase 13.2 自己创建 TaskRequest。
 
 ## 十、Scheduling Result
@@ -428,6 +432,7 @@ candidateId
 planId
 = candidateId
 + plannedRetestAt
++ rescheduleRevision
 ```
 
 重复运行调度时：
@@ -438,6 +443,8 @@ planId
 - 不自动把 completed 计划恢复为 pending；
 - 不因页面刷新重复创建 TaskRequest；
 - 新 Evidence 到来后可以形成新的 Candidate，但必须引用新的基线 Evidence。
+- `cancelled` 允许重新调度，但必须保留替代关系，不得覆盖旧计划；
+- `completed` 不自动重开，新的复测周期必须来自新基线 Evidence 或新 Policy。
 
 ## 十二、任务准备边界
 
@@ -785,7 +792,7 @@ Candidate 可以生成可追溯、可去重、可等待到期的 DelayedRetestPl
 - `runDelayedRetestSchedulingDebug.ts`；
 - `debug:delayed-retest-scheduling`。
 
-Debug 共覆盖 12 个场景：
+Debug 共覆盖 13 个场景：
 
 1. growth Evidence 满 3 天时生成 available Plan；
 2. positive Evidence 未满 7 天时生成 pending Plan；
@@ -799,10 +806,11 @@ Debug 共覆盖 12 个场景：
 10. 重复调度返回相同 candidateId 与 planId；
 11. Evidence 时间晚于 currentTime 时进入复核；
 12. available Plan 只输出任务链路交接动作，不直接生成 TaskRequest 或 ConcreteLearningTask。
+13. cancelled Plan 允许生成新计划，并保留 `replacesPlanId` 与递增的 `rescheduleRevision`。
 
 验收结果：
 
-- Phase 13.2 Debug：12 / 12 PASS；
+- Phase 13.2 Debug：13 / 13 PASS；
 - Phase 13.1 Regression：15 / 15 PASS；
 - Phase 12 Integrated Acceptance Regression：9 / 9 PASS；
 - Production Build：PASS；
@@ -821,4 +829,4 @@ Debug 共覆盖 12 个场景：
 - 不证明复测已经执行；
 - 不证明能力保持、提升或退步；
 - 不修改 StudentAbilityProfile 或 GrowthMemory；
-- Phase 13.1 的 IndexedDB Browser Persistence Smoke Test 仍为独立待验项。
+- Phase 13.1 IndexedDB Browser Persistence Smoke Test：12 / 12 PASS。

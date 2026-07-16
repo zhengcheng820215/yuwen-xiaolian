@@ -209,6 +209,31 @@ const cases: Array<{ name: string; run: () => CaseReport }> = [
       ]);
     },
   },
+  {
+    name: 'Case 13 cancelled Plan 允许重新调度并保留来源',
+    run: () => {
+      const evidence = buildEvidence('case13-reschedule', 'growth', '2026-07-01T08:00:00.000Z');
+      const first = scheduleDelayedRetest(buildInput(evidence, '2026-07-04T08:00:00.000Z'));
+      const cancelled = first.plan ? {
+        ...first.plan,
+        status: 'cancelled' as const,
+        updatedAt: '2026-07-04T09:00:00.000Z',
+      } : undefined;
+      const second = scheduleDelayedRetest(buildInput(
+        evidence,
+        '2026-07-05T08:00:00.000Z',
+        cancelled ? [cancelled] : [],
+      ));
+      return report('Case 13 cancelled Plan 允许重新调度并保留来源', [
+        check(Boolean(cancelled), 'cancelled plan exists'),
+        check(second.plan?.planId !== cancelled?.planId, `new=${second.plan?.planId}, old=${cancelled?.planId}`),
+        check(second.plan?.replacesPlanId === cancelled?.planId, `replaces=${second.plan?.replacesPlanId}`),
+        check(second.plan?.rescheduleRevision === 1, `revision=${second.plan?.rescheduleRevision}`),
+        check(second.candidate.status === 'due', `candidate=${second.candidate.status}`),
+        check(second.nextStep === 'create_task_request', `nextStep=${second.nextStep}`),
+      ]);
+    },
+  },
 ];
 
 const reports = cases.map((item) => item.run());
