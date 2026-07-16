@@ -1203,16 +1203,94 @@ Persistence Save 失败
 -> 保存与恢复成功后才允许进入下一轮
 ```
 
-## 十、尚未实现的能力
+## 十、Phase 13：Cross-Session Learning and Delayed Retest Foundation
+
+Phase 13 文档已建立：
+
+```text
+docs/education/phase/phase13.md
+docs/education/phase/phase13_1.md
+docs/education/phase/phase13_2.md
+docs/education/phase/phase13_3.md
+```
+
+Phase 13 的目标是把 Phase 12 已成立的单学生连续学习扩展到多个 Learning Session 和不同时间点：
+
+```text
+LearningRoundResult[]
+-> LearningSessionRecord
+-> Session History
+-> DelayedRetestPlan
+-> 新的 delayed AbilityEvidence
+-> Existing Phase 8 Runtime（一次）
+-> RetentionEvaluationResult
+-> 关联已有 Evaluation / Decision / GrowthMemory
+```
+
+### Phase 13.1
+
+Learning Session History Runtime 已通过，完成：
+
+- `LearningSessionRecord` 与 `LearningSessionHistoryResult`；
+- 按 student、ability 和时间查询；
+- 无效历史与正式 `sessions` 隔离；
+- completed Session 与 Round 完成事实的不变量；
+- 内存与 IndexedDB Repository Adapter；
+- 15 / 15 Debug PASS。
+
+IndexedDB Browser Persistence Smoke Test 入口已完成，但浏览器跨刷新运行验收仍为 `PENDING`。
+
+### Phase 13.2
+
+Delayed Retest Scheduling Runtime 已通过，完成：
+
+- `DelayedRetestCandidate`；
+- `DelayedRetestPlan`；
+- 确定性时间规则；
+- 计划来源追溯与幂等；
+- 与既有 TaskRequest / TaskFulfillment 的边界；
+- 12 / 12 Debug PASS。
+
+Phase 13.2 只生成待复测事项，不创建题目、不自动启动复测，也不形成能力退化或保持结论。
+
+### Phase 13.3
+
+Retention Evaluation Runtime 已完成并通过工程验收。
+
+正式边界：
+
+```text
+Delayed AbilityEvidence
+-> Existing Phase 8 Runtime（只执行一次）
+
+Baseline Evidence + Delayed Evidence
+-> RetentionComparisonFacts
+-> RetentionComparabilityResult（由 Agent 派生）
+-> RetentionEvaluationResult
+-> 关联并解释已有正式回流结果
+```
+
+`RetentionEvaluationResult` 不是 AbilityEvidence，也不是 Phase 8 输入。未来如果原始 delayed Evidence 尚未处理，只能由 Orchestrator handoff 原始 Evidence；RetentionResult 不承担正式能力更新职责。
+
+Phase 13 当前状态：
+
+```text
+13.1 Runtime       PASS
+13.1 Browser Smoke PENDING
+13.2 Runtime       PASS
+13.3 Debug         16 / 16 PASS
+13.3 Runtime       PASS
+Phase 13 Freeze    NOT READY
+```
+
+## 十一、尚未实现的能力
 
 以下能力尚未完成，后续应分阶段实现。
 
 ### 长期学习记忆
 
-- 多 Session 历史。
-- 跨天证据累计。
-- 延迟复测。
-- 长期保持性观察。
+- Phase 13.1 浏览器跨刷新持久化验收。
+- 更长期、多次延迟复测后的保持性趋势。
 
 ### 更强评估能力
 
@@ -1245,7 +1323,7 @@ Persistence Save 失败
 - 成长曲线。
 - 家长端视图。
 
-## 十一、阅读建议
+## 十二、阅读建议
 
 如果只想理解当前系统，阅读顺序是：
 

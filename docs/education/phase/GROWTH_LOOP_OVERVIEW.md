@@ -620,3 +620,70 @@ Phase 12.3 已于 2026-07-14 完成轻量 Demo 人工验收。Demo 证明三轮�
 Phase 12 三个最小闭环已全部通过，当前具备总体验收与冻结条件。
 
 Phase 12 基础全链路集成验收已于 2026-07-14 通过。Phase 12.2 与 Phase 12.3 现在使用同一 `TaskResourceRepository` 边界；两道正式阅读资源经 12.2 校验写入 Repository 后，由 12.3 查询、排除已用资源并交给既有 TaskFulfillment。正常双轮、重复保存、重复恢复、重复响应、无效作答、保存失败、资源不足、身份错配和 Diagnosis 能力错位共 9 类集成 Case 全部通过。
+
+## Phase 13：跨 Session 学习与延迟复测基础
+
+Phase 13 将 Phase 12 已成立的单次连续学习扩展到多个 Session 和不同时间点：
+
+```text
+LearningRoundResult[]
+-> LearningSessionRecord
+-> 跨 Session History
+-> DelayedRetestPlan
+-> 新的 delayed AbilityEvidence
+-> Existing Phase 8 Runtime（一次）
+-> RetentionEvaluationResult
+```
+
+Phase 13 拆为三个最小闭环：
+
+```text
+Phase 13.1  Learning Session History
+Phase 13.2  Delayed Retest Scheduling
+Phase 13.3  Retention Evaluation
+```
+
+### Phase 13.1 当前状态
+
+Phase 13.1 Runtime 已通过，能够把多个正式 LearningRound 归入 `LearningSessionRecord`，隔离损坏或版本不兼容的记录，并按学生、能力和时间查询正式 Session History。
+
+```text
+Debug          15 / 15 PASS
+Runtime        PASS
+Browser Smoke  PENDING
+```
+
+浏览器跨刷新持久化验收仍是明确待验项，不影响 Phase 13.2 的纯 Runtime 开发，但在 Phase 13 总体冻结前必须保留真实状态。
+
+### Phase 13.2 当前状态
+
+Phase 13.2 Runtime 已通过。系统能够根据合法 Session History、GrowthMemory、Evidence 时间和明确策略生成可追溯、可去重的 `DelayedRetestPlan`。
+
+```text
+Debug    12 / 12 PASS
+Runtime  PASS
+```
+
+Evidence 变旧只表示需要重新观察，不代表能力自动下降。计划到期也不自动拼题或启动复测，仍须进入 TaskRequest、TaskFulfillment 和正式 LearningRound。
+
+### Phase 13.3 当前状态与边界
+
+Phase 13.3 Runtime 已通过，16 / 16 Debug、相关冻结回归与 Production Build 均通过。
+
+它采用两条职责清楚的并行关系：
+
+```text
+Delayed AbilityEvidence
+-> Existing Phase 8 Runtime（只执行一次）
+-> EvaluationResult / ProfileUpdateDecision / GrowthMemoryRecord
+
+Baseline Evidence + Delayed Evidence
+-> RetentionComparisonFacts
+-> RetentionComparabilityResult
+-> RetentionEvaluationResult
+-> 关联并解释上述正式结果
+```
+
+`RetentionEvaluationResult` 比较和解释 Evidence，但不生产 Evidence，也不再次执行正式能力更新。可比性状态必须由 Agent 根据正式事实派生，调用方不能直接指定；`positive` 与 `growth` 也不被默认解释为高低等级。
+
+Phase 13.3 已具备冻结条件。Phase 13 总体仍未冻结，唯一明确待验项是 Phase 13.1 Browser Persistence Smoke Test；在该项完成前不得将跨刷新浏览器持久化误写为 PASS。

@@ -28,6 +28,12 @@
 | LearningRoundResult | 汇总一次学习回合从任务准备、作答到证据回流的正式运行结果。 |
 | PersistedLearningRound | 保存可恢复的正式回合结果、草稿、反馈和成长记忆，防止刷新后丢失或重复执行。 |
 | ContinuousLearningRunResult | 汇总多轮连续学习的资源、策略、证据、持久化和轮次追溯结果。 |
+| LearningSessionRecord | 把一个或多个正式 LearningRound 归入一次可跨天查询的学习活动历史。 |
+| LearningSessionHistoryResult | 返回通过校验的正式 Session 历史，并隔离损坏、版本不兼容或身份冲突记录。 |
+| DelayedRetestPlan | 根据正式历史、Evidence 时间和明确策略记录一项有来源的待复测事项。 |
+| RetentionComparisonFacts | 从 Plan、Task、Execution、Diagnosis 和 Evidence 中规范化两次表现的正式比较事实。 |
+| RetentionComparabilityResult | 由 Agent 根据正式事实判断两次表现是否可比、受限、不可比或需要复核。 |
+| RetentionEvaluationResult | 比较基线与延迟 Evidence，形成克制的保持性观察并关联已有 Phase 8 正式结果。 |
 
 ## 二、核心 Agent
 
@@ -48,6 +54,9 @@
 | LearningRoundOrchestrator | GrowthMemory、Profile、TaskResource、StudentResponse | LearningRoundResult | 复用策略、任务、执行、诊断和证据模块，完成一轮学习编排。 |
 | LearningPersistenceRepository | 正式回合结果、草稿、反馈和恢复指针 | 可恢复的学习记录 | 隔离页面与存储实现，并保证恢复不会重复回流 Evidence。 |
 | ContinuousLearningRunAgent | 已恢复的正式状态、共享 TaskResourceRepository | ContinuousLearningRunResult | 让上一轮保存结果成为下一轮策略和任务的真实输入。 |
+| LearningSessionHistoryAgent | 正式 LearningRound 历史、查询条件 | LearningSessionRecord、LearningSessionHistoryResult | 建立和查询跨 Session 学习事实，不重新解释能力。 |
+| DelayedRetestSchedulingAgent | Session History、GrowthMemory、Evidence 时间、当前时间 | DelayedRetestCandidate、DelayedRetestPlan | 使用确定性规则安排延迟复测事项，不生成题目或能力结论。 |
+| RetentionEvaluationAgent | DelayedRetestPlan、基线与延迟 Evidence、正式任务执行对象 | RetentionComparisonFacts、RetentionComparabilityResult、RetentionEvaluationResult | 重新核验比较事实并生成保持性观察，只关联已有正式回流结果。 |
 
 ## 三、完整数据流
 
@@ -100,6 +109,32 @@ TaskResourceRepository
 ```
 
 这里最重要的约束是：Phase 12.2 负责把真实题目写入共享资源仓库，Phase 12.3 只查询同一个仓库。连续运行层不得在内部临时造一份固定题目绕过 TaskFulfillment。
+
+Phase 13 把连续学习扩展到跨 Session 和不同时间点：
+
+```text
+LearningRoundResult[]
+-> LearningSessionRecord / Session History
+-> DelayedRetestPlan
+-> TaskRequest / TaskFulfillment / Delayed LearningRound
+-> new delayed AbilityEvidence
+```
+
+延迟 Evidence 与保持性观察使用两条职责不同的链路：
+
+```text
+Delayed AbilityEvidence
+-> Existing Phase 8 Runtime（只执行一次）
+-> EvaluationResult / ProfileUpdateDecision / GrowthMemoryRecord
+
+Baseline Evidence + Delayed Evidence
+-> RetentionComparisonFacts
+-> RetentionComparabilityResult
+-> RetentionEvaluationResult
+-> 关联并解释上述正式结果
+```
+
+`RetentionEvaluationResult` 不是 AbilityEvidence，也不是 Phase 8 输入。它只比较和解释正式 Evidence；可比性必须由 Agent 根据正式来源对象派生，不能由调用方直接指定。
 
 ## 四、当前实现与长期标准协议
 
@@ -284,6 +319,9 @@ RetestExecutionResult
 | TaskResourceRepository | TaskResource、能力与题型查询条件 | 可匹配的 TaskResource[] | 为题目录入和连续学习提供同一个资源读写边界；浏览器使用 IndexedDB，Debug 使用内存适配器。 | Phase 12.2 / 12.3 |
 | LearningPersistenceRepository | 学习回合正式结果与恢复请求 | PersistedLearningRound | 保存和恢复回合，按正式 ID 保证幂等，避免重复 Diagnosis、Evidence 和 Profile 更新。 | Phase 12.1 |
 | ContinuousLearningRunAgent | 恢复后的 GrowthMemory / Profile、TaskResourceRepository、学生作答 | ContinuousLearningRunResult | 让上一轮正式结果驱动下一轮策略，并从共享仓库获取不同的真实题目。 | Phase 12.3 |
+| LearningSessionHistoryAgent / Repository | LearningRoundResult[]、student / ability / time 查询 | LearningSessionRecord、LearningSessionHistoryResult | 保存和查询跨 Session 学习事实，并隔离无效历史。 | Phase 13.1 |
+| DelayedRetestSchedulingAgent | Session History、GrowthMemory、Evidence 时间、当前时间 | DelayedRetestCandidate、DelayedRetestPlan | 生成有来源、有理由、可去重的待复测事项。 | Phase 13.2 |
+| RetentionEvaluationAgent | Plan、正式 Task / Execution / Evidence、已有 Phase 8 结果 | RetentionComparisonFacts、RetentionComparabilityResult、RetentionEvaluationResult | 比较基线和延迟表现，关联而不重复执行正式能力回流。 | Phase 13.3 |
 
 ### Phase 12 基础集成边界
 
@@ -301,6 +339,12 @@ Round 1 正式结果保存
 -> 完成 Round 2
 ```
 
+### Phase 13 跨 Session 边界
+
+Phase 13.1、13.2、13.3 Runtime 均已通过；Phase 13.3 为 16 / 16 Debug PASS，相关回归与 Production Build 通过。Phase 13.1 的 IndexedDB Browser Persistence Smoke Test 仍为待验项，因此 Phase 13 总体尚未冻结。
+
+Session History 只记录发生过什么；Delayed Retest Scheduling 只决定何时需要新的观察；Retention Evaluation 只比较和解释正式 Evidence。三者都不能因为 Session 结束、Evidence 变旧或一次延迟复测较弱，就直接生成长期能力结论。
+
 ## 七、当前 Runtime 的一句话总结
 
 当前系统已经从“学生做一道题”扩展为：
@@ -317,6 +361,9 @@ Round 1 正式结果保存
 -> Evaluation 评估
 -> Profile Update Decision
 -> 受约束地更新画像
+-> 跨 Session History
+-> 延迟复测计划
+-> 保持性观察
 ```
 
 这说明产品已经具备一个最小可运行的学习 Runtime 骨架。
