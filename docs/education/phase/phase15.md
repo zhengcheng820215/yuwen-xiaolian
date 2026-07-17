@@ -540,6 +540,30 @@ Phase 15 完成时，应能证明：
 
 > 系统能够以可配置、可追溯、可审查的方式调用真实 LLM，将通过安全校验的结构化 Diagnosis 接入 Existing Evidence Runtime，并把已确认事实转化为学生可理解的受控反馈，而不让模型直接决定长期能力状态。
 
+### Phase 15 完成后系统新增能力
+
+系统已具备：
+
+- 接入真实 LLM Provider 的受控运行能力；
+- 基于冻结评估集验证 Diagnosis 质量；
+- 通过 Shadow 模式运行模型且不污染正式数据；
+- 阻断或复核不可靠、错位和越权的 Diagnosis；
+- 形成唯一、可追溯的 Formal Diagnosis Commit；
+- 将正式 Diagnosis 接入 Existing Evidence Runtime；
+- 对新 Ability Evidence 进行质量评估；
+- 生成来源可追溯、边界受控的学生反馈；
+- 在表达模型失败或越权时安全回退确定性模板；
+- 在关键正式写入链路中保持身份一致、幂等与受控重试。
+
+系统仍不具备：
+
+- 自动证明训练或教学长期有效；
+- 多学生、长期真实使用验证；
+- 大规模正式题库及内容治理；
+- 真实 AI Coach 多轮互动辅导；
+- 正式家长报告；
+- 云端部署、账号体系与跨设备同步。
+
 阶段通过语义必须保持分离：
 
 ```text
@@ -555,3 +579,19 @@ Phase 15.3 PASS
 = 已确认事实能够被可靠表达并安全回退
 != 表达流畅可以反向证明 Diagnosis 正确
 ```
+
+## 十八、整链集成验收记录
+
+2026-07-17 已新增独立确定性整链 Debug：
+
+```text
+pnpm run debug:phase15-integration
+```
+
+验收结果为 `11 / 11 PASS`，覆盖 Formal Commit、Phase 9.3 Evidence Return、Phase 8 Evaluation / ProfileUpdateDecision / GrowthMemory、Phase 14.1 Evidence Quality Assessment 与 Controlled Feedback，并验证无效作答阻断、能力错位复核、Evidence Return 重试、Diagnosis / Evidence / Feedback 幂等及表达 Provider 失败回退。
+
+该验收使用 Scripted Provider，证明正式接口可以稳定组成同一条产品链；它不替代真实外部 Provider 贯穿完整产品主链的受控试跑。
+
+同日完成 `#/phase15-integration-demo` 轻量人工验收，完整成功、无效作答阻断、能力错位复核和反馈安全回退四类 Case 均符合预期，Demo 验收结论为 PASS。页面中的真实 LLM 信息用于展示已完成的 Live Smoke 接入记录，不表示浏览器直接调用外部 Provider。
+
+详细记录见 [Phase 15 整链集成验收](./reports/phase15_integration_acceptance_2026-07-17.md)。

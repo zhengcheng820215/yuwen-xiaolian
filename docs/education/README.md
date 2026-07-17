@@ -95,6 +95,7 @@ LEARNING_RUNTIME_OVERVIEW
 - Phase 14 冻结能力声明：系统能够根据正式任务、作答、提示、时间和追溯事实评估 Evidence 的判断价值，协调多条 Evidence 的方向关系，并在 Existing Strategy 的边界内生成受控任务约束；任务执行后，系统会依据真实表现重新评估 Evidence 质量，而不会把目标质量当成实际结果。
 - Phase 15.1 Real LLM Runtime Foundation 已通过并冻结：确定性 Debug 为 `22 / 22 PASS`，DeepSeek `deepseek-v4-flash` Live Smoke 为 `4 / 4 PASS`。Phase 15.2 已完成 Prompt v4 真实质量验证、Policy v2.1 校准、负责人确认和正式启用回归；Root Cause 为 90 / 93，完整质量为 accepted 79、questionable 6、unacceptable 8、critical 0，正式验收 `15 / 15 PASS`。Phase 15.2 当前为 `PASS / FROZEN`，正式质量 Evaluator 默认使用 Policy v2.1。
 - [Phase 15.3 Controlled Feedback Expression](./phase/phase15_3.md) 已通过并冻结：确定性 Debug `24 / 24`、DeepSeek Prompt v1.1 Live `12 / 12`、Controlled Safety `2 / 2`、脱敏人工抽检 `12 / 12`、关键回归与 Production Build 全部通过。Phase 15 当前为 `PASS / FROZEN`。
+- Phase 15 总纲见 [Phase 15](./phase/phase15.md)，Diagnosis 质量冻结记录见 [Phase 15.2 验收](./phase/phase15_2_acceptance_report.md)，受控表达质量记录见 [Phase 15.3 验收](./phase/reports/phase15_3/phase15_3_controlled_feedback_acceptance_2026-07-17.md)，整链记录见 [Phase 15 集成验收](./phase/reports/phase15_integration_acceptance_2026-07-17.md)。确定性整链 Debug 已 `11 / 11 PASS`；Prompt v4 默认切换和真实外部 Provider 完整产品主链的受控试跑仍未完成。
 - 当前暂不移动目录。
 - 后续根据文档增长情况再评估是否迁移到 `models/` 分层目录。
 - 后续新增教育模型文档，必须先在本 README 中登记。

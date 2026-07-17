@@ -8,7 +8,7 @@ const tabs = [
 ];
 
 const noTabPaths = ['/quiz', '/result'];
-const workspacePaths = ['/continuous-learning-demo'];
+const workspacePaths = ['/continuous-learning-demo', '/phase15-integration-demo'];
 
 export default function Layout({ children }) {
   const location = useLocation();

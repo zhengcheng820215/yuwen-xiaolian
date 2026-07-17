@@ -27,6 +27,7 @@ import Phase10LearningRoundDemo from './pages/Phase10LearningRoundDemo.jsx';
 import StudentLearningEntryDemo from './pages/StudentLearningEntryDemo.jsx';
 import TaskResourcePreparationDemo from './pages/TaskResourcePreparationDemo.jsx';
 import ContinuousLearningDemo from './pages/ContinuousLearningDemo.jsx';
+import Phase15IntegrationDemo from './pages/Phase15IntegrationDemo.jsx';
 
 export default function App() {
   return (
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="/student-learning-entry-demo" element={<StudentLearningEntryDemo />} />
         <Route path="/task-resource-preparation-demo" element={<TaskResourcePreparationDemo />} />
         <Route path="/continuous-learning-demo" element={<ContinuousLearningDemo />} />
+        <Route path="/phase15-integration-demo" element={<Phase15IntegrationDemo />} />
       </Routes>
     </Layout>
   );

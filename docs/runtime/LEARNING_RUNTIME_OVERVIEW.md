@@ -345,6 +345,11 @@ RetestExecutionResult
 | EvidenceComparisonContextAdapter | AbilityEvidence、Quality Assessment、ConcreteLearningTask、TaskExecutionResult | EvidenceComparisonContext | 从正式任务与执行事实补足材料、时间窗口和重复执行关系。 | Phase 14.2 |
 | EvidenceConflictAssessmentAgent | AbilityEvidence[]、当前 Quality Assessment[]、Comparison Context[] | EvidenceConflictAssessment | 按 observation unit 去重，协调同向、混合、冲突、不足与复核状态。 | Phase 14.2 |
 | EvaluationContextAdapter | raw Evidence、Conflict Assessment、Runtime Contract | EvaluationContextEnvelope | 保留 raw / primary / supporting Evidence，并在能力兼容时准备 quality-aware Evaluation 输入。 | Phase 14.2 |
+| AdaptiveTaskConstraintsAgent | NextLearningStrategy、Quality / Conflict Context、AdaptiveTaskContextSnapshot | AdaptiveTaskConstraints | 在既有策略方向内生成难度、材料、提示和任务角色约束。 | Phase 14.3 |
+| DiagnosisProviderAdapter | 版本化 Provider 配置、正式任务与有效作答 | Raw Model Output、Provider Run Metadata | 调用真实 Provider，不直接生成正式 Diagnosis 或 Evidence。 | Phase 15.1 |
+| RealLLMRuntimeFoundationAgent | Raw Output、身份与 Schema 边界、Formal Commit Repository | RealDiagnosisRuntimeResult、FormalDiagnosisCommit | 校验 Candidate，并以原子提交边界形成唯一正式 Diagnosis。 | Phase 15.1 |
+| DiagnosisQualityEvaluationAgent | Frozen Dataset、Diagnosis Candidate、人工边界与质量策略 | DiagnosisQualityEvaluation | 生成 accepted、questionable、unacceptable 或 critical_violation 质量结果。 | Phase 15.2 |
+| ControlledFeedbackExpressionAgent | Committed Diagnosis、AbilityEvidence、StructuredFeedbackFacts、ActionableSuggestions | ControlledFeedbackResult | 只表达已确认事实；校验失败或 Provider 失败时保留确定性模板。 | Phase 15.3 |
 
 ### Phase 12 基础集成边界
 
@@ -382,11 +387,11 @@ Phase 14.3 已通过 `AdaptiveTaskContextSnapshot`、受控 `AdaptiveConstraintR
 
 Phase 14 正式冻结结论：系统能够根据正式任务、作答、提示、时间和追溯事实评估 Evidence 的判断价值，协调多条 Evidence 的方向关系，并在 Existing Strategy 的边界内生成受控任务约束；任务执行后，系统会依据真实表现重新评估 Evidence 质量，而不会把目标质量当成实际结果。
 
-### Phase 15 真实 AI Runtime 规划边界
+### Phase 15 真实 AI Runtime 与受控表达边界
 
-Phase 15 总纲与 Phase 15.1 文档已经完成，Real LLM Runtime Foundation 已通过并冻结。当前已具备 DeepSeek Chat Completions 与 OpenAI Responses Provider Adapter、版本化配置、运行记录、Raw Output 隔离、有限重试、失败阻断和 Formal Diagnosis 原子提交边界。DeepSeek `deepseek-v4-flash` 使用 Prompt v3 完成 `4 / 4` Live Smoke，确定性 Debug 为 22 / 22 PASS，冻结链路回归与 Production Build 通过；这只证明真实模型可安全进入 Runtime，Diagnosis 教育质量仍需 Phase 15.2 的人工评估集验证。
+Phase 15.1、15.2 与 15.3 均已通过并冻结。当前已具备 DeepSeek Chat Completions 与 OpenAI Responses Provider Adapter、版本化配置、运行记录、Raw Output 隔离、有限重试、失败阻断、Formal Diagnosis 原子提交、真实 Diagnosis 质量评估和受控学生反馈。Phase 15.1 确定性 Debug 为 22 / 22、真实 Provider Smoke 为 4 / 4；Phase 15.2 正式验收为 15 / 15；Phase 15.3 确定性 Debug 为 24 / 24，真实表达为 12 / 12。
 
-计划执行顺序：
+正式职责顺序：
 
 ```text
 TaskExecution Validity Gate
@@ -403,11 +408,13 @@ Phase 15 不重定义 DiagnosisResult，不让 Provider Adapter 直接生成 Evi
 
 Phase 15.1 的真实联调保持最小规模：正常 Live、Shadow 和 Prompt Injection 使用真实 Provider，能力错位或非法结构使用受控 Provider 验证阻断。联调只确认正式结果是否具备进入 Existing Evidence Return 的资格，不在本阶段直接创建 Evidence。
 
-结构 Repair 只允许修复白名单内的非语义问题，任何 `mainAbility`、`answerStatus`、`rootCause`、引用或 Evidence 方向的修改都必须重新调用模型或进入复核。Phase 15.2 使用 36 条版本化冻结样本建立明确分母；Phase 15.3 的 Controlled Feedback 会把可追溯事实和行动建议分开，不由表达层新增教育结论。
+结构 Repair 只允许修复白名单内的非语义问题，任何 `mainAbility`、`answerStatus`、`rootCause`、引用或 Evidence 方向的修改都必须重新调用模型或进入复核。Phase 15.2 使用版本化冻结 Dataset 与 93 个 Candidate 建立明确分母；Phase 15.3 的 Controlled Feedback 把可追溯事实和行动建议分开，不由表达层新增教育结论。
 
 Phase 15.2 已完成 Prompt v3 基线、Prompt v4 工程实现、真实专项 Slice、v4 Full Calibrated Baseline、Root Cause Failure Attribution、Policy v2.1 校准、完整 Evaluator Activation Dry Run、负责人确认和正式启用回归。Policy v2.1 的 Root Cause 接受为 90 / 93，正式质量分布为 accepted 79、questionable 6、unacceptable 8、critical 0；15 / 15 正式验收通过。正式质量 Evaluator 默认使用 Policy v2.1，旧 Policy v2 仅保留历史复现入口。Prompt v4 已完成质量验证，但 Provider 默认 Prompt 的后续切换仍必须通过版本化配置显式执行。
 
 Phase 15.3 已完成受控反馈表达工程与质量验收：确定性模板是默认可靠能力，可选 LLM 只能选择已验证的安全表达；普通 Live 反馈保持 restricted 权限，合法 Fact ID 不能掩盖语义扩大，越权、Schema 非法或 Provider 失败时保留模板。确定性 Debug 为 24 / 24 PASS，DeepSeek Prompt v1.1 Live 为 12 / 12 PASS，Controlled Safety 为 2 / 2 PASS，12 条脱敏反馈人工抽检全部接受。Phase 15.3 与 Phase 15 当前均为 `PASS / FROZEN`。
+
+当前启用边界：Prompt v4 已通过质量验证，但成为所有正式 Provider 调用的默认 Prompt 仍须通过版本化配置显式切换。`Formal Commit -> Phase 9.3 -> Phase 8 -> Phase 14.1 -> Controlled Feedback` 已通过 `11 / 11` 确定性独立整链 Debug；真实外部 Provider 贯穿该完整产品主链的受控试跑仍未执行。
 
 ## 七、当前 Runtime 的一句话总结
 

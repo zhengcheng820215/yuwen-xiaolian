@@ -758,7 +758,7 @@ Phase 14 正式冻结结论：系统能够根据正式任务、作答、提示�
 
 ## Phase 15：真实 AI Diagnosis 与受控表达基础
 
-Phase 15 计划把现有 mock 为主的 Diagnosis 链切换为可配置、可追溯、可审查的真实 LLM Runtime：
+Phase 15 已把现有 mock 为主的 Diagnosis 链扩展为可配置、可追溯、可审查的真实 LLM Runtime 基础：
 
 ```text
 Valid TaskExecutionResult
@@ -772,7 +772,7 @@ Valid TaskExecutionResult
 -> Phase 14 Evidence Quality Assessment
 ```
 
-Phase 15.1 只建立真实模型运行基础；当前已通过并冻结。确定性 Debug 为 22 / 22 PASS，DeepSeek `deepseek-v4-flash` Live Smoke 为 4 / 4 PASS。Phase 15.2 已完成 Prompt v4 质量验证、Root Cause 归因、Policy v2.1 校准、负责人确认和正式启用回归；正式验收 15 / 15 PASS，阶段已冻结。Phase 15.3 只把已确认事实转化为受控学生反馈。
+Phase 15.1 建立真实模型运行基础并已冻结。确定性 Debug 为 22 / 22 PASS，DeepSeek `deepseek-v4-flash` Live Smoke 为 4 / 4 PASS。Phase 15.2 已完成 Prompt v4 质量验证、Root Cause 归因、Policy v2.1 校准、负责人确认和正式启用回归；正式验收 15 / 15 PASS。Phase 15.3 已完成受控学生反馈表达与安全回退验收。
 
 正式 Diagnosis 使用 Candidate -> Commit 事务边界：同一 requestId 只能原子提交一份正式结果，页面刷新、Provider Retry 或 Evidence Return Retry 都不能生成第二份 Formal Diagnosis。结构 Repair 只允许版本化白名单内的非语义修复，不能修改 `mainAbility`、`answerStatus`、`rootCause`、引用或 Evidence 方向。
 
@@ -781,32 +781,37 @@ Phase 15.2 第一版冻结 30–50 条版本化人工评估样本，并公开各
 当前状态：
 
 ```text
-Phase 15 Design            READY
+Phase 15 Design            ACCEPTED
 Phase 15.1 Engineering     PASS / FROZEN
 Deterministic Debug        22 / 22 PASS
 Real Provider Live Smoke   4 / 4 PASS
 Phase 15.2 Design          ACCEPTED
-Phase 15.2 Engineering     PASS
+Phase 15.2 Engineering     PASS / FROZEN
 Phase 15.2 Real Batch      COMPLETED
-Quality Policy v2          CALIBRATION PASS
-Offline Candidate Rescore  36 RUNS / 0 PROVIDER CALL
 Prompt v3 Calibrated Base  COMPLETED / THRESHOLDS NOT MET
 Prompt v3 Quality          NOT PASSED
 Prompt v4 Engineering      PASS
 Prompt v4 Deterministic    15 / 15 PASS
 Prompt v4 Specialty Slice  30 / 30 CALLS / PASS
 Prompt v4 Full Batch       108 / 108 RUNS / COMPLETED
-Prompt v4 Calibrated Base  IMPROVED / ROOT CAUSE NOT MET
-Prompt v4 Quality          NOT YET PASSED
+Prompt v4 + Policy v2.1    QUALITY GATE PASS
 Root Cause Attribution     32 RUNS / INITIAL PASS
 Policy v2.1 Calibration    90 / 93 / ALL GUARDS PASS
 Policy v2.1 Dry Run        93 / 93 / 9 GUARDS PASS
 Policy v2.1 Activation     YES / 15 / 15 PASS
 Owner Confirmation        PASS
 Phase 15.2 Freeze          PASS / FROZEN
-Phase 15 Overall Freeze    NOT YET
+Phase 15.3 Deterministic   24 / 24 PASS
+Phase 15.3 Real Provider   12 / 12 PASS
+Phase 15.3 Safety          2 / 2 PASS
+Phase 15.3 Human Review    12 / 12 ACCEPTED
+Phase 15.3 Freeze          PASS / FROZEN
+Phase 15 Integration Debug 11 / 11 PASS
+Phase 15 Overall Freeze    PASS / FROZEN
 ```
 
 该阶段继续遵守最小闭环原则：模型原始输出不是正式 Diagnosis，模型 confidence 不是 Evidence 质量，表达层也不能新增教育结论。
 
 Phase 15.1 Live Smoke 采用三条真实调用加一条受控失败 Gate：正常 Live、Shadow、Prompt Injection 验证真实 Provider 链路，能力错位或非法结构验证安全阻断。Smoke 不执行 Evidence 或 Profile 更新，只验证 `canEnterEvidenceReturn`。
+
+当前冻结表示三个 Runtime、专项质量验收和确定性整链集成均已成立。`Formal Commit -> Evidence Return -> Phase 8 -> Phase 14.1 -> Controlled Feedback` 已通过 `11 / 11` 独立 Debug 验收。Prompt v4 成为所有正式 Provider 调用的默认 Prompt 仍须通过版本化配置显式切换；真实外部 Provider 贯穿完整产品主链的受控试跑仍未执行，不能由 Scripted Provider 集成结果替代。

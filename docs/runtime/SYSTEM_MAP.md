@@ -245,6 +245,7 @@ Formal DiagnosisResult
 | DiagnosisRunRecord | 记录 Provider、Prompt、重试、耗时、Token 和验证状态。 |
 | FormalDiagnosisCommit | 建立 Candidate 到正式 Diagnosis 的原子提交边界。 |
 | DiagnosisQualityEvaluation | 在冻结样本上评估真实 Diagnosis 的教育可接受性。 |
+| ControlledFeedbackResult | 把已确认、可追溯事实转换为学生可读反馈，并记录校验与模板回退状态。 |
 
 ## 五、Phase 状态
 
@@ -266,10 +267,13 @@ Formal DiagnosisResult
 | 15.2 | Real Diagnosis Validation | PASS / FROZEN | [Phase 15.2 验收](../education/phase/phase15_2_acceptance_report.md) |
 | 15.2 Policy v2.1 | Root Cause 校准与完整质量安全门 | 15 / 15 PASS / ACTIVE | [正式验收](../education/phase/reports/phase15_2/phase15-diagnosis-quality-policy-v2-1-acceptance-2026-07-17T11-00-12-239Z.md) |
 | 15.3 | Controlled Feedback Expression | PASS / FROZEN | [Phase 15.3](../education/phase/phase15_3.md) |
+| 15 | Real AI Diagnosis 与受控表达基础 | PASS / FROZEN | [Phase 15](../education/phase/phase15.md) |
 
 当前准确状态：
 
 > 单学生、单浏览器、本地持久化的连续学习基础已经成立；Evidence 质量与自适应约束链已经冻结；真实 LLM 已能够安全进入 Diagnosis Runtime。Phase 15 已通过并冻结：真实 Diagnosis 质量基线、受控反馈表达、模板回退与普通 Live 限权均已形成正式验收记录。
+
+这里的 Phase 15 冻结表示 15.1、15.2、15.3 的 Runtime、专项质量验收和 `11 / 11` 确定性整链 Debug 均已成立。Prompt v4 的正式默认切换仍须使用版本化配置；真实外部 Provider 贯穿完整产品主链的受控试跑仍未执行。
 
 ## 六、各阶段能力地图
 
@@ -331,7 +335,7 @@ Evidence
 
 ### Phase 15：真实 AI Diagnosis 与受控表达
 
-Phase 15.1 已证明真实 Provider 可以安全进入 Runtime；Phase 15.2 已完成 Prompt v4 质量验证和 Policy v2.1 正式启用；Phase 15.3 已完成 24 / 24 个确定性 Debug Case、DeepSeek Live 12 / 12 和脱敏人工抽检 12 / 12，只把已确认事实转化为学生可读表达，越权或 Provider 失败时保留模板基线。Phase 15 当前为 `PASS / FROZEN`。
+Phase 15.1 已证明真实 Provider 可以安全进入 Runtime；Phase 15.2 已完成 Prompt v4 质量验证和 Policy v2.1 正式启用；Phase 15.3 已完成 24 / 24 个确定性 Debug Case、DeepSeek Live 12 / 12 和脱敏人工抽检 12 / 12，只把已确认事实转化为学生可读表达，越权或 Provider 失败时保留模板基线。独立整链 Debug 已以 11 / 11 验证 Formal Commit、Evidence Return、Phase 8、Phase 14.1 与 Controlled Feedback 的组合边界。Phase 15 当前为 `PASS / FROZEN`。
 
 详细文档入口：[Phase 15](../education/phase/phase15.md)、[Phase 15.1](../education/phase/phase15_1.md)、[Phase 15.2](../education/phase/phase15_2.md)、[Phase 15.3](../education/phase/phase15_3.md)。
 
@@ -349,12 +353,15 @@ Phase 15.1 已证明真实 Provider 可以安全进入 Runtime；Phase 15.2 已�
 10. Phase 14 的质量与冲突上下文不能静默替换 Existing Phase 8 legacy 语义。
 11. Shadow AI 结果不 Commit、不生成 Evidence、不更新 Profile。
 12. `questionable` 的离线质量结果需要人工复核，不能自动回流。
+13. Prompt v4 通过质量验证不等于已经静默成为所有正式 Provider 调用的默认 Prompt。
+14. Controlled Feedback 只能表达上游已确认事实，不能新增 Diagnosis、Evidence 或长期能力结论。
 
 ## 八、尚未完成或尚未产品化
 
 当前尚未证明或尚未完成的主要能力：
 
-- Phase 15.2 Root Cause 失败归因、必要的 Policy 或 Prompt 单项校准；
+- Phase 15 真实外部 Provider 贯穿完整产品主链的受控端到端试跑；
+- Prompt v4 在正式 Provider 主链中的版本化默认切换与回滚验证；
 - Phase 15 后续真实使用错误样本回收与版本化质量回归；
 - Existing Phase 8 对 Quality / Conflict Context 的正式消费升级；
 - 真实题库的批量导入、版本、权限和云同步；

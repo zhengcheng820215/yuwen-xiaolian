@@ -17,6 +17,11 @@
 - Evaluation Agent / Long-term Evaluation Runtime
 - Student Ability Profile Runtime
 - Personalized Next Task Agent
+- Evidence Quality Assessment / Conflict Coordination Runtime
+- Adaptive Task Constraints Runtime
+- Real LLM Provider / Formal Diagnosis Commit Runtime
+- Diagnosis Quality Evaluation Runtime
+- Controlled Feedback Expression Runtime
 
 后续仍可继续增加：
 
@@ -191,6 +196,25 @@ Diagnosis Result
 → Profile Update Decision
 → Student Ability Profile
 ```
+
+Phase 14、Phase 15 在这条主线外围增加质量解释、真实模型准入和受控表达，但不创建第二条正式教育链：
+
+```text
+Valid TaskExecutionResult
+-> Real LLM Provider Adapter
+-> Candidate Validation
+-> Formal Diagnosis Commit
+-> Existing Ability Evidence Return
+-> Evidence Quality Assessment
+-> Evidence Conflict Assessment
+-> Existing Evaluation Capability Negotiation
+
+Committed Diagnosis + Confirmed Evidence Facts
+-> Controlled Feedback Expression
+-> StudentLearningFeedback
+```
+
+真实模型 Candidate、Quality Assessment、Conflict Assessment 和 Controlled Feedback 都不能绕过 Existing Evaluation、ProfileUpdateDecision 或 Evidence Return 独立修改长期状态。
 
 Pipeline 中的任何阶段都必须满足：
 
@@ -412,6 +436,40 @@ Ability Evidence Extractor 不负责：
 - 生成训练计划
 - 判断长期能力状态
 
+### Real LLM Provider Adapter / Formal Diagnosis Commit Runtime
+
+该 Runtime 负责：
+
+- 在 Answer Validity Gate 之后调用版本化真实 Provider；
+- 隔离 Raw Output，并执行 Schema、身份、语义和安全边界校验；
+- 对可修复的非语义结构问题执行白名单 Repair；
+- 通过 `requestId` 原子唯一约束提交正式 Diagnosis；
+- 在 Commit 成功但 Evidence Return 失败时，基于同一正式 Diagnosis 重试下游回流。
+
+该 Runtime 不负责：
+
+- 直接生成 AbilityEvidence；
+- 在 Live 失败时静默改用 mock 形成正式结果；
+- 修复 `mainAbility`、`answerStatus`、`rootCause`、引用或 Evidence 方向；
+- 修改 EvaluationResult、ProfileUpdateDecision 或 StudentAbilityProfile。
+
+### Diagnosis Quality Evaluation Runtime
+
+该 Runtime 负责使用冻结 Dataset、人工预期边界和版本化 Policy，对真实 Diagnosis 形成 `accepted`、`questionable`、`unacceptable` 或 `critical_violation` 结果。
+
+只有 `accepted` 可以继续作为正式候选；`questionable` 必须复核，`unacceptable` 与 `critical_violation` 必须阻断。质量评估不修改原始 Diagnosis，也不能把离线通过率解释为长期能力置信度。
+
+### Evidence Quality Assessment / Conflict Coordination Runtime
+
+该 Runtime 负责：
+
+- 根据任务、作答、提示、时间、Diagnosis 和追溯事实评估单条 Evidence 的观察质量；
+- 按 Observation Unit 去重独立观察；
+- 协调一致、可解释混合、未解决冲突、证据不足和复核状态；
+- 在 Existing Evaluation 明确声明所需 capability 时准备 quality-aware handoff。
+
+它不改变 Evidence 的原始方向，不把质量等级解释为能力等级，也不能在 Existing Evaluation 不兼容时静默替换 legacy 语义。
+
 ### Weakness Ranking Agent
 
 Weakness Ranking Agent 负责：
@@ -464,6 +522,12 @@ Training Plan Agent 的输入不应长期只依赖 Top Weakness。
 - 当前是训练、复测还是迁移需求
 - 可用题目与任务资源
 
+### Adaptive Task Constraints Runtime
+
+Adaptive Task Constraints Runtime 只在已成立的 `NextLearningStrategy` 方向内，约束下一任务的角色、难度、材料新颖度、提示策略和观察目标。
+
+它不负责重新选择教育方向，不把 `targetEvidenceQuality` 当作执行结果承诺，也不能在 Strategy 与 Constraints 冲突时勉强生成 TaskRequest。约束只有通过 Alignment Validation 后才能进入 Existing TaskFulfillment。
+
 ### Training Execution / Retest Evidence Runtime
 
 Training Execution / Retest Evidence Runtime 负责：
@@ -506,6 +570,19 @@ Evaluation Agent 不负责：
 - 直接决定具体训练题
 
 Evaluation Agent 可以拒绝消费证据，但必须显式输出原因。
+
+### Controlled Feedback Expression Runtime
+
+Controlled Feedback Expression Runtime 负责把 Committed Diagnosis、AbilityEvidence 和可追溯的 `StructuredFeedbackFacts` 转换为学生可读反馈。
+
+它必须：
+
+- 将事实与行动建议分开；
+- 校验学生原话、材料引用和事实归因；
+- 阻止长期能力结论、Prompt 泄漏和语义扩大；
+- 在 Provider、Schema 或表达校验失败时回退到确定性模板。
+
+它不重新执行 Diagnosis，不生成 Evidence，不修改 Evaluation 或 Profile，也不能因为语言更自然就扩大上游结论。
 
 ### Coach Agent
 
@@ -557,9 +634,14 @@ Profile 更像状态存储与受约束更新 Runtime，不一定必须依靠 LLM
 | Question Metadata Agent | question | QuestionMetadata | Answer Validity Gate / Diagnosis Agent |
 | Answer Validity Gate | studentAnswer, questionMetadata | AnswerValidityResult | Diagnosis Agent / Retry |
 | Diagnosis Agent | question, referenceAnswer, studentAnswer, metadata, answerValidity | DiagnosisResult | Ability Evidence Extractor |
+| Real LLM Provider / Formal Diagnosis Commit Runtime | Valid TaskExecutionResult、ConcreteLearningTask、ProviderConfig | RealDiagnosisRuntimeResult、FormalDiagnosisCommit | Existing Ability Evidence Return / Review |
+| Diagnosis Quality Evaluation Runtime | Frozen Dataset、Diagnosis Candidate、Quality Policy | DiagnosisQualityEvaluation | Formal Candidate Gate / Human Review |
 | Ability Evidence Extractor | DiagnosisResult | AbilityEvidence | Weakness Ranking Agent / Evaluation Agent |
+| Evidence Quality Assessment Runtime | AbilityEvidence、正式任务、执行与提示事实 | EvidenceQualityAssessment | Conflict Coordination / Evaluation Context Adapter |
+| Evidence Conflict Coordination Runtime | AbilityEvidence[]、当前 Quality Assessment[]、Comparison Context[] | EvidenceConflictAssessment | Evaluation Context Adapter / Adaptive Task Constraints |
 | Weakness Ranking Agent | AbilityEvidence[] | TopWeakness / CandidateAction | Training Plan Agent / Personalized Next Task Agent |
 | Training Plan Agent | TopWeakness, EvidenceSummary, StudentAbilityProfile, EvaluationResult | TrainingPlan | Training Execution / Retest Evidence Runtime |
+| Adaptive Task Constraints Runtime | NextLearningStrategy、Quality / Conflict Context | AdaptiveTaskConstraints、AlignmentResult | TaskRequest / TaskFulfillment |
 | Training Execution / Retest Evidence Runtime | TrainingPlan, studentAnswer, retestAnswer, baselineEvidence | TrainingEvidence / RetestEvidence | Evaluation Agent |
 | Learning Entry Agent | question, studentAnswer, questionMetadata | LearningEntryResult | Personalized Training Flow Agent / 前端 |
 | Personalized Training Flow Agent | LearningEntryResult, studentTrainingAnswer | PersonalizedTrainingFlowResult | Beta Learning Session Result Agent |
@@ -567,6 +649,7 @@ Profile 更像状态存储与受约束更新 Runtime，不一定必须依靠 LLM
 | Evaluation Agent | AbilityEvidence[], TrainingEvidence, RetestEvidence | EvaluationResult | Profile Update Decision Agent |
 | Profile Update Decision Agent | EvaluationResult, currentProfile | ProfileUpdateDecision | Profile Runtime |
 | Profile Runtime | ProfileUpdateDecision, EvaluationResult, Evidence references | StudentAbilityProfile | Personalized Next Task Agent / 前端 |
+| Controlled Feedback Expression Runtime | Committed Diagnosis、AbilityEvidence、StructuredFeedbackFacts、Suggestions | ControlledFeedbackResult | Student Feedback Adapter / 前端 |
 | Coach Agent | 当前阶段数据 | CoachMessage | 前端 |
 | Personalized Next Task Agent | StudentAbilityProfile, CandidateAction, EvidenceSummary | PersonalizedNextTask | Diagnosis Agent |
 
@@ -624,6 +707,12 @@ export type AgentWarning = {
 | UPSTREAM_RESULT_UNTRUSTED | 上游结果置信度过低，需要人工或额外证据确认 |
 | REVIEW_REQUIRED | 当前结果需要人工复核 |
 | LLM_RESPONSE_PARSE_FAILED | LLM 输出无法解析为目标 JSON |
+| FORMAL_DIAGNOSIS_COMMIT_CONFLICT | 同一 requestId 已存在另一份正式 Diagnosis，禁止重复提交 |
+| DIAGNOSIS_QUALITY_REVIEW_REQUIRED | 真实 Diagnosis 质量结果需要人工复核 |
+| EVIDENCE_QUALITY_CONTEXT_MISSING | 缺少生成 Evidence Quality Assessment 所需的正式上下文 |
+| EVALUATION_CAPABILITY_UNSUPPORTED | Existing Evaluation 不支持所需 Quality / Conflict Capability |
+| ADAPTIVE_CONSTRAINT_MISALIGNED | AdaptiveTaskConstraints 与既有 Strategy 不一致 |
+| CONTROLLED_FEEDBACK_VALIDATION_FAILED | 反馈表达发生引用、归因、越权或语义扩大错误 |
 | AGENT_VERSION_UNSUPPORTED | 当前 Agent 不支持上游结果版本 |
 
 ## 九、版本规范

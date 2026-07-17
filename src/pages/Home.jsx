@@ -185,6 +185,12 @@ export default function Home() {
           action="开始三轮"
         />
         <PrimaryAction
+          to="/phase15-integration-demo"
+          title="真实 AI 整链 Demo"
+          desc="查看真实 Provider 接入状态，以及 Formal Diagnosis 如何进入 Evidence、Evaluation 与受控反馈。"
+          action="查看整链"
+        />
+        <PrimaryAction
           to="/diagnosis-demo"
           title="能力诊断 Demo"
           desc="测试学生答案如何转成能力诊断和 evidence 输入。"
