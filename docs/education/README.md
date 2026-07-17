@@ -96,6 +96,7 @@ LEARNING_RUNTIME_OVERVIEW
 - Phase 15.1 Real LLM Runtime Foundation 已通过并冻结：确定性 Debug 为 `22 / 22 PASS`，DeepSeek `deepseek-v4-flash` Live Smoke 为 `4 / 4 PASS`。Phase 15.2 已完成 Prompt v4 真实质量验证、Policy v2.1 校准、负责人确认和正式启用回归；Root Cause 为 90 / 93，完整质量为 accepted 79、questionable 6、unacceptable 8、critical 0，正式验收 `15 / 15 PASS`。Phase 15.2 当前为 `PASS / FROZEN`，正式质量 Evaluator 默认使用 Policy v2.1。
 - [Phase 15.3 Controlled Feedback Expression](./phase/phase15_3.md) 已通过并冻结：确定性 Debug `24 / 24`、DeepSeek Prompt v1.1 Live `12 / 12`、Controlled Safety `2 / 2`、脱敏人工抽检 `12 / 12`、关键回归与 Production Build 全部通过。Phase 15 当前为 `PASS / FROZEN`。
 - Phase 15 总纲见 [Phase 15](./phase/phase15.md)，Diagnosis 质量冻结记录见 [Phase 15.2 验收](./phase/phase15_2_acceptance_report.md)，受控表达质量记录见 [Phase 15.3 验收](./phase/reports/phase15_3/phase15_3_controlled_feedback_acceptance_2026-07-17.md)，整链记录见 [Phase 15 集成验收](./phase/reports/phase15_integration_acceptance_2026-07-17.md)。确定性整链 Debug 已 `11 / 11 PASS`；Prompt v4 默认切换和真实外部 Provider 完整产品主链的受控试跑仍未完成。
+- [Phase 16 总纲](./phase/phase16.md) 当前为 `ACCEPTED / IN PROGRESS`；阶段目标是建立结构化题目准入、资源匹配质量和单学生 5—7 天真实学习运行基础。[Phase 16.1](./phase/phase16_1.md) 中的 16.1A 资源准入 Runtime 已完成并取得 `21 / 21 PASS`，16.1B 最小录入工作台尚未开始；Phase 16.2、16.3 子阶段文档仍待输出。
 - 当前暂不移动目录。
 - 后续根据文档增长情况再评估是否迁移到 `models/` 分层目录。
 - 后续新增教育模型文档，必须先在本 README 中登记。

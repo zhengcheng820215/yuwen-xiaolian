@@ -68,6 +68,7 @@
     "debug:controlled-feedback-expression": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runControlledFeedbackExpressionDebug.ts",
     "debug:controlled-feedback-live-smoke": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runControlledFeedbackExpressionLiveSmoke.ts",
     "debug:phase15-integration": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase15IntegrationDebug.ts",
+    "debug:question-resource-intake": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionResourceAdmissionDebug.ts",
     "debug:diagnosis-batch-report": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runDiagnosisBatchReportDebug.ts",
     "debug:real-diagnosis-evaluation-batch": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runRealDiagnosisEvaluationBatch.ts",
     "debug:learning-entry": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runLearningEntryDebug.ts",
