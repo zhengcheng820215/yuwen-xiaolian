@@ -1,0 +1,1009 @@
+{
+  "schemaVersion": "root_cause_failure_attribution_v1",
+  "reportId": "phase15-root-cause-failure-attribution-2026-07-17T10-26-06-313Z",
+  "createdAt": "2026-07-17T10:26:06.313Z",
+  "sourceReportId": "phase15-prompt-v4-calibrated-baseline-2026-07-17T10-03-31-702Z",
+  "datasetVersion": "1.0.0",
+  "promptVersion": "real_ai_diagnosis_prompt_v4",
+  "policyVersion": "diagnosis_quality_policy_v2",
+  "annotationVersion": "2.0.0",
+  "executionMode": "offline_existing_candidate_review",
+  "sourceMetrics": {
+    "automaticRootCauseCategory": {
+      "numerator": 61,
+      "denominator": 93,
+      "rate": 0.6559139784946236
+    },
+    "failedRuns": 32,
+    "affectedSamples": 13
+  },
+  "runLevelPrimaryCounts": {
+    "prompt": 3,
+    "policy": 6,
+    "dataset": 0,
+    "evaluator": 23,
+    "ambiguous": 0
+  },
+  "sampleLevelPrimaryCounts": {
+    "prompt": 1,
+    "policy": 3,
+    "dataset": 0,
+    "evaluator": 9,
+    "ambiguous": 0
+  },
+  "attributionMetrics": {
+    "reviewedFailedRuns": 32,
+    "reasonableActualRootCauseRuns": 29,
+    "unreasonableActualRootCauseRuns": 3,
+    "ambiguousActualRootCauseRuns": 0,
+    "failedRunReasonablenessRate": 0.90625,
+    "projectedPostAttributionAcceptability": {
+      "numerator": 90,
+      "denominator": 93,
+      "rate": 0.967741935483871
+    }
+  },
+  "recommendation": {
+    "priority": "policy_v2_1_and_evaluator_calibration",
+    "promptV4_1RequiredNow": false,
+    "reason": "29 of 32 automatically failed Root Cause runs remain semantically reasonable. The dominant failure is category-boundary or evaluator mapping, while only 3 runs show a confirmed Prompt-level Root Cause error."
+  },
+  "sampleAttributions": [
+    {
+      "sampleId": "phase15-v1-05",
+      "failedRunIds": [
+        "phase15-v1-05#1",
+        "phase15-v1-05#2"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [
+        "prompt"
+      ],
+      "recommendedAction": "evaluator_fix",
+      "reviewNote": "Root Cause 已正确识别缺少文本依据，但分类器返回 unknown；Run 1-2 还存在独立的 answerStatus 校准问题。"
+    },
+    {
+      "sampleId": "phase15-v1-06",
+      "failedRunIds": [
+        "phase15-v1-06#1",
+        "phase15-v1-06#2",
+        "phase15-v1-06#3"
+      ],
+      "primaryFailureLayer": "prompt",
+      "contributingLayers": [],
+      "recommendedAction": "prompt_change",
+      "reviewNote": "回答给出了可能成立的目的，但没有材料依据；模型连续三次判为 fully_meets 且未发现缺口。"
+    },
+    {
+      "sampleId": "phase15-v1-07",
+      "failedRunIds": [
+        "phase15-v1-07#1",
+        "phase15-v1-07#2",
+        "phase15-v1-07#3"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewNote": "三次 Root Cause 都清楚描述了概括不完整，但 Evaluator 未能映射到 incomplete_summary。"
+    },
+    {
+      "sampleId": "phase15-v1-08",
+      "failedRunIds": [
+        "phase15-v1-08#1",
+        "phase15-v1-08#3"
+      ],
+      "primaryFailureLayer": "policy",
+      "contributingLayers": [
+        "evaluator",
+        "prompt"
+      ],
+      "recommendedAction": "policy_change",
+      "reviewNote": "对于表达题中的笼统理由，missing_evidence 与 expression_incomplete 均可成立；v2 类别边界过窄，answerStatus 漂移则是另一项 Prompt 问题。"
+    },
+    {
+      "sampleId": "phase15-v1-09",
+      "failedRunIds": [
+        "phase15-v1-09#2"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewNote": "Root Cause 已明确指出“褪色”与“价值昂贵”之间的错误关系，但其中一次被误分类为 missing_evidence。"
+    },
+    {
+      "sampleId": "phase15-v1-10",
+      "failedRunIds": [
+        "phase15-v1-10#1",
+        "phase15-v1-10#2",
+        "phase15-v1-10#3"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewNote": "三次 Root Cause 都描述了缺乏依据或错误的因果推断，但全部被分类为 unknown。"
+    },
+    {
+      "sampleId": "phase15-v1-11",
+      "failedRunIds": [
+        "phase15-v1-11#1",
+        "phase15-v1-11#2",
+        "phase15-v1-11#3"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewNote": "答案给出了无关的因果理由；Evaluator 将其映射为 unknown 或表达类别，而不是 incorrect_causal_relation / unsupported_inference。"
+    },
+    {
+      "sampleId": "phase15-v1-12",
+      "failedRunIds": [
+        "phase15-v1-12#1",
+        "phase15-v1-12#2",
+        "phase15-v1-12#3"
+      ],
+      "primaryFailureLayer": "policy",
+      "contributingLayers": [
+        "evaluator"
+      ],
+      "recommendedAction": "policy_change",
+      "reviewNote": "Dataset v1 接受“添加不存在事实 / 事实错误”，但 Annotation v2 对该样本类别遗漏了 incomplete_summary 与 misread_key_detail。"
+    },
+    {
+      "sampleId": "phase15-v1-13",
+      "failedRunIds": [
+        "phase15-v1-13#2"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewNote": "失败 Run 已清楚描述“引用动作正确但心理推断错误”，Evaluator 却返回 unknown。"
+    },
+    {
+      "sampleId": "phase15-v1-14",
+      "failedRunIds": [
+        "phase15-v1-14#1",
+        "phase15-v1-14#2",
+        "phase15-v1-14#3"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewNote": "三次 Root Cause 都识别了缺乏依据的“惩罚”解释，但 Evaluator 全部返回 unknown。"
+    },
+    {
+      "sampleId": "phase15-v1-15",
+      "failedRunIds": [
+        "phase15-v1-15#1",
+        "phase15-v1-15#2",
+        "phase15-v1-15#3"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewNote": "三次 Root Cause 都识别了在相关事件概括中加入无依据结论的问题，但 Evaluator 全部返回 unknown。"
+    },
+    {
+      "sampleId": "phase15-v1-16",
+      "failedRunIds": [
+        "phase15-v1-16#1",
+        "phase15-v1-16#3"
+      ],
+      "primaryFailureLayer": "policy",
+      "contributingLayers": [],
+      "recommendedAction": "policy_change",
+      "reviewNote": "Dataset v1 允许 fully_meets，但 Annotation v2 只允许 missing_evidence；“未发现明确缺口”与被允许的 fully_meets 路径并不冲突。"
+    },
+    {
+      "sampleId": "phase15-v1-17",
+      "failedRunIds": [
+        "phase15-v1-17#1",
+        "phase15-v1-17#2",
+        "phase15-v1-17#3"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewNote": "三次 Root Cause 都识别了深层目的或关系缺失，但 Evaluator 将其映射为 misread_key_detail 或 unknown。"
+    }
+  ],
+  "runAttributions": [
+    {
+      "caseId": "phase15-v1-05#1",
+      "sampleId": "phase15-v1-05",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "父亲很舍不得。",
+      "expectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "actualRootCause": "学生完成了核心结论（舍不得），但题目要求结合文中内容说明理由，学生未提供任何可观察依据，无法判断是否真正理解推理过程。",
+      "answerStatus": "insufficient_evidence",
+      "mainAbility": "推理",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [
+        "prompt"
+      ],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "Root Cause 已正确识别缺少文本依据，但分类器返回 unknown；Run 1-2 还存在独立的 answerStatus 校准问题。"
+    },
+    {
+      "caseId": "phase15-v1-05#2",
+      "sampleId": "phase15-v1-05",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "父亲很舍不得。",
+      "expectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "actualRootCause": "学生给出了核心结论（舍不得），但题目要求结合文中内容说明理由，学生未提供任何依据，无法判断其推理过程是否正确。",
+      "answerStatus": "insufficient_evidence",
+      "mainAbility": "推理",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [
+        "prompt"
+      ],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "Root Cause 已正确识别缺少文本依据，但分类器返回 unknown；Run 1-2 还存在独立的 answerStatus 校准问题。"
+    },
+    {
+      "caseId": "phase15-v1-06#1",
+      "sampleId": "phase15-v1-06",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "老师想让他自己想。",
+      "expectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "actualRootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "answerStatus": "fully_meets",
+      "mainAbility": "理解",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "unreasonable",
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "primaryFailureLayer": "prompt",
+      "contributingLayers": [],
+      "recommendedAction": "prompt_change",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "回答给出了可能成立的目的，但没有材料依据；模型连续三次判为 fully_meets 且未发现缺口。"
+    },
+    {
+      "caseId": "phase15-v1-06#2",
+      "sampleId": "phase15-v1-06",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "老师想让他自己想。",
+      "expectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "actualRootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "answerStatus": "fully_meets",
+      "mainAbility": "理解",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "unreasonable",
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "primaryFailureLayer": "prompt",
+      "contributingLayers": [],
+      "recommendedAction": "prompt_change",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "回答给出了可能成立的目的，但没有材料依据；模型连续三次判为 fully_meets 且未发现缺口。"
+    },
+    {
+      "caseId": "phase15-v1-06#3",
+      "sampleId": "phase15-v1-06",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "老师想让他自己想。",
+      "expectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "actualRootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "answerStatus": "fully_meets",
+      "mainAbility": "理解",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "unreasonable",
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "primaryFailureLayer": "prompt",
+      "contributingLayers": [],
+      "recommendedAction": "prompt_change",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "回答给出了可能成立的目的，但没有材料依据；模型连续三次判为 fully_meets 且未发现缺口。"
+    },
+    {
+      "caseId": "phase15-v1-07#1",
+      "sampleId": "phase15-v1-07",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "父亲很关心孩子。",
+      "expectedRootCauseCategories": [
+        "incomplete_summary"
+      ],
+      "actualRootCause": "学生未提取材料中的关键要素（父亲送伞、自己淋雨），而是直接给出主观感受，缺少对事件本身的客观概括。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "概括",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "三次 Root Cause 都清楚描述了概括不完整，但 Evaluator 未能映射到 incomplete_summary。"
+    },
+    {
+      "caseId": "phase15-v1-07#2",
+      "sampleId": "phase15-v1-07",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "父亲很关心孩子。",
+      "expectedRootCauseCategories": [
+        "incomplete_summary"
+      ],
+      "actualRootCause": "学生回答了核心情感（关心），但未完成概括任务：题目要求概括主要内容，需要包含人物（父亲和孩子）、事件（父亲送伞并淋雨），而学生只给出了抽象结论，未保留必要的事件要素。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "概括",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "三次 Root Cause 都清楚描述了概括不完整，但 Evaluator 未能映射到 incomplete_summary。"
+    },
+    {
+      "caseId": "phase15-v1-07#3",
+      "sampleId": "phase15-v1-07",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "父亲很关心孩子。",
+      "expectedRootCauseCategories": [
+        "incomplete_summary"
+      ],
+      "actualRootCause": "学生回答了核心情感，但题目要求概括主要内容，需要包含人物和事件；学生未提取出‘父亲送伞’‘自己淋雨’等关键事件，导致概括缺失主要事件要素。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "概括",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "三次 Root Cause 都清楚描述了概括不完整，但 Evaluator 未能映射到 incomplete_summary。"
+    },
+    {
+      "caseId": "phase15-v1-08#1",
+      "sampleId": "phase15-v1-08",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "我赞成，因为这样更好。",
+      "expectedRootCauseCategories": [
+        "expression_incomplete"
+      ],
+      "actualRootCause": "学生回答了核心问题（赞成），但未按照题目要求说明理由，缺少必要的依据支撑，导致答案不完整。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "表达",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "needs_expansion",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "primaryFailureLayer": "policy",
+      "contributingLayers": [
+        "evaluator",
+        "prompt"
+      ],
+      "recommendedAction": "policy_change",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "对于表达题中的笼统理由，missing_evidence 与 expression_incomplete 均可成立；v2 类别边界过窄，answerStatus 漂移则是另一项 Prompt 问题。"
+    },
+    {
+      "caseId": "phase15-v1-08#3",
+      "sampleId": "phase15-v1-08",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "我赞成，因为这样更好。",
+      "expectedRootCauseCategories": [
+        "expression_incomplete"
+      ],
+      "actualRootCause": "学生表达了观点，但理由仅使用'更好'这一模糊表述，未提供任何可观察的具体依据，无法判断其是否理解题目要求。",
+      "answerStatus": "insufficient_evidence",
+      "mainAbility": "表达",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "needs_expansion",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [
+        "prompt",
+        "policy"
+      ],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "对于表达题中的笼统理由，missing_evidence 与 expression_incomplete 均可成立；v2 类别边界过窄，answerStatus 漂移则是另一项 Prompt 问题。"
+    },
+    {
+      "caseId": "phase15-v1-09#2",
+      "sampleId": "phase15-v1-09",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "父亲很不舍，因为树叶已经褪色，说明树叶很贵。",
+      "expectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "unsupported_inference"
+      ],
+      "actualRootCause": "学生识别了树叶褪色这一细节，但未能正确理解褪色在语境中的含义（时间久远、回忆），而是错误地推断为价值昂贵，导致核心结论虽方向正确（不舍）但依据错误，且未引用关键动作（站了很久、小心夹回）。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "推理",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "Root Cause 已明确指出“褪色”与“价值昂贵”之间的错误关系，但其中一次被误分类为 missing_evidence。"
+    },
+    {
+      "caseId": "phase15-v1-10#1",
+      "sampleId": "phase15-v1-10",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "老师想让小林自己检查，因为老师忘记了答案。",
+      "expectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "unsupported_inference"
+      ],
+      "actualRootCause": "学生虽然提到了老师让小林自己检查，但错误地归因为老师忘记答案，导致核心结论与材料事实冲突。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "理解",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "三次 Root Cause 都描述了缺乏依据或错误的因果推断，但全部被分类为 unknown。"
+    },
+    {
+      "caseId": "phase15-v1-10#2",
+      "sampleId": "phase15-v1-10",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "老师想让小林自己检查，因为老师忘记了答案。",
+      "expectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "unsupported_inference"
+      ],
+      "actualRootCause": "学生理解了老师让小林自己检查的表面行为，但错误推断老师忘记答案，未能理解老师培养自主反思的教育目的。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "理解",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "三次 Root Cause 都描述了缺乏依据或错误的因果推断，但全部被分类为 unknown。"
+    },
+    {
+      "caseId": "phase15-v1-10#3",
+      "sampleId": "phase15-v1-10",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "老师想让小林自己检查，因为老师忘记了答案。",
+      "expectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "unsupported_inference"
+      ],
+      "actualRootCause": "学生虽然提到老师想让小林自己检查，但后续补充的'因为老师忘记了答案'与材料事实冲突，导致核心结论不成立。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "理解",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "三次 Root Cause 都描述了缺乏依据或错误的因果推断，但全部被分类为 unknown。"
+    },
+    {
+      "caseId": "phase15-v1-11#1",
+      "sampleId": "phase15-v1-11",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "我赞成延长，因为图书馆的书一定会变得更多。",
+      "expectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "unsupported_inference"
+      ],
+      "actualRootCause": "学生提出了观点，但理由（书变多）与延长开放时间没有逻辑关联，未能满足'理由相关'的要求。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "表达",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "答案给出了无关的因果理由；Evaluator 将其映射为 unknown 或表达类别，而不是 incorrect_causal_relation / unsupported_inference。"
+    },
+    {
+      "caseId": "phase15-v1-11#2",
+      "sampleId": "phase15-v1-11",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "我赞成延长，因为图书馆的书一定会变得更多。",
+      "expectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "unsupported_inference"
+      ],
+      "actualRootCause": "学生提出了观点，但理由（书会变多）与延长开放时间这一核心议题缺乏逻辑关联，未能提供与开放时间相关的合理依据。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "表达",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "missing_evidence",
+        "expression_incomplete"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "答案给出了无关的因果理由；Evaluator 将其映射为 unknown 或表达类别，而不是 incorrect_causal_relation / unsupported_inference。"
+    },
+    {
+      "caseId": "phase15-v1-11#3",
+      "sampleId": "phase15-v1-11",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "我赞成延长，因为图书馆的书一定会变得更多。",
+      "expectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "unsupported_inference"
+      ],
+      "actualRootCause": "学生提出了观点，但给出的理由（书变多）与延长开放时间这一行为之间缺乏因果关系，未能提供题目要求的与开放时间相关的合理理由。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "表达",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "expression_incomplete"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "答案给出了无关的因果理由；Evaluator 将其映射为 unknown 或表达类别，而不是 incorrect_causal_relation / unsupported_inference。"
+    },
+    {
+      "caseId": "phase15-v1-12#1",
+      "sampleId": "phase15-v1-12",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "父亲在下雨天帮助孩子，因为孩子忘记带课本。",
+      "expectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "unsupported_inference"
+      ],
+      "actualRootCause": "学生未能准确提取材料中的核心事件（父亲送伞并淋雨），而是添加了材料中未提及的细节（忘记带课本），导致概括偏离原文。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "概括",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "needs_expansion",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "incomplete_summary",
+        "misread_key_detail"
+      ],
+      "primaryFailureLayer": "policy",
+      "contributingLayers": [
+        "evaluator"
+      ],
+      "recommendedAction": "policy_change",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "Dataset v1 接受“添加不存在事实 / 事实错误”，但 Annotation v2 对该样本类别遗漏了 incomplete_summary 与 misread_key_detail。"
+    },
+    {
+      "caseId": "phase15-v1-12#2",
+      "sampleId": "phase15-v1-12",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "父亲在下雨天帮助孩子，因为孩子忘记带课本。",
+      "expectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "unsupported_inference"
+      ],
+      "actualRootCause": "学生未能准确提取材料中的关键事件（父亲等孩子、递伞、自己淋雨），而是添加了材料中未出现的信息（孩子忘记带课本），导致核心事件错误。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "概括",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "needs_expansion",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "policy",
+      "contributingLayers": [
+        "evaluator"
+      ],
+      "recommendedAction": "policy_change",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "Dataset v1 接受“添加不存在事实 / 事实错误”，但 Annotation v2 对该样本类别遗漏了 incomplete_summary 与 misread_key_detail。"
+    },
+    {
+      "caseId": "phase15-v1-12#3",
+      "sampleId": "phase15-v1-12",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "父亲在下雨天帮助孩子，因为孩子忘记带课本。",
+      "expectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "unsupported_inference"
+      ],
+      "actualRootCause": "学生未能准确提取材料中的核心事件（父亲送伞、自己淋雨），而是添加了材料中未提及的“忘记带课本”这一原因，导致概括内容与原文冲突。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "概括",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "needs_expansion",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "policy",
+      "contributingLayers": [
+        "evaluator"
+      ],
+      "recommendedAction": "policy_change",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "Dataset v1 接受“添加不存在事实 / 事实错误”，但 Annotation v2 对该样本类别遗漏了 incomplete_summary 与 misread_key_detail。"
+    },
+    {
+      "caseId": "phase15-v1-13#2",
+      "sampleId": "phase15-v1-13",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "父亲站了很久，还小心夹回树叶，说明他很生气。",
+      "expectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "unsupported_inference",
+        "misread_key_detail"
+      ],
+      "actualRootCause": "学生虽然引用了相关动作（站了很久、小心夹回），但未能正确理解这些动作所传达的情感，导致核心结论与材料事实冲突。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "推理",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "失败 Run 已清楚描述“引用动作正确但心理推断错误”，Evaluator 却返回 unknown。"
+    },
+    {
+      "caseId": "phase15-v1-14#1",
+      "sampleId": "phase15-v1-14",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "小林重新检查发现漏读条件，所以老师是在惩罚他。",
+      "expectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "unsupported_inference",
+        "misread_key_detail"
+      ],
+      "actualRootCause": "学生虽然关注到小林重新检查的结果，但未能正确推断老师行为背后的教育意图，将引导性行为误判为惩罚，导致核心结论与材料事实不符。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "理解",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "三次 Root Cause 都识别了缺乏依据的“惩罚”解释，但 Evaluator 全部返回 unknown。"
+    },
+    {
+      "caseId": "phase15-v1-14#2",
+      "sampleId": "phase15-v1-14",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "小林重新检查发现漏读条件，所以老师是在惩罚他。",
+      "expectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "unsupported_inference",
+        "misread_key_detail"
+      ],
+      "actualRootCause": "学生虽然关注到小林重新检查的结果，但未能正确理解老师行为背后的教育意图，将引导性行为误判为惩罚，核心结论与材料事实不符。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "理解",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "三次 Root Cause 都识别了缺乏依据的“惩罚”解释，但 Evaluator 全部返回 unknown。"
+    },
+    {
+      "caseId": "phase15-v1-14#3",
+      "sampleId": "phase15-v1-14",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "小林重新检查发现漏读条件，所以老师是在惩罚他。",
+      "expectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "unsupported_inference",
+        "misread_key_detail"
+      ],
+      "actualRootCause": "学生虽然注意到小林重新检查的结果，但未能正确推断老师行为背后的教育意图，将引导性行为误判为惩罚。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "理解",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "三次 Root Cause 都识别了缺乏依据的“惩罚”解释，但 Evaluator 全部返回 unknown。"
+    },
+    {
+      "caseId": "phase15-v1-15#1",
+      "sampleId": "phase15-v1-15",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "父亲把伞给孩子后自己淋雨，主要写父亲讨厌下雨。",
+      "expectedRootCauseCategories": [
+        "incomplete_summary",
+        "unsupported_inference",
+        "misread_key_detail"
+      ],
+      "actualRootCause": "学生完成了部分事件概括（父亲把伞给孩子、自己淋雨），但添加了与材料无关且冲突的结论，导致核心信息错误。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "概括",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "三次 Root Cause 都识别了在相关事件概括中加入无依据结论的问题，但 Evaluator 全部返回 unknown。"
+    },
+    {
+      "caseId": "phase15-v1-15#2",
+      "sampleId": "phase15-v1-15",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "父亲把伞给孩子后自己淋雨，主要写父亲讨厌下雨。",
+      "expectedRootCauseCategories": [
+        "incomplete_summary",
+        "unsupported_inference",
+        "misread_key_detail"
+      ],
+      "actualRootCause": "学生提取了部分事件（父亲把伞给孩子、自己淋雨），但未能准确概括主要事件，并加入了与材料冲突的个人推断，导致核心结论错误。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "概括",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "三次 Root Cause 都识别了在相关事件概括中加入无依据结论的问题，但 Evaluator 全部返回 unknown。"
+    },
+    {
+      "caseId": "phase15-v1-15#3",
+      "sampleId": "phase15-v1-15",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "父亲把伞给孩子后自己淋雨，主要写父亲讨厌下雨。",
+      "expectedRootCauseCategories": [
+        "incomplete_summary",
+        "unsupported_inference",
+        "misread_key_detail"
+      ],
+      "actualRootCause": "学生概括时未忠实于材料，加入了与原文无关的个人推断，导致核心结论错误。",
+      "answerStatus": "does_not_meet",
+      "mainAbility": "概括",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "三次 Root Cause 都识别了在相关事件概括中加入无依据结论的问题，但 Evaluator 全部返回 unknown。"
+    },
+    {
+      "caseId": "phase15-v1-16#1",
+      "sampleId": "phase15-v1-16",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "父亲可能想起了以前的事情，因为他看着树叶很久。",
+      "expectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "actualRootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "answerStatus": "fully_meets",
+      "mainAbility": "推理",
+      "evidenceSufficiency": "limited_for_unique_root_cause",
+      "expectedLabelValidity": "needs_expansion",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "primaryFailureLayer": "policy",
+      "contributingLayers": [],
+      "recommendedAction": "policy_change",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "Dataset v1 允许 fully_meets，但 Annotation v2 只允许 missing_evidence；“未发现明确缺口”与被允许的 fully_meets 路径并不冲突。"
+    },
+    {
+      "caseId": "phase15-v1-16#3",
+      "sampleId": "phase15-v1-16",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "父亲可能想起了以前的事情，因为他看着树叶很久。",
+      "expectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "actualRootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "answerStatus": "fully_meets",
+      "mainAbility": "推理",
+      "evidenceSufficiency": "limited_for_unique_root_cause",
+      "expectedLabelValidity": "needs_expansion",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "primaryFailureLayer": "policy",
+      "contributingLayers": [],
+      "recommendedAction": "policy_change",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "Dataset v1 允许 fully_meets，但 Annotation v2 只允许 missing_evidence；“未发现明确缺口”与被允许的 fully_meets 路径并不冲突。"
+    },
+    {
+      "caseId": "phase15-v1-17#1",
+      "sampleId": "phase15-v1-17",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "老师希望小林再检查一次，但没有说清他漏读条件后为什么要自己发现。",
+      "expectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "actualRootCause": "学生已识别老师希望小林再检查一次，但未能进一步推断出老师培养自主反思的深层目的，也未明确建立“漏读条件”与“自己发现”之间的因果联系。",
+      "answerStatus": "partially_meets",
+      "mainAbility": "理解",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "misread_key_detail"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "三次 Root Cause 都识别了深层目的或关系缺失，但 Evaluator 将其映射为 misread_key_detail 或 unknown。"
+    },
+    {
+      "caseId": "phase15-v1-17#2",
+      "sampleId": "phase15-v1-17",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "老师希望小林再检查一次，但没有说清他漏读条件后为什么要自己发现。",
+      "expectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "actualRootCause": "学生理解了老师让小林再检查的行为，但未能结合小林重新检查后发现自己漏读条件的结果，推断出老师培养自主反思的深层目的。",
+      "answerStatus": "partially_meets",
+      "mainAbility": "理解",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "misread_key_detail"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "三次 Root Cause 都识别了深层目的或关系缺失，但 Evaluator 将其映射为 misread_key_detail 或 unknown。"
+    },
+    {
+      "caseId": "phase15-v1-17#3",
+      "sampleId": "phase15-v1-17",
+      "questionType": "reading_open_response",
+      "studentAnswerExcerpt": "老师希望小林再检查一次，但没有说清他漏读条件后为什么要自己发现。",
+      "expectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "actualRootCause": "学生理解了老师让小林再检查的行为，但未进一步推断出老师希望小林自己发现错误以培养自主反思的目的，缺少对行为目的的深层理解。",
+      "answerStatus": "partially_meets",
+      "mainAbility": "理解",
+      "evidenceSufficiency": "sufficient_for_observed_issue",
+      "expectedLabelValidity": "valid",
+      "actualLabelReasonableness": "reasonable",
+      "detectedRootCauseCategories": [
+        "unknown"
+      ],
+      "primaryFailureLayer": "evaluator",
+      "contributingLayers": [],
+      "recommendedAction": "evaluator_fix",
+      "reviewStatus": "agent_initial_review",
+      "reviewNote": "三次 Root Cause 都识别了深层目的或关系缺失，但 Evaluator 将其映射为 misread_key_detail 或 unknown。"
+    }
+  ],
+  "safety": {
+    "providerCalls": 0,
+    "promptModified": false,
+    "policyModified": false,
+    "datasetModified": false,
+    "evidenceCreated": false,
+    "profileUpdated": false,
+    "rawOutputStored": false
+  },
+  "limitations": [
+    "This report reviews only the 32 Root Cause Category failures in the frozen Prompt v4 calibrated baseline.",
+    "The attribution is an agent-assisted initial review. Final human adjudication and agreement are still required before changing Policy or Prompt.",
+    "The projected post-attribution rate assumes the 61 automatically accepted Root Cause runs remain valid; those runs were not fully re-adjudicated here.",
+    "Attribution is an offline human review artifact and must not be used as an online quality classifier for new student responses.",
+    "No Prompt, Policy, Dataset, Annotation or Runtime behavior is changed by this report."
+  ],
+  "validation": {
+    "passed": true,
+    "issues": []
+  }
+}

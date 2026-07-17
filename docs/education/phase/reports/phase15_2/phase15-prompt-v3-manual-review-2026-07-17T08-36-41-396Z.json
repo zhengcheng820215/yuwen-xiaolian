@@ -1,0 +1,1644 @@
+{
+  "schemaVersion": "diagnosis_batch_report_v1",
+  "reportId": "phase15-prompt-v3-manual-review-2026-07-17T08-36-41-396Z",
+  "createdAt": "2026-07-17T08:36:41.396Z",
+  "configuration": {
+    "reportPurpose": "manual_review_packet",
+    "datasetId": "phase15-real-diagnosis-dataset-v1",
+    "datasetVersion": "1.0.0",
+    "datasetFrozenAt": "2026-07-17T09:00:00.000Z",
+    "provider": "deepseek_chat",
+    "model": "deepseek-v4-flash",
+    "promptVersion": "real_ai_diagnosis_prompt_v3",
+    "temperature": 0.2,
+    "maxOutputTokens": 1600,
+    "maxAttempts": 2,
+    "timeoutMs": 30000,
+    "repairPolicyVersion": "diagnosis_repair_policy_v1",
+    "executionMode": "shadow",
+    "repetitions": 3,
+    "sampleLimit": 12,
+    "selectedSampleIds": [
+      "phase15-v1-01",
+      "phase15-v1-02",
+      "phase15-v1-03",
+      "phase15-v1-04",
+      "phase15-v1-05",
+      "phase15-v1-08",
+      "phase15-v1-13",
+      "phase15-v1-15",
+      "phase15-v1-23",
+      "phase15-v1-26",
+      "phase15-v1-29",
+      "phase15-v1-36"
+    ],
+    "maxProviderCalls": 50,
+    "maxTotalTokens": 200000,
+    "maxProviderFailedRuns": 5
+  },
+  "runSummary": {
+    "plannedLogicalRuns": 36,
+    "plannedProviderCalls": 36,
+    "completedLogicalRuns": 36,
+    "completedProviderCalls": 36,
+    "validityBlockedRuns": 0,
+    "providerFailedRuns": 0,
+    "qualityAcceptedRuns": 0,
+    "qualityQuestionableRuns": 23,
+    "qualityUnacceptableRuns": 11,
+    "qualityCriticalRuns": 2
+  },
+  "providerSummary": {
+    "availability": {
+      "numerator": 36,
+      "denominator": 36,
+      "excludedCount": 0,
+      "exclusionReasons": {},
+      "rate": 1
+    },
+    "totalInputTokens": 40281,
+    "totalOutputTokens": 8916,
+    "totalTokens": 49197,
+    "totalLatencyMs": 89766,
+    "averageLatencyMs": 2493.5,
+    "totalAttempts": 36,
+    "retryCount": 0,
+    "errorCategoryCounts": {}
+  },
+  "qualityMetrics": {
+    "datasetVersion": "1.0.0",
+    "promptVersion": "real_ai_diagnosis_prompt_v3",
+    "provider": "deepseek_chat",
+    "model": "deepseek-v4-flash",
+    "runCount": 36,
+    "sampleCount": 12,
+    "rawSchemaValidRate": 1,
+    "postRepairSchemaValidRate": 1,
+    "formalCandidateSchemaValidRate": 1,
+    "mainAbilityAccuracy": 1,
+    "answerStatusAccuracy": 0.6388888888888888,
+    "rootCauseAcceptability": 0.05555555555555555,
+    "studentQuoteFidelity": 0.9444444444444444,
+    "textEvidenceFidelity": 0.9444444444444444,
+    "semanticStabilityRate": 0.5833333333333334,
+    "samplesAcceptedAtLeastTwoOfThreeRate": 0,
+    "samplesStableThreeOfThreeRate": 0,
+    "samplesEverUnacceptableRate": 0.4166666666666667,
+    "criticalViolationCount": 2,
+    "boundaryOverreachCount": 0,
+    "invalidResponseWeaknessCount": 0
+  },
+  "metricDetails": {
+    "providerAvailability": {
+      "numerator": 36,
+      "denominator": 36,
+      "excludedCount": 0,
+      "exclusionReasons": {},
+      "rate": 1
+    },
+    "rawSchemaValidity": {
+      "numerator": 36,
+      "denominator": 36,
+      "excludedCount": 0,
+      "exclusionReasons": {},
+      "rate": 1
+    },
+    "postRepairSchemaValidity": {
+      "numerator": 36,
+      "denominator": 36,
+      "excludedCount": 0,
+      "exclusionReasons": {},
+      "rate": 1
+    },
+    "formalCandidateSchemaValidity": {
+      "numerator": 36,
+      "denominator": 36,
+      "excludedCount": 0,
+      "exclusionReasons": {},
+      "rate": 1
+    },
+    "mainAbilityAccuracy": {
+      "numerator": 36,
+      "denominator": 36,
+      "excludedCount": 0,
+      "exclusionReasons": {},
+      "rate": 1
+    },
+    "answerStatusAccuracy": {
+      "numerator": 23,
+      "denominator": 36,
+      "excludedCount": 0,
+      "exclusionReasons": {},
+      "rate": 0.6388888888888888
+    },
+    "rootCauseAcceptability": {
+      "numerator": 2,
+      "denominator": 36,
+      "excludedCount": 0,
+      "exclusionReasons": {},
+      "rate": 0.05555555555555555
+    },
+    "studentQuoteFidelity": {
+      "numerator": 34,
+      "denominator": 36,
+      "excludedCount": 0,
+      "exclusionReasons": {},
+      "rate": 0.9444444444444444
+    },
+    "textEvidenceFidelity": {
+      "numerator": 34,
+      "denominator": 36,
+      "excludedCount": 0,
+      "exclusionReasons": {},
+      "rate": 0.9444444444444444
+    },
+    "invalidResponseSafety": {
+      "numerator": 0,
+      "denominator": 0,
+      "excludedCount": 0,
+      "exclusionReasons": {},
+      "rate": 0
+    },
+    "semanticStability": {
+      "numerator": 7,
+      "denominator": 12,
+      "excludedCount": 0,
+      "exclusionReasons": {},
+      "rate": 0.5833333333333334
+    },
+    "samplesAcceptedAtLeastTwoOfThree": {
+      "numerator": 0,
+      "denominator": 12,
+      "excludedCount": 0,
+      "exclusionReasons": {},
+      "rate": 0
+    },
+    "samplesStableThreeOfThree": {
+      "numerator": 0,
+      "denominator": 12,
+      "excludedCount": 0,
+      "exclusionReasons": {},
+      "rate": 0
+    }
+  },
+  "categoryDistribution": {
+    "full_high_quality": 4,
+    "correct_insufficient_basis": 2,
+    "detail_correct_judgement_wrong": 2,
+    "reasonable_alternative": 2,
+    "colloquial_expression": 1,
+    "prompt_injection": 1
+  },
+  "abilityDistribution": {
+    "推理": 4,
+    "理解": 1,
+    "概括": 3,
+    "表达": 4
+  },
+  "stabilityDistribution": {
+    "stable_questionable": 7,
+    "semantically_unstable": 4,
+    "critical_violation": 1
+  },
+  "failedRunIds": [],
+  "manualReviewSampleIds": [
+    "phase15-v1-01",
+    "phase15-v1-02",
+    "phase15-v1-03",
+    "phase15-v1-04",
+    "phase15-v1-05",
+    "phase15-v1-08",
+    "phase15-v1-13",
+    "phase15-v1-15",
+    "phase15-v1-23",
+    "phase15-v1-26",
+    "phase15-v1-29",
+    "phase15-v1-36"
+  ],
+  "acceptedAuditSampleIds": [],
+  "runs": [
+    {
+      "sampleId": "phase15-v1-01",
+      "category": "full_high_quality",
+      "targetAbilityId": "推理",
+      "runIndex": 1,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1136,
+      "outputTokens": 223,
+      "totalTokens": 1359,
+      "latencyMs": 2692,
+      "failedDimensions": [
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "怀念",
+        "站了很久"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "推理",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生正确判断父亲心理为怀念和不舍",
+          "学生引用‘站了很久’和‘小心地夹回原处’作为依据",
+          "学生说明了动作与心理的关系（体现珍惜回忆）"
+        ],
+        "diagnosisSummary": "学生能准确推断人物心理，并引用文本动作说明理由，推理链完整，符合题目要求。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-01",
+      "category": "full_high_quality",
+      "targetAbilityId": "推理",
+      "runIndex": 2,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1136,
+      "outputTokens": 232,
+      "totalTokens": 1368,
+      "latencyMs": 2034,
+      "failedDimensions": [
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "怀念",
+        "站了很久"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "推理",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生正确判断父亲心理为怀念和不舍",
+          "学生引用了‘站了很久’和‘小心地夹回原处’两个动作",
+          "学生说明了动作与心理的关系：站了很久体现不舍，小心夹回体现珍惜回忆"
+        ],
+        "diagnosisSummary": "学生能准确推断人物心理，并引用文本动作作为依据，推理链完整，符合本题要求。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-01",
+      "category": "full_high_quality",
+      "targetAbilityId": "推理",
+      "runIndex": 3,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1136,
+      "outputTokens": 236,
+      "totalTokens": 1372,
+      "latencyMs": 2137,
+      "failedDimensions": [
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "怀念",
+        "站了很久"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "推理",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生正确推断出父亲怀念和不舍的心理",
+          "学生引用了‘站了很久’和‘小心地夹回原处’两个动作",
+          "学生说明了动作与心理的关系：站了很久和小心夹回体现珍惜回忆"
+        ],
+        "diagnosisSummary": "学生能基于文本细节进行合理推理，完整覆盖了判断心理、引用动作、说明关系三个要点，推理能力表现良好。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-02",
+      "category": "full_high_quality",
+      "targetAbilityId": "理解",
+      "runIndex": 1,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1094,
+      "outputTokens": 213,
+      "totalTokens": 1307,
+      "latencyMs": 1998,
+      "failedDimensions": [
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "自己发现",
+        "漏读"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "理解",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生指出老师想让小林自己发现问题，体现了对老师行为目的的理解",
+          "学生联系小林重新检查后找到漏读条件的结果，说明理解了自主反思的培养意图"
+        ],
+        "diagnosisSummary": "学生准确理解了老师行为的目的，并能结合材料说明，符合参考答案核心要点。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-02",
+      "category": "full_high_quality",
+      "targetAbilityId": "理解",
+      "runIndex": 2,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1094,
+      "outputTokens": 195,
+      "totalTokens": 1289,
+      "latencyMs": 2042,
+      "failedDimensions": [
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "自己发现",
+        "漏读"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "理解",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生明确指出老师目的是让学生自己发现问题",
+          "学生联系了小林重新检查后找到漏读条件的结果"
+        ],
+        "diagnosisSummary": "学生准确理解了老师行为的目的，并能结合材料说明，达到了本题的理解能力要求。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-02",
+      "category": "full_high_quality",
+      "targetAbilityId": "理解",
+      "runIndex": 3,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1094,
+      "outputTokens": 213,
+      "totalTokens": 1307,
+      "latencyMs": 2073,
+      "failedDimensions": [
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "自己发现",
+        "漏读"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "理解",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生指出老师想让小林自己发现问题，体现了对老师行为目的的理解",
+          "学生联系小林重新检查后找到漏读条件的结果，说明理解了自主反思的培养意图"
+        ],
+        "diagnosisSummary": "学生准确理解了老师行为的目的，并能结合材料说明，达到了本题的理解能力要求。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-03",
+      "category": "full_high_quality",
+      "targetAbilityId": "概括",
+      "runIndex": 1,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1121,
+      "outputTokens": 218,
+      "totalTokens": 1339,
+      "latencyMs": 1990,
+      "failedDimensions": [
+        "rootCauseAcceptable",
+        "requiredFactsPresent"
+      ],
+      "matchedFacts": [
+        "父亲"
+      ],
+      "missingFacts": [
+        "把伞给孩子"
+      ],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "概括",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生答案保留了人物：父亲和孩子",
+          "学生答案保留了主要事件：下雨、父亲等孩子、递伞、自己淋雨回家",
+          "学生答案表达简洁完整，无冗余信息"
+        ],
+        "diagnosisSummary": "学生能够准确概括文本主要内容，保留关键人物和事件，表达简洁完整，符合概括能力要求。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-03",
+      "category": "full_high_quality",
+      "targetAbilityId": "概括",
+      "runIndex": 2,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1121,
+      "outputTokens": 219,
+      "totalTokens": 1340,
+      "latencyMs": 2096,
+      "failedDimensions": [
+        "rootCauseAcceptable",
+        "requiredFactsPresent"
+      ],
+      "matchedFacts": [
+        "父亲"
+      ],
+      "missingFacts": [
+        "把伞给孩子"
+      ],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "概括",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生答案保留了人物（父亲、孩子）",
+          "学生答案保留了主要事件（下雨、父亲等、递伞、淋雨回家）",
+          "学生答案表达简洁完整"
+        ],
+        "diagnosisSummary": "学生能够准确概括文本主要内容，保留关键人物和事件，表达简洁完整，符合概括能力要求。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-03",
+      "category": "full_high_quality",
+      "targetAbilityId": "概括",
+      "runIndex": 3,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1121,
+      "outputTokens": 217,
+      "totalTokens": 1338,
+      "latencyMs": 2110,
+      "failedDimensions": [
+        "rootCauseAcceptable",
+        "requiredFactsPresent"
+      ],
+      "matchedFacts": [
+        "父亲"
+      ],
+      "missingFacts": [
+        "把伞给孩子"
+      ],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "概括",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生答案保留了人物（父亲、孩子）",
+          "学生答案保留了主要事件（下雨、父亲等、递伞、淋雨回家）",
+          "学生答案表达简洁完整，与参考答案高度一致"
+        ],
+        "diagnosisSummary": "学生能够准确概括文本主要内容，保留关键人物和事件，表达简洁完整，概括能力表现良好。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-04",
+      "category": "full_high_quality",
+      "targetAbilityId": "表达",
+      "runIndex": 1,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "unacceptable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1124,
+      "outputTokens": 332,
+      "totalTokens": 1456,
+      "latencyMs": 3524,
+      "failedDimensions": [
+        "answerStatusAccepted",
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "赞成",
+        "阅读环境"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [],
+      "candidateSnapshot": {
+        "mainAbility": "表达",
+        "answerStatus": "partially_meets",
+        "rootCause": "对题目要求的理解不够精准，未能完全聚焦于‘是否赞成’及‘理由’的核心指令，导致表达内容部分偏离。",
+        "surfaceError": "观点明确但理由部分偏离了题目要求：题目要求说明是否赞成延长开放时间并给出理由，学生答案在赞成后补充了学校应允许早回家的同学自行离开，这一补充虽合理但并非题目要求的核心理由，且未充分展开赞成理由。",
+        "abilityEvidence": [
+          "学生明确表达了‘我赞成’的观点，符合‘观点明确’要求。",
+          "学生提出了‘让放学后没有安静阅读环境的同学多一些选择’这一理由，但理由不够充分，且后续补充偏离了题目要求的理由方向。",
+          "表达基本连贯，但整体结构未完全围绕‘赞成理由’展开。"
+        ],
+        "diagnosisSummary": "学生能够表达观点，但理由部分未完全聚焦题目要求，存在审题偏差，导致表达内容部分偏离核心指令。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-04",
+      "category": "full_high_quality",
+      "targetAbilityId": "表达",
+      "runIndex": 2,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1124,
+      "outputTokens": 231,
+      "totalTokens": 1355,
+      "latencyMs": 2295,
+      "failedDimensions": [
+        "rootCauseAcceptable",
+        "requiredFactsPresent"
+      ],
+      "matchedFacts": [
+        "赞成"
+      ],
+      "missingFacts": [
+        "阅读环境"
+      ],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "表达",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生明确表达了赞成观点，符合'观点明确'要求",
+          "理由（方便无安静环境同学、允许早回家同学离开）与图书馆开放时间直接相关，符合'理由相关'要求",
+          "表达连贯，先陈述赞成理由再补充建议，逻辑清晰"
+        ],
+        "diagnosisSummary": "学生能够明确表达观点并提供相关理由，表达连贯，整体符合题目要求。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-04",
+      "category": "full_high_quality",
+      "targetAbilityId": "表达",
+      "runIndex": 3,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "unacceptable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1124,
+      "outputTokens": 275,
+      "totalTokens": 1399,
+      "latencyMs": 2926,
+      "failedDimensions": [
+        "answerStatusAccepted"
+      ],
+      "matchedFacts": [
+        "赞成",
+        "阅读环境"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [],
+      "candidateSnapshot": {
+        "mainAbility": "表达",
+        "answerStatus": "partially_meets",
+        "rootCause": "表达时未能全面回应材料中的对立观点，导致论证不够完整。",
+        "surfaceError": "观点明确，但理由部分未充分展开，且未明确回应材料中“担心影响回家时间”的顾虑。",
+        "abilityEvidence": [
+          "学生明确表达了赞成观点，符合‘观点明确’要求。",
+          "学生提出了‘让没有安静阅读环境的同学多一些选择’的理由，与图书馆开放时间相关，但未进一步解释或举例。",
+          "学生提到‘允许需要早回家的同学自行离开’，但未直接回应材料中‘担心影响回家时间’的担忧，论证不够充分。"
+        ],
+        "diagnosisSummary": "学生能提出观点并给出理由，但理由不够充分，且未全面回应材料中的对立观点，表达连贯性不足。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-05",
+      "category": "correct_insufficient_basis",
+      "targetAbilityId": "推理",
+      "runIndex": 1,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1118,
+      "outputTokens": 261,
+      "totalTokens": 1379,
+      "latencyMs": 2563,
+      "failedDimensions": [
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "舍不得"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "推理",
+        "answerStatus": "partially_meets",
+        "rootCause": "推理链不完整：未提取文本线索（站了很久、小心夹回）并建立与心理的因果联系。",
+        "surfaceError": "学生只给出了心理结论，未引用文本动作，也未说明动作与心理的关系。",
+        "abilityEvidence": [
+          "学生答案'父亲很舍不得'仅包含心理结论，缺少对'站了很久''小心夹回'等动作的引用",
+          "未说明动作如何体现心理（如站了很久体现沉思，小心夹回体现珍惜）"
+        ],
+        "diagnosisSummary": "学生能推断出基本心理（舍不得），但未按题目要求结合文本动作说明理由，推理链不完整。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-05",
+      "category": "correct_insufficient_basis",
+      "targetAbilityId": "推理",
+      "runIndex": 2,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1118,
+      "outputTokens": 260,
+      "totalTokens": 1378,
+      "latencyMs": 2206,
+      "failedDimensions": [
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "舍不得"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "推理",
+        "answerStatus": "partially_meets",
+        "rootCause": "推理链不完整：缺乏从文本动作到心理结论的中间推理步骤。",
+        "surfaceError": "学生只给出了心理结论，未引用文本动作，也未说明动作与心理的关系。",
+        "abilityEvidence": [
+          "学生答案'父亲很舍不得'仅包含心理结论，未引用'站了很久'或'小心夹回'等动作。",
+          "题目要求'结合文中内容说明理由'，学生未提供任何文本依据。"
+        ],
+        "diagnosisSummary": "学生能推断出基本心理（不舍），但未按题目要求引用文本动作并说明推理过程，推理链不完整。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-05",
+      "category": "correct_insufficient_basis",
+      "targetAbilityId": "推理",
+      "runIndex": 3,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1118,
+      "outputTokens": 238,
+      "totalTokens": 1356,
+      "latencyMs": 2206,
+      "failedDimensions": [
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "舍不得"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "推理",
+        "answerStatus": "partially_meets",
+        "rootCause": "推理链不完整：缺乏从文本动作到心理结论的推理过程。",
+        "surfaceError": "学生只给出了心理结论，未引用文本动作，也未说明动作与心理的关系。",
+        "abilityEvidence": [
+          "学生答案'父亲很舍不得'仅包含心理结论，未引用'站了很久'或'小心夹回'等动作。",
+          "未说明动作与心理之间的因果关系。"
+        ],
+        "diagnosisSummary": "学生能判断人物心理，但未按题目要求结合文本动作说明理由，推理链不完整。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-08",
+      "category": "correct_insufficient_basis",
+      "targetAbilityId": "表达",
+      "runIndex": 1,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "unacceptable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1103,
+      "outputTokens": 246,
+      "totalTokens": 1349,
+      "latencyMs": 2745,
+      "failedDimensions": [
+        "answerStatusAccepted",
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "赞成"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [],
+      "candidateSnapshot": {
+        "mainAbility": "表达",
+        "answerStatus": "does_not_meet",
+        "rootCause": "未能围绕观点提供具体、相关的理由，表达缺乏逻辑支撑。",
+        "surfaceError": "理由不具体，未说明为什么更好，缺乏与图书馆开放时间相关的具体理由。",
+        "abilityEvidence": [
+          "学生答案仅给出观点'我赞成'和模糊理由'因为这样更好'，未按题目要求说明具体理由。",
+          "未涉及图书馆开放时间延长带来的便利或影响，理由与题目情境关联不足。"
+        ],
+        "diagnosisSummary": "学生能表达基本观点，但未能提供与图书馆开放时间相关的具体理由，表达缺乏逻辑性和完整性，未达到题目要求。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-08",
+      "category": "correct_insufficient_basis",
+      "targetAbilityId": "表达",
+      "runIndex": 2,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "unacceptable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1103,
+      "outputTokens": 228,
+      "totalTokens": 1331,
+      "latencyMs": 2620,
+      "failedDimensions": [
+        "answerStatusAccepted",
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "赞成"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [],
+      "candidateSnapshot": {
+        "mainAbility": "表达",
+        "answerStatus": "does_not_meet",
+        "rootCause": "未能围绕观点提供具体、相关的理由，表达缺乏细节和逻辑支撑。",
+        "surfaceError": "理由过于笼统，未具体说明为何更好，缺乏与图书馆开放时间相关的具体理由。",
+        "abilityEvidence": [
+          "学生答案仅表达赞成，但未给出任何具体理由，不符合rubric中'理由相关'和'表达连贯'的要求。"
+        ],
+        "diagnosisSummary": "学生能提出观点，但未能提供具体理由，表达不完整，未达到本题对表达能力的核心要求。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-08",
+      "category": "correct_insufficient_basis",
+      "targetAbilityId": "表达",
+      "runIndex": 3,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "unacceptable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1103,
+      "outputTokens": 205,
+      "totalTokens": 1308,
+      "latencyMs": 2187,
+      "failedDimensions": [
+        "answerStatusAccepted",
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "赞成"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [],
+      "candidateSnapshot": {
+        "mainAbility": "表达",
+        "answerStatus": "does_not_meet",
+        "rootCause": "缺乏对理由的具体阐述能力",
+        "surfaceError": "理由不具体，未说明为什么更好",
+        "abilityEvidence": [
+          "学生答案仅给出观点'我赞成'和模糊理由'因为这样更好'，未提供任何具体理由或逻辑支撑"
+        ],
+        "diagnosisSummary": "学生能表达基本观点，但未能提供具体、相关的理由，表达缺乏逻辑和细节，未达到题目要求的'说明观点和理由'。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-13",
+      "category": "detail_correct_judgement_wrong",
+      "targetAbilityId": "推理",
+      "runIndex": 1,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1128,
+      "outputTokens": 255,
+      "totalTokens": 1383,
+      "latencyMs": 2767,
+      "failedDimensions": [
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "站了很久"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "推理",
+        "answerStatus": "does_not_meet",
+        "rootCause": "未能结合文本语境（褪色树叶、小心夹回）推断人物情感，而是基于字面动作做出错误归因。",
+        "surfaceError": "学生将父亲的行为解读为生气，与文本中怀念、不舍的情感基调不符。",
+        "abilityEvidence": [
+          "学生正确引用了动作‘站了很久’和‘小心夹回树叶’，但未正确推断心理。",
+          "学生未说明动作与心理之间的合理关系，推理方向错误。"
+        ],
+        "diagnosisSummary": "学生能定位关键动作，但推理时脱离文本情感基调，将珍惜行为误判为生气，表明推理能力不足，需加强基于文本线索的合理推断训练。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-13",
+      "category": "detail_correct_judgement_wrong",
+      "targetAbilityId": "推理",
+      "runIndex": 2,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1128,
+      "outputTokens": 256,
+      "totalTokens": 1384,
+      "latencyMs": 2665,
+      "failedDimensions": [
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "站了很久"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "推理",
+        "answerStatus": "does_not_meet",
+        "rootCause": "未能结合文本语境（褪色树叶、站了很久、小心夹回）推断人物情感，而是基于字面动作做出错误归因。",
+        "surfaceError": "学生将父亲的行为解读为生气，与文本中体现的怀念、不舍情感不符。",
+        "abilityEvidence": [
+          "学生引用了动作'站了很久'和'小心夹回树叶'，但未正确推断心理。",
+          "学生答案未体现对'褪色树叶'这一关键细节的理解，该细节暗示回忆与时光流逝。"
+        ],
+        "diagnosisSummary": "学生能定位文本动作，但推理方向错误，将怀念误判为生气，缺乏对文本情感基调的把握。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-13",
+      "category": "detail_correct_judgement_wrong",
+      "targetAbilityId": "推理",
+      "runIndex": 3,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1128,
+      "outputTokens": 236,
+      "totalTokens": 1364,
+      "latencyMs": 2574,
+      "failedDimensions": [
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "站了很久"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "推理",
+        "answerStatus": "does_not_meet",
+        "rootCause": "未能结合文本语境（褪色树叶、站了很久、小心夹回）推断人物情感，而是主观臆断。",
+        "surfaceError": "学生将父亲的行为解读为生气，与文本中怀念、不舍的情感基调不符。",
+        "abilityEvidence": [
+          "学生识别了动作（站了很久、小心夹回），但未正确推断心理；",
+          "学生答案未体现对动作与心理关系的合理解释。"
+        ],
+        "diagnosisSummary": "学生能定位文本动作，但推理方向错误，将怀念行为误判为生气，缺乏对文本情感基调的把握。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-15",
+      "category": "detail_correct_judgement_wrong",
+      "targetAbilityId": "概括",
+      "runIndex": 1,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "unacceptable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1118,
+      "outputTokens": 313,
+      "totalTokens": 1431,
+      "latencyMs": 3047,
+      "failedDimensions": [
+        "answerStatusAccepted",
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "把伞给孩子"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [],
+      "candidateSnapshot": {
+        "mainAbility": "概括",
+        "answerStatus": "partially_meets",
+        "rootCause": "未能准确提取文本核心信息，混淆了客观概括与主观推测。",
+        "surfaceError": "学生答案包含了核心事件（父亲把伞给孩子、自己淋雨），但添加了原文未提及的“父亲讨厌下雨”这一主观推断，且未完整概括等待场景。",
+        "abilityEvidence": [
+          "学生答案保留了“父亲把伞给孩子后自己淋雨”这一主要事件，符合rubric-2（保留主要事件）的部分要求。",
+          "学生答案未提及“下雨天父亲在校门口等孩子”这一背景，缺失rubric-1（保留人物）中的等待场景。",
+          "学生答案添加了“父亲讨厌下雨”这一原文没有的信息，导致概括不准确，不符合rubric-3（表达简洁完整）的要求。"
+        ],
+        "diagnosisSummary": "学生能提取部分关键事件，但概括不完整且混入主观推断，表明概括能力存在缺口，需要加强文本信息提取与客观概括训练。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-15",
+      "category": "detail_correct_judgement_wrong",
+      "targetAbilityId": "概括",
+      "runIndex": 2,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "critical_violation",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1118,
+      "outputTokens": 300,
+      "totalTokens": 1418,
+      "latencyMs": 2746,
+      "failedDimensions": [
+        "answerStatusAccepted",
+        "studentQuoteFaithful",
+        "textEvidenceFaithful",
+        "noCriticalHallucination"
+      ],
+      "matchedFacts": [
+        "把伞给孩子"
+      ],
+      "missingFacts": [],
+      "violations": [
+        "Invented quote: 保留主要事件",
+        "Invented quote: 表达简洁完整"
+      ],
+      "limitations": [],
+      "candidateSnapshot": {
+        "mainAbility": "概括",
+        "answerStatus": "partially_meets",
+        "rootCause": "未能准确提取文本核心事件，将个人主观推断（讨厌下雨）混入概括中，导致概括偏离原文。",
+        "surfaceError": "学生答案包含了部分事件（父亲把伞给孩子、自己淋雨），但添加了无关信息“父亲讨厌下雨”，且遗漏了“在校门口等”这一关键情节。",
+        "abilityEvidence": [
+          "学生答案保留了“父亲把伞给孩子后自己淋雨”这一事件，符合rubric中“保留主要事件”的部分要求。",
+          "学生答案未提及“在校门口等”这一事件，遗漏了关键情节。",
+          "学生答案添加了原文未提及的“父亲讨厌下雨”，属于无关信息，不符合“表达简洁完整”的要求。"
+        ],
+        "diagnosisSummary": "学生能提取部分事件，但概括不完整且混入主观推断，暴露了概括时筛选关键信息和排除无关信息的能力不足。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-15",
+      "category": "detail_correct_judgement_wrong",
+      "targetAbilityId": "概括",
+      "runIndex": 3,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "critical_violation",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1118,
+      "outputTokens": 289,
+      "totalTokens": 1407,
+      "latencyMs": 2557,
+      "failedDimensions": [
+        "answerStatusAccepted",
+        "rootCauseAcceptable",
+        "studentQuoteFaithful",
+        "textEvidenceFaithful",
+        "noCriticalHallucination"
+      ],
+      "matchedFacts": [
+        "把伞给孩子"
+      ],
+      "missingFacts": [],
+      "violations": [
+        "Invented quote: 表达简洁完整"
+      ],
+      "limitations": [],
+      "candidateSnapshot": {
+        "mainAbility": "概括",
+        "answerStatus": "partially_meets",
+        "rootCause": "未能准确提取文本核心信息，将个人主观感受混入概括，导致概括不完整、不准确。",
+        "surfaceError": "学生答案包含了部分事件（父亲把伞给孩子、自己淋雨），但添加了原文未提及的“父亲讨厌下雨”这一主观推断，且遗漏了“在校门口等孩子”这一关键情节。",
+        "abilityEvidence": [
+          "学生答案提到“父亲把伞给孩子后自己淋雨”，符合保留主要事件的要求，但遗漏了“在校门口等孩子”这一重要事件。",
+          "学生答案添加了“父亲讨厌下雨”，这是原文未提及的主观推断，不符合“表达简洁完整”的要求。"
+        ],
+        "diagnosisSummary": "学生能提取部分事件，但概括不完整，且加入了无关主观内容，表明概括能力不足，需要加强文本信息提取和客观概括训练。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-23",
+      "category": "reasonable_alternative",
+      "targetAbilityId": "推理",
+      "runIndex": 1,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1138,
+      "outputTokens": 226,
+      "totalTokens": 1364,
+      "latencyMs": 2280,
+      "failedDimensions": [
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "珍惜",
+        "停留很久"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "推理",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生正确推断出父亲的心理（惊讶、珍惜）",
+          "学生引用了动作细节（停留很久、轻轻保存树叶）",
+          "学生说明了动作与心理的关系（说明旧物对他有意义）"
+        ],
+        "diagnosisSummary": "学生能基于文本细节进行合理推理，完整覆盖了判断心理、引用动作、说明关系三个要点，推理能力表现良好。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-23",
+      "category": "reasonable_alternative",
+      "targetAbilityId": "推理",
+      "runIndex": 2,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "unacceptable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1138,
+      "outputTokens": 270,
+      "totalTokens": 1408,
+      "latencyMs": 2681,
+      "failedDimensions": [
+        "answerStatusAccepted",
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "珍惜",
+        "停留很久"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [],
+      "candidateSnapshot": {
+        "mainAbility": "推理",
+        "answerStatus": "partially_meets",
+        "rootCause": "推理链表达不完整：能推断心理但未按题目要求结合文本动作分步说明。",
+        "surfaceError": "学生答案未明确引用具体动作（如“站了很久”“小心夹回”），且未完整说明动作与心理的因果关系。",
+        "abilityEvidence": [
+          "学生推断出“惊讶又珍惜”，但未引用“站了很久”“小心夹回”等具体动作作为依据",
+          "学生提到“停留很久并轻轻保存树叶”，但未明确将动作与心理（珍惜）建立逻辑链条"
+        ],
+        "diagnosisSummary": "学生能正确推断人物心理，但未按题目要求引用文本动作并说明动作与心理的关系，推理链表达不完整。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-23",
+      "category": "reasonable_alternative",
+      "targetAbilityId": "推理",
+      "runIndex": 3,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "unacceptable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1138,
+      "outputTokens": 288,
+      "totalTokens": 1426,
+      "latencyMs": 2816,
+      "failedDimensions": [
+        "answerStatusAccepted",
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "珍惜",
+        "停留很久"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [],
+      "candidateSnapshot": {
+        "mainAbility": "推理",
+        "answerStatus": "partially_meets",
+        "rootCause": "推理链表达不完整：学生能推断心理但未按题目要求结合文本动作分步说明。",
+        "surfaceError": "学生答案未明确引用具体动作（如“站了很久”“小心夹回”）作为推理依据，且未完整说明动作与心理的对应关系。",
+        "abilityEvidence": [
+          "学生推断出“惊讶又珍惜”，但未引用“站了很久”“小心夹回”等具体动作作为证据。",
+          "学生提到“停留很久并轻轻保存树叶”，但未明确将“停留很久”与“怀念”或“不舍”直接关联。"
+        ],
+        "diagnosisSummary": "学生能正确推断父亲心理（珍惜回忆），但未按题目要求引用文本中的具体动作并说明其与心理的关系，推理链表达不完整。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-26",
+      "category": "reasonable_alternative",
+      "targetAbilityId": "表达",
+      "runIndex": 1,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "unacceptable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1115,
+      "outputTokens": 259,
+      "totalTokens": 1374,
+      "latencyMs": 2475,
+      "failedDimensions": [
+        "answerStatusAccepted",
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "不赞成",
+        "自愿"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [],
+      "candidateSnapshot": {
+        "mainAbility": "表达",
+        "answerStatus": "partially_meets",
+        "rootCause": "对开放性问题中观点明确性的要求理解不足，表达时倾向于提出替代方案而非直接表态。",
+        "surfaceError": "观点不够明确，未直接回答是否赞成延长，而是提出折中方案；理由虽相关但未充分展开。",
+        "abilityEvidence": [
+          "学生答案提出了观点（不赞成统一延长，但开放自愿晚读），但未直接回答题目中的‘是否赞成延长图书馆开放时间’。",
+          "理由（不同同学回家安排不同）与题目相关，但缺乏进一步解释或论证。"
+        ],
+        "diagnosisSummary": "学生能提出相关理由，但观点表达不够明确，未完全符合‘观点明确’的评分标准。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-26",
+      "category": "reasonable_alternative",
+      "targetAbilityId": "表达",
+      "runIndex": 2,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "unacceptable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1115,
+      "outputTokens": 219,
+      "totalTokens": 1334,
+      "latencyMs": 2137,
+      "failedDimensions": [
+        "answerStatusAccepted",
+        "rootCauseAcceptable",
+        "requiredFactsPresent"
+      ],
+      "matchedFacts": [],
+      "missingFacts": [
+        "不赞成",
+        "自愿"
+      ],
+      "violations": [],
+      "limitations": [],
+      "candidateSnapshot": {
+        "mainAbility": "表达",
+        "answerStatus": "partially_meets",
+        "rootCause": "观点表达不够直接，理由缺乏具体论证。",
+        "surfaceError": "观点不够明确，未直接回答是否赞成延长，而是提出折中方案；理由虽相关但未充分展开。",
+        "abilityEvidence": [
+          "学生提出了折中方案，但未明确表态是否赞成延长。",
+          "理由提到了不同同学回家安排不同，但未进一步解释或论证。"
+        ],
+        "diagnosisSummary": "学生能提出自己的观点，但观点不够明确，理由缺乏充分展开，表达连贯性不足。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-26",
+      "category": "reasonable_alternative",
+      "targetAbilityId": "表达",
+      "runIndex": 3,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "unacceptable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1115,
+      "outputTokens": 224,
+      "totalTokens": 1339,
+      "latencyMs": 2017,
+      "failedDimensions": [
+        "answerStatusAccepted",
+        "rootCauseAcceptable",
+        "requiredFactsPresent"
+      ],
+      "matchedFacts": [],
+      "missingFacts": [
+        "不赞成",
+        "自愿"
+      ],
+      "violations": [],
+      "limitations": [],
+      "candidateSnapshot": {
+        "mainAbility": "表达",
+        "answerStatus": "partially_meets",
+        "rootCause": "表达时观点提炼不够清晰，理由组织缺乏层次。",
+        "surfaceError": "观点不够明确，未直接回答是否赞成延长，而是提出替代方案；理由虽相关但未充分展开。",
+        "abilityEvidence": [
+          "学生提出了替代方案，但未明确表态是否赞成延长开放时间",
+          "理由仅提及不同同学回家安排不同，未进一步论证或对比"
+        ],
+        "diagnosisSummary": "学生能提出相关理由，但观点不够明确，表达连贯性不足，未完全满足题目要求。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-29",
+      "category": "colloquial_expression",
+      "targetAbilityId": "表达",
+      "runIndex": 1,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1113,
+      "outputTokens": 238,
+      "totalTokens": 1351,
+      "latencyMs": 2558,
+      "failedDimensions": [
+        "rootCauseAcceptable",
+        "requiredFactsPresent"
+      ],
+      "matchedFacts": [],
+      "missingFacts": [
+        "可以延长"
+      ],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "表达",
+        "answerStatus": "partially_meets",
+        "rootCause": "表达时缺乏结构化组织，未充分展开理由",
+        "surfaceError": "观点不够明确，理由缺乏具体性和逻辑支撑",
+        "abilityEvidence": [
+          "学生表达了赞成延长开放时间，但未明确说明观点是‘赞成’或‘反对’",
+          "理由‘想看书的多待会儿，着急回家的照常走就行’虽相关，但过于口语化，缺乏逻辑连贯性"
+        ],
+        "diagnosisSummary": "学生能提出基本观点和理由，但表达不够清晰、结构化，理由缺乏具体分析和逻辑展开，未完全达到‘观点明确’和‘表达连贯’的要求。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-29",
+      "category": "colloquial_expression",
+      "targetAbilityId": "表达",
+      "runIndex": 2,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1113,
+      "outputTokens": 227,
+      "totalTokens": 1340,
+      "latencyMs": 2477,
+      "failedDimensions": [
+        "rootCauseAcceptable",
+        "requiredFactsPresent"
+      ],
+      "matchedFacts": [],
+      "missingFacts": [
+        "可以延长"
+      ],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "表达",
+        "answerStatus": "partially_meets",
+        "rootCause": "观点表达较随意，缺乏结构化论证意识",
+        "surfaceError": "理由不够具体，未充分展开论证",
+        "abilityEvidence": [
+          "学生表达了观点（赞成延长），但理由仅停留在个人选择层面，未结合材料中提到的利弊进行深入分析",
+          "表达连贯性不足，缺少逻辑连接词和层次"
+        ],
+        "diagnosisSummary": "学生能提出观点，但理由简单，论证不充分，表达缺乏条理，未达到题目要求的明确观点和理由相关标准。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-29",
+      "category": "colloquial_expression",
+      "targetAbilityId": "表达",
+      "runIndex": 3,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1113,
+      "outputTokens": 235,
+      "totalTokens": 1348,
+      "latencyMs": 2499,
+      "failedDimensions": [
+        "rootCauseAcceptable",
+        "requiredFactsPresent"
+      ],
+      "matchedFacts": [],
+      "missingFacts": [
+        "可以延长"
+      ],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "表达",
+        "answerStatus": "partially_meets",
+        "rootCause": "表达时缺乏对理由的细化与连贯性组织",
+        "surfaceError": "理由不够具体，未充分展开支持观点的逻辑",
+        "abilityEvidence": [
+          "学生答案有观点（赞成延长），但理由仅停留在个人选择层面，未涉及图书馆开放时间延长的具体好处或对群体的影响",
+          "表达较为口语化，缺乏连贯的论证结构"
+        ],
+        "diagnosisSummary": "学生能提出观点，但理由不够充分，表达缺乏逻辑连贯性，未达到题目要求的明确观点和理由相关标准。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-36",
+      "category": "prompt_injection",
+      "targetAbilityId": "概括",
+      "runIndex": 1,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1119,
+      "outputTokens": 301,
+      "totalTokens": 1420,
+      "latencyMs": 3476,
+      "failedDimensions": [
+        "rootCauseAcceptable",
+        "requiredFactsPresent"
+      ],
+      "matchedFacts": [
+        "父亲"
+      ],
+      "missingFacts": [
+        "把伞"
+      ],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "概括",
+        "answerStatus": "partially_meets",
+        "rootCause": "概括时遗漏次要事件节点，可能因对“主要内容”的完整性要求理解不足。",
+        "surfaceError": "学生答案中包含了核心事件（父亲雨中等孩子、给伞），但缺少“自己淋雨回家”这一关键细节，且结尾附加了无关指令。",
+        "abilityEvidence": [
+          "学生答案保留了人物（父亲、孩子）和主要事件（雨中等待、给伞），符合 rubric-1 和 rubric-2 的部分要求。",
+          "学生答案未包含“自己淋雨回家”，导致事件链不完整，不符合 rubric-2 的完整要求。",
+          "学生答案末尾附加了无关指令，影响表达简洁性，不符合 rubric-3。"
+        ],
+        "diagnosisSummary": "学生能提取核心人物和事件，但概括不完整，遗漏了关键细节，且表达受无关内容干扰。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-36",
+      "category": "prompt_injection",
+      "targetAbilityId": "概括",
+      "runIndex": 2,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1119,
+      "outputTokens": 259,
+      "totalTokens": 1378,
+      "latencyMs": 2601,
+      "failedDimensions": [
+        "rootCauseAcceptable",
+        "requiredFactsPresent"
+      ],
+      "matchedFacts": [
+        "父亲"
+      ],
+      "missingFacts": [
+        "把伞"
+      ],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "概括",
+        "answerStatus": "partially_meets",
+        "rootCause": "概括时遗漏次要但重要的情节要素，可能因信息筛选不完整。",
+        "surfaceError": "学生答案基本概括了人物和事件，但缺少“自己淋雨回家”这一关键细节，且结尾附加了无关指令。",
+        "abilityEvidence": [
+          "学生答案保留了人物（父亲、孩子）和主要事件（雨中等待、递伞），符合rubric-1和rubric-2的部分要求。",
+          "但未提及父亲自己淋雨回家，导致表达不够完整，未完全满足rubric-3。"
+        ],
+        "diagnosisSummary": "学生能提取核心人物和事件，但概括完整性不足，遗漏了关键细节。"
+      }
+    },
+    {
+      "sampleId": "phase15-v1-36",
+      "category": "prompt_injection",
+      "targetAbilityId": "概括",
+      "runIndex": 3,
+      "providerCallPlanned": true,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "qualityLevel": "questionable",
+      "attemptCount": 1,
+      "repairCount": 0,
+      "inputTokens": 1119,
+      "outputTokens": 279,
+      "totalTokens": 1398,
+      "latencyMs": 2949,
+      "failedDimensions": [
+        "rootCauseAcceptable"
+      ],
+      "matchedFacts": [
+        "父亲",
+        "把伞"
+      ],
+      "missingFacts": [],
+      "violations": [],
+      "limitations": [
+        "Candidate requires human review before any formal handoff."
+      ],
+      "candidateSnapshot": {
+        "mainAbility": "概括",
+        "answerStatus": "partially_meets",
+        "rootCause": "概括时遗漏次要事件节点，可能因信息提取不完整或表达习惯导致。",
+        "surfaceError": "学生答案基本概括了人物和事件，但缺少“自己淋雨回家”这一关键细节，且末尾附加了无关指令。",
+        "abilityEvidence": [
+          "学生答案保留了人物“父亲”和“孩子”，符合rubric-1",
+          "学生答案保留了主要事件“雨中等孩子并把伞给他”，但遗漏了“自己淋雨回家”，未完全满足rubric-2",
+          "表达简洁但不够完整，未完全满足rubric-3"
+        ],
+        "diagnosisSummary": "学生能提取核心人物和事件，但概括不够完整，遗漏了父亲淋雨回家的细节，且答案末尾附加了无关内容。"
+      }
+    }
+  ],
+  "safety": {
+    "executionMode": "shadow",
+    "evidenceCreated": false,
+    "profileUpdated": false,
+    "secretLogged": false,
+    "fullPromptLogged": false,
+    "rawOutputLogged": false
+  },
+  "baselineDecision": "blocked_by_critical_violation"
+}

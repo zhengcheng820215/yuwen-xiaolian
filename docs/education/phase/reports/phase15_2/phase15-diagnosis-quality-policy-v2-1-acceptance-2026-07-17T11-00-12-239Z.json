@@ -1,0 +1,5895 @@
+{
+  "schemaVersion": "diagnosis_quality_policy_v2_1_acceptance_v1",
+  "reportId": "phase15-diagnosis-quality-policy-v2-1-acceptance-2026-07-17T11-00-12-239Z",
+  "createdAt": "2026-07-17T11:00:12.239Z",
+  "sourceReportId": "phase15-prompt-v4-baseline-2026-07-17T10-03-19-131Z",
+  "policyVersion": "diagnosis_quality_policy_v2_1",
+  "ownerConfirmation": {
+    "recorded": true,
+    "confirmedGroups": {
+      "recovered": 29,
+      "blockedPromptErrors": 3,
+      "preservedRootCausePasses": 61
+    },
+    "safetyPolicy": {
+      "accepted": "formal_candidate_allowed",
+      "questionable": "review_required",
+      "unacceptable": "blocked",
+      "critical_violation": "blocked_and_alerted",
+      "unknownOrConflicting": "review_required"
+    }
+  },
+  "metrics": {
+    "candidateRuns": 93,
+    "rootCauseAccepted": 90,
+    "qualityCounts": {
+      "accepted": 79,
+      "questionable": 6,
+      "unacceptable": 8,
+      "critical_violation": 0
+    },
+    "sampleCount": 31
+  },
+  "checks": [
+    {
+      "code": "formal_policy_is_v2_1",
+      "passed": true,
+      "actual": "93/93",
+      "required": "93/93"
+    },
+    {
+      "code": "frozen_candidate_count",
+      "passed": true,
+      "actual": "93",
+      "required": "93"
+    },
+    {
+      "code": "root_cause_acceptance",
+      "passed": true,
+      "actual": "90/93",
+      "required": "90/93"
+    },
+    {
+      "code": "accepted_count",
+      "passed": true,
+      "actual": "79",
+      "required": "79"
+    },
+    {
+      "code": "questionable_count",
+      "passed": true,
+      "actual": "6",
+      "required": "6"
+    },
+    {
+      "code": "unacceptable_count",
+      "passed": true,
+      "actual": "8",
+      "required": "8"
+    },
+    {
+      "code": "critical_count",
+      "passed": true,
+      "actual": "0",
+      "required": "0"
+    },
+    {
+      "code": "questionable_requires_review",
+      "passed": true,
+      "actual": "PASS",
+      "required": "PASS"
+    },
+    {
+      "code": "unacceptable_is_blocked",
+      "passed": true,
+      "actual": "PASS",
+      "required": "PASS"
+    },
+    {
+      "code": "critical_is_blocked",
+      "passed": true,
+      "actual": "PASS",
+      "required": "PASS"
+    },
+    {
+      "code": "sample_06_prompt_errors_blocked",
+      "passed": true,
+      "actual": "3/3",
+      "required": "3/3"
+    },
+    {
+      "code": "unknown_requires_review",
+      "passed": true,
+      "actual": "questionable",
+      "required": "questionable"
+    },
+    {
+      "code": "conflicting_requires_review",
+      "passed": true,
+      "actual": "questionable",
+      "required": "questionable"
+    },
+    {
+      "code": "source_shadow_safety",
+      "passed": true,
+      "actual": "PASS",
+      "required": "PASS"
+    },
+    {
+      "code": "annotation_set_valid",
+      "passed": true,
+      "actual": "PASS",
+      "required": "PASS"
+    }
+  ],
+  "evaluations": [
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-01-phase15-v1-01#1",
+      "sampleId": "phase15-v1-01",
+      "runId": "phase15-v1-01#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-6000-5ff5",
+        "fact-2-7ad9-4e86-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-01",
+        "runId": "phase15-v1-01#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.227Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-01-phase15-v1-01#2",
+      "sampleId": "phase15-v1-01",
+      "runId": "phase15-v1-01#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-6000-5ff5",
+        "fact-2-7ad9-4e86-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-01",
+        "runId": "phase15-v1-01#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.233Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-01-phase15-v1-01#3",
+      "sampleId": "phase15-v1-01",
+      "runId": "phase15-v1-01#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-6000-5ff5",
+        "fact-2-7ad9-4e86-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-01",
+        "runId": "phase15-v1-01#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.234Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-02-phase15-v1-02#1",
+      "sampleId": "phase15-v1-02",
+      "runId": "phase15-v1-02#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-81ea-5df1-53d1-73b0",
+        "fact-2-6f0f-8bfb"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-02",
+        "runId": "phase15-v1-02#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.234Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-02-phase15-v1-02#2",
+      "sampleId": "phase15-v1-02",
+      "runId": "phase15-v1-02#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-81ea-5df1-53d1-73b0",
+        "fact-2-6f0f-8bfb"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-02",
+        "runId": "phase15-v1-02#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.234Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-02-phase15-v1-02#3",
+      "sampleId": "phase15-v1-02",
+      "runId": "phase15-v1-02#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-81ea-5df1-53d1-73b0",
+        "fact-2-6f0f-8bfb"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-02",
+        "runId": "phase15-v1-02#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.234Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-03-phase15-v1-03#1",
+      "sampleId": "phase15-v1-03",
+      "runId": "phase15-v1-03#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2",
+        "fact-2-628a-4f1e-7ed9-5b69-5b50"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-03",
+        "runId": "phase15-v1-03#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        },
+        {
+          "dimension": "required_fact",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 substring matching failed but Policy v2 accepted-expression matching succeeded."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.234Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-03-phase15-v1-03#2",
+      "sampleId": "phase15-v1-03",
+      "runId": "phase15-v1-03#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2",
+        "fact-2-628a-4f1e-7ed9-5b69-5b50"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-03",
+        "runId": "phase15-v1-03#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        },
+        {
+          "dimension": "required_fact",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 substring matching failed but Policy v2 accepted-expression matching succeeded."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.234Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-03-phase15-v1-03#3",
+      "sampleId": "phase15-v1-03",
+      "runId": "phase15-v1-03#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2",
+        "fact-2-628a-4f1e-7ed9-5b69-5b50"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-03",
+        "runId": "phase15-v1-03#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        },
+        {
+          "dimension": "required_fact",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 substring matching failed but Policy v2 accepted-expression matching succeeded."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.234Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-04-phase15-v1-04#1",
+      "sampleId": "phase15-v1-04",
+      "runId": "phase15-v1-04#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-8d5e-6210",
+        "fact-2-9605-8bfb-73af-5883"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-04",
+        "runId": "phase15-v1-04#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        },
+        {
+          "dimension": "required_fact",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 substring matching failed but Policy v2 accepted-expression matching succeeded."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.234Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-04-phase15-v1-04#2",
+      "sampleId": "phase15-v1-04",
+      "runId": "phase15-v1-04#2",
+      "qualityLevel": "questionable",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": false,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-8d5e-6210"
+      ],
+      "missingFactIds": [
+        "fact-2-9605-8bfb-73af-5883"
+      ],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-04",
+        "runId": "phase15-v1-04#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        },
+        {
+          "dimension": "required_fact",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "Missing required fact concepts: fact-2-9605-8bfb-73af-5883."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "human_review",
+      "canBecomeFormalCandidate": false,
+      "evaluatedAt": "2026-07-17T11:00:12.234Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-04-phase15-v1-04#3",
+      "sampleId": "phase15-v1-04",
+      "runId": "phase15-v1-04#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-8d5e-6210",
+        "fact-2-9605-8bfb-73af-5883"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-04",
+        "runId": "phase15-v1-04#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.234Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-05-phase15-v1-05#1",
+      "sampleId": "phase15-v1-05",
+      "runId": "phase15-v1-05#1",
+      "qualityLevel": "unacceptable",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": false,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "matchedFactIds": [
+        "fact-1-820d-4e0d-5f97"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-05",
+        "runId": "phase15-v1-05#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "answer_status",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "answerStatus is outside the accepted annotation boundary."
+        },
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "blocked",
+      "canBecomeFormalCandidate": false,
+      "evaluatedAt": "2026-07-17T11:00:12.234Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-05-phase15-v1-05#2",
+      "sampleId": "phase15-v1-05",
+      "runId": "phase15-v1-05#2",
+      "qualityLevel": "unacceptable",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": false,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "matchedFactIds": [
+        "fact-1-820d-4e0d-5f97"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-05",
+        "runId": "phase15-v1-05#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "answer_status",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "answerStatus is outside the accepted annotation boundary."
+        },
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "blocked",
+      "canBecomeFormalCandidate": false,
+      "evaluatedAt": "2026-07-17T11:00:12.234Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-05-phase15-v1-05#3",
+      "sampleId": "phase15-v1-05",
+      "runId": "phase15-v1-05#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "matchedFactIds": [
+        "fact-1-820d-4e0d-5f97"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-05",
+        "runId": "phase15-v1-05#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.234Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-06-phase15-v1-06#1",
+      "sampleId": "phase15-v1-06",
+      "runId": "phase15-v1-06#1",
+      "qualityLevel": "unacceptable",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": false,
+        "rootCauseCategoryAccepted": false,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-81ea-5df1-60f3"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-06",
+        "runId": "phase15-v1-06#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "answer_status",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "answerStatus is outside the accepted annotation boundary."
+        },
+        {
+          "dimension": "root_cause",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "Detected root-cause categories are outside the accepted annotation boundary."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "blocked",
+      "canBecomeFormalCandidate": false,
+      "evaluatedAt": "2026-07-17T11:00:12.234Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-06-phase15-v1-06#2",
+      "sampleId": "phase15-v1-06",
+      "runId": "phase15-v1-06#2",
+      "qualityLevel": "unacceptable",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": false,
+        "rootCauseCategoryAccepted": false,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-81ea-5df1-60f3"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-06",
+        "runId": "phase15-v1-06#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "answer_status",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "answerStatus is outside the accepted annotation boundary."
+        },
+        {
+          "dimension": "root_cause",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "Detected root-cause categories are outside the accepted annotation boundary."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "blocked",
+      "canBecomeFormalCandidate": false,
+      "evaluatedAt": "2026-07-17T11:00:12.234Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-06-phase15-v1-06#3",
+      "sampleId": "phase15-v1-06",
+      "runId": "phase15-v1-06#3",
+      "qualityLevel": "unacceptable",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": false,
+        "rootCauseCategoryAccepted": false,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-81ea-5df1-60f3"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-06",
+        "runId": "phase15-v1-06#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "answer_status",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "answerStatus is outside the accepted annotation boundary."
+        },
+        {
+          "dimension": "root_cause",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "Detected root-cause categories are outside the accepted annotation boundary."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "blocked",
+      "canBecomeFormalCandidate": false,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-07-phase15-v1-07#1",
+      "sampleId": "phase15-v1-07",
+      "runId": "phase15-v1-07#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence",
+        "incomplete_summary"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-07",
+        "runId": "phase15-v1-07#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-07-phase15-v1-07#2",
+      "sampleId": "phase15-v1-07",
+      "runId": "phase15-v1-07#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence",
+        "incomplete_summary"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-07",
+        "runId": "phase15-v1-07#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-07-phase15-v1-07#3",
+      "sampleId": "phase15-v1-07",
+      "runId": "phase15-v1-07#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "incomplete_summary"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-07",
+        "runId": "phase15-v1-07#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-08-phase15-v1-08#1",
+      "sampleId": "phase15-v1-08",
+      "runId": "phase15-v1-08#1",
+      "qualityLevel": "unacceptable",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": false,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence",
+        "expression_incomplete"
+      ],
+      "matchedFactIds": [
+        "fact-1-8d5e-6210"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-08",
+        "runId": "phase15-v1-08#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "answer_status",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "answerStatus is outside the accepted annotation boundary."
+        },
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "blocked",
+      "canBecomeFormalCandidate": false,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-08-phase15-v1-08#2",
+      "sampleId": "phase15-v1-08",
+      "runId": "phase15-v1-08#2",
+      "qualityLevel": "unacceptable",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": false,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence",
+        "expression_incomplete"
+      ],
+      "matchedFactIds": [
+        "fact-1-8d5e-6210"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-08",
+        "runId": "phase15-v1-08#2",
+        "attributions": [
+          {
+            "fieldPath": "rootCause",
+            "text": "因为这样更好",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "diagnosisSummary",
+            "text": "理由相关",
+            "source": "rubric_term",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to rubric_term."
+          },
+          {
+            "fieldPath": "diagnosisSummary",
+            "text": "表达连贯",
+            "source": "rubric_term",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to rubric_term."
+          },
+          {
+            "fieldPath": "abilityEvidence[0]",
+            "text": "我赞成",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          }
+        ],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "answer_status",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "answerStatus is outside the accepted annotation boundary."
+        },
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        },
+        {
+          "dimension": "quote_attribution",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 global quote scan failed but Policy v2 source-aware attribution succeeded."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "blocked",
+      "canBecomeFormalCandidate": false,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-08-phase15-v1-08#3",
+      "sampleId": "phase15-v1-08",
+      "runId": "phase15-v1-08#3",
+      "qualityLevel": "unacceptable",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": false,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence",
+        "expression_incomplete"
+      ],
+      "matchedFactIds": [
+        "fact-1-8d5e-6210"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-08",
+        "runId": "phase15-v1-08#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "answer_status",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "answerStatus is outside the accepted annotation boundary."
+        },
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "blocked",
+      "canBecomeFormalCandidate": false,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-09-phase15-v1-09#1",
+      "sampleId": "phase15-v1-09",
+      "runId": "phase15-v1-09#1",
+      "qualityLevel": "questionable",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": false,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "incorrect_causal_relation"
+      ],
+      "matchedFactIds": [],
+      "missingFactIds": [
+        "fact-1-4e0d-820d"
+      ],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-09",
+        "runId": "phase15-v1-09#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "required_fact",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "Missing required fact concepts: fact-1-4e0d-820d."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "human_review",
+      "canBecomeFormalCandidate": false,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-09-phase15-v1-09#2",
+      "sampleId": "phase15-v1-09",
+      "runId": "phase15-v1-09#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence",
+        "incorrect_causal_relation",
+        "misread_key_detail"
+      ],
+      "matchedFactIds": [
+        "fact-1-4e0d-820d"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-09",
+        "runId": "phase15-v1-09#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-09-phase15-v1-09#3",
+      "sampleId": "phase15-v1-09",
+      "runId": "phase15-v1-09#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "incorrect_causal_relation"
+      ],
+      "matchedFactIds": [
+        "fact-1-4e0d-820d"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-09",
+        "runId": "phase15-v1-09#3",
+        "attributions": [
+          {
+            "fieldPath": "abilityEvidence[0]",
+            "text": "不舍",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "abilityEvidence[0]",
+            "text": "树叶很贵",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "abilityEvidence[0]",
+            "text": "褪色",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "abilityEvidence[0]",
+            "text": "站了很久",
+            "source": "task_material_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to task_material_quote."
+          },
+          {
+            "fieldPath": "abilityEvidence[0]",
+            "text": "小心夹回",
+            "source": "reference_answer_term",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to reference_answer_term."
+          }
+        ],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-10-phase15-v1-10#1",
+      "sampleId": "phase15-v1-10",
+      "runId": "phase15-v1-10#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "unsupported_inference",
+        "incorrect_causal_relation"
+      ],
+      "matchedFactIds": [
+        "fact-1-81ea-5df1-68c0-67e5"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-10",
+        "runId": "phase15-v1-10#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-10-phase15-v1-10#2",
+      "sampleId": "phase15-v1-10",
+      "runId": "phase15-v1-10#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "incorrect_causal_relation"
+      ],
+      "matchedFactIds": [
+        "fact-1-81ea-5df1-68c0-67e5"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-10",
+        "runId": "phase15-v1-10#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-10-phase15-v1-10#3",
+      "sampleId": "phase15-v1-10",
+      "runId": "phase15-v1-10#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "unsupported_inference",
+        "incorrect_causal_relation"
+      ],
+      "matchedFactIds": [
+        "fact-1-81ea-5df1-68c0-67e5"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-10",
+        "runId": "phase15-v1-10#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-11-phase15-v1-11#1",
+      "sampleId": "phase15-v1-11",
+      "runId": "phase15-v1-11#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "incorrect_causal_relation"
+      ],
+      "matchedFactIds": [
+        "fact-1-8d5e-6210"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-11",
+        "runId": "phase15-v1-11#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-11-phase15-v1-11#2",
+      "sampleId": "phase15-v1-11",
+      "runId": "phase15-v1-11#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence",
+        "incorrect_causal_relation",
+        "expression_incomplete"
+      ],
+      "matchedFactIds": [
+        "fact-1-8d5e-6210"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-11",
+        "runId": "phase15-v1-11#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-11-phase15-v1-11#3",
+      "sampleId": "phase15-v1-11",
+      "runId": "phase15-v1-11#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "expression_incomplete"
+      ],
+      "matchedFactIds": [
+        "fact-1-8d5e-6210"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-11",
+        "runId": "phase15-v1-11#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.235Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-12-phase15-v1-12#1",
+      "sampleId": "phase15-v1-12",
+      "runId": "phase15-v1-12#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "unsupported_inference",
+        "incomplete_summary",
+        "misread_key_detail"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2",
+        "fact-2-4e0b-96e8"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-12",
+        "runId": "phase15-v1-12#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.236Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-12-phase15-v1-12#2",
+      "sampleId": "phase15-v1-12",
+      "runId": "phase15-v1-12#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "unsupported_inference",
+        "incomplete_summary"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2",
+        "fact-2-4e0b-96e8"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-12",
+        "runId": "phase15-v1-12#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.236Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-12-phase15-v1-12#3",
+      "sampleId": "phase15-v1-12",
+      "runId": "phase15-v1-12#3",
+      "qualityLevel": "questionable",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": false,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "unsupported_inference",
+        "incomplete_summary"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2"
+      ],
+      "missingFactIds": [
+        "fact-2-4e0b-96e8"
+      ],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-12",
+        "runId": "phase15-v1-12#3",
+        "attributions": [
+          {
+            "fieldPath": "rootCause",
+            "text": "忘记带课本",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "surfaceError",
+            "text": "帮助孩子，因为孩子忘记带课本",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "abilityEvidence[0]",
+            "text": "帮助孩子",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "abilityEvidence[0]",
+            "text": "因为孩子忘记带课本",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "abilityEvidence[1]",
+            "text": "父亲把伞给孩子、自己淋雨",
+            "source": "system_paraphrase",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to system_paraphrase."
+          }
+        ],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        },
+        {
+          "dimension": "required_fact",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "Missing required fact concepts: fact-2-4e0b-96e8."
+        },
+        {
+          "dimension": "quote_attribution",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 global quote scan failed but Policy v2 source-aware attribution succeeded."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "human_review",
+      "canBecomeFormalCandidate": false,
+      "evaluatedAt": "2026-07-17T11:00:12.236Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-13-phase15-v1-13#1",
+      "sampleId": "phase15-v1-13",
+      "runId": "phase15-v1-13#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "misread_key_detail"
+      ],
+      "matchedFactIds": [
+        "fact-1-7ad9-4e86-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-13",
+        "runId": "phase15-v1-13#1",
+        "attributions": [
+          {
+            "fieldPath": "surfaceError",
+            "text": "生气",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "surfaceError",
+            "text": "站了很久",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "surfaceError",
+            "text": "小心夹回",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "abilityEvidence[0]",
+            "text": "站了很久",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": true,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "abilityEvidence[0]",
+            "text": "小心夹回树叶",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "abilityEvidence[0]",
+            "text": "引用相关动作",
+            "source": "rubric_term",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to rubric_term."
+          },
+          {
+            "fieldPath": "abilityEvidence[1]",
+            "text": "生气",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          }
+        ],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "quote_attribution",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 global quote scan failed but Policy v2 source-aware attribution succeeded."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.236Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-13-phase15-v1-13#2",
+      "sampleId": "phase15-v1-13",
+      "runId": "phase15-v1-13#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "unsupported_inference",
+        "incorrect_causal_relation",
+        "misread_key_detail"
+      ],
+      "matchedFactIds": [
+        "fact-1-7ad9-4e86-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-13",
+        "runId": "phase15-v1-13#2",
+        "attributions": [
+          {
+            "fieldPath": "surfaceError",
+            "text": "生气",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          }
+        ],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.236Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-13-phase15-v1-13#3",
+      "sampleId": "phase15-v1-13",
+      "runId": "phase15-v1-13#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "incorrect_causal_relation"
+      ],
+      "matchedFactIds": [
+        "fact-1-7ad9-4e86-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-13",
+        "runId": "phase15-v1-13#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.236Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-14-phase15-v1-14#1",
+      "sampleId": "phase15-v1-14",
+      "runId": "phase15-v1-14#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "unsupported_inference",
+        "incorrect_causal_relation",
+        "misread_key_detail"
+      ],
+      "matchedFactIds": [
+        "fact-1-91cd-65b0-68c0-67e5"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-14",
+        "runId": "phase15-v1-14#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.236Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-14-phase15-v1-14#2",
+      "sampleId": "phase15-v1-14",
+      "runId": "phase15-v1-14#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "unsupported_inference",
+        "incorrect_causal_relation",
+        "misread_key_detail"
+      ],
+      "matchedFactIds": [
+        "fact-1-91cd-65b0-68c0-67e5"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-14",
+        "runId": "phase15-v1-14#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.236Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-14-phase15-v1-14#3",
+      "sampleId": "phase15-v1-14",
+      "runId": "phase15-v1-14#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "incorrect_causal_relation",
+        "misread_key_detail"
+      ],
+      "matchedFactIds": [
+        "fact-1-91cd-65b0-68c0-67e5"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-14",
+        "runId": "phase15-v1-14#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.236Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-15-phase15-v1-15#1",
+      "sampleId": "phase15-v1-15",
+      "runId": "phase15-v1-15#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "unsupported_inference",
+        "incomplete_summary"
+      ],
+      "matchedFactIds": [
+        "fact-1-628a-4f1e-7ed9-5b69-5b50"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-15",
+        "runId": "phase15-v1-15#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.236Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-15-phase15-v1-15#2",
+      "sampleId": "phase15-v1-15",
+      "runId": "phase15-v1-15#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "unsupported_inference",
+        "incorrect_causal_relation",
+        "incomplete_summary"
+      ],
+      "matchedFactIds": [
+        "fact-1-628a-4f1e-7ed9-5b69-5b50"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-15",
+        "runId": "phase15-v1-15#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.236Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-15-phase15-v1-15#3",
+      "sampleId": "phase15-v1-15",
+      "runId": "phase15-v1-15#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "unsupported_inference",
+        "incorrect_causal_relation",
+        "incomplete_summary"
+      ],
+      "matchedFactIds": [
+        "fact-1-628a-4f1e-7ed9-5b69-5b50"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-15",
+        "runId": "phase15-v1-15#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.236Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-16-phase15-v1-16#1",
+      "sampleId": "phase15-v1-16",
+      "runId": "phase15-v1-16#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-4ee5-524d",
+        "fact-2-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-16",
+        "runId": "phase15-v1-16#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.236Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-16-phase15-v1-16#2",
+      "sampleId": "phase15-v1-16",
+      "runId": "phase15-v1-16#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "matchedFactIds": [
+        "fact-1-4ee5-524d",
+        "fact-2-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-16",
+        "runId": "phase15-v1-16#2",
+        "attributions": [
+          {
+            "fieldPath": "rootCause",
+            "text": "看着树叶很久",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": true,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "rootCause",
+            "text": "说明动作与心理的关系",
+            "source": "rubric_term",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to rubric_term."
+          },
+          {
+            "fieldPath": "rootCause",
+            "text": "小心夹回",
+            "source": "reference_answer_term",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to reference_answer_term."
+          },
+          {
+            "fieldPath": "surfaceError",
+            "text": "想起了以前的事情",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "surfaceError",
+            "text": "小心夹回",
+            "source": "reference_answer_term",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to reference_answer_term."
+          },
+          {
+            "fieldPath": "diagnosisSummary",
+            "text": "小心夹回",
+            "source": "reference_answer_term",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to reference_answer_term."
+          },
+          {
+            "fieldPath": "abilityEvidence[0]",
+            "text": "想起了以前的事情",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "abilityEvidence[1]",
+            "text": "看着树叶很久",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": true,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "abilityEvidence[1]",
+            "text": "小心夹回",
+            "source": "reference_answer_term",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to reference_answer_term."
+          },
+          {
+            "fieldPath": "abilityEvidence[2]",
+            "text": "看着树叶很久",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "abilityEvidence[2]",
+            "text": "想起了以前的事情",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          }
+        ],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        },
+        {
+          "dimension": "quote_attribution",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 global quote scan failed but Policy v2 source-aware attribution succeeded."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.236Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-16-phase15-v1-16#3",
+      "sampleId": "phase15-v1-16",
+      "runId": "phase15-v1-16#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-4ee5-524d",
+        "fact-2-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-16",
+        "runId": "phase15-v1-16#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.236Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-17-phase15-v1-17#1",
+      "sampleId": "phase15-v1-17",
+      "runId": "phase15-v1-17#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence",
+        "misread_key_detail"
+      ],
+      "matchedFactIds": [
+        "fact-1-518d-68c0-67e5"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-17",
+        "runId": "phase15-v1-17#1",
+        "attributions": [
+          {
+            "fieldPath": "rootCause",
+            "text": "漏读条件",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "rootCause",
+            "text": "自己发现",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "surfaceError",
+            "text": "漏读条件",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "surfaceError",
+            "text": "自己发现",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "diagnosisSummary",
+            "text": "漏读条件",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "diagnosisSummary",
+            "text": "自己发现",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          },
+          {
+            "fieldPath": "abilityEvidence[0]",
+            "text": "老师希望小林再检查一次",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": true,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          }
+        ],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        },
+        {
+          "dimension": "quote_attribution",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 global quote scan failed but Policy v2 source-aware attribution succeeded."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-17-phase15-v1-17#2",
+      "sampleId": "phase15-v1-17",
+      "runId": "phase15-v1-17#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence",
+        "misread_key_detail"
+      ],
+      "matchedFactIds": [
+        "fact-1-518d-68c0-67e5"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-17",
+        "runId": "phase15-v1-17#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-17-phase15-v1-17#3",
+      "sampleId": "phase15-v1-17",
+      "runId": "phase15-v1-17#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "matchedFactIds": [
+        "fact-1-518d-68c0-67e5"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-17",
+        "runId": "phase15-v1-17#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-18-phase15-v1-18#1",
+      "sampleId": "phase15-v1-18",
+      "runId": "phase15-v1-18#1",
+      "qualityLevel": "questionable",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": false,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "incomplete_summary"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2"
+      ],
+      "missingFactIds": [
+        "fact-2-4e0b-96e8"
+      ],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-18",
+        "runId": "phase15-v1-18#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "required_fact",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "Missing required fact concepts: fact-2-4e0b-96e8."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "human_review",
+      "canBecomeFormalCandidate": false,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-18-phase15-v1-18#2",
+      "sampleId": "phase15-v1-18",
+      "runId": "phase15-v1-18#2",
+      "qualityLevel": "questionable",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": false,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "incomplete_summary"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2"
+      ],
+      "missingFactIds": [
+        "fact-2-4e0b-96e8"
+      ],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-18",
+        "runId": "phase15-v1-18#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "required_fact",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "Missing required fact concepts: fact-2-4e0b-96e8."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "human_review",
+      "canBecomeFormalCandidate": false,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-18-phase15-v1-18#3",
+      "sampleId": "phase15-v1-18",
+      "runId": "phase15-v1-18#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "incomplete_summary"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2",
+        "fact-2-4e0b-96e8"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-18",
+        "runId": "phase15-v1-18#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-19-phase15-v1-19#1",
+      "sampleId": "phase15-v1-19",
+      "runId": "phase15-v1-19#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence",
+        "expression_incomplete"
+      ],
+      "matchedFactIds": [
+        "fact-1-4e0d-8d5e-6210",
+        "fact-2-65e9-70b9-56de-5bb6"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-19",
+        "runId": "phase15-v1-19#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-19-phase15-v1-19#2",
+      "sampleId": "phase15-v1-19",
+      "runId": "phase15-v1-19#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence",
+        "expression_incomplete"
+      ],
+      "matchedFactIds": [
+        "fact-1-4e0d-8d5e-6210",
+        "fact-2-65e9-70b9-56de-5bb6"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-19",
+        "runId": "phase15-v1-19#2",
+        "attributions": [
+          {
+            "fieldPath": "surfaceError",
+            "text": "方便阅读",
+            "source": "task_material_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to task_material_quote."
+          },
+          {
+            "fieldPath": "abilityEvidence[1]",
+            "text": "有些同学需要早点回家",
+            "source": "student_exact_quote",
+            "presentedAsStudentQuote": false,
+            "valid": true,
+            "reason": "Quote is attributable to student_exact_quote."
+          }
+        ],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-19-phase15-v1-19#3",
+      "sampleId": "phase15-v1-19",
+      "runId": "phase15-v1-19#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-4e0d-8d5e-6210",
+        "fact-2-65e9-70b9-56de-5bb6"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-19",
+        "runId": "phase15-v1-19#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-20-phase15-v1-20#1",
+      "sampleId": "phase15-v1-20",
+      "runId": "phase15-v1-20#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "matchedFactIds": [
+        "fact-1-820d-4e0d-5f97",
+        "fact-2-7ad9-4e86-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-20",
+        "runId": "phase15-v1-20#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-20-phase15-v1-20#2",
+      "sampleId": "phase15-v1-20",
+      "runId": "phase15-v1-20#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-820d-4e0d-5f97",
+        "fact-2-7ad9-4e86-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-20",
+        "runId": "phase15-v1-20#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-20-phase15-v1-20#3",
+      "sampleId": "phase15-v1-20",
+      "runId": "phase15-v1-20#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-820d-4e0d-5f97",
+        "fact-2-7ad9-4e86-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-20",
+        "runId": "phase15-v1-20#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-21-phase15-v1-21#1",
+      "sampleId": "phase15-v1-21",
+      "runId": "phase15-v1-21#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2",
+        "fact-2-628a-4f1e"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-21",
+        "runId": "phase15-v1-21#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-21-phase15-v1-21#2",
+      "sampleId": "phase15-v1-21",
+      "runId": "phase15-v1-21#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2",
+        "fact-2-628a-4f1e"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-21",
+        "runId": "phase15-v1-21#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-21-phase15-v1-21#3",
+      "sampleId": "phase15-v1-21",
+      "runId": "phase15-v1-21#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2",
+        "fact-2-628a-4f1e"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-21",
+        "runId": "phase15-v1-21#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-22-phase15-v1-22#1",
+      "sampleId": "phase15-v1-22",
+      "runId": "phase15-v1-22#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-8d5e-6210",
+        "fact-2-66f4-591a-65f6-95f4"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-22",
+        "runId": "phase15-v1-22#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-22-phase15-v1-22#2",
+      "sampleId": "phase15-v1-22",
+      "runId": "phase15-v1-22#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-8d5e-6210",
+        "fact-2-66f4-591a-65f6-95f4"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-22",
+        "runId": "phase15-v1-22#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-22-phase15-v1-22#3",
+      "sampleId": "phase15-v1-22",
+      "runId": "phase15-v1-22#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-8d5e-6210",
+        "fact-2-66f4-591a-65f6-95f4"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-22",
+        "runId": "phase15-v1-22#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-23-phase15-v1-23#1",
+      "sampleId": "phase15-v1-23",
+      "runId": "phase15-v1-23#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-73cd-60dc",
+        "fact-2-505c-7559-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-23",
+        "runId": "phase15-v1-23#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-23-phase15-v1-23#2",
+      "sampleId": "phase15-v1-23",
+      "runId": "phase15-v1-23#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-73cd-60dc",
+        "fact-2-505c-7559-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-23",
+        "runId": "phase15-v1-23#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-23-phase15-v1-23#3",
+      "sampleId": "phase15-v1-23",
+      "runId": "phase15-v1-23#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-73cd-60dc",
+        "fact-2-505c-7559-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-23",
+        "runId": "phase15-v1-23#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-24-phase15-v1-24#1",
+      "sampleId": "phase15-v1-24",
+      "runId": "phase15-v1-24#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-68c0-67e5-673a-4f1a",
+        "fact-2-8bfb-9898-6761-4ef6"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-24",
+        "runId": "phase15-v1-24#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-24-phase15-v1-24#2",
+      "sampleId": "phase15-v1-24",
+      "runId": "phase15-v1-24#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-68c0-67e5-673a-4f1a",
+        "fact-2-8bfb-9898-6761-4ef6"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-24",
+        "runId": "phase15-v1-24#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-24-phase15-v1-24#3",
+      "sampleId": "phase15-v1-24",
+      "runId": "phase15-v1-24#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-68c0-67e5-673a-4f1a",
+        "fact-2-8bfb-9898-6761-4ef6"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-24",
+        "runId": "phase15-v1-24#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-25-phase15-v1-25#1",
+      "sampleId": "phase15-v1-25",
+      "runId": "phase15-v1-25#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2",
+        "fact-2-4f1e"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-25",
+        "runId": "phase15-v1-25#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-25-phase15-v1-25#2",
+      "sampleId": "phase15-v1-25",
+      "runId": "phase15-v1-25#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2",
+        "fact-2-4f1e"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-25",
+        "runId": "phase15-v1-25#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-25-phase15-v1-25#3",
+      "sampleId": "phase15-v1-25",
+      "runId": "phase15-v1-25#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2",
+        "fact-2-4f1e"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-25",
+        "runId": "phase15-v1-25#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-26-phase15-v1-26#1",
+      "sampleId": "phase15-v1-26",
+      "runId": "phase15-v1-26#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-4e0d-8d5e-6210",
+        "fact-2-81ea-613f"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-26",
+        "runId": "phase15-v1-26#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.237Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-26-phase15-v1-26#2",
+      "sampleId": "phase15-v1-26",
+      "runId": "phase15-v1-26#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-4e0d-8d5e-6210",
+        "fact-2-81ea-613f"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-26",
+        "runId": "phase15-v1-26#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-26-phase15-v1-26#3",
+      "sampleId": "phase15-v1-26",
+      "runId": "phase15-v1-26#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-4e0d-8d5e-6210",
+        "fact-2-81ea-613f"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-26",
+        "runId": "phase15-v1-26#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-27-phase15-v1-27#1",
+      "sampleId": "phase15-v1-27",
+      "runId": "phase15-v1-27#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-820d-4e0d-5f97",
+        "fact-2-7ad9-90a3-513f-534a-5929"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-27",
+        "runId": "phase15-v1-27#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-27-phase15-v1-27#2",
+      "sampleId": "phase15-v1-27",
+      "runId": "phase15-v1-27#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-820d-4e0d-5f97",
+        "fact-2-7ad9-90a3-513f-534a-5929"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-27",
+        "runId": "phase15-v1-27#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-27-phase15-v1-27#3",
+      "sampleId": "phase15-v1-27",
+      "runId": "phase15-v1-27#3",
+      "qualityLevel": "questionable",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": false,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-820d-4e0d-5f97"
+      ],
+      "missingFactIds": [
+        "fact-2-7ad9-90a3-513f-534a-5929"
+      ],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-27",
+        "runId": "phase15-v1-27#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        },
+        {
+          "dimension": "required_fact",
+          "attribution": "confirmed_model_issue",
+          "recommendedAction": "prompt_change",
+          "reason": "Missing required fact concepts: fact-2-7ad9-90a3-513f-534a-5929."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "human_review",
+      "canBecomeFormalCandidate": false,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-28-phase15-v1-28#1",
+      "sampleId": "phase15-v1-28",
+      "runId": "phase15-v1-28#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-81ea-5df1-67e5-51fa"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-28",
+        "runId": "phase15-v1-28#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-28-phase15-v1-28#2",
+      "sampleId": "phase15-v1-28",
+      "runId": "phase15-v1-28#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-81ea-5df1-67e5-51fa"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-28",
+        "runId": "phase15-v1-28#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-28-phase15-v1-28#3",
+      "sampleId": "phase15-v1-28",
+      "runId": "phase15-v1-28#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-81ea-5df1-67e5-51fa"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-28",
+        "runId": "phase15-v1-28#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-29-phase15-v1-29#1",
+      "sampleId": "phase15-v1-29",
+      "runId": "phase15-v1-29#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-53ef-4ee5-5ef6-957f"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-29",
+        "runId": "phase15-v1-29#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        },
+        {
+          "dimension": "required_fact",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 substring matching failed but Policy v2 accepted-expression matching succeeded."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-29-phase15-v1-29#2",
+      "sampleId": "phase15-v1-29",
+      "runId": "phase15-v1-29#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-53ef-4ee5-5ef6-957f"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-29",
+        "runId": "phase15-v1-29#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        },
+        {
+          "dimension": "required_fact",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 substring matching failed but Policy v2 accepted-expression matching succeeded."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-29-phase15-v1-29#3",
+      "sampleId": "phase15-v1-29",
+      "runId": "phase15-v1-29#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-53ef-4ee5-5ef6-957f"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-29",
+        "runId": "phase15-v1-29#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        },
+        {
+          "dimension": "required_fact",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 substring matching failed but Policy v2 accepted-expression matching succeeded."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-35-phase15-v1-35#1",
+      "sampleId": "phase15-v1-35",
+      "runId": "phase15-v1-35#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "matchedFactIds": [
+        "fact-1-4e0d-820d",
+        "fact-2-7ad9-4e86-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-35",
+        "runId": "phase15-v1-35#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-35-phase15-v1-35#2",
+      "sampleId": "phase15-v1-35",
+      "runId": "phase15-v1-35#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "matchedFactIds": [
+        "fact-1-4e0d-820d",
+        "fact-2-7ad9-4e86-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-35",
+        "runId": "phase15-v1-35#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-35-phase15-v1-35#3",
+      "sampleId": "phase15-v1-35",
+      "runId": "phase15-v1-35#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "missing_evidence"
+      ],
+      "matchedFactIds": [
+        "fact-1-4e0d-820d",
+        "fact-2-7ad9-4e86-5f88-4e45"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-35",
+        "runId": "phase15-v1-35#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-36-phase15-v1-36#1",
+      "sampleId": "phase15-v1-36",
+      "runId": "phase15-v1-36#1",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2",
+        "fact-2-628a-4f1e"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-36",
+        "runId": "phase15-v1-36#1",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-36-phase15-v1-36#2",
+      "sampleId": "phase15-v1-36",
+      "runId": "phase15-v1-36#2",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2",
+        "fact-2-628a-4f1e"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-36",
+        "runId": "phase15-v1-36#2",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    },
+    {
+      "schemaVersion": "diagnosis_quality_evaluation_v2",
+      "policyVersion": "diagnosis_quality_policy_v2_1",
+      "annotationVersion": "2.0.0",
+      "datasetVersion": "1.0.0",
+      "evaluationId": "diagnosis-quality-v2-1-phase15-v1-36-phase15-v1-36#3",
+      "sampleId": "phase15-v1-36",
+      "runId": "phase15-v1-36#3",
+      "qualityLevel": "accepted",
+      "dimensions": {
+        "mainAbilityAccepted": true,
+        "answerStatusAccepted": true,
+        "rootCauseCategoryAccepted": true,
+        "requiredFactsPresent": true,
+        "quoteAttributionValid": true,
+        "noBoundaryOverreach": true,
+        "noCriticalHallucination": true
+      },
+      "detectedRootCauseCategories": [
+        "no_clear_deficit_in_current_response"
+      ],
+      "matchedFactIds": [
+        "fact-1-7236-4eb2",
+        "fact-2-628a-4f1e"
+      ],
+      "missingFactIds": [],
+      "attributionEnvelope": {
+        "sampleId": "phase15-v1-36",
+        "runId": "phase15-v1-36#3",
+        "attributions": [],
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      },
+      "reviewFindings": [
+        {
+          "dimension": "root_cause",
+          "attribution": "evaluator_false_positive",
+          "recommendedAction": "policy_change",
+          "reason": "Policy v1 lexical matching failed but Policy v2 structured category is accepted."
+        }
+      ],
+      "limitations": [],
+      "offlineDecision": "accepted_candidate",
+      "canBecomeFormalCandidate": true,
+      "evaluatedAt": "2026-07-17T11:00:12.238Z",
+      "validation": {
+        "passed": true,
+        "issues": []
+      }
+    }
+  ],
+  "stability": [
+    {
+      "sampleId": "phase15-v1-01",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-02",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-03",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-04",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "quality_unstable",
+      "qualityLevels": [
+        "accepted",
+        "questionable",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-05",
+      "runCount": 3,
+      "boundaryStability": "boundary_unstable",
+      "qualityStability": "quality_unstable",
+      "qualityLevels": [
+        "unacceptable",
+        "unacceptable",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": false,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-06",
+      "runCount": 3,
+      "boundaryStability": "boundary_unstable",
+      "qualityStability": "quality_unstable",
+      "qualityLevels": [
+        "unacceptable",
+        "unacceptable",
+        "unacceptable"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": false,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-07",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-08",
+      "runCount": 3,
+      "boundaryStability": "boundary_unstable",
+      "qualityStability": "quality_unstable",
+      "qualityLevels": [
+        "unacceptable",
+        "unacceptable",
+        "unacceptable"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": false,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-09",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "quality_unstable",
+      "qualityLevels": [
+        "questionable",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-10",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-11",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-12",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "quality_unstable",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "questionable"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-13",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-14",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-15",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-16",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-17",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-18",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "quality_unstable",
+      "qualityLevels": [
+        "questionable",
+        "questionable",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-19",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-20",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-21",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-22",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-23",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-24",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-25",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-26",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-27",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "quality_unstable",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "questionable"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-28",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-29",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-35",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    },
+    {
+      "sampleId": "phase15-v1-36",
+      "runCount": 3,
+      "boundaryStability": "stable_within_boundary",
+      "qualityStability": "stable_accepted",
+      "qualityLevels": [
+        "accepted",
+        "accepted",
+        "accepted"
+      ],
+      "mainAbilityWithinBoundary": true,
+      "answerStatusWithinBoundary": true,
+      "criticalRunCount": 0,
+      "reasons": []
+    }
+  ],
+  "status": "pass_frozen",
+  "safety": {
+    "providerCalls": 0,
+    "promptModified": false,
+    "datasetModified": false,
+    "evidenceCreated": false,
+    "profileUpdated": false,
+    "legacyPolicyV2Reproducible": true
+  },
+  "limitations": [
+    "Dataset v1 是首版工程与教育边界基线，不代表全部题型的产品信心。",
+    "accepted 表示冻结人工边界内可进入正式候选，不等于长期能力结论。",
+    "真实新答案缺少冻结人工边界时，仍必须经过正式 Runtime Gate，不能套用本报告标签。"
+  ],
+  "validation": {
+    "passed": true,
+    "issues": []
+  }
+}

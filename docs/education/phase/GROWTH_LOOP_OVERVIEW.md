@@ -55,9 +55,9 @@
 
 本项目的核心原则是：
 
-> 模块可以复杂，但边界必须简单。  
-> 代码可以复杂，但输入输出必须清楚。  
-> AI 可以复杂，但输出必须进入结构化 Schema。  
+> 模块可以复杂，但边界必须简单。
+> 代码可以复杂，但输入输出必须清楚。
+> AI 可以复杂，但输出必须进入结构化 Schema。
 > Runtime 可以变长，但每一步都必须可 Debug。
 
 能力提升判断必须遵守底层约束：
@@ -693,3 +693,120 @@ Phase 13 产品声明：
 > 系统能够在单学生、单浏览器本地环境下，跨 Session 保存和恢复正式学习历史，根据 Evidence 时间生成可追溯的延迟复测计划，并在复测后形成克制、可比较的保持性观察，同时验证延迟 Evidence 已完整进入既有 Evaluation、ProfileUpdateDecision 与 GrowthMemory 链路。
 
 这里的“完整进入”指延迟 Evidence 的正式追溯关联已经通过验收，不表示延迟计划已在真实自然日内自动完成任务准备与复测执行。
+
+## Phase 14：Evidence 质量与冲突协调基础
+
+Phase 14 在 Phase 13 的长期 Evidence 序列之上增加质量解释与冲突协调：
+
+```text
+AbilityEvidence
++ Formal Runtime Context
+-> EvidenceQualityAssessment
+-> EvidenceConflictAssessment
+-> EvaluationContextEnvelope
+-> Evaluation Runtime Capability Negotiation
+```
+
+### Phase 14.1 当前状态
+
+Phase 14.1 Runtime 已通过，17 / 17 Debug、相关回归与 Production Build 均通过。
+
+它能够区分：
+
+- 无提示与提示依赖；
+- 原题、相似任务与迁移任务；
+- 即时与延迟观察；
+- 有效、受限、阻断与需要复核的 Evidence；
+- Evidence 方向和 Evidence 质量。
+
+质量高不等于能力高，质量低也不等于学生失败。质量只说明这条 Evidence 在当前正式上下文中有多值得用于后续判断。
+
+### Phase 14.2 当前状态
+
+Phase 14.2 Runtime 已通过，25 / 25 Debug、Phase 14.1 / 13.3 / 9.3 / 12 回归与 Production Build 均通过。
+
+它建立了以下最小闭环：
+
+```text
+AbilityEvidence[]
++ Current EvidenceQualityAssessment[]
++ Formal Comparison Context[]
+-> Observation Unit Deduplication
+-> EvidenceConflictAssessment
+-> EvaluationContextEnvelope
+```
+
+同一 Response 产生的多条 Evidence 不会被当作多次独立观察；低质量 Evidence 不会被删除；`growth` 与 `positive` 的原始语义会继续保留。存在条件差异也不会自动被解释为“可解释混合”，解释强度不足时仍输出证据不足或未解决冲突。
+
+当前 Existing Phase 8 尚未声明 Phase 14 所需的 Quality / Conflict Capability，因此正式 quality-aware handoff 默认阻断。该边界证明协调层已经成立，但不表示旧 Evaluation 已经消费质量保护。
+
+Phase 14.3 文档已明确：Strategy 是教育方向唯一来源，Context Snapshot 只能限制执行条件；AdaptiveTaskConstraints 是结构化约束唯一来源，并通过 Envelope 交给 TaskFulfillment。任务设计可以追求 high-quality Evidence，但不能预先承诺学生作答、Diagnosis 或最终 Evidence 一定达到该质量。
+
+Phase 14 当前状态：
+
+```text
+Phase 14.1  PASS
+Phase 14.2  PASS
+Phase 14.3  26 / 26 DEBUG PASS / RUNTIME PASS
+Integration 16 / 16 PASS
+Phase 14    PASS / FROZEN
+```
+
+Phase 14 集成 Case 27 已验证任务目标质量与实际 Evidence 质量分离：提示后有效作答仍可回流 Evidence，但会被重新评估为 `low / limited`；无效作答不生成正式 Evidence。Constraints 不因执行结果被反向改写，未达到目标质量也不属于约束 Runtime 失败。
+
+Phase 14 正式冻结结论：系统能够根据正式任务、作答、提示、时间和追溯事实评估 Evidence 的判断价值，协调多条 Evidence 的方向关系，并在 Existing Strategy 的边界内生成受控任务约束；任务执行后，系统会依据真实表现重新评估 Evidence 质量，而不会把目标质量当成实际结果。
+
+## Phase 15：真实 AI Diagnosis 与受控表达基础
+
+Phase 15 计划把现有 mock 为主的 Diagnosis 链切换为可配置、可追溯、可审查的真实 LLM Runtime：
+
+```text
+Valid TaskExecutionResult
+-> Real LLM Provider Adapter
+-> Raw Output
+-> Structure / Identity / Boundary Gate
+-> Formal DiagnosisResult Candidate
+-> commitFormalDiagnosis()
+-> Committed Formal DiagnosisResult
+-> Existing Evidence Return
+-> Phase 14 Evidence Quality Assessment
+```
+
+Phase 15.1 只建立真实模型运行基础；当前已通过并冻结。确定性 Debug 为 22 / 22 PASS，DeepSeek `deepseek-v4-flash` Live Smoke 为 4 / 4 PASS。Phase 15.2 已完成 Prompt v4 质量验证、Root Cause 归因、Policy v2.1 校准、负责人确认和正式启用回归；正式验收 15 / 15 PASS，阶段已冻结。Phase 15.3 只把已确认事实转化为受控学生反馈。
+
+正式 Diagnosis 使用 Candidate -> Commit 事务边界：同一 requestId 只能原子提交一份正式结果，页面刷新、Provider Retry 或 Evidence Return Retry 都不能生成第二份 Formal Diagnosis。结构 Repair 只允许版本化白名单内的非语义修复，不能修改 `mainAbility`、`answerStatus`、`rootCause`、引用或 Evidence 方向。
+
+Phase 15.2 第一版冻结 30–50 条版本化人工评估样本，并公开各质量指标的有效分母。Phase 15.3 将 `StructuredFeedbackFacts` 与 `ActionableSuggestions` 分开，表达层只能转述可追溯事实和受控建议，不能新增教育结论。
+
+当前状态：
+
+```text
+Phase 15 Design            READY
+Phase 15.1 Engineering     PASS / FROZEN
+Deterministic Debug        22 / 22 PASS
+Real Provider Live Smoke   4 / 4 PASS
+Phase 15.2 Design          ACCEPTED
+Phase 15.2 Engineering     PASS
+Phase 15.2 Real Batch      COMPLETED
+Quality Policy v2          CALIBRATION PASS
+Offline Candidate Rescore  36 RUNS / 0 PROVIDER CALL
+Prompt v3 Calibrated Base  COMPLETED / THRESHOLDS NOT MET
+Prompt v3 Quality          NOT PASSED
+Prompt v4 Engineering      PASS
+Prompt v4 Deterministic    15 / 15 PASS
+Prompt v4 Specialty Slice  30 / 30 CALLS / PASS
+Prompt v4 Full Batch       108 / 108 RUNS / COMPLETED
+Prompt v4 Calibrated Base  IMPROVED / ROOT CAUSE NOT MET
+Prompt v4 Quality          NOT YET PASSED
+Root Cause Attribution     32 RUNS / INITIAL PASS
+Policy v2.1 Calibration    90 / 93 / ALL GUARDS PASS
+Policy v2.1 Dry Run        93 / 93 / 9 GUARDS PASS
+Policy v2.1 Activation     YES / 15 / 15 PASS
+Owner Confirmation        PASS
+Phase 15.2 Freeze          PASS / FROZEN
+Phase 15 Overall Freeze    NOT YET
+```
+
+该阶段继续遵守最小闭环原则：模型原始输出不是正式 Diagnosis，模型 confidence 不是 Evidence 质量，表达层也不能新增教育结论。
+
+Phase 15.1 Live Smoke 采用三条真实调用加一条受控失败 Gate：正常 Live、Shadow、Prompt Injection 验证真实 Provider 链路，能力错位或非法结构验证安全阻断。Smoke 不执行 Evidence 或 Profile 更新，只验证 `canEnterEvidenceReturn`。

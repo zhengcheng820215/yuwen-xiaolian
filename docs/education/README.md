@@ -89,8 +89,14 @@ LEARNING_RUNTIME_OVERVIEW
 ## 四、当前状态
 
 - 12 份核心模型文档已完成第一轮审查增强。
+- Phase 14.1 Evidence Quality Assessment 已通过 17 / 17 Debug 验收。
+- Phase 14.2 Evidence Conflict Coordination 已通过 25 / 25 Debug 验收。
+- Phase 14.3 Adaptive Task Constraints 已完成结构化 Rule、Context Snapshot、TaskRequest Envelope 与 Fulfillment 接入，26 / 26 Debug 通过；执行后质量重评集成 Case 27 为 16 / 16 PASS，Phase 14 总体状态为 `PASS / FROZEN`。
+- Phase 14 冻结能力声明：系统能够根据正式任务、作答、提示、时间和追溯事实评估 Evidence 的判断价值，协调多条 Evidence 的方向关系，并在 Existing Strategy 的边界内生成受控任务约束；任务执行后，系统会依据真实表现重新评估 Evidence 质量，而不会把目标质量当成实际结果。
+- Phase 15.1 Real LLM Runtime Foundation 已通过并冻结：确定性 Debug 为 `22 / 22 PASS`，DeepSeek `deepseek-v4-flash` Live Smoke 为 `4 / 4 PASS`。Phase 15.2 已完成 Prompt v4 真实质量验证、Policy v2.1 校准、负责人确认和正式启用回归；Root Cause 为 90 / 93，完整质量为 accepted 79、questionable 6、unacceptable 8、critical 0，正式验收 `15 / 15 PASS`。Phase 15.2 当前为 `PASS / FROZEN`，正式质量 Evaluator 默认使用 Policy v2.1。
+- [Phase 15.3 Controlled Feedback Expression](./phase/phase15_3.md) 已通过并冻结：确定性 Debug `24 / 24`、DeepSeek Prompt v1.1 Live `12 / 12`、Controlled Safety `2 / 2`、脱敏人工抽检 `12 / 12`、关键回归与 Production Build 全部通过。Phase 15 当前为 `PASS / FROZEN`。
 - 当前暂不移动目录。
-- Phase 8 前后，根据文档增长情况再评估是否迁移到 `models/` 分层目录。
+- 后续根据文档增长情况再评估是否迁移到 `models/` 分层目录。
 - 后续新增教育模型文档，必须先在本 README 中登记。
 
 ## 五、文档层级关系

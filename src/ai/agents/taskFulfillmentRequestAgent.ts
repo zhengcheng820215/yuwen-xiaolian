@@ -1,5 +1,10 @@
 import type { TaskRequest } from '../schemas/nextLearningStrategy.schema.ts';
 import type {
+  AdaptiveConstraintRule,
+  AdaptiveTaskRequestEnvelope,
+} from '../schemas/adaptiveTaskConstraints.schema.ts';
+import { isAdaptiveTaskRequestEnvelope } from '../schemas/adaptiveTaskConstraints.schema.ts';
+import type {
   DifficultyLevel,
   TaskFulfillmentRequest,
   TaskFulfillmentRequestResult,
@@ -8,6 +13,12 @@ import { canFulfillTaskRequest } from '../schemas/taskFulfillment.schema.ts';
 
 export type TaskFulfillmentRequestInput = {
   taskRequest: unknown;
+  recentTaskIds?: string[];
+  createdAt?: string;
+};
+
+export type AdaptiveTaskFulfillmentRequestInput = {
+  adaptiveTaskRequestEnvelope: AdaptiveTaskRequestEnvelope;
   recentTaskIds?: string[];
   createdAt?: string;
 };
@@ -43,6 +54,67 @@ export function createTaskFulfillmentRequest(
       hardConstraints,
       softPreferences,
       recentTaskIds: input.recentTaskIds || [],
+      sourceTaskRequestId: taskRequest.taskRequestId,
+      sourceStrategyId: taskRequest.strategyId,
+      createdAt: now,
+    },
+  };
+}
+
+export function createAdaptiveTaskFulfillmentRequest(
+  input: AdaptiveTaskFulfillmentRequestInput,
+): TaskFulfillmentRequestResult {
+  const envelope = input.adaptiveTaskRequestEnvelope;
+  if (
+    !isAdaptiveTaskRequestEnvelope(envelope) ||
+    !envelope.validation.passed ||
+    !envelope.canEnterTaskFulfillment ||
+    envelope.alignmentResult.status !== 'aligned'
+  ) {
+    return {
+      request: null,
+      blockedReason: 'AdaptiveTaskRequestEnvelope is invalid or not approved for TaskFulfillment.',
+    };
+  }
+
+  const { taskRequest, adaptiveConstraints } = envelope;
+  if (
+    adaptiveConstraints.preExecutionQualityConditions.requiredHintPolicy !== adaptiveConstraints.hintPolicy ||
+    adaptiveConstraints.recommendedTaskRole !== taskRequest.taskRole ||
+    adaptiveConstraints.targetAbilityId !== taskRequest.targetAbilityId
+  ) {
+    return {
+      request: null,
+      blockedReason: 'Adaptive task constraints are not aligned with the TaskRequest.',
+    };
+  }
+
+  const now = input.createdAt || new Date().toISOString();
+  const hardConstraints = adaptiveConstraints.hardConstraints.map(serializeAdaptiveRule);
+  const softPreferences = adaptiveConstraints.softPreferences.map(serializeAdaptiveRule);
+  const excludedRecentTaskIds = adaptiveConstraints.hardConstraints
+    .concat(adaptiveConstraints.softPreferences)
+    .filter((rule) => rule.code === 'exclude_task')
+    .flatMap((rule) => Array.isArray(rule.value) ? rule.value : [String(rule.value)]);
+
+  return {
+    request: {
+      requestId: `adaptive-fulfillment-${taskRequest.taskRequestId}-${adaptiveConstraints.constraintsId}`,
+      studentId: taskRequest.studentId,
+      taskRole: taskRequest.taskRole,
+      targetAbilityId: taskRequest.targetAbilityId,
+      contentType: mapAdaptiveContentType(adaptiveConstraints.materialNovelty),
+      questionType: 'open_response',
+      responseMode: 'written',
+      difficultyRange: mapAdaptiveDifficulty(adaptiveConstraints.difficultyDirection),
+      validationGoal: taskRequest.validationGoal,
+      requiredCapabilities: unique(adaptiveConstraints.requiredCapabilities),
+      hardConstraints: unique([
+        `adaptiveConstraintsId:${adaptiveConstraints.constraintsId}`,
+        ...hardConstraints,
+      ]),
+      softPreferences: unique(softPreferences),
+      recentTaskIds: unique([...(input.recentTaskIds || []), ...excludedRecentTaskIds]),
       sourceTaskRequestId: taskRequest.taskRequestId,
       sourceStrategyId: taskRequest.strategyId,
       createdAt: now,
@@ -103,6 +175,27 @@ function inferDifficultyRange(taskRequest: TaskRequest): {
     return { preferred: 'same', minimum: 'same', maximum: 'higher' };
   }
   return { preferred: 'same', minimum: 'lower', maximum: 'higher' };
+}
+
+function mapAdaptiveContentType(
+  novelty: AdaptiveTaskRequestEnvelope['adaptiveConstraints']['materialNovelty'],
+): string {
+  if (novelty === 'new_context') return 'new_text';
+  if (novelty === 'similar_context') return 'comparable_text';
+  return 'same_context_text';
+}
+
+function mapAdaptiveDifficulty(
+  direction: AdaptiveTaskRequestEnvelope['adaptiveConstraints']['difficultyDirection'],
+): { preferred: DifficultyLevel; minimum?: DifficultyLevel; maximum?: DifficultyLevel } {
+  if (direction === 'decrease') return { preferred: 'lower', minimum: 'lower', maximum: 'same' };
+  if (direction === 'increase') return { preferred: 'higher', minimum: 'same', maximum: 'higher' };
+  return { preferred: 'same', minimum: 'lower', maximum: 'same' };
+}
+
+function serializeAdaptiveRule(rule: AdaptiveConstraintRule): string {
+  const value = Array.isArray(rule.value) ? [...rule.value].sort().join(',') : String(rule.value);
+  return `${rule.code}:${rule.operator}:${value}:${rule.source}`;
 }
 
 function buildFulfillmentRequestId(taskRequestId: string, createdAt: string): string {

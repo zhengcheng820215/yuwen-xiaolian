@@ -1,0 +1,1199 @@
+{
+  "schemaVersion": "root_cause_policy_v2_1_activation_dry_run_v1",
+  "reportId": "phase15-root-cause-policy-v2-1-activation-dry-run-2026-07-17T10-44-39-619Z",
+  "createdAt": "2026-07-17T10:44:39.619Z",
+  "sourceReportId": "phase15-prompt-v4-calibrated-baseline-2026-07-17T10-03-31-702Z",
+  "calibrationReportId": "phase15-root-cause-policy-v2-1-calibration-2026-07-17T10-35-17-417Z",
+  "policyVersion": "diagnosis_quality_policy_v2_1",
+  "executionMode": "offline_frozen_candidate_dry_run",
+  "qualityCountsBefore": {
+    "accepted": 55,
+    "questionable": 30,
+    "unacceptable": 8,
+    "critical_violation": 0
+  },
+  "qualityCountsProjected": {
+    "accepted": 79,
+    "questionable": 6,
+    "unacceptable": 8,
+    "critical_violation": 0
+  },
+  "newlyAcceptedRuns": [
+    "phase15-v1-07#1",
+    "phase15-v1-07#2",
+    "phase15-v1-07#3",
+    "phase15-v1-09#2",
+    "phase15-v1-10#1",
+    "phase15-v1-10#2",
+    "phase15-v1-10#3",
+    "phase15-v1-11#1",
+    "phase15-v1-11#2",
+    "phase15-v1-11#3",
+    "phase15-v1-12#1",
+    "phase15-v1-12#2",
+    "phase15-v1-13#2",
+    "phase15-v1-14#1",
+    "phase15-v1-14#2",
+    "phase15-v1-14#3",
+    "phase15-v1-15#1",
+    "phase15-v1-15#2",
+    "phase15-v1-15#3",
+    "phase15-v1-16#1",
+    "phase15-v1-16#3",
+    "phase15-v1-17#1",
+    "phase15-v1-17#2",
+    "phase15-v1-17#3"
+  ],
+  "stillBlockedPromptErrors": [
+    {
+      "runId": "phase15-v1-06#1",
+      "blockingDimensions": [
+        "answerStatus",
+        "rootCause"
+      ]
+    },
+    {
+      "runId": "phase15-v1-06#2",
+      "blockingDimensions": [
+        "answerStatus",
+        "rootCause"
+      ]
+    },
+    {
+      "runId": "phase15-v1-06#3",
+      "blockingDimensions": [
+        "answerStatus",
+        "rootCause"
+      ]
+    }
+  ],
+  "results": [
+    {
+      "runId": "phase15-v1-01#1",
+      "sampleId": "phase15-v1-01",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-01#2",
+      "sampleId": "phase15-v1-01",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-01#3",
+      "sampleId": "phase15-v1-01",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-02#1",
+      "sampleId": "phase15-v1-02",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-02#2",
+      "sampleId": "phase15-v1-02",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-02#3",
+      "sampleId": "phase15-v1-02",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-03#1",
+      "sampleId": "phase15-v1-03",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-03#2",
+      "sampleId": "phase15-v1-03",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-03#3",
+      "sampleId": "phase15-v1-03",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-04#1",
+      "sampleId": "phase15-v1-04",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-04#2",
+      "sampleId": "phase15-v1-04",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "questionable",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": false,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": [
+        "requiredFacts"
+      ]
+    },
+    {
+      "runId": "phase15-v1-04#3",
+      "sampleId": "phase15-v1-04",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-05#1",
+      "sampleId": "phase15-v1-05",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "unacceptable",
+      "projectedQualityLevel": "unacceptable",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": false,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": [
+        "answerStatus"
+      ]
+    },
+    {
+      "runId": "phase15-v1-05#2",
+      "sampleId": "phase15-v1-05",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "unacceptable",
+      "projectedQualityLevel": "unacceptable",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": false,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": [
+        "answerStatus"
+      ]
+    },
+    {
+      "runId": "phase15-v1-05#3",
+      "sampleId": "phase15-v1-05",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-06#1",
+      "sampleId": "phase15-v1-06",
+      "regressionGroup": "confirmed_prompt_error_3",
+      "previousQualityLevel": "unacceptable",
+      "projectedQualityLevel": "unacceptable",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": false,
+      "v21RootCauseAccepted": false,
+      "blockingDimensions": [
+        "answerStatus",
+        "rootCause"
+      ]
+    },
+    {
+      "runId": "phase15-v1-06#2",
+      "sampleId": "phase15-v1-06",
+      "regressionGroup": "confirmed_prompt_error_3",
+      "previousQualityLevel": "unacceptable",
+      "projectedQualityLevel": "unacceptable",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": false,
+      "v21RootCauseAccepted": false,
+      "blockingDimensions": [
+        "answerStatus",
+        "rootCause"
+      ]
+    },
+    {
+      "runId": "phase15-v1-06#3",
+      "sampleId": "phase15-v1-06",
+      "regressionGroup": "confirmed_prompt_error_3",
+      "previousQualityLevel": "unacceptable",
+      "projectedQualityLevel": "unacceptable",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": false,
+      "v21RootCauseAccepted": false,
+      "blockingDimensions": [
+        "answerStatus",
+        "rootCause"
+      ]
+    },
+    {
+      "runId": "phase15-v1-07#1",
+      "sampleId": "phase15-v1-07",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-07#2",
+      "sampleId": "phase15-v1-07",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-07#3",
+      "sampleId": "phase15-v1-07",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-08#1",
+      "sampleId": "phase15-v1-08",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "unacceptable",
+      "projectedQualityLevel": "unacceptable",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": false,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": [
+        "answerStatus"
+      ]
+    },
+    {
+      "runId": "phase15-v1-08#2",
+      "sampleId": "phase15-v1-08",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "unacceptable",
+      "projectedQualityLevel": "unacceptable",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": false,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": [
+        "answerStatus"
+      ]
+    },
+    {
+      "runId": "phase15-v1-08#3",
+      "sampleId": "phase15-v1-08",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "unacceptable",
+      "projectedQualityLevel": "unacceptable",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": false,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": [
+        "answerStatus"
+      ]
+    },
+    {
+      "runId": "phase15-v1-09#1",
+      "sampleId": "phase15-v1-09",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "questionable",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": false,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": [
+        "requiredFacts"
+      ]
+    },
+    {
+      "runId": "phase15-v1-09#2",
+      "sampleId": "phase15-v1-09",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-09#3",
+      "sampleId": "phase15-v1-09",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-10#1",
+      "sampleId": "phase15-v1-10",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-10#2",
+      "sampleId": "phase15-v1-10",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-10#3",
+      "sampleId": "phase15-v1-10",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-11#1",
+      "sampleId": "phase15-v1-11",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-11#2",
+      "sampleId": "phase15-v1-11",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-11#3",
+      "sampleId": "phase15-v1-11",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-12#1",
+      "sampleId": "phase15-v1-12",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-12#2",
+      "sampleId": "phase15-v1-12",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-12#3",
+      "sampleId": "phase15-v1-12",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "questionable",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": false,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": [
+        "requiredFacts"
+      ]
+    },
+    {
+      "runId": "phase15-v1-13#1",
+      "sampleId": "phase15-v1-13",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-13#2",
+      "sampleId": "phase15-v1-13",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-13#3",
+      "sampleId": "phase15-v1-13",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-14#1",
+      "sampleId": "phase15-v1-14",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-14#2",
+      "sampleId": "phase15-v1-14",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-14#3",
+      "sampleId": "phase15-v1-14",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-15#1",
+      "sampleId": "phase15-v1-15",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-15#2",
+      "sampleId": "phase15-v1-15",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-15#3",
+      "sampleId": "phase15-v1-15",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-16#1",
+      "sampleId": "phase15-v1-16",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-16#2",
+      "sampleId": "phase15-v1-16",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-16#3",
+      "sampleId": "phase15-v1-16",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-17#1",
+      "sampleId": "phase15-v1-17",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-17#2",
+      "sampleId": "phase15-v1-17",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-17#3",
+      "sampleId": "phase15-v1-17",
+      "regressionGroup": "reasonable_failed_29",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-18#1",
+      "sampleId": "phase15-v1-18",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "questionable",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": false,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": [
+        "requiredFacts"
+      ]
+    },
+    {
+      "runId": "phase15-v1-18#2",
+      "sampleId": "phase15-v1-18",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "questionable",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": false,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": [
+        "requiredFacts"
+      ]
+    },
+    {
+      "runId": "phase15-v1-18#3",
+      "sampleId": "phase15-v1-18",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-19#1",
+      "sampleId": "phase15-v1-19",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-19#2",
+      "sampleId": "phase15-v1-19",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-19#3",
+      "sampleId": "phase15-v1-19",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-20#1",
+      "sampleId": "phase15-v1-20",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-20#2",
+      "sampleId": "phase15-v1-20",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-20#3",
+      "sampleId": "phase15-v1-20",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-21#1",
+      "sampleId": "phase15-v1-21",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-21#2",
+      "sampleId": "phase15-v1-21",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-21#3",
+      "sampleId": "phase15-v1-21",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-22#1",
+      "sampleId": "phase15-v1-22",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-22#2",
+      "sampleId": "phase15-v1-22",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-22#3",
+      "sampleId": "phase15-v1-22",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-23#1",
+      "sampleId": "phase15-v1-23",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-23#2",
+      "sampleId": "phase15-v1-23",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-23#3",
+      "sampleId": "phase15-v1-23",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-24#1",
+      "sampleId": "phase15-v1-24",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-24#2",
+      "sampleId": "phase15-v1-24",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-24#3",
+      "sampleId": "phase15-v1-24",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-25#1",
+      "sampleId": "phase15-v1-25",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-25#2",
+      "sampleId": "phase15-v1-25",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-25#3",
+      "sampleId": "phase15-v1-25",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-26#1",
+      "sampleId": "phase15-v1-26",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-26#2",
+      "sampleId": "phase15-v1-26",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-26#3",
+      "sampleId": "phase15-v1-26",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-27#1",
+      "sampleId": "phase15-v1-27",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-27#2",
+      "sampleId": "phase15-v1-27",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-27#3",
+      "sampleId": "phase15-v1-27",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "questionable",
+      "projectedQualityLevel": "questionable",
+      "previousFormalCandidate": false,
+      "projectedFormalCandidate": false,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": [
+        "requiredFacts"
+      ]
+    },
+    {
+      "runId": "phase15-v1-28#1",
+      "sampleId": "phase15-v1-28",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-28#2",
+      "sampleId": "phase15-v1-28",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-28#3",
+      "sampleId": "phase15-v1-28",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-29#1",
+      "sampleId": "phase15-v1-29",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-29#2",
+      "sampleId": "phase15-v1-29",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-29#3",
+      "sampleId": "phase15-v1-29",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-35#1",
+      "sampleId": "phase15-v1-35",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-35#2",
+      "sampleId": "phase15-v1-35",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-35#3",
+      "sampleId": "phase15-v1-35",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-36#1",
+      "sampleId": "phase15-v1-36",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-36#2",
+      "sampleId": "phase15-v1-36",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    },
+    {
+      "runId": "phase15-v1-36#3",
+      "sampleId": "phase15-v1-36",
+      "regressionGroup": "previously_accepted_61",
+      "previousQualityLevel": "accepted",
+      "projectedQualityLevel": "accepted",
+      "previousFormalCandidate": true,
+      "projectedFormalCandidate": true,
+      "v21RootCauseAccepted": true,
+      "blockingDimensions": []
+    }
+  ],
+  "constraints": [
+    {
+      "code": "frozen_93_runs_joined",
+      "passed": true,
+      "actual": "93/93"
+    },
+    {
+      "code": "source_and_calibration_valid",
+      "passed": true,
+      "actual": "PASS"
+    },
+    {
+      "code": "reasonable_29_root_cause_recovered",
+      "passed": true,
+      "actual": "29/29"
+    },
+    {
+      "code": "prompt_error_3_not_formal",
+      "passed": true,
+      "actual": "3/3"
+    },
+    {
+      "code": "prompt_error_3_keep_root_cause_block",
+      "passed": true,
+      "actual": "3/3"
+    },
+    {
+      "code": "previously_root_cause_accepted_61_full_quality_unchanged",
+      "passed": true,
+      "actual": "61/61"
+    },
+    {
+      "code": "questionable_never_formal",
+      "passed": true,
+      "actual": "PASS"
+    },
+    {
+      "code": "unacceptable_never_formal",
+      "passed": true,
+      "actual": "PASS"
+    },
+    {
+      "code": "offline_safety_preserved",
+      "passed": true,
+      "actual": "PASS"
+    }
+  ],
+  "review": {
+    "recoveredRunsAgentReviewed": 29,
+    "blockedPromptErrorsAgentReviewed": 3,
+    "preservedRunsAgentReviewed": 61,
+    "ownerConfirmationRequired": true,
+    "ownerConfirmationRecorded": false
+  },
+  "recommendation": "ready_for_owner_confirmation",
+  "safety": {
+    "providerCalls": 0,
+    "promptModified": false,
+    "datasetModified": false,
+    "formalEvaluatorModified": false,
+    "policyActivated": false,
+    "evidenceCreated": false,
+    "profileUpdated": false
+  },
+  "limitations": [
+    "本报告是冻结 Candidate 的离线 Dry Run，不是线上 Policy 激活记录。",
+    "Agent 复核不能替代产品负责人对 29 / 3 / 61 三组结果的最终确认。",
+    "Projected accepted 只表示冻结评估集满足全部质量维度，不代表真实新答案一定可靠。"
+  ],
+  "validation": {
+    "passed": true,
+    "issues": []
+  }
+}

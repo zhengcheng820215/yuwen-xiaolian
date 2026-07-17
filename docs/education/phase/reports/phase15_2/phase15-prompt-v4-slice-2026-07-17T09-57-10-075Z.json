@@ -1,0 +1,2480 @@
+{
+  "schemaVersion": "prompt_v4_slice_report_v1",
+  "reportId": "phase15-prompt-v4-slice-2026-07-17T09-57-10-075Z",
+  "createdAt": "2026-07-17T09:57:10.075Z",
+  "status": "slice_thresholds_met",
+  "configuration": {
+    "datasetVersion": "1.0.0",
+    "provider": "deepseek_chat",
+    "model": "deepseek-v4-flash",
+    "promptVersion": "real_ai_diagnosis_prompt_v4",
+    "temperature": 0.2,
+    "maxOutputTokens": 1600,
+    "maxAttempts": 2,
+    "timeoutMs": 30000,
+    "repetitions": 3,
+    "executionMode": "shadow",
+    "plannedProviderCalls": 30
+  },
+  "thresholds": {
+    "providerAvailability": 1,
+    "formalCandidateRate": 1,
+    "mainAbilityRate": 1,
+    "reasonableAlternativeAcceptedRuns": 9,
+    "conciseValidAcceptedRuns": 7,
+    "coreConclusionCorrectRejections": 9,
+    "criticalModelViolationCount": 0
+  },
+  "checks": [
+    {
+      "name": "providerAvailability",
+      "actual": 1,
+      "required": 1,
+      "passed": true
+    },
+    {
+      "name": "formalCandidateRate",
+      "actual": 1,
+      "required": 1,
+      "passed": true
+    },
+    {
+      "name": "mainAbilityRate",
+      "actual": 1,
+      "required": 1,
+      "passed": true
+    },
+    {
+      "name": "reasonableAlternativeAcceptedRuns",
+      "actual": 12,
+      "required": 9,
+      "passed": true
+    },
+    {
+      "name": "conciseValidAcceptedRuns",
+      "actual": 7,
+      "required": 7,
+      "passed": true
+    },
+    {
+      "name": "coreConclusionCorrectRejections",
+      "actual": 9,
+      "required": 9,
+      "passed": true
+    },
+    {
+      "name": "criticalModelViolationCount",
+      "actual": 0,
+      "required": 0,
+      "passed": true
+    }
+  ],
+  "metrics": {
+    "providerAvailability": {
+      "numerator": 30,
+      "denominator": 30,
+      "rate": 1
+    },
+    "formalCandidateRate": {
+      "numerator": 30,
+      "denominator": 30,
+      "rate": 1
+    },
+    "mainAbilityRate": {
+      "numerator": 30,
+      "denominator": 30,
+      "rate": 1
+    },
+    "reasonableAlternativeAcceptance": {
+      "numerator": 12,
+      "denominator": 12,
+      "rate": 1
+    },
+    "conciseValidAcceptance": {
+      "numerator": 7,
+      "denominator": 9,
+      "rate": 0.7777777777777778
+    },
+    "coreConclusionCorrectRejection": {
+      "numerator": 9,
+      "denominator": 9,
+      "rate": 1
+    },
+    "criticalModelViolationCount": 0
+  },
+  "v3Comparison": {
+    "sourceReportId": "phase15-prompt-v3-calibrated-baseline-2026-07-17T09-24-49-896Z",
+    "reasonableAlternativeAcceptance": {
+      "numerator": 3,
+      "denominator": 12,
+      "rate": 0.25
+    },
+    "conciseValidAcceptance": {
+      "numerator": 6,
+      "denominator": 9,
+      "rate": 0.6666666666666666
+    },
+    "coreConclusionCorrectRejection": {
+      "numerator": 6,
+      "denominator": 9,
+      "rate": 0.6666666666666666
+    }
+  },
+  "qualityCounts": {
+    "accepted": 23,
+    "questionable": 7,
+    "unacceptable": 0,
+    "critical_violation": 0
+  },
+  "runs": [
+    {
+      "runId": "phase15-v1-23#1",
+      "sampleId": "phase15-v1-23",
+      "slice": "reasonable_alternative",
+      "runIndex": 1,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1758,
+        "outputTokens": 280,
+        "totalTokens": 2038
+      },
+      "latencyMs": 3510,
+      "candidate": {
+        "mainAbility": "推理",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生判断父亲心理为'既惊讶又珍惜这段回忆'，核心结论成立",
+          "学生引用'停留很久并轻轻保存树叶'作为依据，与材料动作对应",
+          "学生说明动作与心理的关系：'说明这件旧物对他有意义'，推理关系成立"
+        ],
+        "diagnosisSummary": "学生正确判断了父亲的心理（惊讶与珍惜），引用了相关动作（停留很久、轻轻保存），并说明了动作与心理的关系，满足rubric全部要求。答案虽与参考答案措辞不同，但核心结论和推理关系一致，达到fully_meets。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-23-phase15-v1-23#1",
+        "sampleId": "phase15-v1-23",
+        "runId": "phase15-v1-23#1",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-73cd-60dc",
+          "fact-2-505c-7559-5f88-4e45"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-23",
+          "runId": "phase15-v1-23#1",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:55:46.145Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-23#2",
+      "sampleId": "phase15-v1-23",
+      "slice": "reasonable_alternative",
+      "runIndex": 2,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1758,
+        "outputTokens": 234,
+        "totalTokens": 1992
+      },
+      "latencyMs": 2601,
+      "candidate": {
+        "mainAbility": "推理",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生准确判断了父亲的心理（惊讶又珍惜），与材料中父亲的行为一致",
+          "学生引用了关键动作（停留很久、轻轻保存树叶）作为依据",
+          "学生说明了动作与心理的关系（说明这件旧物对他有意义）"
+        ],
+        "diagnosisSummary": "学生正确判断了父亲的心理，并引用了材料中的动作作为依据，且说明了动作与心理的关系，满足所有rubric要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-23-phase15-v1-23#2",
+        "sampleId": "phase15-v1-23",
+        "runId": "phase15-v1-23#2",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-73cd-60dc",
+          "fact-2-505c-7559-5f88-4e45"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-23",
+          "runId": "phase15-v1-23#2",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:55:48.748Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-23#3",
+      "sampleId": "phase15-v1-23",
+      "slice": "reasonable_alternative",
+      "runIndex": 3,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1758,
+        "outputTokens": 226,
+        "totalTokens": 1984
+      },
+      "latencyMs": 2437,
+      "candidate": {
+        "mainAbility": "推理",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生正确判断了父亲的心理（惊讶又珍惜）",
+          "学生引用了相关动作（停留很久、轻轻保存树叶）",
+          "学生说明了动作与心理的关系（说明这件旧物对他有意义）"
+        ],
+        "diagnosisSummary": "学生准确判断了父亲的心理，并引用关键动作说明理由，推理关系成立，满足所有rubric要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-23-phase15-v1-23#3",
+        "sampleId": "phase15-v1-23",
+        "runId": "phase15-v1-23#3",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-73cd-60dc",
+          "fact-2-505c-7559-5f88-4e45"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-23",
+          "runId": "phase15-v1-23#3",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:55:51.186Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-24#1",
+      "sampleId": "phase15-v1-24",
+      "slice": "reasonable_alternative",
+      "runIndex": 1,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1705,
+        "outputTokens": 226,
+        "totalTokens": 1931
+      },
+      "latencyMs": 2764,
+      "candidate": {
+        "mainAbility": "理解",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生指出老师把检查机会留给小林，对应老师行为目的",
+          "学生提到让小林意识到读题条件的重要性，联系了小林重新检查的结果"
+        ],
+        "diagnosisSummary": "学生正确理解了老师不直接告诉答案的意图，并联系了材料中小林重新检查发现漏读条件的结果，核心结论成立，依据充分。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-24-phase15-v1-24#1",
+        "sampleId": "phase15-v1-24",
+        "runId": "phase15-v1-24#1",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-68c0-67e5-673a-4f1a",
+          "fact-2-8bfb-9898-6761-4ef6"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-24",
+          "runId": "phase15-v1-24#1",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:55:53.952Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-24#2",
+      "sampleId": "phase15-v1-24",
+      "slice": "reasonable_alternative",
+      "runIndex": 2,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1705,
+        "outputTokens": 214,
+        "totalTokens": 1919
+      },
+      "latencyMs": 2357,
+      "candidate": {
+        "mainAbility": "理解",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生指出老师把检查机会留给小林，对应老师行为目的",
+          "学生提到让小林意识到读题条件的重要性，联系了小林重新检查的结果"
+        ],
+        "diagnosisSummary": "学生正确理解了老师行为的目的，并联系了材料中小林重新检查的结果，核心结论成立，依据充分。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-24-phase15-v1-24#2",
+        "sampleId": "phase15-v1-24",
+        "runId": "phase15-v1-24#2",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-68c0-67e5-673a-4f1a",
+          "fact-2-8bfb-9898-6761-4ef6"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-24",
+          "runId": "phase15-v1-24#2",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:55:56.311Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-24#3",
+      "sampleId": "phase15-v1-24",
+      "slice": "reasonable_alternative",
+      "runIndex": 3,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1705,
+        "outputTokens": 214,
+        "totalTokens": 1919
+      },
+      "latencyMs": 2704,
+      "candidate": {
+        "mainAbility": "理解",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生指出老师把检查机会留给小林，对应老师行为目的",
+          "学生提到让小林意识到读题条件的重要性，联系了小林重新检查的结果"
+        ],
+        "diagnosisSummary": "学生正确理解了老师行为的目的，并联系了材料中小林重新检查的结果，核心结论成立，依据充分。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-24-phase15-v1-24#3",
+        "sampleId": "phase15-v1-24",
+        "runId": "phase15-v1-24#3",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-68c0-67e5-673a-4f1a",
+          "fact-2-8bfb-9898-6761-4ef6"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-24",
+          "runId": "phase15-v1-24#3",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:55:59.015Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-25#1",
+      "sampleId": "phase15-v1-25",
+      "slice": "reasonable_alternative",
+      "runIndex": 1,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1735,
+        "outputTokens": 208,
+        "totalTokens": 1943
+      },
+      "latencyMs": 2317,
+      "candidate": {
+        "mainAbility": "概括",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生答案保留了人物（父亲和孩子）",
+          "学生答案保留了主要事件（父亲冒雨接孩子、把伞留给孩子）",
+          "表达简洁完整"
+        ],
+        "diagnosisSummary": "学生准确概括了材料核心内容，保留了关键人物和事件，表达简洁，符合题目要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-25-phase15-v1-25#1",
+        "sampleId": "phase15-v1-25",
+        "runId": "phase15-v1-25#1",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-7236-4eb2",
+          "fact-2-4f1e"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-25",
+          "runId": "phase15-v1-25#1",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:01.333Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-25#2",
+      "sampleId": "phase15-v1-25",
+      "slice": "reasonable_alternative",
+      "runIndex": 2,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1735,
+        "outputTokens": 211,
+        "totalTokens": 1946
+      },
+      "latencyMs": 2502,
+      "candidate": {
+        "mainAbility": "概括",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生答案保留了人物（父亲和孩子）",
+          "学生答案保留了主要事件（父亲冒雨接孩子、把伞留给孩子）",
+          "学生答案表达简洁完整"
+        ],
+        "diagnosisSummary": "学生准确概括了材料主要内容，保留了关键人物和事件，表达简洁，符合题目要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-25-phase15-v1-25#2",
+        "sampleId": "phase15-v1-25",
+        "runId": "phase15-v1-25#2",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-7236-4eb2",
+          "fact-2-4f1e"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-25",
+          "runId": "phase15-v1-25#2",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:03.836Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-25#3",
+      "sampleId": "phase15-v1-25",
+      "slice": "reasonable_alternative",
+      "runIndex": 3,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1735,
+        "outputTokens": 209,
+        "totalTokens": 1944
+      },
+      "latencyMs": 2435,
+      "candidate": {
+        "mainAbility": "概括",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生答案保留了人物（父亲和孩子）",
+          "学生答案保留了主要事件（父亲冒雨接孩子，把伞留给孩子）",
+          "表达简洁完整"
+        ],
+        "diagnosisSummary": "学生准确概括了材料核心内容，包含必要人物和事件，表达简洁，符合题目要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-25-phase15-v1-25#3",
+        "sampleId": "phase15-v1-25",
+        "runId": "phase15-v1-25#3",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-7236-4eb2",
+          "fact-2-4f1e"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-25",
+          "runId": "phase15-v1-25#3",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:06.273Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-26#1",
+      "sampleId": "phase15-v1-26",
+      "slice": "reasonable_alternative",
+      "runIndex": 1,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1735,
+        "outputTokens": 224,
+        "totalTokens": 1959
+      },
+      "latencyMs": 2491,
+      "candidate": {
+        "mainAbility": "表达",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生明确表达了自己的观点：不赞成统一延长，但支持自愿晚读",
+          "学生给出了理由：不同同学回家安排不同，与图书馆开放时间相关",
+          "表达连贯，逻辑清晰"
+        ],
+        "diagnosisSummary": "学生观点明确，理由与题目要求相关，表达连贯，满足所有rubric要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-26-phase15-v1-26#1",
+        "sampleId": "phase15-v1-26",
+        "runId": "phase15-v1-26#1",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-4e0d-8d5e-6210",
+          "fact-2-81ea-613f"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-26",
+          "runId": "phase15-v1-26#1",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:08.765Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-26#2",
+      "sampleId": "phase15-v1-26",
+      "slice": "reasonable_alternative",
+      "runIndex": 2,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1735,
+        "outputTokens": 220,
+        "totalTokens": 1955
+      },
+      "latencyMs": 2378,
+      "candidate": {
+        "mainAbility": "表达",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生明确表达了自己的观点：不赞成统一延长，但支持自愿晚读",
+          "学生给出了理由：不同同学回家安排不同，与图书馆开放时间相关",
+          "表达连贯，观点与理由之间逻辑关系清晰"
+        ],
+        "diagnosisSummary": "学生观点明确，理由与题目要求相关，表达连贯，符合Rubric要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-26-phase15-v1-26#2",
+        "sampleId": "phase15-v1-26",
+        "runId": "phase15-v1-26#2",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-4e0d-8d5e-6210",
+          "fact-2-81ea-613f"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-26",
+          "runId": "phase15-v1-26#2",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:11.144Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-26#3",
+      "sampleId": "phase15-v1-26",
+      "slice": "reasonable_alternative",
+      "runIndex": 3,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1735,
+        "outputTokens": 213,
+        "totalTokens": 1948
+      },
+      "latencyMs": 2322,
+      "candidate": {
+        "mainAbility": "表达",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生明确表达了观点（不赞成统一延长，但可开放自愿晚读）",
+          "学生提供了理由（不同同学回家安排不同），与观点相关",
+          "表达连贯，逻辑清晰"
+        ],
+        "diagnosisSummary": "学生观点明确，理由相关且表达连贯，完全满足题目要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-26-phase15-v1-26#3",
+        "sampleId": "phase15-v1-26",
+        "runId": "phase15-v1-26#3",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-4e0d-8d5e-6210",
+          "fact-2-81ea-613f"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-26",
+          "runId": "phase15-v1-26#3",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:13.467Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-20#1",
+      "sampleId": "phase15-v1-20",
+      "slice": "concise_valid",
+      "runIndex": 1,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1741,
+        "outputTokens": 302,
+        "totalTokens": 2043
+      },
+      "latencyMs": 3993,
+      "candidate": {
+        "mainAbility": "推理",
+        "answerStatus": "partially_meets",
+        "rootCause": "学生已给出核心心理方向（舍不得），并引用了一个相关动作，但缺少对动作与心理之间关系的明确说明，且遗漏了另一个关键动作（小心夹回），导致推理链不完整。",
+        "surfaceError": "学生只引用了动作“站了很久”，但未说明该动作如何体现心理，且未引用“小心夹回”这一关键动作。",
+        "abilityEvidence": [
+          "学生答案中“舍不得”是对心理的判断，符合核心方向。",
+          "学生引用了“站了很久”作为依据，但未解释该动作如何体现舍不得。",
+          "学生未引用“小心夹回”这一动作，也未说明动作与心理的关系。"
+        ],
+        "diagnosisSummary": "学生能判断人物心理方向，但推理链不完整：缺少对依据与结论关系的说明，且遗漏了关键动作。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-20-phase15-v1-20#1",
+        "sampleId": "phase15-v1-20",
+        "runId": "phase15-v1-20#1",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "missing_evidence"
+        ],
+        "matchedFactIds": [
+          "fact-1-820d-4e0d-5f97",
+          "fact-2-7ad9-4e86-5f88-4e45"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-20",
+          "runId": "phase15-v1-20#1",
+          "attributions": [
+            {
+              "fieldPath": "surfaceError",
+              "text": "站了很久",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": false,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            },
+            {
+              "fieldPath": "surfaceError",
+              "text": "小心夹回",
+              "source": "reference_answer_term",
+              "presentedAsStudentQuote": false,
+              "valid": true,
+              "reason": "Quote is attributable to reference_answer_term."
+            },
+            {
+              "fieldPath": "abilityEvidence[0]",
+              "text": "舍不得",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": false,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            },
+            {
+              "fieldPath": "abilityEvidence[1]",
+              "text": "站了很久",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": true,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            },
+            {
+              "fieldPath": "abilityEvidence[2]",
+              "text": "小心夹回",
+              "source": "reference_answer_term",
+              "presentedAsStudentQuote": false,
+              "valid": true,
+              "reason": "Quote is attributable to reference_answer_term."
+            }
+          ],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:17.460Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-20#2",
+      "sampleId": "phase15-v1-20",
+      "slice": "concise_valid",
+      "runIndex": 2,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1741,
+        "outputTokens": 305,
+        "totalTokens": 2046
+      },
+      "latencyMs": 3784,
+      "candidate": {
+        "mainAbility": "推理",
+        "answerStatus": "partially_meets",
+        "rootCause": "学生完成了核心心理判断（舍不得）并引用了一个相关动作，但缺少对第二个关键动作的引用以及动作与心理之间关系的明确说明，导致推理链不完整。",
+        "surfaceError": "学生只引用了动作'站了很久'，但未引用'小心夹回'这一关键动作，且未说明动作与心理之间的推理关系。",
+        "abilityEvidence": [
+          "学生答案中'他舍不得'表明学生判断了人物心理",
+          "学生答案中'因为他站了很久'表明学生尝试引用动作作为依据",
+          "但学生未引用'小心夹回'这一动作，也未说明'站了很久'如何推导出'舍不得'"
+        ],
+        "diagnosisSummary": "学生能判断人物心理并引用一个相关动作，但缺少对另一个关键动作的引用，且未说明动作与心理之间的推理关系，未完全满足题目要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-20-phase15-v1-20#2",
+        "sampleId": "phase15-v1-20",
+        "runId": "phase15-v1-20#2",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "missing_evidence"
+        ],
+        "matchedFactIds": [
+          "fact-1-820d-4e0d-5f97",
+          "fact-2-7ad9-4e86-5f88-4e45"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-20",
+          "runId": "phase15-v1-20#2",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:21.246Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-20#3",
+      "sampleId": "phase15-v1-20",
+      "slice": "concise_valid",
+      "runIndex": 3,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1741,
+        "outputTokens": 293,
+        "totalTokens": 2034
+      },
+      "latencyMs": 3910,
+      "candidate": {
+        "mainAbility": "推理",
+        "answerStatus": "partially_meets",
+        "rootCause": "学生已判断出核心心理方向（舍不得），并引用了一个相关动作，但缺少对另一个关键动作的引用，且未建立动作与心理之间的推理关系，导致依据不完整。",
+        "surfaceError": "学生只引用了动作'站了很久'，但未引用'小心夹回'这一关键动作，且未说明动作与心理的关系。",
+        "abilityEvidence": [
+          "学生答案中'舍不得'对应核心心理方向，'站了很久'是材料中的相关动作",
+          "但未引用'小心夹回'这一动作，也未说明'站了很久'如何体现'舍不得'"
+        ],
+        "diagnosisSummary": "学生能判断出核心心理方向，并引用一个相关动作，但缺少对另一个关键动作的引用，且未说明动作与心理的关系，未完全满足题目要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-20-phase15-v1-20#3",
+        "sampleId": "phase15-v1-20",
+        "runId": "phase15-v1-20#3",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "missing_evidence"
+        ],
+        "matchedFactIds": [
+          "fact-1-820d-4e0d-5f97",
+          "fact-2-7ad9-4e86-5f88-4e45"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-20",
+          "runId": "phase15-v1-20#3",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:25.157Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-21#1",
+      "sampleId": "phase15-v1-21",
+      "slice": "concise_valid",
+      "runIndex": 1,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1733,
+        "outputTokens": 211,
+        "totalTokens": 1944
+      },
+      "latencyMs": 2148,
+      "candidate": {
+        "mainAbility": "概括",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生答案保留了人物（父亲、孩子）",
+          "学生答案保留了主要事件（雨中等孩子、把伞让给孩子）",
+          "学生答案表达简洁完整"
+        ],
+        "diagnosisSummary": "学生答案准确概括了材料核心内容，包含必要人物和事件，表达简洁，符合题目要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-21-phase15-v1-21#1",
+        "sampleId": "phase15-v1-21",
+        "runId": "phase15-v1-21#1",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-7236-4eb2",
+          "fact-2-628a-4f1e"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-21",
+          "runId": "phase15-v1-21#1",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:27.305Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-21#2",
+      "sampleId": "phase15-v1-21",
+      "slice": "concise_valid",
+      "runIndex": 2,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1733,
+        "outputTokens": 207,
+        "totalTokens": 1940
+      },
+      "latencyMs": 2227,
+      "candidate": {
+        "mainAbility": "概括",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生答案保留了人物（父亲和孩子）",
+          "学生答案保留了主要事件（父亲雨中等待、让伞）",
+          "学生答案表达简洁完整"
+        ],
+        "diagnosisSummary": "学生准确概括了材料核心内容，包含人物和主要事件，表达简洁，符合题目要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-21-phase15-v1-21#2",
+        "sampleId": "phase15-v1-21",
+        "runId": "phase15-v1-21#2",
+        "qualityLevel": "questionable",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": false,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-7236-4eb2"
+        ],
+        "missingFactIds": [
+          "fact-2-628a-4f1e"
+        ],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-21",
+          "runId": "phase15-v1-21#2",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [
+          {
+            "dimension": "required_fact",
+            "attribution": "confirmed_model_issue",
+            "recommendedAction": "prompt_change",
+            "reason": "Missing required fact concepts: fact-2-628a-4f1e."
+          }
+        ],
+        "limitations": [],
+        "offlineDecision": "human_review",
+        "canBecomeFormalCandidate": false,
+        "evaluatedAt": "2026-07-17T09:56:29.532Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-21#3",
+      "sampleId": "phase15-v1-21",
+      "slice": "concise_valid",
+      "runIndex": 3,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1733,
+        "outputTokens": 207,
+        "totalTokens": 1940
+      },
+      "latencyMs": 2168,
+      "candidate": {
+        "mainAbility": "概括",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生答案保留了人物（父亲和孩子）",
+          "学生答案保留了主要事件（父亲雨中等待、把伞让给孩子）",
+          "学生答案表达简洁完整"
+        ],
+        "diagnosisSummary": "学生准确概括了材料核心内容，保留了关键人物和事件，表达简洁，符合题目要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-21-phase15-v1-21#3",
+        "sampleId": "phase15-v1-21",
+        "runId": "phase15-v1-21#3",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-7236-4eb2",
+          "fact-2-628a-4f1e"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-21",
+          "runId": "phase15-v1-21#3",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:31.701Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-22#1",
+      "sampleId": "phase15-v1-22",
+      "slice": "concise_valid",
+      "runIndex": 1,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1726,
+        "outputTokens": 202,
+        "totalTokens": 1928
+      },
+      "latencyMs": 2387,
+      "candidate": {
+        "mainAbility": "表达",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生明确表达了赞成观点",
+          "学生给出了理由：能让想读书的同学有更多时间，与图书馆开放时间相关"
+        ],
+        "diagnosisSummary": "学生观点明确，理由相关且支持观点，表达连贯，满足题目要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-22-phase15-v1-22#1",
+        "sampleId": "phase15-v1-22",
+        "runId": "phase15-v1-22#1",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-8d5e-6210",
+          "fact-2-66f4-591a-65f6-95f4"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-22",
+          "runId": "phase15-v1-22#1",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:34.089Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-22#2",
+      "sampleId": "phase15-v1-22",
+      "slice": "concise_valid",
+      "runIndex": 2,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1726,
+        "outputTokens": 196,
+        "totalTokens": 1922
+      },
+      "latencyMs": 2081,
+      "candidate": {
+        "mainAbility": "表达",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生明确表达了赞成观点",
+          "学生给出了理由：能让想读书的同学有更多时间，与延长图书馆开放时间相关"
+        ],
+        "diagnosisSummary": "学生观点明确，理由相关，表达连贯，满足题目要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-22-phase15-v1-22#2",
+        "sampleId": "phase15-v1-22",
+        "runId": "phase15-v1-22#2",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-8d5e-6210",
+          "fact-2-66f4-591a-65f6-95f4"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-22",
+          "runId": "phase15-v1-22#2",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:36.171Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-22#3",
+      "sampleId": "phase15-v1-22",
+      "slice": "concise_valid",
+      "runIndex": 3,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1726,
+        "outputTokens": 185,
+        "totalTokens": 1911
+      },
+      "latencyMs": 2062,
+      "candidate": {
+        "mainAbility": "表达",
+        "answerStatus": "fully_meets",
+        "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+        "surfaceError": "本次作答未发现明确表面错误",
+        "abilityEvidence": [
+          "学生明确表达了赞成观点",
+          "学生提供了与图书馆开放时间相关的理由"
+        ],
+        "diagnosisSummary": "学生观点明确，理由相关，表达连贯，满足题目要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-22-phase15-v1-22#3",
+        "sampleId": "phase15-v1-22",
+        "runId": "phase15-v1-22#3",
+        "qualityLevel": "questionable",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": false,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedFactIds": [
+          "fact-1-8d5e-6210"
+        ],
+        "missingFactIds": [
+          "fact-2-66f4-591a-65f6-95f4"
+        ],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-22",
+          "runId": "phase15-v1-22#3",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [
+          {
+            "dimension": "required_fact",
+            "attribution": "confirmed_model_issue",
+            "recommendedAction": "prompt_change",
+            "reason": "Missing required fact concepts: fact-2-66f4-591a-65f6-95f4."
+          }
+        ],
+        "limitations": [],
+        "offlineDecision": "human_review",
+        "canBecomeFormalCandidate": false,
+        "evaluatedAt": "2026-07-17T09:56:38.234Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-13#1",
+      "sampleId": "phase15-v1-13",
+      "slice": "core_conclusion_error",
+      "runIndex": 1,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1748,
+        "outputTokens": 286,
+        "totalTokens": 2034
+      },
+      "latencyMs": 4038,
+      "candidate": {
+        "mainAbility": "推理",
+        "answerStatus": "does_not_meet",
+        "rootCause": "学生识别了相关动作（站了很久、小心夹回），但未能正确推断动作所表达的心理状态，将谨慎、珍惜的行为误判为负面情绪，说明在依据与结论的推理关系上存在错误。",
+        "surfaceError": "学生将父亲的动作（站了很久、小心夹回）错误地推断为“生气”，与材料中体现的珍惜、怀念情感冲突。",
+        "abilityEvidence": [
+          "学生引用“站了很久”和“小心夹回”作为依据",
+          "学生得出“很生气”的结论，与材料中父亲珍惜回忆的情感不符"
+        ],
+        "diagnosisSummary": "学生能够定位关键动作，但推理方向错误，将珍惜行为误解为生气，核心结论与材料冲突，未满足题目要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-13-phase15-v1-13#1",
+        "sampleId": "phase15-v1-13",
+        "runId": "phase15-v1-13#1",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "incorrect_causal_relation"
+        ],
+        "matchedFactIds": [
+          "fact-1-7ad9-4e86-5f88-4e45"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-13",
+          "runId": "phase15-v1-13#1",
+          "attributions": [
+            {
+              "fieldPath": "surfaceError",
+              "text": "生气",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": false,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            },
+            {
+              "fieldPath": "abilityEvidence[0]",
+              "text": "站了很久",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": true,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            },
+            {
+              "fieldPath": "abilityEvidence[0]",
+              "text": "小心夹回",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": false,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            },
+            {
+              "fieldPath": "abilityEvidence[1]",
+              "text": "很生气",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": false,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            }
+          ],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:42.273Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-13#2",
+      "sampleId": "phase15-v1-13",
+      "slice": "core_conclusion_error",
+      "runIndex": 2,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1748,
+        "outputTokens": 282,
+        "totalTokens": 2030
+      },
+      "latencyMs": 3826,
+      "candidate": {
+        "mainAbility": "推理",
+        "answerStatus": "does_not_meet",
+        "rootCause": "学生识别了相关动作（站了很久、小心夹回），但未能正确推断动作背后的心理状态，将珍惜行为误判为负面情绪，说明推理过程中情感理解出现偏差。",
+        "surfaceError": "学生将父亲的行为解释为“生气”，与材料中“站了很久”“小心夹回”所暗示的怀念、不舍等情感冲突，核心结论错误。",
+        "abilityEvidence": [
+          "学生引用“站了很久”和“小心夹回树叶”作为依据，但得出“生气”的结论，依据与结论的逻辑关系不成立。"
+        ],
+        "diagnosisSummary": "学生能定位关键动作，但核心心理判断错误，且未说明动作与心理的合理关系，未满足rubric中判断人物心理和说明关系的要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-13-phase15-v1-13#2",
+        "sampleId": "phase15-v1-13",
+        "runId": "phase15-v1-13#2",
+        "qualityLevel": "questionable",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": false,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "unknown"
+        ],
+        "matchedFactIds": [
+          "fact-1-7ad9-4e86-5f88-4e45"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-13",
+          "runId": "phase15-v1-13#2",
+          "attributions": [
+            {
+              "fieldPath": "surfaceError",
+              "text": "生气",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": false,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            },
+            {
+              "fieldPath": "surfaceError",
+              "text": "站了很久",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": false,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            },
+            {
+              "fieldPath": "surfaceError",
+              "text": "小心夹回",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": false,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            },
+            {
+              "fieldPath": "abilityEvidence[0]",
+              "text": "站了很久",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": true,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            },
+            {
+              "fieldPath": "abilityEvidence[0]",
+              "text": "小心夹回树叶",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": false,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            },
+            {
+              "fieldPath": "abilityEvidence[0]",
+              "text": "生气",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": false,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            }
+          ],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [
+          {
+            "dimension": "root_cause",
+            "attribution": "insufficient_evidence",
+            "recommendedAction": "further_review",
+            "reason": "Policy v2 cannot safely map the root cause to a structured category."
+          }
+        ],
+        "limitations": [
+          "Root cause category could not be determined safely and requires human review."
+        ],
+        "offlineDecision": "human_review",
+        "canBecomeFormalCandidate": false,
+        "evaluatedAt": "2026-07-17T09:56:46.099Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-13#3",
+      "sampleId": "phase15-v1-13",
+      "slice": "core_conclusion_error",
+      "runIndex": 3,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1748,
+        "outputTokens": 282,
+        "totalTokens": 2030
+      },
+      "latencyMs": 3308,
+      "candidate": {
+        "mainAbility": "推理",
+        "answerStatus": "does_not_meet",
+        "rootCause": "学生完成了引用动作的要求，但未能正确推断动作与心理的关系，将珍惜行为误解为负面情绪，导致核心结论错误。",
+        "surfaceError": "学生引用了相关动作（站了很久、小心夹回），但得出的心理结论（生气）与材料语境明显冲突，材料中父亲的动作通常表达怀念、不舍等情感，而非生气。",
+        "abilityEvidence": [
+          "学生引用动作：'站了很久'、'小心夹回树叶'",
+          "学生结论：'他很生气'",
+          "材料语境：父亲整理书柜发现褪色树叶，动作暗示怀念、不舍，与生气矛盾"
+        ],
+        "diagnosisSummary": "学生能定位关键动作，但推理方向错误，将珍惜行为误判为生气，核心结论与材料事实冲突。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-13-phase15-v1-13#3",
+        "sampleId": "phase15-v1-13",
+        "runId": "phase15-v1-13#3",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "incorrect_causal_relation"
+        ],
+        "matchedFactIds": [
+          "fact-1-7ad9-4e86-5f88-4e45"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-13",
+          "runId": "phase15-v1-13#3",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:49.407Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-14#1",
+      "sampleId": "phase15-v1-14",
+      "slice": "core_conclusion_error",
+      "runIndex": 1,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1704,
+        "outputTokens": 252,
+        "totalTokens": 1956
+      },
+      "latencyMs": 3565,
+      "candidate": {
+        "mainAbility": "理解",
+        "answerStatus": "does_not_meet",
+        "rootCause": "学生虽然关注到小林重新检查的结果，但未能正确推断老师行为背后的教育意图，将引导性行为误判为惩罚，核心结论与材料事实不符。",
+        "surfaceError": "学生将老师的行为目的错误理解为惩罚，与材料中老师引导自主反思的意图相冲突。",
+        "abilityEvidence": [
+          "学生答案提到小林重新检查发现漏读条件，但结论是'老师是在惩罚他'，与材料中老师推动自主反思的意图矛盾。"
+        ],
+        "diagnosisSummary": "学生未能正确理解老师行为的目的，核心结论错误，未达到题目要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-14-phase15-v1-14#1",
+        "sampleId": "phase15-v1-14",
+        "runId": "phase15-v1-14#1",
+        "qualityLevel": "questionable",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": false,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "unknown"
+        ],
+        "matchedFactIds": [
+          "fact-1-91cd-65b0-68c0-67e5"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-14",
+          "runId": "phase15-v1-14#1",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [
+          {
+            "dimension": "root_cause",
+            "attribution": "insufficient_evidence",
+            "recommendedAction": "further_review",
+            "reason": "Policy v2 cannot safely map the root cause to a structured category."
+          }
+        ],
+        "limitations": [
+          "Root cause category could not be determined safely and requires human review."
+        ],
+        "offlineDecision": "human_review",
+        "canBecomeFormalCandidate": false,
+        "evaluatedAt": "2026-07-17T09:56:52.973Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-14#2",
+      "sampleId": "phase15-v1-14",
+      "slice": "core_conclusion_error",
+      "runIndex": 2,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1704,
+        "outputTokens": 267,
+        "totalTokens": 1971
+      },
+      "latencyMs": 3603,
+      "candidate": {
+        "mainAbility": "理解",
+        "answerStatus": "does_not_meet",
+        "rootCause": "学生虽然注意到小林重新检查的结果，但未能正确推断老师行为的目的，将教育引导误判为惩罚，核心结论与材料事实不相容。",
+        "surfaceError": "学生将老师的行为目的错误理解为惩罚，与材料中老师引导自主反思的意图冲突。",
+        "abilityEvidence": [
+          "学生答案提到'小林重新检查发现漏读条件'，说明学生关注了材料中的关键事件。",
+          "但学生得出'老师是在惩罚他'的结论，与材料中老师推动自主反思的意图相悖。"
+        ],
+        "diagnosisSummary": "学生能提取材料中的关键事件（小林重新检查发现漏读），但未能正确理解老师行为的教育目的，核心结论错误。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-14-phase15-v1-14#2",
+        "sampleId": "phase15-v1-14",
+        "runId": "phase15-v1-14#2",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "incorrect_causal_relation"
+        ],
+        "matchedFactIds": [
+          "fact-1-91cd-65b0-68c0-67e5"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-14",
+          "runId": "phase15-v1-14#2",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:56:56.578Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-14#3",
+      "sampleId": "phase15-v1-14",
+      "slice": "core_conclusion_error",
+      "runIndex": 3,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1704,
+        "outputTokens": 254,
+        "totalTokens": 1958
+      },
+      "latencyMs": 3448,
+      "candidate": {
+        "mainAbility": "理解",
+        "answerStatus": "does_not_meet",
+        "rootCause": "学生虽然注意到小林重新检查的结果，但未能理解老师行为背后的教育意图，将引导性行为误判为惩罚，导致核心结论与材料事实和题干要求不符。",
+        "surfaceError": "学生将老师的行为目的错误理解为惩罚，与材料中老师引导自主反思的意图冲突。",
+        "abilityEvidence": [
+          "学生答案提到小林重新检查发现漏读条件，但据此得出老师是在惩罚他，结论与材料中老师推动自主反思的意图矛盾。"
+        ],
+        "diagnosisSummary": "学生未能正确理解老师行为的目的，核心结论错误，未满足题目要求。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-14-phase15-v1-14#3",
+        "sampleId": "phase15-v1-14",
+        "runId": "phase15-v1-14#3",
+        "qualityLevel": "questionable",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": false,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "unknown"
+        ],
+        "matchedFactIds": [
+          "fact-1-91cd-65b0-68c0-67e5"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-14",
+          "runId": "phase15-v1-14#3",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [
+          {
+            "dimension": "root_cause",
+            "attribution": "insufficient_evidence",
+            "recommendedAction": "further_review",
+            "reason": "Policy v2 cannot safely map the root cause to a structured category."
+          }
+        ],
+        "limitations": [
+          "Root cause category could not be determined safely and requires human review."
+        ],
+        "offlineDecision": "human_review",
+        "canBecomeFormalCandidate": false,
+        "evaluatedAt": "2026-07-17T09:57:00.027Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-15#1",
+      "sampleId": "phase15-v1-15",
+      "slice": "core_conclusion_error",
+      "runIndex": 1,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1738,
+        "outputTokens": 275,
+        "totalTokens": 2013
+      },
+      "latencyMs": 3673,
+      "candidate": {
+        "mainAbility": "概括",
+        "answerStatus": "does_not_meet",
+        "rootCause": "学生提取了部分事件（父亲把伞给孩子、自己淋雨），但未能准确理解事件的核心情感或目的，反而加入了与材料无关的推断，导致核心结论错误。",
+        "surfaceError": "学生添加了材料中未提及的‘父亲讨厌下雨’这一主观推断，与原文事实冲突。",
+        "abilityEvidence": [
+          "学生答案包含‘父亲把伞给孩子后自己淋雨’，表明提取了主要事件，但后续‘主要写父亲讨厌下雨’与材料中父亲冒雨等待、把伞给孩子的行为矛盾，材料未体现父亲讨厌下雨。"
+        ],
+        "diagnosisSummary": "学生能识别部分事件，但未能准确概括核心内容，添加了错误的主观推断，导致答案与材料事实冲突。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-15-phase15-v1-15#1",
+        "sampleId": "phase15-v1-15",
+        "runId": "phase15-v1-15#1",
+        "qualityLevel": "questionable",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": false,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "unknown"
+        ],
+        "matchedFactIds": [
+          "fact-1-628a-4f1e-7ed9-5b69-5b50"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-15",
+          "runId": "phase15-v1-15#1",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [
+          {
+            "dimension": "root_cause",
+            "attribution": "insufficient_evidence",
+            "recommendedAction": "further_review",
+            "reason": "Policy v2 cannot safely map the root cause to a structured category."
+          }
+        ],
+        "limitations": [
+          "Root cause category could not be determined safely and requires human review."
+        ],
+        "offlineDecision": "human_review",
+        "canBecomeFormalCandidate": false,
+        "evaluatedAt": "2026-07-17T09:57:03.700Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-15#2",
+      "sampleId": "phase15-v1-15",
+      "slice": "core_conclusion_error",
+      "runIndex": 2,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1738,
+        "outputTokens": 269,
+        "totalTokens": 2007
+      },
+      "latencyMs": 3679,
+      "candidate": {
+        "mainAbility": "概括",
+        "answerStatus": "does_not_meet",
+        "rootCause": "学生提取了部分事件细节（父亲把伞给孩子、自己淋雨），但错误推断出'父亲讨厌下雨'这一与材料主旨矛盾的结论，未能正确理解材料表达的情感。",
+        "surfaceError": "核心结论错误：学生将事件概括为'父亲讨厌下雨'，与材料中父亲关爱孩子的主题冲突。",
+        "abilityEvidence": [
+          "学生答案包含'父亲把伞给孩子后自己淋雨'，表明识别了主要事件，但后续'主要写父亲讨厌下雨'与材料事实不符。"
+        ],
+        "diagnosisSummary": "学生能识别部分事件细节，但核心结论错误，将父亲关爱行为曲解为讨厌下雨，未完成概括任务。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-15-phase15-v1-15#2",
+        "sampleId": "phase15-v1-15",
+        "runId": "phase15-v1-15#2",
+        "qualityLevel": "questionable",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": false,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "unknown"
+        ],
+        "matchedFactIds": [
+          "fact-1-628a-4f1e-7ed9-5b69-5b50"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-15",
+          "runId": "phase15-v1-15#2",
+          "attributions": [],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [
+          {
+            "dimension": "root_cause",
+            "attribution": "insufficient_evidence",
+            "recommendedAction": "further_review",
+            "reason": "Policy v2 cannot safely map the root cause to a structured category."
+          }
+        ],
+        "limitations": [
+          "Root cause category could not be determined safely and requires human review."
+        ],
+        "offlineDecision": "human_review",
+        "canBecomeFormalCandidate": false,
+        "evaluatedAt": "2026-07-17T09:57:07.380Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "runId": "phase15-v1-15#3",
+      "sampleId": "phase15-v1-15",
+      "slice": "core_conclusion_error",
+      "runIndex": 3,
+      "outcome": "provider_completed",
+      "runtimeStatus": "shadow_result_ready",
+      "attemptCount": 1,
+      "tokenUsage": {
+        "inputTokens": 1738,
+        "outputTokens": 219,
+        "totalTokens": 1957
+      },
+      "latencyMs": 2690,
+      "candidate": {
+        "mainAbility": "概括",
+        "answerStatus": "does_not_meet",
+        "rootCause": "学生概括时加入了主观推断，未忠实于材料内容，导致核心结论错误。",
+        "surfaceError": "学生添加了材料中没有的信息“父亲讨厌下雨”，与原文事实冲突。",
+        "abilityEvidence": [
+          "学生答案包含“父亲把伞给孩子后自己淋雨”，但后续“主要写父亲讨厌下雨”与材料无关。"
+        ],
+        "diagnosisSummary": "学生部分提取了事件要素，但添加了材料未提及的结论，导致概括不准确。"
+      },
+      "quality": {
+        "schemaVersion": "diagnosis_quality_evaluation_v2",
+        "policyVersion": "diagnosis_quality_policy_v2",
+        "annotationVersion": "2.0.0",
+        "datasetVersion": "1.0.0",
+        "evaluationId": "diagnosis-quality-v2-phase15-v1-15-phase15-v1-15#3",
+        "sampleId": "phase15-v1-15",
+        "runId": "phase15-v1-15#3",
+        "qualityLevel": "accepted",
+        "dimensions": {
+          "mainAbilityAccepted": true,
+          "answerStatusAccepted": true,
+          "rootCauseCategoryAccepted": true,
+          "requiredFactsPresent": true,
+          "quoteAttributionValid": true,
+          "noBoundaryOverreach": true,
+          "noCriticalHallucination": true
+        },
+        "detectedRootCauseCategories": [
+          "unsupported_inference"
+        ],
+        "matchedFactIds": [
+          "fact-1-628a-4f1e-7ed9-5b69-5b50"
+        ],
+        "missingFactIds": [],
+        "attributionEnvelope": {
+          "sampleId": "phase15-v1-15",
+          "runId": "phase15-v1-15#3",
+          "attributions": [
+            {
+              "fieldPath": "surfaceError",
+              "text": "父亲讨厌下雨",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": false,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            },
+            {
+              "fieldPath": "abilityEvidence[0]",
+              "text": "父亲把伞给孩子后自己淋雨",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": true,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            },
+            {
+              "fieldPath": "abilityEvidence[0]",
+              "text": "主要写父亲讨厌下雨",
+              "source": "student_exact_quote",
+              "presentedAsStudentQuote": false,
+              "valid": true,
+              "reason": "Quote is attributable to student_exact_quote."
+            }
+          ],
+          "validation": {
+            "passed": true,
+            "issues": []
+          }
+        },
+        "reviewFindings": [],
+        "limitations": [],
+        "offlineDecision": "accepted_candidate",
+        "canBecomeFormalCandidate": true,
+        "evaluatedAt": "2026-07-17T09:57:10.071Z",
+        "validation": {
+          "passed": true,
+          "issues": []
+        }
+      }
+    }
+  ],
+  "safety": {
+    "executionMode": "shadow",
+    "diagnosisCommitted": false,
+    "evidenceCreated": false,
+    "profileUpdated": false,
+    "secretLogged": false,
+    "fullPromptLogged": false,
+    "rawOutputLogged": false
+  },
+  "manualReviewRequired": true
+}

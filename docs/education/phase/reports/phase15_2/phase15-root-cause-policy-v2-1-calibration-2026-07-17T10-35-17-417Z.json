@@ -1,0 +1,2527 @@
+{
+  "schemaVersion": "root_cause_policy_v2_1_calibration_v1",
+  "reportId": "phase15-root-cause-policy-v2-1-calibration-2026-07-17T10-35-17-417Z",
+  "createdAt": "2026-07-17T10:35:17.417Z",
+  "sourceReportId": "phase15-prompt-v4-calibrated-baseline-2026-07-17T10-03-31-702Z",
+  "attributionReportId": "phase15-root-cause-failure-attribution-2026-07-17T10-26-06-313Z",
+  "policyVersion": "diagnosis_quality_policy_v2_1",
+  "executionMode": "offline_existing_candidate_calibration",
+  "metrics": {
+    "totalCandidateRuns": 93,
+    "acceptedRuns": 90,
+    "acceptanceRate": 0.967741935483871,
+    "unknownRuns": 0,
+    "conflictingRuns": 0,
+    "previouslyAcceptedPreserved": 61,
+    "previouslyAcceptedTotal": 61,
+    "reasonableFailuresRecovered": 29,
+    "reasonableFailuresTotal": 29,
+    "confirmedPromptErrorsRejected": 3,
+    "confirmedPromptErrorsTotal": 3
+  },
+  "acceptanceConstraints": [
+    {
+      "code": "root_cause_acceptance_at_least_80_percent",
+      "passed": true,
+      "actual": "90/93",
+      "required": ">= 80%"
+    },
+    {
+      "code": "reasonable_29_no_regression",
+      "passed": true,
+      "actual": "29/29",
+      "required": "29/29"
+    },
+    {
+      "code": "prompt_error_3_remain_blocked",
+      "passed": true,
+      "actual": "3/3",
+      "required": "3/3"
+    },
+    {
+      "code": "previously_accepted_61_preserved",
+      "passed": true,
+      "actual": "61/61",
+      "required": "61/61"
+    },
+    {
+      "code": "unknown_significantly_reduced",
+      "passed": true,
+      "actual": "0",
+      "required": "<= 3"
+    },
+    {
+      "code": "no_conflicting_classification_accepted",
+      "passed": true,
+      "actual": "0",
+      "required": "0 accepted conflicts"
+    },
+    {
+      "code": "unseen_paraphrase_holdout_pass",
+      "passed": true,
+      "actual": "7/7",
+      "required": "7/7"
+    },
+    {
+      "code": "classifier_has_no_identity_input",
+      "passed": true,
+      "actual": "1",
+      "required": "1 rootCause-only argument"
+    }
+  ],
+  "ruleAudit": {
+    "classifierInputFields": [
+      "rootCause"
+    ],
+    "usesSampleId": false,
+    "usesCaseId": false,
+    "ruleMetadata": [
+      {
+        "code": "no_clear_deficit_observed",
+        "category": "no_clear_deficit_in_current_response"
+      },
+      {
+        "code": "missing_support_or_relation",
+        "category": "missing_evidence"
+      },
+      {
+        "code": "unsupported_or_invented_inference",
+        "category": "unsupported_inference"
+      },
+      {
+        "code": "incorrect_relation_or_purpose",
+        "category": "incorrect_causal_relation"
+      },
+      {
+        "code": "summary_missing_or_distorted",
+        "category": "incomplete_summary"
+      },
+      {
+        "code": "key_detail_misread",
+        "category": "misread_key_detail"
+      },
+      {
+        "code": "expression_or_reason_incomplete",
+        "category": "expression_incomplete"
+      }
+    ],
+    "multiLabelPolicy": [
+      "A run is accepted only when at least one specific detected category is explicitly allowed.",
+      "no_clear_deficit is mutually exclusive with every explicit deficit category.",
+      "Multiple deficit categories may coexist and remain visible; no category is silently discarded.",
+      "An allowed fully_meets result may accept no_clear_deficit even when an older annotation only listed a deficit path.",
+      "unknown and conflicting classifications always require review and never pass automatically."
+    ]
+  },
+  "previouslyAcceptedAudit": [
+    {
+      "runId": "phase15-v1-01#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-01#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-01#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-02#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-02#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-02#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-03#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-03#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-03#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-04#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-04#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-04#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-05#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生完成了核心心理判断，但题目要求结合文中内容说明理由，学生未提供任何依据，缺少 rubric 中要求的引用相关动作和说明关系。"
+    },
+    {
+      "runId": "phase15-v1-08#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生表达了观点，但理由“因为这样更好”缺乏具体内容，无法确认是否理解题目要求提供相关理由。"
+    },
+    {
+      "runId": "phase15-v1-09#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生识别了树叶褪色的细节，但未能正确理解褪色与时间流逝、回忆价值的关系，错误地推断出经济价值，导致核心结论与材料逻辑不符。"
+    },
+    {
+      "runId": "phase15-v1-09#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生识别了树叶褪色这一细节，但未能正确理解褪色与时间流逝、回忆的关系，错误地将其与价值昂贵关联，导致核心结论（不舍）虽方向正确，但依据错误，推理关系不成立。"
+    },
+    {
+      "runId": "phase15-v1-13#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生虽能引用相关动作（站了很久、小心夹回），但未能正确推断动作背后的心理，将珍惜行为误判为负面情绪，说明在依据与结论的推理关系上存在根本性错误。"
+    },
+    {
+      "runId": "phase15-v1-13#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生正确引用了相关动作（站了很久、小心夹回），但未能根据动作推断出合理的人物心理，导致核心结论错误。"
+    },
+    {
+      "runId": "phase15-v1-16#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生完成了核心判断（想起以前的事情）并引用了“看着树叶很久”这一动作，但未满足题目要求的“说明动作与心理的关系”这一子任务，缺少对“小心夹回”动作的分析，导致推理链条不完整。"
+    },
+    {
+      "runId": "phase15-v1-18#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生完成了概括的基本框架（人物和事件），但未完整保留主要事件中的关键行为（让伞），导致概括不完整。"
+    },
+    {
+      "runId": "phase15-v1-18#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生完成了对主要人物和部分事件的概括，但遗漏了体现父亲行为的关键细节（让伞、淋雨），导致概括不完整，未满足题目要求的保留主要事件。"
+    },
+    {
+      "runId": "phase15-v1-18#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生提取了主要人物和场景，但未完整保留材料中的核心事件链（递伞、淋雨），导致概括不完整。"
+    },
+    {
+      "runId": "phase15-v1-19#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生表达了观点并给出了一个理由，但理由缺乏具体依据和逻辑展开，未达到题目要求的理由相关性和表达连贯性。"
+    },
+    {
+      "runId": "phase15-v1-19#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生提出了观点和基本理由，但理由缺乏具体依据，未充分展开论证，导致理由与观点的关联不够紧密。"
+    },
+    {
+      "runId": "phase15-v1-19#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-20#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生已判断出核心心理方向（舍不得），并引用了一个相关动作，但缺少题目要求的'说明动作与心理的关系'这一必要环节，导致推理链不完整。"
+    },
+    {
+      "runId": "phase15-v1-20#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-20#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-21#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-21#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-21#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-22#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-22#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-22#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-23#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-23#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-23#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-24#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-24#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-24#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-25#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-25#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-25#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-26#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-26#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-26#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-27#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-27#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-27#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-28#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-28#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-28#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-29#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-29#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-29#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-35#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生已给出核心结论（不舍）并引用了一个动作（站了很久），但未说明动作与心理的关系，且未引用另一个关键动作（小心夹回），导致依据与结论的推理链不完整。"
+    },
+    {
+      "runId": "phase15-v1-35#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生已给出核心结论（不舍）并引用了一个动作（站了很久），但未说明动作与心理的关系，也未引用另一个关键动作（小心夹回），导致推理链不完整。"
+    },
+    {
+      "runId": "phase15-v1-35#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "学生已给出核心结论（不舍）并引用了一个动作（站了很久），但未说明动作与心理的关系，且未引用另一个关键动作（小心夹回），缺少题目要求的完整推理链。"
+    },
+    {
+      "runId": "phase15-v1-36#1",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-36#2",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    },
+    {
+      "runId": "phase15-v1-36#3",
+      "reviewStatus": "agent_initial_semantic_review",
+      "v21Accepted": true,
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性"
+    }
+  ],
+  "runResults": [
+    {
+      "runId": "phase15-v1-01#1",
+      "sampleId": "phase15-v1-01",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-01#2",
+      "sampleId": "phase15-v1-01",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-01#3",
+      "sampleId": "phase15-v1-01",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-02#1",
+      "sampleId": "phase15-v1-02",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-02#2",
+      "sampleId": "phase15-v1-02",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-02#3",
+      "sampleId": "phase15-v1-02",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-03#1",
+      "sampleId": "phase15-v1-03",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-03#2",
+      "sampleId": "phase15-v1-03",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-03#3",
+      "sampleId": "phase15-v1-03",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-04#1",
+      "sampleId": "phase15-v1-04",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-04#2",
+      "sampleId": "phase15-v1-04",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-04#3",
+      "sampleId": "phase15-v1-04",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-05#1",
+      "sampleId": "phase15-v1-05",
+      "answerStatus": "insufficient_evidence",
+      "rootCause": "学生完成了核心结论（舍不得），但题目要求结合文中内容说明理由，学生未提供任何可观察依据，无法判断是否真正理解推理过程。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-05#2",
+      "sampleId": "phase15-v1-05",
+      "answerStatus": "insufficient_evidence",
+      "rootCause": "学生给出了核心结论（舍不得），但题目要求结合文中内容说明理由，学生未提供任何依据，无法判断其推理过程是否正确。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-05#3",
+      "sampleId": "phase15-v1-05",
+      "answerStatus": "partially_meets",
+      "rootCause": "学生完成了核心心理判断，但题目要求结合文中内容说明理由，学生未提供任何依据，缺少 rubric 中要求的引用相关动作和说明关系。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-06#1",
+      "sampleId": "phase15-v1-06",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": false,
+      "v21Accepted": false,
+      "v21AcceptanceReason": "no_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "confirmed_prompt_error_3"
+    },
+    {
+      "runId": "phase15-v1-06#2",
+      "sampleId": "phase15-v1-06",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": false,
+      "v21Accepted": false,
+      "v21AcceptanceReason": "no_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "confirmed_prompt_error_3"
+    },
+    {
+      "runId": "phase15-v1-06#3",
+      "sampleId": "phase15-v1-06",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": false,
+      "v21Accepted": false,
+      "v21AcceptanceReason": "no_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "confirmed_prompt_error_3"
+    },
+    {
+      "runId": "phase15-v1-07#1",
+      "sampleId": "phase15-v1-07",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生未提取材料中的关键要素（父亲送伞、自己淋雨），而是直接给出主观感受，缺少对事件本身的客观概括。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence",
+          "incomplete_summary"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation",
+          "summary_missing_or_distorted"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-07#2",
+      "sampleId": "phase15-v1-07",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生回答了核心情感（关心），但未完成概括任务：题目要求概括主要内容，需要包含人物（父亲和孩子）、事件（父亲送伞并淋雨），而学生只给出了抽象结论，未保留必要的事件要素。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence",
+          "incomplete_summary"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation",
+          "summary_missing_or_distorted"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-07#3",
+      "sampleId": "phase15-v1-07",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生回答了核心情感，但题目要求概括主要内容，需要包含人物和事件；学生未提取出‘父亲送伞’‘自己淋雨’等关键事件，导致概括缺失主要事件要素。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "incomplete_summary"
+        ],
+        "matchedRuleCodes": [
+          "summary_missing_or_distorted"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-08#1",
+      "sampleId": "phase15-v1-08",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生回答了核心问题（赞成），但未按照题目要求说明理由，缺少必要的依据支撑，导致答案不完整。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence",
+          "expression_incomplete"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation",
+          "expression_or_reason_incomplete"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-08#2",
+      "sampleId": "phase15-v1-08",
+      "answerStatus": "insufficient_evidence",
+      "rootCause": "学生表达了观点，但理由“因为这样更好”缺乏具体内容，无法确认是否理解题目要求提供相关理由。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence",
+          "expression_incomplete"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation",
+          "expression_or_reason_incomplete"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-08#3",
+      "sampleId": "phase15-v1-08",
+      "answerStatus": "insufficient_evidence",
+      "rootCause": "学生表达了观点，但理由仅使用'更好'这一模糊表述，未提供任何可观察的具体依据，无法判断其是否理解题目要求。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence",
+          "expression_incomplete"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation",
+          "expression_or_reason_incomplete"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-09#1",
+      "sampleId": "phase15-v1-09",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生识别了树叶褪色的细节，但未能正确理解褪色与时间流逝、回忆价值的关系，错误地推断出经济价值，导致核心结论与材料逻辑不符。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "incorrect_causal_relation"
+        ],
+        "matchedRuleCodes": [
+          "incorrect_relation_or_purpose"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-09#2",
+      "sampleId": "phase15-v1-09",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生识别了树叶褪色这一细节，但未能正确理解褪色在语境中的含义（时间久远、回忆），而是错误地推断为价值昂贵，导致核心结论虽方向正确（不舍）但依据错误，且未引用关键动作（站了很久、小心夹回）。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence",
+          "incorrect_causal_relation",
+          "misread_key_detail"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation",
+          "incorrect_relation_or_purpose",
+          "key_detail_misread"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-09#3",
+      "sampleId": "phase15-v1-09",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生识别了树叶褪色这一细节，但未能正确理解褪色与时间流逝、回忆的关系，错误地将其与价值昂贵关联，导致核心结论（不舍）虽方向正确，但依据错误，推理关系不成立。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "incorrect_causal_relation"
+        ],
+        "matchedRuleCodes": [
+          "incorrect_relation_or_purpose"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-10#1",
+      "sampleId": "phase15-v1-10",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生虽然提到了老师让小林自己检查，但错误地归因为老师忘记答案，导致核心结论与材料事实冲突。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "unsupported_inference",
+          "incorrect_causal_relation"
+        ],
+        "matchedRuleCodes": [
+          "unsupported_or_invented_inference",
+          "incorrect_relation_or_purpose"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-10#2",
+      "sampleId": "phase15-v1-10",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生理解了老师让小林自己检查的表面行为，但错误推断老师忘记答案，未能理解老师培养自主反思的教育目的。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "incorrect_causal_relation"
+        ],
+        "matchedRuleCodes": [
+          "incorrect_relation_or_purpose"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-10#3",
+      "sampleId": "phase15-v1-10",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生虽然提到老师想让小林自己检查，但后续补充的'因为老师忘记了答案'与材料事实冲突，导致核心结论不成立。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "unsupported_inference",
+          "incorrect_causal_relation"
+        ],
+        "matchedRuleCodes": [
+          "unsupported_or_invented_inference",
+          "incorrect_relation_or_purpose"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-11#1",
+      "sampleId": "phase15-v1-11",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生提出了观点，但理由（书变多）与延长开放时间没有逻辑关联，未能满足'理由相关'的要求。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "incorrect_causal_relation"
+        ],
+        "matchedRuleCodes": [
+          "incorrect_relation_or_purpose"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-11#2",
+      "sampleId": "phase15-v1-11",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生提出了观点，但理由（书会变多）与延长开放时间这一核心议题缺乏逻辑关联，未能提供与开放时间相关的合理依据。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence",
+          "incorrect_causal_relation",
+          "expression_incomplete"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation",
+          "incorrect_relation_or_purpose",
+          "expression_or_reason_incomplete"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-11#3",
+      "sampleId": "phase15-v1-11",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生提出了观点，但给出的理由（书变多）与延长开放时间这一行为之间缺乏因果关系，未能提供题目要求的与开放时间相关的合理理由。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "incorrect_causal_relation",
+          "expression_incomplete"
+        ],
+        "matchedRuleCodes": [
+          "incorrect_relation_or_purpose",
+          "expression_or_reason_incomplete"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-12#1",
+      "sampleId": "phase15-v1-12",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生未能准确提取材料中的核心事件（父亲送伞并淋雨），而是添加了材料中未提及的细节（忘记带课本），导致概括偏离原文。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "unsupported_inference",
+          "incomplete_summary",
+          "misread_key_detail"
+        ],
+        "matchedRuleCodes": [
+          "unsupported_or_invented_inference",
+          "summary_missing_or_distorted",
+          "key_detail_misread"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-12#2",
+      "sampleId": "phase15-v1-12",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生未能准确提取材料中的关键事件（父亲等孩子、递伞、自己淋雨），而是添加了材料中未出现的信息（孩子忘记带课本），导致核心事件错误。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "unsupported_inference",
+          "incomplete_summary"
+        ],
+        "matchedRuleCodes": [
+          "unsupported_or_invented_inference",
+          "summary_missing_or_distorted"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-12#3",
+      "sampleId": "phase15-v1-12",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生未能准确提取材料中的核心事件（父亲送伞、自己淋雨），而是添加了材料中未提及的“忘记带课本”这一原因，导致概括内容与原文冲突。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "unsupported_inference",
+          "incomplete_summary"
+        ],
+        "matchedRuleCodes": [
+          "unsupported_or_invented_inference",
+          "summary_missing_or_distorted"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-13#1",
+      "sampleId": "phase15-v1-13",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生虽能引用相关动作（站了很久、小心夹回），但未能正确推断动作背后的心理，将珍惜行为误判为负面情绪，说明在依据与结论的推理关系上存在根本性错误。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "incorrect_causal_relation",
+          "misread_key_detail"
+        ],
+        "matchedRuleCodes": [
+          "incorrect_relation_or_purpose",
+          "key_detail_misread"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-13#2",
+      "sampleId": "phase15-v1-13",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生虽然引用了相关动作（站了很久、小心夹回），但未能正确理解这些动作所传达的情感，导致核心结论与材料事实冲突。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "unsupported_inference",
+          "incorrect_causal_relation",
+          "misread_key_detail"
+        ],
+        "matchedRuleCodes": [
+          "unsupported_or_invented_inference",
+          "incorrect_relation_or_purpose",
+          "key_detail_misread"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-13#3",
+      "sampleId": "phase15-v1-13",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生正确引用了相关动作（站了很久、小心夹回），但未能根据动作推断出合理的人物心理，导致核心结论错误。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "incorrect_causal_relation"
+        ],
+        "matchedRuleCodes": [
+          "incorrect_relation_or_purpose"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-14#1",
+      "sampleId": "phase15-v1-14",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生虽然关注到小林重新检查的结果，但未能正确推断老师行为背后的教育意图，将引导性行为误判为惩罚，导致核心结论与材料事实不符。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "unsupported_inference",
+          "incorrect_causal_relation",
+          "misread_key_detail"
+        ],
+        "matchedRuleCodes": [
+          "unsupported_or_invented_inference",
+          "incorrect_relation_or_purpose",
+          "key_detail_misread"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-14#2",
+      "sampleId": "phase15-v1-14",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生虽然关注到小林重新检查的结果，但未能正确理解老师行为背后的教育意图，将引导性行为误判为惩罚，核心结论与材料事实不符。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "unsupported_inference",
+          "incorrect_causal_relation",
+          "misread_key_detail"
+        ],
+        "matchedRuleCodes": [
+          "unsupported_or_invented_inference",
+          "incorrect_relation_or_purpose",
+          "key_detail_misread"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-14#3",
+      "sampleId": "phase15-v1-14",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生虽然注意到小林重新检查的结果，但未能正确推断老师行为背后的教育意图，将引导性行为误判为惩罚。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "incorrect_causal_relation",
+          "misread_key_detail"
+        ],
+        "matchedRuleCodes": [
+          "incorrect_relation_or_purpose",
+          "key_detail_misread"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-15#1",
+      "sampleId": "phase15-v1-15",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生完成了部分事件概括（父亲把伞给孩子、自己淋雨），但添加了与材料无关且冲突的结论，导致核心信息错误。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "unsupported_inference",
+          "incomplete_summary"
+        ],
+        "matchedRuleCodes": [
+          "unsupported_or_invented_inference",
+          "summary_missing_or_distorted"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-15#2",
+      "sampleId": "phase15-v1-15",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生提取了部分事件（父亲把伞给孩子、自己淋雨），但未能准确概括主要事件，并加入了与材料冲突的个人推断，导致核心结论错误。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "unsupported_inference",
+          "incorrect_causal_relation",
+          "incomplete_summary"
+        ],
+        "matchedRuleCodes": [
+          "unsupported_or_invented_inference",
+          "incorrect_relation_or_purpose",
+          "summary_missing_or_distorted"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-15#3",
+      "sampleId": "phase15-v1-15",
+      "answerStatus": "does_not_meet",
+      "rootCause": "学生概括时未忠实于材料，加入了与原文无关的个人推断，导致核心结论错误。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "unsupported_inference",
+          "incorrect_causal_relation",
+          "incomplete_summary"
+        ],
+        "matchedRuleCodes": [
+          "unsupported_or_invented_inference",
+          "incorrect_relation_or_purpose",
+          "summary_missing_or_distorted"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-16#1",
+      "sampleId": "phase15-v1-16",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "fully_meets_no_deficit_compatibility",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-16#2",
+      "sampleId": "phase15-v1-16",
+      "answerStatus": "partially_meets",
+      "rootCause": "学生完成了核心判断（想起以前的事情）并引用了“看着树叶很久”这一动作，但未满足题目要求的“说明动作与心理的关系”这一子任务，缺少对“小心夹回”动作的分析，导致推理链条不完整。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-16#3",
+      "sampleId": "phase15-v1-16",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "fully_meets_no_deficit_compatibility",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-17#1",
+      "sampleId": "phase15-v1-17",
+      "answerStatus": "partially_meets",
+      "rootCause": "学生已识别老师希望小林再检查一次，但未能进一步推断出老师培养自主反思的深层目的，也未明确建立“漏读条件”与“自己发现”之间的因果联系。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence",
+          "misread_key_detail"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation",
+          "key_detail_misread"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-17#2",
+      "sampleId": "phase15-v1-17",
+      "answerStatus": "partially_meets",
+      "rootCause": "学生理解了老师让小林再检查的行为，但未能结合小林重新检查后发现自己漏读条件的结果，推断出老师培养自主反思的深层目的。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence",
+          "misread_key_detail"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation",
+          "key_detail_misread"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-17#3",
+      "sampleId": "phase15-v1-17",
+      "answerStatus": "partially_meets",
+      "rootCause": "学生理解了老师让小林再检查的行为，但未进一步推断出老师希望小林自己发现错误以培养自主反思的目的，缺少对行为目的的深层理解。",
+      "v2Accepted": false,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "reasonable_failed_29"
+    },
+    {
+      "runId": "phase15-v1-18#1",
+      "sampleId": "phase15-v1-18",
+      "answerStatus": "partially_meets",
+      "rootCause": "学生完成了概括的基本框架（人物和事件），但未完整保留主要事件中的关键行为（让伞），导致概括不完整。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "incomplete_summary"
+        ],
+        "matchedRuleCodes": [
+          "summary_missing_or_distorted"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-18#2",
+      "sampleId": "phase15-v1-18",
+      "answerStatus": "partially_meets",
+      "rootCause": "学生完成了对主要人物和部分事件的概括，但遗漏了体现父亲行为的关键细节（让伞、淋雨），导致概括不完整，未满足题目要求的保留主要事件。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "incomplete_summary"
+        ],
+        "matchedRuleCodes": [
+          "summary_missing_or_distorted"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-18#3",
+      "sampleId": "phase15-v1-18",
+      "answerStatus": "partially_meets",
+      "rootCause": "学生提取了主要人物和场景，但未完整保留材料中的核心事件链（递伞、淋雨），导致概括不完整。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "incomplete_summary"
+        ],
+        "matchedRuleCodes": [
+          "summary_missing_or_distorted"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-19#1",
+      "sampleId": "phase15-v1-19",
+      "answerStatus": "partially_meets",
+      "rootCause": "学生表达了观点并给出了一个理由，但理由缺乏具体依据和逻辑展开，未达到题目要求的理由相关性和表达连贯性。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence",
+          "expression_incomplete"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation",
+          "expression_or_reason_incomplete"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-19#2",
+      "sampleId": "phase15-v1-19",
+      "answerStatus": "partially_meets",
+      "rootCause": "学生提出了观点和基本理由，但理由缺乏具体依据，未充分展开论证，导致理由与观点的关联不够紧密。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence",
+          "expression_incomplete"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation",
+          "expression_or_reason_incomplete"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-19#3",
+      "sampleId": "phase15-v1-19",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-20#1",
+      "sampleId": "phase15-v1-20",
+      "answerStatus": "partially_meets",
+      "rootCause": "学生已判断出核心心理方向（舍不得），并引用了一个相关动作，但缺少题目要求的'说明动作与心理的关系'这一必要环节，导致推理链不完整。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-20#2",
+      "sampleId": "phase15-v1-20",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-20#3",
+      "sampleId": "phase15-v1-20",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-21#1",
+      "sampleId": "phase15-v1-21",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-21#2",
+      "sampleId": "phase15-v1-21",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-21#3",
+      "sampleId": "phase15-v1-21",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-22#1",
+      "sampleId": "phase15-v1-22",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-22#2",
+      "sampleId": "phase15-v1-22",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-22#3",
+      "sampleId": "phase15-v1-22",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-23#1",
+      "sampleId": "phase15-v1-23",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-23#2",
+      "sampleId": "phase15-v1-23",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-23#3",
+      "sampleId": "phase15-v1-23",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-24#1",
+      "sampleId": "phase15-v1-24",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-24#2",
+      "sampleId": "phase15-v1-24",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-24#3",
+      "sampleId": "phase15-v1-24",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-25#1",
+      "sampleId": "phase15-v1-25",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-25#2",
+      "sampleId": "phase15-v1-25",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-25#3",
+      "sampleId": "phase15-v1-25",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-26#1",
+      "sampleId": "phase15-v1-26",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-26#2",
+      "sampleId": "phase15-v1-26",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-26#3",
+      "sampleId": "phase15-v1-26",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-27#1",
+      "sampleId": "phase15-v1-27",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-27#2",
+      "sampleId": "phase15-v1-27",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-27#3",
+      "sampleId": "phase15-v1-27",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-28#1",
+      "sampleId": "phase15-v1-28",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-28#2",
+      "sampleId": "phase15-v1-28",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-28#3",
+      "sampleId": "phase15-v1-28",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-29#1",
+      "sampleId": "phase15-v1-29",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-29#2",
+      "sampleId": "phase15-v1-29",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-29#3",
+      "sampleId": "phase15-v1-29",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-35#1",
+      "sampleId": "phase15-v1-35",
+      "answerStatus": "partially_meets",
+      "rootCause": "学生已给出核心结论（不舍）并引用了一个动作（站了很久），但未说明动作与心理的关系，且未引用另一个关键动作（小心夹回），导致依据与结论的推理链不完整。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-35#2",
+      "sampleId": "phase15-v1-35",
+      "answerStatus": "partially_meets",
+      "rootCause": "学生已给出核心结论（不舍）并引用了一个动作（站了很久），但未说明动作与心理的关系，也未引用另一个关键动作（小心夹回），导致推理链不完整。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-35#3",
+      "sampleId": "phase15-v1-35",
+      "answerStatus": "partially_meets",
+      "rootCause": "学生已给出核心结论（不舍）并引用了一个动作（站了很久），但未说明动作与心理的关系，且未引用另一个关键动作（小心夹回），缺少题目要求的完整推理链。",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "missing_evidence"
+        ],
+        "matchedRuleCodes": [
+          "missing_support_or_relation"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-36#1",
+      "sampleId": "phase15-v1-36",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-36#2",
+      "sampleId": "phase15-v1-36",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    },
+    {
+      "runId": "phase15-v1-36#3",
+      "sampleId": "phase15-v1-36",
+      "answerStatus": "fully_meets",
+      "rootCause": "本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性",
+      "v2Accepted": true,
+      "v21Accepted": true,
+      "v21AcceptanceReason": "direct_allowed_category_match",
+      "classification": {
+        "policyVersion": "diagnosis_quality_policy_v2_1",
+        "status": "classified",
+        "categories": [
+          "no_clear_deficit_in_current_response"
+        ],
+        "matchedRuleCodes": [
+          "no_clear_deficit_observed"
+        ],
+        "issues": []
+      },
+      "regressionGroup": "previously_accepted_61"
+    }
+  ],
+  "recommendation": {
+    "status": "policy_v2_1_ready_for_human_confirmation",
+    "nextStep": "Human-confirm the 29 recovered runs, 3 blocked Prompt errors and the full 61-run preservation audit before replacing Policy v2 in any formal evaluation flow."
+  },
+  "safety": {
+    "providerCalls": 0,
+    "promptModified": false,
+    "datasetModified": false,
+    "evidenceCreated": false,
+    "profileUpdated": false,
+    "onlineRuntimeChanged": false
+  },
+  "limitations": [
+    "Policy v2 remains frozen; Policy v2.1 is an offline calibration candidate only.",
+    "The 61-run semantic audit is agent-assisted and still requires human confirmation.",
+    "The 29 recovered and 3 blocked sets come from the initial attribution report and inherit its pending-human-confirmation limitation.",
+    "Offline acceptance labels are not an online quality gate for unseen student responses."
+  ],
+  "validation": {
+    "passed": true,
+    "issues": []
+  }
+}

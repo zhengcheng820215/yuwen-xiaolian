@@ -136,6 +136,25 @@ Baseline Evidence + Delayed Evidence
 
 `RetentionEvaluationResult` 不是 AbilityEvidence，也不是 Phase 8 输入。它只比较和解释正式 Evidence；可比性必须由 Agent 根据正式来源对象派生，不能由调用方直接指定。
 
+Phase 14.1 和 Phase 14.2 在正式 Evidence 进入质量感知 Evaluation 之前增加两层解释：
+
+```text
+AbilityEvidence
++ Formal Task / Execution / Diagnosis / Timing Context
+-> EvidenceQualityAssessment
+
+AbilityEvidence[]
++ Current EvidenceQualityAssessment[]
++ Formal Comparison Context[]
+-> EvidenceConflictAssessment
+-> EvaluationContextEnvelope
+-> Evaluation Runtime Capability Negotiation
+```
+
+`EvidenceQualityAssessment` 说明一条 Evidence 的观察条件是否可靠，不改变其正向、成长、弱项或不足方向。`EvidenceConflictAssessment` 说明多条独立观察之间是一致、可解释地混合、未解决冲突、证据不足还是需要复核。
+
+当前 Existing Phase 8 仍使用 legacy Runtime Contract。只有 Runtime 明确声明支持所需 Quality / Conflict Capability 时，`EvaluationContextEnvelope` 才允许 quality-aware handoff；不兼容时会阻断，不会静默替换旧语义。
+
 ## 四、当前实现与长期标准协议
 
 当前 Runtime 记录的是工程已经跑通的数据骨架。
@@ -322,6 +341,10 @@ RetestExecutionResult
 | LearningSessionHistoryAgent / Repository | LearningRoundResult[]、student / ability / time 查询 | LearningSessionRecord、LearningSessionHistoryResult | 保存和查询跨 Session 学习事实，并隔离无效历史。 | Phase 13.1 |
 | DelayedRetestSchedulingAgent | Session History、GrowthMemory、Evidence 时间、当前时间 | DelayedRetestCandidate、DelayedRetestPlan | 生成有来源、有理由、可去重的待复测事项。 | Phase 13.2 |
 | RetentionEvaluationAgent | Plan、正式 Task / Execution / Evidence、已有 Phase 8 结果 | RetentionComparisonFacts、RetentionComparabilityResult、RetentionEvaluationResult | 比较基线和延迟表现，关联而不重复执行正式能力回流。 | Phase 13.3 |
+| EvidenceQualityAssessmentAgent | AbilityEvidence、正式 Task / Execution / Evidence Return、Retention Context | EvidenceQualityAssessment | 从提示、材料、时间、Diagnosis 与追溯事实中派生单条 Evidence 的质量和 Eligibility。 | Phase 14.1 |
+| EvidenceComparisonContextAdapter | AbilityEvidence、Quality Assessment、ConcreteLearningTask、TaskExecutionResult | EvidenceComparisonContext | 从正式任务与执行事实补足材料、时间窗口和重复执行关系。 | Phase 14.2 |
+| EvidenceConflictAssessmentAgent | AbilityEvidence[]、当前 Quality Assessment[]、Comparison Context[] | EvidenceConflictAssessment | 按 observation unit 去重，协调同向、混合、冲突、不足与复核状态。 | Phase 14.2 |
+| EvaluationContextAdapter | raw Evidence、Conflict Assessment、Runtime Contract | EvaluationContextEnvelope | 保留 raw / primary / supporting Evidence，并在能力兼容时准备 quality-aware Evaluation 输入。 | Phase 14.2 |
 
 ### Phase 12 基础集成边界
 
@@ -345,6 +368,47 @@ Phase 13.1、13.2、13.3 Runtime 均已通过；Phase 13.1 Browser Smoke 为 12 
 
 Session History 只记录发生过什么；Delayed Retest Scheduling 只决定何时需要新的观察；Retention Evaluation 只比较和解释正式 Evidence。三者都不能因为 Session 结束、Evidence 变旧或一次延迟复测较弱，就直接生成长期能力结论。
 
+### Phase 14 质量与冲突边界
+
+Phase 14.1、14.2 与 14.3 Runtime 均已通过，专项 Debug 分别为 17 / 17、25 / 25 和 26 / 26；执行后 Evidence 质量重评集成 Case 27 为 16 / 16 PASS，相关回归与 Production Build 通过。Phase 14 总体状态为 `PASS / FROZEN`。
+
+Evidence 质量不等于学生能力等级；Conflict Status 不等于 Profile 状态；Observation Unit 代表一次真实观察，不等于 Evidence ID 数量。低质量或同质 Evidence 会被保留为上下文，但不能通过数量堆叠形成稳定结论。
+
+当前 Existing Phase 8 未声明质量与冲突能力，因此 quality-aware handoff 默认阻断。现阶段已经证明的是质量解释、冲突协调和能力协商边界，不是正式 Profile 已经按 Phase 14 语义更新。
+
+Phase 14.3 已通过 `AdaptiveTaskContextSnapshot`、受控 `AdaptiveConstraintRule` 与 `AdaptiveTaskRequestEnvelope` 把约束交给 Existing TaskFulfillment，不扩写 Existing CurrentLearningContext，也不把 `TaskRequest.constraints` 字符串摘要当作正式协议。执行后的 Evidence 质量必须由 Phase 14.1 重新判断。
+
+集成验证进一步确认：任务约束可以把目标质量设为 high，但三次提示后的真实表现只形成 `low / limited` Assessment；占位回答不会产生正式 Evidence。目标质量是观察目标，不是对学生表现的预判或承诺。
+
+Phase 14 正式冻结结论：系统能够根据正式任务、作答、提示、时间和追溯事实评估 Evidence 的判断价值，协调多条 Evidence 的方向关系，并在 Existing Strategy 的边界内生成受控任务约束；任务执行后，系统会依据真实表现重新评估 Evidence 质量，而不会把目标质量当成实际结果。
+
+### Phase 15 真实 AI Runtime 规划边界
+
+Phase 15 总纲与 Phase 15.1 文档已经完成，Real LLM Runtime Foundation 已通过并冻结。当前已具备 DeepSeek Chat Completions 与 OpenAI Responses Provider Adapter、版本化配置、运行记录、Raw Output 隔离、有限重试、失败阻断和 Formal Diagnosis 原子提交边界。DeepSeek `deepseek-v4-flash` 使用 Prompt v3 完成 `4 / 4` Live Smoke，确定性 Debug 为 22 / 22 PASS，冻结链路回归与 Production Build 通过；这只证明真实模型可安全进入 Runtime，Diagnosis 教育质量仍需 Phase 15.2 的人工评估集验证。
+
+计划执行顺序：
+
+```text
+TaskExecution Validity Gate
+-> Versioned Real LLM Call
+-> Formal Diagnosis Candidate Validation
+-> commitFormalDiagnosis()
+-> Committed Formal DiagnosisResult
+-> Existing Phase 9.3 Evidence Return
+-> Existing Phase 8 Runtime
+-> Phase 14 Evidence Quality Assessment
+```
+
+Phase 15 不重定义 DiagnosisResult，不让 Provider Adapter 直接生成 Evidence，也不在 Live 失败时静默回退 mock 形成正式结果。候选结果可以重试和审查，只有通过 Repository 原子提交后才成为正式 Diagnosis；同一 requestId 不能因刷新、重试或回流失败产生第二份正式结果。
+
+Phase 15.1 的真实联调保持最小规模：正常 Live、Shadow 和 Prompt Injection 使用真实 Provider，能力错位或非法结构使用受控 Provider 验证阻断。联调只确认正式结果是否具备进入 Existing Evidence Return 的资格，不在本阶段直接创建 Evidence。
+
+结构 Repair 只允许修复白名单内的非语义问题，任何 `mainAbility`、`answerStatus`、`rootCause`、引用或 Evidence 方向的修改都必须重新调用模型或进入复核。Phase 15.2 使用 36 条版本化冻结样本建立明确分母；Phase 15.3 的 Controlled Feedback 会把可追溯事实和行动建议分开，不由表达层新增教育结论。
+
+Phase 15.2 已完成 Prompt v3 基线、Prompt v4 工程实现、真实专项 Slice、v4 Full Calibrated Baseline、Root Cause Failure Attribution、Policy v2.1 校准、完整 Evaluator Activation Dry Run、负责人确认和正式启用回归。Policy v2.1 的 Root Cause 接受为 90 / 93，正式质量分布为 accepted 79、questionable 6、unacceptable 8、critical 0；15 / 15 正式验收通过。正式质量 Evaluator 默认使用 Policy v2.1，旧 Policy v2 仅保留历史复现入口。Prompt v4 已完成质量验证，但 Provider 默认 Prompt 的后续切换仍必须通过版本化配置显式执行。
+
+Phase 15.3 已完成受控反馈表达工程与质量验收：确定性模板是默认可靠能力，可选 LLM 只能选择已验证的安全表达；普通 Live 反馈保持 restricted 权限，合法 Fact ID 不能掩盖语义扩大，越权、Schema 非法或 Provider 失败时保留模板。确定性 Debug 为 24 / 24 PASS，DeepSeek Prompt v1.1 Live 为 12 / 12 PASS，Controlled Safety 为 2 / 2 PASS，12 条脱敏反馈人工抽检全部接受。Phase 15.3 与 Phase 15 当前均为 `PASS / FROZEN`。
+
 ## 七、当前 Runtime 的一句话总结
 
 当前系统已经从“学生做一道题”扩展为：
@@ -364,6 +428,9 @@ Session History 只记录发生过什么；Delayed Retest Scheduling 只决定�
 -> 跨 Session History
 -> 延迟复测计划
 -> 保持性观察
+-> Evidence 质量分级
+-> 冲突证据协调
+-> Evaluation 能力协商
 ```
 
 这说明产品已经具备一个最小可运行的学习 Runtime 骨架。
