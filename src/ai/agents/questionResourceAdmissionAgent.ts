@@ -145,6 +145,53 @@ export async function createStructuredQuestionDraft(
   return repository.saveDraft(draft);
 }
 
+export async function createRevisionFromRejectedQuestionResourceDraft(
+  repository: QuestionResourceAdmissionRepository,
+  input: {
+    sourceDraftId: string;
+    draftId: string;
+    now?: string;
+  },
+): Promise<StructuredQuestionDraft> {
+  const source = await requireDraft(repository, input.sourceDraftId);
+  if (source.status !== 'rejected') {
+    throw new Error('Only a rejected draft can create a revision draft.');
+  }
+
+  const siblings = await repository.listDrafts();
+  const activeSibling = siblings.find((draft) => (
+    draft.draftId !== source.draftId &&
+    draft.resourceId === source.resourceId &&
+    draft.proposedVersionNumber === source.proposedVersionNumber &&
+    draft.status !== 'rejected'
+  ));
+  if (activeSibling) {
+    throw new Error(`An active revision draft already exists: ${activeSibling.draftId}`);
+  }
+
+  return createStructuredQuestionDraft(repository, {
+    draftId: input.draftId,
+    resourceId: source.resourceId,
+    taskId: source.taskId,
+    proposedVersionNumber: source.proposedVersionNumber,
+    parentVersionId: source.parentVersionId,
+    materialVersionId: source.materialVersionId,
+    title: source.title,
+    questionStem: source.questionStem,
+    questionType: source.questionType,
+    responseFormat: source.responseFormat,
+    options: source.options,
+    assessmentMode: source.assessmentMode,
+    answerAcceptance: source.answerAcceptance,
+    rubric: source.rubric,
+    minimumAnswerRequirement: source.minimumAnswerRequirement,
+    abilityMetadata: source.abilityMetadata,
+    source: source.source,
+    tags: source.tags,
+    now: input.now,
+  });
+}
+
 export async function updateStructuredQuestionDraft(
   repository: QuestionResourceAdmissionRepository,
   draftId: string,

@@ -12,6 +12,7 @@ import type {
 export type QuestionResourceAdmissionRepository = {
   saveMaterial(material: QuestionMaterialVersion): Promise<QuestionMaterialVersion>;
   getMaterial(materialVersionId: string): Promise<QuestionMaterialVersion | null>;
+  listMaterials(): Promise<QuestionMaterialVersion[]>;
 
   saveDraft(draft: StructuredQuestionDraft): Promise<StructuredQuestionDraft>;
   getDraft(draftId: string): Promise<StructuredQuestionDraft | null>;

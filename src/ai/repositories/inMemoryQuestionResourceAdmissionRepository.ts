@@ -34,6 +34,12 @@ implements QuestionResourceAdmissionRepository {
     return cloneNullable(this.materials.get(materialVersionId));
   }
 
+  async listMaterials(): Promise<QuestionMaterialVersion[]> {
+    return [...this.materials.values()]
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .map(clone);
+  }
+
   async saveDraft(draft: StructuredQuestionDraft): Promise<StructuredQuestionDraft> {
     this.drafts.set(draft.draftId, clone(draft));
     return clone(draft);

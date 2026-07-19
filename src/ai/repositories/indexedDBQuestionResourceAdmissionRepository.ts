@@ -31,6 +31,11 @@ implements QuestionResourceAdmissionRepository {
     return getRecord<QuestionMaterialVersion>(MATERIAL_STORE, materialVersionId);
   }
 
+  async listMaterials(): Promise<QuestionMaterialVersion[]> {
+    const materials = await getAllRecords<QuestionMaterialVersion>(MATERIAL_STORE);
+    return materials.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
   async saveDraft(draft: StructuredQuestionDraft): Promise<StructuredQuestionDraft> {
     await putRecord(DRAFT_STORE, draft);
     return clone(draft);

@@ -2,7 +2,7 @@
 
 设计状态：ACCEPTED
 
-工程状态：IN PROGRESS（16.1A PASS；16.1B NOT STARTED）
+工程状态：IN PROGRESS（16.1A PASS；16.1B IMPLEMENTED / AWAITING HUMAN DEMO ACCEPTANCE）
 
 ## 一、阶段目标
 
@@ -830,7 +830,7 @@ pnpm run debug:question-resource-intake
 验收结果：
 
 ```text
-21 / 21 PASS
+22 / 22 PASS
 ```
 
 相关回归结果：
@@ -846,3 +846,45 @@ pnpm run debug:question-resource-intake
 当前结论：
 
 > Phase 16.1A 资源准入 Runtime 已通过 Debug 验收，但 Phase 16.1 尚未完成。只有 16.1B 最小录入工作台完成并通过人工 Demo 验收后，才能将整个 Phase 16.1 标记为 PASS。
+
+## 二十、16.1B 工程结果（2026-07-18）
+
+Phase 16.1B 已完成最小题目录入工作台工程实现：
+
+- 新增 `/question-resource-workbench` 内部工作台入口；
+- 支持新建、保存和刷新恢复 Structured Question Draft；
+- 支持创建 Material，并在题目 Draft 中引用已有 Material；
+- 支持题干、题型、作答格式、AnswerAcceptance、稳定 abilityId、taskRole、difficulty、Rubric、最低作答要求和来源信息配置；
+- 支持查看结构化 Validation errors / warnings；
+- 支持提交人工审核，以及 approve、revision_required、reject 三个正式审核分支；
+- rejected Draft 保持不可改写，并可基于原内容创建新的可编辑修订 Draft；原 Validation 与 Review 不会被继承；
+- 支持 reviewed Draft Freeze，并保持 Frozen Snapshot 不可直接编辑；
+- 支持从 Current Frozen Version 创建下一版本 Draft；
+- 支持查看 ResourceRegistry 当前正式版本与版本历史；
+- 支持 Student Preview 和 Review Preview；
+- 工作台直接调用 Phase 16.1A Agent 与 Repository，不在页面中重建准入规则；
+- 使用 IndexedDB 保存 Material、Draft、Validation、Review、Frozen Version 和 ResourceRegistry。
+
+自动浏览器检查已经验证：
+
+1. Material 可创建并被 Draft 引用；
+2. Draft 可保存并形成稳定身份；
+3. 合法 Draft 可通过 Validation；
+4. Draft 可提交审核并执行 approve；
+5. reviewed Draft 可 Freeze 为正式资源；
+6. Student Preview 引用 Frozen Version 与 Material Snapshot；
+7. 页面刷新后正式对象和未完成 Draft 均可恢复；
+8. 创建 v2 Draft 时，Registry Head 仍保持 v1；
+9. Review Preview 可查看 Identity、Metadata、AnswerAcceptance、Rubric、Validation 和 Review；
+10. 1440px 桌面三栏与 1024px 平板双栏布局均无横向溢出。
+11. rejected Draft 可创建修订 Draft，原拒绝记录保持不变，新 Draft 可重新进入校验和审核流程。
+
+工程校验：
+
+- `pnpm run debug:question-resource-intake`：22 / 22 PASS；
+- Production Build：PASS；
+- 现有非阻断提示：Vite 单一主包超过 500 kB，后续产品化阶段再进行路由级代码拆分。
+
+当前结论：
+
+> Phase 16.1B 工程实现已经完成，但仍需由使用者按照“十三、16.1B 工作台人工验收”完成真实录入与审核评审。人工 Demo 通过前，Phase 16.1 保持 IN PROGRESS，不提前标记为 PASS。

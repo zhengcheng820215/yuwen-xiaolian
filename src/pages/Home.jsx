@@ -179,6 +179,12 @@ export default function Home() {
           action="准备题目"
         />
         <PrimaryAction
+          to="/question-resource-workbench"
+          title="题目录入工作台"
+          desc="录入 Material 和结构化题目，完成校验、人工审核、Freeze、版本管理与双预览。"
+          action="录入题目"
+        />
+        <PrimaryAction
           to="/continuous-learning-demo"
           title="连续多轮学习 Demo"
           desc="完成三轮不同任务，验证保存恢复、证据连续和上一轮结果驱动下一轮。"

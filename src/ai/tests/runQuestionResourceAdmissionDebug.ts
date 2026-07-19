@@ -1,5 +1,6 @@
 import { InMemoryQuestionResourceAdmissionRepository } from '../repositories/inMemoryQuestionResourceAdmissionRepository.ts';
 import {
+  createRevisionFromRejectedQuestionResourceDraft,
   createNextQuestionResourceVersionDraft,
   createQuestionMaterial,
   createStructuredQuestionDraft,
@@ -44,6 +45,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '19 store restores draft review and frozen version', run: caseStoreRecovery },
   { name: '20 AI-assisted draft never auto-freezes', run: caseAiDraftRequiresReview },
   { name: '21 version switch always keeps one formal head', run: caseVersionSwitchInvariant },
+  { name: '22 rejected draft can create an auditable revision draft', run: caseRejectedRevisionDraft },
 ];
 
 async function main(): Promise<void> {
@@ -81,6 +83,36 @@ async function caseValidDraft(): Promise<void> {
   const result = await validateStructuredQuestionDraft(repo, draft.draftId, NOW);
   assert(result.passed, 'Expected valid draft to pass.');
   assert(result.issues.every((issue) => issue.severity !== 'error'), 'Expected no validation errors.');
+}
+
+async function caseRejectedRevisionDraft(): Promise<void> {
+  const repo = await repositoryWithMaterial();
+  const source = await createDraft(repo, 'rejected-revision');
+  await validateStructuredQuestionDraft(repo, source.draftId, NOW);
+  await submitQuestionResourceForReview(repo, source.draftId, NOW);
+  await reviewQuestionResourceDraft(repo, {
+    draftId: source.draftId,
+    action: 'reject',
+    reviewerId: 'reviewer-1',
+    notes: 'Needs a new audited draft instead of rewriting the rejected record.',
+    now: NOW,
+  });
+
+  const revision = await createRevisionFromRejectedQuestionResourceDraft(repo, {
+    sourceDraftId: source.draftId,
+    draftId: 'draft-rejected-revision-copy',
+    now: LATER,
+  });
+  const rejected = await repo.getDraft(source.draftId);
+
+  assert(rejected?.status === 'rejected', 'Original rejected draft must remain rejected.');
+  assert(revision.status === 'drafted', 'Revision copy must be editable.');
+  assert(revision.draftId !== source.draftId, 'Revision copy must have a new draftId.');
+  assert(revision.resourceId === source.resourceId, 'Revision copy must retain resource identity.');
+  assert(revision.taskId === source.taskId, 'Revision copy must retain task identity.');
+  assert(revision.proposedVersionNumber === source.proposedVersionNumber, 'Revision copy must target the same proposed version.');
+  assert(revision.questionStem === source.questionStem, 'Revision copy must retain question content.');
+  assert(!revision.latestValidationId && !revision.latestReviewId, 'Revision copy must not inherit validation or review decisions.');
 }
 
 async function caseMissingField(): Promise<void> {

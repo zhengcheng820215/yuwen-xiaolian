@@ -28,6 +28,7 @@ import StudentLearningEntryDemo from './pages/StudentLearningEntryDemo.jsx';
 import TaskResourcePreparationDemo from './pages/TaskResourcePreparationDemo.jsx';
 import ContinuousLearningDemo from './pages/ContinuousLearningDemo.jsx';
 import Phase15IntegrationDemo from './pages/Phase15IntegrationDemo.jsx';
+import QuestionResourceWorkbench from './pages/QuestionResourceWorkbench.jsx';
 
 export default function App() {
   return (
@@ -61,6 +62,7 @@ export default function App() {
         <Route path="/task-resource-preparation-demo" element={<TaskResourcePreparationDemo />} />
         <Route path="/continuous-learning-demo" element={<ContinuousLearningDemo />} />
         <Route path="/phase15-integration-demo" element={<Phase15IntegrationDemo />} />
+        <Route path="/question-resource-workbench" element={<QuestionResourceWorkbench />} />
       </Routes>
     </Layout>
   );
