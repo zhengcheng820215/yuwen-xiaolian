@@ -373,6 +373,8 @@ function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, o
 
 function QuestionEditor({ form, setForm, editable, busy, context, materials, materialForm, setMaterialForm, onCreateMaterial, onSave }) {
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  const objectiveQuestion = ['multiple_choice', 'true_false', 'fill_blank'].includes(form.questionType);
+  const readingQuestion = form.questionType === 'reading_comprehension';
   const updateRubric = (index, key, value) => setForm((current) => ({
     ...current,
     rubric: current.rubric.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item),
@@ -398,17 +400,18 @@ function QuestionEditor({ form, setForm, editable, busy, context, materials, mat
       </div>
 
       <fieldset disabled={!editable || busy} className="space-y-6 p-4 disabled:opacity-70 sm:p-5">
+        <p className="text-xs leading-5 text-slate-500"><span className="font-semibold text-rose-600">*</span> 标记字段需要在执行校验前完成；保存 Draft 时允许暂时缺失。</p>
         <EditorGroup title="基础内容">
-          <Field label="资源标题">
+          <Field label="资源标题" required>
             <input value={form.title} onChange={(event) => update('title', event.target.value)} className={inputClass} placeholder="例如：人物心理推断练习" />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="题型">
+            <Field label="题型" required>
               <select value={form.questionType} onChange={(event) => handleQuestionType(event.target.value, setForm)} className={inputClass}>
                 {questionTypeOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </Field>
-            <Field label="作答格式">
+            <Field label="作答格式" required>
               <select value={form.responseFormat} onChange={(event) => update('responseFormat', event.target.value)} className={inputClass}>
                 <option value="single_choice">单选</option>
                 <option value="boolean">判断</option>
@@ -417,18 +420,18 @@ function QuestionEditor({ form, setForm, editable, busy, context, materials, mat
               </select>
             </Field>
           </div>
-          <Field label="题干">
+          <Field label="题干" required>
             <textarea value={form.questionStem} onChange={(event) => update('questionStem', event.target.value)} rows={4} className={textareaClass} placeholder="输入学生实际看到的题目要求" />
           </Field>
           {form.questionType === 'multiple_choice' ? (
-            <Field label="选项（每行一项）">
+            <Field label="选项（每行一项）" required requirement="当前题型必填">
               <textarea value={form.optionsText} onChange={(event) => update('optionsText', event.target.value)} rows={4} className={textareaClass} />
             </Field>
           ) : null}
         </EditorGroup>
 
         <EditorGroup title="Material">
-          <Field label="引用已有材料">
+          <Field label="引用已有材料" required={readingQuestion} requirement={readingQuestion ? '当前题型必填' : undefined}>
             <select value={form.materialVersionId} onChange={(event) => update('materialVersionId', event.target.value)} className={inputClass}>
               <option value="">不引用 Material</option>
               {materials.map((material) => (
@@ -439,10 +442,10 @@ function QuestionEditor({ form, setForm, editable, busy, context, materials, mat
           <details className="rounded-md bg-slate-50 p-3">
             <summary className="cursor-pointer text-sm text-slate-700">新建 Material</summary>
             <div className="mt-3 space-y-3">
-              <input value={materialForm.title} onChange={(event) => setMaterialForm({ ...materialForm, title: event.target.value })} className={inputClass} placeholder="材料标题" />
-              <textarea value={materialForm.content} onChange={(event) => setMaterialForm({ ...materialForm, content: event.target.value })} rows={5} className={textareaClass} placeholder="阅读材料正文" />
-              <input value={materialForm.description} onChange={(event) => setMaterialForm({ ...materialForm, description: event.target.value })} className={inputClass} placeholder="来源说明" />
-              <input value={materialForm.copyrightNote} onChange={(event) => setMaterialForm({ ...materialForm, copyrightNote: event.target.value })} className={inputClass} placeholder="版权或使用说明（可选）" />
+              <Field label="材料标题" required><input value={materialForm.title} onChange={(event) => setMaterialForm({ ...materialForm, title: event.target.value })} className={inputClass} /></Field>
+              <Field label="阅读材料正文" required><textarea value={materialForm.content} onChange={(event) => setMaterialForm({ ...materialForm, content: event.target.value })} rows={5} className={textareaClass} /></Field>
+              <Field label="来源说明" required><input value={materialForm.description} onChange={(event) => setMaterialForm({ ...materialForm, description: event.target.value })} className={inputClass} /></Field>
+              <Field label="版权或使用说明" requirement="可选"><input value={materialForm.copyrightNote} onChange={(event) => setMaterialForm({ ...materialForm, copyrightNote: event.target.value })} className={inputClass} /></Field>
               <button type="button" onClick={onCreateMaterial} className="min-h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-normal text-slate-700">创建 Material</button>
             </div>
           </details>
@@ -450,17 +453,17 @@ function QuestionEditor({ form, setForm, editable, busy, context, materials, mat
 
         <EditorGroup title="能力与任务 Metadata">
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="主要能力">
+            <Field label="主要能力" required>
               <select value={form.abilityId} onChange={(event) => updateAbility(event.target.value, setForm)} className={inputClass}>
                 {abilityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </Field>
-            <Field label="任务角色">
+            <Field label="任务角色" required>
               <select value={form.taskRole} onChange={(event) => update('taskRole', event.target.value)} className={inputClass}>
                 {taskRoleOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </Field>
-            <Field label="难度">
+            <Field label="难度" required>
               <select value={form.difficulty} onChange={(event) => update('difficulty', event.target.value)} className={inputClass}>
                 <option value="basic">基础</option>
                 <option value="intermediate">中等</option>
@@ -487,7 +490,7 @@ function QuestionEditor({ form, setForm, editable, busy, context, materials, mat
         </EditorGroup>
 
         <EditorGroup title="Answer Acceptance">
-          <Field label="评价模式">
+          <Field label="评价模式" required>
             <select value={form.assessmentMode} onChange={(event) => update('assessmentMode', event.target.value)} className={inputClass}>
                 <option value="exact_match">严格答案匹配</option>
               <option value="key_points">关键点</option>
@@ -497,7 +500,7 @@ function QuestionEditor({ form, setForm, editable, busy, context, materials, mat
             </select>
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="可接受答案（每行一项）">
+            <Field label="可接受答案（每行一项）" required={objectiveQuestion} requirement={objectiveQuestion ? '当前题型必填' : undefined}>
               <textarea value={form.acceptedAnswersText} onChange={(event) => update('acceptedAnswersText', event.target.value)} rows={3} className={textareaClass} />
             </Field>
             <Field label="可接受关键词（每行一项）">
@@ -512,9 +515,9 @@ function QuestionEditor({ form, setForm, editable, busy, context, materials, mat
             {form.rubric.map((item, index) => (
               <div key={item.localId} className="rounded-md border border-slate-200 p-3">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label={`观察项 ${index + 1}`}><input value={item.name} onChange={(event) => updateRubric(index, 'name', event.target.value)} className={inputClass} /></Field>
-                  <Field label="能力"><select value={item.abilityId} onChange={(event) => updateRubric(index, 'abilityId', event.target.value)} className={inputClass}>{abilityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
-                  <Field label="重要程度"><select value={item.importance} onChange={(event) => updateRubric(index, 'importance', event.target.value)} className={inputClass}><option value="critical">关键</option><option value="important">重要</option><option value="supporting">辅助</option></select></Field>
+                  <Field label={`观察项 ${index + 1}`} required><input value={item.name} onChange={(event) => updateRubric(index, 'name', event.target.value)} className={inputClass} /></Field>
+                  <Field label="能力" required><select value={item.abilityId} onChange={(event) => updateRubric(index, 'abilityId', event.target.value)} className={inputClass}>{abilityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+                  <Field label="重要程度" required><select value={item.importance} onChange={(event) => updateRubric(index, 'importance', event.target.value)} className={inputClass}><option value="critical">关键</option><option value="important">重要</option><option value="supporting">辅助</option></select></Field>
                   <Field label="可接受信号（逗号分隔）"><input value={item.acceptedSignalsText} onChange={(event) => updateRubric(index, 'acceptedSignalsText', event.target.value)} className={inputClass} /></Field>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-4">
@@ -531,12 +534,12 @@ function QuestionEditor({ form, setForm, editable, busy, context, materials, mat
 
         <EditorGroup title="最低作答与来源">
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="最低字数"><input type="number" min="1" value={form.minLength} onChange={(event) => update('minLength', event.target.value)} className={inputClass} /></Field>
-            <Field label="来源类型"><select value={form.sourceType} onChange={(event) => update('sourceType', event.target.value)} className={inputClass}><option value="manual">人工</option><option value="imported">导入</option><option value="ai_assisted">AI 辅助</option><option value="ocr_assisted">OCR 辅助</option></select></Field>
-            <Field label="来源说明"><input value={form.sourceDescription} onChange={(event) => update('sourceDescription', event.target.value)} className={inputClass} /></Field>
+            <Field label="最低字数" required><input type="number" min="1" value={form.minLength} onChange={(event) => update('minLength', event.target.value)} className={inputClass} /></Field>
+            <Field label="来源类型" required><select value={form.sourceType} onChange={(event) => update('sourceType', event.target.value)} className={inputClass}><option value="manual">人工</option><option value="imported">导入</option><option value="ai_assisted">AI 辅助</option><option value="ocr_assisted">OCR 辅助</option></select></Field>
+            <Field label="来源说明" required><input value={form.sourceDescription} onChange={(event) => update('sourceDescription', event.target.value)} className={inputClass} /></Field>
           </div>
           <div className="flex flex-wrap gap-4"><Checkbox label="最低要求包含文本依据" checked={form.requireTextEvidence} onChange={(value) => update('requireTextEvidence', value)} /><Checkbox label="最低要求包含解释" checked={form.requireExplanation} onChange={(value) => update('requireExplanation', value)} /></div>
-          <Field label="版权或使用说明"><input value={form.copyrightNote} onChange={(event) => update('copyrightNote', event.target.value)} className={inputClass} /></Field>
+          <Field label="版权或使用说明" requirement="建议填写"><input value={form.copyrightNote} onChange={(event) => update('copyrightNote', event.target.value)} className={inputClass} /></Field>
         </EditorGroup>
       </fieldset>
     </section>
@@ -697,8 +700,8 @@ function EditorGroup({ title, children }) {
   return <section className="space-y-4 border-b border-slate-100 pb-6 last:border-0 last:pb-0"><h3 className="text-sm font-semibold text-slate-950">{title}</h3>{children}</section>;
 }
 
-function Field({ label, children }) {
-  return <label className="block"><span className="mb-2 block text-xs font-semibold text-slate-600">{label}</span>{children}</label>;
+function Field({ label, children, required = false, requirement }) {
+  return <label className="block"><span className="mb-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-600"><span>{label}{required ? <span className="ml-0.5 text-rose-600" aria-label="必填">*</span> : null}</span>{requirement ? <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500">{requirement}</span> : null}</span>{children}</label>;
 }
 
 function Checkbox({ label, checked, onChange }) {

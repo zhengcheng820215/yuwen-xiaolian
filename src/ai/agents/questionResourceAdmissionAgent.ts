@@ -96,11 +96,17 @@ export async function createQuestionMaterial(
   if (!nonEmpty(material.materialId) || !nonEmpty(material.materialVersionId)) {
     throw new Error('Material identity is required.');
   }
+  if (!nonEmpty(material.title)) {
+    throw new Error('Material title is required.');
+  }
   if (!Number.isInteger(material.versionNumber) || material.versionNumber < 1) {
     throw new Error('Material versionNumber must be a positive integer.');
   }
   if (!nonEmpty(material.content)) {
     throw new Error('Material content is required.');
+  }
+  if (!nonEmpty(material.source.description)) {
+    throw new Error('Material source description is required.');
   }
 
   return repository.saveMaterial(material);

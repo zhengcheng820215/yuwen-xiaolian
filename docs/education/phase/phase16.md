@@ -2,7 +2,7 @@
 
 设计状态：ACCEPTED
 
-工程状态：IN PROGRESS（Phase 16.1A PASS；Phase 16.1B 已实现、待人工 Demo 验收；Phase 16.2、16.3 未开始）
+工程状态：IN PROGRESS（Phase 16.1 PASS，工作台 UX 待后续专项优化；Phase 16.2、16.3 未开始）
 
 ## 一、阶段定位
 
