@@ -72,6 +72,7 @@
     "debug:core-resource-eligibility": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runCoreResourceEligibilityDebug.ts",
     "debug:resource-match-quality": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runResourceMatchQualityDebug.ts",
     "debug:phase16-resource-integration": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase161To162IntegrationDebug.ts",
+    "debug:phase1-16-e2e": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase1To162SingleObjectE2EDebug.ts",
     "debug:diagnosis-batch-report": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runDiagnosisBatchReportDebug.ts",
     "debug:real-diagnosis-evaluation-batch": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runRealDiagnosisEvaluationBatch.ts",
     "debug:learning-entry": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runLearningEntryDebug.ts",
