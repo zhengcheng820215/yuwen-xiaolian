@@ -17,7 +17,7 @@
 - Phase 8.4、Phase 14.3、Phase 16.1 关键回归与 Production Build 通过；
 - Phase 16.2 轻量 Match Review Demo 已完成 `8 / 8` Case 人工验收，PC 与平板布局检查通过；
 - Phase 16.1 -> 16.2 Repository Integration Debug 已完成 `5 / 5 PASS`，连续运行 20 次完整输出哈希一致；
-- Phase 16.1 -> 16.2 人工联调入口已接入现有 Match Review Demo，浏览器 Smoke `4 / 4 PASS`，人工验收待执行；
+- Phase 16.1 -> 16.2 人工联调 Demo 已完成 `4 / 4 PASS`；Case 1、2 正常放行，Case 3 安全阻断，Case 4 拒绝能力错位资源；
 - Phase 16.2 Overall 已满足 Unified Acceptance，状态冻结为 `PASS / FROZEN`。
 
 ## 一、阶段目标
@@ -1356,7 +1356,16 @@ Phase 16.2 建议接入独立开发者 / 内容审核 Demo，不直接放入学�
 3. 匹配后 Registry 变化，旧选择在任务创建前被阻断；
 4. 正式资源与目标能力不匹配，形成 Resource Gap 且不展示学生任务。
 
-浏览器自动 Smoke 为 `4 / 4 PASS`，PC `1280 x 800` 与平板 `1024 x 768` 无页面级横向溢出，Console Error 为 `0`，Production Build PASS。该结果只表示人工联调入口已就绪；在操作者逐项确认前，不记录为人工联调验收通过。
+浏览器自动 Smoke 为 `4 / 4 PASS`，PC `1280 x 800` 与平板 `1024 x 768` 无页面级横向溢出，Console Error 为 `0`，Production Build PASS。
+
+2026-07-20 人工联调验收：`PASS`
+
+- Case 1 正式资源完整交接：正常放行；
+- Case 2 正式版本切换：仅 v2 正常放行；
+- Case 3 Registry 变化：原匹配结果因当前正式版本变化被安全阻断；
+- Case 4 无合适正式资源：主要能力错位候选被拒绝，形成 Resource Gap，不创建学生任务。
+
+人工验收同时确认主区域能够直接展示“当前任务需要 / 候选资源能力 / 核心校验结论 / 候选资源处理 / 最终任务 / 下一步”，无需依赖 Raw JSON 即可证明系统没有使用能力错位资源凑匹配。
 
 学生端不得展示：
 

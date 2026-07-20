@@ -357,7 +357,7 @@ Phase 15.1 已证明真实 Provider 可以安全进入 Runtime；Phase 15.2 已�
 
 Phase 16.1 已建立正式题目资源的准入边界：人工录入先形成 Draft，通过结构化校验和人工审核后才能冻结为正式版本；Frozen Resource 不可静默编辑，修订必须生成新版本，ResourceRegistry 只指向唯一当前冻结版本。16.1A Runtime 为 `22 / 22 PASS`，16.1B 最小录入工作台已通过人工 Demo 验收，但连续录题效率与工作台 UX 仍需后续优化。
 
-Phase 16.2A 已完成 `12 / 12 PASS`，Phase 16.2B 已完成 `16 / 16 PASS`：Registry 当前 Frozen Version 先经过身份、审核、校验、primary ability、task role、核心难度和 Rubric Gate，再由 Quality Gate 复核材料关系、近期重复、提示、能力要求、偏好和创建前 Registry 状态，形成正式四类分流。轻量 Match Review Demo 已完成 `8 / 8` Case 人工验收，并通过 PC / 平板布局检查；Phase 16.2 当前为 `PASS / FROZEN`。Phase 16.3 将验证单学生使用正式题目和真实 AI 连续运行 5—7 个自然日时，保存、恢复、复测、异常阻断和人工复核是否成立。
+Phase 16.2A 已完成 `12 / 12 PASS`，Phase 16.2B 已完成 `16 / 16 PASS`：Registry 当前 Frozen Version 先经过身份、审核、校验、primary ability、task role、核心难度和 Rubric Gate，再由 Quality Gate 复核材料关系、近期重复、提示、能力要求、偏好和创建前 Registry 状态，形成正式四类分流。轻量 Match Review Demo 已完成 `8 / 8` Case 人工验收，Phase 16.1 -> 16.2 人工联调 Demo 已完成 `4 / 4 PASS`，并通过 PC / 平板布局检查；Phase 16.2 当前为 `PASS / FROZEN`。Phase 16.3 将验证单学生使用正式题目和真实 AI 连续运行 5—7 个自然日时，保存、恢复、复测、异常阻断和人工复核是否成立。
 
 详细文档入口：[Phase 16](../education/phase/phase16.md)、[Phase 16.1](../education/phase/phase16_1.md)、[Phase 16.2](../education/phase/phase16_2.md)。
 

@@ -212,7 +212,7 @@ Human Input
 
 16.2A 已于 2026-07-20 完成工程 Checkpoint：12 个 Deterministic Cases、Phase 16.1 与 Phase 14.3 关键回归及 Production Build 均通过。该结果只表示内部核心候选资格链成立；必须在 16.2B、全量 Debug、Demo、回归与 Build 全部通过后，才能冻结 Phase 16.2 并进入 Phase 16.3。
 
-16.2B 已于 2026-07-20 完成工程 Checkpoint：14 个 Context-sensitive Match Cases 与 2 个 A -> B Integration Cases 全部通过；16.2A + 16.2B 联合连续运行 30 次全部通过且完整输出哈希一致，Phase 8.4、14.3、16.1 回归及 Production Build 通过。轻量 Match Review Demo 随后完成 `8 / 8` Case 人工验收，并通过 PC / 平板布局检查。Phase 16.1 -> 16.2 Repository Integration Debug 进一步取得 `5 / 5 PASS`，连续 20 次输出一致；Phase 16.2 当前为 `PASS / FROZEN`。
+16.2B 已于 2026-07-20 完成工程 Checkpoint：14 个 Context-sensitive Match Cases 与 2 个 A -> B Integration Cases 全部通过；16.2A + 16.2B 联合连续运行 30 次全部通过且完整输出哈希一致，Phase 8.4、14.3、16.1 回归及 Production Build 通过。轻量 Match Review Demo 随后完成 `8 / 8` Case 人工验收，并通过 PC / 平板布局检查。Phase 16.1 -> 16.2 Repository Integration Debug 进一步取得 `5 / 5 PASS`，连续 20 次输出一致；人工联调 Demo 完成 `4 / 4 PASS`，验证正式交接、版本切换、Registry 变化阻断和能力错位资源拒绝。Phase 16.2 当前为 `PASS / FROZEN`。
 
 最小链路：
 
