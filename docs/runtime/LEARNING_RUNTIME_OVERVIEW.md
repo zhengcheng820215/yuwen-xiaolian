@@ -34,6 +34,11 @@
 | RetentionComparisonFacts | 从 Plan、Task、Execution、Diagnosis 和 Evidence 中规范化两次表现的正式比较事实。 |
 | RetentionComparabilityResult | 由 Agent 根据正式事实判断两次表现是否可比、受限、不可比或需要复核。 |
 | RetentionEvaluationResult | 比较基线与延迟 Evidence，形成克制的保持性观察并关联已有 Phase 8 正式结果。 |
+| StructuredQuestionDraft | 保存可编辑但尚未具备正式资源资格的题目草稿。 |
+| ResourceValidationResult | 校验内容、评价依据、能力、任务角色和版本关系。 |
+| ResourceReviewDecision | 保存人工审核动作、理由和身份。 |
+| FrozenQuestionResource | 保存审核通过且不可静默修改的正式题目版本。 |
+| ResourceRegistry | 维护唯一当前冻结版本和完整版本历史。 |
 
 ## 二、核心 Agent
 
@@ -57,6 +62,8 @@
 | LearningSessionHistoryAgent | 正式 LearningRound 历史、查询条件 | LearningSessionRecord、LearningSessionHistoryResult | 建立和查询跨 Session 学习事实，不重新解释能力。 |
 | DelayedRetestSchedulingAgent | Session History、GrowthMemory、Evidence 时间、当前时间 | DelayedRetestCandidate、DelayedRetestPlan | 使用确定性规则安排延迟复测事项，不生成题目或能力结论。 |
 | RetentionEvaluationAgent | DelayedRetestPlan、基线与延迟 Evidence、正式任务执行对象 | RetentionComparisonFacts、RetentionComparabilityResult、RetentionEvaluationResult | 重新核验比较事实并生成保持性观察，只关联已有正式回流结果。 |
+| QuestionResourceAdmissionAgent | StructuredQuestionDraft、ResourceValidationResult、ResourceReviewDecision、ResourceRegistry | FrozenQuestionResource、ResourceVersion、更新后的 ResourceRegistry | 管理题目草稿、校验、审核、冻结和修订状态机，不允许页面绕过正式准入规则。 |
+| QuestionResourceAdmissionRepository | Draft、Review、Frozen Resource、Version、Registry | 可恢复的资源准入记录 | 隔离工作台与 IndexedDB / In-memory 存储，并保持资源身份和版本追溯。 |
 
 ## 三、完整数据流
 
@@ -413,6 +420,22 @@ Phase 15.1 的真实联调保持最小规模：正常 Live、Shadow 和 Prompt I
 Phase 15.2 已完成 Prompt v3 基线、Prompt v4 工程实现、真实专项 Slice、v4 Full Calibrated Baseline、Root Cause Failure Attribution、Policy v2.1 校准、完整 Evaluator Activation Dry Run、负责人确认和正式启用回归。Policy v2.1 的 Root Cause 接受为 90 / 93，正式质量分布为 accepted 79、questionable 6、unacceptable 8、critical 0；15 / 15 正式验收通过。正式质量 Evaluator 默认使用 Policy v2.1，旧 Policy v2 仅保留历史复现入口。Prompt v4 已完成质量验证，但 Provider 默认 Prompt 的后续切换仍必须通过版本化配置显式执行。
 
 Phase 15.3 已完成受控反馈表达工程与质量验收：确定性模板是默认可靠能力，可选 LLM 只能选择已验证的安全表达；普通 Live 反馈保持 restricted 权限，合法 Fact ID 不能掩盖语义扩大，越权、Schema 非法或 Provider 失败时保留模板。确定性 Debug 为 24 / 24 PASS，DeepSeek Prompt v1.1 Live 为 12 / 12 PASS，Controlled Safety 为 2 / 2 PASS，12 条脱敏反馈人工抽检全部接受。Phase 15.3 与 Phase 15 当前均为 `PASS / FROZEN`。
+
+### Phase 16 结构化内容与真实学习运行边界
+
+Phase 16.1 已把早期 TaskResource Preparation 扩展为正式资源准入状态机：
+
+```text
+StructuredQuestionDraft
+-> ResourceValidationResult
+-> ResourceReviewDecision
+-> FrozenQuestionResource
+-> ResourceVersion / ResourceRegistry
+```
+
+Draft 可以保存和修订，但不能被正式 TaskFulfillment 消费。只有通过结构化校验和人工审核的 FrozenQuestionResource 才具备正式匹配资格；冻结版本不可静默修改，修订必须生成新 Draft 和新版本。工作台通过 QuestionResourceAdmissionAgent 与 Repository 执行同一套规则，页面不能直接把草稿提升为正式资源。
+
+Phase 16.1A 确定性 Debug 为 `22 / 22 PASS`，16.1B 最小录入工作台已通过人工 Demo 验收。Phase 16.2A 为 `12 / 12 PASS`，证明正式资源必须先通过 Registry current、审核校验追溯、primary ability、task role、核心难度和 Rubric Gate；Phase 16.2B 为 `16 / 16 PASS`，进一步复用 Existing TaskFulfillment 并核验上下文新颖度、近期重复、提示、能力要求、偏好和 Registry 二次状态，形成 `matched / partial_match / no_match / review_required` 正式分流。轻量 Match Review Demo 已完成 `8 / 8` Case 人工验收，并通过 PC / 平板布局检查；Phase 16.2 当前为 `PASS / FROZEN`。Phase 16.3 仍需验证单学生使用正式资源和真实 AI 连续运行 5—7 个自然日时的恢复、幂等、异常阻断和人工复核。
 
 当前启用边界：Prompt v4 已通过质量验证，但成为所有正式 Provider 调用的默认 Prompt 仍须通过版本化配置显式切换。`Formal Commit -> Phase 9.3 -> Phase 8 -> Phase 14.1 -> Controlled Feedback` 已通过 `11 / 11` 确定性独立整链 Debug；真实外部 Provider 贯穿该完整产品主链的受控试跑仍未执行。
 

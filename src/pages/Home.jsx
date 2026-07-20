@@ -185,6 +185,12 @@ export default function Home() {
           action="录入题目"
         />
         <PrimaryAction
+          to="/resource-matching-quality-demo"
+          title="正式资源匹配验收"
+          desc="查看正式 Frozen 资源如何经过核心资格与上下文质量 Gate，再决定放行、降级或复核。"
+          action="验收匹配"
+        />
+        <PrimaryAction
           to="/continuous-learning-demo"
           title="连续多轮学习 Demo"
           desc="完成三轮不同任务，验证保存恢复、证据连续和上一轮结果驱动下一轮。"

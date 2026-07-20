@@ -12,6 +12,7 @@ const workspacePaths = [
   '/continuous-learning-demo',
   '/phase15-integration-demo',
   '/question-resource-workbench',
+  '/resource-matching-quality-demo',
 ];
 
 export default function Layout({ children }) {

@@ -815,3 +815,46 @@ Phase 15 Overall Freeze    PASS / FROZEN
 Phase 15.1 Live Smoke 采用三条真实调用加一条受控失败 Gate：正常 Live、Shadow、Prompt Injection 验证真实 Provider 链路，能力错位或非法结构验证安全阻断。Smoke 不执行 Evidence 或 Profile 更新，只验证 `canEnterEvidenceReturn`。
 
 当前冻结表示三个 Runtime、专项质量验收和确定性整链集成均已成立。`Formal Commit -> Evidence Return -> Phase 8 -> Phase 14.1 -> Controlled Feedback` 已通过 `11 / 11` 独立 Debug 验收。Prompt v4 成为所有正式 Provider 调用的默认 Prompt 仍须通过版本化配置显式切换；真实外部 Provider 贯穿完整产品主链的受控试跑仍未执行，不能由 Scripted Provider 集成结果替代。
+
+## Phase 16：结构化内容与真实学习运行基础
+
+Phase 16 把已经冻结的策略、任务执行、真实 Diagnosis 和跨 Session Runtime 接到可审核、可版本追溯的正式题目资源，并继续验证资源匹配与真实多日运行：
+
+```text
+Structured Question Draft
+-> Validation / Human Review
+-> Frozen Question Resource
+-> Resource Matching Quality
+-> Executable Learning Task
+-> Real Student Answer / Real Diagnosis
+-> Evidence / Evaluation / GrowthMemory
+-> Delayed Retest / Next Strategy
+-> Next Reviewed Resource
+```
+
+Phase 16.1 已完成资源准入最小闭环。题目必须先保存为 Draft，通过内容、AnswerAcceptance、Rubric、Ability、TaskRole 和版本关系校验，再经过人工审核才能冻结；Frozen Resource 不可静默修改，修订必须生成新版本，ResourceRegistry 只指向唯一当前冻结版本。
+
+当前状态：
+
+```text
+Phase 16 Design             ACCEPTED / IN PROGRESS
+Phase 16.1A Runtime         22 / 22 PASS
+Phase 16.1B Workbench       HUMAN DEMO PASS
+Phase 16.1 Overall          PASS
+Phase 16.1 Workbench UX     FOLLOW-UP REQUIRED
+Phase 16.2 Design           ACCEPTED / FROZEN
+Phase 16.2A Engineering     PASS (12 / 12)
+Phase 16.2B Engineering     PASS (16 / 16)
+Phase 16.2 Demo             HUMAN ACCEPTANCE PASS (8 / 8)
+Phase 16.1 -> 16.2 Smoke    PASS (5 / 5)
+Phase 16.2 Overall          PASS / FROZEN
+Phase 16.3                  NOT STARTED
+```
+
+Phase 16.1 PASS 只证明正式题目能够完成录入、校验、审核、冻结、修订和版本追溯，不表示同能力标签资源就适合当前 TaskRequest。Phase 16.2 必须继续验证能力、角色、难度、新颖度、近期重复、Rubric 和版本状态，形成可解释的 `matched / partial_match / no_match / review_required` 分支。
+
+Phase 16.2A 已建立正式候选资格 Gate：只允许 Registry 当前指向、审核与校验可追溯、primary ability、task role、核心难度和 Rubric 均合格的 Frozen Version 形成 eligible `AvailableTaskResource` 视图。Draft、supporting-only ability、superseded、retired、Registry 冲突和 Envelope 错位会被隔离或阻断。该 Checkpoint 不处理上下文新颖度、近期重复、提示策略或最终资源选择，因此不等于 Phase 16.2 已冻结。
+
+Phase 16.2B 已完成上下文匹配质量 Gate：复用 Existing TaskFulfillment 后继续校验材料关系、近期重复、排除条件、提示策略、required capabilities、soft preferences 和 Registry 二次确认，并稳定形成 `matched / partial_match / no_match / review_required`。工程 Debug 为 `16 / 16 PASS`，16.2A + 16.2B 联合连续运行 30 次全部通过且完整输出哈希一致；轻量 Match Review Demo 已完成 `8 / 8` Case 人工验收，并通过 PC / 平板布局检查。随后 Phase 16.1 -> 16.2 Repository Integration Debug 取得 `5 / 5 PASS`，验证 Freeze、版本切换、Registry 二次阻断、Resource Gap 和幂等交接。Phase 16.2 当前为 `PASS / FROZEN`。
+
+Phase 16.3 将进一步验证单学生使用真实题目和真实 AI 连续运行 5—7 个自然日。验收重点不是每天都成功，而是刷新、重复提交、Provider 失败、复测缺席、资源 superseded 或人工复核发生时，正式 Evidence、Profile 和 GrowthMemory 不被污染，学习可以恢复并继续。

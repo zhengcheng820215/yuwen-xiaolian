@@ -228,6 +228,16 @@ Formal DiagnosisResult
 | LearningRoundResult | 保存一轮学习从策略到证据回流的运行结果。 |
 | LearningSessionRecord | 把多个 Round 归入一次连续学习活动。 |
 
+### 内容资源准入
+
+| 对象 | 作用 |
+| --- | --- |
+| StructuredQuestionDraft | 保存尚未成为正式资源的可编辑题目草稿。 |
+| ResourceValidationResult | 校验题目内容、评价依据、能力、角色与版本关系。 |
+| ResourceReviewDecision | 记录人工审核通过、退回或拒绝及其理由。 |
+| FrozenQuestionResource | 保存通过校验和审核、不可静默修改的正式资源版本。 |
+| ResourceRegistry | 维护资源的唯一当前冻结版本和完整版本历史。 |
+
 ### 跨时与质量
 
 | 对象 | 作用 |
@@ -268,12 +278,16 @@ Formal DiagnosisResult
 | 15.2 Policy v2.1 | Root Cause 校准与完整质量安全门 | 15 / 15 PASS / ACTIVE | [正式验收](../education/phase/reports/phase15_2/phase15-diagnosis-quality-policy-v2-1-acceptance-2026-07-17T11-00-12-239Z.md) |
 | 15.3 | Controlled Feedback Expression | PASS / FROZEN | [Phase 15.3](../education/phase/phase15_3.md) |
 | 15 | Real AI Diagnosis 与受控表达基础 | PASS / FROZEN | [Phase 15](../education/phase/phase15.md) |
+| 16 | Structured Content 与 Real Learning Operation Foundation | ACCEPTED / IN PROGRESS | [Phase 16](../education/phase/phase16.md) |
+| 16.1 | Structured Question Intake and Review | PASS | [Phase 16.1](../education/phase/phase16_1.md) |
+| 16.2 | Resource Metadata and Matching Quality（16.2A / 16.2B 内部工作包） | PASS / FROZEN | [Phase 16.2](../education/phase/phase16_2.md) |
+| 16.3 | Real Multi-day Learning Operation | NOT STARTED | [Phase 16](../education/phase/phase16.md) |
 
 当前准确状态：
 
-> 单学生、单浏览器、本地持久化的连续学习基础已经成立；Evidence 质量与自适应约束链已经冻结；真实 LLM 已能够安全进入 Diagnosis Runtime。Phase 15 已通过并冻结：真实 Diagnosis 质量基线、受控反馈表达、模板回退与普通 Live 限权均已形成正式验收记录。
+> 单学生、单浏览器、本地持久化的连续学习基础已经成立；Evidence 质量与自适应约束链已经冻结；真实 LLM 已能够安全进入 Diagnosis Runtime。Phase 15 已通过并冻结。Phase 16.1 已完成结构化题目 Draft、校验、人工审核、冻结、修订和版本追溯的最小闭环；Phase 16.2 已完成正式资源资格与上下文匹配质量闭环。当前仍待 Phase 16.3 验证 5—7 个自然日真实学习运行。
 
-这里的 Phase 15 冻结表示 15.1、15.2、15.3 的 Runtime、专项质量验收和 `11 / 11` 确定性整链 Debug 均已成立。Prompt v4 的正式默认切换仍须使用版本化配置；真实外部 Provider 贯穿完整产品主链的受控试跑仍未执行。
+这里的 Phase 15 冻结表示 15.1、15.2、15.3 的 Runtime、专项质量验收和 `11 / 11` 确定性整链 Debug 均已成立。Phase 16.1 PASS 表示资源准入 Runtime `22 / 22`、Production Build 和最小工作台人工 Demo 已通过，不表示工作台 UX、资源匹配质量或真实多日教学运行已经完成。Prompt v4 的正式默认切换仍须使用版本化配置；真实外部 Provider 贯穿完整产品主链的受控试跑仍未执行。
 
 ## 六、各阶段能力地图
 
@@ -339,6 +353,14 @@ Phase 15.1 已证明真实 Provider 可以安全进入 Runtime；Phase 15.2 已�
 
 详细文档入口：[Phase 15](../education/phase/phase15.md)、[Phase 15.1](../education/phase/phase15_1.md)、[Phase 15.2](../education/phase/phase15_2.md)、[Phase 15.3](../education/phase/phase15_3.md)。
 
+### Phase 16：结构化内容与真实学习运行
+
+Phase 16.1 已建立正式题目资源的准入边界：人工录入先形成 Draft，通过结构化校验和人工审核后才能冻结为正式版本；Frozen Resource 不可静默编辑，修订必须生成新版本，ResourceRegistry 只指向唯一当前冻结版本。16.1A Runtime 为 `22 / 22 PASS`，16.1B 最小录入工作台已通过人工 Demo 验收，但连续录题效率与工作台 UX 仍需后续优化。
+
+Phase 16.2A 已完成 `12 / 12 PASS`，Phase 16.2B 已完成 `16 / 16 PASS`：Registry 当前 Frozen Version 先经过身份、审核、校验、primary ability、task role、核心难度和 Rubric Gate，再由 Quality Gate 复核材料关系、近期重复、提示、能力要求、偏好和创建前 Registry 状态，形成正式四类分流。轻量 Match Review Demo 已完成 `8 / 8` Case 人工验收，并通过 PC / 平板布局检查；Phase 16.2 当前为 `PASS / FROZEN`。Phase 16.3 将验证单学生使用正式题目和真实 AI 连续运行 5—7 个自然日时，保存、恢复、复测、异常阻断和人工复核是否成立。
+
+详细文档入口：[Phase 16](../education/phase/phase16.md)、[Phase 16.1](../education/phase/phase16_1.md)、[Phase 16.2](../education/phase/phase16_2.md)。
+
 ## 七、当前重要边界
 
 1. 无效回答不进入 Diagnosis，不生成 weakness Evidence。
@@ -355,6 +377,9 @@ Phase 15.1 已证明真实 Provider 可以安全进入 Runtime；Phase 15.2 已�
 12. `questionable` 的离线质量结果需要人工复核，不能自动回流。
 13. Prompt v4 通过质量验证不等于已经静默成为所有正式 Provider 调用的默认 Prompt。
 14. Controlled Feedback 只能表达上游已确认事实，不能新增 Diagnosis、Evidence 或长期能力结论。
+15. StructuredQuestionDraft 不是正式资源，只有审核有效的 FrozenQuestionResource 可以进入正式匹配。
+16. FrozenQuestionResource 不可静默修改；修订必须生成新版本，旧版本只有在新版本正式冻结后才可 supersede。
+17. 资源准入通过不等于匹配成功，匹配成功也不等于已经证明教学有效。
 
 ## 八、尚未完成或尚未产品化
 
@@ -364,7 +389,9 @@ Phase 15.1 已证明真实 Provider 可以安全进入 Runtime；Phase 15.2 已�
 - Prompt v4 在正式 Provider 主链中的版本化默认切换与回滚验证；
 - Phase 15 后续真实使用错误样本回收与版本化质量回归；
 - Existing Phase 8 对 Quality / Conflict Context 的正式消费升级；
-- 真实题库的批量导入、版本、权限和云同步；
+- Phase 16.3 单学生 5—7 个自然日真实学习运行；
+- 结构化题目录入工作台的高频生产 UX、模板和批量导入；
+- 正式题库的权限、版权治理、云同步和多人协作；
 - 多学生、账号、云端持久化与跨设备恢复；
 - 长期多周期 Evidence 与 Retention 趋势；
 - 家长报告、成长曲线和家长端；
@@ -381,6 +408,9 @@ Phase 15.1 已证明真实 Provider 可以安全进入 Runtime；Phase 15.2 已�
 | Runtime 对象如何传递 | [Learning Runtime Overview](LEARNING_RUNTIME_OVERVIEW.md) |
 | 最小闭环开发原则 | [Growth Loop Overview](../education/phase/GROWTH_LOOP_OVERVIEW.md) |
 | 当前阶段文档总索引 | [Education README](../education/README.md) |
+| Phase 16 当前目标与边界 | [Phase 16](../education/phase/phase16.md) |
+| Phase 16.1 题目准入与审核 | [Phase 16.1](../education/phase/phase16_1.md) |
+| Phase 16.2 资源匹配质量 | [Phase 16.2](../education/phase/phase16_2.md) |
 | 某个 Phase 的规则与验收 | 对应 `docs/education/phase/phase*.md` |
 | PC / 平板学生体验原则 | [PC Learning Workspace UX Calibration](../product/PC_LEARNING_WORKSPACE_UX_CALIBRATION.md) |
 
