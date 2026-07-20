@@ -350,6 +350,13 @@ function ResourceIntegrationAcceptance() {
   const selectedCase = data.cases.find((item) => item.id === selectedCaseId) || data.cases[0];
   const evaluation = selectedCase.qualityResult.evaluation;
   const registry = selectedCase.repositoryState.registryEntries[0];
+  const matchingRegistry = selectedCase.repositoryState.snapshot.registryEntries[0];
+  const matchingVersion = selectedCase.repositoryState.snapshot.frozenVersions.find((item) => (
+    item.resourceVersionId === matchingRegistry?.currentFrozenVersionId
+  )) || selectedCase.repositoryState.snapshot.frozenVersions[0];
+  const matchingCandidate = selectedCase.coreEligibility.candidateEvaluations.find((item) => (
+    item.resourceVersionId === matchingVersion?.resourceVersionId
+  ));
 
   return (
     <>
@@ -447,6 +454,54 @@ function ResourceIntegrationAcceptance() {
 
           <section className="border-b border-slate-200 px-5 py-5 lg:px-7">
             <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-base font-semibold">能力匹配检查</h3>
+              <StatusPill
+                tone={matchingCandidate?.checks.targetAbilityAligned ? 'success' : 'warning'}
+                text={matchingCandidate?.checks.targetAbilityAligned ? '主要能力一致' : '主要能力不一致'}
+              />
+            </div>
+            <div className="mt-4 grid overflow-hidden border border-slate-200 bg-slate-200 sm:grid-cols-2 xl:grid-cols-3">
+              <InspectionMetric
+                label="当前任务需要"
+                value={formatAbilityLabel(evaluation?.targetAbilityId)}
+              />
+              <InspectionMetric
+                label="候选资源能力"
+                value={formatAbilityLabel(matchingVersion?.abilityMetadata.abilityId)}
+              />
+              <InspectionMetric
+                label="核心校验结论"
+                value={matchingCandidate?.checks.targetAbilityAligned ? '主要能力符合请求' : '主要能力错位'}
+                tone={matchingCandidate?.checks.targetAbilityAligned ? 'success' : 'danger'}
+              />
+              <InspectionMetric
+                label="候选资源处理"
+                value={formatCoreCandidateAction(matchingCandidate?.status)}
+                tone={matchingCandidate?.status === 'eligible' ? 'success' : 'danger'}
+              />
+              <InspectionMetric
+                label="最终任务"
+                value={selectedCase.taskResult.status === 'created' ? '已创建' : '未创建'}
+                tone={selectedCase.taskResult.status === 'created' ? 'success' : 'neutral'}
+              />
+              <InspectionMetric
+                label="下一步"
+                value={formatIntegrationNextStep(evaluation?.nextStep)}
+              />
+            </div>
+            {!matchingCandidate?.checks.targetAbilityAligned && (
+              <div className="mt-3 flex gap-3 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+                <ShieldAlert className="mt-0.5 shrink-0 text-amber-600" size={18} aria-hidden="true" />
+                <p>
+                  当前请求需要<strong>{formatAbilityLabel(evaluation?.targetAbilityId)}</strong>，但正式资源的主要能力是
+                  <strong>{formatAbilityLabel(matchingVersion?.abilityMetadata.abilityId)}</strong>。系统已拒绝该候选资源，不会用能力错位的题目补足任务。
+                </p>
+              </div>
+            )}
+          </section>
+
+          <section className="border-b border-slate-200 px-5 py-5 lg:px-7">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-base font-semibold">学生最终看到的任务</h3>
               <span className="text-sm text-slate-500">仅成功放行后显示</span>
             </div>
@@ -521,6 +576,21 @@ function StageIcon({ status }) {
   return <CircleX size={18} className="text-slate-400" aria-label="已阻断" />;
 }
 
+function InspectionMetric({ label, value, tone = 'default' }) {
+  const valueClass = {
+    default: 'text-slate-900',
+    success: 'text-emerald-700',
+    danger: 'text-red-700',
+    neutral: 'text-slate-600',
+  }[tone];
+  return (
+    <div className="min-h-[82px] bg-white px-4 py-3">
+      <div className="text-sm text-slate-500">{label}</div>
+      <div className={`mt-2 text-base font-semibold ${valueClass}`}>{value || '未形成'}</div>
+    </div>
+  );
+}
+
 function modeButtonClass(active) {
   return [
     'min-h-9 rounded-md px-4 text-sm font-semibold transition',
@@ -536,6 +606,33 @@ function integrationBlockReason(selectedCase) {
     return '正式资源池没有满足当前目标能力与任务约束的题目，系统已生成资源缺口。';
   }
   return '正式资源未通过完整资格与匹配质量校验，因此保持阻断。';
+}
+
+function formatAbilityLabel(abilityId) {
+  return {
+    inference: '推理',
+    comprehension: '理解',
+    summarization: '概括',
+    expression: '表达',
+  }[abilityId] || abilityId || '未识别';
+}
+
+function formatCoreCandidateAction(status) {
+  return {
+    eligible: '已进入匹配候选',
+    rejected: '已拒绝',
+    review_required: '等待人工复核',
+  }[status] || '未进入候选';
+}
+
+function formatIntegrationNextStep(nextStep) {
+  return {
+    create_executable_task: '创建可执行任务',
+    prepare_resource: '准备符合要求的资源',
+    human_review: '进入人工复核',
+    regenerate_strategy: '重新生成策略',
+    stop: '停止当前流程',
+  }[nextStep] || '保持阻断';
 }
 
 function Metric({ label, value }) {
