@@ -285,7 +285,7 @@ Formal DiagnosisResult
 
 当前准确状态：
 
-> 单学生、单浏览器、本地持久化的连续学习基础已经成立；Evidence 质量与自适应约束链已经冻结；真实 LLM 已能够安全进入 Diagnosis Runtime。Phase 15 已通过并冻结。Phase 16.1 已完成结构化题目 Draft、校验、人工审核、冻结、修订和版本追溯的最小闭环；Phase 16.2 已完成正式资源资格与上下文匹配质量闭环。当前仍待 Phase 16.3 验证 5—7 个自然日真实学习运行。
+> 单学生、单浏览器、本地持久化的连续学习基础已经成立；Evidence 质量与自适应约束链已经冻结；真实 LLM 已能够安全进入 Diagnosis Runtime。Phase 15 已通过并冻结。Phase 16.1 已完成结构化题目 Draft、校验、人工审核、冻结、修订和版本追溯的最小闭环；Phase 16.2 已完成正式资源资格与上下文匹配质量闭环。Phase 1–16.2 的 48 个确定性 Debug / 集成脚本与 Production Build 已完成组合式回归并全部通过；该结论不包含 DeepSeek Live、浏览器人工验收或单对象贯穿式 E2E。当前仍待 Phase 16.3 验证 5—7 个自然日真实学习运行。
 
 这里的 Phase 15 冻结表示 15.1、15.2、15.3 的 Runtime、专项质量验收和 `11 / 11` 确定性整链 Debug 均已成立。Phase 16.1 PASS 表示资源准入 Runtime `22 / 22`、Production Build 和最小工作台人工 Demo 已通过，不表示工作台 UX、资源匹配质量或真实多日教学运行已经完成。Prompt v4 的正式默认切换仍须使用版本化配置；真实外部 Provider 贯穿完整产品主链的受控试跑仍未执行。
 
@@ -357,7 +357,7 @@ Phase 15.1 已证明真实 Provider 可以安全进入 Runtime；Phase 15.2 已�
 
 Phase 16.1 已建立正式题目资源的准入边界：人工录入先形成 Draft，通过结构化校验和人工审核后才能冻结为正式版本；Frozen Resource 不可静默编辑，修订必须生成新版本，ResourceRegistry 只指向唯一当前冻结版本。16.1A Runtime 为 `22 / 22 PASS`，16.1B 最小录入工作台已通过人工 Demo 验收，但连续录题效率与工作台 UX 仍需后续优化。
 
-Phase 16.2A 已完成 `12 / 12 PASS`，Phase 16.2B 已完成 `16 / 16 PASS`：Registry 当前 Frozen Version 先经过身份、审核、校验、primary ability、task role、核心难度和 Rubric Gate，再由 Quality Gate 复核材料关系、近期重复、提示、能力要求、偏好和创建前 Registry 状态，形成正式四类分流。轻量 Match Review Demo 已完成 `8 / 8` Case 人工验收，Phase 16.1 -> 16.2 人工联调 Demo 已完成 `4 / 4 PASS`，并通过 PC / 平板布局检查；Phase 16.2 当前为 `PASS / FROZEN`。Phase 16.3 将验证单学生使用正式题目和真实 AI 连续运行 5—7 个自然日时，保存、恢复、复测、异常阻断和人工复核是否成立。
+Phase 16.2A 已完成 `12 / 12 PASS`，Phase 16.2B 已完成 `16 / 16 PASS`：Registry 当前 Frozen Version 先经过身份、审核、校验、primary ability、task role、核心难度和 Rubric Gate，再由 Quality Gate 复核材料关系、近期重复、提示、能力要求、偏好和创建前 Registry 状态，形成正式四类分流。轻量 Match Review Demo 已完成 `8 / 8` Case 人工验收，Phase 16.1 -> 16.2 人工联调 Demo 已完成 `4 / 4 PASS`，并通过 PC / 平板布局检查；随后 [Phase 1–16.2 组合式全链路 Runtime 回归](../education/phase/reports/phase1_16_2_integrated_runtime_regression_2026-07-20.md) 完成 48 个确定性脚本与 Production Build，结果为 `PASS`。Phase 16.2 当前为 `PASS / FROZEN`。Phase 16.3 将验证单学生使用正式题目和真实 AI 连续运行 5—7 个自然日时，保存、恢复、复测、异常阻断和人工复核是否成立。
 
 详细文档入口：[Phase 16](../education/phase/phase16.md)、[Phase 16.1](../education/phase/phase16_1.md)、[Phase 16.2](../education/phase/phase16_2.md)。
 
@@ -411,6 +411,7 @@ Phase 16.2A 已完成 `12 / 12 PASS`，Phase 16.2B 已完成 `16 / 16 PASS`：Re
 | Phase 16 当前目标与边界 | [Phase 16](../education/phase/phase16.md) |
 | Phase 16.1 题目准入与审核 | [Phase 16.1](../education/phase/phase16_1.md) |
 | Phase 16.2 资源匹配质量 | [Phase 16.2](../education/phase/phase16_2.md) |
+| Phase 1–16.2 组合式 Runtime 回归 | [集成回归记录](../education/phase/reports/phase1_16_2_integrated_runtime_regression_2026-07-20.md) |
 | 某个 Phase 的规则与验收 | 对应 `docs/education/phase/phase*.md` |
 | PC / 平板学生体验原则 | [PC Learning Workspace UX Calibration](../product/PC_LEARNING_WORKSPACE_UX_CALIBRATION.md) |
 

@@ -2,7 +2,9 @@
 
 设计状态：ACCEPTED
 
-工程状态：IN PROGRESS（Phase 16.1 PASS；Phase 16.2 PASS / FROZEN；工作台 UX 待后续专项优化；Phase 16.3 未开始）
+工程状态：IN PROGRESS（Phase 16.1 PASS；Phase 16.2 PASS / FROZEN；Phase 1–16.2 组合式 Runtime 回归 PASS；工作台 UX 待后续专项优化；Phase 16.3 未开始）
+
+2026-07-20 回归记录：[Phase 1–16.2 组合式全链路 Runtime Debug 验收](./reports/phase1_16_2_integrated_runtime_regression_2026-07-20.md)。48 个确定性 Debug / 集成脚本与 Production Build 全部通过；本次未调用 DeepSeek Live Provider，也未执行浏览器人工 Demo。
 
 ## 一、阶段定位
 

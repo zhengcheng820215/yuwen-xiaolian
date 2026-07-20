@@ -18,6 +18,7 @@
 - Phase 16.2 轻量 Match Review Demo 已完成 `8 / 8` Case 人工验收，PC 与平板布局检查通过；
 - Phase 16.1 -> 16.2 Repository Integration Debug 已完成 `5 / 5 PASS`，连续运行 20 次完整输出哈希一致；
 - Phase 16.1 -> 16.2 人工联调 Demo 已完成 `4 / 4 PASS`；Case 1、2 正常放行，Case 3 安全阻断，Case 4 拒绝能力错位资源；
+- Phase 1–16.2 组合式全链路 Runtime 回归已完成：48 个确定性 Debug / 集成脚本与 Production Build 全部通过；本次未调用 DeepSeek Live Provider，也未执行浏览器人工 Demo；详细记录见 [集成回归报告](./reports/phase1_16_2_integrated_runtime_regression_2026-07-20.md)；
 - Phase 16.2 Overall 已满足 Unified Acceptance，状态冻结为 `PASS / FROZEN`。
 
 ## 一、阶段目标
