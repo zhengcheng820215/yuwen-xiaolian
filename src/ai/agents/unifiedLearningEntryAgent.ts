@@ -8,6 +8,11 @@ import {
   type UnifiedLearningEntryState,
 } from '../schemas/unifiedLearningEntry.schema.ts';
 import type { RealLearningOperationCheckpoint } from '../schemas/realLearningOperation.schema.ts';
+import {
+  STUDENT_REVIEW_REQUIRED_ACTION_TEXT,
+  STUDENT_REVIEW_REQUIRED_MESSAGE,
+  STUDENT_REVIEW_REQUIRED_TITLE,
+} from '../content/studentRuntimeMessages.ts';
 
 export function createUnifiedLearningActivityContext(input: {
   studentId: string;
@@ -58,9 +63,9 @@ export function buildUnifiedLearningEntryState(
     return finish({
       ...base,
       status: 'review_required', priority: 1,
-      title: '学习状态需要确认',
-      message: '当前学习记录需要进一步确认，暂时不会启动新的任务。',
-      primaryAction: 'wait_for_review', primaryActionText: '等待确认', canEnterWorkspace: false,
+      title: '学习状态暂时无法恢复',
+      message: '当前记录存在不一致，系统已停止恢复，不会启动新的任务，也不会改写已有记录。',
+      primaryAction: 'retry_later', primaryActionText: '稍后再试', canEnterWorkspace: false,
     }, [...issues, ...(active.length > 1 ? ['multiple_active_sessions_not_allowed'] : [])]);
   }
 
@@ -68,18 +73,31 @@ export function buildUnifiedLearningEntryState(
     return finish({
       ...base,
       status: 'review_required', priority: 1,
-      title: '本次结果正在确认',
-      message: '你的回答已经记录，确认完成前不会据此改变学习状态。',
-      primaryAction: 'wait_for_review', primaryActionText: '稍后再看', canEnterWorkspace: false,
+      title: STUDENT_REVIEW_REQUIRED_TITLE,
+      message: STUDENT_REVIEW_REQUIRED_MESSAGE,
+      primaryAction: 'retry_later', primaryActionText: STUDENT_REVIEW_REQUIRED_ACTION_TEXT, canEnterWorkspace: false,
     });
   }
   if (checkpoint?.status === 'blocked') {
+    const nextResourceUnavailable = Boolean(checkpoint.learningPersistenceRecordId) &&
+      checkpoint.nextTaskResolution?.status !== 'matched' &&
+      (
+        checkpoint.nextAction === 'prepare_resource' ||
+        checkpoint.issues.every((issue) => (
+          issue.startsWith('operation_identity_mismatch:') ||
+          checkpoint.nextTaskResolution?.issues.includes(issue)
+        ))
+      );
     return finish({
       ...base,
       status: 'blocked', priority: 1,
-      title: '暂时无法继续',
-      message: '当前任务暂时无法继续，已保留已有学习记录。',
-      primaryAction: 'retry_later', primaryActionText: '稍后重试', canEnterWorkspace: false,
+      title: nextResourceUnavailable ? '需要检查下一任务' : '暂时无法继续',
+      message: nextResourceUnavailable
+        ? '本轮结果已经保存。上次未找到符合要求的下一任务，系统不会在后台自动生成；请再次检查，若仍无匹配，则需要先补充合适的正式任务。'
+        : '当前任务暂时无法继续，已保留已有学习记录。',
+      primaryAction: nextResourceUnavailable ? 'retry_resource' : 'retry_later',
+      primaryActionText: nextResourceUnavailable ? '检查下一任务' : '稍后重试',
+      canEnterWorkspace: nextResourceUnavailable,
     });
   }
   if (checkpoint?.nextAction === 'submit_answer') {
@@ -233,10 +251,10 @@ function finish(
       ...result,
       status: 'review_required',
       priority: 1,
-      title: '学习状态需要确认',
+      title: '学习状态暂时无法恢复',
       message: '当前学习记录暂时无法安全恢复。',
-      primaryAction: 'wait_for_review',
-      primaryActionText: '等待确认',
+      primaryAction: 'retry_later',
+      primaryActionText: '稍后再试',
       canEnterWorkspace: false,
       validation: { passed: false, issues: [...validationIssues, 'unified_entry_state_schema_invalid'] },
     };

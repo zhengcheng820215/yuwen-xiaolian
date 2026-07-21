@@ -57,6 +57,43 @@ async function main(): Promise<void> {
     latestPersistenceRecord: completedRecord(),
     completedRoundCount: 1,
   }), 'session_ended');
+  checkState('B12 下一资源缺口保留正式结果并阻断新任务', baseInput({
+    activeContexts: [activeContext()],
+    latestPersistenceRecord: completedRecord(),
+    operationCheckpoint: checkpoint({
+      status: 'blocked',
+      stage: 'persisted',
+      nextAction: 'prepare_resource',
+      learningPersistenceRecordId: 'record-phase16-3b',
+    }),
+  }), 'blocked', (state) => state.canEnterWorkspace &&
+    state.title === '需要检查下一任务' &&
+    state.primaryAction === 'retry_resource' &&
+    state.primaryActionText === '检查下一任务');
+  checkState('B12.1 旧资源缺口被身份阻断后仍保留检查入口', baseInput({
+    activeContexts: [activeContext()],
+    latestPersistenceRecord: completedRecord(),
+    operationCheckpoint: checkpoint({
+      status: 'blocked',
+      stage: 'persisted',
+      nextAction: 'stop',
+      learningPersistenceRecordId: 'record-phase16-3b',
+      nextTaskResolution: {
+        status: 'no_match',
+        taskRequestId: 'task-request-phase16-3b',
+        issues: ['quality_evaluation_not_executable'],
+      },
+      issues: ['quality_evaluation_not_executable', 'operation_identity_mismatch:resourceVersionId'],
+    }),
+  }), 'blocked', (state) => state.primaryAction === 'retry_resource' && state.canEnterWorkspace);
+  checkState('B13 正式保存恢复不重新开放作答入口', baseInput({
+    activeContexts: [activeContext()],
+    operationCheckpoint: checkpoint({
+      status: 'retry_required',
+      stage: 'evidence_returned',
+      nextAction: 'retry_persistence',
+    }),
+  }), 'recovering_submission', (state) => state.primaryAction === 'resume_processing');
   await checkRepositoryConflict();
   checkInternalSummary();
   checkStudentStateSurface();
@@ -94,7 +131,7 @@ async function checkRepositoryConflict(): Promise<void> {
   const repeated = await repository.save(first);
   const conflict = await repository.save(second);
   reports.push({
-    name: 'B12 重复开始保持幂等且拒绝第二个活动 Session',
+    name: 'B14 重复开始保持幂等且拒绝第二个活动 Session',
     passed: repeated.status === 'reused' && conflict.status === 'conflict' && (await repository.getByStudent(STUDENT_ID))?.learningSessionId === 'session-a',
     detail: `repeat=${repeated.status}, second=${conflict.status}`,
   });
@@ -103,7 +140,7 @@ async function checkRepositoryConflict(): Promise<void> {
 function checkInternalSummary(): void {
   const summary = buildInternalLearningReviewSummary(checkpoint({ status: 'completed', stage: 'next_task_ready', nextAction: 'start_next_task' }));
   reports.push({
-    name: 'B13 内部入口可追溯正式链路且隐藏敏感数据',
+    name: 'B15 内部入口可追溯正式链路且隐藏敏感数据',
     passed: summary.status === 'completed' && summary.sensitiveDataHidden && summary.stages.every((stage) => stage.status === 'completed') && !JSON.stringify(summary).includes('api-key'),
     detail: `status=${summary.status}, stages=${summary.stages.length}, sensitiveHidden=${summary.sensitiveDataHidden}`,
   });
@@ -114,7 +151,7 @@ function checkStudentStateSurface(): void {
   const serialized = JSON.stringify(state);
   const forbidden = ['operationId', 'learningSessionId', 'evidenceIds', 'rawOutput', 'promptVersion', 'confidence'];
   reports.push({
-    name: 'B14 学生入口状态不暴露 Runtime 字段',
+    name: 'B16 学生入口状态不暴露 Runtime 字段',
     passed: forbidden.every((key) => !serialized.includes(key)),
     detail: `forbiddenFields=${forbidden.filter((key) => serialized.includes(key)).join('|') || 'none'}`,
   });

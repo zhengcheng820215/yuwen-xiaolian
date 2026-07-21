@@ -2,7 +2,7 @@
 
 设计状态：ACCEPTED
 
-工程状态：IN PROGRESS（16.3A `PASS / FROZEN`：Deterministic Debug `14 / 14 PASS`、Lightweight Demo Acceptance `PASS`、Controlled Real Provider Integration `11 / 11 PASS`；16.3B `PASS / FROZEN`：Debug `14 / 14`、Controlled Demo `11 / 11`、PC / 平板人工验收与 Production Build `PASS`；Day 0 串联 `11 / 11 PASS`；16.3C Engineering Preflight、Application Boundary Controlled Live Smoke 与 Lightweight Demo Acceptance `PASS`：Multi-day Simulation `10 / 10`、正式 `/learning`、真实 Provider 回流、策略驱动下一 Frozen Resource、IndexedDB 恢复、受控多日人工验收与浏览器 Smoke 已成立；5—7 个自然日验收 `PENDING (0 / 5)`）
+工程状态：IN PROGRESS（16.3A `PASS / FROZEN`：Deterministic Debug `16 / 16 PASS`、Lightweight Demo Acceptance `PASS`、Controlled Real Provider Integration `11 / 11 PASS`；16.3B `PASS / FROZEN`：Debug `17 / 17`、Controlled Demo `11 / 11`、PC / 平板人工验收与 Production Build `PASS`；Day 0 串联 `11 / 11 PASS`；Product / Demo Scope Isolation `9 / 9 PASS`；16.3C Engineering Preflight、Application Boundary Controlled Live Smoke 与 Lightweight Demo Acceptance `PASS`：Multi-day Simulation `10 / 10`、正式 `/learning`、真实 Provider 回流、策略驱动下一 Frozen Resource、IndexedDB 恢复、受控多日人工验收与浏览器 Smoke 已成立；5—7 个自然日验收 `PENDING (0 / 5)`）
 
 前置基线：
 
@@ -36,6 +36,8 @@ Phase 16.3 不是重新实现 LearningRound、Diagnosis、Evidence、Evaluation�
 3. 学生不需要访问多个 Demo 地址即可开始、继续、复测和查看结果；
 4. 多日运行中的刷新、失败、复核、缺席和资源版本变化不会污染正式状态；
 5. 所有正式结果可以被人工回放和复核。
+
+正式产品运行与验收运行必须使用不同身份作用域。`/learning` 只消费产品学生、产品 Session、产品 Round 和产品 Operation；Demo / Debug 对象不得进入正式查询、恢复、自然日计数或学生反馈。旧 Demo 数据只读隔离，不自动删除，也不得迁移成正式学习事实。
 
 ## 二、一句话定义
 
@@ -772,11 +774,12 @@ Day 3+
 16.3C 工程实现已完成以下技术准入：
 
 - `/learning` 不再嵌入旧连续学习 Mock，而是消费 Frozen Resource、Phase 16.3 Orchestrator 和正式 IndexedDB Repository；
-- 浏览器通过本地 Application Boundary 调用 Diagnosis，Key 只允许存在于服务端环境；
+- 浏览器通过本地 Application Boundary 调用 Diagnosis，Key 只允许由服务端从进程环境或受控 macOS Keychain 读取；学生入口提交前必须预检 Runtime 可用性；
 - 正式 Checkpoint、草稿、Learning Session History 与 Multi-day Run State 可保存和恢复；
 - 无效作答在 Diagnosis 前阻断，不占用不可变正式 Operation；
-- 正式资源池已包含独立审核冻结的 `training` 与 `retest` 资源；任务角色是 Frozen Version 的正式事实，编排层不得复制或改写该字段；
+- 正式资源池已包含独立审核冻结的 `training / retest / transfer / observation / diagnosis` 资源；任务角色是 Frozen Version 的正式事实，编排层不得复制或改写该字段；
 - 当前任务与下一任务按能力和任务角色精确匹配，无对应正式资源时进入 `no_match / blocked`；
+- `no_match / blocked` 表示需要补充符合条件的正式资源，不表示系统正在后台自动准备；资源补齐后的恢复只允许重新执行匹配，不得重新调用 Diagnosis、重复生成 Evidence 或重复更新 Profile；
 - 工程模拟 `10 / 10 PASS`，明确记录 `simulatedDays = 5`、`naturalDays = 0`；
 - 浏览器验证发现并修复草稿主键错位，刷新恢复与学生信息隔离通过；
 - Phase 12—16 关键回归和 Production Build 通过。
@@ -908,6 +911,8 @@ Phase 16.3 PASS 必须同时满足：
 - 内部复核入口隔离；
 - PC / 平板人工验收通过；
 - 学生页面不暴露内部 Runtime 信息。
+- Product / Demo 身份、持久化与 Operation 清理边界明确，Demo 记录不会进入正式学生入口；
+- 当内部状态为 `review_required` 且没有真实人工承接流程时，学生端显示“本次结果暂不采用”，不得显示“等待确认”。
 
 ### 16.3C
 

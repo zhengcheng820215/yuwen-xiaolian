@@ -15,13 +15,13 @@ const workspacePaths = [
   '/resource-matching-quality-demo',
   '/phase16-3-real-chain-demo',
   '/learning',
-  '/internal/learning-review',
+  '/internal',
   '/phase16-3-unified-entry-demo',
 ];
 
 export default function Layout({ children }) {
   const location = useLocation();
-  const isWorkspace = workspacePaths.some((path) => location.pathname.startsWith(path));
+  const isWorkspace = location.pathname.includes('-demo') || workspacePaths.some((path) => location.pathname.startsWith(path));
   const hideTabs = isWorkspace || noTabPaths.some((path) => location.pathname.startsWith(path));
   const containerClassName = isWorkspace
     ? 'min-h-screen w-full bg-white'

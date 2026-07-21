@@ -9,11 +9,16 @@ import {
   recordPhase163DailyOperation,
 } from '../ai/agents/phase163MultiDayOperationAgent.ts';
 import { runPhase163RealLearningChain } from '../ai/agents/phase163RealLearningChainAgent.ts';
+import { STUDENT_REVIEW_REQUIRED_MESSAGE } from '../ai/content/studentRuntimeMessages.ts';
+import { createFeedbackExpressionConfigSnapshot } from '../ai/agents/controlledFeedbackExpressionAgent.ts';
+import {
+  buildStructuredFeedbackFacts,
+  buildStudentFeedbackTeachingPlan,
+} from '../ai/agents/structuredFeedbackFactsAgent.ts';
 import { runTaskExecutionAgent } from '../ai/agents/taskExecutionAgent.ts';
 import { scheduleDelayedRetest } from '../ai/agents/delayedRetestSchedulingAgent.ts';
 import { createDiagnosisProviderConfigSnapshot } from '../ai/agents/realLLMRuntimeFoundationAgent.ts';
 import { REAL_AI_DIAGNOSIS_PROMPT_V4_VERSION } from '../ai/prompts/buildRealAIDiagnosisPromptV4.ts';
-import { ScriptedDiagnosisProviderAdapter } from '../ai/providers/diagnosisProviderAdapter.ts';
 import { InMemoryControlledFeedbackRepository } from '../ai/repositories/inMemoryControlledFeedbackRepository.ts';
 import { InMemoryFormalDiagnosisRepository } from '../ai/repositories/inMemoryFormalDiagnosisRepository.ts';
 import { IndexedDBLearningPersistenceRepository } from '../ai/repositories/indexedDBLearningPersistenceRepository.ts';
@@ -27,9 +32,12 @@ import type { CurrentLearningContext, TaskRequest } from '../ai/schemas/nextLear
 import type { FrozenQuestionResourceVersion } from '../ai/schemas/questionResourceAdmission.schema.ts';
 import type { NextFormalTaskResolution } from '../ai/schemas/realLearningOperation.schema.ts';
 import type { QualityGatedExecutableTask } from '../ai/schemas/resourceMatchQuality.schema.ts';
+import type { ControlledFeedbackExpressionInput } from '../ai/schemas/controlledFeedbackExpression.schema.ts';
+import type { StudentLearningFeedback } from '../ai/schemas/studentLearningFeedback.schema.ts';
 import { getPhase163FormalResourcePoolData } from './phase161To162IntegrationDemo.ts';
 import { runDiagnosisThroughPhase163Boundary } from './phase163DiagnosisBoundary.ts';
 import {
+  assertPhase163ProductRuntimeIdentity,
   PHASE163_LEARNING_STUDENT_ID,
   PHASE163_LEARNING_TIMEZONE,
 } from './phase163LearningIdentity.ts';
@@ -59,10 +67,16 @@ export type Phase163LiveWorkspaceState = {
     whatYouDidWell: string[];
     whatNeedsAttention: string[];
     nextActionText: string;
+    guidance?: {
+      understandingNotice?: string;
+      detailsToReview: string[];
+      revisionActions: string[];
+    };
   };
   canAdvance: boolean;
   canRetry: boolean;
   isRetest: boolean;
+  primaryAction: 'submit_answer' | 'resume_processing' | 'retry_resource' | 'start_next_task' | 'return_to_entry';
   studentMessage?: string;
 };
 
@@ -70,6 +84,13 @@ export async function loadPhase163LiveWorkspace(): Promise<Phase163LiveWorkspace
   const descriptor = await buildCurrentRoundDescriptor();
   const checkpoint = await operationRepository.getByOperationId(descriptor.input.operationId);
   const persisted = await persistenceRepository.loadByRound(PHASE163_LEARNING_STUDENT_ID, descriptor.input.learningRoundId);
+  if (persisted) {
+    assertPhase163ProductRuntimeIdentity({
+      studentId: persisted.studentId,
+      learningRoundId: persisted.learningRoundId,
+    });
+  }
+  if (checkpoint) assertPhase163ProductRuntimeIdentity(checkpoint);
   if (!checkpoint) return readyState(descriptor, persisted?.answerDraft || '');
   return stateFromCheckpoint(descriptor, checkpoint, persisted?.answerDraft || '');
 }
@@ -118,7 +139,6 @@ export async function submitPhase163LiveAnswer(answerText: string): Promise<Phas
     submittedAt,
   };
   const result = await runPhase163RealLearningChain(input, {
-    provider: new ScriptedDiagnosisProviderAdapter([], 'deepseek_chat'),
     formalDiagnosisRepository: new InMemoryFormalDiagnosisRepository(),
     controlledFeedbackRepository: new InMemoryControlledFeedbackRepository(),
     learningPersistenceRepository: persistenceRepository,
@@ -176,6 +196,7 @@ async function buildCurrentRoundDescriptor() {
   const number = roundNumber(roundId);
   const records = await persistenceRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID);
   const latest = records.filter((item) => item.learningRoundResult?.status === 'completed').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+  const currentCheckpoint = await operationRepository.getByOperationId(`phase16-3-live-operation-${roundId}`);
   const plans = await loadPhase163DueRetestPlans();
   const retestPlan = plans[0];
   const pool = await loadFormalPool();
@@ -196,10 +217,12 @@ async function buildCurrentRoundDescriptor() {
     item.version.abilityMetadata.taskRole === role &&
     item.task.executableTask.taskRole === role
   ));
-  const selected = plannedVersionId
-    ? eligiblePool.find((item) => item.version.resourceVersionId === plannedVersionId)
-    : eligiblePool.find((item) => item.version.resourceVersionId !== previousResourceVersionId) ||
-      eligiblePool[(number - 1) % eligiblePool.length];
+  const selected = currentCheckpoint?.sourceResourceVersionId
+    ? pool.find((item) => item.version.resourceVersionId === currentCheckpoint.sourceResourceVersionId)
+    : plannedVersionId
+      ? eligiblePool.find((item) => item.version.resourceVersionId === plannedVersionId)
+      : eligiblePool.find((item) => item.version.resourceVersionId !== previousResourceVersionId) ||
+        eligiblePool[(number - 1) % eligiblePool.length];
   if (!selected) throw new Error(role === 'retest' ? '暂无符合复测要求的正式任务。' : '暂无符合当前要求的正式任务。');
   const version = selected.version;
   const qualityTask = selected.task;
@@ -214,8 +237,14 @@ async function buildCurrentRoundDescriptor() {
   const base = await import('./phase163RealLearningChainDemo.ts').then((module) => (
     module.createPhase163DemoEnvironment('complete_chain', '')
   ));
-  const currentProfile = latest?.studentAbilityProfile || base.input.currentProfile;
-  const currentGrowthMemorySummary = latest?.growthMemorySummary || base.input.currentGrowthMemorySummary;
+  const currentProfile = latest?.studentAbilityProfile || {
+    ...base.input.currentProfile,
+    studentId: PHASE163_LEARNING_STUDENT_ID,
+  };
+  const currentGrowthMemorySummary = latest?.growthMemorySummary || {
+    ...base.input.currentGrowthMemorySummary,
+    studentId: PHASE163_LEARNING_STUDENT_ID,
+  };
   const existingGrowthMemoryRecords = records.flatMap((item) => item.growthMemoryRecord ? [item.growthMemoryRecord] : []);
   const previousEvidence = records.flatMap((item) => item.learningRoundResult?.taskEvidenceReturnResult?.abilityEvidence || []);
   const startedAt = new Date().toISOString();
@@ -282,7 +311,7 @@ async function resolveNextFormalTask(
 }
 
 async function loadFormalPool(): Promise<Array<{ version: FrozenQuestionResourceVersion; task: QualityGatedExecutableTask }>> {
-  return getPhase163FormalResourcePoolData();
+  return getPhase163FormalResourcePoolData(PHASE163_LEARNING_STUDENT_ID);
 }
 
 async function appendRoundToCurrentSession(record: LearningPersistenceRecord): Promise<void> {
@@ -316,6 +345,7 @@ async function recordNaturalDay(result: Awaited<ReturnType<typeof runPhase163Rea
 async function requireActiveContext() {
   const context = await activityRepository.getByStudent(PHASE163_LEARNING_STUDENT_ID);
   if (!context || context.status === 'ended') throw new Error('请先从学习入口开始本次学习。');
+  assertPhase163ProductRuntimeIdentity(context);
   return context;
 }
 
@@ -336,6 +366,7 @@ function readyState(descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescr
     canAdvance: false,
     canRetry: false,
     isRetest: task.taskRole === 'retest',
+    primaryAction: 'submit_answer',
   };
 }
 
@@ -344,8 +375,24 @@ function stateFromCheckpoint(
   checkpoint: NonNullable<Awaited<ReturnType<IndexedDBRealLearningOperationRepository['getByOperationId']>>>,
   answerDraft: string,
 ): Phase163LiveWorkspaceState {
-  const base = readyState(descriptor, answerDraft);
-  const feedback = checkpoint.controlledFeedbackResult?.studentLearningFeedback;
+  const restoredAnswer = checkpoint.taskExecutionResult?.studentResponse?.answerText || answerDraft;
+  const base = readyState(descriptor, restoredAnswer);
+  const feedback = resolveStudentFeedback(checkpoint);
+  const canAdvance = checkpoint.status === 'completed' && checkpoint.nextTaskResolution?.status === 'matched';
+  const primaryAction = canAdvance
+    ? 'start_next_task'
+    : checkpoint.status === 'review_required'
+      ? 'return_to_entry'
+      : checkpoint.status === 'blocked'
+        ? checkpoint.nextAction === 'prepare_resource' && Boolean(checkpoint.learningPersistenceRecordId)
+          ? 'retry_resource'
+          : 'return_to_entry'
+        : checkpoint.nextAction === 'submit_answer'
+          ? 'submit_answer'
+          : checkpoint.status === 'retry_required'
+            ? 'resume_processing'
+            : 'return_to_entry';
+  const resourceUnavailable = checkpoint.nextAction === 'prepare_resource';
   return {
     ...base,
     status: checkpoint.status === 'completed' ? 'completed' : checkpoint.status,
@@ -353,18 +400,82 @@ function stateFromCheckpoint(
       headline: feedback.headline,
       summary: feedback.summary,
       whatYouDidWell: feedback.whatYouDidWell,
-      whatNeedsAttention: feedback.whatNeedsAttention,
+      whatNeedsAttention: feedback.guidance ? feedback.whatNeedsAttention : [],
       nextActionText: feedback.nextActionText,
+      guidance: feedback.guidance,
     } : undefined,
-    canAdvance: checkpoint.status === 'completed' && checkpoint.nextTaskResolution?.status === 'matched',
+    canAdvance,
     canRetry: checkpoint.status === 'retry_required',
+    primaryAction,
     studentMessage: checkpoint.status === 'review_required'
-      ? '本次结果需要进一步确认，暂时不会改变你的学习状态。'
+      ? STUDENT_REVIEW_REQUIRED_MESSAGE
       : checkpoint.status === 'blocked'
-        ? '当前任务暂时无法继续，已有学习记录已经保留。'
+        ? resourceUnavailable && checkpoint.learningPersistenceRecordId
+          ? '本轮学习已经完成并保存。当前没有符合要求的下一任务，需要先补充合适的正式任务；系统不会在后台自动生成，任务补充后可以再次检查。'
+          : '当前任务暂时无法继续，已有学习记录已经保留。'
         : checkpoint.status === 'retry_required'
-          ? checkpoint.nextAction === 'submit_answer' ? '请补充回答后重新提交。' : '分析暂时未完成，请稍后重试。'
+          ? checkpoint.nextAction === 'submit_answer' ? '请补充回答后重新提交。' : '已提交的回答正在恢复处理，不需要重新作答。'
           : undefined,
+  };
+}
+
+function resolveStudentFeedback(
+  checkpoint: NonNullable<Awaited<ReturnType<IndexedDBRealLearningOperationRepository['getByOperationId']>>>,
+): StudentLearningFeedback | undefined {
+  const result = checkpoint.controlledFeedbackResult;
+  const feedback = result?.studentLearningFeedback;
+  if (!feedback) return undefined;
+  if (
+    !result.structuredFacts ||
+    !checkpoint.concreteTask ||
+    !checkpoint.taskExecutionResult?.studentResponse ||
+    !checkpoint.realDiagnosisRuntimeResult ||
+    !checkpoint.taskEvidenceReturnResult
+  ) return feedback;
+
+  const task = checkpoint.concreteTask;
+  const response = checkpoint.taskExecutionResult.studentResponse;
+  const request: ControlledFeedbackExpressionInput = {
+    feedbackRequestId: result.feedbackRequestId,
+    learningRoundId: checkpoint.learningRoundId,
+    studentId: checkpoint.studentId,
+    taskId: task.taskId,
+    executionSessionId: checkpoint.taskExecutionResult.executionSessionId,
+    responseId: response.responseId,
+    studentResponseText: response.answerText,
+    taskContext: {
+      readingText: task.readingText,
+      questionText: task.question,
+      answerRequirements: task.answerRequirements,
+    },
+    realDiagnosisRuntimeResult: checkpoint.realDiagnosisRuntimeResult,
+    taskEvidenceReturnResult: checkpoint.taskEvidenceReturnResult,
+    expressionConfig: createFeedbackExpressionConfigSnapshot({
+      expressionPolicy: 'deterministic_only',
+      createdAt: checkpoint.updatedAt,
+    }),
+    requestedAt: checkpoint.updatedAt,
+  };
+  const refreshedFacts = buildStructuredFeedbackFacts({
+    request,
+    admissionDecision: result.admissionDecision,
+  });
+  if (!refreshedFacts.validation.passed) {
+    return { ...feedback, whatYouDidWell: [], whatNeedsAttention: [] };
+  }
+  const plan = buildStudentFeedbackTeachingPlan({ request, facts: refreshedFacts });
+  if (!plan.validation.passed) return { ...feedback, whatNeedsAttention: [] };
+  return {
+    ...feedback,
+    whatYouDidWell: refreshedFacts.observedStrengths
+      .map((fact) => fact.safeExpressions[0])
+      .filter(Boolean),
+    whatNeedsAttention: plan.understandingNotice ? [plan.understandingNotice.text] : [],
+    guidance: {
+      understandingNotice: plan.understandingNotice?.text,
+      detailsToReview: plan.detailsToReview.map((item) => item.text),
+      revisionActions: plan.revisionActions.map((item) => item.text),
+    },
   };
 }
 

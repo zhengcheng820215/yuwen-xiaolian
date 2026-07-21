@@ -59,6 +59,12 @@ export class InMemoryRealLearningOperationRepository implements RealLearningOper
   async clear(): Promise<void> {
     this.records.clear();
   }
+
+  async clearByStudent(studentId: string): Promise<void> {
+    for (const [operationId, checkpoint] of this.records) {
+      if (checkpoint.studentId === studentId) this.records.delete(operationId);
+    }
+  }
 }
 
 function validateStableIdentity(

@@ -12,6 +12,7 @@ import type { UnifiedLearningActivityContext, UnifiedLearningEntryState } from '
 import type { ContinuousLearningDemoState } from './continuousLearningDemo.ts';
 import { loadPhase163DueRetestPlans } from './phase163LiveLearning.ts';
 import {
+  assertPhase163ProductRuntimeIdentity,
   PHASE163_LEARNING_STUDENT_ID,
   PHASE163_LEARNING_TIMEZONE,
 } from './phase163LearningIdentity.ts';
@@ -41,6 +42,14 @@ export async function loadUnifiedLearningEntry(): Promise<UnifiedLearningEntrySt
   const operationCheckpoint = activeContext?.currentLearningRoundId
     ? await operationRepository.getByOperationId(`phase16-3-live-operation-${activeContext.currentLearningRoundId}`)
     : undefined;
+  if (context) assertPhase163ProductRuntimeIdentity(context);
+  if (latestRecord) {
+    assertPhase163ProductRuntimeIdentity({
+      studentId: latestRecord.studentId,
+      learningRoundId: latestRecord.learningRoundId,
+    });
+  }
+  if (operationCheckpoint) assertPhase163ProductRuntimeIdentity(operationCheckpoint);
   const delayedRetestPlans = await loadPhase163DueRetestPlans();
 
   return buildUnifiedLearningEntryState({

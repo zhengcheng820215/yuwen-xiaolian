@@ -25,6 +25,12 @@ export type StudentLearningFeedbackDebugState = {
   issues?: string[];
 };
 
+export type StudentFeedbackGuidance = {
+  understandingNotice?: string;
+  detailsToReview: string[];
+  revisionActions: string[];
+};
+
 export type StudentLearningFeedback = {
   learningRoundId: string;
   studentId: string;
@@ -38,6 +44,7 @@ export type StudentLearningFeedback = {
   whatYouDidWell: string[];
   whatNeedsAttention: string[];
   nextActionText: string;
+  guidance?: StudentFeedbackGuidance;
 
   canRetry: boolean;
   canFinishRound: boolean;
@@ -76,6 +83,18 @@ export function isStudentLearningFeedback(value: unknown): value is StudentLearn
     Array.isArray(feedback.whatNeedsAttention) &&
     feedback.whatNeedsAttention.every(isNonEmptyString) &&
     isNonEmptyString(feedback.nextActionText) &&
+    (
+      feedback.guidance === undefined ||
+      (
+        typeof feedback.guidance === 'object' &&
+        feedback.guidance !== null &&
+        (feedback.guidance.understandingNotice === undefined || isNonEmptyString(feedback.guidance.understandingNotice)) &&
+        Array.isArray(feedback.guidance.detailsToReview) &&
+        feedback.guidance.detailsToReview.every(isNonEmptyString) &&
+        Array.isArray(feedback.guidance.revisionActions) &&
+        feedback.guidance.revisionActions.every(isNonEmptyString)
+      )
+    ) &&
     typeof feedback.canRetry === 'boolean' &&
     typeof feedback.canFinishRound === 'boolean' &&
     ['task_execution', 'evidence_return', 'learning_round'].includes(feedback.source)

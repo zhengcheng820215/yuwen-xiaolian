@@ -56,10 +56,15 @@ export default function UnifiedLearningEntry() {
     }
   }
 
+  const canFinishReviewedSession = entry?.status === 'review_required' &&
+    entry?.hasActiveSession &&
+    entry?.validation?.passed;
+
   if (view === 'workspace') {
     return (
       <Phase163LiveLearningWorkspace
         onReturnToEntry={refreshEntry}
+        autoRetryResource={entry?.primaryAction === 'retry_resource'}
       />
     );
   }
@@ -104,14 +109,14 @@ export default function UnifiedLearningEntry() {
               <div className="mt-9 flex flex-wrap gap-3">
                 <button
                   type="button"
-                  disabled={!entry.canEnterWorkspace || busy}
-                  onClick={enterWorkspace}
+                  disabled={(!entry.canEnterWorkspace && !canFinishReviewedSession) || busy}
+                  onClick={canFinishReviewedSession ? endSession : enterWorkspace}
                   className="flex min-h-11 min-w-44 items-center justify-center gap-2 rounded-md bg-slate-900 px-5 text-sm font-normal text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
                 >
                   {busy ? <RefreshCw size={16} className="animate-spin" /> : <ArrowRight size={16} />}
                   {entry.primaryActionText}
                 </button>
-                {entry.hasActiveSession ? (
+                {entry.hasActiveSession && !canFinishReviewedSession ? (
                   <button
                     type="button"
                     disabled={busy}
@@ -141,10 +146,12 @@ export default function UnifiedLearningEntry() {
 }
 
 function StatusEyebrow({ status }) {
-  const isReady = ['continue_round', 'feedback_available', 'start_new_round', 'delayed_retest_available'].includes(status);
+  const isComplete = ['feedback_available', 'session_ended'].includes(status);
+  const isActionable = ['continue_round', 'start_new_round', 'delayed_retest_available'].includes(status);
+  const tone = isComplete ? 'text-emerald-700' : isActionable ? 'text-blue-700' : ['blocked', 'review_required'].includes(status) ? 'text-amber-700' : 'text-slate-600';
   return (
-    <div className={`flex items-center gap-2 text-sm font-semibold ${isReady ? 'text-emerald-700' : 'text-slate-600'}`}>
-      {isReady ? <CheckCircle2 size={16} /> : <Clock3 size={16} />}
+    <div className={`flex items-center gap-2 text-sm font-semibold ${tone}`}>
+      {isComplete ? <CheckCircle2 size={16} /> : <Clock3 size={16} />}
       {statusLabel(status)}
     </div>
   );
@@ -175,7 +182,7 @@ function ErrorState({ message, onRetry }) {
 
 function statusLabel(status) {
   const labels = {
-    review_required: '等待确认', blocked: '暂时无法继续', recovering_submission: '正在恢复',
+    review_required: '结果未采用', blocked: '暂时无法继续', recovering_submission: '正在恢复',
     continue_round: '可以继续', delayed_retest_available: '复测待完成', feedback_available: '反馈可查看',
     start_new_round: '可以开始', session_ended: '本次学习已结束', no_task: '暂无任务',
   };
@@ -183,5 +190,8 @@ function statusLabel(status) {
 }
 
 function toMessage(error) {
-  return error instanceof Error ? error.message : String(error);
+  const value = error instanceof Error ? error.message : String(error);
+  if (import.meta.env.DEV) console.error(error);
+  if (/当前已有学习正在进行/.test(value)) return value;
+  return '学习状态暂时无法读取，已有记录不会丢失，请重新尝试。';
 }

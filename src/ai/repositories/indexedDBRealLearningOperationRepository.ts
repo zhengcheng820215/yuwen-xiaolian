@@ -61,6 +61,19 @@ export class IndexedDBRealLearningOperationRepository implements RealLearningOpe
     }
   }
 
+  async clearByStudent(studentId: string): Promise<void> {
+    const database = await this.openDatabase();
+    try {
+      const records = await requestToPromise<RealLearningOperationCheckpoint[]>(
+        database.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).index('studentId').getAll(studentId),
+      );
+      const store = database.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME);
+      await Promise.all(records.map((record) => requestToPromise(store.delete(record.operationId))));
+    } finally {
+      database.close();
+    }
+  }
+
   private openDatabase(): Promise<IDBDatabase> {
     if (typeof indexedDB === 'undefined') {
       return Promise.reject(new Error('IndexedDB is unavailable in the current runtime.'));

@@ -46,9 +46,9 @@ export default function Phase163UnifiedEntryDemo() {
         <div className="mx-auto flex min-h-[72px] max-w-[1440px] items-center gap-4 px-5 lg:px-10">
           <button
             type="button"
-            aria-label="返回首页"
-            title="返回首页"
-            onClick={() => navigate('/')}
+            aria-label="返回验收入口"
+            title="返回验收入口"
+            onClick={() => navigate('/internal/acceptance')}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
           >
             <ChevronLeft size={20} />

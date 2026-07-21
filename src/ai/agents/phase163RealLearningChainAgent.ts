@@ -70,7 +70,7 @@ export type Phase163RealLearningChainInput = {
 };
 
 export type Phase163RealLearningChainDependencies = {
-  provider: DiagnosisProviderAdapter;
+  provider?: DiagnosisProviderAdapter;
   formalDiagnosisRepository: FormalDiagnosisRepository;
   controlledFeedbackRepository: ControlledFeedbackRepository;
   learningPersistenceRepository: LearningPersistenceRepository;
@@ -110,7 +110,17 @@ export async function runPhase163RealLearningChain(
   }
 
   let checkpoint = existing || await prepareInitialCheckpoint(input, dependencies, now());
-  if (checkpoint.status === 'blocked' || !checkpoint.concreteTask || !checkpoint.taskReadiness) {
+  const recoverableResourceGap = checkpoint.status === 'blocked' &&
+    Boolean(checkpoint.learningPersistenceRecordId) &&
+    checkpoint.nextTaskResolution?.status !== 'matched' &&
+    (
+      checkpoint.nextAction === 'prepare_resource' ||
+      checkpoint.issues.every((issue) => (
+        issue.startsWith('operation_identity_mismatch:') ||
+        checkpoint.nextTaskResolution?.issues.includes(issue)
+      ))
+    );
+  if ((checkpoint.status === 'blocked' && !recoverableResourceGap) || !checkpoint.concreteTask || !checkpoint.taskReadiness) {
     return resultFromCheckpoint(input, checkpoint, Boolean(existing));
   }
 
@@ -165,11 +175,7 @@ export async function runPhase163RealLearningChain(
     };
     const runtime = dependencies.runDiagnosisRuntime
       ? await dependencies.runDiagnosisRuntime(diagnosisInput)
-      : await runRealLLMRuntimeFoundation(diagnosisInput, {
-        provider: dependencies.provider,
-        formalDiagnosisRepository: dependencies.formalDiagnosisRepository,
-        now,
-      });
+      : await runDiagnosisDirectly(diagnosisInput, dependencies, now);
     if (
       runtime.status !== 'formal_result_committed' ||
       !runtime.canEnterEvidenceReturn ||
@@ -277,6 +283,11 @@ export async function runPhase163RealLearningChain(
       executionSessionId: checkpoint.taskExecutionResult.executionSessionId,
       responseId: checkpoint.taskExecutionResult.studentResponse!.responseId,
       studentResponseText: checkpoint.taskExecutionResult.studentResponse!.answerText,
+      taskContext: {
+        readingText: checkpoint.concreteTask.readingText,
+        questionText: checkpoint.concreteTask.question,
+        answerRequirements: checkpoint.concreteTask.answerRequirements,
+      },
       realDiagnosisRuntimeResult: runtime,
       taskEvidenceReturnResult: evidenceReturn,
       expressionConfig: createFeedbackExpressionConfigSnapshot({
@@ -309,36 +320,54 @@ export async function runPhase163RealLearningChain(
     }
   }
 
-  if (!checkpoint.nextTaskResolution) {
-    const strategy = generateNextLearningStrategy({
+  const shouldResolveNextTask = !checkpoint.nextTaskResolution || (
+    recoverableResourceGap && checkpoint.nextTaskResolution.status !== 'matched'
+  );
+  if (shouldResolveNextTask) {
+    const strategy = checkpoint.nextLearningStrategy || generateNextLearningStrategy({
       growthMemorySummary: checkpoint.updatedGrowthMemorySummary!,
       studentAbilityProfile: checkpoint.updatedStudentAbilityProfile!,
       currentLearningContext: input.currentLearningContext,
       createdAt: input.submittedAt,
     });
-    const strategyValidation = validateNextLearningStrategy({
-      strategy,
-      currentLearningContext: input.currentLearningContext,
-      validatedAt: input.submittedAt,
-    });
-    const taskRequestResult = createTaskRequest({
-      strategy,
-      validationResult: strategyValidation,
-      createdAt: input.submittedAt,
-    });
-    if (!taskRequestResult.taskRequest) {
+    let taskRequest = checkpoint.nextTaskRequest;
+    if (!taskRequest) {
+      const strategyValidation = validateNextLearningStrategy({
+        strategy,
+        currentLearningContext: input.currentLearningContext,
+        validatedAt: input.submittedAt,
+      });
+      const taskRequestResult = createTaskRequest({
+        strategy,
+        validationResult: strategyValidation,
+        createdAt: input.submittedAt,
+      });
+      taskRequest = taskRequestResult.taskRequest || undefined;
+      if (!taskRequest) {
+        checkpoint = await persistCheckpoint(dependencies.operationRepository, {
+          ...checkpoint,
+          status: strategyValidation.nextStep === 'review_required' ? 'review_required' : 'blocked',
+          nextAction: strategyValidation.nextStep === 'review_required' ? 'human_review' : 'stop',
+          nextLearningStrategy: strategy,
+          issues: unique(strategyValidation.validationErrors),
+          updatedAt: now(),
+        });
+        return resultFromCheckpoint(input, checkpoint, Boolean(existing));
+      }
+    }
+    if (!taskRequest) {
       checkpoint = await persistCheckpoint(dependencies.operationRepository, {
         ...checkpoint,
-        status: strategyValidation.nextStep === 'review_required' ? 'review_required' : 'blocked',
-        nextAction: strategyValidation.nextStep === 'review_required' ? 'human_review' : 'stop',
+        status: 'blocked',
+        nextAction: 'stop',
         nextLearningStrategy: strategy,
-        issues: unique(strategyValidation.validationErrors),
+        issues: unique([...checkpoint.issues, 'next_task_request_missing']),
         updatedAt: now(),
       });
       return resultFromCheckpoint(input, checkpoint, Boolean(existing));
     }
     const rawResolution = await dependencies.resolveNextTask({
-      taskRequest: taskRequestResult.taskRequest,
+      taskRequest,
       previousResourceVersion: input.resourceVersion,
       previousQualityGatedTask: input.qualityGatedTask,
       updatedProfile: checkpoint.updatedStudentAbilityProfile!,
@@ -371,7 +400,7 @@ export async function runPhase163RealLearningChain(
       status: successful ? 'completed' : resolution.status === 'review_required' ? 'review_required' : 'blocked',
       nextAction: successful ? 'start_next_task' : resolution.status === 'review_required' ? 'human_review' : 'prepare_resource',
       nextLearningStrategy: strategy,
-      nextTaskRequest: taskRequestResult.taskRequest,
+      nextTaskRequest: taskRequest,
       nextTaskResolution: resolution,
       issues: resolution.issues,
       updatedAt: now(),
@@ -379,6 +408,21 @@ export async function runPhase163RealLearningChain(
   }
 
   return resultFromCheckpoint(input, checkpoint, Boolean(existing));
+}
+
+async function runDiagnosisDirectly(
+  input: RealLLMRuntimeFoundationInput,
+  dependencies: Phase163RealLearningChainDependencies,
+  now: () => string,
+): Promise<RealLLMDiagnosisRuntimeResult> {
+  if (!dependencies.provider) {
+    throw new Error('Diagnosis provider or application boundary is required.');
+  }
+  return runRealLLMRuntimeFoundation(input, {
+    provider: dependencies.provider,
+    formalDiagnosisRepository: dependencies.formalDiagnosisRepository,
+    now,
+  });
 }
 
 async function prepareInitialCheckpoint(

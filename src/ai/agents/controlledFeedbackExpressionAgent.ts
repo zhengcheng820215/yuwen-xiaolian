@@ -1,5 +1,6 @@
 import {
   buildActionableSuggestions,
+  buildStudentFeedbackTeachingPlan,
   buildStructuredFeedbackFacts,
 } from './structuredFeedbackFactsAgent.ts';
 import { buildControlledFeedbackExpressionPrompt } from '../prompts/buildControlledFeedbackExpressionPrompt.ts';
@@ -19,6 +20,7 @@ import {
   type FeedbackExpressionValidation,
   type StructuredFeedbackFact,
   type StructuredFeedbackFacts,
+  type StudentFeedbackTeachingPlan,
 } from '../schemas/controlledFeedbackExpression.schema.ts';
 import { DIAGNOSIS_QUALITY_POLICY_V21 } from '../schemas/diagnosisQualityPolicyV2.schema.ts';
 import type { StudentLearningFeedback } from '../schemas/studentLearningFeedback.schema.ts';
@@ -93,12 +95,26 @@ export async function runControlledFeedbackExpression(
     };
     return commitResult(buildNoticeResult(input, blockedAdmission), dependencies.repository);
   }
+  const teachingPlan = buildStudentFeedbackTeachingPlan({ request: input, facts: structuredFacts });
+  if (!teachingPlan.validation.passed) {
+    const blockedAdmission: FeedbackAdmissionDecision = {
+      ...admissionDecision,
+      status: 'review_required',
+      expressionScope: 'system_notice',
+      validation: {
+        passed: false,
+        issues: [...admissionDecision.validation.issues, ...teachingPlan.validation.issues],
+      },
+    };
+    return commitResult(buildNoticeResult(input, blockedAdmission), dependencies.repository);
+  }
 
   const baselineFeedback = buildDeterministicFeedback(
     input,
     admissionDecision,
     structuredFacts,
     suggestions,
+    teachingPlan,
   );
   const baselineValidation = validBaselineValidation();
 
@@ -111,6 +127,7 @@ export async function runControlledFeedbackExpression(
       admissionDecision,
       structuredFacts,
       suggestions,
+      teachingPlan,
       baselineFeedback,
       expressionValidation: baselineValidation,
       status: 'template_baseline',
@@ -160,12 +177,13 @@ export async function runControlledFeedbackExpression(
         continue;
       }
 
-      const enhancedFeedback = mapCandidateToFeedback(input, candidate);
+      const enhancedFeedback = mapCandidateToFeedback(input, candidate, teachingPlan);
       const result = buildContentResult({
         input,
         admissionDecision,
         structuredFacts,
         suggestions,
+        teachingPlan,
         baselineFeedback,
         enhancedFeedback,
         expressionCandidate: candidate,
@@ -187,6 +205,7 @@ export async function runControlledFeedbackExpression(
     admissionDecision,
     structuredFacts,
     suggestions,
+    teachingPlan,
     baselineFeedback,
     expressionValidation: failedExpressionValidation(fallbackReason),
     status: 'template_fallback',
@@ -375,6 +394,14 @@ function validateAdmissionInput(input: ControlledFeedbackExpressionInput): strin
   const runtime = input.realDiagnosisRuntimeResult;
   const commit = runtime.formalDiagnosisCommit;
   const evidenceReturn = input.taskEvidenceReturnResult;
+  if (input.taskContext && (
+    !input.taskContext.questionText.trim() ||
+    !Array.isArray(input.taskContext.answerRequirements) ||
+    input.taskContext.answerRequirements.some((item) => !item.trim()) ||
+    (input.taskContext.readingText !== undefined && !input.taskContext.readingText.trim())
+  )) {
+    issues.push('Feedback task context is invalid.');
+  }
   if (!isFeedbackExpressionConfigSnapshot(input.expressionConfig)) issues.push('Feedback expression config is invalid.');
   if (input.expressionConfig.promptVersion !== CONTROLLED_FEEDBACK_PROMPT_VERSION) {
     issues.push('Feedback Prompt version does not match the implemented Prompt Builder.');
@@ -483,9 +510,12 @@ function buildDeterministicFeedback(
   admissionDecision: FeedbackAdmissionDecision,
   facts: StructuredFeedbackFacts,
   suggestions: ActionableSuggestion[],
+  teachingPlan: StudentFeedbackTeachingPlan,
 ): StudentLearningFeedback {
   const whatYouDidWell = facts.observedStrengths.map((fact) => fact.safeExpressions[0]).filter(Boolean);
-  const whatNeedsAttention = facts.observedAttentionPoints.map((fact) => fact.safeExpressions[0]).filter(Boolean);
+  const whatNeedsAttention = teachingPlan.understandingNotice
+    ? [teachingPlan.understandingNotice.text]
+    : [];
   return {
     learningRoundId: input.learningRoundId,
     studentId: input.studentId,
@@ -498,6 +528,11 @@ function buildDeterministicFeedback(
     whatYouDidWell,
     whatNeedsAttention,
     nextActionText: suggestions[0]?.text || '可以按本轮学习安排继续下一步。',
+    guidance: {
+      understandingNotice: teachingPlan.understandingNotice?.text,
+      detailsToReview: teachingPlan.detailsToReview.map((item) => item.text),
+      revisionActions: teachingPlan.revisionActions.map((item) => item.text),
+    },
     canRetry: false,
     canFinishRound: true,
     source: 'evidence_return',
@@ -507,6 +542,7 @@ function buildDeterministicFeedback(
 function mapCandidateToFeedback(
   input: ControlledFeedbackExpressionInput,
   candidate: FeedbackExpressionCandidate,
+  teachingPlan: StudentFeedbackTeachingPlan,
 ): StudentLearningFeedback {
   return {
     learningRoundId: input.learningRoundId,
@@ -518,6 +554,11 @@ function mapCandidateToFeedback(
     whatYouDidWell: candidate.whatYouDidWell,
     whatNeedsAttention: candidate.whatNeedsAttention,
     nextActionText: candidate.nextActionText,
+    guidance: {
+      understandingNotice: teachingPlan.understandingNotice?.text,
+      detailsToReview: teachingPlan.detailsToReview.map((item) => item.text),
+      revisionActions: teachingPlan.revisionActions.map((item) => item.text),
+    },
     canRetry: false,
     canFinishRound: true,
     source: 'evidence_return',
@@ -529,6 +570,7 @@ function buildContentResult(input: {
   admissionDecision: FeedbackAdmissionDecision;
   structuredFacts: StructuredFeedbackFacts;
   suggestions: ActionableSuggestion[];
+  teachingPlan: StudentFeedbackTeachingPlan;
   baselineFeedback: StudentLearningFeedback;
   enhancedFeedback?: StudentLearningFeedback;
   expressionCandidate?: FeedbackExpressionCandidate;
@@ -549,6 +591,7 @@ function buildContentResult(input: {
     expressionMode: input.expressionMode,
     admissionDecision: input.admissionDecision,
     structuredFacts: input.structuredFacts,
+    teachingPlan: input.teachingPlan,
     suggestions: input.suggestions,
     expressionCandidate: input.expressionCandidate,
     expressionValidation: input.expressionValidation,
@@ -560,8 +603,14 @@ function buildContentResult(input: {
     providerRunRef: input.providerRunRef,
     fallbackReason: input.fallbackReason,
     validation: {
-      passed: input.admissionDecision.validation.passed && input.structuredFacts.validation.passed,
-      issues: [...input.admissionDecision.validation.issues, ...input.structuredFacts.validation.issues],
+      passed: input.admissionDecision.validation.passed &&
+        input.structuredFacts.validation.passed &&
+        input.teachingPlan.validation.passed,
+      issues: [
+        ...input.admissionDecision.validation.issues,
+        ...input.structuredFacts.validation.issues,
+        ...input.teachingPlan.validation.issues,
+      ],
     },
   };
 }

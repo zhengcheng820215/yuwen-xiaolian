@@ -27,8 +27,9 @@ import type {
 } from '../ai/schemas/realLearningOperation.schema.ts';
 import type { StudentAbilityProfile } from '../ai/schemas/studentAbilityProfile.schema.ts';
 import { getPhase161To162IntegrationDemoData } from './phase161To162IntegrationDemo.ts';
+import { PHASE163_DEMO_STUDENT_ID } from './phase163LearningIdentity.ts';
 
-const STUDENT_ID = 'student-phase16-integration-demo';
+const STUDENT_ID = PHASE163_DEMO_STUDENT_ID;
 const STARTED_AT = '2026-07-21T10:00:00.000Z';
 const SUBMITTED_AT = '2026-07-21T10:05:00.000Z';
 const VALID_ANSWER = '父亲捏着褪色的树叶站了很久，又小心地夹回原处，说明他想起过去，因此感到怀念和不舍。';

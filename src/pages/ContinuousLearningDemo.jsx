@@ -225,7 +225,7 @@ function CompletedRoundPanel({ state, busy, onContinue }) {
 
         <div className="mt-7 space-y-6">
           <RoundFeedbackList title="做得好的地方" items={positiveFeedback} tone="positive" />
-          <RoundFeedbackList title="可以改进的地方" items={attentionFeedback} tone="attention" />
+          <RoundFeedbackList title="需要留意" items={attentionFeedback} tone="attention" />
         </div>
       </section>
 

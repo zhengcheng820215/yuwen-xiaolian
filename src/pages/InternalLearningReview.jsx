@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Circle, ExternalLink, RefreshCw, RotateCcw, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, Circle, ExternalLink, RefreshCw, RotateCcw, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   clearPhase163ControlledAcceptanceData,
@@ -52,11 +52,14 @@ export default function InternalLearningReview() {
     <div className="min-h-screen bg-[#f7f9fc] text-slate-950">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex min-h-16 max-w-[1208px] items-center justify-between px-5 md:px-8">
-          <div className="flex items-center gap-3"><ShieldCheck size={20} className="text-blue-600" /><h1 className="text-lg font-semibold">内部复核工作台</h1></div>
+          <div className="flex items-center gap-3">
+            <Link to="/internal" aria-label="返回内部入口" title="返回内部入口" className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"><ArrowLeft size={18} /></Link>
+            <ShieldCheck size={20} className="text-blue-600" /><h1 className="text-lg font-semibold">内部复核工作台</h1>
+          </div>
           <div className="flex items-center gap-2">
             {import.meta.env.DEV ? (
-              <button type="button" onClick={clearControlledData} disabled={busy} title="清除受控验收数据" className="flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm text-slate-600 hover:bg-slate-100 disabled:text-slate-300">
-                <RotateCcw size={16} />清除验收数据
+              <button type="button" onClick={clearControlledData} disabled={busy} title="仅清除旧 Demo 数据，不影响正式学习记录" className="flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm text-slate-600 hover:bg-slate-100 disabled:text-slate-300">
+                <RotateCcw size={16} />清除旧 Demo 数据
               </button>
             ) : null}
             <button type="button" onClick={loadQueue} disabled={busy} title="刷新复核队列" className="flex h-10 w-10 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 disabled:text-slate-300">
@@ -68,7 +71,7 @@ export default function InternalLearningReview() {
 
       <main className="mx-auto grid w-full max-w-[1208px] gap-0 md:grid-cols-[300px_minmax(0,1fr)]">
         <aside className="border-b border-slate-200 bg-white p-5 md:min-h-[calc(100vh-64px)] md:border-b-0 md:border-r md:p-6">
-          <p className="text-sm font-semibold text-slate-900">运行记录</p>
+          <p className="text-sm font-semibold text-slate-900">受控演示记录</p>
           <div className="mt-4 space-y-2">
             {items.map((item) => (
               <button key={item.caseId} type="button" onClick={() => setSelectedId(item.caseId)} className={`w-full rounded-md px-3 py-3 text-left text-sm transition ${selectedId === item.caseId ? 'bg-blue-50 text-blue-800' : 'text-slate-700 hover:bg-slate-50'}`}>

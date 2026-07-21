@@ -12,7 +12,10 @@ import { IndexedDBLearningPersistenceRepository } from '../ai/repositories/index
 import { IndexedDBPhase163MultiDayRunRepository } from '../ai/repositories/indexedDBPhase163MultiDayRunRepository.ts';
 import { IndexedDBRealLearningOperationRepository } from '../ai/repositories/indexedDBRealLearningOperationRepository.ts';
 import { LocalStorageUnifiedLearningEntryRepository } from '../ai/repositories/localStorageUnifiedLearningEntryRepository.ts';
-import { PHASE163_LEARNING_STUDENT_ID } from './phase163LearningIdentity.ts';
+import {
+  PHASE163_DEMO_STUDENT_ID,
+  PHASE163_LEARNING_STUDENT_ID,
+} from './phase163LearningIdentity.ts';
 
 const DEFAULT_ANSWER = '父亲捏着褪色的树叶站了很久，又小心地夹回原处，说明他想起过去，因此感到怀念和不舍。';
 
@@ -102,11 +105,11 @@ export async function loadPhase163MultiDayReview(): Promise<Phase163MultiDayRevi
 
 export async function clearPhase163ControlledAcceptanceData(): Promise<void> {
   await Promise.all([
-    new IndexedDBLearningPersistenceRepository().clear(PHASE163_LEARNING_STUDENT_ID),
-    new IndexedDBLearningSessionRepository().clear(PHASE163_LEARNING_STUDENT_ID),
-    new IndexedDBPhase163MultiDayRunRepository().clear(PHASE163_LEARNING_STUDENT_ID),
-    new IndexedDBRealLearningOperationRepository().clear(),
-    new LocalStorageUnifiedLearningEntryRepository().clear(PHASE163_LEARNING_STUDENT_ID),
+    new IndexedDBLearningPersistenceRepository().clear(PHASE163_DEMO_STUDENT_ID),
+    new IndexedDBLearningSessionRepository().clear(PHASE163_DEMO_STUDENT_ID),
+    new IndexedDBPhase163MultiDayRunRepository().clear(PHASE163_DEMO_STUDENT_ID),
+    new IndexedDBRealLearningOperationRepository().clearByStudent(PHASE163_DEMO_STUDENT_ID),
+    new LocalStorageUnifiedLearningEntryRepository().clear(PHASE163_DEMO_STUDENT_ID),
   ]);
 }
 

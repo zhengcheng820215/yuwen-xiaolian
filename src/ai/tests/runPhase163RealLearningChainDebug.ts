@@ -84,6 +84,8 @@ async function main(): Promise<void> {
   await caseA12();
   await caseA13();
   await caseA14(success);
+  await caseA15();
+  await caseA16();
 
   console.log('\nPhase 16.3A Real Learning Chain Debug');
   console.log('='.repeat(78));
@@ -246,6 +248,39 @@ async function caseA14(success: SuccessfulRun): Promise<void> {
       request.evidenceLinks.some((id) => stored.growthMemorySummary?.evidenceLinks.includes(id)) &&
       success.result.checkpoint.nextTaskResolution?.resourceVersion?.resourceId !== success.env.input.resourceVersion.resourceId),
     `memory=${memoryId}, request=${request?.taskRequestId}, next=${success.result.checkpoint.nextTaskResolution?.resourceVersion?.resourceId}`);
+}
+
+async function caseA15(): Promise<void> {
+  const env = await createEnvironment('a15', [responseStep(validDiagnosis())], 'no_resource');
+  const first = await runPhase163RealLearningChain(env.input, env.dependencies);
+  const providerCalls = env.provider.callCount;
+  const formalDiagnosisId = first.checkpoint.realDiagnosisRuntimeResult?.formalDiagnosisCommit?.formalDiagnosisId;
+  env.dependencies.resolveNextTask = buildNextResolver('matched', 'a15-recovered');
+  const second = await runPhase163RealLearningChain(env.input, env.dependencies);
+  record('A15 正式资源补齐后恢复下一任务且不重跑 Diagnosis',
+    first.status === 'blocked' && first.checkpoint.nextAction === 'prepare_resource' &&
+      second.status === 'completed' && second.checkpoint.nextTaskResolution?.status === 'matched' &&
+      env.provider.callCount === providerCalls &&
+      second.checkpoint.realDiagnosisRuntimeResult?.formalDiagnosisCommit?.formalDiagnosisId === formalDiagnosisId,
+    `first=${first.status}/${first.checkpoint.nextAction}, second=${second.status}/${second.checkpoint.nextTaskResolution?.status}, providerCalls=${env.provider.callCount}`);
+}
+
+async function caseA16(): Promise<void> {
+  const env = await createEnvironment('a16', [responseStep(validDiagnosis())], 'no_resource');
+  const first = await runPhase163RealLearningChain(env.input, env.dependencies);
+  const providerCalls = env.provider.callCount;
+  await env.dependencies.operationRepository.save({
+    ...first.checkpoint,
+    nextAction: 'stop',
+    issues: [...first.checkpoint.issues, 'operation_identity_mismatch:resourceVersionId'],
+  });
+  env.dependencies.resolveNextTask = buildNextResolver('matched', 'a16-recovered');
+  const second = await runPhase163RealLearningChain(env.input, env.dependencies);
+  record('A16 已保存资源缺口曾被身份阻断后仍可安全重匹配',
+    second.status === 'completed' && second.checkpoint.nextTaskResolution?.status === 'matched' &&
+      env.provider.callCount === providerCalls &&
+      !second.checkpoint.issues.some((issue) => issue.startsWith('operation_identity_mismatch:')),
+    `second=${second.status}/${second.checkpoint.nextTaskResolution?.status}, providerCalls=${env.provider.callCount}, issues=${second.checkpoint.issues.join(',') || 'none'}`);
 }
 
 type Environment = Awaited<ReturnType<typeof createEnvironment>>;

@@ -34,6 +34,7 @@ export type UnifiedLearningEntryViewStatus =
 export type UnifiedLearningEntryAction =
   | 'wait_for_review'
   | 'retry_later'
+  | 'retry_resource'
   | 'resume_processing'
   | 'continue_learning'
   | 'start_retest'
@@ -134,7 +135,7 @@ export function isUnifiedLearningEntryState(value: unknown): value is UnifiedLea
     Number.isInteger(state.priority) &&
     nonEmpty(state.title) &&
     nonEmpty(state.message) &&
-    ['wait_for_review', 'retry_later', 'resume_processing', 'continue_learning', 'start_retest', 'view_feedback', 'start_learning', 'start_new_session', 'none'].includes(state.primaryAction) &&
+    ['wait_for_review', 'retry_later', 'retry_resource', 'resume_processing', 'continue_learning', 'start_retest', 'view_feedback', 'start_learning', 'start_new_session', 'none'].includes(state.primaryAction) &&
     nonEmpty(state.primaryActionText) &&
     typeof state.canEnterWorkspace === 'boolean' &&
     typeof state.hasActiveSession === 'boolean' &&

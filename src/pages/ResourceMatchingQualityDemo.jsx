@@ -40,9 +40,9 @@ export default function ResourceMatchingQualityDemo() {
           <div className="flex min-w-0 items-center gap-4">
             <button
               type="button"
-              aria-label="返回首页"
-              title="返回首页"
-              onClick={() => navigate('/')}
+              aria-label="返回内部入口"
+              title="返回内部入口"
+              onClick={() => navigate('/internal')}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
             >
               <ChevronLeft size={20} aria-hidden="true" />

@@ -5,7 +5,7 @@ import type { TaskEvidenceReturnResult } from './taskEvidenceReturn.schema.ts';
 
 export const CONTROLLED_FEEDBACK_SCHEMA_VERSION = 'controlled_feedback_expression_v1' as const;
 export const CONTROLLED_FEEDBACK_PROMPT_VERSION = 'controlled_feedback_expression_prompt_v1_1' as const;
-export const CONTROLLED_FEEDBACK_TEMPLATE_VERSION = 'controlled_feedback_template_v1' as const;
+export const CONTROLLED_FEEDBACK_TEMPLATE_VERSION = 'controlled_feedback_template_v2' as const;
 
 export type FeedbackAdmissionLimitation =
   | 'not_individually_human_annotated'
@@ -59,6 +59,28 @@ export type StructuredFeedbackFacts = {
     identityAligned: boolean;
     quoteSpansValid: boolean;
     sourceLinksComplete: boolean;
+    issues: string[];
+  };
+};
+
+export type StudentFeedbackTeachingItem = {
+  itemId: string;
+  text: string;
+  sourceFactIds: string[];
+  sourceLinks: string[];
+};
+
+export type StudentFeedbackTeachingPlan = {
+  planId: string;
+  understandingNotice?: StudentFeedbackTeachingItem;
+  detailsToReview: StudentFeedbackTeachingItem[];
+  revisionActions: StudentFeedbackTeachingItem[];
+  validation: {
+    passed: boolean;
+    sourceFactsExist: boolean;
+    materialDetailsVerified: boolean;
+    noInternalLanguage: boolean;
+    noLongTermClaim: boolean;
     issues: string[];
   };
 };
@@ -137,6 +159,7 @@ export type ControlledFeedbackResult = {
   expressionMode: 'llm' | 'deterministic_template' | 'system_notice';
   admissionDecision: FeedbackAdmissionDecision;
   structuredFacts?: StructuredFeedbackFacts;
+  teachingPlan?: StudentFeedbackTeachingPlan;
   suggestions: ActionableSuggestion[];
   expressionCandidate?: FeedbackExpressionCandidate;
   expressionValidation: FeedbackExpressionValidation;
@@ -161,6 +184,11 @@ export type ControlledFeedbackExpressionInput = {
   executionSessionId: string;
   responseId: string;
   studentResponseText: string;
+  taskContext?: {
+    readingText?: string;
+    questionText: string;
+    answerRequirements: string[];
+  };
   realDiagnosisRuntimeResult: RealLLMDiagnosisRuntimeResult;
   diagnosisQualityEvaluation?: DiagnosisQualityEvaluationV2;
   taskEvidenceReturnResult: TaskEvidenceReturnResult;
@@ -228,11 +256,40 @@ export function isControlledFeedbackResult(value: unknown): value is ControlledF
     ['llm', 'deterministic_template', 'system_notice'].includes(result.expressionMode) &&
     Array.isArray(result.suggestions) &&
     result.suggestions.every(isActionableSuggestion) &&
+    (result.teachingPlan === undefined || isStudentFeedbackTeachingPlan(result.teachingPlan)) &&
     typeof result.expressionValidation?.passed === 'boolean' &&
     stableEqual(result.finalFeedback, result.studentLearningFeedback) &&
     ['deterministic_template', 'llm_enhanced'].includes(result.finalSelection) &&
     typeof result.validation?.passed === 'boolean' &&
     Array.isArray(result.validation?.issues)
+  );
+}
+
+export function isStudentFeedbackTeachingPlan(value: unknown): value is StudentFeedbackTeachingPlan {
+  if (!value || typeof value !== 'object') return false;
+  const plan = value as StudentFeedbackTeachingPlan;
+  return (
+    isNonEmptyString(plan.planId) &&
+    (plan.understandingNotice === undefined || isStudentFeedbackTeachingItem(plan.understandingNotice)) &&
+    Array.isArray(plan.detailsToReview) && plan.detailsToReview.every(isStudentFeedbackTeachingItem) &&
+    Array.isArray(plan.revisionActions) && plan.revisionActions.every(isStudentFeedbackTeachingItem) &&
+    typeof plan.validation?.passed === 'boolean' &&
+    typeof plan.validation?.sourceFactsExist === 'boolean' &&
+    typeof plan.validation?.materialDetailsVerified === 'boolean' &&
+    typeof plan.validation?.noInternalLanguage === 'boolean' &&
+    typeof plan.validation?.noLongTermClaim === 'boolean' &&
+    Array.isArray(plan.validation?.issues)
+  );
+}
+
+function isStudentFeedbackTeachingItem(value: unknown): value is StudentFeedbackTeachingItem {
+  if (!value || typeof value !== 'object') return false;
+  const item = value as StudentFeedbackTeachingItem;
+  return (
+    isNonEmptyString(item.itemId) &&
+    isNonEmptyString(item.text) &&
+    Array.isArray(item.sourceFactIds) && item.sourceFactIds.every(isNonEmptyString) &&
+    Array.isArray(item.sourceLinks) && item.sourceLinks.length > 0 && item.sourceLinks.every(isNonEmptyString)
   );
 }
 

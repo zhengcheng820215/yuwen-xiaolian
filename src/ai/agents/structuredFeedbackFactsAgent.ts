@@ -1,13 +1,25 @@
 import type {
   ActionableSuggestion,
   FeedbackAdmissionDecision,
+  StudentFeedbackTeachingItem,
+  StudentFeedbackTeachingPlan,
   StructuredFeedbackFact,
   StructuredFeedbackFacts,
 } from '../schemas/controlledFeedbackExpression.schema.ts';
 import type { ControlledFeedbackExpressionInput } from '../schemas/controlledFeedbackExpression.schema.ts';
+import type { OpenResponseAnswerStatus } from '../schemas/diagnosis.schema.ts';
 
 const UNSAFE_LONG_TERM_PATTERN = /已经掌握|长期掌握|稳定提升|能力很差|能力退化|永久|天生/;
 const PROMPT_INJECTION_PATTERN = /忽略(?:之前|前面|以上).*规则|打印.*(?:prompt|提示词)|修改.*mainAbility|判定.*掌握/i;
+const INTERNAL_DIAGNOSIS_LANGUAGE_PATTERN = /核心事实冲突|证据不足|能力不足|置信度|evidence|root\s*cause|evaluator|internal\s*reason|diagnosis/i;
+const INTERNAL_STRENGTH_LANGUAGE_PATTERN = /能力证据|正向证据|正向能力|基本满足要求|达到本次要求|mainAbility|\b(?:inference|comprehension|summarization|analysis|expression|extraction)\b/i;
+const MIXED_STRENGTH_LANGUAGE_PATTERN = /(?:但是|但|不过|仍然|仍需|还需|不足|缺少|错误|不一致)/;
+
+type StudentFeedbackTaskFocus = {
+  subject?: string;
+  dimension?: string;
+  evidenceKind?: string;
+};
 
 export function buildStructuredFeedbackFacts(input: {
   request: ControlledFeedbackExpressionInput;
@@ -21,14 +33,19 @@ export function buildStructuredFeedbackFacts(input: {
   const studentStatements = buildStudentStatements(request.studentResponseText, request.responseId);
   const observedStrengths: StructuredFeedbackFact[] = [];
   const observedAttentionPoints: StructuredFeedbackFact[] = [];
+  const positiveContentAllowed = diagnosis.answerStatus !== 'does_not_meet' &&
+    diagnosis.answerStatus !== 'insufficient_evidence';
 
   for (const evidence of request.taskEvidenceReturnResult.abilityEvidence) {
     const sourceLinks = [`evidence:${evidence.id}`];
     if (evidence.diagnosisId) sourceLinks.push(`diagnosis:${evidence.diagnosisId}`);
-    if (evidence.evidenceType === 'positive' || evidence.evidenceType === 'growth') {
-      const safeText = buildObservedExpression(
-        evidence.observation || evidence.detail,
-        'strength',
+    if (
+      positiveContentAllowed &&
+      (evidence.evidenceType === 'positive' || evidence.evidenceType === 'growth')
+    ) {
+      const safeText = buildStudentStrengthExpression(
+        evidence.detail,
+        evidence.observation,
         request.taskEvidenceReturnResult.supportContext.usedHint,
       );
       if (!safeText || UNSAFE_LONG_TERM_PATTERN.test(safeText)) continue;
@@ -65,7 +82,7 @@ export function buildStructuredFeedbackFacts(input: {
       factId: `feedback-fact-diagnosis-attention-${sanitizeId(commit.formalDiagnosisId)}`,
       factType: 'observed_attention_point',
       text: diagnosis.rootCause,
-      safeExpressions: [`本次回答还可以进一步完善：${finishSentence(diagnosis.rootCause)}`],
+      safeExpressions: [buildSafeUnderstandingNotice(diagnosis.answerStatus, diagnosis.rootCause)],
       sourceType: 'diagnosis_confirmed_fact',
       sourceLinks: [`diagnosis:${commit.formalDiagnosisId}#rootCause`],
     });
@@ -100,6 +117,79 @@ export function buildStructuredFeedbackFacts(input: {
       identityAligned,
       quoteSpansValid,
       sourceLinksComplete,
+      issues,
+    },
+  };
+}
+
+export function buildStudentFeedbackTeachingPlan(input: {
+  request: ControlledFeedbackExpressionInput;
+  facts: StructuredFeedbackFacts;
+}): StudentFeedbackTeachingPlan {
+  const diagnosis = input.request.realDiagnosisRuntimeResult.formalDiagnosisCommit!.diagnosisResult!;
+  const attentionFacts = input.facts.observedAttentionPoints;
+  const sourceFactIds = attentionFacts.map((fact) => fact.factId);
+  const sourceLinks = attentionFacts.flatMap((fact) => fact.sourceLinks);
+  const sourceText = attentionFacts.map((fact) => fact.text).join('\n');
+  const readingText = input.request.taskContext?.readingText?.trim() || '';
+  const questionText = input.request.taskContext?.questionText.trim() || '';
+  const taskFocus = deriveTaskFocus(
+    questionText,
+    input.request.taskContext?.answerRequirements || [],
+  );
+  const quotedDetails = extractVerifiedMaterialDetails(sourceText, readingText);
+  const issues: string[] = [];
+  const understandingText = attentionFacts.length > 0
+    ? buildSafeUnderstandingNotice(diagnosis.answerStatus, sourceText, taskFocus)
+    : undefined;
+  const understandingNotice = understandingText
+    ? teachingItem('understanding', understandingText, sourceFactIds, sourceLinks)
+    : undefined;
+  const detailsToReview = quotedDetails.length > 0
+    ? [teachingItem(
+      'detail',
+      `请重新看看文中的${joinChineseQuotes(quotedDetails)}${quotedDetails.length > 1 ? '这些细节' : '这个细节'}。`,
+      sourceFactIds,
+      sourceLinks,
+    )]
+    : [];
+  const revisionActions = attentionFacts.length > 0
+    ? buildRevisionActions({
+      sourceText,
+      questionText,
+      taskFocus,
+      hasVerifiedDetails: quotedDetails.length > 0,
+      sourceFactIds,
+      sourceLinks,
+    })
+    : [];
+  const allItems = [
+    ...(understandingNotice ? [understandingNotice] : []),
+    ...detailsToReview,
+    ...revisionActions,
+  ];
+  const sourceFactsExist = allItems.every((item) =>
+    item.sourceFactIds.every((factId) => sourceFactIds.includes(factId)));
+  const materialDetailsVerified = quotedDetails.every((detail) => readingText.includes(detail));
+  const allText = allItems.map((item) => item.text).join('\n');
+  const noInternalLanguage = !INTERNAL_DIAGNOSIS_LANGUAGE_PATTERN.test(allText);
+  const noLongTermClaim = !UNSAFE_LONG_TERM_PATTERN.test(allText);
+  if (!sourceFactsExist) issues.push('Teaching Plan references an unknown feedback fact.');
+  if (!materialDetailsVerified) issues.push('Teaching Plan contains an unverified material detail.');
+  if (!noInternalLanguage) issues.push('Teaching Plan exposes internal Diagnosis language.');
+  if (!noLongTermClaim) issues.push('Teaching Plan contains a long-term ability claim.');
+
+  return {
+    planId: `feedback-teaching-plan-${sanitizeId(input.request.feedbackRequestId)}`,
+    understandingNotice,
+    detailsToReview,
+    revisionActions,
+    validation: {
+      passed: sourceFactsExist && materialDetailsVerified && noInternalLanguage && noLongTermClaim,
+      sourceFactsExist,
+      materialDetailsVerified,
+      noInternalLanguage,
+      noLongTermClaim,
       issues,
     },
   };
@@ -191,14 +281,290 @@ function buildObservedExpression(
   const text = value.trim();
   if (!text) return '';
   if (mode === 'strength') {
-    const prefix = usedHint ? '在使用提示的情况下，本次回答中，' : '本次回答中，';
-    return `${prefix}${finishSentence(stripSubjectPrefix(text))}`;
+    const prefix = usedHint ? '在使用提示的情况下，' : '';
+    return `${prefix}这次回答中，你已经${finishSentence(stripSubjectPrefix(text))}`;
   }
-  return `本次回答还可以进一步完善：${finishSentence(stripSubjectPrefix(text))}`;
+  return buildSafeUnderstandingNotice(undefined, text);
+}
+
+function buildStudentStrengthExpression(
+  detail: string,
+  observation: string,
+  usedHint = false,
+): string {
+  const source = [detail, observation]
+    .map((value) => value.trim())
+    .find((value) =>
+      Boolean(value) &&
+      !INTERNAL_STRENGTH_LANGUAGE_PATTERN.test(value) &&
+      !INTERNAL_DIAGNOSIS_LANGUAGE_PATTERN.test(value) &&
+      !MIXED_STRENGTH_LANGUAGE_PATTERN.test(value) &&
+      !UNSAFE_LONG_TERM_PATTERN.test(value));
+  if (!source) return '';
+
+  const content = stripSubjectPrefix(source)
+    .replace(/；\s*学生(?:还)?/gu, '，还')
+    .replace(/学生/gu, '你')
+    .replace(/^(?:已经)?(?:能够|能)/u, '能够')
+    .replace(/推断出了?/gu, '看出了')
+    .replace(/提及/gu, '提到')
+    .replace(/隐含了(?:动作与心理之间的)?因果关系/gu, '说明了动作和心理之间的联系')
+    .replace(/判断出了?/gu, '表达了')
+    .replace(/写出了?/gu, '表达了')
+    .replace(/给出了?/gu, '表达了')
+    .replace(/形成了?/gu, '建立了')
+    .trim();
+  if (!content || INTERNAL_STRENGTH_LANGUAGE_PATTERN.test(content)) return '';
+
+  const prefix = usedHint ? '在使用提示的情况下，' : '';
+  return `${prefix}你的回答${finishSentence(content)}`;
+}
+
+function buildSafeUnderstandingNotice(
+  answerStatus: OpenResponseAnswerStatus | undefined,
+  sourceText: string,
+  taskFocus?: StudentFeedbackTaskFocus,
+): string {
+  if (answerStatus === 'insufficient_evidence') {
+    return '这次回答提供的信息还不够完整，暂时无法判断你的理解。';
+  }
+  if (answerStatus === 'does_not_meet' || indicatesConclusionMismatch(sourceText)) {
+    if (taskFocus?.subject && taskFocus.dimension && taskFocus.evidenceKind) {
+      return buildReflectiveUnderstandingNotice(taskFocus);
+    }
+    return '请再看看文中与题目直接相关的内容，再想一想自己的回答。';
+  }
+  if (indicatesMissingEvidence(sourceText)) {
+    if (taskFocus?.subject && taskFocus.dimension && taskFocus.evidenceKind) {
+      return `你已经写出了${describeAnswerTarget(taskFocus)}，还需要用文中${taskFocus.subject}的具体${taskFocus.evidenceKind}说明理由。`;
+    }
+    return '这次回答已经有了自己的想法，还需要用文中的具体内容说明理由。';
+  }
+  if (indicatesMissingRelation(sourceText)) {
+    if (taskFocus?.subject && taskFocus.dimension && taskFocus.evidenceKind) {
+      return `你已经写出了${describeAnswerTarget(taskFocus)}，还需要说明你为什么能从这些${taskFocus.evidenceKind}得出这样的理解。`;
+    }
+    return '这次回答已经有了自己的想法，还需要说明文中细节和这个想法有什么关系。';
+  }
+  return '这次回答还有一处需要补充，请对照题目要求，看看还缺少哪一部分。';
+}
+
+function buildRevisionActions(input: {
+  sourceText: string;
+  questionText: string;
+  taskFocus: StudentFeedbackTaskFocus;
+  hasVerifiedDetails: boolean;
+  sourceFactIds: string[];
+  sourceLinks: string[];
+}): StudentFeedbackTeachingItem[] {
+  const actions: string[] = [];
+  const asksPsychology = /心理|心情|情感|想法/.test(input.questionText);
+  const subject = input.taskFocus.subject;
+  const dimension = input.taskFocus.dimension;
+  const evidenceKind = input.taskFocus.evidenceKind;
+  if (indicatesConclusionMismatch(input.sourceText)) {
+    if (subject && dimension && evidenceKind) {
+      actions.push(input.hasVerifiedDetails
+        ? `先根据这些${evidenceKind}，重新想一想${describeAnswerTarget(input.taskFocus)}。`
+        : `先重新阅读${subject}的${evidenceKind}，再想一想${describeAnswerTarget(input.taskFocus)}。`);
+    } else {
+      actions.push(input.hasVerifiedDetails
+        ? `先根据这些细节重新想一想${asksPsychology ? '人物当时的想法或情感' : '自己的答案'}。`
+        : '先回到文章中与题目直接相关的内容，再想一想自己的回答。');
+    }
+  }
+  if (indicatesMissingEvidence(input.sourceText) && !input.hasVerifiedDetails) {
+    actions.push(buildConcreteEvidenceAction(input.taskFocus));
+  }
+  if (indicatesMissingEvidence(input.sourceText) || indicatesMissingRelation(input.sourceText)) {
+    actions.push(buildEvidenceRelationAction(input.taskFocus));
+  }
+  if (actions.length === 0) {
+    actions.push(
+      buildConcreteEvidenceAction(input.taskFocus),
+      buildEvidenceRelationAction(input.taskFocus),
+    );
+  }
+  return [...new Set(actions)].map((text, index) =>
+    teachingItem(`revision-${index + 1}`, text, input.sourceFactIds, input.sourceLinks));
+}
+
+function buildConcreteEvidenceAction(taskFocus: StudentFeedbackTaskFocus): string {
+  const subject = taskFocus.subject;
+  switch (taskFocus.evidenceKind) {
+    case '动作':
+      return subject
+        ? `从文中找出${subject}的一个具体动作，写清${subject}做了什么或怎样做。`
+        : '从文中找出一个具体动作，写清人物做了什么或怎样做。';
+    case '语言':
+      return subject
+        ? `从文中找出${subject}说的一句话，写清说了什么以及是在什么情况下说的。`
+        : '从文中找出人物说的一句话，写清说了什么以及是在什么情况下说的。';
+    case '神态':
+      return subject
+        ? `从文中找出${subject}的一处具体神态，写清表情或神态有什么变化。`
+        : '从文中找出人物的一处具体神态，写清表情或神态有什么变化。';
+    case '细节':
+      return '从文中找出一个与题目直接相关的细节，写清原文中发生了什么。';
+    default:
+      return '从文中找出一个与题目直接相关的具体内容，写清原文中发生了什么。';
+  }
+}
+
+function buildEvidenceRelationAction(taskFocus: StudentFeedbackTaskFocus): string {
+  const subject = taskFocus.subject;
+  const evidenceReference = taskFocus.evidenceKind === '语言'
+    ? '这句话'
+    : taskFocus.evidenceKind === '神态'
+      ? '这个神态'
+      : taskFocus.evidenceKind === '动作'
+        ? '这个动作'
+        : '这个细节';
+  if (subject && taskFocus.dimension === '心理') {
+    return `再说明你为什么能从${evidenceReference}看出${subject}有这样的心理。`;
+  }
+  if (subject && taskFocus.dimension === '人物特点') {
+    return `再说明${evidenceReference}表现了${subject}怎样的特点。`;
+  }
+  if (subject && taskFocus.dimension) {
+    return `再说明${evidenceReference}与${describeAnswerTarget(taskFocus)}有什么关系。`;
+  }
+  return '再说明这个具体内容和你的想法有什么关系。';
+}
+
+function describeAnswerTarget(taskFocus: StudentFeedbackTaskFocus): string {
+  if (!taskFocus.subject || !taskFocus.dimension) return '自己的答案';
+  if (taskFocus.dimension === '心理') return `${taskFocus.subject}当时的心理`;
+  if (taskFocus.dimension === '人物特点') return `${taskFocus.subject}的特点`;
+  return `${taskFocus.subject}${taskFocus.dimension}`;
+}
+
+function buildReflectiveUnderstandingNotice(taskFocus: StudentFeedbackTaskFocus): string {
+  const subject = taskFocus.subject!;
+  const evidenceKind = taskFocus.evidenceKind!;
+  switch (taskFocus.dimension) {
+    case '心理':
+      return `从文中${subject}的${evidenceKind}来看，你可以再想一想：${subject}当时可能有怎样的心理？`;
+    case '人物特点':
+      return `从文中${subject}的${evidenceKind}来看，你可以再想一想：这些${evidenceKind}表现了${subject}怎样的特点？`;
+    case '原因':
+      return `结合文中${subject}的${evidenceKind}，你可以再想一想：题目所问的原因是什么？`;
+    case '含义':
+      return `结合文中${subject}的${evidenceKind}，你可以再想一想：这些内容表达了什么意思？`;
+    case '作用':
+      return `结合文中${subject}的${evidenceKind}，你可以再想一想：这些内容在文中起到了什么作用？`;
+    default:
+      return `结合文中${subject}的${evidenceKind}，你可以再想一想题目所问的内容。`;
+  }
+}
+
+function extractVerifiedMaterialDetails(sourceText: string, readingText: string): string[] {
+  if (!readingText) return [];
+  const details: string[] = [];
+  const quotePatterns = [
+    /“([^”]{2,40})”/gu,
+    /‘([^’]{2,40})’/gu,
+    /"([^"]{2,40})"/gu,
+    /'([^']{2,40})'/gu,
+  ];
+  for (const quotePattern of quotePatterns) {
+    for (const match of sourceText.matchAll(quotePattern)) {
+      const detail = normalizeQuotedDetail(match[1] || '');
+      if (detail && readingText.includes(detail) && !details.includes(detail)) details.push(detail);
+    }
+  }
+  return details.slice(0, 3);
+}
+
+function deriveTaskFocus(
+  questionText: string,
+  answerRequirements: string[],
+): StudentFeedbackTaskFocus {
+  const taskText = [questionText, ...answerRequirements].filter(Boolean).join('\n');
+  const subjectPatterns = [
+    /结合(?:文中)?([^，。；！？\n]{1,8}?)(?:的)?(?:动作|语言|神态|细节|表现)/u,
+    /([^，。；！？\n\s]{1,8}?)(?:的)?(?:动作|语言|神态|细节|表现)(?:表现|体现|说明|反映)/u,
+    /([^，。；！？\n\s]{1,8}?)(?:此时|当时)(?:有|是|表现出|怀着)?(?:怎样|什么|何种)?(?:的)?(?:心理|心情|情感|想法)/u,
+    /(?:分析|概括|推断|判断)(?:文中)?([^，。；！？\n]{1,8}?)(?:的)?(?:心理|心情|情感|想法|特点|形象|品质)/u,
+  ];
+  const subjectCandidates = subjectPatterns
+    .map((pattern) => normalizeTaskSubject(taskText.match(pattern)?.[1]?.trim()))
+    .filter((value): value is string => Boolean(value));
+  const subject = subjectCandidates.find((value) => value !== '人物') || subjectCandidates[0];
+  const dimension = /心理|心情|情感|想法/.test(taskText)
+    ? '心理'
+    : /人物特点|形象|品质|性格/.test(taskText)
+      ? '人物特点'
+      : /原因|为什么/.test(taskText)
+        ? '原因'
+        : /含义|意思/.test(taskText)
+          ? '含义'
+          : /作用|效果/.test(taskText)
+            ? '作用'
+            : undefined;
+  const evidenceKind = /动作|行为/.test(taskText)
+    ? '动作'
+    : /语言|对话/.test(taskText)
+      ? '语言'
+      : /神态|表情/.test(taskText)
+        ? '神态'
+        : /细节/.test(taskText)
+          ? '细节'
+          : undefined;
+  return {
+    subject: subject || (dimension === '心理' && evidenceKind ? '人物' : undefined),
+    dimension,
+    evidenceKind,
+  };
+}
+
+function normalizeTaskSubject(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const normalized = value
+    .replace(/^(?:请|根据|从|结合|判断|推断|分析|概括|文中|文章中|材料中)+/u, '')
+    .replace(/(?:此时|当时)$/u, '')
+    .replace(/的$/u, '')
+    .trim();
+  if (!normalized || normalized.length > 8) return undefined;
+  return normalized;
+}
+
+function normalizeQuotedDetail(value: string): string {
+  return value.trim().replace(/[，。；！？,.!?;]+$/u, '').trim();
+}
+
+function indicatesConclusionMismatch(value: string): boolean {
+  return /核心(?:事实|结论).*冲突|事实冲突|结论错误|判断错误|不一致|未指向|答非所问/.test(value);
+}
+
+function indicatesMissingEvidence(value: string): boolean {
+  return /未引用|没有引用|缺少(?:文本|原文|材料|具体).*依据|没有(?:文本|原文|材料|具体).*依据|未提供.*依据|依据不足/.test(value);
+}
+
+function indicatesMissingRelation(value: string): boolean {
+  return /未(?:完整)?说明.*关系|没有(?:完整)?说明.*关系|没有.*说明.*关系|关系说明不完整|推理链.*不完整|缺少.*关系.*说明/.test(value);
+}
+
+function teachingItem(
+  suffix: string,
+  text: string,
+  sourceFactIds: string[],
+  sourceLinks: string[],
+): StudentFeedbackTeachingItem {
+  return {
+    itemId: `feedback-teaching-${suffix}-${sanitizeId(sourceFactIds.join('-') || 'rule')}`,
+    text,
+    sourceFactIds: [...sourceFactIds],
+    sourceLinks: sourceLinks.length > 0 ? [...new Set(sourceLinks)] : ['rule:student-feedback-safe-template'],
+  };
+}
+
+function joinChineseQuotes(values: string[]): string {
+  return values.map((value) => `“${value}”`).join(values.length > 2 ? '、' : '和');
 }
 
 function stripSubjectPrefix(value: string): string {
-  return value.replace(/^(学生|该生|本次回答|回答中)[：，,\s]*/u, '');
+  return value.replace(/^(学生|该生|本次回答|回答)(?:中)?[：，,\s]*/u, '');
 }
 
 function finishSentence(value: string): string {

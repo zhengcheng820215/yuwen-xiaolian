@@ -15,5 +15,6 @@ export type RealLearningOperationWriteResult = {
 export type RealLearningOperationRepository = {
   getByOperationId(operationId: string): Promise<RealLearningOperationCheckpoint | null>;
   save(checkpoint: RealLearningOperationCheckpoint): Promise<RealLearningOperationWriteResult>;
+  clearByStudent(studentId: string): Promise<void>;
   clear(): Promise<void>;
 };

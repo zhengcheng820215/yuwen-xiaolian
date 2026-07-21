@@ -74,9 +74,9 @@ export default function Phase163RealLearningChainDemo() {
         <div className="mx-auto flex min-h-[72px] max-w-[1440px] items-center gap-4 px-5 lg:px-10">
           <button
             type="button"
-            aria-label="返回首页"
-            title="返回首页"
-            onClick={() => navigate('/')}
+            aria-label="返回验收入口"
+            title="返回验收入口"
+            onClick={() => navigate('/internal/acceptance')}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
           >
             <ChevronLeft size={20} />
@@ -226,7 +226,7 @@ function ResultPanel({ result }) {
         </div>
         <p className="mt-3 text-sm leading-6 text-slate-700">{result.summary}</p>
         {result.whatYouDidWell.length > 0 ? <FeedbackList title="做得好的地方" items={result.whatYouDidWell} /> : null}
-        {result.whatNeedsAttention.length > 0 ? <FeedbackList title="可以改进的地方" items={result.whatNeedsAttention} attention /> : null}
+        {result.whatNeedsAttention.length > 0 ? <FeedbackList title="需要留意" items={result.whatNeedsAttention} attention /> : null}
         <p className="mt-4 text-sm font-semibold leading-6 text-slate-800">{result.nextActionText}</p>
       </section>
 

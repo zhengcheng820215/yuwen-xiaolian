@@ -1,4 +1,6 @@
 import type { Connect } from 'vite';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import {
   runRealLLMRuntimeFoundation,
   type RealLLMRuntimeFoundationInput,
@@ -7,13 +9,60 @@ import { DeepSeekChatDiagnosisProvider } from '../ai/providers/diagnosisProvider
 import { InMemoryFormalDiagnosisRepository } from '../ai/repositories/inMemoryFormalDiagnosisRepository.ts';
 
 const MAX_BODY_BYTES = 512 * 1024;
+const DEFAULT_KEYCHAIN_SERVICE = 'yuwen-xiaolian-deepseek-api-key';
+const execFileAsync = promisify(execFile);
+
+export type Phase163DiagnosisCredentialResolution = {
+  apiKey?: string;
+  source: 'environment' | 'macos_keychain' | 'unavailable';
+};
+
+export async function resolvePhase163DiagnosisCredential(input: {
+  environment?: NodeJS.ProcessEnv;
+  keychainReader?: (account: string, service: string) => Promise<string | undefined>;
+} = {}): Promise<Phase163DiagnosisCredentialResolution> {
+  const environment = input.environment || process.env;
+  const environmentKey = environment.DEEPSEEK_API_KEY?.trim();
+  if (environmentKey) return { apiKey: environmentKey, source: 'environment' };
+
+  if (process.platform !== 'darwin' && !input.keychainReader) {
+    return { source: 'unavailable' };
+  }
+
+  const account = environment.DEEPSEEK_KEYCHAIN_ACCOUNT?.trim() || environment.USER?.trim();
+  const service = environment.DEEPSEEK_KEYCHAIN_SERVICE?.trim() || DEFAULT_KEYCHAIN_SERVICE;
+  if (!account) return { source: 'unavailable' };
+
+  const keychainReader = input.keychainReader || readMacOSKeychainSecret;
+  const keychainKey = (await keychainReader(account, service))?.trim();
+  return keychainKey
+    ? { apiKey: keychainKey, source: 'macos_keychain' }
+    : { source: 'unavailable' };
+}
 
 export function createPhase163DiagnosisBoundary(): Connect.NextHandleFunction {
   const formalDiagnosisRepository = new InMemoryFormalDiagnosisRepository();
+  let cachedCredential: Phase163DiagnosisCredentialResolution | undefined;
+
+  async function getCredential() {
+    if (cachedCredential?.apiKey) return cachedCredential;
+    cachedCredential = await resolvePhase163DiagnosisCredential();
+    return cachedCredential;
+  }
 
   return async (request, response) => {
     response.setHeader('Content-Type', 'application/json; charset=utf-8');
     response.setHeader('Cache-Control', 'no-store');
+    if (request.method === 'GET') {
+      const credential = await getCredential();
+      response.statusCode = 200;
+      response.end(JSON.stringify({
+        status: credential.apiKey ? 'ready' : 'unavailable',
+        provider: 'deepseek_chat',
+        model: process.env.DEEPSEEK_MODEL?.trim() || 'deepseek-v4-flash',
+      }));
+      return;
+    }
     if (request.method !== 'POST') {
       response.statusCode = 405;
       response.end(JSON.stringify({ error: 'Method Not Allowed' }));
@@ -21,16 +70,20 @@ export function createPhase163DiagnosisBoundary(): Connect.NextHandleFunction {
     }
 
     try {
-      const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
-      if (!apiKey) {
+      const credential = await getCredential();
+      if (!credential.apiKey) {
         response.statusCode = 503;
-        response.end(JSON.stringify({ error: '受控 Diagnosis Runtime 尚未配置。' }));
+        response.end(JSON.stringify({
+          error: '受控 Diagnosis Runtime 尚未配置。',
+          code: 'provider_not_configured',
+          retryable: false,
+        }));
         return;
       }
       const body = await readJsonBody(request);
       const input = validateBoundaryInput(body?.input);
       const model = process.env.DEEPSEEK_MODEL?.trim() || input.providerConfig.model;
-      const provider = new DeepSeekChatDiagnosisProvider({ apiKey });
+      const provider = new DeepSeekChatDiagnosisProvider({ apiKey: credential.apiKey });
       const result = await runRealLLMRuntimeFoundation({
         ...input,
         executionMode: 'live',
@@ -51,9 +104,29 @@ export function createPhase163DiagnosisBoundary(): Connect.NextHandleFunction {
       response.statusCode = 400;
       response.end(JSON.stringify({
         error: error instanceof Error ? sanitizeError(error.message) : '受控 Diagnosis Runtime 执行失败。',
+        code: 'boundary_request_failed',
+        retryable: false,
       }));
     }
   };
+}
+
+async function readMacOSKeychainSecret(account: string, service: string): Promise<string | undefined> {
+  try {
+    const { stdout } = await execFileAsync('security', [
+      'find-generic-password',
+      '-a', account,
+      '-s', service,
+      '-w',
+    ], {
+      timeout: 5_000,
+      maxBuffer: 16 * 1024,
+      env: process.env,
+    });
+    return stdout.trim() || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function validateBoundaryInput(value: unknown): RealLLMRuntimeFoundationInput {

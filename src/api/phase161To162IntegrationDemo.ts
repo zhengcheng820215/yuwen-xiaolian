@@ -31,10 +31,11 @@ import type {
 } from '../ai/schemas/resourceMatchQuality.schema.ts';
 import type { TaskFulfillmentRequest } from '../ai/schemas/taskFulfillment.schema.ts';
 import { getResourceMatchingQualityDemoData } from './resourceMatchingQualityDemo.ts';
+import { PHASE163_DEMO_STUDENT_ID } from './phase163LearningIdentity.ts';
 
 const NOW = '2026-07-20T13:00:00.000Z';
 const LATER = '2026-07-20T14:00:00.000Z';
-const STUDENT_ID = 'student-phase16-integration-demo';
+const STUDENT_ID = PHASE163_DEMO_STUDENT_ID;
 const MATERIAL_TEXT = '父亲从旧书中发现一片褪色的树叶。他捏着树叶站了很久，最后把它小心地夹回原处。';
 
 type Repository = InMemoryQuestionResourceAdmissionRepository;
@@ -120,7 +121,9 @@ export async function getPhase161To162IntegrationDemoData(): Promise<{
   };
 }
 
-export async function getPhase163FormalResourcePoolData(): Promise<Phase163FormalResourcePoolItem[]> {
+export async function getPhase163FormalResourcePoolData(
+  studentId = STUDENT_ID,
+): Promise<Phase163FormalResourcePoolItem[]> {
   const specifications: Array<{ suffix: string; options: ResourceFixtureOptions }> = [
     {
       suffix: 'phase163-training-leaf',
@@ -163,13 +166,39 @@ export async function getPhase163FormalResourcePoolData(): Promise<Phase163Forma
         tags: ['material_relation:new_context', 'hint_policy:no_hint', '人物心理', '迁移验证'],
       },
     },
+    {
+      suffix: 'phase163-observation-notebook',
+      options: {
+        taskRole: 'observation',
+        materialTitle: '合上的笔记本',
+        materialText: '下课铃响后，周老师把批改完的笔记本逐本合好，又翻开其中一本，在页角停留了一会儿，才把它放回最上面。',
+        taskTitle: '人物心理继续观察',
+        questionStem: '周老师停留片刻后才放回笔记本，表现出怎样的心理？请结合材料中的动作说明理由。',
+        acceptedKeywords: ['关注', '在意', '思考', '担心'],
+        acceptedSignals: ['指出逐本合好、翻开笔记本或在页角停留等动作', '说明这些动作与老师关注学生、认真思考或有所担心之间的联系'],
+        tags: ['material_relation:similar_context', 'hint_policy:limited_hint', '人物心理', '继续观察'],
+      },
+    },
+    {
+      suffix: 'phase163-diagnosis-corridor',
+      options: {
+        taskRole: 'diagnosis',
+        materialTitle: '走廊里的脚步',
+        materialText: '比赛结果公布后，小林快步走出教室，到了走廊拐角却停下来，回头望了望仍在欢呼的同学，又慢慢走了回来。',
+        taskTitle: '人物心理诊断观察',
+        questionStem: '小林走出教室后又返回，表现出怎样的心理变化？请结合前后动作说明理由。',
+        acceptedKeywords: ['失落', '犹豫', '不舍', '想融入'],
+        acceptedSignals: ['指出快步离开、停下回望或慢慢返回等前后动作', '说明动作变化与失落、犹豫、不舍或重新融入之间的联系'],
+        tags: ['material_relation:similar_context', 'hint_policy:limited_hint', 'capability:root_cause_probe', '人物心理', '诊断观察'],
+      },
+    },
   ];
 
   const pool: Phase163FormalResourcePoolItem[] = [];
   for (const specification of specifications) {
     const fixture = await createFrozenRepositoryResource(specification.suffix, specification.options);
     const role = specification.options.taskRole || 'training';
-    const pipeline = await runPipeline(fixture.repository, 'inference', role);
+    const pipeline = await runPipeline(fixture.repository, 'inference', role, studentId);
     const taskResult = createQualityGatedExecutableTask({
       qualityResult: pipeline.qualityResult,
       fulfillmentRequest: pipeline.fulfillment,
@@ -385,9 +414,10 @@ async function runPipeline(
   repository: Repository,
   targetAbilityId: PrimaryAbilityId = 'inference',
   taskRole: RecommendedTaskRole = 'training',
+  studentId = STUDENT_ID,
 ): Promise<PipelineResult> {
-  const envelope = buildEnvelope(targetAbilityId, taskRole);
-  const fulfillment = buildFulfillment(targetAbilityId, taskRole);
+  const envelope = buildEnvelope(targetAbilityId, taskRole, studentId);
+  const fulfillment = buildFulfillment(targetAbilityId, taskRole, studentId);
   const snapshot = await loadResourceEligibilitySnapshot(repository, NOW);
   const coreEligibility = evaluateCoreResourceEligibility({
     adaptiveTaskRequestEnvelope: envelope,
@@ -400,7 +430,7 @@ async function runPipeline(
     fulfillmentRequest: fulfillment,
     coreEligibility,
     resourceSnapshot: snapshot,
-    recentHistory: buildHistory(),
+    recentHistory: buildHistory(studentId),
     evaluatedAt: NOW,
   });
   return { snapshot, coreEligibility, qualityResult, fulfillment };
@@ -501,19 +531,28 @@ async function freezeNextVersion(
 function buildEnvelope(
   targetAbilityId: PrimaryAbilityId,
   taskRole: RecommendedTaskRole = 'training',
+  studentId = STUDENT_ID,
 ): AdaptiveTaskRequestEnvelope {
   const base = clone(getResourceMatchingQualityDemoData().cases[0].scenario.envelope);
   const isRetest = taskRole === 'retest';
   const isTransfer = taskRole === 'transfer';
-  const action = isRetest ? 'independent_retest' : isTransfer ? 'transfer_test' : 'continue_training';
+  const isDiagnosis = taskRole === 'diagnosis';
+  const isObservation = taskRole === 'observation';
+  const action = isRetest
+    ? 'independent_retest'
+    : isTransfer
+      ? 'transfer_test'
+      : isDiagnosis
+        ? 'diagnostic_verification'
+        : isObservation ? 'collect_more_evidence' : 'continue_training';
   const materialNovelty = isRetest || isTransfer ? 'new_context' : 'similar_context';
   const hintPolicy = isRetest || isTransfer ? 'no_hint' : 'limited_hint';
-  base.taskRequest.studentId = STUDENT_ID;
+  base.taskRequest.studentId = studentId;
   base.taskRequest.targetAbilityId = targetAbilityId;
   base.taskRequest.taskRole = taskRole;
   base.taskRequest.action = action;
   base.taskRequest.constraints = [`targetAbilityId:${targetAbilityId}`, `taskRole:${taskRole}`];
-  base.adaptiveConstraints.studentId = STUDENT_ID;
+  base.adaptiveConstraints.studentId = studentId;
   base.adaptiveConstraints.targetAbilityId = targetAbilityId;
   base.adaptiveConstraints.sourceStrategyAction = base.taskRequest.action;
   base.adaptiveConstraints.sourceStrategyTaskRole = taskRole;
@@ -521,7 +560,9 @@ function buildEnvelope(
     ? 'independent_validation'
     : isTransfer
       ? 'transfer_validation'
-      : 'consolidation';
+      : isDiagnosis
+        ? 'diagnostic_observation'
+        : isObservation ? 'discriminating_observation' : 'consolidation';
   base.adaptiveConstraints.observationTarget = isRetest
     ? 'verify_independence'
     : isTransfer
@@ -546,9 +587,10 @@ function buildEnvelope(
 function buildFulfillment(
   targetAbilityId: PrimaryAbilityId,
   taskRole: RecommendedTaskRole = 'training',
+  studentId = STUDENT_ID,
 ): TaskFulfillmentRequest {
   const base = clone(getResourceMatchingQualityDemoData().cases[0].scenario.fulfillment);
-  base.studentId = STUDENT_ID;
+  base.studentId = studentId;
   base.targetAbilityId = targetAbilityId;
   base.taskRole = taskRole;
   base.contentType = taskRole === 'retest' || taskRole === 'transfer' ? 'new_text' : 'comparable_text';
@@ -556,9 +598,9 @@ function buildFulfillment(
   return base;
 }
 
-function buildHistory(): ResourceMatchRecentHistory {
+function buildHistory(studentId = STUDENT_ID): ResourceMatchRecentHistory {
   return {
-    studentId: STUDENT_ID,
+    studentId,
     recentTaskIds: [],
     recentResourceIds: [],
     recentResourceVersionIds: [],
@@ -602,6 +644,8 @@ function capabilitiesForRole(taskRole: RecommendedTaskRole): string[] {
   const common = ['open_response', 'ability_observation', 'text_evidence', 'inference_chain'];
   if (taskRole === 'retest') return [...common, 'independent_answer'];
   if (taskRole === 'transfer') return [...common, 'new_context_transfer'];
+  if (taskRole === 'diagnosis') return [...common, 'root_cause_probe'];
+  if (taskRole === 'observation') return common;
   return [...common, 'focused_practice'];
 }
 

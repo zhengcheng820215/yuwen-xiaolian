@@ -437,7 +437,9 @@ Draft 可以保存和修订，但不能被正式 TaskFulfillment 消费。只有
 
 Phase 16.1A 确定性 Debug 为 `22 / 22 PASS`，16.1B 最小录入工作台已通过人工 Demo 验收。Phase 16.2A 为 `12 / 12 PASS`，证明正式资源必须先通过 Registry current、审核校验追溯、primary ability、task role、核心难度和 Rubric Gate；Phase 16.2B 为 `16 / 16 PASS`，进一步复用 Existing TaskFulfillment并形成 `matched / partial_match / no_match / review_required` 正式分流。轻量 Match Review Demo、16.1 -> 16.2 人工联调、单对象 E2E 与受控 DeepSeek Provider Smoke 均已通过；Phase 16.2 当前为 `PASS / FROZEN`。
 
-Phase 16.3 设计已接受并按三个顺序工作包推进。16.3A / B 为 `PASS / FROZEN`。16.3C 已完成工程预演：正式 `/learning`、服务端 Diagnosis Application Boundary、IndexedDB Checkpoint / Persistence / Session / Multi-day Repository、无效作答前置 Gate 与内部多日复核已接通；`training / retest / transfer` 使用各自正式 Frozen Resource，资源缺失时明确阻断；Simulation `10 / 10 PASS`、Application Boundary Controlled Live Smoke `PASS`、Lightweight Demo 人工 Case `4 / 4 PASS`，浏览器草稿刷新恢复通过。当前仍为 `ENGINEERING + HUMAN DEMO PASS / NATURAL-DAY ACCEPTANCE PENDING (0 / 5)`；入口和模拟验收不替代 5—7 个自然日运行。
+Phase 16.3 设计已接受并按三个顺序工作包推进。16.3A / B 为 `PASS / FROZEN`。16.3C 已完成工程预演：正式 `/learning`、服务端 Diagnosis Application Boundary、IndexedDB Checkpoint / Persistence / Session / Multi-day Repository、无效作答前置 Gate 与内部多日复核已接通；`training / retest / transfer / observation / diagnosis` 使用各自正式 Frozen Resource，资源缺失时明确阻断。此时学生端必须说明“需要补充符合条件的正式任务”，不得暗示后台正在自动准备；资源补齐后仅重新执行资源匹配，不重新调用 Diagnosis，也不重复生成 Evidence 或更新 Profile。Simulation `10 / 10 PASS`、Application Boundary Controlled Live Smoke `PASS`、Lightweight Demo 人工 Case `4 / 4 PASS`，浏览器草稿刷新恢复通过。当前仍为 `ENGINEERING + HUMAN DEMO PASS / NATURAL-DAY ACCEPTANCE PENDING (0 / 5)`；入口和模拟验收不替代 5—7 个自然日运行。
+
+2026-07-21 已补齐 Product / Demo 数据作用域隔离：正式 `/learning` 使用 `student-local-primary-v1`，Phase 16.3 Demo 使用独立验收身份；正式资源在进入本轮时绑定产品学生，Demo Operation、Session、Round 和持久化记录不能进入正式入口或自然日统计。验收清理改为按 Demo 学生清理，不再全库清理 Operation。专项 Debug `9 / 9 PASS`，不调用真实网络 Provider，不删除旧 Demo 数据。
 
 当前启用边界：Prompt v4 已通过质量验证，但成为所有正式 Provider 调用的默认 Prompt 仍须通过版本化配置显式切换。`Formal Commit -> Phase 9.3 -> Phase 8 -> Phase 14.1 -> Controlled Feedback` 已通过 `11 / 11` 确定性独立整链 Debug；受控真实 Provider 单对象 Smoke、正式浏览器入口、Application Boundary Live Smoke 与持久化恢复已经成立，但 5—7 个自然日运行尚未完成。
 

@@ -1,7 +1,7 @@
 # Phase 15.3：Controlled Feedback Expression 最小闭环（受控反馈表达）
 
 设计状态：ACCEPTED
-工程状态：PASS（Deterministic Debug 24 / 24；Production Build PASS）
+工程状态：PASS（Deterministic Debug 36 / 36；Production Build PASS）
 质量验收状态：PASS / FROZEN（DeepSeek Live 12 / 12；Controlled Safety 2 / 2；人工抽检 12 / 12）
 前置状态：Phase 15.1 PASS / FROZEN；Phase 15.2 PASS / FROZEN
 正式质量策略：Diagnosis Quality Policy v2.1
@@ -12,7 +12,7 @@ Phase 15.3 已完成 Schema、反馈准入、结构化事实与建议 Adapter、
 
 当前验证结果：
 
-- Phase 15.3 Deterministic Debug：`24 / 24 PASS`；
+- Phase 15.3 Deterministic Debug：`36 / 36 PASS`；
 - Phase 11.2 Student Learning Feedback：PASS；
 - Phase 14 Integration：`16 / 16 PASS`；
 - Phase 15.1 Runtime Foundation：`22 / 22 PASS`；
@@ -22,6 +22,35 @@ Phase 15.3 已完成 Schema、反馈准入、结构化事实与建议 Adapter、
 - Production Build：PASS。
 
 真实表达质量验收已经完成。首轮 Prompt v1 为 8 / 12，所有失败均安全回退模板；脱敏归因后仅收紧 Claim Binding 完整性并发布 Prompt v1.1，完整重跑达到 12 / 12 PASS，Controlled Safety 为 2 / 2 PASS，12 条脱敏反馈人工抽检全部接受。正式记录见：[Phase 15.3 Controlled Feedback Expression 质量验收与冻结记录](./reports/phase15_3/phase15_3_controlled_feedback_acceptance_2026-07-17.md)。
+
+### 0.1 学生反馈转译增强（2026-07-21）
+
+Phase 15.3 在不修改 Diagnosis、Evidence、Profile 或 GrowthMemory 的前提下，补充正式 `StudentFeedbackTeachingPlan`：
+
+```text
+StructuredFeedbackFacts
++ Frozen Task Context
+↓
+StudentFeedbackTeachingPlan
+├─ understandingNotice
+├─ detailsToReview
+└─ revisionActions
+↓
+StudentLearningFeedback.guidance
+↓
+/learning
+```
+
+当前规则：
+
+- 内部 `rootCause`、Evidence detail 和 evaluator 文案不得原样进入学生端；
+- 原文细节只有在 Frozen Task readingText 中完成逐字核验后才能展示；
+- Teaching Plan 从 Frozen Task 的题干与作答要求中确定性提取“题目对象 + 考查维度 + 依据类型”，用于把通用状态转成当前题目的具体提示；
+- 题目语义无法可靠提取时使用克制的通用提示，不猜测人物、考查点、材料细节或标准答案；
+- 修改动作使用确定性教学动作，不替学生生成完整答案；
+- 表达失败使用安全模板，不回退展示内部诊断原文；
+- 旧持久化结果在正式 Diagnosis、Evidence 与 Frozen Task 上下文完整时按当前 Teaching Plan 版本做只读兼容转译；已有旧版 guidance 也不阻止更新展示，但不重跑 Provider、不改写正式记录；
+- 页面只渲染正式 guidance，不再按分号拆分内部诊断字符串。
 
 ## 一、阶段目标
 
@@ -330,6 +359,28 @@ StructuredFeedbackFacts 必须由确定性 Adapter 构建。LLM 不得负责决�
 - “你还需要提升逻辑思维”；
 
 除非这些内容存在正式、可追溯依据。
+
+### 7.4 StudentFeedbackTeachingPlan
+
+`StructuredFeedbackFacts` 是内部事实边界，不等同于可直接展示的学生文案。确定性 Adapter 必须继续将其转换为：
+
+```ts
+type StudentFeedbackTeachingPlan = {
+  understandingNotice?: StudentFeedbackTeachingItem;
+  detailsToReview: StudentFeedbackTeachingItem[];
+  revisionActions: StudentFeedbackTeachingItem[];
+};
+```
+
+语义顺序固定为：
+
+```text
+当前理解提示
+→ 值得重新关注的已核验原文细节
+→ 下一次可以执行的修改动作
+```
+
+不要求每次同时生成优点和不足。没有可靠正向事实时 `whatYouDidWell` 必须允许为空；没有经过材料核验的细节不得进入 `detailsToReview`。
 
 ## 八、ActionableSuggestion
 
@@ -813,6 +864,82 @@ Expression：你已经深刻掌握了人物复杂情感
 -> expressionScope = restricted
 -> limitations 包含 not_individually_human_annotated
 -> 不伪装为 accepted_candidate
+```
+
+### Case 25—29：学生反馈转译与隔离
+
+```text
+结论与材料不一致
+-> 使用题目对象、考查维度和依据类型生成具体理解提示
+-> 只展示经过 readingText 逐字核验的原文细节
+-> 给出可以直接执行的修改动作
+
+缺少依据 / 信息不足 / 细节无法核验
+-> 不虚构细节或能力结论
+-> 不展示内部 Diagnosis、Evidence、Root Cause 或追溯字段
+```
+
+### Case 30：跨人物与题目迁移
+
+```text
+父亲题之外的母亲题
+-> 从当前题目重新提取人物、心理与动作
+-> 不复用上一道题的固定人物或措辞
+```
+
+### Case 31：题目语义无法可靠识别
+
+```text
+无法确定题目对象或考查维度
+-> 使用安全通用提示
+-> 不猜测人物、能力点或材料内容
+```
+
+### Case 32：位置短语不得成为题目对象
+
+```text
+题干包含“材料中 / 文中 / 文章中”
+-> 位置短语从对象候选中移除
+-> 未给出姓名时使用安全的“人物”对象
+-> 不生成“材料中心理”一类错误文案
+```
+
+### Case 33：通用不足也必须给出任务化步骤
+
+```text
+Diagnosis 只确认“仍需完善”，未提供具体不足类型
+-> 根据 Frozen Task 说明什么算具体动作 / 语言 / 神态 / 细节
+-> 说明学生应如何把该内容与题目目标联系起来
+-> 不回退到“补充具体细节、支持你的判断”等抽象句式
+```
+
+### Case 34：理解偏差使用自然追问
+
+```text
+心理、人物特点等阅读理解题出现理解偏差
+-> 将正式诊断转成与当前题目目标对应的思考问题
+-> 使用“再想一想：人物可能有怎样的心理 / 这些动作表现了怎样的特点”
+-> 不输出“理解还需要再检查”等生硬、评审式表达
+```
+
+### Case 35：内部正向摘要不得充当学生优点
+
+```text
+Positive Evidence 只有“任务基本满足要求 / 可形成正向能力证据”等运行结论
+-> 不展示“做得好的地方”
+-> 不暴露 inference 等能力码或“能力证据”等内部术语
+
+存在具体、可追溯的本次作答事实
+-> 转成“你的回答表达了 / 使用了 / 说明了……”
+-> does_not_meet / insufficient_evidence 不展示矛盾的正向摘要
+```
+
+### Case 36：具体优点使用学生可读表达
+
+```text
+正式正向事实包含“学生提及 / 推断出 / 因果关系”等复核措辞
+-> 转成“你的回答还提到了 / 看出了 / 说明了……之间的联系”
+-> 保留原有事实，不新增评价或长期能力结论
 ```
 
 ## 十六、Live Smoke 与质量抽检

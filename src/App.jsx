@@ -1,6 +1,5 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
-import Home from './pages/Home.jsx';
 import Practice from './pages/Practice.jsx';
 import KnowledgePractice from './pages/KnowledgePractice.jsx';
 import FunPractice from './pages/FunPractice.jsx';
@@ -35,12 +34,14 @@ import UnifiedLearningEntry from './pages/UnifiedLearningEntry.jsx';
 import InternalLearningReview from './pages/InternalLearningReview.jsx';
 import Phase163UnifiedEntryDemo from './pages/Phase163UnifiedEntryDemo.jsx';
 import Phase163MultiDayOperationDemo from './pages/Phase163MultiDayOperationDemo.jsx';
+import InternalHub from './pages/InternalHub.jsx';
+import InternalAcceptanceHub from './pages/InternalAcceptanceHub.jsx';
 
 export default function App() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Navigate to="/learning" replace />} />
         <Route path="/practice" element={<Practice />} />
         <Route path="/practice/knowledge" element={<KnowledgePractice />} />
         <Route path="/practice/fun" element={<FunPractice />} />
@@ -72,6 +73,8 @@ export default function App() {
         <Route path="/resource-matching-quality-demo" element={<ResourceMatchingQualityDemo />} />
         <Route path="/phase16-3-real-chain-demo" element={<Phase163RealLearningChainDemo />} />
         <Route path="/learning" element={<UnifiedLearningEntry />} />
+        <Route path="/internal" element={<InternalHub />} />
+        <Route path="/internal/acceptance" element={<InternalAcceptanceHub />} />
         <Route path="/internal/learning-review" element={<InternalLearningReview />} />
         <Route path="/phase16-3-unified-entry-demo" element={<Phase163UnifiedEntryDemo />} />
         <Route path="/phase16-3-multiday-operation-demo" element={<Phase163MultiDayOperationDemo />} />
