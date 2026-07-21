@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Pencil, RefreshCw, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, Check, Pencil, RefreshCw, Save } from 'lucide-react';
 import {
   advancePhase163LiveRound,
   loadPhase163LiveWorkspace,
@@ -11,19 +11,22 @@ import {
   isPhase163DiagnosisBoundaryUnavailable,
 } from '../api/phase163DiagnosisBoundary.ts';
 import { requestStudentWritingCorrections } from '../api/studentWritingCorrections.ts';
+import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
 
 const RUNTIME_UNAVAILABLE_MESSAGE = '分析服务尚未就绪。你可以继续编辑或保存回答，服务准备好后再提交。';
+const FEEDBACK_PRESENTATION_KEY_PREFIX = 'qingzhou:feedback-presentation:';
 
 export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRetryResource = false }) {
   const [state, setState] = useState(null);
   const [answer, setAnswer] = useState('');
   const [busy, setBusy] = useState(true);
-  const [message, setMessage] = useState('');
-  const [messageTone, setMessageTone] = useState('neutral');
+  const [toast, setToast] = useState(null);
   const [analysisRetry, setAnalysisRetry] = useState(false);
   const [runtimeAvailability, setRuntimeAvailability] = useState('checking');
   const [writingCorrections, setWritingCorrections] = useState([]);
+  const answerInputRef = useRef(null);
   const saveRequest = useRef(0);
+  const toastSequence = useRef(0);
   const autoResourceRetryStarted = useRef(false);
 
   useEffect(() => {
@@ -68,22 +71,34 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
     return () => { active = false; };
   }, [state?.feedback, state?.roundId, answer, state?.task.readingText, state?.task.questionText]);
 
+  useEffect(() => {
+    const input = answerInputRef.current;
+    if (!input) return;
+    input.style.height = 'auto';
+    const nextHeight = Math.min(Math.max(input.scrollHeight, 240), 400);
+    input.style.height = `${nextHeight}px`;
+    input.style.overflowY = input.scrollHeight > 400 ? 'auto' : 'hidden';
+  }, [answer, state?.roundId]);
+
   function applyState(next) {
     setState(next);
     setAnswer(next.answerDraft || '');
-    setMessage(next.studentMessage || '');
-    setMessageTone(next.studentMessage ? 'error' : 'neutral');
+    setToast(null);
     setAnalysisRetry(false);
   }
 
-  function showMessage(value, tone = 'neutral') {
-    setMessage(value);
-    setMessageTone(tone);
+  function showMessage(value, tone = 'operation') {
+    if (!value) {
+      setToast(null);
+      return;
+    }
+    const duration = tone === 'error' ? 6000 : tone === 'success' ? 2000 : 3000;
+    setToast({ id: ++toastSequence.current, message: value, tone, duration });
   }
 
   async function saveDraft() {
     if (!answer.trim() || busy) {
-      showMessage('当前没有可保存的内容。', 'error');
+      showMessage('当前没有可保存的内容。');
       return;
     }
     const requestId = ++saveRequest.current;
@@ -100,12 +115,12 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
 
   async function submitAnswer() {
     if (busy) return;
-    if (runtimeAvailability !== 'ready') {
-      showMessage(RUNTIME_UNAVAILABLE_MESSAGE, 'error');
+    if (!answer.trim()) {
+      showMessage('请先输入回答再提交。');
       return;
     }
-    if (!answer.trim()) {
-      showMessage('请先输入回答再提交。', 'error');
+    if (runtimeAvailability !== 'ready') {
+      showMessage(RUNTIME_UNAVAILABLE_MESSAGE, 'error');
       return;
     }
     saveRequest.current += 1;
@@ -113,7 +128,15 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
     setAnalysisRetry(false);
     showMessage('正在分析本次回答，请稍候。');
     try {
-      applyState(await submitPhase163LiveAnswer(answer));
+      const nextState = await submitPhase163LiveAnswer(answer);
+      applyState(nextState);
+      if (
+        nextState.status === 'retry_required' &&
+        nextState.primaryAction === 'submit_answer' &&
+        nextState.studentMessage
+      ) {
+        showMessage(nextState.studentMessage);
+      }
     } catch (error) {
       if (isPhase163DiagnosisBoundaryUnavailable(error)) {
         setRuntimeAvailability('unavailable');
@@ -165,15 +188,15 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
   }
 
   if (!state && busy) return <LoadingWorkspace />;
-  if (!state) return <WorkspaceFailure message={message} onBack={onReturnToEntry} />;
+  if (!state) return <WorkspaceFailure message={toast?.message} onBack={onReturnToEntry} />;
 
   const completed = state.status === 'completed';
   const paused = state.status === 'blocked' || state.status === 'review_required';
   const recovering = state.status === 'retry_required' && state.primaryAction === 'resume_processing';
   return (
-    <div className="min-h-screen bg-white text-slate-950">
+    <div className={`min-h-screen text-slate-950 ${completed || paused || recovering ? 'bg-[#f7f9fc]' : 'learning-workspace-split-background bg-[#f7f9fc]'}`}>
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex min-h-16 w-full max-w-[1440px] items-center justify-between gap-4 px-5 md:px-8">
+        <div className="mx-auto flex min-h-16 w-full max-w-[1400px] items-center justify-between gap-4 px-5 md:px-8">
           <button
             type="button"
             onClick={onReturnToEntry}
@@ -192,7 +215,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
       {completed ? (
         <CompletedFeedback state={state} writingCorrections={writingCorrections} busy={busy} onContinue={enterNextRound} onReturn={onReturnToEntry} />
       ) : paused ? (
-        <PausedWorkspace state={state} writingCorrections={writingCorrections} busy={busy} onRetryResource={resumeProcessing} onReturn={onReturnToEntry} />
+        <PausedWorkspace state={state} writingCorrections={writingCorrections} busy={busy} onReturn={onReturnToEntry} />
       ) : recovering ? (
         <RecoveringWorkspace
           state={state}
@@ -202,7 +225,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
           onReturn={onReturnToEntry}
         />
       ) : (
-        <main className="mx-auto grid min-h-[calc(100vh-65px)] w-full max-w-[1440px] lg:grid-cols-2">
+        <main className="mx-auto grid min-h-[calc(100vh-65px)] w-full max-w-[1400px] lg:grid-cols-[minmax(0,9fr)_minmax(0,11fr)] xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <section className="border-b border-slate-200 bg-[#f7f9fc] px-6 py-8 lg:border-b-0 lg:border-r lg:px-10 lg:py-10 xl:px-14">
             <div className="mx-auto max-w-[640px]">
               <h1 className="flex items-center gap-3 text-lg font-semibold">
@@ -222,21 +245,22 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
               <p className="mt-3 text-base leading-8 text-slate-800">{state.task.questionText}</p>
 
               <textarea
+                ref={answerInputRef}
                 value={answer}
                 onChange={(event) => {
                   setAnswer(event.target.value);
-                  if (messageTone !== 'neutral') showMessage('');
+                  if (toast) showMessage('');
                 }}
                 disabled={busy || analysisRetry}
                 aria-label="输入你的回答"
                 placeholder="请在这里输入你的回答。"
-                className="mt-7 min-h-[300px] w-full resize-y rounded-md border border-slate-300 bg-[#f8fafc] px-4 py-4 text-base leading-7 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-wait disabled:opacity-70"
+                className="mt-7 min-h-[240px] max-h-[400px] w-full resize-none rounded-md border border-slate-300 bg-[#f8fafc] px-4 py-4 text-base leading-7 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-wait disabled:opacity-70"
               />
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  disabled={busy || (!analysisRetry && !answer.trim())}
+                  disabled={busy}
                   onClick={analysisRetry ? () => {
                     setAnalysisRetry(false);
                     showMessage('可以修改回答，完成后重新提交。');
@@ -248,28 +272,27 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
                 </button>
                 <button
                   type="button"
-                  disabled={busy || !answer.trim() || runtimeAvailability !== 'ready'}
+                  disabled={busy}
                   onClick={submitAnswer}
                   className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-sm text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
                 >
                   {busy || analysisRetry || runtimeAvailability === 'checking' ? <RefreshCw size={16} className={busy || runtimeAvailability === 'checking' ? 'animate-spin' : ''} /> : <ArrowRight size={16} />}
-                  {runtimeAvailability === 'checking'
-                    ? '正在检查分析服务'
-                    : runtimeAvailability === 'unavailable'
-                      ? '分析服务尚未就绪'
-                      : analysisRetry ? '重新分析' : '提交本轮回答'}
+                  {analysisRetry ? '重新分析' : '提交本轮回答'}
                 </button>
               </div>
-
-              {message ? (
-                <p className={`mt-5 text-sm leading-6 ${messageTone === 'error' ? 'text-red-700' : messageTone === 'success' ? 'text-emerald-700' : 'text-slate-600'}`} aria-live="polite">
-                  {message}
-                </p>
-              ) : null}
             </div>
           </section>
         </main>
       )}
+      {toast ? (
+        <WorkspaceToast
+          key={toast.id}
+          message={toast.message}
+          tone={toast.tone}
+          duration={toast.duration}
+          onDismiss={() => setToast((current) => current?.id === toast.id ? null : current)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -279,65 +302,101 @@ function CompletedFeedback({ state, writingCorrections, busy, onContinue, onRetu
   const thinkingReview = state.feedback?.thinkingReview;
   const guidance = state.feedback?.guidance;
   const attention = guidance ? [] : state.feedback?.whatNeedsAttention?.slice(0, 1) || [];
+  const hasReview = Boolean(thinkingReview || positive.length);
+  const shouldStageFeedback = writingCorrections.length === 0 && hasReview && Boolean(guidance) &&
+    !prefersReducedMotion() && !hasPresentedFeedback(state.roundId);
+  const [presentationStep, setPresentationStep] = useState(() => shouldStageFeedback ? 0 : 3);
+
+  const revealAll = () => {
+    setPresentationStep(3);
+    markFeedbackPresented(state.roundId);
+  };
+
+  useEffect(() => {
+    if (!shouldStageFeedback) return undefined;
+    const reviewTimer = window.setTimeout(() => setPresentationStep((step) => Math.max(step, 1)), 180);
+    const guidanceTimer = window.setTimeout(() => setPresentationStep((step) => Math.max(step, 2)), 520);
+    const actionTimer = window.setTimeout(() => {
+      setPresentationStep(3);
+      markFeedbackPresented(state.roundId);
+    }, 1050);
+    const revealFromKeyboard = (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      revealAll();
+    };
+    window.addEventListener('keydown', revealFromKeyboard);
+    return () => {
+      window.clearTimeout(reviewTimer);
+      window.clearTimeout(guidanceTimer);
+      window.clearTimeout(actionTimer);
+      window.removeEventListener('keydown', revealFromKeyboard);
+    };
+  }, [shouldStageFeedback, state.roundId]);
+
+  const handleRevealClick = () => {
+    if (presentationStep >= 3 || window.getSelection()?.toString()) return;
+    revealAll();
+  };
+
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-65px)] max-w-[800px] flex-col justify-center px-6 py-12">
-      <CheckCircle2 size={26} className="text-emerald-600" />
-      <h1 className="mt-4 text-lg font-semibold">反馈</h1>
-      <p className="mt-3 text-base leading-7 text-slate-600">{state.feedback?.summary || '本轮结果已经保存。'}</p>
-      {writingCorrections.length ? <WritingCorrections items={writingCorrections} /> : null}
-      {thinkingReview ? <ThinkingReview review={thinkingReview} /> : positive.length ? <FeedbackList title="思路点评" items={positive} tone="positive" /> : null}
-      {guidance ? <StudentFeedbackGuidance guidance={guidance} compact={Boolean(thinkingReview)} /> : null}
-      {attention.length ? <FeedbackList title="需要留意" items={attention} tone="attention" /> : null}
-      <div className="mt-10 flex justify-center">
-        {state.canAdvance ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onContinue}
-            className="flex min-h-11 min-w-52 items-center justify-center gap-2 rounded-md bg-slate-900 px-5 text-sm text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
-          >
-            {busy ? <RefreshCw size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-            进入下一轮任务
-          </button>
-        ) : (
-          <button type="button" onClick={onReturn} className="min-h-11 rounded-md border border-slate-300 bg-white px-5 text-sm text-slate-700 hover:bg-slate-50">
-            返回学习入口
-          </button>
-        )}
+    <main className="flex min-h-[calc(100vh-65px)] items-center px-6 py-12" onClick={handleRevealClick}>
+      <div className="mx-auto w-full max-w-[720px]">
+        <section className="rounded-md bg-white px-7 py-7 shadow-[0_10px_36px_rgba(15,23,42,0.08)] [&>section:first-child]:mt-0 md:px-10">
+          {writingCorrections.length ? <WritingCorrections items={writingCorrections} /> : null}
+          {thinkingReview ? <ThinkingReview review={thinkingReview} contentVisible={presentationStep >= 1} /> : positive.length ? <FeedbackList title="思路点评" items={positive} tone="positive" contentVisible={presentationStep >= 1} /> : null}
+          <div className={feedbackRevealClass(presentationStep >= 2)}>
+            {guidance ? <StudentFeedbackGuidance guidance={guidance} compact={Boolean(thinkingReview)} /> : null}
+          </div>
+          {attention.length ? <FeedbackList title="需要留意" items={attention} tone="attention" /> : null}
+        </section>
+        <div className={`mt-8 flex min-h-11 justify-center ${feedbackRevealClass(presentationStep >= 3)}`}>
+          {state.canAdvance ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onContinue}
+              className="flex min-h-11 min-w-52 items-center justify-center gap-2 rounded-md bg-slate-900 px-5 text-sm text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+            >
+              {busy ? <RefreshCw size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+              进入下一轮任务
+            </button>
+          ) : (
+            <button type="button" onClick={onReturn} className="min-h-11 rounded-md bg-slate-900 px-5 text-sm text-white hover:bg-slate-800">
+              返回学习入口
+            </button>
+          )}
+        </div>
       </div>
     </main>
   );
 }
 
-function PausedWorkspace({ state, writingCorrections, busy, onRetryResource, onReturn }) {
+function PausedWorkspace({ state, writingCorrections, busy, onReturn }) {
   const positive = state.feedback?.whatYouDidWell?.slice(0, 1) || [];
   const thinkingReview = state.feedback?.thinkingReview;
   const guidance = state.feedback?.guidance;
   const attention = guidance ? [] : state.feedback?.whatNeedsAttention?.slice(0, 1) || [];
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-65px)] max-w-[800px] flex-col justify-center px-6 py-12">
-      {state.feedback ? (
-        <>
-          <h1 className="text-lg font-semibold">反馈</h1>
-          <p className="mt-3 text-base leading-7 text-slate-600">{state.feedback.summary}</p>
-          {writingCorrections.length ? <WritingCorrections items={writingCorrections} /> : null}
-          {thinkingReview ? <ThinkingReview review={thinkingReview} /> : positive.length ? <FeedbackList title="思路点评" items={positive} tone="positive" /> : null}
-          {guidance ? <StudentFeedbackGuidance guidance={guidance} compact={Boolean(thinkingReview)} /> : null}
-          {attention.length ? <FeedbackList title="需要留意" items={attention} tone="attention" /> : null}
-        </>
-      ) : null}
-      <section className={state.feedback ? 'mt-9 border-t border-slate-200 pt-7' : ''} aria-live="polite">
-        <h2 className="text-base font-semibold">{state.studentTitle || '暂时无法继续'}</h2>
-        <p className="mt-2 text-base leading-7 text-slate-600">{state.studentMessage}</p>
-      </section>
-      <div className="mt-8 flex flex-wrap gap-3">
-        {state.primaryAction === 'retry_resource' ? (
-          <button type="button" disabled={busy} onClick={onRetryResource} className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-slate-900 px-5 text-sm text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400">
-            {busy ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-            检查下一任务
-          </button>
-        ) : null}
-        <button type="button" disabled={busy} onClick={onReturn} className={`${state.primaryAction === 'retry_resource' ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50' : 'bg-slate-900 text-white hover:bg-slate-800'} min-h-11 rounded-md px-5 text-sm disabled:text-slate-300`}>返回学习入口</button>
+    <main className="flex min-h-[calc(100vh-65px)] items-center px-6 py-12">
+      <div className="mx-auto w-full max-w-[720px]">
+        <section className="rounded-md bg-white px-7 py-7 shadow-[0_10px_36px_rgba(15,23,42,0.08)] [&>section:first-child]:mt-0 md:px-10">
+          {state.feedback ? (
+            <>
+              {writingCorrections.length ? <WritingCorrections items={writingCorrections} /> : null}
+              {thinkingReview ? <ThinkingReview review={thinkingReview} /> : positive.length ? <FeedbackList title="思路点评" items={positive} tone="positive" /> : null}
+              {guidance ? <StudentFeedbackGuidance guidance={guidance} compact={Boolean(thinkingReview)} /> : null}
+              {attention.length ? <FeedbackList title="需要留意" items={attention} tone="attention" /> : null}
+            </>
+          ) : null}
+          <div className={state.feedback ? 'mt-9 border-t border-slate-200 pt-7' : ''} aria-live="polite">
+            <h2 className="text-base font-semibold">{state.studentTitle || '暂时无法继续'}</h2>
+            <p className="mt-2 text-base leading-7 text-slate-600">{state.studentMessage}</p>
+          </div>
+        </section>
+        <div className="mt-8 flex justify-center">
+          <button type="button" disabled={busy} onClick={onReturn} className="min-h-11 rounded-md bg-slate-900 px-5 text-sm text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400">返回学习入口</button>
+        </div>
       </div>
     </main>
   );
@@ -361,11 +420,11 @@ function RecoveringWorkspace({ state, busy, runtimeAvailability, onResume, onRet
   );
 }
 
-function FeedbackList({ title, items, tone }) {
+function FeedbackList({ title, items, tone, contentVisible = true }) {
   return (
     <section className="mt-7">
       <h2 className="text-base font-semibold">{title}</h2>
-      <ol className="mt-3 space-y-3 text-base leading-7 text-slate-700">
+      <ol className={`mt-3 space-y-3 text-base leading-7 text-slate-700 ${feedbackRevealClass(contentVisible)}`}>
         {items.map((item, index) => (
           <li key={`${index}-${item}`} className="flex items-start gap-3">
             {tone === 'attention' ? (
@@ -381,7 +440,7 @@ function FeedbackList({ title, items, tone }) {
   );
 }
 
-function ThinkingReview({ review }) {
+function ThinkingReview({ review, contentVisible = true }) {
   const missingPoints = review.primaryGap ? [review.primaryGap] : review.missingPoints.slice(0, 1);
   const primaryGapCoverage = review.requirementCoverage?.find((item) =>
     item.requirementId === review.primaryGapRequirementId);
@@ -395,34 +454,68 @@ function ThinkingReview({ review }) {
   return (
     <section className="mt-7">
       <h2 className="text-base font-semibold">思路点评</h2>
-      {review.coveredPoints.length > 0 ? (
-        <div className="mt-4">
-          <h3 className="text-sm font-semibold text-slate-800">回答到位</h3>
-          <ol className="mt-2 space-y-2 text-base leading-7 text-slate-700">
-            {review.coveredPoints.map((item, index) => (
-              <li key={item} className="flex items-start gap-3">
-                <span className="w-5 shrink-0 text-right font-medium text-emerald-600">{index + 1}.</span>
-                <span className="min-w-0">{item}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
-      ) : null}
-      {missingPoints.length > 0 ? (
-        <div className="mt-5">
-          <h3 className="text-sm font-semibold text-slate-800">{gapTitle}</h3>
-          <ol className="mt-2 space-y-2 text-base leading-7 text-slate-700">
-            {missingPoints.map((item, index) => (
-              <li key={item} className="flex items-start gap-3">
-                <span className="w-5 shrink-0 text-right font-medium text-slate-500">{index + 1}.</span>
-                <span className="min-w-0">{item}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
-      ) : null}
+      <div className={feedbackRevealClass(contentVisible)}>
+        {review.coveredPoints.length > 0 ? (
+          <div className="mt-4">
+            <h3 className="text-sm font-semibold text-slate-800">回答到位</h3>
+            <ol className="mt-2 space-y-2 text-base leading-7 text-slate-700">
+              {review.coveredPoints.map((item) => (
+                <li key={item} className="flex items-start gap-3">
+                  <Check size={18} aria-hidden="true" className="mt-1 shrink-0 text-emerald-600" />
+                  <span className="min-w-0">{item}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
+        {missingPoints.length > 0 ? (
+          <div className="mt-5">
+            <h3 className="text-sm font-semibold text-slate-800">{gapTitle}</h3>
+            <ol className="mt-2 space-y-2 text-base leading-7 text-slate-700">
+              {missingPoints.map((item) => (
+                <li key={item} className="flex items-start gap-3">
+                  <span className="flex w-5 shrink-0 justify-center pt-[11px]" aria-hidden="true">
+                    <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  </span>
+                  <span className="min-w-0">{item}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
+      </div>
     </section>
   );
+}
+
+function feedbackRevealClass(visible) {
+  return visible
+    ? 'visible translate-y-0 opacity-100 transition-[opacity,transform] duration-200 motion-reduce:transition-none'
+    : 'invisible translate-y-1 opacity-0 transition-[opacity,transform] duration-200 motion-reduce:transition-none';
+}
+
+function feedbackPresentationKey(roundId) {
+  return `${FEEDBACK_PRESENTATION_KEY_PREFIX}${roundId}`;
+}
+
+function hasPresentedFeedback(roundId) {
+  try {
+    return window.localStorage.getItem(feedbackPresentationKey(roundId)) === 'presented';
+  } catch {
+    return false;
+  }
+}
+
+function markFeedbackPresented(roundId) {
+  try {
+    window.localStorage.setItem(feedbackPresentationKey(roundId), 'presented');
+  } catch {
+    // Presentation persistence must never block the learning flow.
+  }
+}
+
+function prefersReducedMotion() {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 function StudentFeedbackGuidance({ guidance, compact = false }) {

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CircleAlert, CheckCircle2, X } from 'lucide-react';
+import { CircleAlert, CheckCircle2, Info, X } from 'lucide-react';
 
 export default function WorkspaceToast({ message, tone = 'success', duration, onDismiss }) {
   const isError = tone === 'error';
+  const isOperation = tone === 'operation';
   const [isLeaving, setIsLeaving] = useState(false);
   const dismissTimer = useRef(null);
 
@@ -36,11 +37,13 @@ export default function WorkspaceToast({ message, tone = 'success', duration, on
       >
         {isError ? (
           <CircleAlert size={16} className="shrink-0 text-red-600" />
+        ) : isOperation ? (
+          <Info size={16} className="shrink-0 text-blue-600" />
         ) : (
           <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
         )}
         <span className="min-w-0 flex-1">{message}</span>
-        {onDismiss && isError ? (
+        {onDismiss && (isError || isOperation) ? (
           <button
             type="button"
             onClick={beginDismiss}

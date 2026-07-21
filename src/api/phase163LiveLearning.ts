@@ -438,7 +438,7 @@ function stateFromCheckpoint(
       ? pausePresentation.message
       : checkpoint.status === 'blocked'
         ? resourceUnavailable && checkpoint.learningPersistenceRecordId
-          ? '本轮结果已经保存。当前还没有符合要求的下一任务，需要先补充合适的正式任务；任务补充后可以再次检查。'
+          ? '本轮学习已经完成。下一任务需要先准备，准备完成后可以从学习入口继续。'
           : '当前任务暂时无法继续，已有学习记录已经保留。'
         : checkpoint.status === 'retry_required'
           ? checkpoint.nextAction === 'submit_answer' ? '请补充回答后重新提交。' : '已提交的回答正在恢复处理，不需要重新作答。'

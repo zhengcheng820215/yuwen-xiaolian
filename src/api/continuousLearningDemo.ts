@@ -478,11 +478,16 @@ function buildSpecificPositiveObservation(answer: string): string {
   ]).slice(0, 2);
   const memoryExpressions = collectExactMatches(answer, [/想起/, /回忆/]).slice(0, 1);
   const clues = collectExactMatches(answer, [
+    /第一次春游/,
+    /轻(?:轻)?抚过?叶脉/,
     /站了很久/,
     /小心(?:地)?(?:把它)?夹回原处/,
+    /外婆.*?祝福/,
     /洗了又洗/,
     /单独包好(?:后)?(?:放进)?行李箱/,
+    /训练了(?:整整)?三年/,
     /收好号码牌/,
+    /停下脚步/,
     /回头看(?:了)?(?:一眼)?球场/,
     /孩子小时候写下的日期/,
   ]).slice(0, 2);

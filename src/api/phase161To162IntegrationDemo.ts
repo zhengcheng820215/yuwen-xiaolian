@@ -36,7 +36,11 @@ import { PHASE163_DEMO_STUDENT_ID } from './phase163LearningIdentity.ts';
 const NOW = '2026-07-20T13:00:00.000Z';
 const LATER = '2026-07-20T14:00:00.000Z';
 const STUDENT_ID = PHASE163_DEMO_STUDENT_ID;
-const MATERIAL_TEXT = '父亲从旧书中发现一片褪色的树叶。他捏着树叶站了很久，最后把它小心地夹回原处。';
+const MATERIAL_TEXT =
+  '周末午后，父亲整理准备搬走的书柜，一本多年没有翻过的旧书从高处滑了下来。' +
+  '书里夹着一片已经褪色的树叶，旁边还留着孩子小时候写下的日期和“第一次春游”几个歪歪扭扭的字。' +
+  '父亲原本收拾得很快，看到这里却停了下来。他用指腹轻轻抚过叶脉，捏着树叶站了很久。' +
+  '孩子在门外催他时，他只笑了笑，说：“这本先别收。”随后掸去书页上的灰尘，把树叶小心地夹回原处，又把书放回书柜最上层。';
 
 type Repository = InMemoryQuestionResourceAdmissionRepository;
 
@@ -126,69 +130,89 @@ export async function getPhase163FormalResourcePoolData(
 ): Promise<Phase163FormalResourcePoolItem[]> {
   const specifications: Array<{ suffix: string; options: ResourceFixtureOptions }> = [
     {
-      suffix: 'phase163-training-leaf',
+      suffix: 'phase163-training-leaf-v2',
       options: {},
     },
     {
-      suffix: 'phase163-training-umbrella',
+      suffix: 'phase163-training-umbrella-v2',
       options: {
         materialTitle: '雨中的伞',
-        materialText: '雨越下越大，母亲把伞往孩子那边推了推，自己的半边肩膀很快被雨水打湿。',
+        materialText:
+          '放学时突然下起大雨，校门口挤满了等候的家长。母亲匆匆赶来时，裤脚已经湿了一截，手里只带着一把不大的伞。' +
+          '回家的路上，风不断把雨吹进伞下。母亲几次停下来调整伞的位置，又把伞往孩子那边推了推。' +
+          '孩子提醒她自己的半边肩膀已经湿透，她却低头看了看孩子怀里的书包，只说：“别让书和校服淋湿，明天还要用。”' +
+          '走到屋檐下后，她先替孩子擦去袖口的雨水，才拧了拧自己湿透的衣角。',
         taskTitle: '人物心理推断练习',
         questionStem: '母亲把伞推向孩子一侧，表现出怎样的心理？请结合她的动作说明理由。',
         acceptedKeywords: ['关心', '爱护', '担心'],
-        acceptedSignals: ['指出母亲把伞推向孩子、自己肩膀被淋湿', '说明动作与关心、爱护孩子之间的联系'],
+        acceptedSignals: ['指出母亲把伞推向孩子、关注书包校服或先替孩子擦雨水', '说明这些动作与关心、爱护孩子之间的联系'],
       },
     },
     {
-      suffix: 'phase163-retest-window',
+      suffix: 'phase163-retest-window-v2',
       options: {
         taskRole: 'retest',
         materialTitle: '离开教室前',
-        materialText: '放学后，同学们陆续离开。李老师走到窗边，把被风吹歪的花盆扶正，又回头看了看整齐的课桌，才轻轻关上门。',
+        materialText:
+          '放学铃响后，同学们很快收拾书包离开了教室。李老师站在讲台旁，把散落的作业纸按小组重新分好，' +
+          '又在黑板右下角写下第二天要提醒大家的事项。窗外起了风，她走到窗边关好半开的窗户，' +
+          '顺手扶正被吹歪的花盆，还把一张掉在地上的值日表重新贴牢。走到门口时，她回头看了看整齐的课桌和已经关好的电灯，' +
+          '确认没有遗漏后，才轻轻带上教室门。',
         taskTitle: '人物心理独立复测',
         questionStem: '李老师离开教室前的动作表现出怎样的心理？请结合材料中的细节说明理由。',
         acceptedKeywords: ['关心', '负责', '留意'],
-        acceptedSignals: ['指出扶正花盆、回看课桌或轻轻关门等细节', '说明动作与关心教室、认真负责之间的联系'],
+        acceptedSignals: ['指出整理作业、记录提醒、关窗扶花盆或离开前再次确认等细节', '说明这些动作与关心学生、做事认真负责之间的联系'],
         tags: ['material_relation:new_context', 'hint_policy:no_hint', '人物心理', '独立复测'],
       },
     },
     {
-      suffix: 'phase163-transfer-platform',
+      suffix: 'phase163-transfer-platform-v2',
       options: {
         taskRole: 'transfer',
         materialTitle: '站台上的目光',
-        materialText: '列车缓缓开动，父亲没有追着车走，只站在原地朝车窗挥手。直到站台尽头看不见了，他才慢慢放下手臂。',
+        materialText:
+          '女儿第一次独自去外地参加为期一个月的夏令营。候车时，父亲一遍遍检查行李牌，又把写着联系电话的小纸条塞进背包侧袋。' +
+          '广播响起后，他没有再多叮嘱，只替女儿理了理衣领，说：“到了记得报平安。”列车缓缓开动，' +
+          '父亲没有追着车走，只站在原地朝车窗挥手。女儿隔着玻璃回头时，看见他仍望着车厢的方向。' +
+          '直到列车驶过站台尽头、再也看不见了，他才慢慢放下举着的手臂。',
         taskTitle: '人物心理迁移验证',
         questionStem: '父亲在列车开动后的动作表现出怎样的心理？请结合新的材料情境说明理由。',
         acceptedKeywords: ['不舍', '牵挂', '留恋'],
-        acceptedSignals: ['指出父亲一直挥手、看不见后才放下手臂', '说明动作与不舍、牵挂或留恋之间的联系'],
+        acceptedSignals: ['指出反复检查行李、留下联系方式、一直挥手或看不见后才放下手臂', '说明这些动作与不舍、牵挂或担心之间的联系'],
         tags: ['material_relation:new_context', 'hint_policy:no_hint', '人物心理', '迁移验证'],
       },
     },
     {
-      suffix: 'phase163-observation-notebook',
+      suffix: 'phase163-observation-notebook-v2',
       options: {
         taskRole: 'observation',
         materialTitle: '合上的笔记本',
-        materialText: '下课铃响后，周老师把批改完的笔记本逐本合好，又翻开其中一本，在页角停留了一会儿，才把它放回最上面。',
+        materialText:
+          '下课铃响后，学生们离开了教室，周老师仍坐在讲台旁整理刚批改完的阅读笔记。她把笔记本逐本合好，' +
+          '看到小宇的那一本时，又重新翻到最后一页。那一页有好几处擦掉重写的痕迹，页角还写着一句“我还是没有想明白”。' +
+          '周老师在这句话旁停留了一会儿，没有立刻写评语，而是在备课本上记下小宇的名字和一道较短的练习题。' +
+          '随后，她把这本笔记放在最上面，准备第二天课前先找小宇谈一谈。',
         taskTitle: '人物心理继续观察',
         questionStem: '周老师停留片刻后才放回笔记本，表现出怎样的心理？请结合材料中的动作说明理由。',
         acceptedKeywords: ['关注', '在意', '思考', '担心'],
-        acceptedSignals: ['指出逐本合好、翻开笔记本或在页角停留等动作', '说明这些动作与老师关注学生、认真思考或有所担心之间的联系'],
+        acceptedSignals: ['指出重新翻阅、在留言旁停留、记录名字与练习题或准备谈话等细节', '说明这些动作与老师关注学生困难、认真思考帮助方法之间的联系'],
         tags: ['material_relation:similar_context', 'hint_policy:limited_hint', '人物心理', '继续观察'],
       },
     },
     {
-      suffix: 'phase163-diagnosis-corridor',
+      suffix: 'phase163-diagnosis-corridor-v2',
       options: {
         taskRole: 'diagnosis',
         materialTitle: '走廊里的脚步',
-        materialText: '比赛结果公布后，小林快步走出教室，到了走廊拐角却停下来，回头望了望仍在欢呼的同学，又慢慢走了回来。',
+        materialText:
+          '班级辩论赛结果公布后，小林所在的小组只差一票落败。掌声响起时，他低头把自己的发言稿折了几下，' +
+          '没有和队友说话便快步走出教室。走到走廊拐角，他听见队友正在感谢彼此的配合，也有人说下一次还想和他一起准备。' +
+          '小林停下脚步，回头望了望仍围在一起的同学。他把折皱的发言稿慢慢展开，犹豫片刻后又走回教室，' +
+          '在空着的座位旁坐下，听队友复盘刚才的比赛。',
         taskTitle: '人物心理诊断观察',
         questionStem: '小林走出教室后又返回，表现出怎样的心理变化？请结合前后动作说明理由。',
         acceptedKeywords: ['失落', '犹豫', '不舍', '想融入'],
-        acceptedSignals: ['指出快步离开、停下回望或慢慢返回等前后动作', '说明动作变化与失落、犹豫、不舍或重新融入之间的联系'],
+        acceptedSignals: ['指出低头离开、听见队友后停步回望、展开发言稿或返回教室等前后变化', '说明动作变化与失落、犹豫以及愿意重新面对团队之间的联系'],
         tags: ['material_relation:similar_context', 'hint_policy:limited_hint', 'capability:root_cause_probe', '人物心理', '诊断观察'],
       },
     },

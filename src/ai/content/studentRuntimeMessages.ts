@@ -43,7 +43,7 @@ export function resolveStudentRuntimePausePresentation(input: {
     return {
       reason: 'resource_unavailable',
       title: '下一任务需要补充',
-      message: '本轮结果已经保存。当前还没有符合要求的下一任务，需要先补充合适的正式任务；任务补充后可以再次检查。',
+      message: '本轮学习已经完成。下一任务需要先准备，准备完成后可以从学习入口继续。',
       actionText: '返回学习入口',
     };
   }

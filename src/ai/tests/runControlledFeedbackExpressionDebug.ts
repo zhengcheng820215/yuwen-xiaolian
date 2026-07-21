@@ -526,6 +526,9 @@ async function caseInsufficientEvidenceStaysConservative(): Promise<void> {
     feedback.whatYouDidWell.length === 0 &&
       feedback.thinkingReview?.requirementCoverage.every((item) =>
         item.status === 'insufficient_to_judge') === true &&
+      feedback.thinkingReview?.primaryGap?.includes('还没有明确写出人物的心理') === true &&
+      feedback.thinkingReview.primaryGap.includes('具体动作或语句') &&
+      feedback.thinkingReview.primaryGap.includes('为什么能得出这个判断') &&
       feedback.guidance?.revisionActions.some((item) =>
         item.includes('先写出父亲当时的心理')) === true &&
       !JSON.stringify(feedback).includes('证据不足'),
@@ -826,7 +829,8 @@ async function caseThinkingReviewDoesNotInventCoverage(): Promise<void> {
     '无可靠正向依据时不生成虚假关键点点评',
     Boolean(
       run.result.finalFeedback.thinkingReview?.coveredPoints.length === 0 &&
-      run.result.finalFeedback.thinkingReview?.primaryGap?.includes('信息还不足') &&
+      run.result.finalFeedback.thinkingReview?.primaryGap?.includes('还没有明确写出人物的心理') &&
+      run.result.finalFeedback.thinkingReview.primaryGap.includes('具体动作或语句') &&
       run.result.finalFeedback.thinkingReview?.requirementCoverage?.every((item) =>
         item.status !== 'covered' && item.status !== 'partially_covered'),
     ),
@@ -1177,6 +1181,8 @@ async function caseInsufficientAnswerUsesActionOnlyGuidance(): Promise<void> {
     '信息不足时覆盖状态保持克制，建议只说明下一步动作',
     review?.coveredPoints.length === 0 &&
       review.requirementCoverage.every((item) => item.status === 'insufficient_to_judge') &&
+      review.primaryGap?.includes('还没有明确写出人物的心理') === true &&
+      review.primaryGap.includes('具体动作或语句') &&
       action.includes('先写出父亲当时的心理') &&
       !/(?:不足|未完成|不准确|缺少依据)/.test(action),
     JSON.stringify({ review, action }),

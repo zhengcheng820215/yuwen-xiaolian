@@ -100,7 +100,14 @@ export function buildStudentThinkingReview(
     .filter(isString)
     .slice(0, 2);
   const primaryGapCoverage = selectPrimaryGap(coverage);
-  const primaryGap = primaryGapCoverage?.gapMessage;
+  const primaryGap = diagnosis.answerStatus === 'insufficient_evidence'
+    ? buildInsufficientAnswerGap({
+        target,
+        matchedKeywords,
+        requiresEvidence,
+        requiresRelation,
+      })
+    : primaryGapCoverage?.gapMessage;
 
   if (coveredPoints.length === 0 && !primaryGap) return undefined;
   return {
@@ -110,6 +117,34 @@ export function buildStudentThinkingReview(
     primaryGap,
     missingPoints: primaryGap ? [primaryGap] : [],
   };
+}
+
+function buildInsufficientAnswerGap(input: {
+  target: string;
+  matchedKeywords: string[];
+  requiresEvidence: boolean;
+  requiresRelation: boolean;
+}): string {
+  const matchedConclusion = input.matchedKeywords[0];
+  if (matchedConclusion && input.requiresEvidence && input.requiresRelation) {
+    return `你已经写出了“${matchedConclusion}”这一${input.target}，但还没有结合文中的具体动作或语句，说明为什么能得出这个判断。`;
+  }
+  if (matchedConclusion && input.requiresEvidence) {
+    return `你已经写出了“${matchedConclusion}”这一${input.target}，但还没有写出支撑这个判断的具体动作或语句。`;
+  }
+  if (matchedConclusion && input.requiresRelation) {
+    return `你已经写出了“${matchedConclusion}”这一${input.target}，但还没有说明为什么能得出这个判断。`;
+  }
+  if (input.requiresEvidence && input.requiresRelation) {
+    return `这次回答还没有明确写出${input.target}；还需要结合文中的具体动作或语句，说明为什么能得出这个判断。`;
+  }
+  if (input.requiresEvidence) {
+    return `这次回答还没有明确写出${input.target}，也没有写出支撑判断的具体动作或语句。`;
+  }
+  if (input.requiresRelation) {
+    return `这次回答还没有明确写出${input.target}，也没有说明理由。`;
+  }
+  return `这次回答还没有明确写出${input.target}。`;
 }
 
 function buildConclusionCoverage(input: {

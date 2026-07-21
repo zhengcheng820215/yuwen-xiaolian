@@ -135,7 +135,7 @@ export default function ContinuousLearningDemo({ embedded = false, onReturnToEnt
 
       {error ? (
         <WorkspaceToast
-          tone="error"
+          tone={errorKind === 'operation' ? 'operation' : 'error'}
           message={error}
           duration={errorKind === 'operation' ? 3000 : 6000}
           onDismiss={() => setError('')}
