@@ -1,0 +1,382 @@
+import { prepareConcreteLearningTaskFromFrozenResource } from '../ai/agents/frozenQuestionResourceTaskAdapter.ts';
+import {
+  appendLearningRoundToSession,
+  queryLearningSessionHistory,
+  saveLearningSessionRecord,
+} from '../ai/agents/learningSessionHistoryAgent.ts';
+import {
+  createPhase163MultiDayRun,
+  recordPhase163DailyOperation,
+} from '../ai/agents/phase163MultiDayOperationAgent.ts';
+import { runPhase163RealLearningChain } from '../ai/agents/phase163RealLearningChainAgent.ts';
+import { runTaskExecutionAgent } from '../ai/agents/taskExecutionAgent.ts';
+import { scheduleDelayedRetest } from '../ai/agents/delayedRetestSchedulingAgent.ts';
+import { createDiagnosisProviderConfigSnapshot } from '../ai/agents/realLLMRuntimeFoundationAgent.ts';
+import { REAL_AI_DIAGNOSIS_PROMPT_V4_VERSION } from '../ai/prompts/buildRealAIDiagnosisPromptV4.ts';
+import { ScriptedDiagnosisProviderAdapter } from '../ai/providers/diagnosisProviderAdapter.ts';
+import { InMemoryControlledFeedbackRepository } from '../ai/repositories/inMemoryControlledFeedbackRepository.ts';
+import { InMemoryFormalDiagnosisRepository } from '../ai/repositories/inMemoryFormalDiagnosisRepository.ts';
+import { IndexedDBLearningPersistenceRepository } from '../ai/repositories/indexedDBLearningPersistenceRepository.ts';
+import { IndexedDBLearningSessionRepository } from '../ai/repositories/indexedDBLearningSessionRepository.ts';
+import { IndexedDBPhase163MultiDayRunRepository } from '../ai/repositories/indexedDBPhase163MultiDayRunRepository.ts';
+import { IndexedDBRealLearningOperationRepository } from '../ai/repositories/indexedDBRealLearningOperationRepository.ts';
+import { LocalStorageUnifiedLearningEntryRepository } from '../ai/repositories/localStorageUnifiedLearningEntryRepository.ts';
+import type { LearningPersistenceRecord } from '../ai/schemas/learningPersistence.schema.ts';
+import type { DelayedRetestPlan } from '../ai/schemas/delayedRetestScheduling.schema.ts';
+import type { CurrentLearningContext, TaskRequest } from '../ai/schemas/nextLearningStrategy.schema.ts';
+import type { FrozenQuestionResourceVersion } from '../ai/schemas/questionResourceAdmission.schema.ts';
+import type { NextFormalTaskResolution } from '../ai/schemas/realLearningOperation.schema.ts';
+import type { QualityGatedExecutableTask } from '../ai/schemas/resourceMatchQuality.schema.ts';
+import { getPhase163FormalResourcePoolData } from './phase161To162IntegrationDemo.ts';
+import { runDiagnosisThroughPhase163Boundary } from './phase163DiagnosisBoundary.ts';
+import {
+  PHASE163_LEARNING_STUDENT_ID,
+  PHASE163_LEARNING_TIMEZONE,
+} from './phase163LearningIdentity.ts';
+
+const TIMEZONE = PHASE163_LEARNING_TIMEZONE;
+const operationRepository = new IndexedDBRealLearningOperationRepository();
+const persistenceRepository = new IndexedDBLearningPersistenceRepository();
+const sessionRepository = new IndexedDBLearningSessionRepository();
+const activityRepository = new LocalStorageUnifiedLearningEntryRepository();
+const multiDayRepository = new IndexedDBPhase163MultiDayRunRepository();
+
+export type Phase163LiveWorkspaceState = {
+  status: 'ready' | 'submitting' | 'completed' | 'retry_required' | 'review_required' | 'blocked';
+  sessionId: string;
+  roundId: string;
+  roundNumber: number;
+  task: {
+    title: string;
+    focus: string;
+    readingText: string;
+    questionText: string;
+  };
+  answerDraft: string;
+  feedback?: {
+    headline: string;
+    summary: string;
+    whatYouDidWell: string[];
+    whatNeedsAttention: string[];
+    nextActionText: string;
+  };
+  canAdvance: boolean;
+  canRetry: boolean;
+  isRetest: boolean;
+  studentMessage?: string;
+};
+
+export async function loadPhase163LiveWorkspace(): Promise<Phase163LiveWorkspaceState> {
+  const descriptor = await buildCurrentRoundDescriptor();
+  const checkpoint = await operationRepository.getByOperationId(descriptor.input.operationId);
+  const persisted = await persistenceRepository.loadByRound(PHASE163_LEARNING_STUDENT_ID, descriptor.input.learningRoundId);
+  if (!checkpoint) return readyState(descriptor, persisted?.answerDraft || '');
+  return stateFromCheckpoint(descriptor, checkpoint, persisted?.answerDraft || '');
+}
+
+export async function savePhase163LiveDraft(answerDraft: string): Promise<void> {
+  const descriptor = await buildCurrentRoundDescriptor();
+  const existing = await persistenceRepository.loadByRound(PHASE163_LEARNING_STUDENT_ID, descriptor.input.learningRoundId);
+  await persistenceRepository.save({
+    recordId: existing?.recordId || `${PHASE163_LEARNING_STUDENT_ID}::${descriptor.input.learningRoundId}`,
+    studentId: PHASE163_LEARNING_STUDENT_ID,
+    learningRoundId: descriptor.input.learningRoundId,
+    savedAt: existing?.savedAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    version: 'phase12_1_v1',
+    schemaVersion: 'learning_persistence_v1',
+    concreteTask: descriptor.concreteTask,
+    answerDraft,
+    status: 'saved',
+    issues: [],
+  });
+}
+
+export async function submitPhase163LiveAnswer(answerText: string): Promise<Phase163LiveWorkspaceState> {
+  const descriptor = await buildCurrentRoundDescriptor();
+  const submittedAt = new Date().toISOString();
+  const validityPreflight = runTaskExecutionAgent({
+    concreteTask: descriptor.concreteTask,
+    readiness: descriptor.readiness,
+    studentAnswer: { answerText: answerText.trim(), submittedAt },
+    startedAt: submittedAt,
+  });
+  if (!validityPreflight.taskExecutionResult?.canEnterDiagnosisRuntime) {
+    await savePhase163LiveDraft(answerText);
+    return {
+      ...readyState(descriptor, answerText),
+      status: 'retry_required',
+      canRetry: true,
+      studentMessage: validityPreflight.taskExecutionResult?.responseValidity.status === 'empty'
+        ? '请先写下你的判断和理由。'
+        : '这次回答的信息还不够，请补充你的判断，并结合材料说明理由。',
+    };
+  }
+  const input = {
+    ...descriptor.input,
+    answerText: answerText.trim(),
+    submittedAt,
+  };
+  const result = await runPhase163RealLearningChain(input, {
+    provider: new ScriptedDiagnosisProviderAdapter([], 'deepseek_chat'),
+    formalDiagnosisRepository: new InMemoryFormalDiagnosisRepository(),
+    controlledFeedbackRepository: new InMemoryControlledFeedbackRepository(),
+    learningPersistenceRepository: persistenceRepository,
+    operationRepository,
+    runDiagnosisRuntime: runDiagnosisThroughPhase163Boundary,
+    resolveNextTask: ({ taskRequest, previousResourceVersion }) => resolveNextFormalTask(taskRequest, previousResourceVersion),
+    now: () => submittedAt,
+  });
+
+  const persistence = await persistenceRepository.loadByRound(PHASE163_LEARNING_STUDENT_ID, input.learningRoundId);
+  if (persistence?.learningRoundResult) await appendRoundToCurrentSession(persistence);
+  await recordNaturalDay(result, descriptor.retestPlan);
+  return stateFromCheckpoint(descriptor, result.checkpoint, answerText);
+}
+
+export async function advancePhase163LiveRound(): Promise<void> {
+  const context = await requireActiveContext();
+  const current = roundNumber(context.currentLearningRoundId);
+  const nextRoundId = `${context.learningSessionId}-round-${current + 1}`;
+  await activityRepository.save({
+    ...context,
+    currentLearningRoundId: nextRoundId,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function loadPhase163DueRetestPlans(): Promise<DelayedRetestPlan[]> {
+  const records = await persistenceRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const latest = records.filter((item) => item.growthMemorySummary).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+  if (!latest?.growthMemorySummary) return [];
+  const history = await queryLearningSessionHistory(sessionRepository, { studentId: PHASE163_LEARNING_STUDENT_ID });
+  const evidence = records.flatMap((item) => item.learningRoundResult?.taskEvidenceReturnResult?.abilityEvidence || []);
+  const result = scheduleDelayedRetest({
+    studentId: PHASE163_LEARNING_STUDENT_ID,
+    targetAbilityId: latest.growthMemorySummary.abilityId,
+    growthMemorySummary: latest.growthMemorySummary,
+    sessionHistory: history,
+    abilityEvidence: evidence,
+    currentTime: new Date().toISOString(),
+    timezone: TIMEZONE,
+    policy: {
+      policyVersion: 'delayed_retest_policy_v1',
+      growthIntervalDays: 3,
+      positiveIntervalDays: 3,
+      requireNewMaterial: true,
+      allowHint: false,
+    },
+  });
+  return result.plan?.status === 'available' ? [result.plan] : [];
+}
+
+async function buildCurrentRoundDescriptor() {
+  const context = await requireActiveContext();
+  const roundId = context.currentLearningRoundId || `${context.learningSessionId}-round-1`;
+  const number = roundNumber(roundId);
+  const records = await persistenceRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const latest = records.filter((item) => item.learningRoundResult?.status === 'completed').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+  const plans = await loadPhase163DueRetestPlans();
+  const retestPlan = plans[0];
+  const pool = await loadFormalPool();
+  const previousResourceVersionId = latest?.concreteTask?.questionMetadata.questionId;
+  const previousRoundId = number > 1 ? replaceRoundNumber(roundId, number - 1) : undefined;
+  const previousCheckpoint = previousRoundId
+    ? await operationRepository.getByOperationId(`phase16-3-live-operation-${previousRoundId}`)
+    : undefined;
+  const plannedResolution = previousCheckpoint?.nextTaskResolution?.status === 'matched'
+    ? previousCheckpoint.nextTaskResolution
+    : undefined;
+  const plannedVersionId = plannedResolution?.resourceVersion?.resourceVersionId;
+  const role = retestPlan
+    ? 'retest'
+    : plannedResolution?.resourceVersion?.abilityMetadata.taskRole || 'training';
+  const eligiblePool = pool.filter((item) => (
+    item.version.abilityMetadata.abilityId === 'inference' &&
+    item.version.abilityMetadata.taskRole === role &&
+    item.task.executableTask.taskRole === role
+  ));
+  const selected = plannedVersionId
+    ? eligiblePool.find((item) => item.version.resourceVersionId === plannedVersionId)
+    : eligiblePool.find((item) => item.version.resourceVersionId !== previousResourceVersionId) ||
+      eligiblePool[(number - 1) % eligiblePool.length];
+  if (!selected) throw new Error(role === 'retest' ? '暂无符合复测要求的正式任务。' : '暂无符合当前要求的正式任务。');
+  const version = selected.version;
+  const qualityTask = selected.task;
+  const preparation = prepareConcreteLearningTaskFromFrozenResource({
+    resourceVersion: version,
+    qualityGatedTask: qualityTask,
+    createdAt: new Date().toISOString(),
+  });
+  if (preparation.status !== 'prepared' || !preparation.concreteTaskResult.concreteTask) {
+    throw new Error('当前正式任务尚未准备完成。');
+  }
+  const base = await import('./phase163RealLearningChainDemo.ts').then((module) => (
+    module.createPhase163DemoEnvironment('complete_chain', '')
+  ));
+  const currentProfile = latest?.studentAbilityProfile || base.input.currentProfile;
+  const currentGrowthMemorySummary = latest?.growthMemorySummary || base.input.currentGrowthMemorySummary;
+  const existingGrowthMemoryRecords = records.flatMap((item) => item.growthMemoryRecord ? [item.growthMemoryRecord] : []);
+  const previousEvidence = records.flatMap((item) => item.learningRoundResult?.taskEvidenceReturnResult?.abilityEvidence || []);
+  const startedAt = new Date().toISOString();
+  const currentLearningContext: CurrentLearningContext = {
+    ...base.input.currentLearningContext,
+    studentId: PHASE163_LEARNING_STUDENT_ID,
+    recentTaskRole: role,
+  };
+  return {
+    retestPlan,
+    concreteTask: preparation.concreteTaskResult.concreteTask,
+    readiness: preparation.concreteTaskResult.readiness,
+    roundNumber: number,
+    input: {
+      ...base.input,
+      operationId: `phase16-3-live-operation-${roundId}`,
+      learningSessionId: context.learningSessionId,
+      learningRoundId: roundId,
+      diagnosisRequestId: `phase16-3-live-diagnosis-${roundId}`,
+      studentId: PHASE163_LEARNING_STUDENT_ID,
+      resourceVersion: version,
+      qualityGatedTask: qualityTask,
+      answerText: '',
+      startedAt,
+      submittedAt: startedAt,
+      currentProfile,
+      currentGrowthMemorySummary,
+      existingGrowthMemoryRecords,
+      previousEvidence,
+      currentLearningContext,
+      providerConfig: createDiagnosisProviderConfigSnapshot({
+        provider: 'deepseek_chat',
+        model: 'deepseek-v4-flash',
+        providerConfigId: 'phase16-3-local-application-boundary-v1',
+        promptVersion: REAL_AI_DIAGNOSIS_PROMPT_V4_VERSION,
+        maxAttempts: 2,
+        timeoutMs: 30_000,
+        createdAt: startedAt,
+      }),
+      timezone: TIMEZONE,
+    },
+  };
+}
+
+async function resolveNextFormalTask(
+  taskRequest: TaskRequest,
+  previousResourceVersion: FrozenQuestionResourceVersion,
+): Promise<NextFormalTaskResolution> {
+  const pool = await loadFormalPool();
+  const selected = pool.find((item) => (
+    item.version.resourceId !== previousResourceVersion.resourceId &&
+    item.version.abilityMetadata.abilityId === taskRequest.targetAbilityId &&
+    item.version.abilityMetadata.taskRole === taskRequest.taskRole &&
+    item.task.executableTask.taskRole === taskRequest.taskRole
+  ));
+  if (!selected) return { status: 'no_match', taskRequestId: taskRequest.taskRequestId, issues: ['no_aligned_frozen_resource'] };
+  return {
+    status: 'matched',
+    taskRequestId: taskRequest.taskRequestId,
+    resourceVersion: selected.version,
+    qualityGatedTask: selected.task,
+    issues: [],
+  };
+}
+
+async function loadFormalPool(): Promise<Array<{ version: FrozenQuestionResourceVersion; task: QualityGatedExecutableTask }>> {
+  return getPhase163FormalResourcePoolData();
+}
+
+async function appendRoundToCurrentSession(record: LearningPersistenceRecord): Promise<void> {
+  const context = await requireActiveContext();
+  const session = await sessionRepository.getById(PHASE163_LEARNING_STUDENT_ID, context.learningSessionId);
+  if (!session || session.status !== 'in_progress') return;
+  await saveLearningSessionRecord(sessionRepository, appendLearningRoundToSession(session, { persistenceRecord: record }));
+}
+
+async function recordNaturalDay(result: Awaited<ReturnType<typeof runPhase163RealLearningChain>>, plan?: DelayedRetestPlan): Promise<void> {
+  const now = new Date().toISOString();
+  const existing = await multiDayRepository.getByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const state = existing || createPhase163MultiDayRun({
+    runId: `phase16-3-natural-${PHASE163_LEARNING_STUDENT_ID}`,
+    studentId: PHASE163_LEARNING_STUDENT_ID,
+    timezone: TIMEZONE,
+    targetNaturalDayCount: 5,
+    startedAt: now,
+  });
+  await multiDayRepository.save(recordPhase163DailyOperation(state, {
+    result,
+    observedAt: now,
+    dayKey: localDayKey(now),
+    timeSource: 'natural',
+    retestPlanId: plan?.planId,
+    retestCompleted: Boolean(plan && result.status === 'completed'),
+    anomalyCodes: result.status === 'completed' ? [] : [`runtime_${result.status}`],
+  }));
+}
+
+async function requireActiveContext() {
+  const context = await activityRepository.getByStudent(PHASE163_LEARNING_STUDENT_ID);
+  if (!context || context.status === 'ended') throw new Error('请先从学习入口开始本次学习。');
+  return context;
+}
+
+function readyState(descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>, answerDraft: string): Phase163LiveWorkspaceState {
+  const task = descriptor.concreteTask;
+  return {
+    status: 'ready',
+    sessionId: descriptor.input.learningSessionId,
+    roundId: descriptor.input.learningRoundId,
+    roundNumber: descriptor.roundNumber,
+    task: {
+      title: `${task.targetAbilityName}${task.taskRole === 'retest' ? '复测' : '练习'}`,
+      focus: task.targetAbilityName,
+      readingText: task.readingText || '',
+      questionText: task.question,
+    },
+    answerDraft,
+    canAdvance: false,
+    canRetry: false,
+    isRetest: task.taskRole === 'retest',
+  };
+}
+
+function stateFromCheckpoint(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  checkpoint: NonNullable<Awaited<ReturnType<IndexedDBRealLearningOperationRepository['getByOperationId']>>>,
+  answerDraft: string,
+): Phase163LiveWorkspaceState {
+  const base = readyState(descriptor, answerDraft);
+  const feedback = checkpoint.controlledFeedbackResult?.studentLearningFeedback;
+  return {
+    ...base,
+    status: checkpoint.status === 'completed' ? 'completed' : checkpoint.status,
+    feedback: feedback ? {
+      headline: feedback.headline,
+      summary: feedback.summary,
+      whatYouDidWell: feedback.whatYouDidWell,
+      whatNeedsAttention: feedback.whatNeedsAttention,
+      nextActionText: feedback.nextActionText,
+    } : undefined,
+    canAdvance: checkpoint.status === 'completed' && checkpoint.nextTaskResolution?.status === 'matched',
+    canRetry: checkpoint.status === 'retry_required',
+    studentMessage: checkpoint.status === 'review_required'
+      ? '本次结果需要进一步确认，暂时不会改变你的学习状态。'
+      : checkpoint.status === 'blocked'
+        ? '当前任务暂时无法继续，已有学习记录已经保留。'
+        : checkpoint.status === 'retry_required'
+          ? checkpoint.nextAction === 'submit_answer' ? '请补充回答后重新提交。' : '分析暂时未完成，请稍后重试。'
+          : undefined,
+  };
+}
+
+function roundNumber(roundId?: string): number {
+  const match = roundId?.match(/round-(\d+)$/);
+  return match ? Number(match[1]) : 1;
+}
+
+function replaceRoundNumber(roundId: string, number: number): string {
+  return roundId.replace(/round-\d+$/, `round-${number}`);
+}
+
+function localDayKey(iso: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
+}

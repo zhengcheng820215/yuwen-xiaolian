@@ -119,6 +119,24 @@ export default function Home() {
 
       <section className="mt-5 grid gap-3">
         <PrimaryAction
+          to="/learning"
+          title="统一学习入口"
+          desc="从一个入口开始、继续或恢复学习，不需要访问多个 Demo 页面。"
+          action="进入学习"
+        />
+        <PrimaryAction
+          to="/internal/learning-review"
+          title="内部复核工作台"
+          desc="查看正式学习链路、复核状态与脱敏追溯信息。"
+          action="进入复核"
+        />
+        <PrimaryAction
+          to="/phase16-3-unified-entry-demo"
+          title="统一学习入口验收"
+          desc="验证开始、恢复、反馈、复测、异常阻断与 Session 结束等入口状态。"
+          action="开始验收"
+        />
+        <PrimaryAction
           to="/beta-learning-entry-demo"
           title="开始学习 Beta"
           desc="从真实学习入口完成第一题作答，并获得学生可读诊断反馈。"
@@ -195,6 +213,12 @@ export default function Home() {
           title="连续多轮学习 Demo"
           desc="完成三轮不同任务，验证保存恢复、证据连续和上一轮结果驱动下一轮。"
           action="开始三轮"
+        />
+        <PrimaryAction
+          to="/phase16-3-real-chain-demo"
+          title="真实学习主链联调"
+          desc="使用同一正式资源和学生作答，验收 Diagnosis、Evidence、成长记忆与下一正式任务的完整交接。"
+          action="开始联调"
         />
         <PrimaryAction
           to="/phase15-integration-demo"

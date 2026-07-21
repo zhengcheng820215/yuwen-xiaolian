@@ -435,9 +435,11 @@ StructuredQuestionDraft
 
 Draft 可以保存和修订，但不能被正式 TaskFulfillment 消费。只有通过结构化校验和人工审核的 FrozenQuestionResource 才具备正式匹配资格；冻结版本不可静默修改，修订必须生成新 Draft 和新版本。工作台通过 QuestionResourceAdmissionAgent 与 Repository 执行同一套规则，页面不能直接把草稿提升为正式资源。
 
-Phase 16.1A 确定性 Debug 为 `22 / 22 PASS`，16.1B 最小录入工作台已通过人工 Demo 验收。Phase 16.2A 为 `12 / 12 PASS`，证明正式资源必须先通过 Registry current、审核校验追溯、primary ability、task role、核心难度和 Rubric Gate；Phase 16.2B 为 `16 / 16 PASS`，进一步复用 Existing TaskFulfillment 并核验上下文新颖度、近期重复、提示、能力要求、偏好和 Registry 二次状态，形成 `matched / partial_match / no_match / review_required` 正式分流。轻量 Match Review Demo 已完成 `8 / 8` Case 人工验收，Phase 16.1 -> 16.2 人工联调 Demo 已完成 `4 / 4 PASS`，并通过 PC / 平板布局检查；Phase 16.2 当前为 `PASS / FROZEN`。Phase 16.3 仍需验证单学生使用正式资源和真实 AI 连续运行 5—7 个自然日时的恢复、幂等、异常阻断和人工复核。
+Phase 16.1A 确定性 Debug 为 `22 / 22 PASS`，16.1B 最小录入工作台已通过人工 Demo 验收。Phase 16.2A 为 `12 / 12 PASS`，证明正式资源必须先通过 Registry current、审核校验追溯、primary ability、task role、核心难度和 Rubric Gate；Phase 16.2B 为 `16 / 16 PASS`，进一步复用 Existing TaskFulfillment并形成 `matched / partial_match / no_match / review_required` 正式分流。轻量 Match Review Demo、16.1 -> 16.2 人工联调、单对象 E2E 与受控 DeepSeek Provider Smoke 均已通过；Phase 16.2 当前为 `PASS / FROZEN`。
 
-当前启用边界：Prompt v4 已通过质量验证，但成为所有正式 Provider 调用的默认 Prompt 仍须通过版本化配置显式切换。`Formal Commit -> Phase 9.3 -> Phase 8 -> Phase 14.1 -> Controlled Feedback` 已通过 `11 / 11` 确定性独立整链 Debug；真实外部 Provider 贯穿该完整产品主链的受控试跑仍未执行。
+Phase 16.3 设计已接受并按三个顺序工作包推进。16.3A / B 为 `PASS / FROZEN`。16.3C 已完成工程预演：正式 `/learning`、服务端 Diagnosis Application Boundary、IndexedDB Checkpoint / Persistence / Session / Multi-day Repository、无效作答前置 Gate 与内部多日复核已接通；`training / retest / transfer` 使用各自正式 Frozen Resource，资源缺失时明确阻断；Simulation `10 / 10 PASS`、Application Boundary Controlled Live Smoke `PASS`、Lightweight Demo 人工 Case `4 / 4 PASS`，浏览器草稿刷新恢复通过。当前仍为 `ENGINEERING + HUMAN DEMO PASS / NATURAL-DAY ACCEPTANCE PENDING (0 / 5)`；入口和模拟验收不替代 5—7 个自然日运行。
+
+当前启用边界：Prompt v4 已通过质量验证，但成为所有正式 Provider 调用的默认 Prompt 仍须通过版本化配置显式切换。`Formal Commit -> Phase 9.3 -> Phase 8 -> Phase 14.1 -> Controlled Feedback` 已通过 `11 / 11` 确定性独立整链 Debug；受控真实 Provider 单对象 Smoke、正式浏览器入口、Application Boundary Live Smoke 与持久化恢复已经成立，但 5—7 个自然日运行尚未完成。
 
 ## 七、当前 Runtime 的一句话总结
 

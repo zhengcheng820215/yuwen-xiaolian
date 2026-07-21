@@ -12,7 +12,7 @@ import {
   submitContinuousLearningAnswer,
 } from '../api/continuousLearningDemo';
 
-export default function ContinuousLearningDemo() {
+export default function ContinuousLearningDemo({ embedded = false, onReturnToEntry, onStateChange }) {
   const [state, setState] = useState(null);
   const [answer, setAnswer] = useState('');
   const [busy, setBusy] = useState(true);
@@ -43,6 +43,7 @@ export default function ContinuousLearningDemo() {
     setState(nextState);
     setAnswer(nextState.answerDraft || '');
     setError('');
+    onStateChange?.(nextState);
   }
 
   function showError(message, kind = 'system') {
@@ -129,6 +130,7 @@ export default function ContinuousLearningDemo() {
         currentRound={state?.roundIndex || 1}
         completedRounds={state?.completedRoundCount || 0}
         totalRounds={state?.maxRounds || 3}
+        onBack={embedded ? onReturnToEntry : undefined}
       />
 
       {error ? (
@@ -177,14 +179,25 @@ export default function ContinuousLearningDemo() {
         ) : null}
 
         {state?.mode === 'finished' ? (
-          <FinishedPanel state={state} busy={busy} onReset={resetDemo} />
+          <FinishedPanel
+            state={state}
+            busy={busy}
+            onReset={embedded ? onReturnToEntry : resetDemo}
+            actionLabel={embedded ? '返回学习入口' : '重新开始'}
+          />
         ) : null}
 
         {state?.mode === 'error' ? (
-          <ErrorRoundPanel state={state} busy={busy} onRetry={submitAnswer} onReset={resetDemo} />
+          <ErrorRoundPanel
+            state={state}
+            busy={busy}
+            onRetry={submitAnswer}
+            onReset={embedded ? onReturnToEntry : resetDemo}
+            resetLabel={embedded ? '返回学习入口' : '重置 Demo'}
+          />
         ) : null}
 
-        {state ? (
+        {state && !embedded ? (
           <DeveloperPanel
             state={state}
             simulatePersistenceFailure={simulatePersistenceFailure}
@@ -250,7 +263,7 @@ function RoundFeedbackList({ title, items, tone }) {
   );
 }
 
-function FinishedPanel({ state, busy, onReset }) {
+function FinishedPanel({ state, busy, onReset, actionLabel }) {
   return (
     <div className="mx-auto flex min-h-[calc(100vh-64px)] w-full flex-col items-center bg-[#f7f9fc] px-4 py-10 md:px-6 md:py-14">
       <section className="w-full max-w-[720px] rounded-md bg-white px-6 py-8 text-center shadow-[0_10px_32px_rgba(15,23,42,0.08)] md:px-8 md:py-10">
@@ -267,14 +280,14 @@ function FinishedPanel({ state, busy, onReset }) {
           className="flex min-h-11 min-w-48 items-center justify-center gap-2 rounded-md bg-slate-900 px-5 text-sm font-normal text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
         >
           <RefreshCw size={16} />
-          重新开始
+          {actionLabel}
         </button>
       </div>
     </div>
   );
 }
 
-function ErrorRoundPanel({ state, busy, onRetry, onReset }) {
+function ErrorRoundPanel({ state, busy, onRetry, onReset, resetLabel }) {
   return (
     <div className="mx-auto max-w-[820px] space-y-5 px-4 py-6 md:px-6 md:py-8">
       <WorkspaceNotice tone="error" title="本轮暂未保存" text={state.message} />
@@ -286,7 +299,7 @@ function ErrorRoundPanel({ state, busy, onRetry, onReset }) {
           onClick={onReset}
           className="min-h-11 min-w-40 rounded-md border border-slate-300 bg-white px-4 text-sm font-normal text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
         >
-          重置 Demo
+          {resetLabel}
         </button>
         <button
           type="button"

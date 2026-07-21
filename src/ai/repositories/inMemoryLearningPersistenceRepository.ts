@@ -1,8 +1,18 @@
 import type { LearningPersistenceRecord } from '../schemas/learningPersistence.schema.ts';
 import type { LearningPersistenceRepository } from './learningPersistenceRepository.ts';
 
+export type InMemoryLearningPersistenceStore = Map<string, LearningPersistenceRecord>;
+
+export function createInMemoryLearningPersistenceStore(): InMemoryLearningPersistenceStore {
+  return new Map<string, LearningPersistenceRecord>();
+}
+
 export class InMemoryLearningPersistenceRepository implements LearningPersistenceRepository {
-  private readonly records = new Map<string, LearningPersistenceRecord>();
+  private readonly records: InMemoryLearningPersistenceStore;
+
+  constructor(records: InMemoryLearningPersistenceStore = createInMemoryLearningPersistenceStore()) {
+    this.records = records;
+  }
 
   async save(record: LearningPersistenceRecord): Promise<LearningPersistenceRecord> {
     this.records.set(recordKey(record.studentId, record.learningRoundId), record);

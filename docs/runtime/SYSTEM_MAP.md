@@ -281,13 +281,13 @@ Formal DiagnosisResult
 | 16 | Structured Content 与 Real Learning Operation Foundation | ACCEPTED / IN PROGRESS | [Phase 16](../education/phase/phase16.md) |
 | 16.1 | Structured Question Intake and Review | PASS | [Phase 16.1](../education/phase/phase16_1.md) |
 | 16.2 | Resource Metadata and Matching Quality（16.2A / 16.2B 内部工作包） | PASS / FROZEN | [Phase 16.2](../education/phase/phase16_2.md) |
-| 16.3 | Real Multi-day Learning Operation | NOT STARTED | [Phase 16](../education/phase/phase16.md) |
+| 16.3 | Real Learning Operation and Multi-day Continuity（16.3A / B / C 内部工作包） | IN PROGRESS（A / B PASS / FROZEN；C ENGINEERING + HUMAN DEMO PASS / NATURAL-DAY PENDING 0 / 5） | [Phase 16.3](../education/phase/phase16_3.md) |
 
 当前准确状态：
 
-> 单学生、单浏览器、本地持久化的连续学习基础已经成立；Evidence 质量与自适应约束链已经冻结；真实 LLM 已能够安全进入 Diagnosis Runtime。Phase 15 已通过并冻结。Phase 16.1 已完成结构化题目 Draft、校验、人工审核、冻结、修订和版本追溯的最小闭环；Phase 16.2 已完成正式资源资格与上下文匹配质量闭环。Phase 1–16.2 的 48 个确定性 Debug / 集成脚本与 Production Build 已完成组合式回归并全部通过；该结论不包含 DeepSeek Live、浏览器人工验收或单对象贯穿式 E2E。当前仍待 Phase 16.3 验证 5—7 个自然日真实学习运行。
+> 单学生、单浏览器、本地持久化的连续学习基础已经成立；Phase 15、16.1、16.2 已冻结。Phase 16.3A / B 已完成真实主链与统一入口；16.3C 已建立正式 `/learning`、服务端 Application Boundary、IndexedDB 多日记录和内部复核，工程模拟 `10 / 10 PASS`，Application Boundary Controlled Live Smoke `PASS`。当前仍需完成 5—7 个自然日真实运行。
 
-这里的 Phase 15 冻结表示 15.1、15.2、15.3 的 Runtime、专项质量验收和 `11 / 11` 确定性整链 Debug 均已成立。Phase 16.1 PASS 表示资源准入 Runtime `22 / 22`、Production Build 和最小工作台人工 Demo 已通过，不表示工作台 UX、资源匹配质量或真实多日教学运行已经完成。Prompt v4 的正式默认切换仍须使用版本化配置；真实外部 Provider 贯穿完整产品主链的受控试跑仍未执行。
+这里的 Phase 15 冻结表示 15.1、15.2、15.3 的 Runtime、专项质量验收和 `11 / 11` 确定性整链 Debug 均已成立。Phase 16.1 PASS 表示资源准入 Runtime `22 / 22`、Production Build 和最小工作台人工 Demo 已通过，不表示工作台 UX 或真实多日教学运行已经完成。Prompt v4 的正式默认切换仍须使用版本化配置；Phase 16.3A Controlled Live 已证明持久化第二任务串联，但不替代 16.3B 统一入口和 16.3C 多日验收。
 
 ## 六、各阶段能力地图
 
@@ -357,9 +357,11 @@ Phase 15.1 已证明真实 Provider 可以安全进入 Runtime；Phase 15.2 已�
 
 Phase 16.1 已建立正式题目资源的准入边界：人工录入先形成 Draft，通过结构化校验和人工审核后才能冻结为正式版本；Frozen Resource 不可静默编辑，修订必须生成新版本，ResourceRegistry 只指向唯一当前冻结版本。16.1A Runtime 为 `22 / 22 PASS`，16.1B 最小录入工作台已通过人工 Demo 验收，但连续录题效率与工作台 UX 仍需后续优化。
 
-Phase 16.2A 已完成 `12 / 12 PASS`，Phase 16.2B 已完成 `16 / 16 PASS`：Registry 当前 Frozen Version 先经过身份、审核、校验、primary ability、task role、核心难度和 Rubric Gate，再由 Quality Gate 复核材料关系、近期重复、提示、能力要求、偏好和创建前 Registry 状态，形成正式四类分流。轻量 Match Review Demo 已完成 `8 / 8` Case 人工验收，Phase 16.1 -> 16.2 人工联调 Demo 已完成 `4 / 4 PASS`，并通过 PC / 平板布局检查；随后 [Phase 1–16.2 组合式全链路 Runtime 回归](../education/phase/reports/phase1_16_2_integrated_runtime_regression_2026-07-20.md) 完成 48 个确定性脚本与 Production Build，结果为 `PASS`。Phase 16.2 当前为 `PASS / FROZEN`。Phase 16.3 将验证单学生使用正式题目和真实 AI 连续运行 5—7 个自然日时，保存、恢复、复测、异常阻断和人工复核是否成立。
+Phase 16.2A 已完成 `12 / 12 PASS`，Phase 16.2B 已完成 `16 / 16 PASS`：Registry 当前 Frozen Version 先经过身份、审核、校验、primary ability、task role、核心难度和 Rubric Gate，再由 Quality Gate 复核材料关系、近期重复、提示、能力要求、偏好和创建前 Registry 状态，形成正式四类分流。轻量 Match Review Demo 已完成 `8 / 8` Case 人工验收，Phase 16.1 -> 16.2 人工联调 Demo 已完成 `4 / 4 PASS`，并通过 PC / 平板布局检查；随后 [Phase 1–16.2 组合式全链路 Runtime 回归](../education/phase/reports/phase1_16_2_integrated_runtime_regression_2026-07-20.md) 完成 48 个确定性脚本与 Production Build，结果为 `PASS`。单对象 E2E 与受控 DeepSeek 真实 Provider Smoke 进一步取得 `5 / 5 PASS`。Phase 16.2 当前为 `PASS / FROZEN`。
 
-详细文档入口：[Phase 16](../education/phase/phase16.md)、[Phase 16.1](../education/phase/phase16_1.md)、[Phase 16.2](../education/phase/phase16_2.md)。
+Phase 16.3 已冻结设计并拆为三个顺序工作包。16.3A / B 为 `PASS / FROZEN`。16.3C 已把 `/learning` 接到正式 Orchestrator 与 IndexedDB Repository，并新增服务端 Diagnosis Application Boundary、多日事实记录及内部复核；正式资源池包含独立冻结的 `training / retest / transfer` 资源，编排层只按能力和任务角色精确匹配，不改写 Frozen Version；工程模拟 `10 / 10 PASS`、Application Boundary Controlled Live Smoke `PASS`，浏览器草稿恢复和无效作答闸门通过。当前为 `ENGINEERING READY / NATURAL-DAY ACCEPTANCE PENDING`；浏览器不得持有 Provider Key，Provider 失败不得回退到 mock Diagnosis。
+
+详细文档入口：[Phase 16](../education/phase/phase16.md)、[Phase 16.1](../education/phase/phase16_1.md)、[Phase 16.2](../education/phase/phase16_2.md)、[Phase 16.3](../education/phase/phase16_3.md)。
 
 ## 七、当前重要边界
 
@@ -385,7 +387,7 @@ Phase 16.2A 已完成 `12 / 12 PASS`，Phase 16.2B 已完成 `16 / 16 PASS`：Re
 
 当前尚未证明或尚未完成的主要能力：
 
-- Phase 15 真实外部 Provider 贯穿完整产品主链的受控端到端试跑；
+- Phase 16.3B 统一学生学习入口与隔离的内部复核入口；
 - Prompt v4 在正式 Provider 主链中的版本化默认切换与回滚验证；
 - Phase 15 后续真实使用错误样本回收与版本化质量回归；
 - Existing Phase 8 对 Quality / Conflict Context 的正式消费升级；

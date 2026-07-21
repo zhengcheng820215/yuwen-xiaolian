@@ -1,4 +1,4 @@
-import { instantiateConcreteLearningTask } from '../agents/concreteLearningTaskAgent.ts';
+import { prepareConcreteLearningTaskFromFrozenResource } from '../agents/frozenQuestionResourceTaskAdapter.ts';
 import { summarizeGrowthMemory } from '../agents/growthMemorySummaryAgent.ts';
 import { generateNextLearningStrategy } from '../agents/nextLearningStrategyAgent.ts';
 import { applyProfileUpdateDecision } from '../agents/profileUpdateExecutor.ts';
@@ -6,10 +6,8 @@ import { createTaskRequest } from '../agents/taskRequestAgent.ts';
 import { runTaskEvidenceReturnAgent } from '../agents/taskEvidenceReturnAgent.ts';
 import { runTaskExecutionAgent } from '../agents/taskExecutionAgent.ts';
 import { validateNextLearningStrategy } from '../agents/strategyValidationAgent.ts';
-import type { ConcreteLearningTask } from '../schemas/concreteLearningTask.schema.ts';
-import type { DiagnosisResult, QuestionMetadataRubricItem } from '../schemas/diagnosis.schema.ts';
+import type { DiagnosisResult } from '../schemas/diagnosis.schema.ts';
 import type { CurrentLearningContext } from '../schemas/nextLearningStrategy.schema.ts';
-import type { FrozenQuestionResourceVersion } from '../schemas/questionResourceAdmission.schema.ts';
 import { getPhase161To162IntegrationDemoData } from '../../api/phase161To162IntegrationDemo.ts';
 import { makeProfile } from './growthMemoryDebugFixtures.ts';
 
@@ -70,11 +68,13 @@ async function prepareNormalChain() {
 
   const qualityTask = normal!.taskResult.task!;
   const selectedVersion = normal!.selectedVersion!;
-  const concreteResult = instantiateConcreteLearningTask({
-    executableTask: qualityTask.executableTask,
+  const preparation = prepareConcreteLearningTaskFromFrozenResource({
+    qualityGatedTask: qualityTask,
+    resourceVersion: selectedVersion,
     createdAt: RUN_AT,
-    overrides: buildConcreteTaskOverrides(selectedVersion),
   });
+  expect(preparation.status === 'prepared', `Frozen Resource preparation failed: ${preparation.issues.join(', ')}`);
+  const concreteResult = preparation.concreteTaskResult;
   expect(concreteResult.concreteTask, 'ConcreteLearningTask was not created from the quality-gated task.');
   expect(concreteResult.readiness.canExecute, `Concrete task readiness failed: ${concreteResult.readiness.issues.map((item) => item.code).join(', ')}`);
 
@@ -221,47 +221,6 @@ function caseRepeatedReturn(chain: PreparedChain): void {
   expect(first.profileUpdateDecision?.decisionId === second.profileUpdateDecision?.decisionId, 'Repeated return changed decisionId.');
   expect(first.growthMemoryRecord?.recordId === second.growthMemoryRecord?.recordId, 'Repeated return changed GrowthMemory recordId.');
   expect(new Set([...first.abilityEvidence, ...second.abilityEvidence].map((item) => item.id)).size === 1, 'Repeated return produced more than one logical Evidence identity.');
-}
-
-function buildConcreteTaskOverrides(version: FrozenQuestionResourceVersion): Partial<ConcreteLearningTask> {
-  const rubric: QuestionMetadataRubricItem[] = version.rubric.map((item) => ({
-    id: item.itemId,
-    name: item.name,
-    description: item.description,
-    ability: item.abilityId,
-    weight: item.importance === 'critical' ? 50 : item.importance === 'important' ? 30 : 20,
-    required: item.required,
-  }));
-  const scoringPoints = version.rubric.flatMap((item) => item.acceptedSignals || []);
-  const acceptedAnswers = version.answerAcceptance?.acceptedAnswers || [];
-  const acceptedKeywords = version.answerAcceptance?.acceptedKeywords || [];
-
-  return {
-    targetAbilityName: version.abilityMetadata.abilityId,
-    readingText: version.materialSnapshot?.content,
-    question: version.questionStem,
-    answerRequirements: [
-      `至少作答 ${version.minimumAnswerRequirement.minLength} 个字。`,
-      ...(version.minimumAnswerRequirement.requireTextEvidence ? ['需要提供文本依据。'] : []),
-      ...(version.minimumAnswerRequirement.requireExplanation ? ['需要说明依据与结论的关系。'] : []),
-    ],
-    referenceAnswer: acceptedAnswers[0] || acceptedKeywords.join('、') || '依据文本线索形成合理结论。',
-    scoringPoints: scoringPoints.length > 0 ? scoringPoints : ['回答满足 Rubric 的关键观察项。'],
-    rubric,
-    questionMetadata: {
-      subject: '语文',
-      grade: version.abilityMetadata.gradeRange || '初中',
-      questionType: '推理',
-      assessmentMode: version.assessmentMode,
-      mainAbility: version.abilityMetadata.abilityId,
-      relatedAbilities: version.abilityMetadata.supportingAbilityIds,
-      abilityPath: [version.abilityMetadata.abilityId, ...version.abilityMetadata.supportingAbilityIds],
-      difficulty: version.abilityMetadata.difficulty,
-      rubric,
-      trainingDirection: ['文本依据', '推理链表达'],
-    },
-    expectedDiagnosisFocus: version.rubric.map((item) => item.description || item.name),
-  };
 }
 
 function buildDiagnosisResult(mainAbility: string): DiagnosisResult {

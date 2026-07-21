@@ -30,6 +30,11 @@ import ContinuousLearningDemo from './pages/ContinuousLearningDemo.jsx';
 import Phase15IntegrationDemo from './pages/Phase15IntegrationDemo.jsx';
 import QuestionResourceWorkbench from './pages/QuestionResourceWorkbench.jsx';
 import ResourceMatchingQualityDemo from './pages/ResourceMatchingQualityDemo.jsx';
+import Phase163RealLearningChainDemo from './pages/Phase163RealLearningChainDemo.jsx';
+import UnifiedLearningEntry from './pages/UnifiedLearningEntry.jsx';
+import InternalLearningReview from './pages/InternalLearningReview.jsx';
+import Phase163UnifiedEntryDemo from './pages/Phase163UnifiedEntryDemo.jsx';
+import Phase163MultiDayOperationDemo from './pages/Phase163MultiDayOperationDemo.jsx';
 
 export default function App() {
   return (
@@ -65,6 +70,11 @@ export default function App() {
         <Route path="/phase15-integration-demo" element={<Phase15IntegrationDemo />} />
         <Route path="/question-resource-workbench" element={<QuestionResourceWorkbench />} />
         <Route path="/resource-matching-quality-demo" element={<ResourceMatchingQualityDemo />} />
+        <Route path="/phase16-3-real-chain-demo" element={<Phase163RealLearningChainDemo />} />
+        <Route path="/learning" element={<UnifiedLearningEntry />} />
+        <Route path="/internal/learning-review" element={<InternalLearningReview />} />
+        <Route path="/phase16-3-unified-entry-demo" element={<Phase163UnifiedEntryDemo />} />
+        <Route path="/phase16-3-multiday-operation-demo" element={<Phase163MultiDayOperationDemo />} />
       </Routes>
     </Layout>
   );

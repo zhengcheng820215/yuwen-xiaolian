@@ -1,0 +1,184 @@
+import {
+  buildInternalLearningReviewSummary,
+  buildUnifiedLearningEntryState,
+  createUnifiedLearningActivityContext,
+} from '../agents/unifiedLearningEntryAgent.ts';
+import { InMemoryUnifiedLearningEntryRepository } from '../repositories/inMemoryUnifiedLearningEntryRepository.ts';
+import {
+  isUnifiedLearningEntryState,
+  type UnifiedLearningEntryInput,
+} from '../schemas/unifiedLearningEntry.schema.ts';
+import type { LearningPersistenceRecord } from '../schemas/learningPersistence.schema.ts';
+import type { RealLearningOperationCheckpoint } from '../schemas/realLearningOperation.schema.ts';
+
+const NOW = '2026-07-21T12:00:00.000Z';
+const STUDENT_ID = 'student-phase16-3b-debug';
+type Report = { name: string; passed: boolean; detail: string };
+const reports: Report[] = [];
+
+async function main(): Promise<void> {
+  checkState('B1 新学生进入统一入口', baseInput(), 'start_new_round');
+  checkState('B2 未完成 Round 优先恢复', baseInput({
+    activeContexts: [activeContext()],
+    latestPersistenceRecord: record({ answerDraft: '' }),
+  }), 'continue_round');
+  checkState('B3 答案草稿恢复', baseInput({
+    activeContexts: [activeContext()],
+    latestPersistenceRecord: record({ answerDraft: '这是上次保留的回答。' }),
+  }), 'continue_round', (state) => state.hasDraft);
+  checkState('B4 已完成结果恢复反馈', baseInput({
+    activeContexts: [activeContext()],
+    latestPersistenceRecord: completedRecord(),
+    completedRoundCount: 1,
+  }), 'feedback_available', (state) => state.hasUnviewedFeedback);
+  checkState('B5 到期复测生成正式入口', baseInput({
+    delayedRetestPlans: [retestPlan()],
+  }), 'delayed_retest_available', (state) => state.retest?.targetAbilityId === 'inference');
+  checkState('B6 review_required 具有最高优先级', baseInput({
+    activeContexts: [activeContext()],
+    latestPersistenceRecord: record({ answerDraft: '草稿' }),
+    operationCheckpoint: checkpoint({ status: 'review_required', nextAction: 'human_review' }),
+    delayedRetestPlans: [retestPlan()],
+  }), 'review_required');
+  checkState('B7 blocked 不展示残缺任务', baseInput({
+    activeContexts: [activeContext()],
+    operationCheckpoint: checkpoint({ status: 'blocked', nextAction: 'prepare_resource' }),
+  }), 'blocked', (state) => !state.canEnterWorkspace);
+  checkState('B8 提交恢复期间阻止重复提交入口', baseInput({
+    activeContexts: [activeContext()],
+    operationCheckpoint: checkpoint({ status: 'retry_required', stage: 'diagnosis_committed', nextAction: 'retry_provider' }),
+  }), 'recovering_submission');
+  checkState('B9 无资源时不拼装任务', baseInput({ hasAvailableTask: false }), 'no_task');
+  checkState('B10 身份错位进入人工确认', baseInput({
+    latestPersistenceRecord: record({ studentId: 'another-student' }),
+  }), 'review_required', (state) => !state.validation.passed);
+  checkState('B11 已结束 Session 不等同能力完成', baseInput({
+    activeContexts: [activeContext({ status: 'ended' })],
+    latestPersistenceRecord: completedRecord(),
+    completedRoundCount: 1,
+  }), 'session_ended');
+  await checkRepositoryConflict();
+  checkInternalSummary();
+  checkStudentStateSurface();
+
+  console.log('\nPhase 16.3B Unified Learning Entry Debug');
+  console.log('='.repeat(76));
+  for (const report of reports) {
+    console.log(`${report.passed ? 'PASS' : 'FAIL'} | ${report.name}`);
+    console.log(`       ${report.detail}`);
+  }
+  const passed = reports.filter((item) => item.passed).length;
+  console.log('-'.repeat(76));
+  console.log(`Result: ${passed} / ${reports.length} PASS`);
+  console.log('Provider mode: none (entry orchestration only)');
+  console.log('Persistence mode: deterministic in-memory repository');
+  if (passed !== reports.length) throw new Error('Phase 16.3B Unified Learning Entry Debug failed.');
+}
+
+function checkState(
+  name: string,
+  input: UnifiedLearningEntryInput,
+  expectedStatus: string,
+  extra: (state: ReturnType<typeof buildUnifiedLearningEntryState>) => boolean = () => true,
+): void {
+  const state = buildUnifiedLearningEntryState(input);
+  const passed = isUnifiedLearningEntryState(state) && state.status === expectedStatus && extra(state);
+  reports.push({ name, passed, detail: `status=${state.status}, action=${state.primaryAction}, validation=${state.validation.passed}` });
+}
+
+async function checkRepositoryConflict(): Promise<void> {
+  const repository = new InMemoryUnifiedLearningEntryRepository();
+  const first = activeContext({ learningSessionId: 'session-a' });
+  const second = activeContext({ learningSessionId: 'session-b' });
+  await repository.save(first);
+  const repeated = await repository.save(first);
+  const conflict = await repository.save(second);
+  reports.push({
+    name: 'B12 重复开始保持幂等且拒绝第二个活动 Session',
+    passed: repeated.status === 'reused' && conflict.status === 'conflict' && (await repository.getByStudent(STUDENT_ID))?.learningSessionId === 'session-a',
+    detail: `repeat=${repeated.status}, second=${conflict.status}`,
+  });
+}
+
+function checkInternalSummary(): void {
+  const summary = buildInternalLearningReviewSummary(checkpoint({ status: 'completed', stage: 'next_task_ready', nextAction: 'start_next_task' }));
+  reports.push({
+    name: 'B13 内部入口可追溯正式链路且隐藏敏感数据',
+    passed: summary.status === 'completed' && summary.sensitiveDataHidden && summary.stages.every((stage) => stage.status === 'completed') && !JSON.stringify(summary).includes('api-key'),
+    detail: `status=${summary.status}, stages=${summary.stages.length}, sensitiveHidden=${summary.sensitiveDataHidden}`,
+  });
+}
+
+function checkStudentStateSurface(): void {
+  const state = buildUnifiedLearningEntryState(baseInput({ latestPersistenceRecord: completedRecord() }));
+  const serialized = JSON.stringify(state);
+  const forbidden = ['operationId', 'learningSessionId', 'evidenceIds', 'rawOutput', 'promptVersion', 'confidence'];
+  reports.push({
+    name: 'B14 学生入口状态不暴露 Runtime 字段',
+    passed: forbidden.every((key) => !serialized.includes(key)),
+    detail: `forbiddenFields=${forbidden.filter((key) => serialized.includes(key)).join('|') || 'none'}`,
+  });
+}
+
+function baseInput(overrides: Partial<UnifiedLearningEntryInput> = {}): UnifiedLearningEntryInput {
+  return {
+    studentId: STUDENT_ID,
+    now: NOW,
+    activeContexts: [],
+    hasAvailableTask: true,
+    completedRoundCount: 0,
+    ...overrides,
+  };
+}
+
+function activeContext(overrides: Partial<ReturnType<typeof createUnifiedLearningActivityContext>> = {}) {
+  return createUnifiedLearningActivityContext({
+    studentId: STUDENT_ID,
+    learningSessionId: 'session-phase16-3b',
+    currentLearningRoundId: 'round-1',
+    createdAt: '2026-07-21T10:00:00.000Z',
+    updatedAt: '2026-07-21T11:00:00.000Z',
+    ...overrides,
+  });
+}
+
+function record(overrides: Partial<LearningPersistenceRecord> = {}): LearningPersistenceRecord {
+  return {
+    recordId: 'record-phase16-3b', studentId: STUDENT_ID, learningRoundId: 'round-1',
+    savedAt: NOW, updatedAt: NOW, version: 'phase12_1_v1', schemaVersion: 'learning_persistence_v1',
+    status: 'saved', issues: [], ...overrides,
+  };
+}
+
+function completedRecord(): LearningPersistenceRecord {
+  return record({
+    learningRoundResult: { status: 'completed' } as LearningPersistenceRecord['learningRoundResult'],
+    studentLearningFeedback: { summary: '本轮反馈已经保存。' } as LearningPersistenceRecord['studentLearningFeedback'],
+  });
+}
+
+function retestPlan() {
+  return {
+    planId: 'retest-plan-1', candidateId: 'candidate-1', studentId: STUDENT_ID, targetAbilityId: 'inference',
+    sourceSessionIds: ['session-0'], sourceEvidenceIds: ['evidence-0'], baselineEvidenceId: 'evidence-0',
+    scheduledAt: '2026-07-18T12:00:00.000Z', plannedRetestAt: '2026-07-21T11:00:00.000Z', status: 'available' as const,
+    whyRetestNow: '距离上次学习已有一段时间，可以重新观察这项能力。', retestGoal: '观察保持情况', validationGoal: '验证独立表现',
+    requestedTaskRole: 'retest' as const, requireNewMaterial: true as const, allowHint: false as const,
+    constraints: ['new_material'], policyVersion: 'phase13_2_policy_v1' as const, schemaVersion: 'delayed_retest_scheduling_v1' as const,
+    createdAt: NOW, updatedAt: NOW, validation: { passed: true, issues: [] },
+  };
+}
+
+function checkpoint(overrides: Partial<RealLearningOperationCheckpoint> = {}): RealLearningOperationCheckpoint {
+  return {
+    schemaVersion: 'real_learning_operation_v1', operationId: 'operation-phase16-3b', learningSessionId: 'session-phase16-3b',
+    learningRoundId: 'round-1', studentId: STUDENT_ID, stage: 'task_prepared', status: 'retry_required', nextAction: 'submit_answer',
+    sourceResourceId: 'resource-1', sourceResourceVersionId: 'resource-version-1', sourceTaskId: 'task-1', diagnosisRequestId: 'diagnosis-1',
+    issues: [], createdAt: NOW, updatedAt: NOW, ...overrides,
+  };
+}
+
+main().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+});

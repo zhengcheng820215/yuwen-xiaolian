@@ -814,7 +814,7 @@ Phase 15 Overall Freeze    PASS / FROZEN
 
 Phase 15.1 Live Smoke 采用三条真实调用加一条受控失败 Gate：正常 Live、Shadow、Prompt Injection 验证真实 Provider 链路，能力错位或非法结构验证安全阻断。Smoke 不执行 Evidence 或 Profile 更新，只验证 `canEnterEvidenceReturn`。
 
-当前冻结表示三个 Runtime、专项质量验收和确定性整链集成均已成立。`Formal Commit -> Evidence Return -> Phase 8 -> Phase 14.1 -> Controlled Feedback` 已通过 `11 / 11` 独立 Debug 验收。Prompt v4 成为所有正式 Provider 调用的默认 Prompt 仍须通过版本化配置显式切换；真实外部 Provider 贯穿完整产品主链的受控试跑仍未执行，不能由 Scripted Provider 集成结果替代。
+当前冻结表示三个 Runtime、专项质量验收和确定性整链集成均已成立。`Formal Commit -> Evidence Return -> Phase 8 -> Phase 14.1 -> Controlled Feedback` 已通过 `11 / 11` 独立 Debug 验收。Prompt v4 成为所有正式 Provider 调用的默认 Prompt 仍须通过版本化配置显式切换；Phase 16.3A 已补齐真实外部 Provider、持久化恢复和第二份正式任务，统一学生入口仍须由 16.3B 验证。
 
 ## Phase 16：结构化内容与真实学习运行基础
 
@@ -850,7 +850,20 @@ Phase 16.1 -> 16.2 Smoke    PASS (5 / 5)
 Phase 16.1 -> 16.2 Demo     HUMAN INTEGRATION PASS (4 / 4)
 Phase 1 -> 16.2 Regression   PASS (48 deterministic scripts + Production Build)
 Phase 16.2 Overall          PASS / FROZEN
-Phase 16.3                  NOT STARTED
+Phase 1 -> 16.2 Single E2E  PASS (5 / 5)
+Phase 16 Live Provider      PASS (5 / 5 controlled smoke)
+Phase 16.3 Design           ACCEPTED
+Phase 16.3A Engineering     PASS (14 / 14 deterministic Debug)
+Phase 16.3A Demo            HUMAN ACCEPTANCE PASS
+Phase 16.3A Controlled Live PASS (11 / 11)
+Phase 16.3A Overall         PASS / FROZEN
+Phase 16.3B Engineering     PASS (14 / 14 Debug + Build)
+Phase 16.3B Human Demo      PASS (11 / 11 Controlled Cases + PC / Tablet)
+Phase 16.3B Overall         PASS / FROZEN
+Phase 16.3 Day 0 Integration PASS (11 / 11 deterministic)
+Phase 16.3C Engineering     PASS (10 / 10 simulation + browser smoke)
+Phase 16.3C Human Demo      PASS (4 / 4 controlled multi-day cases)
+Phase 16.3C Natural Run     PENDING (0 / 5 natural days at preflight)
 ```
 
 Phase 16.1 PASS 只证明正式题目能够完成录入、校验、审核、冻结、修订和版本追溯，不表示同能力标签资源就适合当前 TaskRequest。Phase 16.2 必须继续验证能力、角色、难度、新颖度、近期重复、Rubric 和版本状态，形成可解释的 `matched / partial_match / no_match / review_required` 分支。
@@ -861,4 +874,22 @@ Phase 16.2B 已完成上下文匹配质量 Gate：复用 Existing TaskFulfillmen
 
 2026-07-20 完成 [Phase 1–16.2 组合式全链路 Runtime 回归](./reports/phase1_16_2_integrated_runtime_regression_2026-07-20.md)：48 个确定性 Debug / 集成脚本和 Production Build 全部通过，未发现冻结协议、身份追溯、幂等回流或安全阻断回退。本次回归未调用 DeepSeek Live Provider，也未进行浏览器人工 Demo 或单对象贯穿式 E2E，因此不能替代 Phase 16.3 的真实多日运行验收。
 
-Phase 16.3 将进一步验证单学生使用真实题目和真实 AI 连续运行 5—7 个自然日。验收重点不是每天都成功，而是刷新、重复提交、Provider 失败、复测缺席、资源 superseded 或人工复核发生时，正式 Evidence、Profile 和 GrowthMemory 不被污染，学习可以恢复并继续。
+单对象 E2E 与受控 DeepSeek 真实 Provider Smoke 后续均取得 `5 / 5 PASS`，补充证明正式资源能够进入真实 Diagnosis、Evidence、Existing Phase 8 / 14、受控反馈和下一 TaskRequest。该结果仍不替代持久化恢复后的第二份正式任务、统一学生入口或真实多日运行。
+
+Phase 16.3 设计已接受，按三个顺序工作包推进：16.3A 验证真实主链、持久化恢复和下一正式资源；16.3B 建立统一学生入口与隔离的内部复核入口；16.3C 执行 5—7 个自然日真实运行。验收重点不是每天都成功，而是刷新、重复提交、Provider 失败、复测缺席、资源 superseded 或人工复核发生时，正式 Evidence、Profile 和 GrowthMemory 不被污染，学习可以恢复并继续。详细协议见 [Phase 16.3](./phase16_3.md)。
+
+2026-07-21，16.3A Engineering / Deterministic Debug 完成 `14 / 14 PASS`：正式资源 A、作答、Formal Diagnosis Commit、Evidence / Phase 8 / Phase 14.1、受控反馈、持久化恢复和正式资源 B 已在同一 Orchestrator 中闭合；重复提交、提交中断、持久化失败、no_match、superseded 与能力错位分支均通过。该结果未调用 DeepSeek Live，不替代受控真实 Provider 串联和人工联调。
+
+同日，16.3A Lightweight Demo 完成人工验收并记录 `PASS`：正常完整回流、无效作答前置阻断、Diagnosis 复核、能力错位资源拒绝、重复提交幂等、学生区信息隔离和 PC / 平板布局均符合预期。
+
+随后 DeepSeek `deepseek-v4-flash` Controlled Real Provider Integration 完成 `11 / 11 PASS`：真实 Provider 只调用一次，Formal Diagnosis、Evidence、Profile、GrowthMemory、持久化恢复和第二份 Frozen Resource 全部闭合；重复提交与 Repository 重建未重跑 Diagnosis，无效作答和 questionable Diagnosis 分别在正确 Gate 阻断。Phase 16.3A 当前为 `PASS / FROZEN`，可以进入 16.3B；该结论不替代 16.3C 的自然日真实运行。
+
+同日，16.3B 完成：统一学生入口 `/learning` 与独立内部复核入口 `/internal/learning-review` 已接入，入口状态优先级、草稿 / 反馈恢复、到期复测、单活动 Session 幂等、身份错位阻断和学生字段隔离通过 `14 / 14` Debug；Controlled Demo `11 / 11`、PC / 平板人工操作、Phase 16.3A / Phase 12 回归及 Production Build 均通过。Phase 16.3B 已标记为 `PASS / FROZEN`。
+
+随后完成 16.3C Engineering Preflight：`/learning` 已切换到 Frozen Resource、正式 Orchestrator 和 IndexedDB Repository；Diagnosis 通过服务端 Application Boundary，浏览器不持有 Provider Key；正式资源池使用独立审核冻结的 `training` / `retest` / `transfer` 资源，任务角色不可由编排层改写，缺失时明确阻断；Multi-day Simulation `10 / 10 PASS`，草稿跨刷新恢复、无效作答前置阻断和内部自然日复核通过浏览器 Smoke。
+
+同日 Application Boundary Controlled Live Smoke `PASS`：真实 DeepSeek Diagnosis 形成 Formal Diagnosis、AbilityEvidence、Profile / GrowthMemory 回流和受控反馈；下一轮消费上一轮 `nextTaskResolution` 所指向的正式迁移资源。Live 暴露的 Session 身份常量、已结束 Checkpoint 优先级、新 Round 旧反馈覆盖和下一任务指针消费问题均已修复并回归。受控数据随后清理，自然日验收仍从 `0 / 5` 开始。
+
+随后 Phase 16.3C Lightweight Demo 完成人工验收：多日总览、恢复幂等、延迟复测和 Provider 异常安全阻断 `4 / 4 PASS`。恢复同一轮时 Provider 总调用次数保持为 `1`，异常分支不生成 Evidence、不更新 Profile；页面明确显示受控模拟和自然日 `0 / 5`。该结果不替代 5—7 个自然日真实运行。
+
+随后完成 [Phase 16.3 Day 0 Controlled Integration Debug](./reports/phase16_3_day0_controlled_integration_debug_2026-07-21.md)：统一入口状态与正式 Orchestrator 在同一组运行事实上完成 `11 / 11 PASS`，重复提交、Repository 重建、无效作答、Provider 失败、Diagnosis 复核和资源错位均未污染正式数据。该结果建立 16.3C 的确定性技术准入，不替代服务端 Application Boundary 或 5—7 个自然日真实运行。

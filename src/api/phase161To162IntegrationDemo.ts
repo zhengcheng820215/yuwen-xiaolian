@@ -21,6 +21,7 @@ import type {
   PrimaryAbilityId,
   QuestionResourceRubricItem,
 } from '../ai/schemas/questionResourceAdmission.schema.ts';
+import type { RecommendedTaskRole } from '../ai/schemas/nextLearningStrategy.schema.ts';
 import type {
   CoreResourceEligibilityResult,
   QualityGatedExecutableTaskResult,
@@ -49,6 +50,22 @@ type RepositoryFixture = {
   repository: Repository;
   draftId: string;
   version: FrozenQuestionResourceVersion;
+};
+
+export type Phase163FormalResourcePoolItem = {
+  version: FrozenQuestionResourceVersion;
+  task: NonNullable<QualityGatedExecutableTaskResult['task']>;
+};
+
+type ResourceFixtureOptions = {
+  taskRole?: RecommendedTaskRole;
+  materialTitle?: string;
+  materialText?: string;
+  taskTitle?: string;
+  questionStem?: string;
+  acceptedKeywords?: string[];
+  acceptedSignals?: [string, string];
+  tags?: string[];
 };
 
 export type ResourceIntegrationDemoCase = {
@@ -101,6 +118,83 @@ export async function getPhase161To162IntegrationDemoData(): Promise<{
       passed: cases.filter((item) => item.passed).length,
     },
   };
+}
+
+export async function getPhase163FormalResourcePoolData(): Promise<Phase163FormalResourcePoolItem[]> {
+  const specifications: Array<{ suffix: string; options: ResourceFixtureOptions }> = [
+    {
+      suffix: 'phase163-training-leaf',
+      options: {},
+    },
+    {
+      suffix: 'phase163-training-umbrella',
+      options: {
+        materialTitle: '雨中的伞',
+        materialText: '雨越下越大，母亲把伞往孩子那边推了推，自己的半边肩膀很快被雨水打湿。',
+        taskTitle: '人物心理推断练习',
+        questionStem: '母亲把伞推向孩子一侧，表现出怎样的心理？请结合她的动作说明理由。',
+        acceptedKeywords: ['关心', '爱护', '担心'],
+        acceptedSignals: ['指出母亲把伞推向孩子、自己肩膀被淋湿', '说明动作与关心、爱护孩子之间的联系'],
+      },
+    },
+    {
+      suffix: 'phase163-retest-window',
+      options: {
+        taskRole: 'retest',
+        materialTitle: '离开教室前',
+        materialText: '放学后，同学们陆续离开。李老师走到窗边，把被风吹歪的花盆扶正，又回头看了看整齐的课桌，才轻轻关上门。',
+        taskTitle: '人物心理独立复测',
+        questionStem: '李老师离开教室前的动作表现出怎样的心理？请结合材料中的细节说明理由。',
+        acceptedKeywords: ['关心', '负责', '留意'],
+        acceptedSignals: ['指出扶正花盆、回看课桌或轻轻关门等细节', '说明动作与关心教室、认真负责之间的联系'],
+        tags: ['material_relation:new_context', 'hint_policy:no_hint', '人物心理', '独立复测'],
+      },
+    },
+    {
+      suffix: 'phase163-transfer-platform',
+      options: {
+        taskRole: 'transfer',
+        materialTitle: '站台上的目光',
+        materialText: '列车缓缓开动，父亲没有追着车走，只站在原地朝车窗挥手。直到站台尽头看不见了，他才慢慢放下手臂。',
+        taskTitle: '人物心理迁移验证',
+        questionStem: '父亲在列车开动后的动作表现出怎样的心理？请结合新的材料情境说明理由。',
+        acceptedKeywords: ['不舍', '牵挂', '留恋'],
+        acceptedSignals: ['指出父亲一直挥手、看不见后才放下手臂', '说明动作与不舍、牵挂或留恋之间的联系'],
+        tags: ['material_relation:new_context', 'hint_policy:no_hint', '人物心理', '迁移验证'],
+      },
+    },
+  ];
+
+  const pool: Phase163FormalResourcePoolItem[] = [];
+  for (const specification of specifications) {
+    const fixture = await createFrozenRepositoryResource(specification.suffix, specification.options);
+    const role = specification.options.taskRole || 'training';
+    const pipeline = await runPipeline(fixture.repository, 'inference', role);
+    const taskResult = createQualityGatedExecutableTask({
+      qualityResult: pipeline.qualityResult,
+      fulfillmentRequest: pipeline.fulfillment,
+      currentResourceSnapshot: pipeline.snapshot,
+      createdAt: NOW,
+    });
+    if (
+      pipeline.coreEligibility.status !== 'eligible' ||
+      pipeline.qualityResult.evaluation?.status !== 'matched' ||
+      taskResult.status !== 'created' ||
+      !taskResult.task
+    ) {
+      const details = [
+        `core=${pipeline.coreEligibility.status}`,
+        `quality=${pipeline.qualityResult.evaluation?.status || 'missing'}`,
+        `task=${taskResult.status}`,
+        ...pipeline.coreEligibility.issues,
+        ...(pipeline.qualityResult.evaluation?.issues || []),
+        ...taskResult.issues,
+      ];
+      throw new Error(`Formal Phase 16.3 resource failed admission or matching: ${specification.suffix}; ${details.join(', ')}`);
+    }
+    pool.push({ version: fixture.version, task: taskResult.task });
+  }
+  return pool;
 }
 
 async function buildNormalCase(): Promise<ResourceIntegrationDemoCase> {
@@ -290,9 +384,10 @@ async function createCaseResult(input: {
 async function runPipeline(
   repository: Repository,
   targetAbilityId: PrimaryAbilityId = 'inference',
+  taskRole: RecommendedTaskRole = 'training',
 ): Promise<PipelineResult> {
-  const envelope = buildEnvelope(targetAbilityId);
-  const fulfillment = buildFulfillment(targetAbilityId);
+  const envelope = buildEnvelope(targetAbilityId, taskRole);
+  const fulfillment = buildFulfillment(targetAbilityId, taskRole);
   const snapshot = await loadResourceEligibilitySnapshot(repository, NOW);
   const coreEligibility = evaluateCoreResourceEligibility({
     adaptiveTaskRequestEnvelope: envelope,
@@ -311,7 +406,10 @@ async function runPipeline(
   return { snapshot, coreEligibility, qualityResult, fulfillment };
 }
 
-async function createFrozenRepositoryResource(suffix: string): Promise<RepositoryFixture> {
+async function createFrozenRepositoryResource(
+  suffix: string,
+  options: ResourceFixtureOptions = {},
+): Promise<RepositoryFixture> {
   const repository = new InMemoryQuestionResourceAdmissionRepository();
   const materialId = `material-integration-demo-${suffix}`;
   const materialVersionId = `${materialId}:v1`;
@@ -322,8 +420,8 @@ async function createFrozenRepositoryResource(suffix: string): Promise<Repositor
     materialId,
     materialVersionId,
     versionNumber: 1,
-    title: '旧书中的树叶',
-    content: MATERIAL_TEXT,
+    title: options.materialTitle || '旧书中的树叶',
+    content: options.materialText || MATERIAL_TEXT,
     source: { sourceType: 'manual', description: 'Phase 16.1 -> 16.2 browser integration fixture.' },
     createdAt: NOW,
   });
@@ -332,17 +430,17 @@ async function createFrozenRepositoryResource(suffix: string): Promise<Repositor
     resourceId,
     taskId: `task-integration-demo-${suffix}`,
     materialVersionId,
-    title: '人物心理推断训练',
-    questionStem: '父亲当时有怎样的心理？请根据材料中的动作说明理由。',
+    title: options.taskTitle || '人物心理推断训练',
+    questionStem: options.questionStem || '父亲当时有怎样的心理？请根据材料中的动作说明理由。',
     questionType: 'reading_comprehension',
     responseFormat: 'long_text',
     assessmentMode: 'reasoning_chain',
     answerAcceptance: {
-      acceptedKeywords: ['怀念', '不舍', '珍惜'],
+      acceptedKeywords: options.acceptedKeywords || ['怀念', '不舍', '珍惜'],
       semanticEquivalentAllowed: true,
       normalizationRules: ['trim', 'ignore_punctuation'],
     },
-    rubric: validRubric('inference'),
+    rubric: validRubric('inference', options.acceptedSignals),
     minimumAnswerRequirement: {
       minLength: 8,
       requireTextEvidence: true,
@@ -352,12 +450,12 @@ async function createFrozenRepositoryResource(suffix: string): Promise<Repositor
       abilityId: 'inference',
       supportingAbilityIds: ['comprehension'],
       prerequisiteAbilityIds: ['comprehension'],
-      taskRole: 'training',
+      taskRole: options.taskRole || 'training',
       difficulty: 'intermediate',
       gradeRange: '初中',
     },
     source: { sourceType: 'manual', description: 'Phase 16.1 -> 16.2 browser integration fixture.' },
-    tags: ['material_relation:similar_context', 'hint_policy:limited_hint', '人物心理'],
+    tags: options.tags || ['material_relation:similar_context', 'hint_policy:limited_hint', '人物心理'],
     now: NOW,
   });
   const validation = await validateStructuredQuestionDraft(repository, draftId, NOW);
@@ -400,22 +498,61 @@ async function freezeNextVersion(
   return (await freezeQuestionResourceDraft(repository, draft.draftId, LATER)).version;
 }
 
-function buildEnvelope(targetAbilityId: PrimaryAbilityId): AdaptiveTaskRequestEnvelope {
+function buildEnvelope(
+  targetAbilityId: PrimaryAbilityId,
+  taskRole: RecommendedTaskRole = 'training',
+): AdaptiveTaskRequestEnvelope {
   const base = clone(getResourceMatchingQualityDemoData().cases[0].scenario.envelope);
+  const isRetest = taskRole === 'retest';
+  const isTransfer = taskRole === 'transfer';
+  const action = isRetest ? 'independent_retest' : isTransfer ? 'transfer_test' : 'continue_training';
+  const materialNovelty = isRetest || isTransfer ? 'new_context' : 'similar_context';
+  const hintPolicy = isRetest || isTransfer ? 'no_hint' : 'limited_hint';
   base.taskRequest.studentId = STUDENT_ID;
   base.taskRequest.targetAbilityId = targetAbilityId;
+  base.taskRequest.taskRole = taskRole;
+  base.taskRequest.action = action;
+  base.taskRequest.constraints = [`targetAbilityId:${targetAbilityId}`, `taskRole:${taskRole}`];
   base.adaptiveConstraints.studentId = STUDENT_ID;
   base.adaptiveConstraints.targetAbilityId = targetAbilityId;
+  base.adaptiveConstraints.sourceStrategyAction = base.taskRequest.action;
+  base.adaptiveConstraints.sourceStrategyTaskRole = taskRole;
+  base.adaptiveConstraints.learningIntent = isRetest
+    ? 'independent_validation'
+    : isTransfer
+      ? 'transfer_validation'
+      : 'consolidation';
+  base.adaptiveConstraints.observationTarget = isRetest
+    ? 'verify_independence'
+    : isTransfer
+      ? 'verify_transfer'
+      : 'recheck_weakness';
+  base.adaptiveConstraints.recommendedTaskRole = taskRole;
+  base.adaptiveConstraints.materialNovelty = materialNovelty;
+  base.adaptiveConstraints.hintPolicy = hintPolicy;
+  base.adaptiveConstraints.targetEvidenceQuality = isRetest || isTransfer ? 'high' : 'medium';
+  base.adaptiveConstraints.preExecutionQualityConditions.requireNovelMaterial = isRetest || isTransfer;
+  base.adaptiveConstraints.preExecutionQualityConditions.requiredHintPolicy = hintPolicy;
+  base.adaptiveConstraints.requiredCapabilities = capabilitiesForRole(taskRole);
   for (const rule of base.adaptiveConstraints.hardConstraints) {
     if (rule.code === 'target_ability') rule.value = targetAbilityId;
+    if (rule.code === 'task_role') rule.value = taskRole;
+    if (rule.code === 'material_novelty') rule.value = base.adaptiveConstraints.materialNovelty;
+    if (rule.code === 'hint_policy') rule.value = base.adaptiveConstraints.hintPolicy;
   }
   return base;
 }
 
-function buildFulfillment(targetAbilityId: PrimaryAbilityId): TaskFulfillmentRequest {
+function buildFulfillment(
+  targetAbilityId: PrimaryAbilityId,
+  taskRole: RecommendedTaskRole = 'training',
+): TaskFulfillmentRequest {
   const base = clone(getResourceMatchingQualityDemoData().cases[0].scenario.fulfillment);
   base.studentId = STUDENT_ID;
   base.targetAbilityId = targetAbilityId;
+  base.taskRole = taskRole;
+  base.contentType = taskRole === 'retest' || taskRole === 'transfer' ? 'new_text' : 'comparable_text';
+  base.requiredCapabilities = capabilitiesForRole(taskRole);
   return base;
 }
 
@@ -432,7 +569,13 @@ function buildHistory(): ResourceMatchRecentHistory {
   };
 }
 
-function validRubric(abilityId: PrimaryAbilityId): QuestionResourceRubricItem[] {
+function validRubric(
+  abilityId: PrimaryAbilityId,
+  acceptedSignals: [string, string] = [
+    '指出父亲站了很久或小心夹回树叶',
+    '说明动作与怀念、不舍之间的联系',
+  ],
+): QuestionResourceRubricItem[] {
   return [
     {
       itemId: 'evidence',
@@ -441,7 +584,7 @@ function validRubric(abilityId: PrimaryAbilityId): QuestionResourceRubricItem[] 
       importance: 'critical',
       required: true,
       evidenceRequirement: { requireTextEvidence: true },
-      acceptedSignals: ['指出父亲站了很久或小心夹回树叶'],
+      acceptedSignals: [acceptedSignals[0]],
     },
     {
       itemId: 'explanation',
@@ -450,9 +593,16 @@ function validRubric(abilityId: PrimaryAbilityId): QuestionResourceRubricItem[] 
       importance: 'important',
       required: true,
       evidenceRequirement: { requireExplanation: true, requireConclusion: true },
-      acceptedSignals: ['说明动作与怀念、不舍之间的联系'],
+      acceptedSignals: [acceptedSignals[1]],
     },
   ];
+}
+
+function capabilitiesForRole(taskRole: RecommendedTaskRole): string[] {
+  const common = ['open_response', 'ability_observation', 'text_evidence', 'inference_chain'];
+  if (taskRole === 'retest') return [...common, 'independent_answer'];
+  if (taskRole === 'transfer') return [...common, 'new_context_transfer'];
+  return [...common, 'focused_practice'];
 }
 
 function stageStatus(passed: boolean, review: boolean): 'passed' | 'blocked' | 'review' {

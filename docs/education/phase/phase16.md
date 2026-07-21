@@ -2,9 +2,11 @@
 
 设计状态：ACCEPTED
 
-工程状态：IN PROGRESS（Phase 16.1 PASS；Phase 16.2 PASS / FROZEN；Phase 1–16.2 组合式 Runtime 回归 PASS；工作台 UX 待后续专项优化；Phase 16.3 未开始）
+工程状态：IN PROGRESS（Phase 16.1 PASS；Phase 16.2 PASS / FROZEN；Phase 16.3A / 16.3B `PASS / FROZEN`；16.3C Engineering Preflight、Application Boundary Controlled Live Smoke 与 Lightweight Demo Acceptance `PASS`：Simulation `10 / 10`、受控多日人工 Case `4 / 4`、正式 `/learning`、真实 Provider 回流、策略驱动下一 Frozen Resource、IndexedDB 恢复与浏览器 Smoke 已成立；5—7 个自然日验收 `PENDING (0 / 5)`；工作台 UX 待后续专项优化）
 
 2026-07-20 回归记录：[Phase 1–16.2 组合式全链路 Runtime Debug 验收](./reports/phase1_16_2_integrated_runtime_regression_2026-07-20.md)。48 个确定性 Debug / 集成脚本与 Production Build 全部通过；本次未调用 DeepSeek Live Provider，也未执行浏览器人工 Demo。
+
+2026-07-21 Phase 16.3 前置基线：Phase 1–16.2 单对象 E2E 为 `5 / 5 PASS`；受控 DeepSeek 真实 Provider 单对象 Smoke 为 `5 / 5 PASS`，验证 Formal Diagnosis、Evidence、Existing Phase 8、Phase 14、受控反馈和下一 TaskRequest。该结果只作为 16.3A 前置基线，不代表持久化第二任务、统一学生入口或真实多日运行已经完成。
 
 ## 一、阶段定位
 
@@ -262,52 +264,36 @@ matched != 已证明教学有效
 
 资源匹配必须保留“为什么成功、为什么失败、哪些条件未满足”的依据，不得只保存最终 `resourceId`。
 
-### Phase 16.3：真实多日学习运行（Real Multi-day Learning Operation）
+### Phase 16.3：真实学习运行与多日连续使用（Real Learning Operation and Multi-day Continuity）
 
 核心问题：
 
-> 单学生能否使用真实题目连续运行多个自然日，并在异常发生后保持事实不污染且可以继续学习？
+> 正式资源、真实学生作答、真实 AI Diagnosis、长期状态和下一任务，能否在统一入口中连续运行，并在多个自然日和异常发生后保持可恢复、可追溯且不污染正式事实？
 
-最小周期：5—7 个自然日。
-
-最小链路：
+Phase 16.3 按三个内部工作包顺序推进，但不新增更细 Phase：
 
 ```text
-Reviewed Frozen Question Resource
--> ExecutableLearningTask
--> Real Student Answer
--> Real Diagnosis / Formal Commit
--> AbilityEvidence
--> Evaluation / ProfileUpdateDecision
--> GrowthMemory
--> Delayed Retest / Next Strategy
--> Next Reviewed Resource
--> Next Learning Session
+16.3A Real Learning Chain Integration
+真实主链、真实 Provider、持久化恢复和下一正式任务
+↓
+16.3B Unified Learning Entry
+统一学生入口与隔离的内部复核入口
+↓
+16.3C Real Multi-day Operation
+5—7 个自然日真实运行
 ```
 
-至少验证：
+16.3A 必须证明至少两份正式 Frozen Resource 被同一条业务链连续消费，第一轮 Formal Diagnosis、Evidence、Existing Phase 8 / 14、反馈和恢复后的下一 Strategy / TaskRequest / Resource Match 全部闭合。Provider 失败只能进入重试、阻断或人工复核，不得回退到 mock Diagnosis 并生成正式 Evidence。
 
-- Day 1 正常学习并保存历史；
-- Day 2 读取既有 Profile、GrowthMemory 和 Session 历史；
-- 后续按计划进入延迟复测；
-- 新 Evidence 完整进入既有 Evaluation 与 ProfileUpdateDecision；
-- 下一任务消费正式冻结资源；
-- 学习链路可以被人工回放和复核。
+16.3B 必须提供单一学生学习入口，覆盖开始、继续未完成 Session、待复测、反馈、结果和异常提示；学生入口与题目录入、Diagnosis 复核、Evidence / GrowthMemory 追溯等内部入口必须隔离。浏览器不得直接持有或调用 Provider Key。
 
-至少覆盖以下异常：
-
-- 当前没有匹配资源；
-- Provider 临时失败；
-- Diagnosis 进入 `review_required`；
-- 延迟复测到期但学生未完成；
-- 正在引用的资源后来被 `superseded`；
-- 页面刷新或浏览器重启后恢复；
-- 同一任务重复提交；
-- 人工判定某条 Diagnosis 不应继续消费。
+16.3C 只有在 A、B 均通过后才能开始，真实运行周期为 5—7 个自然日。时间模拟 Debug 只能作为预演，不能替代自然日试用。
 
 16.3 PASS 的关键不是每天都没有错误，而是：
 
 > 异常发生后，系统仍能保持正式事实不污染、身份不重复、状态可恢复，并允许下一次学习继续运行。
+
+详细目标、边界、Cases 与验收标准见 [Phase 16.3](./phase16_3.md)。
 
 ## 六、人工复核贯穿方式
 
@@ -445,7 +431,7 @@ Phase 16 完成时至少证明：
 
 ### Phase 16.3 完成定义
 
-> 单学生能够使用真实题目连续运行 5—7 个自然日，学习记录、Evidence、复测、策略和下一任务均可恢复、追溯与人工复核，异常不会污染正式状态。
+> 16.3A 真实产品主链、16.3B 统一学生入口和 16.3C 5—7 个自然日真实运行均通过；单学生能够使用真实题目和受控真实 AI 连续学习，记录、Evidence、复测、策略和下一任务均可恢复、追溯与人工复核，异常不会污染正式状态。
 
 ## 十二、本阶段不做
 
@@ -475,8 +461,9 @@ Phase 16 总纲冻结
 -> Resource Matching Quality Debug
 -> Match Review Demo / Acceptance
 -> Phase 16.3 子阶段文档
--> Deterministic Multi-day Simulation
--> 5—7 个自然日真实试用
+-> 16.3A Real Learning Chain Integration / Acceptance
+-> 16.3B Unified Learning Entry / Human Acceptance
+-> 16.3C Deterministic Multi-day Simulation / 5—7 个自然日真实试用
 -> Human Review / Regression / Build
 -> Phase 16 Acceptance / Freeze
 ```

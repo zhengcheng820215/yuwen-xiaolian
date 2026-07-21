@@ -1,13 +1,24 @@
-import { CheckCircle2, Circle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Circle } from 'lucide-react';
 
 export default function LearningWorkspaceHeader({
   currentRound,
   completedRounds,
   totalRounds,
+  onBack,
 }) {
   return (
     <header className="sticky top-0 z-30 w-full border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex min-h-16 max-w-[1208px] items-center justify-end px-4 py-2 md:px-6">
+      <div className={`mx-auto flex min-h-16 max-w-[1208px] items-center px-4 py-2 md:px-6 ${onBack ? 'justify-between' : 'justify-end'}`}>
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex min-h-10 items-center gap-2 rounded-md px-2 text-sm font-normal text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            <ArrowLeft size={18} />
+            学习入口
+          </button>
+        ) : null}
         <RoundSteps current={currentRound} completed={completedRounds} total={totalRounds} />
       </div>
     </header>
