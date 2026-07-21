@@ -9,10 +9,9 @@ import {
 } from '../schemas/unifiedLearningEntry.schema.ts';
 import type { RealLearningOperationCheckpoint } from '../schemas/realLearningOperation.schema.ts';
 import {
-  STUDENT_REVIEW_REQUIRED_ACTION_TEXT,
-  STUDENT_REVIEW_REQUIRED_MESSAGE,
-  STUDENT_REVIEW_REQUIRED_TITLE,
+  resolveStudentRuntimePausePresentation,
 } from '../content/studentRuntimeMessages.ts';
+import { toStudentFeedbackSummary } from '../content/studentFeedbackPresentation.ts';
 
 export function createUnifiedLearningActivityContext(input: {
   studentId: string;
@@ -70,12 +69,17 @@ export function buildUnifiedLearningEntryState(
   }
 
   if (checkpoint?.status === 'review_required') {
+    const presentation = resolveStudentRuntimePausePresentation({
+      status: 'review_required',
+      nextAction: checkpoint.nextAction,
+      hasFormalRoundResult: Boolean(checkpoint.learningPersistenceRecordId),
+    });
     return finish({
       ...base,
       status: 'review_required', priority: 1,
-      title: STUDENT_REVIEW_REQUIRED_TITLE,
-      message: STUDENT_REVIEW_REQUIRED_MESSAGE,
-      primaryAction: 'retry_later', primaryActionText: STUDENT_REVIEW_REQUIRED_ACTION_TEXT, canEnterWorkspace: false,
+      title: presentation.title,
+      message: presentation.message,
+      primaryAction: 'retry_later', primaryActionText: presentation.actionText, canEnterWorkspace: false,
     });
   }
   if (checkpoint?.status === 'blocked') {
@@ -160,7 +164,9 @@ export function buildUnifiedLearningEntryState(
       ...base,
       status: 'feedback_available', priority: 5,
       title: '上次学习已经完成',
-      message: record.studentLearningFeedback?.summary || record.studentRoundSummary?.completionSummary || '本轮结果已经保存，可以查看反馈。',
+      message: record.studentLearningFeedback
+        ? toStudentFeedbackSummary(record.studentLearningFeedback.summary)
+        : record.studentRoundSummary?.completionSummary || '本轮结果已经保存，可以查看反馈。',
       primaryAction: 'view_feedback', primaryActionText: '查看本轮反馈', canEnterWorkspace: true,
     });
   }
@@ -209,7 +215,9 @@ export function buildInternalLearningReviewSummary(
     summary: status === 'completed'
       ? '本轮正式结果和下一任务均已形成。'
       : status === 'review_required'
-        ? '当前结果不会自动进入 Evidence 回流。'
+        ? checkpoint.learningPersistenceRecordId
+          ? '本轮正式结果已保存；下一任务决策需要检查。'
+          : '当前结果不会自动进入 Evidence 回流。'
         : status === 'blocked'
           ? '流程已安全停止，已有正式结果不会被覆盖。'
           : '系统将从已保存的 Checkpoint 继续。',

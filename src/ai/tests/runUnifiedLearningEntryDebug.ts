@@ -28,9 +28,10 @@ async function main(): Promise<void> {
   }), 'continue_round', (state) => state.hasDraft);
   checkState('B4 已完成结果恢复反馈', baseInput({
     activeContexts: [activeContext()],
-    latestPersistenceRecord: completedRecord(),
+    latestPersistenceRecord: completedRecord('下面是根据本次正式记录整理的受限反馈。'),
     completedRoundCount: 1,
-  }), 'feedback_available', (state) => state.hasUnviewedFeedback);
+  }), 'feedback_available', (state) => state.hasUnviewedFeedback &&
+    state.message === '下面是根据本次回答整理的反馈。');
   checkState('B5 到期复测生成正式入口', baseInput({
     delayedRetestPlans: [retestPlan()],
   }), 'delayed_retest_available', (state) => state.retest?.targetAbilityId === 'inference');
@@ -187,10 +188,10 @@ function record(overrides: Partial<LearningPersistenceRecord> = {}): LearningPer
   };
 }
 
-function completedRecord(): LearningPersistenceRecord {
+function completedRecord(summary = '本轮反馈已经保存。'): LearningPersistenceRecord {
   return record({
     learningRoundResult: { status: 'completed' } as LearningPersistenceRecord['learningRoundResult'],
-    studentLearningFeedback: { summary: '本轮反馈已经保存。' } as LearningPersistenceRecord['studentLearningFeedback'],
+    studentLearningFeedback: { summary } as LearningPersistenceRecord['studentLearningFeedback'],
   });
 }
 

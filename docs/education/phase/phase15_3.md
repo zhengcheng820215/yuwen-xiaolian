@@ -1,7 +1,7 @@
 # Phase 15.3：Controlled Feedback Expression 最小闭环（受控反馈表达）
 
 设计状态：ACCEPTED
-工程状态：PASS（Deterministic Debug 36 / 36；Production Build PASS）
+工程状态：PASS（当前 Deterministic Debug 56 / 56；Production Build PASS）
 质量验收状态：PASS / FROZEN（DeepSeek Live 12 / 12；Controlled Safety 2 / 2；人工抽检 12 / 12）
 前置状态：Phase 15.1 PASS / FROZEN；Phase 15.2 PASS / FROZEN
 正式质量策略：Diagnosis Quality Policy v2.1
@@ -51,6 +51,22 @@ StudentLearningFeedback.guidance
 - 表达失败使用安全模板，不回退展示内部诊断原文；
 - 旧持久化结果在正式 Diagnosis、Evidence 与 Frozen Task 上下文完整时按当前 Teaching Plan 版本做只读兼容转译；已有旧版 guidance 也不阻止更新展示，但不重跑 Provider、不改写正式记录；
 - 页面只渲染正式 guidance，不再按分号拆分内部诊断字符串。
+
+学生点评与建议采用单一主要缺口链路：
+
+```text
+Frozen Task Requirements
++ Student Response
++ Formal Diagnosis / Evidence
+↓
+requirementCoverage
+↓
+primaryGapRequirementId
+├─ primaryGap：只描述本次完成情况
+└─ revisionActions：只描述下一步动作
+```
+
+`primaryGapRequirementId` 是点评与建议的共同权威来源。完整回答没有主要缺口时，Teaching Plan 不生成修改动作；全部覆盖状态均为 `insufficient_to_judge` 时，学生页只展示克制的行动建议，不将信息不足伪装成评价。当前学生反馈确定性回归为 `56 / 56 PASS`。
 
 ## 一、阶段目标
 
@@ -590,7 +606,7 @@ LLM 表达失败不等于整个学习回合失败，也不得影响已经形成�
 ```text
 反馈
 
-做得好的地方
+思路点评
 {validated strength facts，允许为空}
 
 可以改进的地方
@@ -926,7 +942,7 @@ Diagnosis 只确认“仍需完善”，未提供具体不足类型
 
 ```text
 Positive Evidence 只有“任务基本满足要求 / 可形成正向能力证据”等运行结论
--> 不展示“做得好的地方”
+-> 不展示“思路点评”
 -> 不暴露 inference 等能力码或“能力证据”等内部术语
 
 存在具体、可追溯的本次作答事实
@@ -1085,11 +1101,17 @@ Phase 15.3 通过必须同时满足：
 26. 同一 feedbackRequestId 保持幂等；
 27. StudentLearningFeedback 符合 Existing Phase 11 Schema；
 28. 学生对象不包含 Evidence、confidence、Prompt、Provider 或内部 ID；
-29. 24 个确定性 Debug Case 全部 PASS；
+29. 51 个确定性 Debug Case 全部 PASS；
 30. 最小 Live Smoke PASS；
 31. 12–20 条脱敏反馈抽检无虚构引用、无长期能力越权、无新增教育结论；
 32. Phase 11、12、15.1、15.2 关键冻结回归通过；
 33. Production Build 通过。
+
+学生端“思路点评”属于确定性反馈适配结果，不交给表达模型自由判断。Adapter 应先从正式任务要求与评价依据派生结论、文本依据、推理关系等可核验环节，再将每个环节标记为 `covered / partially_covered / missing / insufficient_to_judge`。完整覆盖状态保留在正式反馈对象中，学生端只展示最多一至两个已完成点和一个主要缺口。来源限定为正式任务要求、评价依据、材料事实、学生正式答案与已提交 Diagnosis / Evidence；合理异表述通过受控语义归一以及动作、对象、状态关系匹配接纳，不要求命中参考答案关键词。表达模型即使启用，也不能改变覆盖结论。
+
+Positive / Growth Evidence 只能作为本次表现方向的正式确认，不能把 Evidence 的 `detail`、`observation` 或内部解释句直接改写成“你写出了……”等学生点评。学生端完成项必须能够在学生原答案中定位精确片段或完整等价语义；Rubric、Diagnosis 或 Evidence 单独声明“文本依据已使用”“推理关系成立”，不能替代学生答案中的实际表达。若正式结果与学生端可核验内容之间存在差异，学生投影应保持 `insufficient_to_judge`，既不伪造完成项，也不反向制造不足。
+
+文本依据不得使用简单子串或关键词命中作为展示条件。`studentEvidence` 必须是学生答案中可定位、可独立理解的动作、语句、状态或事实片段，并与正式任务事实具有可核验的语义关联；“自己、当时、这样、那里”等孤立代词、时间词、指示词和泛词不得形成正向点评。动作与对象关系成立的合理改写可以接纳；只写结论不得判为已有依据；写出事实但未解释关系时，文本依据和推理关系必须分别记录。正式 `taskEvidence` 可以保留学生尚未发现的材料事实用于内部核验，但不得直接进入学生端缺口文案或成为答案提示。
 
 硬性红线：
 

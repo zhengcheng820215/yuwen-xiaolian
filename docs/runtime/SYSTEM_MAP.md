@@ -372,7 +372,7 @@ Evidence
 
 ### Phase 15：真实 AI Diagnosis 与受控表达
 
-Phase 15.1 已证明真实 Provider 可以安全进入 Runtime；Phase 15.2 已完成 Prompt v4 质量验证和 Policy v2.1 正式启用；Phase 15.3 已完成 24 / 24 个确定性 Debug Case、DeepSeek Live 12 / 12 和脱敏人工抽检 12 / 12，只把已确认事实转化为学生可读表达，越权或 Provider 失败时保留模板基线。独立整链 Debug 已以 11 / 11 验证 Formal Commit、Evidence Return、Phase 8、Phase 14.1 与 Controlled Feedback 的组合边界。Phase 15 当前为 `PASS / FROZEN`。
+Phase 15.1 已证明真实 Provider 可以安全进入 Runtime；Phase 15.2 已完成 Prompt v4 质量验证和 Policy v2.1 正式启用；Phase 15.3 当前确定性回归已扩展至 56 / 56 PASS，并保留既有 DeepSeek Live 12 / 12 和脱敏人工抽检 12 / 12，只把已确认事实转化为学生可读表达，越权或 Provider 失败时保留模板基线。学生点评与建议现在由同一主要缺口驱动：点评只描述本次完成情况，建议只提供下一步动作。独立整链 Debug 已以 11 / 11 验证 Formal Commit、Evidence Return、Phase 8、Phase 14.1 与 Controlled Feedback 的组合边界。Phase 15 当前为 `PASS / FROZEN`。
 
 详细文档入口：[Phase 15](../education/phase/phase15.md)、[Phase 15.1](../education/phase/phase15_1.md)、[Phase 15.2](../education/phase/phase15_2.md)、[Phase 15.3](../education/phase/phase15_3.md)。
 

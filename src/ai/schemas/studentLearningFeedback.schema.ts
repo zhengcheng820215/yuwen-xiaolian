@@ -31,6 +31,39 @@ export type StudentFeedbackGuidance = {
   revisionActions: string[];
 };
 
+export type TaskRequirementCoverageType =
+  | 'conclusion'
+  | 'text_evidence'
+  | 'reasoning_relation'
+  | 'expression';
+
+export type TaskRequirementCoverageStatus =
+  | 'covered'
+  | 'partially_covered'
+  | 'missing'
+  | 'insufficient_to_judge';
+
+export type TaskRequirementCoverage = {
+  requirementId: string;
+  requirementType: TaskRequirementCoverageType;
+  requirementText: string;
+  required: boolean;
+  status: TaskRequirementCoverageStatus;
+  studentEvidence: string[];
+  taskEvidence: string[];
+  source: 'formal_diagnosis' | 'ability_evidence' | 'rubric' | 'task_requirement';
+  studentMessage?: string;
+  gapMessage?: string;
+};
+
+export type StudentThinkingReview = {
+  requirementCoverage?: TaskRequirementCoverage[];
+  coveredPoints: string[];
+  primaryGapRequirementId?: string;
+  primaryGap?: string;
+  missingPoints: string[];
+};
+
 export type StudentLearningFeedback = {
   learningRoundId: string;
   studentId: string;
@@ -45,6 +78,7 @@ export type StudentLearningFeedback = {
   whatNeedsAttention: string[];
   nextActionText: string;
   guidance?: StudentFeedbackGuidance;
+  thinkingReview?: StudentThinkingReview;
 
   canRetry: boolean;
   canFinishRound: boolean;
@@ -84,6 +118,29 @@ export function isStudentLearningFeedback(value: unknown): value is StudentLearn
     feedback.whatNeedsAttention.every(isNonEmptyString) &&
     isNonEmptyString(feedback.nextActionText) &&
     (
+      feedback.thinkingReview === undefined ||
+      (
+        typeof feedback.thinkingReview === 'object' &&
+        feedback.thinkingReview !== null &&
+        Array.isArray(feedback.thinkingReview.coveredPoints) &&
+        feedback.thinkingReview.coveredPoints.every(isNonEmptyString) &&
+        (
+          feedback.thinkingReview.primaryGapRequirementId === undefined ||
+          isNonEmptyString(feedback.thinkingReview.primaryGapRequirementId)
+        ) &&
+        (feedback.thinkingReview.primaryGap === undefined || isNonEmptyString(feedback.thinkingReview.primaryGap)) &&
+        Array.isArray(feedback.thinkingReview.missingPoints) &&
+        feedback.thinkingReview.missingPoints.every(isNonEmptyString) &&
+        (
+          feedback.thinkingReview.requirementCoverage === undefined ||
+          (
+            Array.isArray(feedback.thinkingReview.requirementCoverage) &&
+            feedback.thinkingReview.requirementCoverage.every(isTaskRequirementCoverage)
+          )
+        )
+      )
+    ) &&
+    (
       feedback.guidance === undefined ||
       (
         typeof feedback.guidance === 'object' &&
@@ -103,4 +160,23 @@ export function isStudentLearningFeedback(value: unknown): value is StudentLearn
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isTaskRequirementCoverage(value: unknown): value is TaskRequirementCoverage {
+  if (!value || typeof value !== 'object') return false;
+  const coverage = value as TaskRequirementCoverage;
+  return (
+    isNonEmptyString(coverage.requirementId) &&
+    ['conclusion', 'text_evidence', 'reasoning_relation', 'expression'].includes(coverage.requirementType) &&
+    isNonEmptyString(coverage.requirementText) &&
+    typeof coverage.required === 'boolean' &&
+    ['covered', 'partially_covered', 'missing', 'insufficient_to_judge'].includes(coverage.status) &&
+    Array.isArray(coverage.studentEvidence) &&
+    coverage.studentEvidence.every(isNonEmptyString) &&
+    Array.isArray(coverage.taskEvidence) &&
+    coverage.taskEvidence.every(isNonEmptyString) &&
+    ['formal_diagnosis', 'ability_evidence', 'rubric', 'task_requirement'].includes(coverage.source) &&
+    (coverage.studentMessage === undefined || isNonEmptyString(coverage.studentMessage)) &&
+    (coverage.gapMessage === undefined || isNonEmptyString(coverage.gapMessage))
+  );
 }

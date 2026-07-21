@@ -84,7 +84,7 @@ export default function UnifiedLearningEntry() {
         {entry && !error ? (
           <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-16">
             <section aria-live="polite">
-              <StatusEyebrow status={entry.status} />
+              <StatusEyebrow status={entry.status} title={entry.title} />
               <h1 className="mt-3 max-w-[680px] text-xl font-semibold leading-8 text-slate-950">
                 {entry.title}
               </h1>
@@ -133,7 +133,7 @@ export default function UnifiedLearningEntry() {
               <h2 className="text-sm font-semibold text-slate-900">学习进度</h2>
               <dl className="mt-5 space-y-4 text-sm">
                 <ProgressRow label="已完成" value={`${entry.completedRoundCount} 轮`} />
-                <ProgressRow label="当前状态" value={statusLabel(entry.status)} />
+                <ProgressRow label="当前状态" value={statusLabel(entry.status, entry.title)} />
                 {entry.currentRoundNumber ? <ProgressRow label="当前任务" value={`第 ${entry.currentRoundNumber} 轮`} /> : null}
                 {entry.focusText ? <ProgressRow label="本轮重点" value={entry.focusText} /> : null}
               </dl>
@@ -145,14 +145,14 @@ export default function UnifiedLearningEntry() {
   );
 }
 
-function StatusEyebrow({ status }) {
+function StatusEyebrow({ status, title }) {
   const isComplete = ['feedback_available', 'session_ended'].includes(status);
   const isActionable = ['continue_round', 'start_new_round', 'delayed_retest_available'].includes(status);
   const tone = isComplete ? 'text-emerald-700' : isActionable ? 'text-blue-700' : ['blocked', 'review_required'].includes(status) ? 'text-amber-700' : 'text-slate-600';
   return (
     <div className={`flex items-center gap-2 text-sm font-semibold ${tone}`}>
       {isComplete ? <CheckCircle2 size={16} /> : <Clock3 size={16} />}
-      {statusLabel(status)}
+      {statusLabel(status, title)}
     </div>
   );
 }
@@ -180,7 +180,8 @@ function ErrorState({ message, onRetry }) {
   );
 }
 
-function statusLabel(status) {
+function statusLabel(status, title) {
+  if (status === 'review_required' && title === '本轮学习已经完成') return '下一任务待检查';
   const labels = {
     review_required: '结果未采用', blocked: '暂时无法继续', recovering_submission: '正在恢复',
     continue_round: '可以继续', delayed_retest_available: '复测待完成', feedback_available: '反馈可查看',

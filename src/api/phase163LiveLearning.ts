@@ -9,7 +9,12 @@ import {
   recordPhase163DailyOperation,
 } from '../ai/agents/phase163MultiDayOperationAgent.ts';
 import { runPhase163RealLearningChain } from '../ai/agents/phase163RealLearningChainAgent.ts';
-import { STUDENT_REVIEW_REQUIRED_MESSAGE } from '../ai/content/studentRuntimeMessages.ts';
+import {
+  resolveStudentRuntimePausePresentation,
+  type StudentRuntimePauseReason,
+} from '../ai/content/studentRuntimeMessages.ts';
+import { toStudentFeedbackSummary } from '../ai/content/studentFeedbackPresentation.ts';
+import { buildStudentThinkingReview } from '../ai/agents/studentThinkingReviewAgent.ts';
 import { createFeedbackExpressionConfigSnapshot } from '../ai/agents/controlledFeedbackExpressionAgent.ts';
 import {
   buildStructuredFeedbackFacts,
@@ -33,7 +38,10 @@ import type { FrozenQuestionResourceVersion } from '../ai/schemas/questionResour
 import type { NextFormalTaskResolution } from '../ai/schemas/realLearningOperation.schema.ts';
 import type { QualityGatedExecutableTask } from '../ai/schemas/resourceMatchQuality.schema.ts';
 import type { ControlledFeedbackExpressionInput } from '../ai/schemas/controlledFeedbackExpression.schema.ts';
-import type { StudentLearningFeedback } from '../ai/schemas/studentLearningFeedback.schema.ts';
+import type {
+  StudentLearningFeedback,
+  StudentThinkingReview,
+} from '../ai/schemas/studentLearningFeedback.schema.ts';
 import { getPhase163FormalResourcePoolData } from './phase161To162IntegrationDemo.ts';
 import { runDiagnosisThroughPhase163Boundary } from './phase163DiagnosisBoundary.ts';
 import {
@@ -67,6 +75,7 @@ export type Phase163LiveWorkspaceState = {
     whatYouDidWell: string[];
     whatNeedsAttention: string[];
     nextActionText: string;
+    thinkingReview?: StudentThinkingReview;
     guidance?: {
       understandingNotice?: string;
       detailsToReview: string[];
@@ -77,6 +86,8 @@ export type Phase163LiveWorkspaceState = {
   canRetry: boolean;
   isRetest: boolean;
   primaryAction: 'submit_answer' | 'resume_processing' | 'retry_resource' | 'start_next_task' | 'return_to_entry';
+  pauseReason?: StudentRuntimePauseReason;
+  studentTitle?: string;
   studentMessage?: string;
 };
 
@@ -393,6 +404,13 @@ function stateFromCheckpoint(
             ? 'resume_processing'
             : 'return_to_entry';
   const resourceUnavailable = checkpoint.nextAction === 'prepare_resource';
+  const pausePresentation = checkpoint.status === 'review_required' || checkpoint.status === 'blocked'
+    ? resolveStudentRuntimePausePresentation({
+      status: checkpoint.status,
+      nextAction: checkpoint.nextAction,
+      hasFormalRoundResult: Boolean(checkpoint.learningPersistenceRecordId),
+    })
+    : undefined;
   return {
     ...base,
     status: checkpoint.status === 'completed' ? 'completed' : checkpoint.status,
@@ -403,15 +421,24 @@ function stateFromCheckpoint(
       whatNeedsAttention: feedback.guidance ? feedback.whatNeedsAttention : [],
       nextActionText: feedback.nextActionText,
       guidance: feedback.guidance,
+      thinkingReview: feedback.thinkingReview ? {
+        coveredPoints: feedback.thinkingReview.coveredPoints,
+        primaryGap: feedback.thinkingReview.primaryGap,
+        missingPoints: feedback.thinkingReview.primaryGap
+          ? [feedback.thinkingReview.primaryGap]
+          : feedback.thinkingReview.missingPoints.slice(0, 1),
+      } : undefined,
     } : undefined,
     canAdvance,
     canRetry: checkpoint.status === 'retry_required',
     primaryAction,
-    studentMessage: checkpoint.status === 'review_required'
-      ? STUDENT_REVIEW_REQUIRED_MESSAGE
+    pauseReason: pausePresentation?.reason,
+    studentTitle: pausePresentation?.title,
+    studentMessage: pausePresentation
+      ? pausePresentation.message
       : checkpoint.status === 'blocked'
         ? resourceUnavailable && checkpoint.learningPersistenceRecordId
-          ? '本轮学习已经完成并保存。当前没有符合要求的下一任务，需要先补充合适的正式任务；系统不会在后台自动生成，任务补充后可以再次检查。'
+          ? '本轮结果已经保存。当前还没有符合要求的下一任务，需要先补充合适的正式任务；任务补充后可以再次检查。'
           : '当前任务暂时无法继续，已有学习记录已经保留。'
         : checkpoint.status === 'retry_required'
           ? checkpoint.nextAction === 'submit_answer' ? '请补充回答后重新提交。' : '已提交的回答正在恢复处理，不需要重新作答。'
@@ -465,8 +492,14 @@ function resolveStudentFeedback(
   }
   const plan = buildStudentFeedbackTeachingPlan({ request, facts: refreshedFacts });
   if (!plan.validation.passed) return { ...feedback, whatNeedsAttention: [] };
+  const thinkingReview = buildStudentThinkingReview(request, {
+    safeStrengths: refreshedFacts.observedStrengths
+      .map((fact) => fact.safeExpressions[0])
+      .filter(Boolean),
+  });
   return {
     ...feedback,
+    summary: toStudentFeedbackSummary(feedback.summary),
     whatYouDidWell: refreshedFacts.observedStrengths
       .map((fact) => fact.safeExpressions[0])
       .filter(Boolean),
@@ -476,6 +509,7 @@ function resolveStudentFeedback(
       detailsToReview: plan.detailsToReview.map((item) => item.text),
       revisionActions: plan.revisionActions.map((item) => item.text),
     },
+    thinkingReview,
   };
 }
 

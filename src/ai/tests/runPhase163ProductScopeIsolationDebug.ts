@@ -10,6 +10,7 @@ import {
   isPhase163ProductRuntimeIdentity,
   resolvePhase163RuntimeScope,
 } from '../../api/phase163LearningIdentity.ts';
+import { resolveStudentRuntimePausePresentation } from '../content/studentRuntimeMessages.ts';
 
 const NOW = '2026-07-21T16:00:00.000Z';
 type Report = { name: string; passed: boolean; detail: string };
@@ -80,6 +81,29 @@ async function main(): Promise<void> {
       reviewState.primaryActionText === '结束本次学习' &&
       forbidden.every((term) => !studentCopy.includes(term)),
     studentCopy);
+
+  const postRoundReview = resolveStudentRuntimePausePresentation({
+    status: 'review_required',
+    nextAction: 'human_review',
+    hasFormalRoundResult: true,
+  });
+  check('S8.1 本轮已保存后的下一任务复核不误报本次结果未采用',
+    postRoundReview.reason === 'next_task_review' &&
+      postRoundReview.title === '本轮学习已经完成' &&
+      postRoundReview.message.includes('本轮结果已经保存') &&
+      !postRoundReview.message.includes('不会用它更新'),
+    `${postRoundReview.title} ${postRoundReview.message}`);
+
+  const diagnosisReview = resolveStudentRuntimePausePresentation({
+    status: 'review_required',
+    nextAction: 'human_review',
+    hasFormalRoundResult: false,
+  });
+  check('S8.2 Diagnosis 未采用仍保留安全阻断说明',
+    diagnosisReview.reason === 'diagnosis_not_adopted' &&
+      diagnosisReview.title === '本次结果暂不采用' &&
+      diagnosisReview.message.includes('不会用它更新你的学习记录'),
+    `${diagnosisReview.title} ${diagnosisReview.message}`);
 
   const environment = await createPhase163DemoEnvironment(
     'complete_chain',

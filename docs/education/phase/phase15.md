@@ -175,7 +175,7 @@ Formal DiagnosisResult
 
 确定性模板是默认可靠基线，LLM 只作为可关闭的表达增强层。表达层只表达已有事实，不生成新的 Diagnosis、Evidence 或长期能力结论；普通 Live 未经过逐样本人工 Annotation 时只能获得 restricted feedback。
 
-Phase 15.3 已完成工程与质量验收：24 / 24 个确定性 Debug Case、DeepSeek Prompt v1.1 Live 12 / 12、Controlled Safety 2 / 2、脱敏人工抽检 12 / 12、关键冻结回归与 Production Build 均通过。Phase 15.3 与 Phase 15 当前均为 `PASS / FROZEN`。
+Phase 15.3 已完成工程与质量验收；当前确定性回归已扩展至 56 / 56 PASS，并保留既有 DeepSeek Prompt v1.1 Live 12 / 12、Controlled Safety 2 / 2、脱敏人工抽检 12 / 12、关键冻结回归与 Production Build 通过记录。Phase 15.3 与 Phase 15 当前均为 `PASS / FROZEN`。
 
 ## 六、完整核心链路
 

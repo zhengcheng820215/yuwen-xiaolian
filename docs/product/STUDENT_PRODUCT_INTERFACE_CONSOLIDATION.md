@@ -126,7 +126,17 @@ UnifiedLearningEntryState
 
 学生反馈同样遵循单一正式来源：页面只消费 `StudentLearningFeedback` / `ControlledFeedbackResult` 中经过转译的 Teaching Plan，不得读取或拼接 Diagnosis `rootCause`、Evidence detail、evaluator message 或内部 reason。Teaching Plan 应根据 Frozen Task 的题干与作答要求提取“题目对象 + 考查维度 + 依据类型”，将运行状态转成当前题目的具体提示；无法可靠提取时必须使用克制的通用提示，不得猜测。反馈展示顺序采用“理解提示 → 已核验原文细节 → 修改动作”；表达字段缺失时使用安全模板，不得回退展示内部诊断原文。
 
-正向反馈也必须经过同一转译边界。`Positive / Growth Evidence` 只有在包含具体、可追溯的本次作答事实时，才能生成“做得好的地方”；“任务基本满足要求”“可形成正向能力证据”、能力码或其他运行摘要不得展示给学生。无法形成具体正向事实时允许该区域为空。`does_not_meet` 或 `insufficient_evidence` 状态不得展示与正式结果矛盾的正向摘要。旧持久化反馈恢复时必须按当前规则只读重建正向展示，不重跑 Provider，也不改写正式 Evidence。
+正向反馈也必须经过同一转译边界。学生端统一使用“思路点评”，不以空泛表扬代替具体反馈。`Positive / Growth Evidence` 只有在包含具体、可追溯的本次作答事实时，才能直接生成点评；若 Evidence 已正式确认正向方向，但其 detail 只有能力码或运行摘要，则必须同时绑定学生原答案，使用可逐字核验的回答片段形成克制点评。“任务基本满足要求”“可形成正向能力证据”、能力码或其他运行摘要不得展示给学生。没有 Positive / Growth Evidence，或答案为 `does_not_meet` / `insufficient_evidence` 时，不得仅凭学生原文生成正向点评。旧持久化反馈恢复时必须按当前规则只读重建正向展示和学生可读摘要，不重跑 Provider，也不改写正式 Evidence。
+
+“思路点评”的正式含义是本题关键任务要求覆盖，不是表扬模块，也不是学生答案复述。Feedback Adapter 应先把 Frozen Task 拆为结论、文本依据、依据与结论关系及其他明确表达要求，再为每个环节生成 `covered / partially_covered / missing / insufficient_to_judge` 状态。完整状态保存在 `thinkingReview.requirementCoverage` 中；学生端只消费安全投影 `coveredPoints`、`primaryGap` 和兼容字段 `missingPoints`，分别显示为“回答到位”和“还需调整 / 还需补充”。学生端最多展示一至两个到位点和一个主要缺口，不直接暴露完整评分清单。
+
+关键点只能来自 Frozen Task 的正式作答要求、Rubric / assessment basis、材料中可核验的内容以及已提交的正式 Diagnosis / Evidence。参考答案只能提供可接受方向，不能成为唯一措辞；合理异表述应通过受控语义归一、动作谓词和上下文对象关系识别，不要求命中参考答案关键词。无法可靠判断时必须标记 `insufficient_to_judge`，不得强行归为错误或遗漏。表达模型不能新增、删除或改变覆盖结论。
+
+文本依据的学生端展示还必须通过“完整事实片段 + 语义关联”校验。关键词或子串重合不能单独构成 `studentEvidence`；“自己、当时、这样、那里”等孤立代词、时间词和指示词，以及泛化名词或无动作关系的碎片，即使同时出现在答案与材料中，也不能通过。有效依据必须能在学生答案中定位到完整句段，并与正式任务事实共享可核验的动作、对象或状态关系。学生使用“把雨伞往孩子那边推”等合理动作改写时可以通过，不要求逐字复刻材料。没有可定位的完整学生表达时，正式评价结果也不得直接生成具体依据点评。`taskEvidence` 只用于内部核验；学生尚未写出的材料细节，除非题干已经公开或正式提示策略允许，否则不能通过点评或缺口文案直接泄露。
+
+“思路点评”只回答“这次完成得怎么样”，“思路建议”只回答“下一次怎样组织或补充答案”，两者不得重复。生成顺序必须先完成 `requirementCoverage`，再选出唯一 `primaryGapRequirementId`，最后由同一个主要缺口生成 `primaryGap` 和 `revisionActions`；不得让点评与建议分别读取不同 Diagnosis 文案独立判断。点评只允许描述 `covered / partially_covered / missing / insufficient_to_judge` 对应的本次完成情况，不使用“先、再、最后、按照、下次、修改时”等方法性语言；建议只给下一步动作或组织方法，不再次输出“判断不准确、尚未完成、缺少依据”等评价句。`thinkingReview` 已形成时，“需要留意”不再重复展示相同问题。旧记录可以在读取时按当前 Adapter 只读重建 `thinkingReview`，但不得重新调用 Provider 或修改正式学习事实。
+
+展示不要求结构对称：回答完整时可以只显示“思路点评”，不得强造建议；全部要求均为 `insufficient_to_judge` 且没有可靠已完成点时，不展示完成度点评，只给克制的下一步动作。若主要缺口是核心结论错误，学生端小标题使用“还需调整”；其他可补充缺口使用“还需补充”。
 
 反馈不得只写“补充具体细节”或“用细节支持判断”。必须进一步说明当前题目中的细节类型（如动作、语言、神态或关键语句）、什么样的内容算该类细节，以及学生应怎样把该内容与题目目标联系起来。阅读开放题优先使用“重新想一想”“从这个动作看出”“说明为什么”等直接动作语言；只有题目本身要求作出判断时，才在学生反馈中保留“判断”。理解偏差应转成与题目目标对应的自然追问，例如“人物当时可能有怎样的心理”或“这些动作表现了人物怎样的特点”，不得使用“理解还需要再检查”等生硬搭配。
 
@@ -231,7 +241,7 @@ UnifiedLearningEntryState
 
 ```text
 反馈
-→ 做得好的地方（存在可靠依据时）
+→ 思路点评（存在可靠依据时）
 → 需要留意（存在可靠依据时）
 → 思路建议
 → 下一步流程动作
@@ -239,7 +249,7 @@ UnifiedLearningEntryState
 
 学生端固定使用以下标题语义：
 
-- `做得好的地方`：只展示已经获得正式事实支持的本次表现；
+- `思路点评`：只展示已经获得正式事实支持、且能从本次答案中核验的思路表现；
 - `需要留意`：指出当前答案中需要重新检查的具体内容，不使用“问题定位”等内部诊断语言；
 - `思路建议`：说明下一次可以执行的阅读或表达动作，不复述内部 Root Cause，也不直接提供完整答案。
 
@@ -545,7 +555,8 @@ Phase 16 Acceptance / Freeze
 - 正式入口读取到 Demo 标记或身份错位对象时必须安全拒绝，不得拼装为正常任务；
 - 内部“清除旧 Demo 数据”只按 Demo 学生范围清理，不得全库清理 Operation，也不得清除正式学习记录；
 - Frozen Resource 仍是可复用内容资源，进入本轮形成 `QualityGatedExecutableTask` 时绑定当前产品学生身份；
-- `review_required` 仍保留为内部 Runtime 状态，但学生端在没有真实人工承接流程时统一显示“本次结果暂不采用”，明确说明不会更新学习记录、无需重复提交，并允许结束本次学习；
-- Product / Demo Scope Isolation Debug：`9 / 9 PASS`；统一入口 `17 / 17 PASS`；Phase 16.3A `16 / 16 PASS`；Day 0 串联 `11 / 11 PASS`；Phase 15 集成 `11 / 11 PASS`；受控反馈 `36 / 36 PASS`；Production Build `PASS`。
+- `review_required` 仍保留为内部 Runtime 状态，但学生端必须按发生阶段解释：正式结果尚未保存时显示“本次结果暂不采用”；本轮正式结果已经保存、仅下一任务决策需要检查时显示“本轮学习已经完成 / 下一任务待检查”。后者不得暗示本次回答、Evidence 或学习记录被作废；
+- `blocked + prepare_resource` 表示当前缺少符合要求的正式任务，必须明确说明需要补充任务，而不是暗示系统正在后台准备；
+- Product / Demo Scope Isolation Debug：`11 / 11 PASS`；统一入口 `17 / 17 PASS`；Phase 16.3A `16 / 16 PASS`；Day 0 串联 `11 / 11 PASS`；Phase 15 集成 `11 / 11 PASS`；受控反馈 `46 / 46 PASS`；Production Build `PASS`。
 
 详细验收记录见：[Phase 16.3 Product / Demo Scope Isolation Debug](../education/phase/reports/phase16_3_product_demo_scope_isolation_debug_2026-07-21.md)。

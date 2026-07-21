@@ -84,6 +84,28 @@ async function main(): Promise<void> {
   await caseCharacterTraitMismatchUsesNaturalQuestion();
   await caseGenericPositiveEvidenceIsHidden();
   await casePositiveEvidenceUsesStudentLanguage();
+  await caseRestrictedFeedbackUsesTraceableThinkingCommentary();
+  await caseThinkingReviewSeparatesCoveredAndMissingPoints();
+  await caseThinkingReviewRecognizesCompleteReasoning();
+  await caseThinkingReviewDoesNotInventCoverage();
+  await caseThinkingReviewOnlyUsesVerifiedMaterialDetails();
+  await caseThinkingReviewAcceptsReasonableAlternative();
+  await caseThinkingReviewPreservesPartialCoverage();
+  await caseThinkingReviewShowsOnlyPrimaryGap();
+  await caseThinkingReviewKeepsInsufficientStatus();
+  await caseThinkingReviewPreservesValidDetailWithWrongConclusion();
+  await caseThinkingReviewRejectsPronounFragment();
+  await caseThinkingReviewAcceptsQuestionExposedAction();
+  await caseThinkingReviewAcceptsSemanticActionParaphrase();
+  await caseThinkingReviewRejectsConclusionOnlyAsEvidence();
+  await caseThinkingReviewMarksFactWithoutRelationPartial();
+  await casePrimaryGapKeepsCommentaryAndGuidanceAligned();
+  await caseMissingEvidenceGuidancePreservesConclusion();
+  await caseMissingRelationGuidancePreservesCompletedWork();
+  await caseCompleteAnswerDoesNotCreateGuidance();
+  await caseInsufficientAnswerUsesActionOnlyGuidance();
+  await caseInternalCompoundEvidenceDoesNotBecomeStudentCommentary();
+  await caseFormalRelationCannotOverrideMissingStudentEvidence();
 
   printReport();
   if (cases.some((item) => !item.passed)) {
@@ -183,7 +205,12 @@ async function caseFullyMeetsDoesNotInventDeficit(): Promise<void> {
   const input = baseInput({ quality: 'accepted', evidenceTypes: ['positive'] });
   setDiagnosis(input, {
     answerStatus: 'fully_meets',
+    surfaceError: '本次作答未发现明确问题。',
     rootCause: '本次作答未发现明确问题。',
+    abilityEvidence: ['回答说明了人物动作与人物心理之间的关系。'],
+    diagnosisSummary: '结论、文本依据与推理关系均已完成。',
+    matchedRubricItems: ['psychology', 'text_evidence', 'reasoning_relation'],
+    missingRubricItems: [],
   });
   const run = await execute(input);
   record(
@@ -201,7 +228,7 @@ async function casePartiallyMeetsSpecificAttention(): Promise<void> {
   record(
     'case_8_partially_meets_specific_attention',
     'Partially meets 将正式 Evidence 转为可执行提示',
-    attention.includes('为什么能从这些动作得出这样的理解') &&
+    attention.includes('题目还要求结合人物的具体动作或语句说明理由') &&
       !attention.includes('能力很差') &&
       !attention.includes('rootCause'),
     attention,
@@ -450,30 +477,35 @@ async function caseConclusionMismatchBecomesStudentGuidance(): Promise<void> {
   const aggregate = JSON.stringify(run.result.finalFeedback);
   record(
     'case_25_conclusion_mismatch_student_guidance',
-    '结论与材料不一致时生成原文关注点和修改动作',
-    guidance?.understandingNotice === '从文中父亲的动作来看，你可以再想一想：父亲当时可能有怎样的心理？' &&
-      guidance.detailsToReview.some((item) => item.includes('“看了很久”') && item.includes('“小心地夹回”')) &&
-      guidance.revisionActions.some((item) => item.includes('重新想一想父亲当时的心理')) &&
+    '结论与材料不一致时点评现状并给出下一步，不泄露未发现细节',
+    guidance?.understandingNotice === '题目要求写出人物的心理，这部分目前还不准确。' &&
+      guidance.detailsToReview.length === 0 &&
+      guidance.revisionActions.some((item) => item.includes('想清楚父亲当时的心理')) &&
       !aggregate.includes('核心事实冲突') &&
+      !aggregate.includes('看了很久') &&
+      !aggregate.includes('小心地夹回') &&
       !aggregate.includes('怀念和不舍'),
     aggregate,
   );
 }
 
 async function caseMissingEvidenceBecomesRevisionAction(): Promise<void> {
-  const input = baseInput({ quality: 'accepted', evidenceTypes: ['weakness'] });
+  const input = baseInput({ quality: 'accepted' });
   setDiagnosis(input, {
     answerStatus: 'partially_meets',
     rootCause: '学生未提供文本依据。',
   });
-  input.taskEvidenceReturnResult.abilityEvidence[0].detail = '回答有判断，但未提供文本依据。';
+  const weakness = input.taskEvidenceReturnResult.abilityEvidence.find((item) =>
+    item.evidenceType === 'weakness');
+  if (weakness) weakness.detail = '回答有判断，但未提供文本依据。';
   const run = await execute(input);
   const guidance = run.result.finalFeedback.guidance;
   record(
     'case_26_missing_evidence_revision_action',
     '缺少文本依据时提示引用具体动作或语句',
-    guidance?.understandingNotice === '你已经写出了父亲当时的心理，还需要用文中父亲的具体动作说明理由。' &&
-      guidance.revisionActions.some((item) => item.includes('父亲的一个具体动作')) &&
+    guidance?.understandingNotice?.includes('题目还要求结合人物的具体动作或语句说明理由') === true &&
+      guidance.revisionActions.some((item) =>
+        item.includes('保留已经写出的父亲当时的心理') && item.includes('一处能说明这种理解的动作')) &&
       !JSON.stringify(guidance).includes('能力不足'),
     JSON.stringify(guidance),
   );
@@ -492,7 +524,10 @@ async function caseInsufficientEvidenceStaysConservative(): Promise<void> {
     'case_27_insufficient_evidence_conservative',
     '信息不足时不强造表扬、批评或能力结论',
     feedback.whatYouDidWell.length === 0 &&
-      feedback.guidance?.understandingNotice === '这次回答提供的信息还不够完整，暂时无法判断你的理解。' &&
+      feedback.thinkingReview?.requirementCoverage.every((item) =>
+        item.status === 'insufficient_to_judge') === true &&
+      feedback.guidance?.revisionActions.some((item) =>
+        item.includes('先写出父亲当时的心理')) === true &&
       !JSON.stringify(feedback).includes('证据不足'),
     JSON.stringify(feedback),
   );
@@ -538,10 +573,14 @@ async function caseStudentFeedbackContainsNoInternalFields(): Promise<void> {
 
 async function caseTaskFocusWorksAcrossDifferentCharacters(): Promise<void> {
   const input = baseInput({ quality: 'accepted', evidenceTypes: ['weakness'] });
+  const task = input.taskEvidenceReturnResult.concreteTask;
+  task.readingText = '雨越下越大，母亲把伞推向孩子，自己的肩膀却被雨淋湿了。';
+  task.question = '母亲的动作表现出怎样的情感？请结合文章内容说明。';
+  task.answerRequirements = ['根据人物动作判断情感', '说明理由'];
   input.taskContext = {
-    readingText: '雨越下越大，母亲把伞推向孩子，自己的肩膀却被雨淋湿了。',
-    questionText: '母亲的动作表现出怎样的情感？请结合文章内容说明。',
-    answerRequirements: ['根据人物动作判断情感', '说明理由'],
+    readingText: task.readingText,
+    questionText: task.question,
+    answerRequirements: task.answerRequirements,
   };
   setDiagnosis(input, {
     answerStatus: 'does_not_meet',
@@ -554,19 +593,24 @@ async function caseTaskFocusWorksAcrossDifferentCharacters(): Promise<void> {
   record(
     'case_30_task_focus_across_characters',
     '题目语义提取不是父亲题的专用规则',
-    guidance?.understandingNotice === '从文中母亲的动作来看，你可以再想一想：母亲当时可能有怎样的心理？' &&
-      guidance.detailsToReview.some((item) => item.includes('“把伞推向孩子”') && item.includes('“肩膀却被雨淋湿”')) &&
-      guidance.revisionActions.some((item) => item.includes('重新想一想母亲当时的心理')),
+    guidance?.understandingNotice?.includes('人物的心理') === true &&
+      guidance.detailsToReview.length === 0 &&
+      guidance.revisionActions.some((item) => item.includes('母亲当时的心理')) &&
+      !JSON.stringify(guidance).includes('父亲'),
     JSON.stringify(guidance),
   );
 }
 
 async function caseUnknownTaskFocusUsesSafeFallback(): Promise<void> {
   const input = baseInput({ quality: 'accepted', evidenceTypes: ['weakness'] });
+  const task = input.taskEvidenceReturnResult.concreteTask;
+  task.readingText = '这是一段用于测试安全回退的材料。';
+  task.question = '请回答这个问题。';
+  task.answerRequirements = [];
   input.taskContext = {
-    readingText: '这是一段用于测试安全回退的材料。',
-    questionText: '请回答这个问题。',
-    answerRequirements: [],
+    readingText: task.readingText,
+    questionText: task.question,
+    answerRequirements: task.answerRequirements,
   };
   setDiagnosis(input, {
     answerStatus: 'does_not_meet',
@@ -578,7 +622,7 @@ async function caseUnknownTaskFocusUsesSafeFallback(): Promise<void> {
   record(
     'case_31_unknown_task_focus_safe_fallback',
     '无法可靠识别题目对象时使用安全通用提示而不猜测',
-    guidance?.understandingNotice === '请再看看文中与题目直接相关的内容，再想一想自己的回答。' &&
+    guidance?.revisionActions.some((item) => item.includes('自己的答案')) === true &&
       !JSON.stringify(guidance).includes('父亲') &&
       !JSON.stringify(guidance).includes('母亲'),
     JSON.stringify(guidance),
@@ -587,10 +631,14 @@ async function caseUnknownTaskFocusUsesSafeFallback(): Promise<void> {
 
 async function caseLocationPhraseCannotBecomeTaskSubject(): Promise<void> {
   const input = baseInput({ quality: 'accepted', evidenceTypes: ['weakness'] });
+  const task = input.taskEvidenceReturnResult.concreteTask;
+  task.readingText = '人物停下脚步，把手里的信又读了一遍。';
+  task.question = '结合材料中的动作，判断人物当时的心理。';
+  task.answerRequirements = ['说明心理', '结合动作说明理由'];
   input.taskContext = {
-    readingText: '人物停下脚步，把手里的信又读了一遍。',
-    questionText: '结合材料中的动作，判断人物当时的心理。',
-    answerRequirements: ['说明心理', '结合动作说明理由'],
+    readingText: task.readingText,
+    questionText: task.question,
+    answerRequirements: task.answerRequirements,
   };
   setDiagnosis(input, {
     answerStatus: 'does_not_meet',
@@ -602,7 +650,7 @@ async function caseLocationPhraseCannotBecomeTaskSubject(): Promise<void> {
   record(
     'case_32_location_phrase_not_task_subject',
     '“材料中”等位置词不会被误识别为人物对象',
-    guidance?.understandingNotice === '从文中人物的动作来看，你可以再想一想：人物当时可能有怎样的心理？' &&
+    guidance?.revisionActions.some((item) => item.includes('人物当时的心理')) === true &&
       !JSON.stringify(guidance).includes('材料中心理') &&
       !JSON.stringify(guidance).includes('材料中动作'),
     JSON.stringify(guidance),
@@ -610,19 +658,21 @@ async function caseLocationPhraseCannotBecomeTaskSubject(): Promise<void> {
 }
 
 async function caseGenericAttentionUsesTaskAwareSteps(): Promise<void> {
-  const input = baseInput({ quality: 'accepted', evidenceTypes: ['weakness'] });
+  const input = baseInput({ quality: 'accepted' });
   setDiagnosis(input, {
     answerStatus: 'partially_meets',
     rootCause: '本次回答仍需进一步完善。',
   });
-  input.taskEvidenceReturnResult.abilityEvidence[0].detail = '本次回答仍需进一步完善。';
+  const weakness = input.taskEvidenceReturnResult.abilityEvidence.find((item) =>
+    item.evidenceType === 'weakness');
+  if (weakness) weakness.detail = '本次回答仍需进一步完善。';
   const run = await execute(input);
   const guidance = run.result.finalFeedback.guidance;
   record(
     'case_33_generic_attention_task_aware_steps',
     '通用不足也要说明什么算具体细节以及如何使用',
-    guidance?.revisionActions.includes('从文中找出父亲的一个具体动作，写清父亲做了什么或怎样做。') &&
-      guidance.revisionActions.includes('再说明你为什么能从这个动作看出父亲有这样的心理。') &&
+    guidance?.revisionActions.some((item) =>
+      item.includes('保留已经写出的父亲当时的心理') && item.includes('一处能说明这种理解的动作')) === true &&
       !JSON.stringify(guidance).includes('支持你判断') &&
       !JSON.stringify(guidance).includes('补充一个能够支持'),
     JSON.stringify(guidance),
@@ -631,10 +681,14 @@ async function caseGenericAttentionUsesTaskAwareSteps(): Promise<void> {
 
 async function caseCharacterTraitMismatchUsesNaturalQuestion(): Promise<void> {
   const input = baseInput({ quality: 'accepted', evidenceTypes: ['weakness'] });
+  const task = input.taskEvidenceReturnResult.concreteTask;
+  task.readingText = '小林把散落的书一本本放回书架，又把地面打扫干净。';
+  task.question = '结合小林的动作，概括小林的人物特点。';
+  task.answerRequirements = ['根据人物动作概括特点'];
   input.taskContext = {
-    readingText: '小林把散落的书一本本放回书架，又把地面打扫干净。',
-    questionText: '结合小林的动作，概括小林的人物特点。',
-    answerRequirements: ['根据人物动作概括特点'],
+    readingText: task.readingText,
+    questionText: task.question,
+    answerRequirements: task.answerRequirements,
   };
   setDiagnosis(input, {
     answerStatus: 'does_not_meet',
@@ -646,7 +700,7 @@ async function caseCharacterTraitMismatchUsesNaturalQuestion(): Promise<void> {
   record(
     'case_34_character_trait_natural_question',
     '人物特点题使用自然追问而不是要求检查理解',
-    guidance?.understandingNotice === '从文中小林的动作来看，你可以再想一想：这些动作表现了小林怎样的特点？' &&
+    guidance?.revisionActions.some((item) => item.includes('小林的特点')) === true &&
       !JSON.stringify(guidance).includes('理解还需要再检查'),
     JSON.stringify(guidance),
   );
@@ -661,8 +715,9 @@ async function caseGenericPositiveEvidenceIsHidden(): Promise<void> {
   const run = await execute(input);
   record(
     'case_35_generic_positive_evidence_hidden',
-    '只有内部运行结论而没有具体作答事实时不展示优点',
-    run.result.finalFeedback.whatYouDidWell.length === 0 &&
+    '内部正向结论不直出，改用学生原文形成可追溯点评',
+    run.result.finalFeedback.whatYouDidWell.length === 1 &&
+      run.result.finalFeedback.whatYouDidWell[0].includes('父亲看到旧书里的树叶，感到怀念和不舍') &&
       !JSON.stringify(run.result.finalFeedback).includes('inference') &&
       !JSON.stringify(run.result.finalFeedback).includes('能力证据'),
     JSON.stringify(run.result.finalFeedback),
@@ -677,12 +732,554 @@ async function casePositiveEvidenceUsesStudentLanguage(): Promise<void> {
   const strength = run.result.finalFeedback.whatYouDidWell[0] || '';
   record(
     'case_36_positive_evidence_student_language',
-    '具体正向事实转成学生能直接理解的第二人称表达',
-    strength === '你的回答看出了母亲关心爱护孩子，与材料中推伞动作一致，还提到怕孩子淋雨，说明了动作和心理之间的联系。' &&
-      !strength.includes('学生') &&
+    '正向 Evidence 只触发基于学生原文的点评，不把内部解释改写成学生已完成内容',
+    strength.includes('父亲看到旧书里的树叶，感到怀念和不舍') &&
+      !strength.includes('母亲') &&
+      !strength.includes('推伞') &&
       !strength.includes('因果关系'),
     strength,
   );
+}
+
+async function caseRestrictedFeedbackUsesTraceableThinkingCommentary(): Promise<void> {
+  const input = baseInput({ evidenceTypes: ['positive'] });
+  input.taskEvidenceReturnResult.abilityEvidence[0].detail =
+    '学生在「inference」任务中基本满足要求，可形成正向能力证据。';
+  input.taskEvidenceReturnResult.abilityEvidence[0].observation =
+    '学生在「inference」任务中基本满足要求，可形成正向能力证据。';
+  const run = await execute(input);
+  const rendered = JSON.stringify(run.result.finalFeedback);
+  record(
+    'case_37_restricted_traceable_thinking_commentary',
+    '普通 Live 保留受限准入，但学生端获得具体思路点评且不暴露内部状态',
+    run.result.admissionDecision.expressionScope === 'restricted' &&
+      run.result.finalFeedback.whatYouDidWell.length === 1 &&
+      run.result.finalFeedback.summary === '下面是根据本次回答整理的反馈。' &&
+      rendered.includes('父亲看到旧书里的树叶，感到怀念和不舍') &&
+      !rendered.includes('受限反馈') &&
+      !rendered.includes('正式记录') &&
+      !rendered.includes('inference'),
+    rendered,
+  );
+}
+
+async function caseThinkingReviewSeparatesCoveredAndMissingPoints(): Promise<void> {
+  const input = trainPlatformThinkingInput('父亲感到依依不舍。');
+  const run = await execute(input);
+  const review = run.result.finalFeedback.thinkingReview;
+  record(
+    'case_38_thinking_review_covered_and_missing',
+    '思路点评区分已命中关键点与未体现关键点',
+    Boolean(
+      review?.coveredPoints.some((item) => item.includes('不舍')) &&
+      review?.primaryGap?.includes('具体动作') &&
+      review.missingPoints.length === 1 &&
+      review.requirementCoverage?.filter((item) => item.status === 'missing').length === 2,
+    ),
+    JSON.stringify(review),
+  );
+}
+
+async function caseThinkingReviewRecognizesCompleteReasoning(): Promise<void> {
+  const input = trainPlatformThinkingInput(
+    '父亲一直朝车窗挥手，直到看不见才放下手臂，这说明他对孩子十分不舍。',
+  );
+  setDiagnosis(input, {
+    answerStatus: 'fully_meets',
+    surfaceError: '本次作答未发现明确问题。',
+    rootCause: '本次作答未发现明确问题。',
+    abilityEvidence: ['回答说明了人物动作与人物心理之间的关系。'],
+    diagnosisSummary: '结论、文本依据与推理关系均已完成。',
+    matchedRubricItems: ['psychology', 'text_evidence', 'reasoning_relation'],
+    missingRubricItems: [],
+  });
+  const run = await execute(input);
+  const review = run.result.finalFeedback.thinkingReview;
+  record(
+    'case_39_thinking_review_complete_reasoning',
+    '完整命中结论、依据和关系时不强造遗漏',
+    Boolean(
+      review &&
+      review.coveredPoints.some((item) => item.includes('不舍')) &&
+      review.coveredPoints.some((item) => item.includes('挥手') && item.includes('放下手臂')) &&
+      review.requirementCoverage?.some((item) =>
+        item.requirementType === 'reasoning_relation' && item.status === 'covered') &&
+      review.missingPoints.length === 0,
+    ),
+    JSON.stringify(review),
+  );
+}
+
+async function caseThinkingReviewDoesNotInventCoverage(): Promise<void> {
+  const input = trainPlatformThinkingInput('不知道。');
+  input.taskEvidenceReturnResult.abilityEvidence = [abilityEvidence({
+    type: 'insufficient',
+    index: 0,
+    studentId: input.studentId,
+    taskId: input.taskId,
+    formalDiagnosisId: input.realDiagnosisRuntimeResult.formalDiagnosisCommit!.formalDiagnosisId,
+  })];
+  setDiagnosis(input, { answerStatus: 'insufficient_evidence' });
+  const run = await execute(input);
+  record(
+    'case_40_thinking_review_no_invented_coverage',
+    '无可靠正向依据时不生成虚假关键点点评',
+    Boolean(
+      run.result.finalFeedback.thinkingReview?.coveredPoints.length === 0 &&
+      run.result.finalFeedback.thinkingReview?.primaryGap?.includes('信息还不足') &&
+      run.result.finalFeedback.thinkingReview?.requirementCoverage?.every((item) =>
+        item.status !== 'covered' && item.status !== 'partially_covered'),
+    ),
+    JSON.stringify(run.result.finalFeedback.thinkingReview),
+  );
+}
+
+async function caseThinkingReviewOnlyUsesVerifiedMaterialDetails(): Promise<void> {
+  const input = trainPlatformThinkingInput('父亲感到依依不舍。');
+  const run = await execute(input);
+  const review = run.result.finalFeedback.thinkingReview;
+  const rendered = review?.primaryGap || '';
+  const reading = input.taskEvidenceReturnResult.concreteTask.readingText || '';
+  const internalDetails = review?.requirementCoverage
+    ?.find((item) => item.requirementType === 'text_evidence')
+    ?.taskEvidence || [];
+  const studentVisibleFeedback = [
+    run.result.finalFeedback.summary,
+    ...run.result.finalFeedback.whatYouDidWell,
+    ...run.result.finalFeedback.whatNeedsAttention,
+    run.result.finalFeedback.nextActionText,
+    run.result.finalFeedback.guidance?.understandingNotice || '',
+    ...(run.result.finalFeedback.guidance?.detailsToReview || []),
+    ...(run.result.finalFeedback.guidance?.revisionActions || []),
+    ...(review?.coveredPoints || []),
+    review?.primaryGap || '',
+  ].join('\n');
+  record(
+    'case_41_thinking_review_verified_material_details',
+    '材料细节只用于可核验覆盖，学生主缺口不直接投喂答案',
+    internalDetails.every((detail) =>
+      detail.includes('挥手') || detail.includes('放下手臂') || reading.includes(detail)) &&
+      internalDetails.some((detail) => detail.includes('挥手')) &&
+      internalDetails.some((detail) => detail.includes('放下手臂')) &&
+      !studentVisibleFeedback.includes('挥手') &&
+      !studentVisibleFeedback.includes('放下手臂'),
+    JSON.stringify({ rendered, studentVisibleFeedback, internalDetails }),
+  );
+}
+
+async function caseThinkingReviewAcceptsReasonableAlternative(): Promise<void> {
+  const input = trainPlatformThinkingInput('父亲舍不得孩子离开。');
+  const task = input.taskEvidenceReturnResult.concreteTask;
+  task.question = '父亲此时有怎样的心理？';
+  task.answerRequirements = ['写出人物心理'];
+  task.scoringPoints = ['人物心理方向合理'];
+  input.taskContext = {
+    readingText: task.readingText,
+    questionText: task.question,
+    answerRequirements: task.answerRequirements,
+  };
+  setDiagnosis(input, { answerStatus: 'fully_meets', rootCause: '本次作答未发现明确问题。' });
+  input.taskEvidenceReturnResult.abilityEvidence[0].detail = '学生表达了父亲舍不得孩子离开的心理。';
+  input.taskEvidenceReturnResult.abilityEvidence[0].observation = '回答方向与材料一致。';
+  const run = await execute(input);
+  const conclusion = run.result.finalFeedback.thinkingReview?.requirementCoverage
+    ?.find((item) => item.requirementType === 'conclusion');
+  record(
+    'case_42_thinking_review_reasonable_alternative',
+    '合理异表述由正式 Diagnosis/Evidence 接纳，不依赖参考答案关键词',
+    conclusion?.status === 'covered' &&
+      !input.taskEvidenceReturnResult.concreteTask.questionMetadata.answerAcceptance?.acceptedKeywords
+        ?.some((keyword) => input.studentResponseText.includes(keyword)),
+    JSON.stringify(conclusion),
+  );
+}
+
+async function caseThinkingReviewPreservesPartialCoverage(): Promise<void> {
+  const input = trainPlatformThinkingInput('父亲一直朝车窗挥手，他很不舍。');
+  const run = await execute(input);
+  const evidence = run.result.finalFeedback.thinkingReview?.requirementCoverage
+    ?.find((item) => item.requirementType === 'text_evidence');
+  record(
+    'case_43_thinking_review_partial_coverage',
+    '只覆盖部分文本依据时保留 partially_covered',
+    evidence?.status === 'partially_covered' &&
+      evidence.studentEvidence.some((item) => item.includes('挥手')),
+    JSON.stringify(evidence),
+  );
+}
+
+async function caseThinkingReviewShowsOnlyPrimaryGap(): Promise<void> {
+  const input = trainPlatformThinkingInput('父亲感到依依不舍。');
+  const run = await execute(input);
+  const review = run.result.finalFeedback.thinkingReview;
+  record(
+    'case_44_thinking_review_single_primary_gap',
+    '内部保留全部覆盖状态，学生端只显示一个主要缺口',
+    Boolean(
+      review?.requirementCoverage?.filter((item) => item.status === 'missing').length === 2 &&
+      review.missingPoints.length === 1 &&
+      review.primaryGap === review.missingPoints[0],
+    ),
+    JSON.stringify(review),
+  );
+}
+
+async function caseThinkingReviewKeepsInsufficientStatus(): Promise<void> {
+  const input = trainPlatformThinkingInput('不知道。');
+  input.taskEvidenceReturnResult.abilityEvidence = [abilityEvidence({
+    type: 'insufficient',
+    index: 0,
+    studentId: input.studentId,
+    taskId: input.taskId,
+    formalDiagnosisId: input.realDiagnosisRuntimeResult.formalDiagnosisCommit!.formalDiagnosisId,
+  })];
+  setDiagnosis(input, { answerStatus: 'insufficient_evidence' });
+  const run = await execute(input);
+  record(
+    'case_45_thinking_review_insufficient_status',
+    '信息不足保持 insufficient_to_judge，不误判为缺失或错误',
+    Boolean(run.result.finalFeedback.thinkingReview?.requirementCoverage?.every((item) =>
+      item.status === 'insufficient_to_judge')),
+    JSON.stringify(run.result.finalFeedback.thinkingReview),
+  );
+}
+
+async function caseThinkingReviewPreservesValidDetailWithWrongConclusion(): Promise<void> {
+  const input = trainPlatformThinkingInput('父亲一直朝车窗挥手，因为他很生气。');
+  input.taskEvidenceReturnResult.abilityEvidence = [abilityEvidence({
+    type: 'weakness',
+    index: 0,
+    studentId: input.studentId,
+    taskId: input.taskId,
+    formalDiagnosisId: input.realDiagnosisRuntimeResult.formalDiagnosisCommit!.formalDiagnosisId,
+  })];
+  setDiagnosis(input, {
+    answerStatus: 'does_not_meet',
+    rootCause: '核心心理结论与材料不一致。',
+  });
+  const run = await execute(input);
+  const coverage = run.result.finalFeedback.thinkingReview?.requirementCoverage || [];
+  record(
+    'case_46_thinking_review_valid_detail_wrong_conclusion',
+    '核心结论错误时仍保留学生实际使用的有效材料细节',
+    coverage.some((item) => item.requirementType === 'conclusion' && item.status === 'missing') &&
+      coverage.some((item) => item.requirementType === 'text_evidence' && item.status === 'partially_covered') &&
+      run.result.finalFeedback.thinkingReview?.coveredPoints.some((item) => item.includes('挥手')) === true,
+    JSON.stringify(run.result.finalFeedback.thinkingReview),
+  );
+}
+
+async function caseThinkingReviewRejectsPronounFragment(): Promise<void> {
+  const input = umbrellaThinkingInput('母亲很关心孩子，因为她自己不想让孩子淋雨。');
+  setDiagnosis(input, { answerStatus: 'fully_meets', rootCause: '本次作答未发现明确问题。' });
+  const run = await execute(input);
+  const evidence = run.result.finalFeedback.thinkingReview?.requirementCoverage
+    ?.find((item) => item.requirementType === 'text_evidence');
+  const rendered = JSON.stringify(run.result.finalFeedback.thinkingReview);
+  record(
+    'case_47_thinking_review_rejects_pronoun_fragment',
+    '“自己”等孤立词不能被识别为有效文本依据',
+    evidence?.status === 'missing' &&
+      evidence.studentEvidence.includes('自己') !== true &&
+      !rendered.includes('文中的“自己”') &&
+      run.result.finalFeedback.thinkingReview?.coveredPoints.every((item) => !item.includes('“自己”')) === true,
+    JSON.stringify(evidence),
+  );
+}
+
+async function caseThinkingReviewAcceptsQuestionExposedAction(): Promise<void> {
+  const input = umbrellaThinkingInput('母亲把伞推向孩子，因为她怕孩子淋雨，说明她很关心孩子。');
+  setDiagnosis(input, { answerStatus: 'fully_meets', rootCause: '本次作答未发现明确问题。' });
+  const run = await execute(input);
+  const evidence = run.result.finalFeedback.thinkingReview?.requirementCoverage
+    ?.find((item) => item.requirementType === 'text_evidence');
+  record(
+    'case_48_thinking_review_question_exposed_action',
+    '题干已公开且学生实际使用的完整动作可以成为有效依据',
+    evidence?.status === 'partially_covered' &&
+      evidence.studentEvidence.includes('母亲把伞推向孩子') &&
+      evidence.studentMessage?.includes('具体内容') === true &&
+      evidence.studentMessage.includes('支持自己的理解'),
+    JSON.stringify(evidence),
+  );
+}
+
+async function caseThinkingReviewAcceptsSemanticActionParaphrase(): Promise<void> {
+  const input = umbrellaThinkingInput(
+    '她把雨伞往孩子那边推了推，还让自己的肩膀淋湿了，这说明她很关心孩子。',
+  );
+  setDiagnosis(input, { answerStatus: 'fully_meets', rootCause: '本次作答未发现明确问题。' });
+  const run = await execute(input);
+  const evidence = run.result.finalFeedback.thinkingReview?.requirementCoverage
+    ?.find((item) => item.requirementType === 'text_evidence');
+  record(
+    'case_49_thinking_review_semantic_action_paraphrase',
+    '未复刻参考措辞但表达等价动作时识别为有效文本依据',
+    evidence?.status === 'covered' &&
+      evidence.studentEvidence.some((item) => item.includes('雨伞往孩子那边推')) &&
+      evidence.studentEvidence.some((item) => item.includes('肩膀淋湿')) &&
+      evidence.studentEvidence.every((item) => input.studentResponseText.includes(item)),
+    JSON.stringify(evidence),
+  );
+}
+
+async function caseThinkingReviewRejectsConclusionOnlyAsEvidence(): Promise<void> {
+  const input = umbrellaThinkingInput('母亲很关心孩子。');
+  setDiagnosis(input, {
+    answerStatus: 'partially_meets',
+    rootCause: '回答给出了人物心理，但没有提供具体动作作为依据。',
+  });
+  const run = await execute(input);
+  const evidence = run.result.finalFeedback.thinkingReview?.requirementCoverage
+    ?.find((item) => item.requirementType === 'text_evidence');
+  record(
+    'case_50_thinking_review_conclusion_only_not_evidence',
+    '只写结论而没有具体事实时不得判为使用了文本依据',
+    evidence?.status === 'missing' &&
+      evidence.studentEvidence.length === 0 &&
+      run.result.finalFeedback.thinkingReview?.coveredPoints.every((item) =>
+        !item.includes('具体内容')) === true,
+    JSON.stringify(evidence),
+  );
+}
+
+async function caseThinkingReviewMarksFactWithoutRelationPartial(): Promise<void> {
+  const input = umbrellaThinkingInput('母亲很关心孩子，也把雨伞往孩子那边推了推。');
+  setDiagnosis(input, {
+    answerStatus: 'partially_meets',
+    rootCause: '回答使用了具体动作，但没有说明动作与人物心理之间的关系。',
+  });
+  const run = await execute(input);
+  const coverage = run.result.finalFeedback.thinkingReview?.requirementCoverage || [];
+  const evidence = coverage.find((item) => item.requirementType === 'text_evidence');
+  const relation = coverage.find((item) => item.requirementType === 'reasoning_relation');
+  record(
+    'case_51_thinking_review_fact_without_relation_partial',
+    '引用事实但没有解释事实与结论关系时只判为部分完成',
+    evidence?.status === 'partially_covered' &&
+      evidence.studentEvidence.some((item) => item.includes('雨伞往孩子那边推')) &&
+      relation?.status === 'missing' &&
+      run.result.finalFeedback.thinkingReview?.primaryGap?.includes('为什么能表现出“关心”') === true,
+    JSON.stringify({ evidence, relation, review: run.result.finalFeedback.thinkingReview }),
+  );
+}
+
+async function casePrimaryGapKeepsCommentaryAndGuidanceAligned(): Promise<void> {
+  const input = trainPlatformThinkingInput('父亲一直朝车窗挥手，因为他很生气。');
+  input.taskEvidenceReturnResult.abilityEvidence = [abilityEvidence({
+    type: 'weakness',
+    index: 0,
+    studentId: input.studentId,
+    taskId: input.taskId,
+    formalDiagnosisId: input.realDiagnosisRuntimeResult.formalDiagnosisCommit!.formalDiagnosisId,
+  })];
+  setDiagnosis(input, {
+    answerStatus: 'does_not_meet',
+    rootCause: '人物心理结论与材料不一致。',
+  });
+  const run = await execute(input);
+  const review = run.result.finalFeedback.thinkingReview;
+  const action = run.result.finalFeedback.guidance?.revisionActions[0] || '';
+  const primaryCoverage = review?.requirementCoverage.find((item) =>
+    item.requirementId === review.primaryGapRequirementId);
+  record(
+    'case_52_primary_gap_commentary_guidance_alignment',
+    '点评与建议由同一主要缺口生成，先调整结论再建立关系',
+    primaryCoverage?.requirementType === 'conclusion' &&
+      primaryCoverage.status === 'missing' &&
+      !/(?:先|再|最后|按照|下次|修改时)/.test(review?.primaryGap || '') &&
+      action.includes('保留已经找到的动作') &&
+      action.includes('先重新想一想父亲当时的心理') &&
+      action.includes('再说明这个动作为什么能体现这种理解'),
+    JSON.stringify({ review, action }),
+  );
+}
+
+async function caseMissingEvidenceGuidancePreservesConclusion(): Promise<void> {
+  const input = trainPlatformThinkingInput('父亲感到依依不舍。');
+  const run = await execute(input);
+  const review = run.result.finalFeedback.thinkingReview;
+  const action = run.result.finalFeedback.guidance?.revisionActions[0] || '';
+  const primaryCoverage = review?.requirementCoverage.find((item) =>
+    item.requirementId === review.primaryGapRequirementId);
+  record(
+    'case_53_missing_evidence_preserves_conclusion',
+    '已完成结论但缺少依据时，建议保留结论并补充具体内容',
+    primaryCoverage?.requirementType === 'text_evidence' &&
+      action.includes('保留已经写出的父亲当时的心理') &&
+      action.includes('从文中找出一处') &&
+      !/(?:缺少依据|尚未完成|判断不准确)/.test(action),
+    JSON.stringify({ review, action }),
+  );
+}
+
+async function caseMissingRelationGuidancePreservesCompletedWork(): Promise<void> {
+  const input = umbrellaThinkingInput('母亲很关心孩子，也把雨伞往孩子那边推了推。');
+  setDiagnosis(input, {
+    answerStatus: 'partially_meets',
+    rootCause: '回答使用了具体动作，但没有说明动作与人物心理之间的关系。',
+  });
+  const run = await execute(input);
+  const review = run.result.finalFeedback.thinkingReview;
+  const action = run.result.finalFeedback.guidance?.revisionActions[0] || '';
+  const primaryCoverage = review?.requirementCoverage.find((item) =>
+    item.requirementId === review.primaryGapRequirementId);
+  record(
+    'case_54_missing_relation_preserves_completed_work',
+    '结论和事实已出现但关系缺失时，只建议补充关系说明',
+    primaryCoverage?.requirementType === 'reasoning_relation' &&
+      action.includes('保留已经写出的结论和动作') &&
+      action.includes('为什么能体现这种理解') &&
+      !/(?:还没有说明清楚|缺少|不准确)/.test(action),
+    JSON.stringify({ review, action }),
+  );
+}
+
+async function caseCompleteAnswerDoesNotCreateGuidance(): Promise<void> {
+  const input = trainPlatformThinkingInput(
+    '父亲一直朝车窗挥手，直到看不见才放下手臂，这说明他对孩子十分不舍。',
+  );
+  setDiagnosis(input, {
+    answerStatus: 'fully_meets',
+    surfaceError: '本次作答未发现明确问题。',
+    rootCause: '本次作答未发现明确问题。',
+    abilityEvidence: ['回答说明了人物动作与人物心理之间的关系。'],
+    diagnosisSummary: '结论、文本依据与推理关系均已完成。',
+    matchedRubricItems: ['psychology', 'text_evidence', 'reasoning_relation'],
+    missingRubricItems: [],
+  });
+  const run = await execute(input);
+  const review = run.result.finalFeedback.thinkingReview;
+  const actions = run.result.finalFeedback.guidance?.revisionActions || [];
+  record(
+    'case_55_complete_answer_commentary_only',
+    '回答完整时只保留点评，不为结构对称强行生成建议',
+    Boolean(review && !review.primaryGap && review.missingPoints.length === 0) && actions.length === 0,
+    JSON.stringify({ review, actions }),
+  );
+}
+
+async function caseInsufficientAnswerUsesActionOnlyGuidance(): Promise<void> {
+  const input = trainPlatformThinkingInput('不知道。');
+  input.taskEvidenceReturnResult.abilityEvidence = [abilityEvidence({
+    type: 'insufficient',
+    index: 0,
+    studentId: input.studentId,
+    taskId: input.taskId,
+    formalDiagnosisId: input.realDiagnosisRuntimeResult.formalDiagnosisCommit!.formalDiagnosisId,
+  })];
+  setDiagnosis(input, { answerStatus: 'insufficient_evidence' });
+  const run = await execute(input);
+  const review = run.result.finalFeedback.thinkingReview;
+  const action = run.result.finalFeedback.guidance?.revisionActions[0] || '';
+  record(
+    'case_56_insufficient_answer_action_only_guidance',
+    '信息不足时覆盖状态保持克制，建议只说明下一步动作',
+    review?.coveredPoints.length === 0 &&
+      review.requirementCoverage.every((item) => item.status === 'insufficient_to_judge') &&
+      action.includes('先写出父亲当时的心理') &&
+      !/(?:不足|未完成|不准确|缺少依据)/.test(action),
+    JSON.stringify({ review, action }),
+  );
+}
+
+async function caseInternalCompoundEvidenceDoesNotBecomeStudentCommentary(): Promise<void> {
+  const input = umbrellaThinkingInput('母亲爱孩子。');
+  setDiagnosis(input, {
+    answerStatus: 'fully_meets',
+    surfaceError: '本次作答未发现明确问题。',
+    rootCause: '本次作答未发现明确问题。',
+    abilityEvidence: ['结论、文本依据与推理关系均已完成。'],
+    diagnosisSummary: '结论、文本依据与推理关系均已完成。',
+    matchedRubricItems: ['psychology', 'text_evidence', 'reasoning_relation'],
+    missingRubricItems: [],
+  });
+  input.taskEvidenceReturnResult.abilityEvidence[0].detail =
+    '答案包含核心结论：母亲爱孩子；答案隐含依据：母亲宁愿自己淋雨；结论与依据的关系成立。';
+  input.taskEvidenceReturnResult.abilityEvidence[0].observation =
+    '对应材料中母亲把伞推向孩子、自己肩膀被淋湿。';
+
+  const run = await execute(input);
+  const rendered = JSON.stringify(run.result.finalFeedback);
+  record(
+    'case_57_internal_compound_evidence_not_student_commentary',
+    '内部复合 Evidence 不进入回答到位，也不产生机械拼接病句',
+    rendered.includes('母亲爱孩子') &&
+      !rendered.includes('回答答案') &&
+      !rendered.includes('还答案') &&
+      !rendered.includes('答案包含核心结论') &&
+      !rendered.includes('答案隐含依据') &&
+      !rendered.includes('对应材料中') &&
+      !rendered.includes('结论与依据的关系成立'),
+    rendered,
+  );
+}
+
+async function caseFormalRelationCannotOverrideMissingStudentEvidence(): Promise<void> {
+  const input = umbrellaThinkingInput('母亲爱孩子。');
+  setDiagnosis(input, {
+    answerStatus: 'fully_meets',
+    surfaceError: '本次作答未发现明确问题。',
+    rootCause: '本次作答未发现明确问题。',
+    abilityEvidence: ['回答说明了动作与心理之间的关系。'],
+    diagnosisSummary: '结论、文本依据与推理关系均已完成。',
+    matchedRubricItems: ['psychology', 'text_evidence', 'reasoning_relation'],
+    missingRubricItems: [],
+  });
+
+  const run = await execute(input);
+  const coverage = run.result.finalFeedback.thinkingReview?.requirementCoverage || [];
+  const evidence = coverage.find((item) => item.requirementType === 'text_evidence');
+  const relation = coverage.find((item) => item.requirementType === 'reasoning_relation');
+  const covered = run.result.finalFeedback.thinkingReview?.coveredPoints.join(' ') || '';
+  record(
+    'case_58_formal_relation_cannot_override_missing_student_evidence',
+    '学生答案中没有可核验依据时，正式结果不能让依据与关系在学生端显示为已完成',
+    evidence?.status === 'insufficient_to_judge' &&
+      relation?.status === 'insufficient_to_judge' &&
+      !covered.includes('具体内容和人物心理之间的联系'),
+    JSON.stringify({ evidence, relation, covered }),
+  );
+}
+
+function umbrellaThinkingInput(answer: string): ControlledFeedbackExpressionInput {
+  const input = baseInput({ evidenceTypes: ['positive'] });
+  const task = input.taskEvidenceReturnResult.concreteTask;
+  task.readingText = '雨越下越大，母亲把伞往孩子那边推了推，自己的半边肩膀很快被雨水打湿。';
+  task.question = '母亲把伞推向孩子，表现出怎样的心理？请结合她的动作说明理由。';
+  task.answerRequirements = ['写出人物心理', '结合母亲的具体动作说明理由', '说明动作与心理之间的关系'];
+  task.scoringPoints = ['指出母亲把伞推向孩子、自己肩膀被淋湿', '说明动作与关心、爱护孩子之间的联系'];
+  task.questionMetadata.answerAcceptance = {
+    acceptedKeywords: ['关心', '爱护'],
+    semanticEquivalentAllowed: true,
+  };
+  input.taskContext = {
+    readingText: task.readingText,
+    questionText: task.question,
+    answerRequirements: task.answerRequirements,
+  };
+  setStudentAnswer(input, answer);
+  return input;
+}
+
+function trainPlatformThinkingInput(answer: string): ControlledFeedbackExpressionInput {
+  const input = baseInput({ evidenceTypes: ['positive'] });
+  const task = input.taskEvidenceReturnResult.concreteTask;
+  task.readingText = '列车缓缓开动，父亲没有追着车走，只站在原地朝车窗挥手。直到站台尽头看不见了，他才慢慢放下手臂。';
+  task.question = '结合父亲的动作，说说父亲此时有怎样的心理，并说明理由。';
+  task.answerRequirements = ['写出人物心理', '结合文中的具体动作说明理由', '说明动作与心理之间的关系'];
+  task.scoringPoints = ['指出父亲一直挥手、看不见后才放下手臂', '说明动作与不舍、牵挂或留恋之间的联系'];
+  task.questionMetadata.answerAcceptance = {
+    acceptedKeywords: ['不舍', '牵挂', '留恋'],
+    semanticEquivalentAllowed: true,
+  };
+  input.taskContext = {
+    readingText: task.readingText,
+    questionText: task.question,
+    answerRequirements: task.answerRequirements,
+  };
+  setStudentAnswer(input, answer);
+  return input;
 }
 
 function baseInput(options: {

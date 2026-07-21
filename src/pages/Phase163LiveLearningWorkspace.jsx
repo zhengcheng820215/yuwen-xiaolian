@@ -11,7 +11,6 @@ import {
   isPhase163DiagnosisBoundaryUnavailable,
 } from '../api/phase163DiagnosisBoundary.ts';
 import { requestStudentWritingCorrections } from '../api/studentWritingCorrections.ts';
-import { STUDENT_REVIEW_REQUIRED_TITLE } from '../ai/content/studentRuntimeMessages.ts';
 
 const RUNTIME_UNAVAILABLE_MESSAGE = '分析服务尚未就绪。你可以继续编辑或保存回答，服务准备好后再提交。';
 
@@ -277,6 +276,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
 
 function CompletedFeedback({ state, writingCorrections, busy, onContinue, onReturn }) {
   const positive = state.feedback?.whatYouDidWell?.slice(0, 1) || [];
+  const thinkingReview = state.feedback?.thinkingReview;
   const guidance = state.feedback?.guidance;
   const attention = guidance ? [] : state.feedback?.whatNeedsAttention?.slice(0, 1) || [];
   return (
@@ -285,8 +285,8 @@ function CompletedFeedback({ state, writingCorrections, busy, onContinue, onRetu
       <h1 className="mt-4 text-lg font-semibold">反馈</h1>
       <p className="mt-3 text-base leading-7 text-slate-600">{state.feedback?.summary || '本轮结果已经保存。'}</p>
       {writingCorrections.length ? <WritingCorrections items={writingCorrections} /> : null}
-      {positive.length ? <FeedbackList title="做得好的地方" items={positive} tone="positive" /> : null}
-      {guidance ? <StudentFeedbackGuidance guidance={guidance} /> : null}
+      {thinkingReview ? <ThinkingReview review={thinkingReview} /> : positive.length ? <FeedbackList title="思路点评" items={positive} tone="positive" /> : null}
+      {guidance ? <StudentFeedbackGuidance guidance={guidance} compact={Boolean(thinkingReview)} /> : null}
       {attention.length ? <FeedbackList title="需要留意" items={attention} tone="attention" /> : null}
       <div className="mt-10 flex justify-center">
         {state.canAdvance ? (
@@ -311,6 +311,7 @@ function CompletedFeedback({ state, writingCorrections, busy, onContinue, onRetu
 
 function PausedWorkspace({ state, writingCorrections, busy, onRetryResource, onReturn }) {
   const positive = state.feedback?.whatYouDidWell?.slice(0, 1) || [];
+  const thinkingReview = state.feedback?.thinkingReview;
   const guidance = state.feedback?.guidance;
   const attention = guidance ? [] : state.feedback?.whatNeedsAttention?.slice(0, 1) || [];
   return (
@@ -320,13 +321,13 @@ function PausedWorkspace({ state, writingCorrections, busy, onRetryResource, onR
           <h1 className="text-lg font-semibold">反馈</h1>
           <p className="mt-3 text-base leading-7 text-slate-600">{state.feedback.summary}</p>
           {writingCorrections.length ? <WritingCorrections items={writingCorrections} /> : null}
-          {positive.length ? <FeedbackList title="做得好的地方" items={positive} tone="positive" /> : null}
-          {guidance ? <StudentFeedbackGuidance guidance={guidance} /> : null}
+          {thinkingReview ? <ThinkingReview review={thinkingReview} /> : positive.length ? <FeedbackList title="思路点评" items={positive} tone="positive" /> : null}
+          {guidance ? <StudentFeedbackGuidance guidance={guidance} compact={Boolean(thinkingReview)} /> : null}
           {attention.length ? <FeedbackList title="需要留意" items={attention} tone="attention" /> : null}
         </>
       ) : null}
       <section className={state.feedback ? 'mt-9 border-t border-slate-200 pt-7' : ''} aria-live="polite">
-        <h2 className="text-base font-semibold">{state.status === 'review_required' ? STUDENT_REVIEW_REQUIRED_TITLE : '暂时无法继续'}</h2>
+        <h2 className="text-base font-semibold">{state.studentTitle || '暂时无法继续'}</h2>
         <p className="mt-2 text-base leading-7 text-slate-600">{state.studentMessage}</p>
       </section>
       <div className="mt-8 flex flex-wrap gap-3">
@@ -380,11 +381,72 @@ function FeedbackList({ title, items, tone }) {
   );
 }
 
-function StudentFeedbackGuidance({ guidance }) {
-  const hasContent = guidance.understandingNotice ||
-    guidance.detailsToReview.length > 0 ||
-    guidance.revisionActions.length > 0;
+function ThinkingReview({ review }) {
+  const missingPoints = review.primaryGap ? [review.primaryGap] : review.missingPoints.slice(0, 1);
+  const primaryGapCoverage = review.requirementCoverage?.find((item) =>
+    item.requirementId === review.primaryGapRequirementId);
+  const hasAssessableCoverage = !review.requirementCoverage?.length || review.requirementCoverage.some((item) =>
+    item.status !== 'insufficient_to_judge');
+  if (!hasAssessableCoverage && review.coveredPoints.length === 0) return null;
+  const gapTitle = primaryGapCoverage?.requirementType === 'conclusion' &&
+    primaryGapCoverage.status === 'missing'
+    ? '还需调整'
+    : '还需补充';
+  return (
+    <section className="mt-7">
+      <h2 className="text-base font-semibold">思路点评</h2>
+      {review.coveredPoints.length > 0 ? (
+        <div className="mt-4">
+          <h3 className="text-sm font-semibold text-slate-800">回答到位</h3>
+          <ol className="mt-2 space-y-2 text-base leading-7 text-slate-700">
+            {review.coveredPoints.map((item, index) => (
+              <li key={item} className="flex items-start gap-3">
+                <span className="w-5 shrink-0 text-right font-medium text-emerald-600">{index + 1}.</span>
+                <span className="min-w-0">{item}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
+      {missingPoints.length > 0 ? (
+        <div className="mt-5">
+          <h3 className="text-sm font-semibold text-slate-800">{gapTitle}</h3>
+          <ol className="mt-2 space-y-2 text-base leading-7 text-slate-700">
+            {missingPoints.map((item, index) => (
+              <li key={item} className="flex items-start gap-3">
+                <span className="w-5 shrink-0 text-right font-medium text-slate-500">{index + 1}.</span>
+                <span className="min-w-0">{item}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function StudentFeedbackGuidance({ guidance, compact = false }) {
+  const hasContent = compact
+    ? guidance.revisionActions.length > 0
+    : guidance.understandingNotice ||
+      guidance.detailsToReview.length > 0 ||
+      guidance.revisionActions.length > 0;
   if (!hasContent) return null;
+  if (compact) {
+    return (
+      <section className="mt-7">
+        <h2 className="text-base font-semibold">思路建议</h2>
+        <ol className="mt-3 space-y-2 text-base leading-7 text-slate-700">
+          {guidance.revisionActions.map((item, index) => (
+            <li key={item} className="flex items-start gap-3">
+              <span className="w-5 shrink-0 text-right font-medium text-slate-500">{index + 1}.</span>
+              <span className="min-w-0">{item}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+    );
+  }
   return (
     <section className="mt-7">
       <h2 className="text-base font-semibold">需要留意</h2>

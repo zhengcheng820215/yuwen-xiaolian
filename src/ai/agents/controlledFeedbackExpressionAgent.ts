@@ -4,6 +4,7 @@ import {
   buildStructuredFeedbackFacts,
 } from './structuredFeedbackFactsAgent.ts';
 import { buildControlledFeedbackExpressionPrompt } from '../prompts/buildControlledFeedbackExpressionPrompt.ts';
+import { buildStudentThinkingReview } from './studentThinkingReviewAgent.ts';
 import type { DiagnosisProviderAdapter } from '../providers/diagnosisProviderAdapter.ts';
 import type { ControlledFeedbackRepository } from '../repositories/controlledFeedbackRepository.ts';
 import {
@@ -95,7 +96,16 @@ export async function runControlledFeedbackExpression(
     };
     return commitResult(buildNoticeResult(input, blockedAdmission), dependencies.repository);
   }
-  const teachingPlan = buildStudentFeedbackTeachingPlan({ request: input, facts: structuredFacts });
+  const thinkingReview = buildStudentThinkingReview(input, {
+    safeStrengths: structuredFacts.observedStrengths
+      .map((fact) => fact.safeExpressions[0])
+      .filter(Boolean),
+  });
+  const teachingPlan = buildStudentFeedbackTeachingPlan({
+    request: input,
+    facts: structuredFacts,
+    thinkingReview,
+  });
   if (!teachingPlan.validation.passed) {
     const blockedAdmission: FeedbackAdmissionDecision = {
       ...admissionDecision,
@@ -108,13 +118,13 @@ export async function runControlledFeedbackExpression(
     };
     return commitResult(buildNoticeResult(input, blockedAdmission), dependencies.repository);
   }
-
   const baselineFeedback = buildDeterministicFeedback(
     input,
     admissionDecision,
     structuredFacts,
     suggestions,
     teachingPlan,
+    thinkingReview,
   );
   const baselineValidation = validBaselineValidation();
 
@@ -177,7 +187,7 @@ export async function runControlledFeedbackExpression(
         continue;
       }
 
-      const enhancedFeedback = mapCandidateToFeedback(input, candidate, teachingPlan);
+      const enhancedFeedback = mapCandidateToFeedback(input, candidate, teachingPlan, thinkingReview);
       const result = buildContentResult({
         input,
         admissionDecision,
@@ -511,6 +521,7 @@ function buildDeterministicFeedback(
   facts: StructuredFeedbackFacts,
   suggestions: ActionableSuggestion[],
   teachingPlan: StudentFeedbackTeachingPlan,
+  thinkingReview: StudentLearningFeedback['thinkingReview'],
 ): StudentLearningFeedback {
   const whatYouDidWell = facts.observedStrengths.map((fact) => fact.safeExpressions[0]).filter(Boolean);
   const whatNeedsAttention = teachingPlan.understandingNotice
@@ -522,9 +533,7 @@ function buildDeterministicFeedback(
     stage: 'result',
     resultStatus: 'completed',
     headline: '反馈',
-    summary: admissionDecision.expressionScope === 'restricted'
-      ? '下面是根据本次正式记录整理的受限反馈。'
-      : '下面是根据本次回答整理的反馈。',
+    summary: '下面是根据本次回答整理的反馈。',
     whatYouDidWell,
     whatNeedsAttention,
     nextActionText: suggestions[0]?.text || '可以按本轮学习安排继续下一步。',
@@ -533,6 +542,7 @@ function buildDeterministicFeedback(
       detailsToReview: teachingPlan.detailsToReview.map((item) => item.text),
       revisionActions: teachingPlan.revisionActions.map((item) => item.text),
     },
+    thinkingReview,
     canRetry: false,
     canFinishRound: true,
     source: 'evidence_return',
@@ -543,6 +553,7 @@ function mapCandidateToFeedback(
   input: ControlledFeedbackExpressionInput,
   candidate: FeedbackExpressionCandidate,
   teachingPlan: StudentFeedbackTeachingPlan,
+  thinkingReview: StudentLearningFeedback['thinkingReview'],
 ): StudentLearningFeedback {
   return {
     learningRoundId: input.learningRoundId,
@@ -559,6 +570,7 @@ function mapCandidateToFeedback(
       detailsToReview: teachingPlan.detailsToReview.map((item) => item.text),
       revisionActions: teachingPlan.revisionActions.map((item) => item.text),
     },
+    thinkingReview,
     canRetry: false,
     canFinishRound: true,
     source: 'evidence_return',
