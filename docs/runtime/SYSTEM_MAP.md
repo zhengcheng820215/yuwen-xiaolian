@@ -154,6 +154,19 @@ EvaluationResult
 
 候选薄弱点不能直接决定长期能力状态。
 
+### 2.1 Learning Gap 与能力状态
+
+```text
+Learning Gap
+= 当前有效表现相对于正式任务要求缺少的能力动作
+≠ Root Cause
+≠ 长期 Ability Weakness
+```
+
+Learning Gap 只回答“当前还需要补充、修正或验证什么”，不能回答学生长期能力水平，也不能直接决定具体训练任务。无效作答或证据不足不得生成具体 Learning Gap。
+
+当前 Runtime 通过 `TaskRequirementCoverage / primaryGap / gapReasonCode` 提供兼容表达，并通过只读 `StudentFeedbackGrounding` 将“已做到、主要缺口、改进动作”绑定到同一组正式来源。独立 `LearningGapAssessment` 已完成模型定义，但尚未作为新的正式持久化对象实现。长期语义见 [Learning Gap Model](../education/LEARNING_GAP_MODEL.md)。
+
 ### 3. LearningRound 与 LearningSession
 
 ```text
@@ -213,6 +226,8 @@ Formal DiagnosisResult
 | ResponseValidityResult | 判断回答是否具有最低限度的可观察表现。 |
 | TaskExecutionResult | 作为任务执行层与 Diagnosis 层之间的正式交接对象。 |
 | DiagnosisResult | 描述一次作答中的状态、表现、问题和根因假设。 |
+| LearningGapAssessment | 描述有效表现相对于任务要求缺少的能力动作；当前为长期模型对象，Runtime 仍使用 `TaskRequirementCoverage / primaryGap / gapReasonCode` 兼容表达。 |
+| StudentFeedbackGrounding | 当前反馈侧只读契约；把有依据的已完成动作、唯一主要 Gap 和可执行修改动作绑定到 Requirement 与来源链接，不形成长期能力结论。 |
 
 ### Evidence 与画像
 

@@ -88,6 +88,8 @@ Diagnosis 不得：
 - 直接确定成长趋势；
 - 在证据不足时强行选择根因。
 
+Diagnosis 形成的 `TaskRequirementCoverage` 和可观察表现，可以由只读的 `StudentThinkingAnalysis` 进一步整理为“已完成的思考动作”和“答案连接中断位置”。该投影不得反向改写 Diagnosis，也不得把答案中的断点升级为已确认的学生内在 Root Cause。
+
 ## 二、诊断原则（Diagnosis Principles）
 
 ### 1. 不根据一道题下结论
@@ -824,21 +826,26 @@ Student Answer
 Answer Validity
       ↓
 Diagnosis Result
-      ↓
-Ability Evidence
-      ↓
-┌────────────────┬──────────────────────┐
-│ Training Plan  │ Profile / Evaluation │
-└────────────────┴──────────────────────┘
-      ↓
-Retest / Transfer
-      ↓
-New Ability Evidence
+      ├──────────────────────────┐
+      ↓                          ↓
+Learning Gap Assessment    Ability Evidence
+      ↓                          ↓
+Verification / Training    Profile / Evaluation
+Candidate                       │
+      └──────────────┬───────────┘
+                     ↓
+       Training / Retest / Transfer
+                     ↓
+           New Ability Evidence
 ```
 
 ABILITY_MODEL 定义系统如何理解能力。
 
 DIAGNOSIS_MODEL 定义系统如何判断本次作答有效性、识别可观察表现、提出根因假设并生成 Ability Evidence。
+
+LEARNING_GAP_MODEL 定义如何将有效表现与正式任务要求之间的差距表达为可观察、可验证、可干预的能力动作缺口。Learning Gap 描述“缺少什么”，不重新判断“为什么”，也不替代 Diagnosis 中的 Root Cause Hypothesis。
+
+当前工程仍可通过 `TaskRequirementCoverage`、`primaryGapRequirementId`、`primaryGap` 和 `gapReasonCode` 表达兼容缺口；独立 `LearningGapAssessment` 属于长期模型目标，尚不代表已经建立新的持久化 Runtime。
 
 TRAINING_MODEL 应基于诊断结果、Ability Evidence 和 Profile 状态生成针对性训练方向。
 

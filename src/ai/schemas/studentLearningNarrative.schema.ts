@@ -12,6 +12,7 @@ export type StudentLearningNarrativeSourceType =
   | 'formal_task'
   | 'student_response'
   | 'task_requirement_coverage'
+  | 'learning_gap'
   | 'student_feedback'
   | 'evidence_quality'
   | 'growth_memory'
@@ -194,6 +195,7 @@ function isStatement(value: unknown): value is StudentLearningNarrativeStatement
       'formal_task',
       'student_response',
       'task_requirement_coverage',
+      'learning_gap',
       'student_feedback',
       'evidence_quality',
       'growth_memory',

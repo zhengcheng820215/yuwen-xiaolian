@@ -40,6 +40,12 @@ Formal Task / Task Requirement Coverage
 + Eligible Evidence Quality / GrowthMemory
 + NextLearningStrategy / Matched Next Task
 ↓
+StudentFeedbackGrounding
+↓
+StudentThinkingAnalysis
+↓
+StudentFeedbackActionPlan
+↓
 StudentLearningNarrativeProjection
 ↓
 StudentLearningPresentation
@@ -48,6 +54,8 @@ UnifiedLearningEntryState / Student Feedback UI
 ```
 
 `StudentLearningNarrativeProjection` 保留来源绑定和校验；`StudentLearningPresentation` 只读地把合法文本组织成学生当前阶段需要回答的四个问题。页面不得读取 Projection 内部来源 ID，也不得绕过 Projection 直接展示 Strategy reason、GrowthMemory summary 或内部状态。
+
+`StudentThinkingAnalysis` 只依据已校验事实描述“已经完成的思考动作”和“答案连接中断的位置”。`StudentFeedbackActionPlan` 再把该断点翻译为“为什么已有动作有价值、问题机制、思考提示和允许使用的句式支架”。二者都不是新 Diagnosis Agent，也不重新判断学生能力。Narrative 只能表达通过该计划校验的内容。
 
 ## 三、权威边界
 
@@ -99,15 +107,17 @@ type StudentLearningPresentation = {
 这些字段继续复用现有本轮反馈边界：
 
 - `outcome.responseAnchor` 只锚定与 `achieved` 或 `primaryGap` 直接相关的学生表达；
-- `outcome.achieved` 来自本次答案中已核验的任务要求命中点；
-- `outcome.primaryGap` 只保留一个最关键缺口；
-- `nextAction` 是解决该缺口的可执行动作，不重复评价本次答案。
+- `outcome.achieved` 来自本次答案中已核验的任务要求命中点，并说明该动作为什么有助于完成题目；
+- `outcome.primaryGap` 只保留一个最关键缺口，并说明答案连接具体在哪里中断；
+- `nextAction` 优先提供解决该断点的思考问题和句式支架，不重复评价本次答案，也不机械拆分标准答案。
+
+反馈不得只把能力术语换成另一套抽象话术。已有学生观点和正式材料线索时，应明确写出：学生已经提出哪个观点、当前答案缺少哪个组成部分、可回到材料中的哪一处线索、下一句可以怎样组织。单独使用“心理判断、具体动作、你的理解、说明关系”不能视为可执行反馈。
 
 主要缺口必须承接本次已经完成的内容。例如学生已经写出人物心理但缺少依据时，应说明“还需要找出什么，以及该内容需要支持哪一个已有理解”，不得退回“还缺少这一部分”等脱离上下文的通用模板。该表达只能引用学生已经写出的结论，不能泄露学生尚未发现的完整材料关键细节。
 
 当人物心理判断需要调整时，点评应保留学生已经找到的动作或其他有效内容，再说明需要重新思考的对象；建议必须按“保留已有内容 / 找出依据 → 重新思考结论 → 说明依据与结论的联系”推进。显式人物名称高于“他 / 她”等代词，且不得使用没有明确前文对象的“这样的心理”“这种理解”等指代。
 
-页面现有“思路点评 / 还需补充 / 思路建议”是这三个字段的主要展示位置，不重复新增一套反馈卡片。
+页面以“已经完成的思考 / 思考缺口 / 下一步训练”承载这三个字段，不重复新增一套反馈卡片。标题负责稳定信息结构，具体缺口类型仍由结构化原因码和正文解释，不依赖标题表达判断精度。
 
 `responseAnchor` 可以是学生原文短引用、经核验的等价概括，或学生已经完成的明确认知动作。它不得复制整段答案，不得回应与当前完成点和主要缺口无关的内容，也不得把系统推断伪装成学生原话。没有可靠短锚点时允许省略。
 
@@ -257,6 +267,9 @@ type NarrativeCalibrationSample = {
 2026-07-22 完成工程基线：
 
 - 新增只读 `StudentLearningNarrativeProjection` 与安全学生视图；
+- 新增确定性 `StudentFeedbackActionPlan`，将唯一主要 Gap 转换为已完成动作、缺失答案零件、修改步骤和受控句式支架；
+- 当 `TaskRequirementCoverage` 已包含学生观点和任务材料线索时，反馈直接引用这些合法事实，不再退化为“具体动作 / 你的理解 / 说明关系”等无指向表达；
+- 反馈深度按正式状态控制：无效作答不生成具体 Gap 或材料提示，可重试反馈降低支架深度，正式结果允许提供区块级修改路径；
 - 新增只读 `StudentLearningPresentation`，将合法叙事组织为“为什么练 / 发生了什么 / 怎么办 / 为什么继续”；
 - 接入统一学习入口和正式学习工作区；
 - 作答前展示“为什么练这题”；
@@ -270,14 +283,52 @@ type NarrativeCalibrationSample = {
 - Narrative 保留 `needs_adjustment / needs_completion / insufficient_to_judge` 三种展示语义，并结合正式原因码区分“需要重新判断 / 还需补充依据 / 还需说明联系 / 还需完成 / 先补充回答”，不再根据缺口文案猜测状态；
 - 正式题目要求覆盖项新增五类 `gapReasonCode`，页面可进一步区分“需要重新判断 / 还需补充依据 / 还需说明联系 / 还需完成 / 先补充回答”；`does_not_meet` 不再自动等于理解错误，只有正式结果明确确认结论与材料不一致时才进入“需要重新判断”；
 - Narrative `nextAction` 优先消费已校验的当前答案修改步骤，泛化鼓励不得进入正式展示；
-- `/learning` 正式反馈页以通过校验的 `StudentLearningPresentation` 为首选展示源，统一呈现“你刚才写到 / 回答到位 / 还需补充 / 思路建议”；旧 `thinkingReview + guidance` 仅在 Narrative 缺失时作为安全回退；
+- `/learning` 正式反馈页以通过校验的 `StudentLearningPresentation` 为首选展示源，直接呈现“已经完成的思考 / 思考缺口 / 下一步训练”，不再增加“思路点评”总标题；`responseAnchor` 继续作为内部追溯信息保留，不再单独占用学生反馈区块；旧 `thinkingReview + guidance` 仅在 Narrative 缺失时作为安全回退；
 - 冻结 4 组代表样例，并提供旧版与理想 Narrative 并排验收入口 `/student-learning-narrative-calibration-demo`；
 - Controlled Feedback Expression 回归 `61 / 61 PASS`；
 - 专项 Debug `24 / 24 PASS`，覆盖错误答案中性锚点、占位答案阻断、缺口展示语义、身份错位阻断与四组冻结样例正式 Builder 验收；
+- Feedback Action Plan 专项 Debug `7 / 7 PASS`，Grounding 回归 `6 / 6 PASS`；
 - 确定性映射与模板是正式可靠基线，LLM 表达仅可作为后续受控增强，不是学生叙事成立的前提；
 - Unified Learning Entry 回归 `17 / 17 PASS`；
 - Phase 16.3 Day 0 正式恢复链回归 `12 / 12 PASS`；
 - Production Build `PASS`。
+
+### 9.1 Student Learning Narrative Calibration v1.1
+
+本轮把反馈从界面字段调整升级为受约束的教学反馈结构：
+
+```text
+Question Metadata / Rubric
+↓
+Student Response
+↓
+DiagnosisResult
+↓
+TaskRequirementCoverage
+↓
+StudentFeedbackGrounding
+↓
+StudentLearningNarrative
+↓
+已经完成的思考 / 思考缺口 / 下一步训练
+```
+
+新增只读 `StudentFeedbackGrounding` 契约：
+
+- `achievedPoints` 必须同时具有正式 Requirement 与学生作答证据，不能凭语言习惯表扬；
+- `primaryGap` 从唯一 `primaryGapRequirementId / gapReasonCode` 映射，不根据自然语言缺口文案猜测；
+- `actions` 必须绑定同一个主要 Gap，并声明补充后需要重新验证的任务要求；
+- `insufficient_to_judge` 不生成具体 Learning Gap，只保留 `cannot_assess / needs_verification`；
+- 当前 Gap 只描述本次任务表现，不写入长期 Profile，也不代表长期能力薄弱；
+- 来源链接使用内部标识，不把学生原答案拼接进 ID 或展示层。
+
+新增专项命令：
+
+```bash
+npm run debug:student-feedback-grounding
+```
+
+当前专项结果：`6 / 6 PASS`；Narrative 回归：`24 / 24 PASS`；Production Build：`PASS`。
 
 当前仍未完成：6—10 组真实样例冻结、旧版与新版并排人工评审、真实学生理解验收。未完成上述工作前，不宣称“学习叙事体验已经正式通过”。
 

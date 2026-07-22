@@ -385,7 +385,7 @@ function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus,
             />
           ) : (
             <>
-              {thinkingReview ? <ThinkingReview review={thinkingReview} contentVisible={presentationStep >= 1} /> : positive.length ? <FeedbackList title="思路点评" items={positive} tone="positive" contentVisible={presentationStep >= 1} /> : null}
+              {thinkingReview ? <ThinkingReview review={thinkingReview} contentVisible={presentationStep >= 1} /> : positive.length ? <FeedbackList title="已经完成的思考" items={positive} tone="positive" contentVisible={presentationStep >= 1} /> : null}
               <div className={feedbackRevealClass(presentationStep >= 2)}>
                 {guidance ? <StudentFeedbackGuidance guidance={guidance} compact={Boolean(thinkingReview)} /> : null}
               </div>
@@ -438,7 +438,7 @@ function PausedWorkspace({ state, writingCorrections, busy, onReturn }) {
                 <StudentLearningNarrativeOutcome presentation={state.learningPresentation} />
               ) : (
                 <>
-                  {thinkingReview ? <ThinkingReview review={thinkingReview} /> : positive.length ? <FeedbackList title="思路点评" items={positive} tone="positive" /> : null}
+                  {thinkingReview ? <ThinkingReview review={thinkingReview} /> : positive.length ? <FeedbackList title="已经完成的思考" items={positive} tone="positive" /> : null}
                   {guidance ? <StudentFeedbackGuidance guidance={guidance} compact={Boolean(thinkingReview)} /> : null}
                   {attention.length ? <FeedbackList title="需要留意" items={attention} tone="attention" /> : null}
                 </>
@@ -479,7 +479,7 @@ function RecoveringWorkspace({ state, busy, runtimeAvailability, onResume, onRet
 function FeedbackList({ title, items, tone, contentVisible = true }) {
   return (
     <section className="mt-7">
-      <h2 className="text-base font-semibold">{title}</h2>
+      <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
       <ol className={`mt-3 space-y-3 text-base leading-7 text-slate-700 ${feedbackRevealClass(contentVisible)}`}>
         {items.map((item, index) => (
           <li key={`${index}-${item}`} className="flex items-start gap-3">
@@ -507,23 +507,16 @@ function NarrativeNote({ title, text }) {
 
 function StudentLearningNarrativeOutcome({ presentation, reviewVisible = true, actionVisible = true }) {
   const outcome = presentation?.outcome || {};
-  const hasReview = Boolean(outcome.responseAnchor || outcome.achieved || outcome.primaryGap);
+  const hasReview = Boolean(outcome.achieved || outcome.primaryGap);
   const actions = splitNarrativeActions(presentation?.nextAction);
   return (
     <>
       {hasReview ? (
         <section className="mt-7">
-          <h2 className="text-base font-semibold">思路点评</h2>
           <div className={feedbackRevealClass(reviewVisible)}>
-            {outcome.responseAnchor ? (
-              <div className="mt-4 border-l-2 border-blue-500 pl-4">
-                <h3 className="text-sm font-semibold text-slate-800">你刚才的想法</h3>
-                <p className="mt-1 text-base leading-7 text-slate-700">{outcome.responseAnchor}</p>
-              </div>
-            ) : null}
             {outcome.achieved ? (
-              <div className="mt-5">
-                <h3 className="text-sm font-semibold text-slate-800">回答到位</h3>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-800">已经完成的思考</h3>
                 <p className="mt-2 flex items-start gap-3 text-base leading-7 text-slate-700">
                   <Check size={18} aria-hidden="true" className="mt-1 shrink-0 text-emerald-600" />
                   <span>{outcome.achieved}</span>
@@ -531,7 +524,7 @@ function StudentLearningNarrativeOutcome({ presentation, reviewVisible = true, a
               </div>
             ) : null}
             {outcome.primaryGap ? (
-              <div className="mt-5">
+              <div className={outcome.achieved ? 'mt-5' : ''}>
                 <h3 className="text-sm font-semibold text-slate-800">
                   {narrativeGapTitle(outcome.primaryGapMode, outcome.primaryGapReasonCode)}
                 </h3>
@@ -548,7 +541,7 @@ function StudentLearningNarrativeOutcome({ presentation, reviewVisible = true, a
       ) : null}
       {actions.length > 0 ? (
         <section className={`mt-7 ${feedbackRevealClass(actionVisible)}`}>
-          <h2 className="text-base font-semibold">思路建议</h2>
+          <h2 className="text-sm font-semibold text-slate-800">下一步训练</h2>
           <ol className="mt-3 space-y-2 text-base leading-7 text-slate-700">
             {actions.map((item, index) => (
               <li key={`${index}-${item}`} className="flex items-start gap-3">
@@ -575,20 +568,13 @@ function hasOutcomeNarrative(presentation) {
 function splitNarrativeActions(value) {
   if (!value) return [];
   return value
-    .split(/(?<=[。！？])/)
+    .split(/\r?\n/)
     .map((item) => item.trim())
     .filter(Boolean);
 }
 
-function narrativeGapTitle(mode, reasonCode) {
-  if (reasonCode === 'conclusion_inconsistent') return '需要重新判断';
-  if (reasonCode === 'missing_text_evidence') return '还需补充依据';
-  if (reasonCode === 'missing_reasoning_relation') return '还需说明联系';
-  if (reasonCode === 'incomplete_task_requirement') return '还需完成';
-  if (reasonCode === 'insufficient_to_judge') return '先补充回答';
-  if (mode === 'needs_adjustment') return '需要重新判断';
-  if (mode === 'insufficient_to_judge') return '先补充回答';
-  return '还需补充';
+function narrativeGapTitle() {
+  return '思考缺口';
 }
 
 function ThinkingReview({ review, contentVisible = true }) {
@@ -596,18 +582,13 @@ function ThinkingReview({ review, contentVisible = true }) {
   const primaryGapCoverage = review.requirementCoverage?.find((item) =>
     item.requirementId === review.primaryGapRequirementId);
   if (!shouldRenderThinkingReview(review)) return null;
-  const gapTitle = primaryGapCoverage?.gapReasonCode
-    ? narrativeGapTitle(undefined, primaryGapCoverage.gapReasonCode)
-    : primaryGapCoverage?.requirementType === 'conclusion' && primaryGapCoverage.status === 'missing'
-      ? '需要重新判断'
-      : '还需补充';
+  const gapTitle = narrativeGapTitle();
   return (
     <section className="mt-7">
-      <h2 className="text-base font-semibold">思路点评</h2>
       <div className={feedbackRevealClass(contentVisible)}>
         {review.coveredPoints.length > 0 ? (
-          <div className="mt-4">
-            <h3 className="text-sm font-semibold text-slate-800">回答到位</h3>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-800">已经完成的思考</h3>
             <ol className="mt-2 space-y-2 text-base leading-7 text-slate-700">
               {review.coveredPoints.map((item) => (
                 <li key={item} className="flex items-start gap-3">
@@ -619,7 +600,7 @@ function ThinkingReview({ review, contentVisible = true }) {
           </div>
         ) : null}
         {missingPoints.length > 0 ? (
-          <div className="mt-5">
+          <div className={review.coveredPoints.length > 0 ? 'mt-5' : ''}>
             <h3 className="text-sm font-semibold text-slate-800">{gapTitle}</h3>
             <ol className="mt-2 space-y-2 text-base leading-7 text-slate-700">
               {missingPoints.map((item) => (
@@ -678,7 +659,7 @@ function StudentFeedbackGuidance({ guidance, compact = false }) {
   if (compact) {
     return (
       <section className="mt-7">
-        <h2 className="text-base font-semibold">思路建议</h2>
+        <h2 className="text-sm font-semibold text-slate-800">下一步训练</h2>
         <ol className="mt-3 space-y-2 text-base leading-7 text-slate-700">
           {guidance.revisionActions.map((item, index) => (
             <li key={item} className="flex items-start gap-3">
@@ -706,7 +687,7 @@ function StudentFeedbackGuidance({ guidance, compact = false }) {
       ) : null}
       {guidance.revisionActions.length > 0 ? (
         <div className="mt-5">
-          <h3 className="text-sm font-semibold text-slate-800">思路建议</h3>
+          <h3 className="text-sm font-semibold text-slate-800">下一步训练</h3>
           <ol className="mt-2 space-y-2 text-base leading-7 text-slate-700">
             {guidance.revisionActions.map((item, index) => (
               <li key={item} className="flex items-start gap-3">

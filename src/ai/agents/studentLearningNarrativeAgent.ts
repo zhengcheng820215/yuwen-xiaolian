@@ -6,6 +6,11 @@ import type { NextFormalTaskResolution } from '../schemas/realLearningOperation.
 import type { ConcreteLearningTask } from '../schemas/concreteLearningTask.schema.ts';
 import type { StudentLearningFeedback } from '../schemas/studentLearningFeedback.schema.ts';
 import type { StudentResponse } from '../schemas/taskExecution.schema.ts';
+import { buildStudentFeedbackGrounding } from './studentFeedbackGroundingAgent.ts';
+import type { StudentFeedbackGrounding } from '../schemas/studentFeedbackGrounding.schema.ts';
+import { buildStudentFeedbackActionPlan } from './studentFeedbackActionPlanAgent.ts';
+import type { StudentFeedbackActionPlan } from '../schemas/studentFeedbackActionPlan.schema.ts';
+import { buildStudentThinkingAnalysis } from './studentThinkingAnalysisAgent.ts';
 import {
   STUDENT_LEARNING_NARRATIVE_SCHEMA_VERSION,
   isStudentLearningNarrativeProjection,
@@ -32,13 +37,36 @@ export function buildStudentLearningNarrativeProjection(
 ): StudentLearningNarrativeProjection {
   const issues: string[] = [];
   const identityAligned = validateIdentity(input, issues);
+  const feedbackGrounding = input.feedback
+    ? buildStudentFeedbackGrounding(input.feedback)
+    : undefined;
+  if (feedbackGrounding && !feedbackGrounding.validation.passed) {
+    issues.push(...feedbackGrounding.validation.issues);
+  }
+  const thinkingAnalysis = input.feedback && feedbackGrounding
+    ? buildStudentThinkingAnalysis(input.feedback, feedbackGrounding)
+    : undefined;
+  if (thinkingAnalysis && !thinkingAnalysis.validation.passed) {
+    issues.push(...thinkingAnalysis.validation.issues);
+  }
+  const feedbackActionPlan = input.feedback && feedbackGrounding && thinkingAnalysis
+    ? buildStudentFeedbackActionPlan({
+        feedback: input.feedback,
+        grounding: feedbackGrounding,
+        thinkingAnalysis,
+        taskRole: input.currentTask?.taskRole,
+      })
+    : undefined;
+  if (feedbackActionPlan && !feedbackActionPlan.validation.passed) {
+    issues.push(...feedbackActionPlan.validation.issues);
+  }
   const taskReason = buildTaskReason(input.currentTask);
   const responseAnchor = buildResponseAnchor(input);
-  const achieved = buildAchieved(input.feedback);
-  const currentGap = buildCurrentGap(input.feedback);
+  const achieved = buildAchieved(feedbackActionPlan, feedbackGrounding);
+  const currentGap = buildCurrentGap(feedbackActionPlan, feedbackGrounding);
   const currentGapReasonCode = buildCurrentGapReasonCode(input.feedback);
   const currentGapMode = buildCurrentGapMode(input.feedback);
-  const nextAction = buildNextAction(input.feedback);
+  const nextAction = buildNextAction(feedbackActionPlan, feedbackGrounding, input.feedback);
   const progressMeaning = buildProgressMeaning(input);
   const nextTaskReason = buildNextTaskReason(input);
   const statements = [taskReason, responseAnchor, achieved, currentGap, nextAction, progressMeaning, nextTaskReason]
@@ -159,45 +187,60 @@ function buildTaskReason(task?: ConcreteLearningTask): StudentLearningNarrativeS
   return statement(text, 'current_task', 'formal_task', [task.taskId]);
 }
 
-function buildAchieved(feedback?: StudentLearningFeedback): StudentLearningNarrativeStatement | undefined {
-  const review = feedback?.thinkingReview;
-  const text = review?.coveredPoints?.[0] || feedback?.whatYouDidWell?.[0];
-  if (!feedback || !text) return undefined;
-  const source = review?.requirementCoverage?.find((item) => item.status === 'covered');
+function buildAchieved(
+  actionPlan?: StudentFeedbackActionPlan,
+  grounding?: StudentFeedbackGrounding,
+): StudentLearningNarrativeStatement | undefined {
+  const point = grounding?.validation.passed ? grounding.achievedPoints[0] : undefined;
+  const actionText = actionPlan?.validation.passed ? actionPlan.acknowledgedAction : point?.text;
+  const text = actionText && actionPlan?.validation.passed && actionPlan.whyItMatters
+    ? `${actionText}${actionPlan.whyItMatters}`
+    : actionText;
+  if (!point || !text) return undefined;
   return statement(
     text,
     'current_response',
-    source ? 'task_requirement_coverage' : 'student_feedback',
-    [source?.requirementId || feedback.learningRoundId],
+    'task_requirement_coverage',
+    point.evidenceLinks,
   );
 }
 
-function buildCurrentGap(feedback?: StudentLearningFeedback): StudentLearningNarrativeStatement | undefined {
-  if (!feedback) return undefined;
-  const text = feedback.thinkingReview?.primaryGap || feedback.whatNeedsAttention?.[0];
-  if (!text) return undefined;
+function buildCurrentGap(
+  actionPlan?: StudentFeedbackActionPlan,
+  grounding?: StudentFeedbackGrounding,
+): StudentLearningNarrativeStatement | undefined {
+  const gap = grounding?.validation.passed ? grounding.primaryGap : undefined;
+  if (!gap) return undefined;
   return statement(
-    text,
+    actionPlan?.validation.passed && (actionPlan.problemMechanism || actionPlan.missingAnswerPart)
+      ? actionPlan.problemMechanism || actionPlan.missingAnswerPart!
+      : gap.feedbackText,
     'current_response',
-    feedback.thinkingReview?.primaryGapRequirementId ? 'task_requirement_coverage' : 'student_feedback',
-    [feedback.thinkingReview?.primaryGapRequirementId || feedback.learningRoundId],
+    'learning_gap',
+    gap.evidenceLinks,
   );
 }
 
-function buildNextAction(feedback?: StudentLearningFeedback): StudentLearningNarrativeStatement | undefined {
-  if (!feedback) return undefined;
-  const revisionActions = feedback.guidance?.revisionActions
-    .map((item) => item.trim())
-    .filter(Boolean) || [];
-  const text = revisionActions.length > 0
-    ? revisionActions.join(' ')
-    : feedback.nextActionText?.trim();
+function buildNextAction(
+  actionPlan?: StudentFeedbackActionPlan,
+  grounding?: StudentFeedbackGrounding,
+  feedback?: StudentLearningFeedback,
+): StudentLearningNarrativeStatement | undefined {
+  if (!grounding?.validation.passed || !feedback) return undefined;
+  const plannedActions = actionPlan?.validation.passed
+    ? [...actionPlan.nextOperations, actionPlan.scaffoldTemplate].filter((item): item is string => Boolean(item))
+    : [];
+  const text = plannedActions.length > 0
+    ? plannedActions.join('\n')
+    : grounding.actions.length > 0
+      ? grounding.actions.map((item) => item.text).join(' ')
+      : feedback.nextActionText?.trim();
   if (!text || !isExecutableCurrentAnswerAction(text)) return undefined;
   return statement(
     text,
     'current_response',
-    feedback.thinkingReview?.primaryGapRequirementId ? 'task_requirement_coverage' : 'student_feedback',
-    [feedback.thinkingReview?.primaryGapRequirementId || feedback.learningRoundId],
+    grounding.primaryGap ? 'learning_gap' : 'student_feedback',
+    grounding.primaryGap?.evidenceLinks || [feedback.learningRoundId],
   );
 }
 
