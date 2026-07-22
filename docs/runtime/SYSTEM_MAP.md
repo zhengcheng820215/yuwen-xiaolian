@@ -301,6 +301,9 @@ Formal DiagnosisResult
 | 16.1 | Structured Question Intake and Review | PASS | [Phase 16.1](../education/phase/phase16_1.md) |
 | 16.2 | Resource Metadata and Matching Quality（16.2A / 16.2B 内部工作包） | PASS / FROZEN | [Phase 16.2](../education/phase/phase16_2.md) |
 | 16.3 | Real Learning Operation and Multi-day Continuity（16.3A / B / C 内部工作包） | IN PROGRESS（A / B PASS / FROZEN；C ENGINEERING + HUMAN DEMO PASS / NATURAL-DAY PENDING 0 / 5） | [Phase 16.3](../education/phase/phase16_3.md) |
+| 17 | Learning Resource Coverage Expansion + Material-grounded Ability Observation Foundation（17.1 / 17.2 / 17.3） | ACCEPTED / IN PROGRESS | [Phase 17](../education/phase/phase17.md) |
+| 17.1 | Resource Coverage Contract | ENGINEERING + HUMAN DEMO PASS / INDEXEDDB SMOKE PENDING | [Phase 17.1](../education/phase/phase17_1.md) |
+| 17.2 | Material Observation Design and First Frozen Resource Pack | RUNTIME + MINIMAL PRODUCTION WORKSPACE ENGINEERING PASS / FORMAL CONTENT PACK + HUMAN ACCEPTANCE PENDING | [Phase 17.2](../education/phase/phase17_2.md) |
 
 当前准确状态：
 
@@ -386,6 +389,12 @@ Phase 16.3 已冻结设计并拆为三个顺序工作包。16.3A / B 为 `PASS /
 
 详细文档入口：[Phase 16](../education/phase/phase16.md)、[Phase 16.1](../education/phase/phase16_1.md)、[Phase 16.2](../education/phase/phase16_2.md)、[Phase 16.3](../education/phase/phase16_3.md)。
 
+### Phase 17：学习资源覆盖扩展
+
+Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster 为组织基础、以能力观测为目标、能够被正式 Runtime 消费和验证的第一套学习资源体系。阶段在既有 Phase 16 资源准入与匹配边界上建立 `Material -> Observation Dimension -> Ability Action -> Question Resource` 的材料能力观测基础。Material Cluster 是内容规划与覆盖聚合的一级单位，Observation Dimension 描述观察材料的什么侧面，Ability Action 描述学生如何处理内容，Frozen Question Resource 仍是审核、版本、匹配和执行的正式资源单位。17.1 已完成 Coverage Runtime、`22 / 22` 专项 Debug 与 Dashboard 人工验收 `8 / 8 PASS`；浏览器 IndexedDB Smoke 仍待完成。17.2 已完成 Material Structure / Anchor、Observation Plan / Review、3—6 题批量 Draft 生产、Existing Phase 16.1 审核与 Freeze 复用、ResourceObservationLink、Pack Manifest 与非权威 Diversity View 的工程实现；核心 Debug `26 / 26 PASS`，最小生产工作台 Debug `12 / 12 PASS`，相关回归与 Production Build 通过，PC / 平板横屏页面级布局 Smoke 通过。首批 4—6 个真实 Material Cluster、26—28 道正式 Frozen Resource、Workspace IndexedDB / 真实内容操作和内容人工验收仍待完成；Debug 合成夹具不计入正式资源包。17.3 将验证观测引用的正式传递。Dimension 暂不进入 Evidence、Profile 或正式 Coverage denominator。
+
+详细文档入口：[Phase 17](../education/phase/phase17.md)、[Phase 17.1](../education/phase/phase17_1.md)、[Phase 17.2](../education/phase/phase17_2.md)。
+
 ## 七、当前重要边界
 
 1. 无效回答不进入 Diagnosis，不生成 weakness Evidence。
@@ -437,6 +446,9 @@ Phase 16.3 已冻结设计并拆为三个顺序工作包。16.3A / B 为 `PASS /
 | Phase 16.1 题目准入与审核 | [Phase 16.1](../education/phase/phase16_1.md) |
 | Phase 16.2 资源匹配质量 | [Phase 16.2](../education/phase/phase16_2.md) |
 | Phase 16.3 真实学习运行 | [Phase 16.3](../education/phase/phase16_3.md) |
+| Phase 17 学习资源覆盖扩展 | [Phase 17](../education/phase/phase17.md) |
+| Phase 17.1 资源覆盖契约 | [Phase 17.1](../education/phase/phase17_1.md) |
+| Phase 17.2 材料观测设计与首批正式资源包 | [Phase 17.2](../education/phase/phase17_2.md) |
 | Phase 16.3C 轻量人工验收 | [验收报告](../education/phase/reports/phase16_3c_demo_acceptance_2026-07-21.md) |
 | Phase 16.3 Product / Demo 作用域隔离 | [验收报告](../education/phase/reports/phase16_3_product_demo_scope_isolation_debug_2026-07-21.md) |
 | Phase 1–16.2 组合式 Runtime 回归 | [集成回归记录](../education/phase/reports/phase1_16_2_integrated_runtime_regression_2026-07-20.md) |

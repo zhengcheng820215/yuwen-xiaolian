@@ -5,6 +5,7 @@ import {
   ClipboardCheck,
   Database,
   FileSearch,
+  Layers3,
   RefreshCw,
   ShieldCheck,
 } from 'lucide-react';
@@ -13,10 +14,10 @@ import { loadPhase163MultiDayReview } from '../api/internalLearningReview.ts';
 
 const tools = [
   {
-    to: '/question-resource-workbench',
+    to: '/material-resource-workbench',
     icon: BookOpenCheck,
-    title: '题目录入与审核',
-    description: '准备结构化题目，完成校验、审核、冻结和版本管理。',
+    title: '材料资源生产',
+    description: '从材料观测设计批量生成题目 Draft，并进入既有审核与冻结流程。',
     meta: '内容维护',
   },
   {
@@ -25,6 +26,13 @@ const tools = [
     title: '资源匹配复核',
     description: '检查能力、任务角色、难度与当前 Frozen Resource 是否一致。',
     meta: '资源质量',
+  },
+  {
+    to: '/resource-coverage-dashboard-demo',
+    icon: Layers3,
+    title: '资源覆盖仪表盘',
+    description: '按能力、任务角色和材料集检查正式资源覆盖与缺口。',
+    meta: '覆盖规划',
   },
   {
     to: '/internal/learning-review',

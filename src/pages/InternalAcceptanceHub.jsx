@@ -3,6 +3,13 @@ import { Link } from 'react-router-dom';
 
 const acceptanceItems = [
   {
+    to: '/resource-coverage-dashboard-demo',
+    title: '资源覆盖仪表盘验收',
+    description: '验证 Coverage Report 的五种状态、材料追溯与缺口动作。',
+    provider: '不调用 Provider',
+    data: '受控只读快照',
+  },
+  {
     to: '/phase16-3-unified-entry-demo',
     title: '统一学习入口验收',
     description: '验证开始、恢复、反馈、复测、阻断与 Session 结束状态。',

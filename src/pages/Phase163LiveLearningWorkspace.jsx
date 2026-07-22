@@ -12,6 +12,11 @@ import {
 } from '../api/phase163DiagnosisBoundary.ts';
 import { requestStudentWritingCorrections } from '../api/studentWritingCorrections.ts';
 import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
+import {
+  shouldRenderThinkingReview,
+  shouldStageFeedbackPresentation,
+  synchronizeFeedbackPresentationStep,
+} from '../ui/feedbackPresentationPolicy.ts';
 
 const RUNTIME_UNAVAILABLE_MESSAGE = '分析服务尚未就绪。你可以继续编辑或保存回答，服务准备好后再提交。';
 const FEEDBACK_PRESENTATION_KEY_PREFIX = 'qingzhou:feedback-presentation:';
@@ -24,6 +29,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
   const [analysisRetry, setAnalysisRetry] = useState(false);
   const [runtimeAvailability, setRuntimeAvailability] = useState('checking');
   const [writingCorrections, setWritingCorrections] = useState([]);
+  const [writingCorrectionStatus, setWritingCorrectionStatus] = useState('idle');
   const answerInputRef = useRef(null);
   const saveRequest = useRef(0);
   const toastSequence = useRef(0);
@@ -57,17 +63,28 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
   useEffect(() => {
     if (!state?.feedback || !answer.trim()) {
       setWritingCorrections([]);
+      setWritingCorrectionStatus('idle');
       return undefined;
     }
     let active = true;
+    setWritingCorrections([]);
+    setWritingCorrectionStatus('loading');
     requestStudentWritingCorrections({
       requestId: `writing-correction-${state.roundId}-${answerFingerprint(answer)}`,
       answerText: answer,
       readingText: state.task.readingText,
       questionText: state.task.questionText,
     })
-      .then((suggestions) => active && setWritingCorrections(suggestions))
-      .catch(() => active && setWritingCorrections([]));
+      .then((suggestions) => {
+        if (!active) return;
+        setWritingCorrections(suggestions);
+        setWritingCorrectionStatus('resolved');
+      })
+      .catch(() => {
+        if (!active) return;
+        setWritingCorrections([]);
+        setWritingCorrectionStatus('resolved');
+      });
     return () => { active = false; };
   }, [state?.feedback, state?.roundId, answer, state?.task.readingText, state?.task.questionText]);
 
@@ -213,7 +230,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
       </header>
 
       {completed ? (
-        <CompletedFeedback state={state} writingCorrections={writingCorrections} busy={busy} onContinue={enterNextRound} onReturn={onReturnToEntry} />
+        <CompletedFeedback state={state} writingCorrections={writingCorrections} writingCorrectionStatus={writingCorrectionStatus} busy={busy} onContinue={enterNextRound} onReturn={onReturnToEntry} />
       ) : paused ? (
         <PausedWorkspace state={state} writingCorrections={writingCorrections} busy={busy} onReturn={onReturnToEntry} />
       ) : recovering ? (
@@ -297,14 +314,20 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
   );
 }
 
-function CompletedFeedback({ state, writingCorrections, busy, onContinue, onReturn }) {
+function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus, busy, onContinue, onReturn }) {
   const positive = state.feedback?.whatYouDidWell?.slice(0, 1) || [];
   const thinkingReview = state.feedback?.thinkingReview;
   const guidance = state.feedback?.guidance;
   const attention = guidance ? [] : state.feedback?.whatNeedsAttention?.slice(0, 1) || [];
   const hasReview = Boolean(thinkingReview || positive.length);
-  const shouldStageFeedback = writingCorrections.length === 0 && hasReview && Boolean(guidance) &&
-    !prefersReducedMotion() && !hasPresentedFeedback(state.roundId);
+  const shouldStageFeedback = shouldStageFeedbackPresentation({
+    correctionStatus: writingCorrectionStatus,
+    correctionCount: writingCorrections.length,
+    hasReview,
+    hasGuidance: Boolean(guidance),
+    prefersReducedMotion: prefersReducedMotion(),
+    hasPresented: hasPresentedFeedback(state.roundId),
+  });
   const [presentationStep, setPresentationStep] = useState(() => shouldStageFeedback ? 0 : 3);
 
   const revealAll = () => {
@@ -313,7 +336,10 @@ function CompletedFeedback({ state, writingCorrections, busy, onContinue, onRetu
   };
 
   useEffect(() => {
-    if (!shouldStageFeedback) return undefined;
+    if (!shouldStageFeedback) {
+      setPresentationStep((step) => synchronizeFeedbackPresentationStep(step, false));
+      return undefined;
+    }
     const reviewTimer = window.setTimeout(() => setPresentationStep((step) => Math.max(step, 1)), 180);
     const guidanceTimer = window.setTimeout(() => setPresentationStep((step) => Math.max(step, 2)), 520);
     const actionTimer = window.setTimeout(() => {
@@ -444,9 +470,7 @@ function ThinkingReview({ review, contentVisible = true }) {
   const missingPoints = review.primaryGap ? [review.primaryGap] : review.missingPoints.slice(0, 1);
   const primaryGapCoverage = review.requirementCoverage?.find((item) =>
     item.requirementId === review.primaryGapRequirementId);
-  const hasAssessableCoverage = !review.requirementCoverage?.length || review.requirementCoverage.some((item) =>
-    item.status !== 'insufficient_to_judge');
-  if (!hasAssessableCoverage && review.coveredPoints.length === 0) return null;
+  if (!shouldRenderThinkingReview(review)) return null;
   const gapTitle = primaryGapCoverage?.requirementType === 'conclusion' &&
     primaryGapCoverage.status === 'missing'
     ? '还需调整'

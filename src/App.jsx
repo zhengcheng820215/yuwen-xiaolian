@@ -36,6 +36,8 @@ import Phase163UnifiedEntryDemo from './pages/Phase163UnifiedEntryDemo.jsx';
 import Phase163MultiDayOperationDemo from './pages/Phase163MultiDayOperationDemo.jsx';
 import InternalHub from './pages/InternalHub.jsx';
 import InternalAcceptanceHub from './pages/InternalAcceptanceHub.jsx';
+import ResourceCoverageDashboardDemo from './pages/ResourceCoverageDashboardDemo.jsx';
+import MaterialResourceProductionWorkbench from './pages/MaterialResourceProductionWorkbench.jsx';
 
 export default function App() {
   return (
@@ -78,6 +80,8 @@ export default function App() {
         <Route path="/internal/learning-review" element={<InternalLearningReview />} />
         <Route path="/phase16-3-unified-entry-demo" element={<Phase163UnifiedEntryDemo />} />
         <Route path="/phase16-3-multiday-operation-demo" element={<Phase163MultiDayOperationDemo />} />
+        <Route path="/resource-coverage-dashboard-demo" element={<ResourceCoverageDashboardDemo />} />
+        <Route path="/material-resource-workbench" element={<MaterialResourceProductionWorkbench />} />
       </Routes>
     </Layout>
   );

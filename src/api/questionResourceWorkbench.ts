@@ -12,6 +12,8 @@ import {
   type CreateStructuredQuestionDraftInput,
   type StructuredQuestionDraftPatch,
 } from '../ai/agents/questionResourceAdmissionAgent.ts';
+import { linkFrozenResourceToObservationTask } from '../ai/agents/materialObservationApplicationService.ts';
+import { IndexedDBMaterialObservationRepository } from '../ai/repositories/indexedDBMaterialObservationRepository.ts';
 import { IndexedDBQuestionResourceAdmissionRepository } from '../ai/repositories/indexedDBQuestionResourceAdmissionRepository.ts';
 import type {
   FrozenQuestionResourceVersion,
@@ -24,6 +26,7 @@ import type {
 } from '../ai/schemas/questionResourceAdmission.schema.ts';
 
 const repository = new IndexedDBQuestionResourceAdmissionRepository();
+const observationRepository = new IndexedDBMaterialObservationRepository();
 
 export type QuestionResourceWorkbenchSnapshot = {
   drafts: StructuredQuestionDraft[];
@@ -158,7 +161,24 @@ export async function decideQuestionResourceWorkbenchReview(input: {
 }
 
 export async function freezeQuestionResourceWorkbenchDraft(draftId: string) {
-  return freezeQuestionResourceDraft(repository, draftId);
+  const result = await freezeQuestionResourceDraft(repository, draftId);
+  const draft = await repository.getDraft(draftId);
+  const planId = readTagValue(draft?.tags, 'observation_plan:');
+  const observationTaskPlanId = readTagValue(draft?.tags, 'observation_task:');
+  if (!planId || !observationTaskPlanId) return result;
+  try {
+    const linked = await linkFrozenResourceToObservationTask(repository, observationRepository, {
+      planId,
+      observationTaskPlanId,
+      resourceVersionId: result.version.resourceVersionId,
+    });
+    return { ...result, observationLink: linked.link, observationLinkIssues: linked.issues };
+  } catch (error) {
+    return {
+      ...result,
+      observationLinkIssues: [error instanceof Error ? error.message : String(error)],
+    };
+  }
 }
 
 export async function createQuestionResourceWorkbenchNextVersion(resourceId: string) {
@@ -184,4 +204,8 @@ function createIdSuffix(): string {
     return crypto.randomUUID().slice(0, 12);
   }
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function readTagValue(tags: string[] | undefined, prefix: string): string | null {
+  return tags?.find((tag) => tag.startsWith(prefix))?.slice(prefix.length) || null;
 }

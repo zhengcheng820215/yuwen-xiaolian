@@ -12,6 +12,7 @@ const workspacePaths = [
   '/continuous-learning-demo',
   '/phase15-integration-demo',
   '/question-resource-workbench',
+  '/material-resource-workbench',
   '/resource-matching-quality-demo',
   '/phase16-3-real-chain-demo',
   '/learning',

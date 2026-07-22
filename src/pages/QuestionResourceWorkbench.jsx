@@ -123,7 +123,7 @@ export default function QuestionResourceWorkbench() {
       const result = await action();
       const draftId = preferredDraftId?.(result) || selectedDraftId || result?.draftId;
       await refreshWorkspace(draftId);
-      setNotice({ type: 'success', message: successMessage });
+      setNotice({ type: 'success', message: typeof successMessage === 'function' ? successMessage(result) : successMessage });
       return result;
     } catch (error) {
       setNotice(errorNotice(error));
@@ -204,7 +204,11 @@ export default function QuestionResourceWorkbench() {
   async function freezeDraft() {
     await run(
       () => freezeQuestionResourceWorkbenchDraft(selectedDraftId),
-      '正式资源已冻结，ResourceRegistry 已更新。',
+      (result) => result.observationLinkIssues?.length
+        ? '正式资源已冻结并更新 Registry；材料观测关联仍需在资源生产页处理。'
+        : result.observationLink
+          ? '正式资源已冻结，Registry 与材料观测关联均已更新。'
+          : '正式资源已冻结，ResourceRegistry 已更新。',
     );
     setActivePanel('student');
   }
