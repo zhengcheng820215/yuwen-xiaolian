@@ -60,7 +60,15 @@ ResponseValidityResult
    ↓
    DiagnosisResult
    ↓
-   AbilityEvidence[]
+   ├─ StudentThinkingAnalysis
+   │  ↓
+   │  LearningGap / StudentFeedbackActionPlan
+   │  ↓
+   │  StudentLearningNarrative
+   │  ↓
+   │  学生反馈与下一步训练提示
+   │
+   └─ AbilityEvidence[]
    ↓
    EvaluationResult
    ↓
@@ -223,6 +231,10 @@ Formal DiagnosisResult
 | --- | --- |
 | QuestionMetadata | 说明题目观察的能力、题型、Rubric 和评价方式。 |
 | StudentResponse | 保存学生对具体任务的真实提交。 |
+| StudentThinkingAnalysis | 依据原始作答与已校验 Coverage，描述已经完成的思考动作和答案连接断点，不还原学生内心。 |
+| LearningGap | 描述当前表现相对任务要求缺少的能力动作，不等于 Root Cause 或长期能力结论。 |
+| StudentFeedbackActionPlan | 把思考断点与 Gap 转换为学生可执行的思考问题和受控句式支架。 |
+| StudentLearningNarrative | 将合法反馈事实投影为学生可理解的“已经完成的思考 / 思考缺口 / 下一步训练”。 |
 | ResponseValidityResult | 判断回答是否具有最低限度的可观察表现。 |
 | TaskExecutionResult | 作为任务执行层与 Diagnosis 层之间的正式交接对象。 |
 | DiagnosisResult | 描述一次作答中的状态、表现、问题和根因假设。 |

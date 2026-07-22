@@ -171,6 +171,62 @@ function runTaskExecutionDebug(): void {
       expectedValidityStatus: 'valid',
       expectedCanEnterDiagnosis: true,
     },
+    {
+      id: 'case_9_copied_reading_material',
+      title: 'substantial reading material copy',
+      result: runTaskExecutionAgent({
+        concreteTask: task,
+        readiness,
+        studentAnswer: {
+          answerText: task.readingText || '',
+        },
+      }),
+      expectedResultStatus: 'submitted_invalid',
+      expectedValidityStatus: 'insufficient',
+      expectedCanEnterDiagnosis: false,
+    },
+    {
+      id: 'case_10_copied_material_excerpt',
+      title: 'verbatim material excerpt without an independent response',
+      result: runTaskExecutionAgent({
+        concreteTask: task,
+        readiness,
+        studentAnswer: {
+          answerText: (task.readingText || '').slice(0, 24),
+        },
+      }),
+      expectedResultStatus: 'submitted_invalid',
+      expectedValidityStatus: 'insufficient',
+      expectedCanEnterDiagnosis: false,
+    },
+    {
+      id: 'case_11_material_excerpt_with_explanation',
+      title: 'material excerpt followed by an independent explanation',
+      result: runTaskExecutionAgent({
+        concreteTask: task,
+        readiness,
+        studentAnswer: {
+          answerText: '父亲把旧书一本本擦干净，说明他珍惜这些旧书承载的回忆，也舍不得过去的时光。',
+        },
+      }),
+      expectedResultStatus: 'submitted_valid',
+      expectedValidityStatus: 'valid',
+      expectedCanEnterDiagnosis: true,
+    },
+    {
+      id: 'case_12_unrelated_pasted_paragraph',
+      title: 'unrelated pasted paragraph with no task anchors',
+      result: runTaskExecutionAgent({
+        concreteTask: task,
+        readiness,
+        studentAnswer: {
+          answerText: '春天到了，校园里的花陆续开放。同学们在操场上参加运动会，大家都非常高兴。',
+        },
+      }),
+      expectedResultStatus: 'submitted_invalid',
+      expectedValidityStatus: 'irrelevant',
+      expectedCanEnterDiagnosis: false,
+    },
   ];
 
   const failures = validateCases(cases);

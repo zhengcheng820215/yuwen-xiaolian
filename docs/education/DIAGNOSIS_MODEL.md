@@ -88,7 +88,7 @@ Diagnosis 不得：
 - 直接确定成长趋势；
 - 在证据不足时强行选择根因。
 
-Diagnosis 形成的 `TaskRequirementCoverage` 和可观察表现，可以由只读的 `StudentThinkingAnalysis` 进一步整理为“已完成的思考动作”和“答案连接中断位置”。该投影不得反向改写 Diagnosis，也不得把答案中的断点升级为已确认的学生内在 Root Cause。
+Diagnosis 形成的 `TaskRequirementCoverage` 和可观察表现，可以由只读的 `StudentThinkingAnalysis` 进一步整理为“已完成的思考动作”和“答案连接中断位置”。原始 `StudentResponse` 可以作为下游反馈的只读表达锚点，用于准确复述学生实际写出的判断；它不得被下游重新解释为新的 Diagnosis。该投影不得反向改写 Diagnosis，也不得把答案中的断点升级为已确认的学生内在 Root Cause。
 
 ## 二、诊断原则（Diagnosis Principles）
 

@@ -560,6 +560,8 @@ V0.1 建议兼容映射：
 ```text
 TaskRequirementCoverage
 + StudentFeedbackGrounding
++ StudentThinkingAnalysis
++ StudentResponse（只读锚点）
 + 当前反馈状态
 ↓
 StudentFeedbackActionPlan
@@ -569,15 +571,15 @@ Student Learning Narrative
 
 它将当前唯一主要 Gap 转换为：
 
-- 学生已经完成的具体答案动作；
-- 当前缺少的答案组成部分；
-- 下一步可以直接执行的修改动作；
+- 学生已经完成的具体思考动作及其价值；
+- 当前答案中可观察的思考断点及其影响；
+- 下一步可以执行的思考问题；
 - 在允许的反馈深度下使用的句式支架；
 - 与 Requirement、Gap 和当前 Round 对齐的 `evidenceLinks`。
 
 该层不重新执行 Diagnosis，不生成新的 Learning Gap，也不修改 Ability Evidence。Narrative Agent 只能表达已经通过 Action Plan 校验的内容，不得自行补造材料依据、学生观点或教学结论。
 
-反馈深度必须保持克制：无效作答只请求重新完成有效回答；需要复核的结果不提供完整修复路径；正式结果可以提供区块级修改步骤，但默认只使用材料位置或释义提示，不直接泄露参考答案。
+反馈深度必须保持克制：无效作答只请求重新完成有效回答；需要复核的结果不提供完整修复路径；正式结果可以提供思考问题与句式支架，但默认只使用材料位置或释义提示，不直接泄露参考答案。结论偏差时必须比较 StudentResponse 中的原判断与正式材料线索，不得退回无上下文模板。
 
 ## 十二、与 Phase 17 的关系
 

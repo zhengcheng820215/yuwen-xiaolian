@@ -136,6 +136,24 @@ export function evaluateResponseValidity(
     };
   }
 
+  if (isHighConfidenceTaskIrrelevantAnswer(compactAnswer, task)) {
+    return {
+      responseId: response.responseId,
+      status: 'irrelevant',
+      canDiagnose: false,
+      reasons: ['答案内容与当前题目和阅读材料没有可识别的关键关联，不进入诊断。'],
+    };
+  }
+
+  if (isMaterialOnlyResponse(compactAnswer, task)) {
+    return {
+      responseId: response.responseId,
+      status: 'insufficient',
+      canDiagnose: false,
+      reasons: ['答案只复制阅读材料内容，但尚未形成对题目要求的独立回应，不进入诊断。'],
+    };
+  }
+
   if (requiresSubstantiveOpenResponse(task) && compactAnswer.length < 8) {
     return {
       responseId: response.responseId,
@@ -218,6 +236,30 @@ function isCopiedQuestion(value: string, task: ConcreteLearningTask): boolean {
   return value === question || (question.length > 8 && value.includes(question));
 }
 
+function isMaterialOnlyResponse(value: string, task: ConcreteLearningTask): boolean {
+  const material = compact(task.readingText || '');
+  if (!requiresSubstantiveOpenResponse(task) || value.length < 8 || material.length < 8) return false;
+
+  // An exact excerpt is valid evidence material, but it is not an independent
+  // answer to a task that explicitly requires judgment or explanation.
+  if (material.includes(value)) return true;
+
+  if (value.length < 48 || material.length < 48) return false;
+
+  const minimumCopiedLength = Math.max(48, Math.floor(material.length * 0.45));
+  if (value.length < minimumCopiedLength) return false;
+  if (value.includes(material)) return true;
+
+  const chunkSize = 12;
+  let checked = 0;
+  let matched = 0;
+  for (let index = 0; index + chunkSize <= value.length; index += chunkSize) {
+    checked += 1;
+    if (material.includes(value.slice(index, index + chunkSize))) matched += 1;
+  }
+  return checked >= 4 && matched / checked >= 0.8;
+}
+
 function isHighConfidenceIrrelevantAnswer(value: string): boolean {
   const irrelevantSamples = [
     '今天天气很好',
@@ -231,6 +273,30 @@ function isHighConfidenceIrrelevantAnswer(value: string): boolean {
   if (irrelevantSamples.includes(value)) return true;
   if (/^[a-z]{6,}$/i.test(value)) return true;
   return false;
+}
+
+function isHighConfidenceTaskIrrelevantAnswer(value: string, task: ConcreteLearningTask): boolean {
+  if (!requiresSubstantiveOpenResponse(task) || value.length < 18) return false;
+  const context = compact(`${task.question}${task.readingText || ''}`);
+  if (context.length < 12) return false;
+
+  const contextAnchors = meaningfulBigrams(context);
+  if (contextAnchors.size === 0) return false;
+  return [...meaningfulBigrams(value)].every((anchor) => !contextAnchors.has(anchor));
+}
+
+function meaningfulBigrams(value: string): Set<string> {
+  const ignored = new Set([
+    '一个', '一些', '这个', '那个', '这样', '已经', '没有', '还是', '可以',
+    '需要', '因为', '所以', '但是', '然后', '进行', '表示', '说明', '内容',
+  ]);
+  const chars = [...value].filter((char) => /[\p{L}\p{N}]/u.test(char));
+  const result = new Set<string>();
+  for (let index = 0; index < chars.length - 1; index += 1) {
+    const anchor = `${chars[index]}${chars[index + 1]}`;
+    if (!ignored.has(anchor)) result.add(anchor);
+  }
+  return result;
 }
 
 function requiresSubstantiveOpenResponse(task: ConcreteLearningTask): boolean {

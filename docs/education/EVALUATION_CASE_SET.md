@@ -185,6 +185,45 @@ OVR-001: 单次 positive 禁止宣布能力提升
   - 缺少文本依据
 - debug：待补充
 
+### INV-006：只复制阅读材料原文
+
+- 输入：只复制一处原文片段、整段或全文，但没有形成对题目要求的独立判断与解释
+- 场景：Task Execution / Diagnosis
+- Expectation Type：`Strict`
+- strict_expected:
+  - responseValidity: `insufficient`
+  - canDiagnose: `false`
+  - evidenceType: `insufficient`
+- rationale：材料原文虽然具有完整语义，但单独粘贴原文不等于学生完成了题目要求的判断、依据选择或推理解释。系统不能因为答案中出现材料关键词和动作，就把它们视为学生主动提取并解释的 Evidence。若任务本身只要求找出原句，则不适用本规则。
+- severity：`Critical`
+- 不允许输出：
+  - 已经完成信息提取
+  - 已经形成心理判断
+  - 已经使用有效文本依据
+  - `positive` / `growth` / `weakness`
+  - 具体能力缺口或长期能力结论
+- debug：
+  - `runTaskExecutionDebug.ts`
+
+### INV-007：粘贴与当前任务无关的完整文本
+
+- 输入：语句完整、篇幅足够，但内容与当前题目、材料和任务对象无关
+- 场景：Task Execution / Diagnosis Semantic Validity Fallback
+- Expectation Type：`Strict`
+- strict_expected:
+  - responseValidity: `irrelevant`，或语义兜底为 `insufficient_evidence / invalid`
+  - canEnterEvidenceReturn: `false`
+  - feedbackGenerated: `false`
+- rationale：篇幅和语言完整性不能代替任务相关性。无关文本不能形成当前能力的正向、薄弱或成长证据。
+- severity：`Critical`
+- 不允许输出：
+  - 对无关文本进行本题能力点评
+  - `positive` / `growth` / `weakness`
+  - Student Ability Profile 更新
+- debug：
+  - `runTaskExecutionDebug.ts`
+  - `runPhase163Day0IntegrationDebug.ts`
+
 判断规则：
 
 ```text
@@ -425,6 +464,8 @@ Retest evidence 权重高于 training evidence。
 | Case ID | Debug 入口 | 状态 |
 | --- | --- | --- |
 | `INV-002` | `runRetestExecutionDebug.ts` | PASS |
+| `INV-006` | `runTaskExecutionDebug.ts` / `runPhase163Day0IntegrationDebug.ts` | PASS |
+| `INV-007` | `runTaskExecutionDebug.ts` / `runPhase163Day0IntegrationDebug.ts` | PASS |
 | `GOD-001` | `runRetestExecutionDebug.ts` | PASS |
 | `GOD-002` | `runBetaLearningSessionResultDebug.ts` | PASS |
 | `TRF-001` | `runBetaLearningSessionResultDebug.ts` | PASS |

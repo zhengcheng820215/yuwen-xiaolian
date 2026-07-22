@@ -28,6 +28,9 @@ async function main(): Promise<void> {
   const successful = await checkFormalChainAndEntry();
   await checkDuplicateAndRecovery(successful);
   await checkInvalidAnswer();
+  await checkCopiedMaterialAnswer();
+  await checkCopiedMaterialExcerpt();
+  await checkSemanticallyIrrelevantAnswer();
   await checkProviderFailure();
   await checkDiagnosisReview();
   await checkNextResourceMismatch();
@@ -130,6 +133,72 @@ async function checkInvalidAnswer(): Promise<void> {
       !result.checkpoint.taskEvidenceReturnResult &&
       entry.status === 'continue_round',
     `status=${result.status}, providerCalls=${environment.provider.callCount}, entry=${entry.status}`);
+}
+
+async function checkCopiedMaterialAnswer(): Promise<void> {
+  const base = await createPhase163DemoEnvironment('complete_chain', VALID_ANSWER);
+  const copiedMaterial = base.input.resourceVersion.materialSnapshot?.content || '';
+  const environment = await createPhase163DemoEnvironment('complete_chain', copiedMaterial);
+  const result = await runPhase163RealLearningChain(environment.input, environment.dependencies);
+  const entry = buildEntry(environment, result);
+  record('D0-7.1 大段复制材料在 Provider 前阻断且不形成 Evidence',
+    result.status === 'retry_required' &&
+      environment.provider.callCount === 0 &&
+      !result.checkpoint.taskEvidenceReturnResult &&
+      entry.status === 'continue_round',
+    `status=${result.status}, providerCalls=${environment.provider.callCount}, evidence=${Boolean(result.checkpoint.taskEvidenceReturnResult)}, entry=${entry.status}`);
+}
+
+async function checkCopiedMaterialExcerpt(): Promise<void> {
+  const base = await createPhase163DemoEnvironment('complete_chain', VALID_ANSWER);
+  const copiedExcerpt = (base.input.resourceVersion.materialSnapshot?.content || '').slice(0, 24);
+  const environment = await createPhase163DemoEnvironment('complete_chain', copiedExcerpt);
+  const result = await runPhase163RealLearningChain(environment.input, environment.dependencies);
+  const entry = buildEntry(environment, result);
+  record('D0-7.2 只复制原文片段在 Provider 前阻断且不形成 Evidence',
+    result.status === 'retry_required' &&
+      environment.provider.callCount === 0 &&
+      !result.checkpoint.taskEvidenceReturnResult &&
+      entry.status === 'continue_round',
+    `status=${result.status}, providerCalls=${environment.provider.callCount}, evidence=${Boolean(result.checkpoint.taskEvidenceReturnResult)}, entry=${entry.status}`);
+}
+
+async function checkSemanticallyIrrelevantAnswer(): Promise<void> {
+  const unrelatedAnswer = '父亲今天去菜市场买了青菜，回家以后开始准备晚饭，全家人吃得很开心。';
+  const environment = await createPhase163DemoEnvironment('complete_chain', unrelatedAnswer);
+  const provider = new ScriptedDiagnosisProviderAdapter([{
+    type: 'response',
+    rawOutput: JSON.stringify({
+      taskType: 'open_response',
+      correct: null,
+      strategyUsed: 'semantic_validity_fallback',
+      answerStatus: 'insufficient_evidence',
+      scoreBand: 'invalid',
+      mainAbility: 'inference',
+      relatedAbilities: [],
+      surfaceError: '回答未回应当前题目。',
+      rootCause: '当前输入与任务无关，不能据此判断具体能力缺口。',
+      errorType: '待验证',
+      abilityEvidence: [],
+      diagnosisSummary: '当前输入不能形成有效诊断。',
+      nextTraining: '请围绕当前题目重新作答。',
+      confidence: 0.94,
+    }),
+  }]);
+  const result = await runPhase163RealLearningChain(environment.input, {
+    ...environment.dependencies,
+    provider,
+  });
+  const entry = buildEntry(environment, result);
+  record('D0-7.3 语义无关输入经 Provider 兜底后不进入 Evidence 与反馈链路',
+    result.status === 'retry_required' &&
+      provider.getCallCount() === 1 &&
+      result.checkpoint.nextAction === 'submit_answer' &&
+      result.checkpoint.issues.includes('semantic_answer_validity_insufficient') &&
+      !result.checkpoint.taskEvidenceReturnResult &&
+      !result.checkpoint.controlledFeedbackResult &&
+      entry.status === 'continue_round',
+    `status=${result.status}, action=${result.checkpoint.nextAction}, stage=${result.checkpoint.stage}, issues=${result.checkpoint.issues.join('|') || 'none'}, providerCalls=${provider.getCallCount()}, evidence=${Boolean(result.checkpoint.taskEvidenceReturnResult)}, feedback=${Boolean(result.checkpoint.controlledFeedbackResult)}, entry=${entry.status}`);
 }
 
 async function checkProviderFailure(): Promise<void> {

@@ -192,6 +192,20 @@ export async function runPhase163RealLearningChain(
       });
       return resultFromCheckpoint(input, checkpoint, Boolean(existing));
     }
+    const diagnosis = runtime.formalDiagnosisCommit.diagnosisResult;
+    if (diagnosis.answerStatus === 'insufficient_evidence' && diagnosis.scoreBand === 'invalid') {
+      checkpoint = await persistCheckpoint(dependencies.operationRepository, {
+        ...checkpoint,
+        stage: 'response_validated',
+        status: 'retry_required',
+        nextAction: 'submit_answer',
+        taskExecutionResult: undefined,
+        realDiagnosisRuntimeResult: undefined,
+        issues: ['semantic_answer_validity_insufficient'],
+        updatedAt: now(),
+      });
+      return resultFromCheckpoint(input, checkpoint, Boolean(existing));
+    }
     checkpoint = await persistCheckpoint(dependencies.operationRepository, {
       ...checkpoint,
       stage: 'diagnosis_committed',

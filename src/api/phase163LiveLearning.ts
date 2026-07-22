@@ -140,13 +140,17 @@ export async function submitPhase163LiveAnswer(answerText: string): Promise<Phas
     startedAt: submittedAt,
   });
   if (!validityPreflight.taskExecutionResult?.canEnterDiagnosisRuntime) {
+    const validity = validityPreflight.taskExecutionResult?.responseValidity;
+    const copiedMaterial = validity?.reasons.some((reason) => reason.includes('复制阅读材料'));
     await savePhase163LiveDraft(answerText);
     return {
       ...readyState(descriptor, answerText),
       status: 'retry_required',
       canRetry: true,
-      studentMessage: validityPreflight.taskExecutionResult?.responseValidity.status === 'empty'
+      studentMessage: validity?.status === 'empty'
         ? '请先写下你的判断和理由。'
+        : copiedMaterial
+          ? '这次回答主要复制了阅读材料，还没有回答题目。请先用自己的话写出判断，再选择一处材料说明理由。'
         : '这次回答的信息还不够，请补充你的判断，并结合材料说明理由。',
     };
   }
@@ -164,6 +168,10 @@ export async function submitPhase163LiveAnswer(answerText: string): Promise<Phas
     resolveNextTask: ({ taskRequest, previousResourceVersion }) => resolveNextFormalTask(taskRequest, previousResourceVersion),
     now: () => submittedAt,
   });
+
+  if (result.checkpoint.nextAction === 'submit_answer') {
+    await savePhase163LiveDraft(answerText);
+  }
 
   const persistence = await persistenceRepository.loadByRound(PHASE163_LEARNING_STUDENT_ID, input.learningRoundId);
   if (persistence?.learningRoundResult) await appendRoundToCurrentSession(persistence);
@@ -465,7 +473,11 @@ function stateFromCheckpoint(
           ? '本轮学习已经完成。下一任务需要先准备，准备完成后可以从学习入口继续。'
           : '当前任务暂时无法继续，已有学习记录已经保留。'
         : checkpoint.status === 'retry_required'
-          ? checkpoint.nextAction === 'submit_answer' ? '请补充回答后重新提交。' : '已提交的回答正在恢复处理，不需要重新作答。'
+          ? checkpoint.nextAction === 'submit_answer'
+            ? checkpoint.issues.includes('semantic_answer_validity_insufficient')
+              ? '这段内容没有回应当前题目。请围绕题目写出你的判断，并结合材料说明理由。'
+              : '请补充回答后重新提交。'
+            : '已提交的回答正在恢复处理，不需要重新作答。'
           : undefined,
   };
 }

@@ -44,7 +44,7 @@ export function buildStudentLearningNarrativeProjection(
     issues.push(...feedbackGrounding.validation.issues);
   }
   const thinkingAnalysis = input.feedback && feedbackGrounding
-    ? buildStudentThinkingAnalysis(input.feedback, feedbackGrounding)
+    ? buildStudentThinkingAnalysis(input.feedback, feedbackGrounding, input.studentResponse)
     : undefined;
   if (thinkingAnalysis && !thinkingAnalysis.validation.passed) {
     issues.push(...thinkingAnalysis.validation.issues);
@@ -54,6 +54,7 @@ export function buildStudentLearningNarrativeProjection(
         feedback: input.feedback,
         grounding: feedbackGrounding,
         thinkingAnalysis,
+        studentResponse: input.studentResponse,
         taskRole: input.currentTask?.taskRole,
       })
     : undefined;

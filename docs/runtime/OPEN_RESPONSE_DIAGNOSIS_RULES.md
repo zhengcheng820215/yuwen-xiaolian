@@ -94,6 +94,9 @@ Answer Validity Gate 可以是独立 Runtime，也可以是 Diagnosis Agent 内�
 - 敷衍回答，例如“哈哈”“不知道”
 - 与任务完全无关的内容
 - 过短且无法判断语义意图的内容
+- 只复制一处原文片段、整段或全文，但没有形成对题目要求的独立判断与解释
+
+对于要求判断、分析或解释的开放题，单独复制材料只能说明材料被输入，不能证明学生完成了判断、依据选择或推理解释。该输入应由 Answer Validity Gate 标记为 `insufficient`，不得因为命中材料关键词或动作描写而进入具体 Diagnosis。若任务目标本身只是找出或摘录原句，则应按该任务的 AnswerAcceptance 和 Rubric 判断，不适用此阻断规则。
 
 无效答案统一输出：
 
@@ -114,6 +117,8 @@ nextActionCandidate: 'retry'
 - weakness
 - 训练焦点
 - 长期能力判断
+
+任务相关性采用两层闸门：确定性规则能够高置信识别时，在 Provider 前直接输出 `irrelevant`；若输入表面完整但语义上未回应任务，Diagnosis 只能将其标记为 `insufficient_evidence / invalid`，随后停止 Evidence、Profile 与学生反馈生成，并请求重新作答。
 
 无效答案可以生成 Evidence Proposal，但只能指向 `insufficient`，并且不应参与 weakness ranking 的主排序。
 

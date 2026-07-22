@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, BookOpen, Check, Pencil, RefreshCw, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, Lightbulb, Pencil, RefreshCw, Save, ThumbsUp } from 'lucide-react';
 import {
   advancePhase163LiveRound,
   loadPhase163LiveWorkspace,
@@ -375,7 +375,7 @@ function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus,
   return (
     <main className="flex min-h-[calc(100vh-65px)] items-center px-6 py-12" onClick={handleRevealClick}>
       <div className="mx-auto w-full max-w-[720px]">
-        <section className="rounded-md bg-white px-7 py-7 shadow-[0_10px_36px_rgba(15,23,42,0.08)] [&>section:first-child]:mt-0 md:px-10">
+        <section className="rounded-md bg-white px-7 py-[60px] shadow-[0_10px_36px_rgba(15,23,42,0.08)] [&>section:first-child]:mt-0 md:px-10">
           {writingCorrections.length ? <WritingCorrections items={writingCorrections} /> : null}
           {hasLearningNarrative ? (
             <StudentLearningNarrativeOutcome
@@ -427,6 +427,7 @@ function PausedWorkspace({ state, writingCorrections, busy, onReturn }) {
   const guidance = state.feedback?.guidance;
   const attention = guidance ? [] : state.feedback?.whatNeedsAttention?.slice(0, 1) || [];
   const hasLearningNarrative = hasOutcomeNarrative(state.learningPresentation);
+  const showPauseMessage = !state.feedback || !['resource_unavailable', 'next_task_review'].includes(state.pauseReason);
   return (
     <main className="flex min-h-[calc(100vh-65px)] items-center px-6 py-12">
       <div className="mx-auto w-full max-w-[720px]">
@@ -445,10 +446,12 @@ function PausedWorkspace({ state, writingCorrections, busy, onReturn }) {
               )}
             </>
           ) : null}
-          <div className={state.feedback ? 'mt-9 border-t border-slate-200 pt-7' : ''} aria-live="polite">
-            <h2 className="text-base font-semibold">{state.studentTitle || '暂时无法继续'}</h2>
-            <p className="mt-2 text-base leading-7 text-slate-600">{state.studentMessage}</p>
-          </div>
+          {showPauseMessage ? (
+            <div className={state.feedback ? 'mt-9 border-t border-slate-200 pt-7' : ''} aria-live="polite">
+              <h2 className="text-base font-semibold">{state.studentTitle || '暂时无法继续'}</h2>
+              <p className="mt-2 text-base leading-7 text-slate-600">{state.studentMessage}</p>
+            </div>
+          ) : null}
         </section>
         <div className="mt-8 flex justify-center">
           <button type="button" disabled={busy} onClick={onReturn} className="min-h-11 rounded-md bg-slate-900 px-5 text-sm text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400">返回学习入口</button>
@@ -479,20 +482,37 @@ function RecoveringWorkspace({ state, busy, runtimeAvailability, onResume, onRet
 function FeedbackList({ title, items, tone, contentVisible = true }) {
   return (
     <section className="mt-7">
-      <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
-      <ol className={`mt-3 space-y-3 text-base leading-7 text-slate-700 ${feedbackRevealClass(contentVisible)}`}>
+      {tone === 'positive' ? (
+        <FeedbackSectionTitle icon="positive">{title}</FeedbackSectionTitle>
+      ) : (
+        <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+      )}
+      <ol className={`mt-3 space-y-3 text-base leading-7 text-slate-700 ${tone === 'positive' ? 'pl-[26px]' : ''} ${feedbackRevealClass(contentVisible)}`}>
         {items.map((item, index) => (
-          <li key={`${index}-${item}`} className="flex items-start gap-3">
+          <li key={`${index}-${item}`} className={tone === 'attention' ? 'flex items-start gap-3' : ''}>
             {tone === 'attention' ? (
               <span className="w-5 shrink-0 text-right font-medium text-slate-500">{index + 1}.</span>
-            ) : (
-              <span className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-            )}
+            ) : null}
             <span className="min-w-0">{item}</span>
           </li>
         ))}
       </ol>
     </section>
+  );
+}
+
+function FeedbackSectionTitle({ icon, children }) {
+  const Icon = icon === 'positive' ? ThumbsUp : icon === 'gap' ? Lightbulb : Pencil;
+  const colorClass = icon === 'positive'
+    ? 'text-emerald-600'
+    : icon === 'gap'
+      ? 'text-amber-500'
+      : 'text-slate-900';
+  return (
+    <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+      <Icon size={18} aria-hidden="true" className={`shrink-0 ${colorClass}`} />
+      <span>{children}</span>
+    </h2>
   );
 }
 
@@ -516,24 +536,16 @@ function StudentLearningNarrativeOutcome({ presentation, reviewVisible = true, a
           <div className={feedbackRevealClass(reviewVisible)}>
             {outcome.achieved ? (
               <div>
-                <h3 className="text-sm font-semibold text-slate-800">已经完成的思考</h3>
-                <p className="mt-2 flex items-start gap-3 text-base leading-7 text-slate-700">
-                  <Check size={18} aria-hidden="true" className="mt-1 shrink-0 text-emerald-600" />
-                  <span>{outcome.achieved}</span>
-                </p>
+                <FeedbackSectionTitle icon="positive">已经完成的思考</FeedbackSectionTitle>
+                <p className="mt-2 pl-[26px] text-base leading-7 text-slate-700">{outcome.achieved}</p>
               </div>
             ) : null}
             {outcome.primaryGap ? (
               <div className={outcome.achieved ? 'mt-5' : ''}>
-                <h3 className="text-sm font-semibold text-slate-800">
+                <FeedbackSectionTitle icon="gap">
                   {narrativeGapTitle(outcome.primaryGapMode, outcome.primaryGapReasonCode)}
-                </h3>
-                <p className="mt-2 flex items-start gap-3 text-base leading-7 text-slate-700">
-                  <span className="flex w-[18px] shrink-0 justify-center pt-[11px]" aria-hidden="true">
-                    <span className="h-2 w-2 rounded-full bg-amber-500" />
-                  </span>
-                  <span>{outcome.primaryGap}</span>
-                </p>
+                </FeedbackSectionTitle>
+                <p className="mt-2 pl-[26px] text-base leading-7 text-slate-700">{outcome.primaryGap}</p>
               </div>
             ) : null}
           </div>
@@ -541,13 +553,10 @@ function StudentLearningNarrativeOutcome({ presentation, reviewVisible = true, a
       ) : null}
       {actions.length > 0 ? (
         <section className={`mt-7 ${feedbackRevealClass(actionVisible)}`}>
-          <h2 className="text-sm font-semibold text-slate-800">下一步训练</h2>
-          <ol className="mt-3 space-y-2 text-base leading-7 text-slate-700">
+          <FeedbackSectionTitle icon="action">下一步训练</FeedbackSectionTitle>
+          <ol className="mt-3 space-y-2 pl-[26px] text-base leading-7 text-slate-700">
             {actions.map((item, index) => (
-              <li key={`${index}-${item}`} className="flex items-start gap-3">
-                <span className="w-5 shrink-0 text-right font-medium text-slate-500">{index + 1}.</span>
-                <span className="min-w-0">{item}</span>
-              </li>
+              <li key={`${index}-${item}`}>{item}</li>
             ))}
           </ol>
         </section>
@@ -588,28 +597,20 @@ function ThinkingReview({ review, contentVisible = true }) {
       <div className={feedbackRevealClass(contentVisible)}>
         {review.coveredPoints.length > 0 ? (
           <div>
-            <h3 className="text-sm font-semibold text-slate-800">已经完成的思考</h3>
-            <ol className="mt-2 space-y-2 text-base leading-7 text-slate-700">
+            <FeedbackSectionTitle icon="positive">已经完成的思考</FeedbackSectionTitle>
+            <ol className="mt-2 space-y-2 pl-[26px] text-base leading-7 text-slate-700">
               {review.coveredPoints.map((item) => (
-                <li key={item} className="flex items-start gap-3">
-                  <Check size={18} aria-hidden="true" className="mt-1 shrink-0 text-emerald-600" />
-                  <span className="min-w-0">{item}</span>
-                </li>
+                <li key={item}>{item}</li>
               ))}
             </ol>
           </div>
         ) : null}
         {missingPoints.length > 0 ? (
           <div className={review.coveredPoints.length > 0 ? 'mt-5' : ''}>
-            <h3 className="text-sm font-semibold text-slate-800">{gapTitle}</h3>
-            <ol className="mt-2 space-y-2 text-base leading-7 text-slate-700">
+            <FeedbackSectionTitle icon="gap">{gapTitle}</FeedbackSectionTitle>
+            <ol className="mt-2 space-y-2 pl-[26px] text-base leading-7 text-slate-700">
               {missingPoints.map((item) => (
-                <li key={item} className="flex items-start gap-3">
-                  <span className="flex w-5 shrink-0 justify-center pt-[11px]" aria-hidden="true">
-                    <span className="h-2 w-2 rounded-full bg-amber-500" />
-                  </span>
-                  <span className="min-w-0">{item}</span>
-                </li>
+                <li key={item}>{item}</li>
               ))}
             </ol>
           </div>
@@ -659,13 +660,10 @@ function StudentFeedbackGuidance({ guidance, compact = false }) {
   if (compact) {
     return (
       <section className="mt-7">
-        <h2 className="text-sm font-semibold text-slate-800">下一步训练</h2>
-        <ol className="mt-3 space-y-2 text-base leading-7 text-slate-700">
-          {guidance.revisionActions.map((item, index) => (
-            <li key={item} className="flex items-start gap-3">
-              <span className="w-5 shrink-0 text-right font-medium text-slate-500">{index + 1}.</span>
-              <span className="min-w-0">{item}</span>
-            </li>
+        <FeedbackSectionTitle icon="action">下一步训练</FeedbackSectionTitle>
+        <ol className="mt-3 space-y-2 pl-[26px] text-base leading-7 text-slate-700">
+          {guidance.revisionActions.map((item) => (
+            <li key={item}>{item}</li>
           ))}
         </ol>
       </section>
@@ -687,13 +685,10 @@ function StudentFeedbackGuidance({ guidance, compact = false }) {
       ) : null}
       {guidance.revisionActions.length > 0 ? (
         <div className="mt-5">
-          <h3 className="text-sm font-semibold text-slate-800">下一步训练</h3>
-          <ol className="mt-2 space-y-2 text-base leading-7 text-slate-700">
-            {guidance.revisionActions.map((item, index) => (
-              <li key={item} className="flex items-start gap-3">
-                <span className="w-5 shrink-0 text-right font-medium text-slate-500">{index + 1}.</span>
-                <span className="min-w-0">{item}</span>
-              </li>
+          <FeedbackSectionTitle icon="action">下一步训练</FeedbackSectionTitle>
+          <ol className="mt-2 space-y-2 pl-[26px] text-base leading-7 text-slate-700">
+            {guidance.revisionActions.map((item) => (
+              <li key={item}>{item}</li>
             ))}
           </ol>
         </div>
@@ -705,7 +700,7 @@ function StudentFeedbackGuidance({ guidance, compact = false }) {
 function WritingCorrections({ items }) {
   return (
     <section className="mt-7">
-      <h2 className="text-base font-semibold">先检查一个错别字</h2>
+      <h2 className="text-sm font-semibold text-slate-800">发现错别字</h2>
       <ol className="mt-3 space-y-3 text-base leading-7 text-slate-700">
         {items.map((item, index) => (
           <li key={item.correctionId} className="flex items-start gap-3">

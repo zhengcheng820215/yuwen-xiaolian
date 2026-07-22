@@ -97,7 +97,7 @@ LEARNING_RUNTIME_OVERVIEW
 
 ## 四、当前状态
 
-- 12 份既有核心模型文档已完成第一轮审查增强；Learning Gap、Student Thinking 与 Feedback Action 已形成表现到干预之间的受控解释层。当前已实现确定性 `StudentThinkingAnalysis` 与 `StudentFeedbackActionPlan`，它们不替代 Diagnosis、Root Cause 或长期 Evaluation。
+- 12 份既有核心模型文档已完成第一轮审查增强；Learning Gap、Student Thinking 与 Feedback Action 已形成表现到干预之间的受控解释层。当前已实现确定性 `StudentThinkingAnalysis` 与 `StudentFeedbackActionPlan`；结论偏差反馈会以正式 `StudentResponse` 为只读锚点，对照材料线索生成思考缺口与下一步训练，不替代 Diagnosis、Root Cause 或长期 Evaluation。
 - Phase 14.1 Evidence Quality Assessment 已通过 17 / 17 Debug 验收。
 - Phase 14.2 Evidence Conflict Coordination 已通过 25 / 25 Debug 验收。
 - Phase 14.3 Adaptive Task Constraints 已完成结构化 Rule、Context Snapshot、TaskRequest Envelope 与 Fulfillment 接入，26 / 26 Debug 通过；执行后质量重评集成 Case 27 为 16 / 16 PASS，Phase 14 总体状态为 `PASS / FROZEN`。

@@ -10,18 +10,20 @@ import type {
   StudentLearningFeedback,
   TaskRequirementCoverage,
 } from '../schemas/studentLearningFeedback.schema.ts';
+import type { StudentResponse } from '../schemas/taskExecution.schema.ts';
 
 const ABILITY_LABEL_PATTERN = /(?:能力差|能力弱|不会推理|不会理解|不擅长|总是|就是不会)/;
 
 export function buildStudentThinkingAnalysis(
   feedback: StudentLearningFeedback,
   grounding: StudentFeedbackGrounding,
+  studentResponse?: StudentResponse,
 ): StudentThinkingAnalysis {
   const coverage = feedback.thinkingReview?.requirementCoverage || [];
   const completedSteps = buildCompletedSteps(coverage);
   const primaryCoverage = coverage.find((item) =>
     item.requirementId === feedback.thinkingReview?.primaryGapRequirementId);
-  const interruptedTransition = buildInterruptedTransition(primaryCoverage, coverage, grounding);
+  const interruptedTransition = buildInterruptedTransition(primaryCoverage, coverage, grounding, studentResponse);
   const status = grounding.status === 'cannot_assess'
     ? 'cannot_assess'
     : interruptedTransition
@@ -111,11 +113,20 @@ function buildInterruptedTransition(
   primaryCoverage: TaskRequirementCoverage | undefined,
   coverage: TaskRequirementCoverage[],
   grounding: StudentFeedbackGrounding,
+  studentResponse?: StudentResponse,
 ): StudentThinkingTransition | undefined {
   if (!primaryCoverage || !grounding.primaryGap) return undefined;
-  const conclusion = firstEvidence(coverage, 'conclusion');
+  const conclusion = firstEvidence(coverage, 'conclusion') ||
+    (primaryCoverage.gapReasonCode === 'conclusion_inconsistent'
+      ? conciseAnswer(studentResponse?.answerText)
+      : undefined);
   const materialEvidence = firstEvidence(coverage, 'text_evidence');
-  const links = unique([primaryCoverage.requirementId, ...grounding.primaryGap.evidenceLinks]);
+  const taskCue = firstTaskCue(primaryCoverage, coverage);
+  const links = unique([
+    primaryCoverage.requirementId,
+    ...grounding.primaryGap.evidenceLinks,
+    ...(studentResponse?.responseId ? [studentResponse.responseId] : []),
+  ]);
   const certainty = grounding.primaryGap.verificationStatus;
 
   if (primaryCoverage.gapReasonCode === 'missing_text_evidence') {
@@ -144,8 +155,10 @@ function buildInterruptedTransition(
     return {
       fromStep: '材料中人物前后的表现',
       toStep: '人物此时的心理',
-      observedProblem: conclusion
-        ? `答案写出了“${short(conclusion)}”，但这个结论还不能准确概括材料中人物此时的表现。`
+      observedProblem: conclusion && taskCue
+        ? `你写的是“${short(conclusion)}”，但材料重点呈现的是“${short(taskCue)}”。这个动作不能直接说明“${short(conclusion)}”，所以需要重新判断人物当时的心理。`
+        : conclusion
+          ? `你写的是“${short(conclusion)}”，但这个判断还不能解释材料中人物前后的表现，所以需要重新判断人物当时的心理。`
         : '答案中的人物心理结论与材料表现出的意思不一致。',
       evidenceLinks: links,
       certainty,
@@ -161,6 +174,29 @@ function buildInterruptedTransition(
     };
   }
   return undefined;
+}
+
+function firstTaskCue(
+  primaryCoverage: TaskRequirementCoverage,
+  coverage: TaskRequirementCoverage[],
+): string | undefined {
+  const evidenceCoverage = coverage.find((item) => item.requirementType === 'text_evidence');
+  const candidates = [...primaryCoverage.taskEvidence, ...(evidenceCoverage?.taskEvidence || [])];
+  for (const candidate of candidates) {
+    const quoted = candidate.match(/[“"]([^”"]{2,36})[”"]/)?.[1]?.trim();
+    if (quoted) return quoted;
+    const normalized = candidate.replace(/^(?:题目要求|正式任务|根据|结合|引用)/, '').replace(/[。；]$/, '').trim();
+    if (normalized.length >= 3 && normalized.length <= 44) return normalized;
+  }
+  return undefined;
+}
+
+function conciseAnswer(value?: string): string | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  if (normalized.length < 2) return undefined;
+  const firstSentence = normalized.split(/[。！？!?]/)[0]?.trim();
+  return firstSentence ? short(firstSentence) : undefined;
 }
 
 function firstEvidence(

@@ -182,6 +182,8 @@ type ThinkingStepStatus =
 
 `misguided` 不能仅根据“答案与参考表述不同”生成，必须引用明确的材料事实、Rubric 或 Answer Acceptance 边界。
 
+当正式 Diagnosis 已确认 `conclusion_inconsistent` 时，`StudentThinkingAnalysis` 必须同时保留两类只读锚点：学生在 `StudentResponse` 中实际写出的判断，以及与该判断不一致的正式材料线索。分析应说明两者在哪个连接处无法对应，不得退回“结论与材料意思不一致”这类脱离上下文的概括。如果任一锚点缺失，只能保留限制并请求复核，不得补造学生观点或材料事实。
+
 ## 四、当前 V1 数据契约
 
 当前工程采用克制的最小结构：
@@ -313,6 +315,7 @@ V1 暂不覆盖：
 - 表达遗漏与理解缺口不能在证据不足时强行二选一；
 - 不使用“理解能力差、推理能力弱”等固定能力标签；
 - 所有完成点与断点都必须带有 `evidenceLinks`；
+- 结论偏差的 `evidenceLinks` 必须能够追溯到原始 `StudentResponse` 与正式材料线索；
 - 每次分析可以提供候选验证方向，但不能直接决定训练任务；
 - 长期能力结论仍由 Evaluation 基于多条 Ability Evidence 形成。
 

@@ -47,6 +47,10 @@
 | QuestionMetadataAgent | question、referenceAnswer | QuestionMetadata | 自动判断题目考察的能力和评价方式。 |
 | DiagnosisAgent | question、referenceAnswer、studentAnswer、questionMetadata | DiagnosisResult | 完成本地 mock 诊断，用于早期最小链路验证。 |
 | RealAIDiagnosisRuntime | question、referenceAnswer、studentAnswer、questionMetadata、previousEvidence | DiagnosisResult、AbilityEvidence、updatedEvidence、EvidenceSummary、StudentAbilityProfile | 当前组合 Runtime：构建 Prompt、调用或模拟 AI、生成证据并串起画像更新，用于验证完整数据链。 |
+| StudentThinkingAnalysisAgent | StudentResponse、Diagnosis Result、TaskRequirementCoverage | StudentThinkingAnalysis | 只读整理当前答案中已完成的思考动作与可观察连接断点，不确认内在 Root Cause。 |
+| StudentFeedbackGroundingAgent | StudentLearningFeedback、TaskRequirementCoverage | StudentFeedbackGrounding | 将已完成点、唯一主要 Gap 和来源链接绑定到正式反馈事实。 |
+| StudentFeedbackActionPlanAgent | StudentResponse、StudentThinkingAnalysis、Learning Gap | StudentFeedbackActionPlan | 把专业判断转换为思考问题和受控支架；结论偏差时比较学生原判断与正式材料线索。 |
+| StudentLearningNarrativeAgent | StudentFeedbackActionPlan、正式反馈与学习上下文 | StudentLearningNarrativeProjection | 只读生成学生可理解的反馈表达，不修改 Diagnosis、Evidence 或 Profile。 |
 | AbilityEvidenceExtractor | DiagnosisResult、studentId、taskId、diagnosisId | AbilityEvidence | 把诊断结果转换为可长期累计的能力证据。 |
 | StudentAbilityProfileAgent | EvidenceSummary、TopWeakness、AbilityEvidence[] | StudentAbilityProfile | 当前最小实现中根据累计证据生成学生能力画像；长期应消费 EvaluationResult 和 ProfileUpdateDecision。 |
 | PersonalizedNextTaskAgent | StudentAbilityProfile、TopWeakness、EvidenceSummary、updatedEvidence | PersonalizedNextTask | 根据画像、证据状态和候选薄弱点生成下一次任务候选。 |
@@ -88,15 +92,16 @@ Question + StudentAnswer
 1. 学生提交题目和答案。
 2. QuestionMetadataAgent 先理解这道题要观察什么能力。
 3. DiagnosisAgent 或 RealAIDiagnosisRuntime 诊断学生这次答案表现。
-4. AbilityEvidenceExtractor 把诊断结果变成一条 AbilityEvidence。
-5. 系统把新证据和历史证据合并，形成 updatedEvidence。
-6. EvidenceSummary 按能力汇总 updatedEvidence。
-7. StudentAbilityProfileAgent 在当前最小实现中根据 EvidenceSummary 生成学生能力画像。
-8. PersonalizedNextTaskAgent 根据画像、证据状态和候选薄弱能力生成下一题任务候选。
-9. 学生完成训练任务后，PersonalizedTaskExecutionAgent 把答案重新送入诊断链路。
-10. 多次任务执行后，LearningSessionAgent 生成 LearningSessionMemory。
-11. 如果 Session 建议复测，RetestTaskAgent 生成新情境复测题。
-12. 学生完成复测后，RetestExecutionAgent 生成 RetestExecutionResult，并把复测证据交给后续 Evaluation 与 Profile 更新链路。
+4. 学生反馈支线以 StudentResponse 和已校验 Coverage 形成 StudentThinkingAnalysis、Learning Gap、Feedback Action Plan 与 Narrative；该支线不修改正式诊断。
+5. AbilityEvidenceExtractor 把诊断结果变成一条 AbilityEvidence。
+6. 系统把新证据和历史证据合并，形成 updatedEvidence。
+7. EvidenceSummary 按能力汇总 updatedEvidence。
+8. StudentAbilityProfileAgent 在当前最小实现中根据 EvidenceSummary 生成学生能力画像。
+9. PersonalizedNextTaskAgent 根据画像、证据状态和候选薄弱能力生成下一题任务候选。
+10. 学生完成训练任务后，PersonalizedTaskExecutionAgent 把答案重新送入诊断链路。
+11. 多次任务执行后，LearningSessionAgent 生成 LearningSessionMemory。
+12. 如果 Session 建议复测，RetestTaskAgent 生成新情境复测题。
+13. 学生完成复测后，RetestExecutionAgent 生成 RetestExecutionResult，并把复测证据交给后续 Evaluation 与 Profile 更新链路。
 
 Phase 9 到 Phase 12 又把这条能力链放入真实任务与连续运行环境：
 

@@ -12,11 +12,13 @@ import type {
   TaskRequirementCoverage,
 } from '../schemas/studentLearningFeedback.schema.ts';
 import type { StudentThinkingAnalysis } from '../schemas/studentThinkingAnalysis.schema.ts';
+import type { StudentResponse } from '../schemas/taskExecution.schema.ts';
 
 type StudentFeedbackActionPlanInput = {
   feedback: StudentLearningFeedback;
   grounding: StudentFeedbackGrounding;
   thinkingAnalysis: StudentThinkingAnalysis;
+  studentResponse?: StudentResponse;
   taskRole?: RecommendedTaskRole;
 };
 
@@ -26,14 +28,17 @@ const EXECUTABLE_ACTION_PATTERN = /(?:想一想|比较|思考|回到|找到|找�
 export function buildStudentFeedbackActionPlan(
   input: StudentFeedbackActionPlanInput,
 ): StudentFeedbackActionPlan {
-  const { feedback, grounding, thinkingAnalysis, taskRole } = input;
+  const { feedback, grounding, thinkingAnalysis, studentResponse, taskRole } = input;
   const coverage = feedback.thinkingReview?.requirementCoverage || [];
   const primaryCoverage = coverage.find((item) => item.requirementId === grounding.primaryGap?.evidenceLinks[0]) ||
     coverage.find((item) => item.requirementId === feedback.thinkingReview?.primaryGapRequirementId);
   const conclusionCoverage = coverage.find((item) =>
     item.requirementType === 'conclusion' && item.studentEvidence.length > 0);
   const evidenceCoverage = coverage.find((item) => item.requirementType === 'text_evidence');
-  const studentClaim = firstUseful(conclusionCoverage?.studentEvidence);
+  const studentClaim = firstUseful(conclusionCoverage?.studentEvidence) ||
+    (primaryCoverage?.gapReasonCode === 'conclusion_inconsistent'
+      ? conciseAnswer(studentResponse?.answerText)
+      : undefined);
   const observedEvidence = firstUseful(evidenceCoverage?.studentEvidence);
   const taskCue = selectTaskCue(primaryCoverage, evidenceCoverage);
   const feedbackDepth = selectFeedbackDepth(feedback, grounding);
@@ -75,6 +80,7 @@ export function buildStudentFeedbackActionPlan(
     ...(grounding.primaryGap?.evidenceLinks || []),
     ...(conclusionCoverage ? [conclusionCoverage.requirementId] : []),
     ...(evidenceCoverage ? [evidenceCoverage.requirementId] : []),
+    ...(studentResponse?.responseId ? [studentResponse.responseId] : []),
   ]);
   const issues: string[] = [];
   const actionGrounded = !acknowledgedAction || Boolean(studentClaim || observedEvidence || grounding.achievedPoints.length);
@@ -205,7 +211,7 @@ function buildOperations(input: {
   feedbackDepth: StudentFeedbackDepth;
   hintLevel: StudentFeedbackHintLevel;
 }): { nextOperations: string[]; scaffoldTemplate?: string } {
-  const { grounding, primaryCoverage, observedEvidence, taskCue, feedbackDepth, hintLevel } = input;
+  const { grounding, primaryCoverage, observedEvidence, taskCue, feedbackDepth } = input;
   if (!grounding.primaryGap) return { nextOperations: [] };
   if (grounding.status === 'cannot_assess') {
     return { nextOperations: ['请重新写出人物此时的心理，并至少说明一条理由。'] };
@@ -219,11 +225,7 @@ function buildOperations(input: {
       taskCue,
       feedbackDepth,
     });
-    if (feedbackDepth < 4) return { nextOperations: prompt ? [prompt] : [] };
-    return {
-      nextOperations: prompt ? [prompt] : [],
-      scaffoldTemplate: '可以按“人物……，说明这件事让他……，因此表现出……”重新组织答案。',
-    };
+    return { nextOperations: prompt ? [prompt] : [] };
   }
 
   if (primaryCoverage?.gapReasonCode === 'missing_reasoning_relation') {
@@ -234,21 +236,19 @@ function buildOperations(input: {
       taskCue,
       feedbackDepth,
     });
-    if (feedbackDepth < 4) return { nextOperations: prompt ? [prompt] : [] };
-    return {
-      nextOperations: prompt ? [prompt] : [],
-      scaffoldTemplate: '可以按“人物……，这个动作说明……，因此表现出……”重新组织答案。',
-    };
+    return { nextOperations: prompt ? [prompt] : [] };
   }
 
   if (primaryCoverage?.gapReasonCode === 'conclusion_inconsistent') {
+    const prompt = buildThinkingPrompt({
+      primaryCoverage,
+      studentClaim: input.studentClaim,
+      observedEvidence,
+      taskCue,
+      feedbackDepth,
+    });
     return {
-      nextOperations: [
-        taskCue && hintLevel === 'paraphrase'
-          ? `重新查看“${short(taskCue)}”这一处内容。`
-          : '重新查看人物前后动作和语气的变化。',
-        '根据这些表现重新写出人物当时的心理。',
-      ],
+      nextOperations: prompt ? [prompt] : ['重新比较人物的动作和你写出的心理判断。'],
     };
   }
 
@@ -271,15 +271,17 @@ function buildThinkingPrompt(input: {
 
   if (['missing_text_evidence', 'missing_reasoning_relation'].includes(primaryCoverage.gapReasonCode || '')) {
     if (cue && studentClaim) {
-      return `想一想：${subject}为什么会“${short(cue)}”？这个动作除了说明“${short(studentClaim)}”，还表现了${pronoun}当时怎样的心理？`;
+      return `先别急着改答案。看看材料中的“${short(cue)}”，想一想：这个动作说明${subject}当时在想什么？再根据这个心理重新组织答案。`;
     }
-    if (cue) return `想一想：${subject}为什么会“${short(cue)}”？这个动作表现了${pronoun}怎样的态度或心理？`;
-    return `想一想：${subject}做了什么，让你得出这个判断？这个动作表现了${pronoun}怎样的心理？`;
+    if (cue) return `先看看材料中的“${short(cue)}”，想一想：这个动作说明${subject}当时在想什么？`;
+    return `先回到材料中找一个${subject}的动作，再问自己：这个动作说明${pronoun}当时在想什么？`;
   }
   if (primaryCoverage.gapReasonCode === 'conclusion_inconsistent') {
-    return cue
-      ? `重新比较“${short(cue)}”和当前判断：哪些词能同时解释${subject}为什么这样做？`
-      : `重新查看${subject}前后的动作和语气：哪些词能同时解释${pronoun}为什么这样做？`;
+    return cue && studentClaim
+      ? `先别急着改结论。看看材料中的“${short(cue)}”，想一想：这个动作真的能说明“${short(studentClaim)}”吗？如果不能，它更接近怎样的心理？`
+      : cue
+        ? `先别急着改结论。看看“${short(cue)}”，想一想：这个动作更接近${subject}怎样的心理？`
+        : `重新查看${subject}前后的动作和语气：哪些词能同时解释${pronoun}为什么这样做？`;
   }
   return undefined;
 }
@@ -331,6 +333,14 @@ function extractTaskCue(value: string): string | undefined {
 
 function firstUseful(values?: string[]): string | undefined {
   return values?.map((item) => item.trim()).find((item) => item.length >= 2);
+}
+
+function conciseAnswer(value?: string): string | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  if (normalized.length < 2) return undefined;
+  const firstSentence = normalized.split(/[。！？!?]/)[0]?.trim();
+  return firstSentence ? short(firstSentence) : undefined;
 }
 
 function short(value: string): string {

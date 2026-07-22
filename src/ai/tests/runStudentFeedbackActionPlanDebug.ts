@@ -31,12 +31,12 @@ function main(): void {
     evidencePlan.problemMechanism?.includes('父亲珍惜这片树叶') === true &&
     evidencePlan.problemMechanism.includes('没有呈现人物做了什么'),
     evidencePlan.problemMechanism);
-  check('FA03 Level 4 只保留思考提示与句式支架',
+  check('FA03 首次正式反馈只提供思考问题，不默认提供句式支架',
     evidencePlan.feedbackDepth === 4 &&
     evidencePlan.hintLevel === 'paraphrase' &&
     evidencePlan.nextOperations.length === 1 &&
-    evidencePlan.nextOperations[0]?.includes('为什么会“捏着树叶站了很久”') === true &&
-    evidencePlan.scaffoldTemplate?.includes('人物……，说明这件事让他……') === true,
+    evidencePlan.nextOperations[0]?.includes('这个动作说明父亲当时在想什么') === true &&
+    evidencePlan.scaffoldTemplate === undefined,
     JSON.stringify({ operations: evidencePlan.nextOperations, scaffold: evidencePlan.scaffoldTemplate }));
 
   const relationFeedback = feedback([
@@ -83,9 +83,26 @@ function main(): void {
     retryPlan.nextOperations.length === 1,
     JSON.stringify({ depth: retryPlan.feedbackDepth, operations: retryPlan.nextOperations }));
 
-  check('FA07 所有动作计划通过来源、具体性和披露校验',
-    [evidencePlan, relationPlan, invalidPlan, retryPlan].every((item) => item.validation.passed),
-    [evidencePlan, relationPlan, invalidPlan, retryPlan]
+  const mismatchFeedback = feedback([
+    coverage('conclusion', 'missing', {
+      taskEvidence: ['材料重点呈现“在留言旁停留”这一动作'],
+      gapMessage: '答案中的人物心理结论与材料表现出的意思不一致。',
+      gapReasonCode: 'conclusion_inconsistent',
+    }),
+  ], 'requirement-conclusion', '答案中的人物心理结论与材料表现出的意思不一致。');
+  const mismatchPlan = plan(mismatchFeedback, '周老师只是想休息。');
+  check('FA07 结论偏差同时锚定学生原判断和材料线索',
+    mismatchPlan.problemMechanism?.includes('周老师只是想休息') === true &&
+    mismatchPlan.problemMechanism.includes('在留言旁停留') &&
+    mismatchPlan.nextOperations.length === 1 &&
+    mismatchPlan.nextOperations[0]?.includes('真的能说明') === true &&
+    mismatchPlan.nextOperations[0]?.includes('先别急着改结论') === true &&
+    mismatchPlan.scaffoldTemplate === undefined,
+    JSON.stringify({ mechanism: mismatchPlan.problemMechanism, operations: mismatchPlan.nextOperations }));
+
+  check('FA08 所有动作计划通过来源、具体性和披露校验',
+    [evidencePlan, relationPlan, invalidPlan, retryPlan, mismatchPlan].every((item) => item.validation.passed),
+    [evidencePlan, relationPlan, invalidPlan, retryPlan, mismatchPlan]
       .flatMap((item) => item.validation.issues).join('|') || 'none');
 
   console.log('\nStudent Feedback Action Plan Debug');
@@ -100,10 +117,26 @@ function main(): void {
   if (passed !== reports.length) throw new Error('Student Feedback Action Plan Debug failed.');
 }
 
-function plan(value: StudentLearningFeedback) {
+function plan(value: StudentLearningFeedback, answerText?: string) {
   const grounding = buildStudentFeedbackGrounding(value);
-  const thinkingAnalysis = buildStudentThinkingAnalysis(value, grounding);
-  return buildStudentFeedbackActionPlan({ feedback: value, grounding, thinkingAnalysis, taskRole: 'observation' });
+  const studentResponse = answerText ? {
+    responseId: 'response-feedback-action-plan',
+    executionSessionId: 'session-feedback-action-plan',
+    studentId: value.studentId,
+    taskId: 'task-feedback-action-plan',
+    answerText,
+    submittedAt: '2026-07-22T00:00:00.000Z',
+    usedHint: false,
+    hintCount: 0,
+  } : undefined;
+  const thinkingAnalysis = buildStudentThinkingAnalysis(value, grounding, studentResponse);
+  return buildStudentFeedbackActionPlan({
+    feedback: value,
+    grounding,
+    thinkingAnalysis,
+    studentResponse,
+    taskRole: 'observation',
+  });
 }
 
 function feedback(

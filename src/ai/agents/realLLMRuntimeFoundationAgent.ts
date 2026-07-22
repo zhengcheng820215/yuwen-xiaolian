@@ -603,7 +603,12 @@ function validateStrictDiagnosisResult(value: Record<string, unknown>): string[]
   if (!isNonEmptyString(value.surfaceError)) issues.push('surfaceError is required.');
   if (!isNonEmptyString(value.rootCause)) issues.push('rootCause is required.');
   if (!DIAGNOSIS_ERROR_TYPES.includes(value.errorType as DiagnosisResult['errorType'])) issues.push('errorType is invalid.');
-  if (!isStringArray(value.abilityEvidence) || value.abilityEvidence.length === 0) issues.push('abilityEvidence must contain at least one item.');
+  const allowsEmptyEvidence = value.answerStatus === 'insufficient_evidence' && value.scoreBand === 'invalid';
+  if (!isStringArray(value.abilityEvidence)) {
+    issues.push('abilityEvidence must be a string array.');
+  } else if (value.abilityEvidence.length === 0 && !allowsEmptyEvidence) {
+    issues.push('abilityEvidence must contain at least one item for a diagnosable response.');
+  }
   if (!isNonEmptyString(value.diagnosisSummary)) issues.push('diagnosisSummary is required.');
   if (!isNonEmptyString(value.nextTraining)) issues.push('nextTraining is required.');
   if (typeof value.confidence !== 'number' || !Number.isFinite(value.confidence) || value.confidence < 0 || value.confidence > 1) {
