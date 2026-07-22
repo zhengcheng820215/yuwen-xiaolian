@@ -1,6 +1,10 @@
 import type { LearningPersistenceRecord } from './learningPersistence.schema.ts';
 import type { DelayedRetestPlan } from './delayedRetestScheduling.schema.ts';
 import type { RealLearningOperationCheckpoint } from './realLearningOperation.schema.ts';
+import {
+  isStudentLearningPresentation,
+  type StudentLearningPresentation,
+} from './studentLearningNarrative.schema.ts';
 
 export const UNIFIED_LEARNING_ENTRY_SCHEMA_VERSION = 'unified_learning_entry_v1' as const;
 
@@ -59,6 +63,7 @@ export type UnifiedLearningEntryState = {
   currentRoundNumber?: number;
   completedRoundCount: number;
   focusText?: string;
+  learningPresentation?: StudentLearningPresentation;
   retest?: {
     targetAbilityId: string;
     plannedRetestAt: string;
@@ -142,6 +147,7 @@ export function isUnifiedLearningEntryState(value: unknown): value is UnifiedLea
     typeof state.hasDraft === 'boolean' &&
     typeof state.hasUnviewedFeedback === 'boolean' &&
     Number.isInteger(state.completedRoundCount) &&
+    (state.learningPresentation === undefined || isStudentLearningPresentation(state.learningPresentation)) &&
     Array.isArray(state.studentVisibleIssues) &&
     Boolean(state.validation) &&
     typeof state.validation.passed === 'boolean' &&

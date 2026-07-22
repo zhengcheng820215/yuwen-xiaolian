@@ -10,6 +10,7 @@ import type { LearningPersistenceRecord } from '../schemas/learningPersistence.s
 import type { Phase163RealLearningChainResult } from '../schemas/realLearningOperation.schema.ts';
 import type { UnifiedLearningEntryState } from '../schemas/unifiedLearningEntry.schema.ts';
 import { createPhase163DemoEnvironment } from '../../api/phase163RealLearningChainDemo.ts';
+import { resolvePhase163LiveStudentFeedback } from '../../api/phase163LiveLearning.ts';
 
 const VALID_ANSWER = '父亲捏着褪色的树叶站了很久，又小心地夹回原处，说明他想起过去，因此感到怀念和不舍。';
 const NOW = '2026-07-21T10:05:00.000Z';
@@ -30,6 +31,7 @@ async function main(): Promise<void> {
   await checkProviderFailure();
   await checkDiagnosisReview();
   await checkNextResourceMismatch();
+  await checkRecoveredFeedbackUsesCurrentThinkingGap();
   checkStudentSurface(successful.entry);
 
   console.log('\nPhase 16.3 Day 0 Unified Entry → Formal Runtime Integration Debug');
@@ -172,13 +174,53 @@ async function checkNextResourceMismatch(): Promise<void> {
     `status=${result.status}, next=${result.checkpoint.nextTaskResolution?.status}, entry=${entry.status}`);
 }
 
+async function checkRecoveredFeedbackUsesCurrentThinkingGap(): Promise<void> {
+  const answer = '父亲很生气，因为他捏着树叶站了很久。';
+  const environment = await createPhase163DemoEnvironment('complete_chain', answer);
+  const provider = new ScriptedDiagnosisProviderAdapter([{
+    type: 'response',
+    rawOutput: JSON.stringify({
+      taskType: 'open_response',
+      correct: false,
+      strategyUsed: 'controlled_phase16_3_recovery_regression',
+      answerStatus: 'does_not_meet',
+      scoreBand: 'low',
+      mainAbility: 'inference',
+      relatedAbilities: ['comprehension'],
+      surfaceError: '学生对父亲心理的理解与人物动作不一致。',
+      rootCause: '学生注意到了父亲捏着树叶站了很久，但把这一动作理解为生气。',
+      errorType: '待验证',
+      abilityEvidence: ['学生写出父亲很生气，并引用捏着树叶站了很久作为理由。'],
+      diagnosisSummary: '本次回答找到了人物动作，但人物心理判断需要重新考虑。',
+      nextTraining: '重新判断人物心理，并说明动作与心理之间的关系。',
+      confidence: 0.86,
+    }),
+    latencyMs: 2,
+  }]);
+  const result = await runPhase163RealLearningChain(environment.input, {
+    ...environment.dependencies,
+    provider,
+  });
+  const feedback = resolvePhase163LiveStudentFeedback(result.checkpoint);
+  const primaryGap = feedback?.thinkingReview?.primaryGap;
+  const missingPoint = feedback?.thinkingReview?.missingPoints[0] || '';
+  const actions = feedback?.guidance?.revisionActions || [];
+  record('D0-11 恢复后的点评与建议使用同一主要缺口',
+    result.status === 'completed' &&
+      missingPoint.includes('心理') &&
+      actions[1]?.includes('重新想一想') === true &&
+      actions[1]?.includes('心理') === true &&
+      actions[2] === '说明这个动作为什么能表现出父亲当时的这种心理。',
+    `runtime=${result.status}/${result.checkpoint.nextAction}, issues=${result.checkpoint.issues.join('|') || 'none'}, feedback=${result.checkpoint.controlledFeedbackResult?.status || 'none'}, scope=${result.checkpoint.controlledFeedbackResult?.admissionDecision.expressionScope || 'none'}, gap=${primaryGap?.requirement || missingPoint || 'none'}, actions=${actions.join(' / ') || 'none'}`);
+}
+
 function checkStudentSurface(entry: UnifiedLearningEntryState): void {
   const serialized = JSON.stringify(entry);
   const forbidden = [
     'operationId', 'learningSessionId', 'learningRoundId', 'evidenceIds',
     'rawOutput', 'promptVersion', 'providerConfig', 'confidence', 'apiKey',
   ];
-  record('D0-11 学生入口不暴露 Runtime、Prompt、Provider 或追溯 ID',
+  record('D0-12 学生入口不暴露 Runtime、Prompt、Provider 或追溯 ID',
     forbidden.every((key) => !serialized.includes(key)),
     `forbidden=${forbidden.filter((key) => serialized.includes(key)).join('|') || 'none'}`);
 }

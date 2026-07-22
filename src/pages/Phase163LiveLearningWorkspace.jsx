@@ -258,6 +258,12 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
           <section className="px-6 py-8 lg:px-10 lg:py-10 xl:px-14">
             <div className="mx-auto max-w-[640px]">
               <p className="text-sm text-slate-500">本题考查：{state.task.focus}</p>
+              {state.learningPresentation?.taskReason ? (
+                <div className="mt-5 border-l-2 border-blue-500 pl-4">
+                  <p className="text-sm font-semibold text-slate-800">为什么练这题</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">{state.learningPresentation.taskReason}</p>
+                </div>
+              ) : null}
               <h1 className="mt-7 text-lg font-semibold">题目</h1>
               <p className="mt-3 text-base leading-8 text-slate-800">{state.task.questionText}</p>
 
@@ -319,6 +325,7 @@ function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus,
   const thinkingReview = state.feedback?.thinkingReview;
   const guidance = state.feedback?.guidance;
   const attention = guidance ? [] : state.feedback?.whatNeedsAttention?.slice(0, 1) || [];
+  const hasLearningNarrative = hasOutcomeNarrative(state.learningPresentation);
   const hasReview = Boolean(thinkingReview || positive.length);
   const shouldStageFeedback = shouldStageFeedbackPresentation({
     correctionStatus: writingCorrectionStatus,
@@ -370,11 +377,27 @@ function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus,
       <div className="mx-auto w-full max-w-[720px]">
         <section className="rounded-md bg-white px-7 py-7 shadow-[0_10px_36px_rgba(15,23,42,0.08)] [&>section:first-child]:mt-0 md:px-10">
           {writingCorrections.length ? <WritingCorrections items={writingCorrections} /> : null}
-          {thinkingReview ? <ThinkingReview review={thinkingReview} contentVisible={presentationStep >= 1} /> : positive.length ? <FeedbackList title="思路点评" items={positive} tone="positive" contentVisible={presentationStep >= 1} /> : null}
-          <div className={feedbackRevealClass(presentationStep >= 2)}>
-            {guidance ? <StudentFeedbackGuidance guidance={guidance} compact={Boolean(thinkingReview)} /> : null}
-          </div>
-          {attention.length ? <FeedbackList title="需要留意" items={attention} tone="attention" /> : null}
+          {hasLearningNarrative ? (
+            <StudentLearningNarrativeOutcome
+              presentation={state.learningPresentation}
+              reviewVisible={presentationStep >= 1}
+              actionVisible={presentationStep >= 2}
+            />
+          ) : (
+            <>
+              {thinkingReview ? <ThinkingReview review={thinkingReview} contentVisible={presentationStep >= 1} /> : positive.length ? <FeedbackList title="思路点评" items={positive} tone="positive" contentVisible={presentationStep >= 1} /> : null}
+              <div className={feedbackRevealClass(presentationStep >= 2)}>
+                {guidance ? <StudentFeedbackGuidance guidance={guidance} compact={Boolean(thinkingReview)} /> : null}
+              </div>
+              {attention.length ? <FeedbackList title="需要留意" items={attention} tone="attention" /> : null}
+            </>
+          )}
+          {state.learningPresentation?.outcome?.progressMeaning ? (
+            <NarrativeNote title="这次学习说明了什么" text={state.learningPresentation.outcome.progressMeaning} />
+          ) : null}
+          {state.canAdvance && state.learningPresentation?.continuationReason ? (
+            <NarrativeNote title="为什么继续下一项任务" text={state.learningPresentation.continuationReason} />
+          ) : null}
         </section>
         <div className={`mt-8 flex min-h-11 justify-center ${feedbackRevealClass(presentationStep >= 3)}`}>
           {state.canAdvance ? (
@@ -403,6 +426,7 @@ function PausedWorkspace({ state, writingCorrections, busy, onReturn }) {
   const thinkingReview = state.feedback?.thinkingReview;
   const guidance = state.feedback?.guidance;
   const attention = guidance ? [] : state.feedback?.whatNeedsAttention?.slice(0, 1) || [];
+  const hasLearningNarrative = hasOutcomeNarrative(state.learningPresentation);
   return (
     <main className="flex min-h-[calc(100vh-65px)] items-center px-6 py-12">
       <div className="mx-auto w-full max-w-[720px]">
@@ -410,9 +434,15 @@ function PausedWorkspace({ state, writingCorrections, busy, onReturn }) {
           {state.feedback ? (
             <>
               {writingCorrections.length ? <WritingCorrections items={writingCorrections} /> : null}
-              {thinkingReview ? <ThinkingReview review={thinkingReview} /> : positive.length ? <FeedbackList title="思路点评" items={positive} tone="positive" /> : null}
-              {guidance ? <StudentFeedbackGuidance guidance={guidance} compact={Boolean(thinkingReview)} /> : null}
-              {attention.length ? <FeedbackList title="需要留意" items={attention} tone="attention" /> : null}
+              {hasLearningNarrative ? (
+                <StudentLearningNarrativeOutcome presentation={state.learningPresentation} />
+              ) : (
+                <>
+                  {thinkingReview ? <ThinkingReview review={thinkingReview} /> : positive.length ? <FeedbackList title="思路点评" items={positive} tone="positive" /> : null}
+                  {guidance ? <StudentFeedbackGuidance guidance={guidance} compact={Boolean(thinkingReview)} /> : null}
+                  {attention.length ? <FeedbackList title="需要留意" items={attention} tone="attention" /> : null}
+                </>
+              )}
             </>
           ) : null}
           <div className={state.feedback ? 'mt-9 border-t border-slate-200 pt-7' : ''} aria-live="polite">
@@ -466,15 +496,111 @@ function FeedbackList({ title, items, tone, contentVisible = true }) {
   );
 }
 
+function NarrativeNote({ title, text }) {
+  return (
+    <section className="mt-7 border-t border-slate-200 pt-6">
+      <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+      <p className="mt-2 text-base leading-7 text-slate-700">{text}</p>
+    </section>
+  );
+}
+
+function StudentLearningNarrativeOutcome({ presentation, reviewVisible = true, actionVisible = true }) {
+  const outcome = presentation?.outcome || {};
+  const hasReview = Boolean(outcome.responseAnchor || outcome.achieved || outcome.primaryGap);
+  const actions = splitNarrativeActions(presentation?.nextAction);
+  return (
+    <>
+      {hasReview ? (
+        <section className="mt-7">
+          <h2 className="text-base font-semibold">思路点评</h2>
+          <div className={feedbackRevealClass(reviewVisible)}>
+            {outcome.responseAnchor ? (
+              <div className="mt-4 border-l-2 border-blue-500 pl-4">
+                <h3 className="text-sm font-semibold text-slate-800">你刚才的想法</h3>
+                <p className="mt-1 text-base leading-7 text-slate-700">{outcome.responseAnchor}</p>
+              </div>
+            ) : null}
+            {outcome.achieved ? (
+              <div className="mt-5">
+                <h3 className="text-sm font-semibold text-slate-800">回答到位</h3>
+                <p className="mt-2 flex items-start gap-3 text-base leading-7 text-slate-700">
+                  <Check size={18} aria-hidden="true" className="mt-1 shrink-0 text-emerald-600" />
+                  <span>{outcome.achieved}</span>
+                </p>
+              </div>
+            ) : null}
+            {outcome.primaryGap ? (
+              <div className="mt-5">
+                <h3 className="text-sm font-semibold text-slate-800">
+                  {narrativeGapTitle(outcome.primaryGapMode, outcome.primaryGapReasonCode)}
+                </h3>
+                <p className="mt-2 flex items-start gap-3 text-base leading-7 text-slate-700">
+                  <span className="flex w-[18px] shrink-0 justify-center pt-[11px]" aria-hidden="true">
+                    <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  </span>
+                  <span>{outcome.primaryGap}</span>
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+      {actions.length > 0 ? (
+        <section className={`mt-7 ${feedbackRevealClass(actionVisible)}`}>
+          <h2 className="text-base font-semibold">思路建议</h2>
+          <ol className="mt-3 space-y-2 text-base leading-7 text-slate-700">
+            {actions.map((item, index) => (
+              <li key={`${index}-${item}`} className="flex items-start gap-3">
+                <span className="w-5 shrink-0 text-right font-medium text-slate-500">{index + 1}.</span>
+                <span className="min-w-0">{item}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+    </>
+  );
+}
+
+function hasOutcomeNarrative(presentation) {
+  return Boolean(
+    presentation?.outcome?.responseAnchor ||
+    presentation?.outcome?.achieved ||
+    presentation?.outcome?.primaryGap ||
+    presentation?.nextAction,
+  );
+}
+
+function splitNarrativeActions(value) {
+  if (!value) return [];
+  return value
+    .split(/(?<=[。！？])/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function narrativeGapTitle(mode, reasonCode) {
+  if (reasonCode === 'conclusion_inconsistent') return '需要重新判断';
+  if (reasonCode === 'missing_text_evidence') return '还需补充依据';
+  if (reasonCode === 'missing_reasoning_relation') return '还需说明联系';
+  if (reasonCode === 'incomplete_task_requirement') return '还需完成';
+  if (reasonCode === 'insufficient_to_judge') return '先补充回答';
+  if (mode === 'needs_adjustment') return '需要重新判断';
+  if (mode === 'insufficient_to_judge') return '先补充回答';
+  return '还需补充';
+}
+
 function ThinkingReview({ review, contentVisible = true }) {
   const missingPoints = review.primaryGap ? [review.primaryGap] : review.missingPoints.slice(0, 1);
   const primaryGapCoverage = review.requirementCoverage?.find((item) =>
     item.requirementId === review.primaryGapRequirementId);
   if (!shouldRenderThinkingReview(review)) return null;
-  const gapTitle = primaryGapCoverage?.requirementType === 'conclusion' &&
-    primaryGapCoverage.status === 'missing'
-    ? '还需调整'
-    : '还需补充';
+  const gapTitle = primaryGapCoverage?.gapReasonCode
+    ? narrativeGapTitle(undefined, primaryGapCoverage.gapReasonCode)
+    : primaryGapCoverage?.requirementType === 'conclusion' && primaryGapCoverage.status === 'missing'
+      ? '需要重新判断'
+      : '还需补充';
   return (
     <section className="mt-7">
       <h2 className="text-base font-semibold">思路点评</h2>

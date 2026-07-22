@@ -560,3 +560,23 @@ Phase 16 Acceptance / Freeze
 - Product / Demo Scope Isolation Debug：`11 / 11 PASS`；统一入口 `17 / 17 PASS`；Phase 16.3A `16 / 16 PASS`；Day 0 串联 `11 / 11 PASS`；Phase 15 集成 `11 / 11 PASS`；受控反馈 `46 / 46 PASS`；Production Build `PASS`。
 
 详细验收记录见：[Phase 16.3 Product / Demo Scope Isolation Debug](../education/phase/reports/phase16_3_product_demo_scope_isolation_debug_2026-07-21.md)。
+
+## 十九、Learning Narrative Calibration
+
+本校准遵循一项总设计原则：**一个教育 AI 的价值，不取决于它知道多少，而取决于学生能否感受到它知道、理解并持续帮助自己。** 因此，学生界面必须把内部能力转化为可感知的任务原因、具体点评、下一动作和连续学习关系，而不是只展示系统已经完成判断。
+
+学生页面不仅需要呈现“当前是什么状态”，还需要在不越过正式教育事实的前提下解释“为什么这样安排”。项目在既有 `StudentLearningFeedback`、`ControlledFeedbackResult` 与 `UnifiedLearningEntryState` 之间增加只读 `StudentLearningNarrativeProjection`：
+
+```text
+Formal Task / Current Feedback / Eligible Growth Fact / Next Strategy
+↓
+StudentLearningNarrativeProjection
+↓
+StudentLearningPresentation
+↓
+阶段化学生表达
+```
+
+展示层围绕四个学生问题组织：“为什么练、发生了什么、怎么办、为什么继续”。作答前解释当前任务目的，作答后沿用本轮任务要求覆盖反馈与下一动作，下一资源正式匹配后解释继续原因；跨 Session 进展含义只有在延迟、独立、可追溯且质量合格的正式观察成立时才能展示。四问是阶段化信息架构，不是四张同时出现的卡片。Narrative 与 Presentation 均不持久化为新教育事实，不建立第二套反馈 Runtime，不反向修改 Strategy 或 Task Matching。
+
+详细规则见：[Student Learning Narrative Calibration](./STUDENT_LEARNING_NARRATIVE_CALIBRATION.md)。

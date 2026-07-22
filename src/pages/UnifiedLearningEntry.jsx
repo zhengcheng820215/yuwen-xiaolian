@@ -59,6 +59,7 @@ export default function UnifiedLearningEntry() {
   const canFinishReviewedSession = entry?.status === 'review_required' &&
     entry?.hasActiveSession &&
     entry?.validation?.passed;
+  const entryPresentation = resolveEntryPresentation(entry);
 
   if (view === 'workspace') {
     return (
@@ -91,6 +92,17 @@ export default function UnifiedLearningEntry() {
               <p className="mt-3 max-w-[680px] text-base leading-7 text-slate-600">
                 {entry.message}
               </p>
+
+              {entryPresentation ? (
+                <div className="mt-7 max-w-[680px] border-l-2 border-blue-500 pl-4">
+                  <p className="text-sm font-semibold text-slate-900">
+                    {entryPresentation.title}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    {entryPresentation.message}
+                  </p>
+                </div>
+              ) : null}
 
               {entry.hasDraft ? (
                 <p className="mt-6 flex items-center gap-2 text-sm leading-6 text-blue-700">
@@ -143,6 +155,21 @@ export default function UnifiedLearningEntry() {
       </main>
     </div>
   );
+}
+
+function resolveEntryPresentation(entry) {
+  const presentation = entry?.learningPresentation;
+  if (!presentation) return null;
+  if (['feedback_available', 'session_ended'].includes(entry.status) && presentation.outcome?.progressMeaning) {
+    return { title: '这次学习说明了什么', message: presentation.outcome.progressMeaning };
+  }
+  if (entry.status === 'start_new_round' && presentation.continuationReason) {
+    return { title: '为什么继续', message: presentation.continuationReason };
+  }
+  if (['continue_round', 'delayed_retest_available', 'start_new_round'].includes(entry.status) && presentation.taskReason) {
+    return { title: '为什么练这题', message: presentation.taskReason };
+  }
+  return null;
 }
 
 function StatusEyebrow({ status, title }) {

@@ -38,6 +38,7 @@ import InternalHub from './pages/InternalHub.jsx';
 import InternalAcceptanceHub from './pages/InternalAcceptanceHub.jsx';
 import ResourceCoverageDashboardDemo from './pages/ResourceCoverageDashboardDemo.jsx';
 import MaterialResourceProductionWorkbench from './pages/MaterialResourceProductionWorkbench.jsx';
+import StudentLearningNarrativeCalibrationDemo from './pages/StudentLearningNarrativeCalibrationDemo.jsx';
 
 export default function App() {
   return (
@@ -82,6 +83,7 @@ export default function App() {
         <Route path="/phase16-3-multiday-operation-demo" element={<Phase163MultiDayOperationDemo />} />
         <Route path="/resource-coverage-dashboard-demo" element={<ResourceCoverageDashboardDemo />} />
         <Route path="/material-resource-workbench" element={<MaterialResourceProductionWorkbench />} />
+        <Route path="/student-learning-narrative-calibration-demo" element={<StudentLearningNarrativeCalibrationDemo />} />
       </Routes>
     </Layout>
   );

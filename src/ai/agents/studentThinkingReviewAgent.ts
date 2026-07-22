@@ -10,6 +10,8 @@ const RELATION_REQUIREMENT_PATTERN = /说明.*(?:理由|关系)|依据.*结论|�
 const RELATION_MARKER_PATTERN = /因为|所以|说明|体现|表现|看出|可见|表明|由此|这说明/;
 const FORMAL_RELATION_CONFIRMED_PATTERN = /动作.{0,8}(?:心理|情感).{0,8}(?:关系|联系)|说明.{0,12}(?:体现|表现)|推理关系(?:成立|完整)/;
 const FORMAL_RELATION_MISSING_PATTERN = /没有.{0,12}说明|未.{0,12}说明|关系.{0,8}(?:不完整|缺少)|缺少.{0,8}(?:关系|联系)/;
+const CONCLUSION_INCONSISTENCY_PATTERN = /(?:结论|判断|理解|心理|特点|概括|原因).{0,20}(?:与.{0,20})?(?:不一致|冲突|错误|不准确|偏差|不成立|误判|偏离)|(?:不一致|冲突).{0,16}(?:结论|判断|理解|心理|材料|事实)|(?:把|将).{1,24}(?:理解|判断)为/;
+const CONCLUSION_SUPPORTED_PATTERN = /(?:结论|判断|理解|心理|方向).{0,16}(?:成立|正确|合理|相符|一致)|(?:方向|结论).{0,8}基本(?:成立|正确)/;
 const INTERNAL_LANGUAGE_PATTERN = /evidence|diagnosis|root\s*cause|能力证据|置信度|inference|comprehension/i;
 const PROMPT_INJECTION_PATTERN = /忽略(?:之前|前面|以上).*规则|打印.*(?:prompt|提示词)|修改.*mainAbility|判定.*掌握/i;
 const NON_EVIDENCE_FRAGMENT_PATTERN = /^(?:自己|本人|此时|当时|这样|这个|那个|这里|那里|文中|文章中|材料中|父亲|母亲|孩子|人物|动作|细节|内容|语句)$/u;
@@ -35,6 +37,7 @@ export function buildStudentThinkingReview(
     ...task.rubric.flatMap((item) => [item.name, item.description || '']),
   ].join('\n');
   const target = describeTaskTarget(task.question, task.targetAbilityName);
+  const targetSubject = describeTaskSubject(task.question);
   const relationTarget = target === '人物的心理' ? '人物心理' : target;
   const acceptedKeywords = uniqueStrings(task.questionMetadata.answerAcceptance?.acceptedKeywords || []);
   const matchedKeywords = acceptedKeywords.filter((keyword) => answer.includes(keyword));
@@ -61,15 +64,21 @@ export function buildStudentThinkingReview(
     answer,
     answerStatus: diagnosis.answerStatus,
     matchedKeywords,
+    targetSubject,
+    hasMaterialDetail: matchedDetails.length > 0,
     hasPositiveEvidence,
     safeStrength,
+    formalText,
   }));
 
   const requiresEvidence = EVIDENCE_REQUIREMENT_PATTERN.test(requirementsText);
+  const requiresRelation = RELATION_REQUIREMENT_PATTERN.test(requirementsText);
   if (requiresEvidence) {
     coverage.push(buildEvidenceCoverage({
       taskId: task.taskId,
       target,
+      conclusion: matchedKeywords[0],
+      requiresRelation,
       matchedDetails,
       expectedDetails,
       formalText,
@@ -79,7 +88,6 @@ export function buildStudentThinkingReview(
     }));
   }
 
-  const requiresRelation = RELATION_REQUIREMENT_PATTERN.test(requirementsText);
   if (requiresRelation) {
     coverage.push(buildRelationCoverage({
       taskId: task.taskId,
@@ -153,21 +161,29 @@ function buildConclusionCoverage(input: {
   answer: string;
   answerStatus?: string;
   matchedKeywords: string[];
+  targetSubject?: string;
+  hasMaterialDetail: boolean;
   hasPositiveEvidence: boolean;
   safeStrength?: string;
+  formalText: string;
 }): TaskRequirementCoverage {
   if (input.answerStatus === 'insufficient_evidence') {
     return coverageItem(input.taskId, 'conclusion', `写出${input.target}`, 'insufficient_to_judge', {
       taskEvidence: [`题目要求写出${input.target}`],
       source: 'formal_diagnosis',
       gapMessage: `目前的回答信息还不足以判断是否已经写清${input.target}。`,
+      gapReasonCode: 'insufficient_to_judge',
     });
   }
-  if (input.answerStatus === 'does_not_meet') {
+  if (CONCLUSION_INCONSISTENCY_PATTERN.test(input.formalText)) {
+    const understandingTarget = describeUnderstandingTarget(input.target, input.targetSubject);
     return coverageItem(input.taskId, 'conclusion', `写出${input.target}`, 'missing', {
       taskEvidence: [`题目要求写出${input.target}`],
       source: 'formal_diagnosis',
-      gapMessage: `题目要求写出${input.target}，这部分目前还不准确。`,
+      gapMessage: input.hasMaterialDetail
+        ? `你已经找到了文中的具体内容，但你写出的${understandingTarget}与这些内容表现出的意思不一致。`
+        : `你写出的${understandingTarget}与材料表现出的意思不一致。`,
+      gapReasonCode: 'conclusion_inconsistent',
     });
   }
   if (input.matchedKeywords.length > 0) {
@@ -176,6 +192,14 @@ function buildConclusionCoverage(input: {
       taskEvidence: ['正式任务的可接受方向'],
       source: 'task_requirement',
       studentMessage: buildCoveredConclusion(input.target, input.matchedKeywords.slice(0, 2)),
+    });
+  }
+  if (CONCLUSION_SUPPORTED_PATTERN.test(input.formalText)) {
+    return coverageItem(input.taskId, 'conclusion', `写出${input.target}`, 'covered', {
+      studentEvidence: [input.answer],
+      taskEvidence: ['正式 Diagnosis 已确认该回答方向成立'],
+      source: 'formal_diagnosis',
+      studentMessage: input.safeStrength || `你已经写出了对${describeUnderstandingTarget(input.target, input.targetSubject)}的理解。`,
     });
   }
   if (input.hasPositiveEvidence && input.answerStatus === 'fully_meets') {
@@ -193,18 +217,32 @@ function buildConclusionCoverage(input: {
       source: 'ability_evidence',
       studentMessage: input.safeStrength || `你对${input.target}已经有了基本方向。`,
       gapMessage: `${input.target}已经有了基本方向，但表达还不够明确。`,
+      gapReasonCode: 'incomplete_task_requirement',
+    });
+  }
+  if (input.answerStatus === 'does_not_meet') {
+    const understandingTarget = describeUnderstandingTarget(input.target, input.targetSubject);
+    return coverageItem(input.taskId, 'conclusion', `写出${input.target}`, 'insufficient_to_judge', {
+      studentEvidence: [input.answer],
+      taskEvidence: [`题目要求写出${input.target}`],
+      source: 'formal_diagnosis',
+      gapMessage: `你已经写出了对${understandingTarget}的理解，但目前还不能确认这个理解是否充分。`,
+      gapReasonCode: 'insufficient_to_judge',
     });
   }
   return coverageItem(input.taskId, 'conclusion', `写出${input.target}`, 'insufficient_to_judge', {
     taskEvidence: [`题目要求写出${input.target}`],
     source: 'formal_diagnosis',
     gapMessage: `目前的信息还不足以判断是否已经写清${input.target}。`,
+    gapReasonCode: 'insufficient_to_judge',
   });
 }
 
 function buildEvidenceCoverage(input: {
   taskId: string;
   target: string;
+  conclusion?: string;
+  requiresRelation: boolean;
   matchedDetails: string[];
   expectedDetails: string[];
   formalText: string;
@@ -229,6 +267,7 @@ function buildEvidenceCoverage(input: {
       gapMessage: status === 'partially_covered'
         ? '你已经用到了一处具体内容，但题目要求的文本依据还没有完整体现。'
         : undefined,
+      gapReasonCode: status === 'partially_covered' ? 'missing_text_evidence' : undefined,
     });
   }
   if (input.answerStatus === 'fully_meets' && rubricMatched && !formalMissing) {
@@ -242,13 +281,37 @@ function buildEvidenceCoverage(input: {
       taskEvidence: input.expectedDetails,
       source: 'formal_diagnosis',
       gapMessage: '目前的回答信息还不足以判断是否使用了合适的文本依据。',
+      gapReasonCode: 'insufficient_to_judge',
     });
   }
   return coverageItem(input.taskId, 'text_evidence', '使用文中的具体内容作为依据', 'missing', {
     taskEvidence: input.expectedDetails,
     source: formalMissing || rubricMatched ? 'formal_diagnosis' : 'task_requirement',
-    gapMessage: `题目还要求结合${describeEvidenceKind(input.target)}说明理由，你的答案里还缺少这一部分。`,
+    gapMessage: buildMissingEvidenceGap({
+      target: input.target,
+      conclusion: input.conclusion,
+      requiresRelation: input.requiresRelation,
+    }),
+    gapReasonCode: 'missing_text_evidence',
   });
+}
+
+function buildMissingEvidenceGap(input: {
+  target: string;
+  conclusion?: string;
+  requiresRelation: boolean;
+}): string {
+  const evidenceKind = describeEvidenceKind(input.target);
+  if (input.conclusion && input.requiresRelation) {
+    return `还需要从文中找出${evidenceKind}，并说明这个具体内容为什么能体现“${input.conclusion}”。`;
+  }
+  if (input.conclusion) {
+    return `还需要从文中找出能够支持“${input.conclusion}”这一理解的${evidenceKind}。`;
+  }
+  if (input.requiresRelation) {
+    return `还需要从文中找出${evidenceKind}，并说明它和你的理解有什么关系。`;
+  }
+  return `还需要从文中找出${evidenceKind}，用来支持你的理解。`;
 }
 
 function buildRelationCoverage(input: {
@@ -295,6 +358,7 @@ function buildRelationCoverage(input: {
       taskEvidence: [`题目要求说明具体内容和${input.relationTarget}之间的联系`],
       source: 'formal_diagnosis',
       gapMessage: '目前的回答信息还不足以判断是否说明了理由。',
+      gapReasonCode: 'insufficient_to_judge',
     });
   }
   return coverageItem(input.taskId, 'reasoning_relation', `说明具体内容和${input.relationTarget}之间的联系`, 'missing', {
@@ -303,6 +367,7 @@ function buildRelationCoverage(input: {
     gapMessage: input.conclusion
       ? `文中的具体内容为什么能表现出“${input.conclusion}”，这一点还没有说明清楚。`
       : `文中的具体内容和${input.relationTarget}之间的联系还没有说明清楚。`,
+    gapReasonCode: 'missing_reasoning_relation',
   });
 }
 
@@ -312,7 +377,7 @@ function coverageItem(
   requirementText: string,
   status: TaskRequirementCoverageStatus,
   details: Pick<TaskRequirementCoverage, 'taskEvidence' | 'source'> &
-    Partial<Pick<TaskRequirementCoverage, 'studentEvidence' | 'studentMessage' | 'gapMessage'>>,
+    Partial<Pick<TaskRequirementCoverage, 'studentEvidence' | 'studentMessage' | 'gapMessage' | 'gapReasonCode'>>,
 ): TaskRequirementCoverage {
   return {
     requirementId: `${taskId}:${requirementType}`,
@@ -325,6 +390,7 @@ function coverageItem(
     source: details.source,
     studentMessage: details.studentMessage,
     gapMessage: details.gapMessage,
+    gapReasonCode: details.gapReasonCode,
   };
 }
 
@@ -491,6 +557,35 @@ function describeTaskTarget(question: string, abilityName: string): string {
   if (/特点|品质|形象/.test(question)) return '人物的特点';
   if (/原因|为什么/.test(question)) return '事情的原因';
   return `${abilityName || '本题'}的关键内容`;
+}
+
+function describeTaskSubject(question: string): string | undefined {
+  const patterns = [
+    /^([^，。；！？\n\s]{1,8}?)(?:把|将|的(?:动作|语言|神态|细节|表现))/u,
+    /(?:结合|根据|从)(?:文中)?([^，。；！？\n]{1,8}?)(?:的)?(?:动作|语言|神态|细节|表现)/u,
+    /([^，。；！？\n\s]{1,8}?)(?:此时|当时)(?:有|是|表现出|怀着)?(?:怎样|什么|何种)?(?:的)?(?:心理|心情|情感|想法)/u,
+  ];
+  for (const pattern of patterns) {
+    const value = question.match(pattern)?.[1]
+      ?.replace(/^(?:请|结合|根据|从|文中|文章中|材料中)+/u, '')
+      .replace(/的$/u, '')
+      .trim();
+    if (value && !isGenericTaskSubject(value) && value.length <= 8) return value;
+  }
+  return undefined;
+}
+
+function isGenericTaskSubject(value: string): boolean {
+  return /^(?:人物|他|她|它|他们|她们|它们)$/u.test(value);
+}
+
+function describeUnderstandingTarget(target: string, subject?: string): string {
+  if (subject && target === '人物的心理') return `${subject}心理`;
+  if (subject && target === '人物的特点') return `${subject}特点`;
+  if (target === '人物的心理') return '人物心理';
+  if (target === '人物的特点') return '人物特点';
+  if (target === '事情的原因') return '事情原因';
+  return target;
 }
 
 function describeEvidenceKind(target: string): string {

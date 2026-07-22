@@ -15,6 +15,7 @@ import {
 } from '../ai/content/studentRuntimeMessages.ts';
 import { toStudentFeedbackSummary } from '../ai/content/studentFeedbackPresentation.ts';
 import { buildStudentThinkingReview } from '../ai/agents/studentThinkingReviewAgent.ts';
+import { buildStudentLearningNarrativeProjection } from '../ai/agents/studentLearningNarrativeAgent.ts';
 import { createFeedbackExpressionConfigSnapshot } from '../ai/agents/controlledFeedbackExpressionAgent.ts';
 import {
   buildStructuredFeedbackFacts,
@@ -42,6 +43,10 @@ import type {
   StudentLearningFeedback,
   StudentThinkingReview,
 } from '../ai/schemas/studentLearningFeedback.schema.ts';
+import {
+  toStudentLearningPresentation,
+  type StudentLearningPresentation,
+} from '../ai/schemas/studentLearningNarrative.schema.ts';
 import { getPhase163FormalResourcePoolData } from './phase161To162IntegrationDemo.ts';
 import { runDiagnosisThroughPhase163Boundary } from './phase163DiagnosisBoundary.ts';
 import {
@@ -82,6 +87,7 @@ export type Phase163LiveWorkspaceState = {
       revisionActions: string[];
     };
   };
+  learningPresentation?: StudentLearningPresentation;
   canAdvance: boolean;
   canRetry: boolean;
   isRetest: boolean;
@@ -362,6 +368,11 @@ async function requireActiveContext() {
 
 function readyState(descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>, answerDraft: string): Phase163LiveWorkspaceState {
   const task = descriptor.concreteTask;
+  const learningPresentation = toStudentLearningPresentation(buildStudentLearningNarrativeProjection({
+    studentId: descriptor.input.studentId,
+    currentTask: task,
+    delayedRetestPlan: descriptor.retestPlan,
+  }));
   return {
     status: 'ready',
     sessionId: descriptor.input.learningSessionId,
@@ -374,6 +385,7 @@ function readyState(descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescr
       questionText: task.question,
     },
     answerDraft,
+    learningPresentation,
     canAdvance: false,
     canRetry: false,
     isRetest: task.taskRole === 'retest',
@@ -388,7 +400,18 @@ function stateFromCheckpoint(
 ): Phase163LiveWorkspaceState {
   const restoredAnswer = checkpoint.taskExecutionResult?.studentResponse?.answerText || answerDraft;
   const base = readyState(descriptor, restoredAnswer);
-  const feedback = resolveStudentFeedback(checkpoint);
+  const feedback = resolvePhase163LiveStudentFeedback(checkpoint);
+  const learningPresentation = toStudentLearningPresentation(buildStudentLearningNarrativeProjection({
+    studentId: checkpoint.studentId,
+    currentTask: checkpoint.concreteTask || descriptor.concreteTask,
+    studentResponse: checkpoint.taskExecutionResult?.studentResponse,
+    feedback,
+    evidenceQualityAssessment: checkpoint.evidenceQualityAssessment,
+    growthMemorySummary: checkpoint.updatedGrowthMemorySummary,
+    nextLearningStrategy: checkpoint.nextLearningStrategy,
+    nextTaskResolution: checkpoint.nextTaskResolution,
+    delayedRetestPlan: descriptor.retestPlan,
+  }));
   const canAdvance = checkpoint.status === 'completed' && checkpoint.nextTaskResolution?.status === 'matched';
   const primaryAction = canAdvance
     ? 'start_next_task'
@@ -414,6 +437,7 @@ function stateFromCheckpoint(
   return {
     ...base,
     status: checkpoint.status === 'completed' ? 'completed' : checkpoint.status,
+    learningPresentation,
     feedback: feedback ? {
       headline: feedback.headline,
       summary: feedback.summary,
@@ -446,7 +470,7 @@ function stateFromCheckpoint(
   };
 }
 
-function resolveStudentFeedback(
+export function resolvePhase163LiveStudentFeedback(
   checkpoint: NonNullable<Awaited<ReturnType<IndexedDBRealLearningOperationRepository['getByOperationId']>>>,
 ): StudentLearningFeedback | undefined {
   const result = checkpoint.controlledFeedbackResult;
@@ -490,13 +514,17 @@ function resolveStudentFeedback(
   if (!refreshedFacts.validation.passed) {
     return { ...feedback, whatYouDidWell: [], whatNeedsAttention: [] };
   }
-  const plan = buildStudentFeedbackTeachingPlan({ request, facts: refreshedFacts });
-  if (!plan.validation.passed) return { ...feedback, whatNeedsAttention: [] };
   const thinkingReview = buildStudentThinkingReview(request, {
     safeStrengths: refreshedFacts.observedStrengths
       .map((fact) => fact.safeExpressions[0])
       .filter(Boolean),
   });
+  const plan = buildStudentFeedbackTeachingPlan({
+    request,
+    facts: refreshedFacts,
+    thinkingReview,
+  });
+  if (!plan.validation.passed) return { ...feedback, whatNeedsAttention: [] };
   return {
     ...feedback,
     summary: toStudentFeedbackSummary(feedback.summary),

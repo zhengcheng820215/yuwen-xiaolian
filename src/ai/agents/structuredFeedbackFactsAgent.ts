@@ -383,14 +383,17 @@ function buildRevisionActions(input: {
   sourceLinks: string[];
 }): StudentFeedbackTeachingItem[] {
   if (input.primaryGap) {
-    const action = buildPrimaryGapAction({
+    const actions = buildPrimaryGapActions({
       primaryGap: input.primaryGap,
       requirementCoverage: input.requirementCoverage,
       taskFocus: input.taskFocus,
     });
-    return action
-      ? [teachingItem('revision-primary-gap', action, input.sourceFactIds, input.sourceLinks)]
-      : [];
+    return actions.map((text, index) => teachingItem(
+      `revision-primary-gap-${index + 1}`,
+      text,
+      input.sourceFactIds,
+      input.sourceLinks,
+    ));
   }
 
   const actions: string[] = [];
@@ -436,11 +439,11 @@ function resolvePrimaryGap(review: StudentThinkingReview | undefined): TaskRequi
   return review.requirementCoverage.find((item) => item.gapMessage === review.primaryGap);
 }
 
-function buildPrimaryGapAction(input: {
+function buildPrimaryGapActions(input: {
   primaryGap: TaskRequirementCoverage;
   requirementCoverage: TaskRequirementCoverage[];
   taskFocus: StudentFeedbackTaskFocus;
-}): string {
+}): string[] {
   const gap = input.primaryGap;
   const target = describeAnswerTarget(input.taskFocus);
   const evidenceKind = input.taskFocus.evidenceKind || '具体内容';
@@ -449,31 +452,29 @@ function buildPrimaryGapAction(input: {
 
   if (gap.status === 'insufficient_to_judge') {
     if (gap.requirementType === 'conclusion') {
-      return `先写出${target}，再结合文中的${evidenceKind}说明理由。`;
+      return [`先写出${target}，再结合文中的${evidenceKind}说明理由。`];
     }
-    return `先补充与题目直接相关的${evidenceKind}，再把自己的理解说明清楚。`;
+    return [`先补充与题目直接相关的${evidenceKind}，再把自己的理解说明清楚。`];
   }
 
   switch (gap.requirementType) {
     case 'conclusion':
-      return hasEvidence
-        ? `保留已经找到的${evidenceKind}，先重新想一想${target}，再说明这个${evidenceKind}为什么能体现这种理解。`
-        : `先重新阅读与题目相关的${evidenceKind}，想清楚${target}，再说明理由。`;
+      return buildConclusionReconsiderationActions(input.taskFocus, hasEvidence);
     case 'text_evidence':
       if (gap.status === 'partially_covered') {
-        return `保留已经找到的${evidenceKind}，再补充一处与结论直接相关的${evidenceKind}。`;
+        return [`保留已经找到的${evidenceKind}，再补充一处与结论直接相关的${evidenceKind}。`];
       }
-      return hasConclusion
+      return [hasConclusion
         ? `保留已经写出的${target}，再从文中找出一处能说明这种理解的${evidenceKind}。`
-        : buildConcreteEvidenceAction(input.taskFocus);
+        : buildConcreteEvidenceAction(input.taskFocus)];
     case 'reasoning_relation':
-      return hasConclusion && hasEvidence
-        ? `保留已经写出的结论和${evidenceKind}，再说明这个${evidenceKind}为什么能体现这种理解。`
-        : buildEvidenceRelationAction(input.taskFocus);
+      return [hasConclusion && hasEvidence
+        ? `保留已经写出的结论和${evidenceKind}，再说明${describeEvidenceReference(input.taskFocus)}为什么能支持你对${describeUnderstandingTarget(input.taskFocus)}的理解。`
+        : buildEvidenceRelationAction(input.taskFocus)];
     case 'expression':
-      return '按照题目要求重新整理答案，让结论、依据和说明之间的顺序更清楚。';
+      return ['按照题目要求重新整理答案，让结论、依据和说明之间的顺序更清楚。'];
   }
-  return '';
+  return [];
 }
 
 function hasCompletedRequirement(
@@ -507,17 +508,44 @@ function buildConcreteEvidenceAction(taskFocus: StudentFeedbackTaskFocus): strin
   }
 }
 
+function buildConclusionReconsiderationActions(
+  taskFocus: StudentFeedbackTaskFocus,
+  hasEvidence: boolean,
+): string[] {
+  const evidenceKind = taskFocus.evidenceKind || '具体内容';
+  const target = describeAnswerTarget(taskFocus);
+  const evidenceReference = describeEvidenceReference(taskFocus);
+  const firstAction = hasEvidence
+    ? `保留已经找到的${evidenceKind}。`
+    : buildConcreteEvidenceAction(taskFocus);
+  const reconsideration = taskFocus.subject && taskFocus.dimension === '心理'
+    ? `重新想一想${evidenceReference}表现了${taskFocus.subject}怎样的心理。`
+    : `结合${evidenceReference}重新想一想${target}。`;
+  const relation = taskFocus.subject && taskFocus.dimension === '心理'
+    ? `说明${evidenceReference}为什么能表现出${taskFocus.subject}当时的这种心理。`
+    : `说明${evidenceReference}为什么能支持你重新整理后的答案。`;
+  return [firstAction, reconsideration, relation];
+}
+
+function describeEvidenceReference(taskFocus: StudentFeedbackTaskFocus): string {
+  if (taskFocus.evidenceKind === '语言') return '这句话';
+  if (taskFocus.evidenceKind === '神态') return '这个神态';
+  if (taskFocus.evidenceKind === '动作') return '这个动作';
+  return '这个具体内容';
+}
+
+function describeUnderstandingTarget(taskFocus: StudentFeedbackTaskFocus): string {
+  if (!taskFocus.subject || !taskFocus.dimension) return '题目内容';
+  if (taskFocus.dimension === '心理') return `${taskFocus.subject}心理`;
+  if (taskFocus.dimension === '人物特点') return `${taskFocus.subject}特点`;
+  return describeAnswerTarget(taskFocus);
+}
+
 function buildEvidenceRelationAction(taskFocus: StudentFeedbackTaskFocus): string {
   const subject = taskFocus.subject;
-  const evidenceReference = taskFocus.evidenceKind === '语言'
-    ? '这句话'
-    : taskFocus.evidenceKind === '神态'
-      ? '这个神态'
-      : taskFocus.evidenceKind === '动作'
-        ? '这个动作'
-        : '这个细节';
+  const evidenceReference = describeEvidenceReference(taskFocus);
   if (subject && taskFocus.dimension === '心理') {
-    return `再说明你为什么能从${evidenceReference}看出${subject}有这样的心理。`;
+    return `再说明${evidenceReference}为什么能支持你对${subject}心理的理解。`;
   }
   if (subject && taskFocus.dimension === '人物特点') {
     return `再说明${evidenceReference}表现了${subject}怎样的特点。`;
@@ -578,6 +606,7 @@ function deriveTaskFocus(
 ): StudentFeedbackTaskFocus {
   const taskText = [questionText, ...answerRequirements].filter(Boolean).join('\n');
   const subjectPatterns = [
+    /^([^，。；！？\n\s]{1,8}?)(?:把|将|的(?:动作|语言|神态|细节|表现))/u,
     /结合(?:文中)?([^，。；！？\n]{1,8}?)(?:的)?(?:动作|语言|神态|细节|表现)/u,
     /([^，。；！？\n\s]{1,8}?)(?:的)?(?:动作|语言|神态|细节|表现)(?:表现|体现|说明|反映)/u,
     /([^，。；！？\n\s]{1,8}?)(?:此时|当时)(?:有|是|表现出|怀着)?(?:怎样|什么|何种)?(?:的)?(?:心理|心情|情感|想法)/u,
@@ -586,7 +615,7 @@ function deriveTaskFocus(
   const subjectCandidates = subjectPatterns
     .map((pattern) => normalizeTaskSubject(taskText.match(pattern)?.[1]?.trim()))
     .filter((value): value is string => Boolean(value));
-  const subject = subjectCandidates.find((value) => value !== '人物') || subjectCandidates[0];
+  const subject = subjectCandidates.find((value) => !isGenericOrPronounSubject(value)) || subjectCandidates[0];
   const dimension = /心理|心情|情感|想法/.test(taskText)
     ? '心理'
     : /人物特点|形象|品质|性格/.test(taskText)
@@ -612,6 +641,10 @@ function deriveTaskFocus(
     dimension,
     evidenceKind,
   };
+}
+
+function isGenericOrPronounSubject(value: string): boolean {
+  return /^(?:人物|他|她|它|他们|她们|它们)$/u.test(value);
 }
 
 function normalizeTaskSubject(value: string | undefined): string | undefined {

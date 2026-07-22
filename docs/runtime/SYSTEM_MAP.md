@@ -275,6 +275,8 @@ Formal DiagnosisResult
 | FormalDiagnosisCommit | 建立 Candidate 到正式 Diagnosis 的原子提交边界。 |
 | DiagnosisQualityEvaluation | 在冻结样本上评估真实 Diagnosis 的教育可接受性。 |
 | ControlledFeedbackResult | 把已确认、可追溯事实转换为学生可读反馈，并记录校验与模板回退状态。 |
+| StudentLearningNarrativeProjection | 只读连接当前任务、本轮反馈、合法成长事实与下一策略，校验学生叙事的来源与表达边界，不产生新的教育结论。 |
+| StudentLearningPresentation | 将已通过校验的叙事按“为什么练、发生了什么、怎么办、为什么继续”分阶段组织；不持久化，不参与正式判断。 |
 
 ## 五、Phase 状态
 
@@ -455,6 +457,7 @@ Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster �
 | 某个 Phase 的规则与验收 | 对应 `docs/education/phase/phase*.md` |
 | PC / 平板学生体验原则 | [PC Learning Workspace UX Calibration](../product/PC_LEARNING_WORKSPACE_UX_CALIBRATION.md) |
 | 单学生产品页面与入口收敛 | [Product Interface Consolidation](../product/STUDENT_PRODUCT_INTERFACE_CONSOLIDATION.md) |
+| 学生学习叙事校准 | [Student Learning Narrative Calibration](../product/STUDENT_LEARNING_NARRATIVE_CALIBRATION.md) |
 
 推荐阅读顺序：
 

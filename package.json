@@ -85,6 +85,7 @@
     "debug:phase16-3-diagnosis-boundary": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase163DiagnosisBoundaryDebug.ts",
     "debug:student-writing-correction": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runStudentWritingCorrectionDebug.ts",
     "debug:learning-feedback-presentation": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runLearningFeedbackPresentationDebug.ts",
+    "debug:student-learning-narrative": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runStudentLearningNarrativeDebug.ts",
     "debug:phase16-3-multiday-simulation": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase163MultiDaySimulationDebug.ts",
     "debug:diagnosis-batch-report": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runDiagnosisBatchReportDebug.ts",
     "debug:real-diagnosis-evaluation-batch": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runRealDiagnosisEvaluationBatch.ts",

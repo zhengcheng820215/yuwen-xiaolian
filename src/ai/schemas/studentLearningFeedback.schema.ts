@@ -43,6 +43,13 @@ export type TaskRequirementCoverageStatus =
   | 'missing'
   | 'insufficient_to_judge';
 
+export type TaskRequirementGapReasonCode =
+  | 'conclusion_inconsistent'
+  | 'missing_text_evidence'
+  | 'missing_reasoning_relation'
+  | 'incomplete_task_requirement'
+  | 'insufficient_to_judge';
+
 export type TaskRequirementCoverage = {
   requirementId: string;
   requirementType: TaskRequirementCoverageType;
@@ -54,6 +61,7 @@ export type TaskRequirementCoverage = {
   source: 'formal_diagnosis' | 'ability_evidence' | 'rubric' | 'task_requirement';
   studentMessage?: string;
   gapMessage?: string;
+  gapReasonCode?: TaskRequirementGapReasonCode;
 };
 
 export type StudentThinkingReview = {
@@ -177,6 +185,13 @@ function isTaskRequirementCoverage(value: unknown): value is TaskRequirementCove
     coverage.taskEvidence.every(isNonEmptyString) &&
     ['formal_diagnosis', 'ability_evidence', 'rubric', 'task_requirement'].includes(coverage.source) &&
     (coverage.studentMessage === undefined || isNonEmptyString(coverage.studentMessage)) &&
-    (coverage.gapMessage === undefined || isNonEmptyString(coverage.gapMessage))
+    (coverage.gapMessage === undefined || isNonEmptyString(coverage.gapMessage)) &&
+    (coverage.gapReasonCode === undefined || [
+      'conclusion_inconsistent',
+      'missing_text_evidence',
+      'missing_reasoning_relation',
+      'incomplete_task_requirement',
+      'insufficient_to_judge',
+    ].includes(coverage.gapReasonCode))
   );
 }

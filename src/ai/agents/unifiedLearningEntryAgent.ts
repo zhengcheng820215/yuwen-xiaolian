@@ -12,6 +12,8 @@ import {
   resolveStudentRuntimePausePresentation,
 } from '../content/studentRuntimeMessages.ts';
 import { toStudentFeedbackSummary } from '../content/studentFeedbackPresentation.ts';
+import { buildStudentLearningNarrativeProjection } from './studentLearningNarrativeAgent.ts';
+import { toStudentLearningPresentation } from '../schemas/studentLearningNarrative.schema.ts';
 
 export function createUnifiedLearningActivityContext(input: {
   studentId: string;
@@ -46,6 +48,20 @@ export function buildUnifiedLearningEntryState(
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
   const record = input.latestPersistenceRecord;
   const checkpoint = input.operationCheckpoint;
+  const feedback = checkpoint?.controlledFeedbackResult?.studentLearningFeedback || record?.studentLearningFeedback;
+  const learningPresentation = toStudentLearningPresentation(buildStudentLearningNarrativeProjection({
+    studentId: input.studentId,
+    currentTask: checkpoint?.concreteTask || record?.concreteTask,
+    studentResponse: checkpoint?.taskExecutionResult?.studentResponse || record?.studentResponse,
+    feedback,
+    evidenceQualityAssessment: checkpoint?.evidenceQualityAssessment,
+    growthMemorySummary: checkpoint?.updatedGrowthMemorySummary || record?.growthMemorySummary,
+    nextLearningStrategy: checkpoint?.nextLearningStrategy,
+    nextTaskResolution: checkpoint?.nextTaskResolution,
+    delayedRetestPlan: (input.delayedRetestPlans || []).find((plan) => (
+      plan.studentId === input.studentId && plan.status === 'available'
+    )),
+  }));
   const base = {
     schemaVersion: UNIFIED_LEARNING_ENTRY_SCHEMA_VERSION,
     studentId: input.studentId,
@@ -55,6 +71,7 @@ export function buildUnifiedLearningEntryState(
     currentRoundNumber: roundNumber(record?.learningRoundId),
     completedRoundCount: input.completedRoundCount,
     focusText: record?.concreteTask?.targetAbilityName,
+    learningPresentation,
     studentVisibleIssues: [] as string[],
   };
 
