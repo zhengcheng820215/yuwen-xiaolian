@@ -23,6 +23,13 @@ const REGISTRY_STORE = 'registry';
 export class IndexedDBQuestionResourceAdmissionRepository
 implements QuestionResourceAdmissionRepository {
   async saveMaterial(material: QuestionMaterialVersion): Promise<QuestionMaterialVersion> {
+    const existing = await this.getMaterial(material.materialVersionId);
+    if (existing) {
+      if (!sameMaterialVersion(existing, material)) {
+        throw new Error('Material Version is immutable. Create a new version.');
+      }
+      return existing;
+    }
     await putRecord(MATERIAL_STORE, material);
     return clone(material);
   }
@@ -192,6 +199,24 @@ implements QuestionResourceAdmissionRepository {
     await transactionToPromise(transaction);
     db.close();
   }
+}
+
+function sameMaterialVersion(
+  left: QuestionMaterialVersion,
+  right: QuestionMaterialVersion,
+): boolean {
+  return left.materialId === right.materialId &&
+    left.materialVersionId === right.materialVersionId &&
+    left.versionNumber === right.versionNumber &&
+    left.title === right.title &&
+    left.content === right.content &&
+    left.source.sourceType === right.source.sourceType &&
+    left.source.description === right.source.description &&
+    left.source.copyrightNote === right.source.copyrightNote &&
+    left.source.externalReference === right.source.externalReference &&
+    left.createdAt === right.createdAt &&
+    left.updatedAt === right.updatedAt &&
+    left.schemaVersion === right.schemaVersion;
 }
 
 async function putRecord<T>(storeName: string, value: T): Promise<void> {

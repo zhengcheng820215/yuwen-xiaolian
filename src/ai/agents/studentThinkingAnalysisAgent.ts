@@ -77,6 +77,7 @@ export function buildStudentThinkingAnalysis(
 
 function buildCompletedSteps(coverage: TaskRequirementCoverage[]): StudentThinkingStep[] {
   const steps: StudentThinkingStep[] = [];
+  const taskTarget = describeCoverageTarget(coverage);
   for (const item of coverage) {
     if (!['covered', 'partially_covered'].includes(item.status) || item.studentEvidence.length === 0) continue;
     const evidence = short(item.studentEvidence[0]!);
@@ -84,7 +85,7 @@ function buildCompletedSteps(coverage: TaskRequirementCoverage[]): StudentThinki
       steps.push({
         stepId: item.requirementId,
         action: `写出了“${evidence}”这一想法`,
-        whyItMatters: '没有只停留在复述材料内容，已经开始回应题目要求说明人物心理的方向',
+        whyItMatters: `没有只停留在复述材料内容，已经开始回应题目要求说明${taskTarget}的方向`,
         evidenceLinks: [item.requirementId, `student-evidence:${item.requirementId}`],
         verificationStatus: item.status === 'covered' ? 'supported' : 'observed',
       });
@@ -92,14 +93,14 @@ function buildCompletedSteps(coverage: TaskRequirementCoverage[]): StudentThinki
       steps.push({
         stepId: item.requirementId,
         action: `在答案中使用了“${evidence}”这一处材料内容`,
-        whyItMatters: '让人物心理的判断能够回到原文进行核对',
+        whyItMatters: `让${taskTarget}的判断能够回到原文进行核对`,
         evidenceLinks: [item.requirementId, `student-evidence:${item.requirementId}`],
         verificationStatus: item.status === 'covered' ? 'supported' : 'observed',
       });
     } else if (item.requirementType === 'reasoning_relation') {
       steps.push({
         stepId: item.requirementId,
-        action: '说明了材料内容与人物心理之间的联系',
+        action: `说明了材料内容与${taskTarget}之间的联系`,
         whyItMatters: '让读者能够看见判断是怎样从材料中得出的',
         evidenceLinks: [item.requirementId, `student-evidence:${item.requirementId}`],
         verificationStatus: item.status === 'covered' ? 'supported' : 'observed',
@@ -107,6 +108,14 @@ function buildCompletedSteps(coverage: TaskRequirementCoverage[]): StudentThinki
     }
   }
   return steps.slice(0, 2);
+}
+
+function describeCoverageTarget(coverage: TaskRequirementCoverage[]): string {
+  const requirement = coverage.find((item) => item.requirementType === 'conclusion')?.requirementText || '';
+  if (/人物的特点|人物特点|人物形象/.test(requirement)) return '人物特点';
+  if (/人物的心理|人物心理|心情|情感/.test(requirement)) return '人物心理';
+  if (/事情的原因|原因/.test(requirement)) return '事情原因';
+  return '题目结论';
 }
 
 function buildInterruptedTransition(

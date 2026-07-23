@@ -46,8 +46,8 @@ Debug / Acceptance Report
 
 | 模块 | 一句话职责 | Design | Engineering | Product Acceptance | Live |
 | --- | --- | --- | --- | --- | --- |
-| Phase 17.2 首批正式资源包 | 生产经过审核、能被正式学习系统使用的真实题目 | PASS | BATCH A CONTROLLED FORMALIZATION + ASSISTED DRAFT GENERATION PASS | OWNER REVIEW / FREEZE PENDING | PENDING |
-| Phase 17.3 正式资源运行集成 | 证明资源目标、来源、诊断、证据和下一任务在主链中不丢失 | READY FOR REVIEW | NOT STARTED / BATCH A MINIMUM GATE OPEN | PENDING | PENDING |
+| Phase 17.2 首批正式资源包 | 生产经过审核、能被正式学习系统使用的真实题目 | PASS | BATCH A CONTROLLED FORMALIZATION + ASSISTED DRAFT GENERATION PASS | BATCH A OWNER REVIEW / FREEZE 8 / 8 PASS | PENDING |
+| Phase 17.3 正式资源运行集成 | 证明资源目标、来源、诊断、证据和下一任务在主链中不丢失 | PASS | WORK PACKAGE A 17 / 17 PASS / WORK PACKAGE B CONTROLLED LIVE 3 / 3 PASS | BATCH A `/learning` SINGLE-ROUND PASS | CONTROLLED DEEPSEEK LIVE PASS |
 | `/learning` 正式学习入口 | 让单学生从一个入口开始、恢复、作答、反馈并继续 | PASS | MAIN PATH PASS / CONSOLIDATION IN PROGRESS | CONTROLLED DEMO PASS | `0 / 5` |
 | 多能力调度 | 根据表现和正式资源决定下一步练什么 | PASS | RUNTIME PASS | LIMITED BY RESOURCE PACK | PENDING |
 | Student Learning Narrative | 把系统已有判断转化为学生可理解、可执行的表达 | PASS | BASELINE PASS | REAL STUDENT CALIBRATION PENDING | PENDING |
@@ -72,12 +72,12 @@ Debug / Acceptance Report
 | --- | --- |
 | 为什么需要 | 有正式资源不代表学习链正确使用了它，必须验证目标和来源没有在中途丢失。 |
 | 使用者变化 | 每道题练明确能力；Diagnosis 对应正式目标；下一题由上一轮结果驱动；缺资源时不拿错题凑匹配。 |
-| 只做 | 复用 Existing Strategy、TaskRequest 和 Phase 16.2 Matching，验证 Ability、TaskRole、Material、Observation、Diagnosis 与 Evidence 传递。 |
-| 不做 | 不新增第二套 Strategy / Matching；不把 Observation 直接写入 Profile；不由页面决定能力和资源。 |
-| 产品级 PASS | ① Frozen Resource 进入 `/learning` 且身份不变；② Diagnosis 对应正式 Ability / Observation；③ Evidence 来源正确；④ Strategy 产生正确 TaskRole 的下一资源；⑤ 错位或缺资源时阻断且不重复 Diagnosis / Evidence。 |
+| 只做 | 复用 Existing Strategy、TaskRequest 和 Phase 16.2 Matching，验证 Ability、TaskRole、Material Version、Observation、Diagnosis 与 Evidence 传递；Material 作为正式内容与语境来源，不作为题目附属文本处理。 |
+| 不做 | 不新增第二套 Strategy / Matching；不把 Observation 直接写入 Profile；不由页面决定能力和资源；不扩展完整 Material Quality / Difficulty / Domain / Tags / Coverage 治理系统。 |
+| 产品级 PASS | ① Frozen Resource 进入 `/learning` 且身份不变；② Diagnosis 对应正式 Ability / Observation；③ Evidence 来源正确并保留执行时的 Material Version；④ Strategy 产生正确 TaskRole 的下一资源；⑤ Resource / Material 错位或缺失时阻断且不重复 Diagnosis / Evidence。 |
 | 演示路径 | 一题概括 + 一题分析 -> `/learning` 作答 -> Diagnosis 对照 -> Evidence 来源 -> Strategy / TaskRequest -> 下一资源。 |
 | FAIL 先查 | 元数据丢失或默认值覆盖：Runtime；资源标注错误：内容；判断对但学生看不懂：表达；旧状态覆盖：交互 / Runtime。 |
-| 证据 | [Phase 17.3](../education/phase/phase17_3.md) · [Phase 17 总纲](../education/phase/phase17.md) · [Phase 16.2](../education/phase/phase16_2.md) · [Phase 16.3](../education/phase/phase16_3.md) |
+| 证据 | [Phase 17.3](../education/phase/phase17_3.md) · [Batch A 串联 Debug](../education/phase/reports/phase17_3_batch_a_integration_debug_acceptance_2026-07-23.md) · [Work Package B 前置验收](../education/phase/reports/phase17_3_work_package_b_preflight_2026-07-23.md) · [Controlled DeepSeek Live](../education/phase/reports/phase17_3_controlled_deepseek_live_2026-07-23.md) · [Batch A `/learning` Demo](../education/phase/reports/phase17_3_batch_a_learning_demo_acceptance_2026-07-23.md) · [Phase 17 总纲](../education/phase/phase17.md) · [Phase 16.2](../education/phase/phase16_2.md) · [Phase 16.3](../education/phase/phase16_3.md) |
 
 ## 六、`/learning` 正式学习入口
 
@@ -163,13 +163,16 @@ Debug / Acceptance Report
 
 ## 十二、当前优先顺序
 
+当前产品定位：
+
+> 已通过真实单轮学习链路验收、具备封闭 Beta 基础的单学生教育系统；尚未完成资源生态、多轮连续 Session 和自然日稳定性证明。
+
 ```text
-1. 冻结 Phase 17.2 Batch A 资源蓝图
-2. 生产并正式化约 8 道核心链资源
-3. 使用 Batch A 执行 Phase 17.3 最小串联
-4. 校准多能力调度与 Narrative 的真实学生感知
-5. 冻结稳定构建
-6. 开始 Phase 16.3C 自然日运行
+1. 资源生态：继续生产 Phase 17.2 Batch B / C，完成 24—28 道正式资源与既定 Retest / Transfer / 跨能力路径
+2. 连续 Session：使用新增正式资源完成 3 个受控 Session，验证 Strategy 驱动、恢复、幂等和安全阻断
+3. 学生感知：使用 6—10 组真实记录验收 Narrative 是否回应本次答案并解释下一步
+4. 冻结稳定构建，不在自然日验收期间调整入口、状态机映射或主流程
+5. 开始 Phase 16.3C 5—7 个自然日运行
 ```
 
 产品负责人不需要重新掌握全部字段和对象。主要责任是守住目标、用户结果、PASS 标准、模块边界和问题分类。

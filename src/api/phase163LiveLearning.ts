@@ -24,12 +24,19 @@ import {
 import { runTaskExecutionAgent } from '../ai/agents/taskExecutionAgent.ts';
 import { scheduleDelayedRetest } from '../ai/agents/delayedRetestSchedulingAgent.ts';
 import { createDiagnosisProviderConfigSnapshot } from '../ai/agents/realLLMRuntimeFoundationAgent.ts';
+import {
+  createPhase173BatchABootstrapTaskRequest,
+  loadPhase173BatchACurrentVersions,
+  matchPhase173BatchAFormalResource,
+} from '../ai/agents/phase173FormalResourceMatchingService.ts';
 import { REAL_AI_DIAGNOSIS_PROMPT_V4_VERSION } from '../ai/prompts/buildRealAIDiagnosisPromptV4.ts';
 import { InMemoryControlledFeedbackRepository } from '../ai/repositories/inMemoryControlledFeedbackRepository.ts';
 import { InMemoryFormalDiagnosisRepository } from '../ai/repositories/inMemoryFormalDiagnosisRepository.ts';
 import { IndexedDBLearningPersistenceRepository } from '../ai/repositories/indexedDBLearningPersistenceRepository.ts';
 import { IndexedDBLearningSessionRepository } from '../ai/repositories/indexedDBLearningSessionRepository.ts';
+import { IndexedDBMaterialObservationRepository } from '../ai/repositories/indexedDBMaterialObservationRepository.ts';
 import { IndexedDBPhase163MultiDayRunRepository } from '../ai/repositories/indexedDBPhase163MultiDayRunRepository.ts';
+import { IndexedDBQuestionResourceAdmissionRepository } from '../ai/repositories/indexedDBQuestionResourceAdmissionRepository.ts';
 import { IndexedDBRealLearningOperationRepository } from '../ai/repositories/indexedDBRealLearningOperationRepository.ts';
 import { LocalStorageUnifiedLearningEntryRepository } from '../ai/repositories/localStorageUnifiedLearningEntryRepository.ts';
 import type { LearningPersistenceRecord } from '../ai/schemas/learningPersistence.schema.ts';
@@ -47,7 +54,6 @@ import {
   toStudentLearningPresentation,
   type StudentLearningPresentation,
 } from '../ai/schemas/studentLearningNarrative.schema.ts';
-import { getPhase163FormalResourcePoolData } from './phase161To162IntegrationDemo.ts';
 import { runDiagnosisThroughPhase163Boundary } from './phase163DiagnosisBoundary.ts';
 import {
   assertPhase163ProductRuntimeIdentity,
@@ -61,6 +67,8 @@ const persistenceRepository = new IndexedDBLearningPersistenceRepository();
 const sessionRepository = new IndexedDBLearningSessionRepository();
 const activityRepository = new LocalStorageUnifiedLearningEntryRepository();
 const multiDayRepository = new IndexedDBPhase163MultiDayRunRepository();
+const formalResourceRepository = new IndexedDBQuestionResourceAdmissionRepository();
+const materialObservationRepository = new IndexedDBMaterialObservationRepository();
 
 export type Phase163LiveWorkspaceState = {
   status: 'ready' | 'submitting' | 'completed' | 'retry_required' | 'review_required' | 'blocked';
@@ -216,6 +224,7 @@ export async function loadPhase163DueRetestPlans(): Promise<DelayedRetestPlan[]>
 }
 
 async function buildCurrentRoundDescriptor() {
+  const descriptorAt = new Date().toISOString();
   const context = await requireActiveContext();
   const roundId = context.currentLearningRoundId || `${context.learningSessionId}-round-1`;
   const number = roundNumber(roundId);
@@ -224,7 +233,7 @@ async function buildCurrentRoundDescriptor() {
   const currentCheckpoint = await operationRepository.getByOperationId(`phase16-3-live-operation-${roundId}`);
   const plans = await loadPhase163DueRetestPlans();
   const retestPlan = plans[0];
-  const pool = await loadFormalPool();
+  const currentVersions = await loadPhase173BatchACurrentVersions(formalResourceRepository);
   const previousResourceVersionId = latest?.concreteTask?.questionMetadata.questionId;
   const previousRoundId = number > 1 ? replaceRoundNumber(roundId, number - 1) : undefined;
   const previousCheckpoint = previousRoundId
@@ -233,24 +242,45 @@ async function buildCurrentRoundDescriptor() {
   const plannedResolution = previousCheckpoint?.nextTaskResolution?.status === 'matched'
     ? previousCheckpoint.nextTaskResolution
     : undefined;
-  const plannedVersionId = plannedResolution?.resourceVersion?.resourceVersionId;
-  const role = retestPlan
-    ? 'retest'
-    : plannedResolution?.resourceVersion?.abilityMetadata.taskRole || 'training';
-  const eligiblePool = pool.filter((item) => (
-    item.version.abilityMetadata.abilityId === 'inference' &&
-    item.version.abilityMetadata.taskRole === role &&
-    item.task.executableTask.taskRole === role
-  ));
-  const selected = currentCheckpoint?.sourceResourceVersionId
-    ? pool.find((item) => item.version.resourceVersionId === currentCheckpoint.sourceResourceVersionId)
-    : plannedVersionId
-      ? eligiblePool.find((item) => item.version.resourceVersionId === plannedVersionId)
-      : eligiblePool.find((item) => item.version.resourceVersionId !== previousResourceVersionId) ||
-        eligiblePool[(number - 1) % eligiblePool.length];
-  if (!selected) throw new Error(role === 'retest' ? '暂无符合复测要求的正式任务。' : '暂无符合当前要求的正式任务。');
-  const version = selected.version;
-  const qualityTask = selected.task;
+  const currentVersion = currentCheckpoint?.sourceResourceVersionId
+    ? currentVersions.find((item) => (
+      item.resourceVersionId === currentCheckpoint.sourceResourceVersionId
+    ))
+    : undefined;
+  const taskRequest = retestPlan
+    ? taskRequestFromRetestPlan(retestPlan, descriptorAt)
+    : previousCheckpoint?.nextTaskRequest && plannedResolution
+      ? previousCheckpoint.nextTaskRequest
+      : currentVersion
+        ? taskRequestForExistingVersion(currentVersion, descriptorAt)
+        : createPhase173BatchABootstrapTaskRequest(
+          PHASE163_LEARNING_STUDENT_ID,
+          descriptorAt,
+        );
+  const recentHistory = await buildFormalResourceHistory(records, currentVersions);
+  const matched = await matchPhase173BatchAFormalResource({
+    taskRequest,
+    studentId: PHASE163_LEARNING_STUDENT_ID,
+    resourceRepository: formalResourceRepository,
+    observationRepository: materialObservationRepository,
+    recentHistory: currentVersion
+      ? withoutCurrentResource(recentHistory, currentVersion)
+      : recentHistory,
+    bootstrapMaterialId: currentVersion?.materialId,
+    evaluatedAt: descriptorAt,
+  });
+  if (
+    matched.status !== 'matched' ||
+    !matched.resourceVersion ||
+    !matched.qualityGatedTask
+  ) {
+    const role = taskRequest.taskRole;
+    throw new Error(role === 'retest'
+      ? '暂无符合复测要求的正式任务。'
+      : '暂无符合当前能力和任务要求的正式任务。');
+  }
+  const version = matched.resourceVersion;
+  const qualityTask = matched.qualityGatedTask;
   const preparation = prepareConcreteLearningTaskFromFrozenResource({
     resourceVersion: version,
     qualityGatedTask: qualityTask,
@@ -276,7 +306,8 @@ async function buildCurrentRoundDescriptor() {
   const currentLearningContext: CurrentLearningContext = {
     ...base.input.currentLearningContext,
     studentId: PHASE163_LEARNING_STUDENT_ID,
-    recentTaskRole: role,
+    targetAbilityId: version.abilityMetadata.abilityId,
+    recentTaskRole: version.abilityMetadata.taskRole,
   };
   return {
     retestPlan,
@@ -305,6 +336,7 @@ async function buildCurrentRoundDescriptor() {
         model: 'deepseek-v4-flash',
         providerConfigId: 'phase16-3-local-application-boundary-v1',
         promptVersion: REAL_AI_DIAGNOSIS_PROMPT_V4_VERSION,
+        temperature: 0.1,
         maxAttempts: 2,
         timeoutMs: 30_000,
         createdAt: startedAt,
@@ -318,25 +350,29 @@ async function resolveNextFormalTask(
   taskRequest: TaskRequest,
   previousResourceVersion: FrozenQuestionResourceVersion,
 ): Promise<NextFormalTaskResolution> {
-  const pool = await loadFormalPool();
-  const selected = pool.find((item) => (
-    item.version.resourceId !== previousResourceVersion.resourceId &&
-    item.version.abilityMetadata.abilityId === taskRequest.targetAbilityId &&
-    item.version.abilityMetadata.taskRole === taskRequest.taskRole &&
-    item.task.executableTask.taskRole === taskRequest.taskRole
-  ));
-  if (!selected) return { status: 'no_match', taskRequestId: taskRequest.taskRequestId, issues: ['no_aligned_frozen_resource'] };
-  return {
-    status: 'matched',
-    taskRequestId: taskRequest.taskRequestId,
-    resourceVersion: selected.version,
-    qualityGatedTask: selected.task,
-    issues: [],
-  };
-}
-
-async function loadFormalPool(): Promise<Array<{ version: FrozenQuestionResourceVersion; task: QualityGatedExecutableTask }>> {
-  return getPhase163FormalResourcePoolData(PHASE163_LEARNING_STUDENT_ID);
+  const records = await persistenceRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const versions = await loadPhase173BatchACurrentVersions(formalResourceRepository);
+  const history = await buildFormalResourceHistory(records, versions);
+  return matchPhase173BatchAFormalResource({
+    taskRequest,
+    studentId: PHASE163_LEARNING_STUDENT_ID,
+    resourceRepository: formalResourceRepository,
+    observationRepository: materialObservationRepository,
+    recentHistory: {
+      ...history,
+      recentTaskIds: uniqueStrings([...history.recentTaskIds, previousResourceVersion.taskId]),
+      recentResourceIds: uniqueStrings([...history.recentResourceIds, previousResourceVersion.resourceId]),
+      recentResourceVersionIds: uniqueStrings([
+        ...history.recentResourceVersionIds,
+        previousResourceVersion.resourceVersionId,
+      ]),
+      recentMaterialIds: uniqueStrings([
+        ...history.recentMaterialIds,
+        ...(previousResourceVersion.materialId ? [previousResourceVersion.materialId] : []),
+      ]),
+    },
+    evaluatedAt: new Date().toISOString(),
+  });
 }
 
 async function appendRoundToCurrentSession(record: LearningPersistenceRecord): Promise<void> {
@@ -387,7 +423,7 @@ function readyState(descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescr
     roundId: descriptor.input.learningRoundId,
     roundNumber: descriptor.roundNumber,
     task: {
-      title: `${task.targetAbilityName}${task.taskRole === 'retest' ? '复测' : '练习'}`,
+      title: descriptor.input.resourceVersion.title,
       focus: task.targetAbilityName,
       readingText: task.readingText || '',
       questionText: task.question,
@@ -399,6 +435,102 @@ function readyState(descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescr
     isRetest: task.taskRole === 'retest',
     primaryAction: 'submit_answer',
   };
+}
+
+function taskRequestForExistingVersion(
+  version: FrozenQuestionResourceVersion,
+  createdAt: string,
+): TaskRequest {
+  const role = version.abilityMetadata.taskRole;
+  const action: NextLearningAction = role === 'retest'
+    ? 'independent_retest'
+    : role === 'transfer'
+      ? 'transfer_test'
+      : role === 'diagnosis'
+        ? 'diagnostic_verification'
+        : role === 'observation'
+          ? 'collect_more_evidence'
+          : 'continue_training';
+  return {
+    taskRequestId: `phase17-3-resume-request-${version.resourceVersionId}`,
+    strategyId: `phase17-3-resume-strategy-${version.resourceVersionId}`,
+    studentId: PHASE163_LEARNING_STUDENT_ID,
+    targetAbilityId: version.abilityMetadata.abilityId,
+    taskRole: role,
+    action,
+    validationGoal: `恢复并继续观察 ${version.abilityMetadata.abilityId} 的正式作答表现。`,
+    evidenceLinks: [`phase17-3-resume-evidence-${version.resourceVersionId}`],
+    growthMemoryRecordIds: [`phase17-3-resume-memory-${version.resourceVersionId}`],
+    constraints: [],
+    createdAt,
+  };
+}
+
+function taskRequestFromRetestPlan(
+  plan: DelayedRetestPlan,
+  createdAt: string,
+): TaskRequest {
+  return {
+    taskRequestId: `phase17-3-retest-request-${plan.planId}`,
+    strategyId: `phase17-3-retest-strategy-${plan.planId}`,
+    studentId: plan.studentId,
+    targetAbilityId: plan.targetAbilityId,
+    taskRole: 'retest',
+    action: 'independent_retest',
+    validationGoal: plan.validationGoal,
+    evidenceLinks: plan.sourceEvidenceIds,
+    growthMemoryRecordIds: [`phase17-3-retest-memory-${plan.planId}`],
+    constraints: plan.constraints,
+    createdAt,
+  };
+}
+
+async function buildFormalResourceHistory(
+  records: LearningPersistenceRecord[],
+  currentVersions: FrozenQuestionResourceVersion[],
+): Promise<ResourceMatchRecentHistory> {
+  const versionIds = uniqueStrings(records.flatMap((record) => {
+    const id = record.concreteTask?.questionMetadata.questionId;
+    return id ? [id] : [];
+  }));
+  const versions = versionIds
+    .map((id) => currentVersions.find((version) => version.resourceVersionId === id))
+    .filter((version): version is FrozenQuestionResourceVersion => Boolean(version));
+  return {
+    studentId: PHASE163_LEARNING_STUDENT_ID,
+    recentTaskIds: uniqueStrings(versions.map((version) => version.taskId)),
+    recentResourceIds: uniqueStrings(versions.map((version) => version.resourceId)),
+    recentResourceVersionIds: versionIds,
+    recentMaterialIds: uniqueStrings(versions.flatMap((version) => (
+      version.materialId ? [version.materialId] : []
+    ))),
+    recentExecutionSessionIds: uniqueStrings(records.flatMap((record) => {
+      const id = record.learningRoundResult?.taskExecutionResult?.executionSessionId;
+      return id ? [id] : [];
+    })),
+    historyWindowEndedAt: new Date().toISOString(),
+  };
+}
+
+function withoutCurrentResource(
+  history: ResourceMatchRecentHistory,
+  current: FrozenQuestionResourceVersion,
+): ResourceMatchRecentHistory {
+  return {
+    ...history,
+    recentTaskIds: history.recentTaskIds.filter((id) => id !== current.taskId),
+    recentResourceIds: history.recentResourceIds.filter((id) => id !== current.resourceId),
+    recentResourceVersionIds: history.recentResourceVersionIds.filter((id) => (
+      id !== current.resourceVersionId
+    )),
+    recentMaterialIds: current.materialId
+      ? uniqueStrings([...history.recentMaterialIds, current.materialId])
+      : history.recentMaterialIds,
+  };
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))];
 }
 
 function stateFromCheckpoint(

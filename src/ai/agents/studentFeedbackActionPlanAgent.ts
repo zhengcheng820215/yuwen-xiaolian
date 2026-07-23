@@ -44,11 +44,16 @@ export function buildStudentFeedbackActionPlan(
   const feedbackDepth = selectFeedbackDepth(feedback, grounding);
   const hintLevel = selectHintLevel(feedbackDepth, taskCue);
   const completedThinking = thinkingAnalysis.completedSteps[0];
-  const acknowledgedAction = completedThinking
-    ? `你${completedThinking.action}。`
+  const supportingThinking = thinkingAnalysis.completedSteps.find((item) =>
+    item.stepId.endsWith(':text_evidence'));
+  const acknowledgedAction = completedThinking && supportingThinking &&
+    supportingThinking.stepId !== completedThinking.stepId
+    ? `你${completedThinking.action}，也${supportingThinking.action}。`
+    : completedThinking
+      ? `你${completedThinking.action}。`
     : buildAcknowledgedAction(studentClaim, observedEvidence, grounding);
-  const whyItMatters = completedThinking
-    ? `这一步${completedThinking.whyItMatters}。`
+  const whyItMatters = supportingThinking || completedThinking
+    ? `这一步${(supportingThinking || completedThinking)!.whyItMatters}。`
     : undefined;
   const missingAnswerPart = buildMissingAnswerPart({
     grounding,

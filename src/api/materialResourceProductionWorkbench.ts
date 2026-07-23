@@ -11,6 +11,7 @@ import {
   isPhase17BatchAMaterial,
   producePhase17BatchA,
 } from '../ai/agents/phase17BatchAProductionService.ts';
+import { preparePhase173BatchAPreflight } from '../ai/agents/phase173BatchAPreflightService.ts';
 import { createQuestionMaterial } from '../ai/agents/questionResourceAdmissionAgent.ts';
 import { IndexedDBMaterialObservationRepository } from '../ai/repositories/indexedDBMaterialObservationRepository.ts';
 import { IndexedDBQuestionResourceAdmissionRepository } from '../ai/repositories/indexedDBQuestionResourceAdmissionRepository.ts';
@@ -216,6 +217,15 @@ export async function createPhase17BatchADraftsForReview(materialVersionId: stri
     observationRepository,
     targetState: 'drafts_pending_review',
     materialVersionIds: [materialVersionId],
+  });
+}
+
+export async function runPhase173BatchAPreflight() {
+  return preparePhase173BatchAPreflight({
+    resourceRepository,
+    observationRepository,
+    reviewerId: 'phase17.3-runtime-preflight-reviewer',
+    reviewNote: '仅补充 Phase 17.3 Runtime 所需的提示策略与材料关系声明；题目、Rubric、能力和任务角色保持不变。',
   });
 }
 

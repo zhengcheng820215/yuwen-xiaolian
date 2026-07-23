@@ -16,6 +16,7 @@ import {
   PHASE163_DEMO_STUDENT_ID,
   PHASE163_LEARNING_STUDENT_ID,
 } from './phase163LearningIdentity.ts';
+import { resolvePhase163LiveStudentFeedback } from './phase163LiveLearning.ts';
 
 const DEFAULT_ANSWER = '父亲捏着褪色的树叶站了很久，又小心地夹回原处，说明他想起过去，因此感到怀念和不舍。';
 
@@ -51,6 +52,77 @@ export type Phase163MultiDayReview = {
   }>;
   issues: string[];
 };
+
+export type Phase173ProductLearningAcceptanceTrace = {
+  status: 'not_started' | 'in_progress' | 'completed' | 'blocked';
+  learningSessionId?: string;
+  learningRoundId?: string;
+  sourceResourceVersionId?: string;
+  diagnosisRequestId?: string;
+  formalDiagnosisId?: string;
+  answerStatus?: string;
+  runtimeStatus?: string;
+  evidenceCount: number;
+  scoringSignals: string[];
+  matchedRubricItems: string[];
+  feedbackCoverage: string[];
+  issues: string[];
+};
+
+export async function loadPhase173ProductLearningAcceptanceTrace(): Promise<Phase173ProductLearningAcceptanceTrace> {
+  const context = await new LocalStorageUnifiedLearningEntryRepository()
+    .getByStudent(PHASE163_LEARNING_STUDENT_ID);
+  if (!context) {
+    return {
+      status: 'not_started',
+      evidenceCount: 0,
+      scoringSignals: [],
+      matchedRubricItems: [],
+      feedbackCoverage: [],
+      issues: [],
+    };
+  }
+  const checkpoint = context.currentLearningRoundId
+    ? await new IndexedDBRealLearningOperationRepository()
+      .getByOperationId(`phase16-3-live-operation-${context.currentLearningRoundId}`)
+    : null;
+  if (!checkpoint) {
+    return {
+      status: context.status === 'ended' ? 'completed' : 'in_progress',
+      learningSessionId: context.learningSessionId,
+      learningRoundId: context.currentLearningRoundId,
+      evidenceCount: 0,
+      scoringSignals: [],
+      matchedRubricItems: [],
+      feedbackCoverage: [],
+      issues: [],
+    };
+  }
+  const feedback = resolvePhase163LiveStudentFeedback(checkpoint);
+  return {
+    status: checkpoint.status === 'completed'
+      ? 'completed'
+      : checkpoint.status === 'blocked' || checkpoint.status === 'review_required'
+        ? 'blocked'
+        : 'in_progress',
+    learningSessionId: checkpoint.learningSessionId,
+    learningRoundId: checkpoint.learningRoundId,
+    sourceResourceVersionId: checkpoint.sourceResourceVersionId,
+    diagnosisRequestId: checkpoint.realDiagnosisRuntimeResult?.requestId || checkpoint.diagnosisRequestId,
+    formalDiagnosisId: checkpoint.realDiagnosisRuntimeResult?.formalDiagnosisCommit?.formalDiagnosisId,
+    answerStatus: checkpoint.realDiagnosisRuntimeResult?.formalDiagnosisCommit?.diagnosisResult?.answerStatus,
+    runtimeStatus: checkpoint.realDiagnosisRuntimeResult?.status,
+    evidenceCount: checkpoint.taskEvidenceReturnResult?.abilityEvidence.length || 0,
+    scoringSignals: checkpoint.concreteTask?.scoringPoints || [],
+    matchedRubricItems:
+      checkpoint.realDiagnosisRuntimeResult?.formalDiagnosisCommit?.diagnosisResult?.matchedRubricItems || [],
+    feedbackCoverage: (feedback?.thinkingReview?.requirementCoverage || []).map((item) => {
+      const evidence = item.studentEvidence[0];
+      return `${item.requirementType}:${item.status}${evidence ? `:${evidence}` : ''}`;
+    }),
+    issues: checkpoint.issues,
+  };
+}
 
 export async function loadPhase163MultiDayReview(): Promise<Phase163MultiDayReview> {
   const repository = new IndexedDBPhase163MultiDayRunRepository();
@@ -110,6 +182,19 @@ export async function clearPhase163ControlledAcceptanceData(): Promise<void> {
     new IndexedDBPhase163MultiDayRunRepository().clear(PHASE163_DEMO_STUDENT_ID),
     new IndexedDBRealLearningOperationRepository().clearByStudent(PHASE163_DEMO_STUDENT_ID),
     new LocalStorageUnifiedLearningEntryRepository().clear(PHASE163_DEMO_STUDENT_ID),
+  ]);
+}
+
+export async function clearPhase173ProductLearningAcceptanceData(): Promise<void> {
+  if (!import.meta.env.DEV) {
+    throw new Error('Formal learning acceptance reset is only available in development.');
+  }
+  await Promise.all([
+    new IndexedDBLearningPersistenceRepository().clear(PHASE163_LEARNING_STUDENT_ID),
+    new IndexedDBLearningSessionRepository().clear(PHASE163_LEARNING_STUDENT_ID),
+    new IndexedDBPhase163MultiDayRunRepository().clear(PHASE163_LEARNING_STUDENT_ID),
+    new IndexedDBRealLearningOperationRepository().clearByStudent(PHASE163_LEARNING_STUDENT_ID),
+    new LocalStorageUnifiedLearningEntryRepository().clear(PHASE163_LEARNING_STUDENT_ID),
   ]);
 }
 

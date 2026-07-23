@@ -2,9 +2,9 @@
 
 英文名称：Formal Resource Runtime Integration and Source Preservation
 
-设计状态：READY FOR REVIEW
+设计状态：ACCEPTED
 
-工程状态：NOT STARTED；BATCH A MINIMUM ENTRY GATE OPEN
+工程状态：WORK PACKAGE A `17 / 17 PASS`；WORK PACKAGE B `CONTROLLED DEEPSEEK LIVE 3 / 3 PASS`；BATCH A `/learning` 单轮 Demo `PASS`
 
 所属总纲：[Phase 17：学习资源覆盖扩展与基于材料的能力观测基础](./phase17.md)
 
@@ -130,6 +130,28 @@ Reviewed Resource
 ```
 
 Draft、pending review、rejected、superseded、retired、Link invalid 或 Material Version 错位的资源，不得进入 `/learning`。
+
+### 5.1.1 Material 正式身份
+
+Material 不是 Question Resource 的附属文案，而是正式内容、语境和来源的权威对象。Phase 17.3 必须保持以下关系：
+
+```text
+Material Version
+-> Observation Plan / Source Anchor
+-> Frozen Question Resource Version
+-> ExecutableLearningTask
+-> Diagnosis / Evidence trace
+```
+
+V1 固定规则：
+
+1. 每个 Frozen Question Resource Version 必须引用一个确定的 `materialId + materialVersionId`，不能只保存一份失去身份的正文副本；
+2. Material 正文或影响题意的 Metadata 发生变化时，必须建立新的 Material Version，并重新审核关联 Observation 与 Question Resource；
+3. Material 新版本不能静默覆盖旧版本；既有 Response、Diagnosis 与 Evidence 继续追溯当时执行的旧 Material Version；
+4. Runtime 解析出的 Material Version 必须与 Frozen Resource、Observation Link 和 Registry Current Head 的声明一致；
+5. Material 缺失、版本不存在、版本错位或 Source Anchor 无法在对应版本中成立时，进入 `blocked` 或 `review_required`，不得改用相似材料继续执行。
+
+Phase 17.3 只确认 Material 的正式身份、版本引用和运行追溯，不在本阶段扩展完整的 Material Quality、Difficulty、Domain、Tags 或 Coverage 治理体系。材料级生产与候选 Pack 生成继续属于 Phase 17.2 的内容生产边界。
 
 ### 5.2 学习方向权威
 
@@ -543,6 +565,36 @@ Resource 匹配正确，学生提交空答案或占位答案。
 - TaskRequest 与匹配结果一致；
 - 页面不使用预设题目顺序替代 Strategy。
 
+### Case 15：Material Version 错位被阻断
+
+Frozen Resource 声明 `material:v2`，Observation Link 或 Runtime Source Resolver 返回 `material:v1`。
+
+预期：
+
+- 不生成 ExecutableLearningTask；
+- 进入 `blocked` 或 `review_required`；
+- 不以正文相似或 Material ID 相同为由忽略版本错位。
+
+### Case 16：Material 修订不覆盖历史证据
+
+学生已基于 `material:v1` 完成正式作答，随后 Material 发布 `v2`。
+
+预期：
+
+- 新资源只能经重新审核后引用 `material:v2`；
+- 既有 Response、Diagnosis 与 Evidence 继续追溯 `material:v1`；
+- 历史记录不被新正文或新 Source Anchor 改写。
+
+### Case 17：Material 缺失或 Anchor 失效
+
+Resource 已登记，但对应 Material Version 缺失，或正式 Source Anchor 无法在该版本中解析。
+
+预期：
+
+- Runtime 安全阻断；
+- 不使用相似材料、Current Material Head 或 Question 内的文本副本补位；
+- 不生成 Diagnosis 与 Evidence。
+
 ## 十二、自动化验收
 
 Phase 17.3 工程验收至少包括：
@@ -617,6 +669,7 @@ Phase 17.3 不建设：
 - 双坐标 Ability Evidence；
 - 多学生资源权限；
 - 题库搜索与运营后台；
+- 完整 Material Quality / Difficulty / Domain / Tags / Coverage 治理系统；
 - AI 自动生成并 Freeze 资源；
 - 学习效果或商业可用性结论；
 - Phase 16.3C 的 5—7 个自然日替代验收。
@@ -648,7 +701,7 @@ Phase 17.3 不建设：
 Phase 17.3 达到以下条件后立即停止扩展并进入验收记录：
 
 1. 五项产品级 PASS 全部通过；
-2. 14 个核心 Debug Case 及必要回归通过；
+2. 17 个核心 Debug Case 及必要回归通过；
 3. Batch A Controlled Live 通过；
 4. 完整资源包的 Retest、Transfer 与跨 Ability 路径通过；
 5. Coverage 与 Runtime Registry 对账一致；
@@ -684,14 +737,28 @@ Phase 17.3 完成后可以宣称：
 
 ```text
 Phase 17.3 Design
-= READY FOR REVIEW
+= ACCEPTED
 
 Phase 17.3 Engineering
-= NOT STARTED
+= WORK PACKAGE A DETERMINISTIC BATCH A INTEGRATION 17 / 17 PASS
+
+Phase 17.3 Controlled Live
+= WORK PACKAGE B DEEPSEEK 3 / 3 PASS
+
+Batch A Product Demo
+= /learning SINGLE-ROUND PASS / NEXT RESOURCE GAP SAFELY BLOCKED
 
 Minimum Engineering Entry
-= Phase 17.2 Batch A PENDING
+= OPEN / CONSUMED
 
 Final Product Acceptance
 = Full 24-28 Formal Resource Pack PENDING
 ```
+
+2026-07-23，Batch A 已完成确定性正式资源串联 `17 / 17 PASS`。来源解析覆盖 Frozen Current Version、Registry、不可变 Material Version、Frozen Material Snapshot、Material Structure contentHash、active ResourceObservationLink、reviewed Observation Plan、Observation Task 与 Source Anchor；Training -> Retest、Training -> Transfer、Ability / TaskRole 错位阻断、Diagnosis / Evidence 对齐和重复提交幂等均已通过。新增 Case 15—17 进一步证明 Material Version 错位不产生正式 Source Context、新版本不覆盖历史来源、Material 缺失或 Anchor 失效时安全阻断。详见 [Batch A 串联 Debug 验收记录](./reports/phase17_3_batch_a_integration_debug_acceptance_2026-07-23.md)。
+
+同日完成 Work Package B 前置验收：浏览器正式 Repository 的 8 个 Batch A Current Head 已通过受控新版本流程补齐 `hint_policy` 与 `material_relation`，Registry、Current Version、Active Observation Link 和 Runtime 声明均为 `8 / 8`；Training、Retest、Transfer 三条 Live 样例及调用预算已固定，重复预检幂等通过。该结果不调用 DeepSeek，也不替代 Controlled Live。详见 [Work Package B 前置验收记录](./reports/phase17_3_work_package_b_preflight_2026-07-23.md)。
+
+随后完成 Work Package B Controlled DeepSeek Live：三条固定 `v2` 样例均在隔离正式 Repository 镜像中完成真实 Provider 调用、Formal Diagnosis Commit、单条 Evidence Return、来源 Trace 与同 requestId 幂等复用，结果为 `3 / 3 PASS`；Provider 共调用 3 次、无重试。浏览器 IndexedDB 未被本次验收改写。详见 [Controlled DeepSeek Live 验收记录](./reports/phase17_3_controlled_deepseek_live_2026-07-23.md)。
+
+同日完成 Batch A `/learning` 单轮人工 Demo：正式 `analysis / training` 资源进入学生入口，真实作答形成 `fully_meets` Formal Diagnosis 和 `1` 条 AbilityEvidence；学生反馈能够同时回应人物特点和已使用的具体材料动作，结论、文本依据和解释关系覆盖均为 `covered`。刷新后 Session、Round、Diagnosis Request、Formal Diagnosis 和 Evidence 数量保持不变。下一任务缺少兼容正式资源时按既有规则安全阻断，不拿错位题目凑匹配。该结果不替代完整资源包和多轮路径验收。详见 [Batch A `/learning` 人工 Demo 验收记录](./reports/phase17_3_batch_a_learning_demo_acceptance_2026-07-23.md)。

@@ -3,8 +3,10 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, Circle, ExternalLink, RefreshCw
 import { Link } from 'react-router-dom';
 import {
   clearPhase163ControlledAcceptanceData,
+  clearPhase173ProductLearningAcceptanceData,
   loadInternalLearningReviewQueue,
   loadPhase163MultiDayReview,
+  loadPhase173ProductLearningAcceptanceTrace,
 } from '../api/internalLearningReview.ts';
 
 export default function InternalLearningReview() {
@@ -13,6 +15,7 @@ export default function InternalLearningReview() {
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
   const [multiDay, setMultiDay] = useState(null);
+  const [productTrace, setProductTrace] = useState(null);
 
   useEffect(() => { loadQueue(); }, []);
 
@@ -20,12 +23,14 @@ export default function InternalLearningReview() {
     setBusy(true);
     setError('');
     try {
-      const [queue, multiDayReview] = await Promise.all([
+      const [queue, multiDayReview, learningTrace] = await Promise.all([
         loadInternalLearningReviewQueue(),
         loadPhase163MultiDayReview(),
+        loadPhase173ProductLearningAcceptanceTrace(),
       ]);
       setItems(queue);
       setMultiDay(multiDayReview);
+      setProductTrace(learningTrace);
       setSelectedId((current) => current || queue[0]?.caseId || '');
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : String(loadError));
@@ -46,6 +51,18 @@ export default function InternalLearningReview() {
     }
   }
 
+  async function resetProductAcceptanceData() {
+    setBusy(true);
+    setError('');
+    try {
+      await clearPhase173ProductLearningAcceptanceData();
+      await loadQueue();
+    } catch (clearError) {
+      setError(clearError instanceof Error ? clearError.message : String(clearError));
+      setBusy(false);
+    }
+  }
+
   const selected = items.find((item) => item.caseId === selectedId);
 
   return (
@@ -58,9 +75,14 @@ export default function InternalLearningReview() {
           </div>
           <div className="flex items-center gap-2">
             {import.meta.env.DEV ? (
-              <button type="button" onClick={clearControlledData} disabled={busy} title="仅清除旧 Demo 数据，不影响正式学习记录" className="flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm text-slate-600 hover:bg-slate-100 disabled:text-slate-300">
-                <RotateCcw size={16} />清除旧 Demo 数据
-              </button>
+              <>
+                <button type="button" onClick={resetProductAcceptanceData} disabled={busy} title="仅重置当前本地学生的学习验收记录，不影响正式资源" className="flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm text-slate-600 hover:bg-slate-100 disabled:text-slate-300">
+                  <RotateCcw size={16} />重置学习验收数据
+                </button>
+                <button type="button" onClick={clearControlledData} disabled={busy} title="仅清除旧 Demo 数据，不影响正式学习记录" className="flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm text-slate-600 hover:bg-slate-100 disabled:text-slate-300">
+                  <RotateCcw size={16} />清除旧 Demo 数据
+                </button>
+              </>
             ) : null}
             <button type="button" onClick={loadQueue} disabled={busy} title="刷新复核队列" className="flex h-10 w-10 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 disabled:text-slate-300">
               <RefreshCw size={18} className={busy ? 'animate-spin' : ''} />
@@ -91,10 +113,35 @@ export default function InternalLearningReview() {
           {error ? <p className="text-sm text-red-700">复核记录加载失败：{error}</p> : null}
           {busy && !selected ? <p className="flex items-center gap-2 text-sm text-slate-600"><RefreshCw size={16} className="animate-spin" />正在读取正式链路</p> : null}
           {multiDay ? <MultiDayReview summary={multiDay} /> : null}
+          {productTrace ? <ProductLearningTrace trace={productTrace} /> : null}
           {selected ? <div className="mt-12 border-t border-slate-200 pt-10"><ReviewDetail item={selected} /></div> : null}
         </section>
       </main>
     </div>
+  );
+}
+
+function ProductLearningTrace({ trace }) {
+  return (
+    <section className="mt-12 max-w-[760px] border-t border-slate-200 pt-10">
+      <p className="text-sm font-semibold text-blue-700">Phase 17.3 正式学习验收</p>
+      <h2 className="mt-2 text-xl font-semibold leading-8">当前 Batch A 运行追溯</h2>
+      <dl className="mt-6 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[150px_minmax(0,1fr)]">
+        <TraceRow label="状态" value={trace.status} />
+        <TraceRow label="Learning Session" value={trace.learningSessionId || '未开始'} />
+        <TraceRow label="Learning Round" value={trace.learningRoundId || '未开始'} />
+        <TraceRow label="资源版本" value={trace.sourceResourceVersionId || '未形成'} />
+        <TraceRow label="Diagnosis Request" value={trace.diagnosisRequestId || '未形成'} />
+        <TraceRow label="正式 Diagnosis" value={trace.formalDiagnosisId || '未形成'} />
+        <TraceRow label="Answer Status" value={trace.answerStatus || '未形成'} />
+        <TraceRow label="Runtime Status" value={trace.runtimeStatus || '未形成'} />
+        <TraceRow label="Evidence 数量" value={String(trace.evidenceCount)} />
+        <TraceRow label="评分信号" value={trace.scoringSignals?.join('；') || '未形成'} />
+        <TraceRow label="命中 Rubric" value={trace.matchedRubricItems?.join('；') || '未形成'} />
+        <TraceRow label="反馈覆盖" value={trace.feedbackCoverage?.join('；') || '未形成'} />
+      </dl>
+      {trace.issues.length ? <p className="mt-5 text-sm text-amber-700">{trace.issues.join('；')}</p> : null}
+    </section>
   );
 }
 

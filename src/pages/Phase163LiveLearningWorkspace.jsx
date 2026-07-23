@@ -724,13 +724,39 @@ function LoadingWorkspace() {
 }
 
 function WorkspaceFailure({ message, onBack }) {
+  const presentation = resolveWorkspaceFailurePresentation(message);
   return (
     <main className="mx-auto max-w-[680px] px-6 py-16">
-      <h1 className="text-xl font-semibold">暂时无法打开当前任务</h1>
-      <p className="mt-3 text-base leading-7 text-slate-600">{message || '请稍后重新尝试。'}</p>
+      <h1 className="text-xl font-semibold">{presentation.title}</h1>
+      <p className="mt-3 text-base leading-7 text-slate-600">{presentation.message}</p>
       <button type="button" onClick={onBack} className="mt-7 min-h-11 rounded-md bg-slate-900 px-5 text-sm text-white">返回学习入口</button>
     </main>
   );
+}
+
+function resolveWorkspaceFailurePresentation(message) {
+  if (/暂无符合复测要求的正式任务/.test(message || '')) {
+    return {
+      title: '复测任务还需要准备',
+      message: '本次复测要求已经保留，但当前没有符合能力、材料和复测条件的正式任务。系统不会用普通训练题代替复测。',
+    };
+  }
+  if (/暂无符合当前能力和任务要求的正式任务/.test(message || '')) {
+    return {
+      title: '当前没有新的正式任务',
+      message: '上一轮结果已经保存。当前没有同时符合能力、任务角色且未重复使用的正式资源；系统不会用错位题目凑匹配。',
+    };
+  }
+  if (/当前正式任务尚未准备完成/.test(message || '')) {
+    return {
+      title: '当前任务需要检查',
+      message: '任务来源已经找到，但正式执行条件尚未全部满足。已有学习记录不会丢失。',
+    };
+  }
+  return {
+    title: '暂时无法打开当前任务',
+    message: message || '请稍后重新尝试。',
+  };
 }
 
 function toMessage(error) {

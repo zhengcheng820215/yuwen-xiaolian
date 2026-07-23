@@ -25,6 +25,7 @@ import {
   isPhase17BatchAMaterial,
   loadPhase17BatchAPlansForReview,
   loadTongguanCalibrationPlanForReview,
+  runPhase173BatchAPreflight,
   submitProductionObservationPlan,
   synchronizeProductionObservationLinks,
 } from '../api/materialResourceProductionWorkbench.ts';
@@ -96,6 +97,7 @@ export default function MaterialResourceProductionWorkbench() {
   const [materialForm, setMaterialForm] = useState({ title: '', content: '', description: '人工录入材料', copyrightNote: '' });
   const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [phase173Preflight, setPhase173Preflight] = useState(null);
 
   useEffect(() => {
     refresh().catch((error) => setNotice(errorNotice(error)));
@@ -219,6 +221,16 @@ export default function MaterialResourceProductionWorkbench() {
         : '《潼关》校准案例已载入，六项真实观测任务已显示并等待人工审核。',
       (result) => ({ materialVersionId: result.materialVersionId, planId: result.materialObservationPlanId }),
     );
+  }
+
+  async function executePhase173Preflight() {
+    const result = await run(
+      () => runPhase173BatchAPreflight(),
+      (value) => value.status === 'updated'
+        ? `17.3 前置检查完成：${value.upgradedResourceIds.length} 个旧版资源已建立受控新版本。`
+        : '17.3 前置检查完成：正式资源无需升级。',
+    );
+    if (result) setPhase173Preflight(result);
   }
 
   async function createPlan() {
@@ -373,6 +385,37 @@ export default function MaterialResourceProductionWorkbench() {
           <Metric label="观测计划" value={snapshot.plans.length} />
           <Metric label="题目 Draft" value={snapshot.drafts.filter((draft) => draft.tags.includes('phase17.2')).length} />
           <Metric label="正式关联" value={snapshot.links.filter((link) => link.status === 'active').length} />
+        </section>
+
+        <section className="border-b border-slate-200 py-6" aria-labelledby="phase173-preflight-title">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <div>
+              <p className="text-sm font-semibold text-blue-700">Phase 17.3 前置任务</p>
+              <h2 id="phase173-preflight-title" className="mt-1 text-lg font-semibold">正式资源串联预检</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                核对 Batch A 的 Registry、Observation Link、提示策略与材料关系声明。旧版本缺少声明时只建立受控新版本，不改题目、Rubric 或能力语义。
+              </p>
+              {phase173Preflight && (
+                <div className={`mt-4 border-l-4 px-4 py-3 text-sm ${phase173Preflight.status === 'blocked' ? 'border-amber-500 bg-amber-50 text-amber-950' : 'border-emerald-500 bg-emerald-50 text-emerald-950'}`}>
+                  <p className="font-semibold">
+                    {phase173Preflight.status === 'blocked' ? '前置检查存在阻断项' : '前置检查通过'}
+                  </p>
+                  <p className="mt-1 leading-6">
+                    Registry {phase173Preflight.activeRegistryCount} / 8 · 正式关联 {phase173Preflight.activeObservationLinkCount} / 8 · Runtime 声明 {phase173Preflight.declarationReadyCount} / 8
+                  </p>
+                  <p className="mt-1 leading-6">
+                    Live 样例：{phase173Preflight.sampleSet.map((sample) => `${roleLabels[sample.taskRole]} ${sample.resourceVersionId}`).join('；') || '尚未就绪'}
+                  </p>
+                  {phase173Preflight.issues.length > 0 && (
+                    <p className="mt-1 leading-6">阻断：{phase173Preflight.issues.join('；')}</p>
+                  )}
+                </div>
+              )}
+            </div>
+            <ActionButton onClick={executePhase173Preflight} disabled={busy} icon={ShieldCheck}>
+              运行 17.3 前置检查
+            </ActionButton>
+          </div>
         </section>
 
         {notice && <div role="status" className={`mt-5 border-l-4 px-4 py-3 text-sm leading-6 ${notice.type === 'error' ? 'border-red-500 bg-red-50 text-red-800' : 'border-emerald-500 bg-emerald-50 text-emerald-800'}`}>{notice.message}</div>}

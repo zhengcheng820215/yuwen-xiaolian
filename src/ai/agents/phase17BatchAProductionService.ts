@@ -354,6 +354,10 @@ async function ensureDraft(
         'phase17',
         'phase17.2',
         'phase17-batch-a',
+        definition.taskRole === 'retest'
+          ? 'hint_policy:no_hint'
+          : 'hint_policy:limited_hint',
+        `material_relation:${definition.materialRelationIntent || 'same_context'}`,
         `batch_a_resource:${definition.resourceKey}`,
         ...(definition.planningChainKey ? [`planning_chain:${definition.planningChainKey}`] : []),
       ],

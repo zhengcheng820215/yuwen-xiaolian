@@ -4,7 +4,7 @@
 
 设计状态：ACCEPTED
 
-工程状态：IN PROGRESS（17.1 ENGINEERING + HUMAN DEMO PASS / INDEXEDDB SMOKE PENDING；17.2 RUNTIME + MINIMAL PRODUCTION WORKSPACE ENGINEERING PASS，FORMAL CONTENT PACK + HUMAN ACCEPTANCE PENDING；17.3 NOT STARTED）
+工程状态：IN PROGRESS（17.1 ENGINEERING + HUMAN DEMO PASS / INDEXEDDB SMOKE PENDING；17.2 RUNTIME + MINIMAL PRODUCTION WORKSPACE ENGINEERING PASS，BATCH A 8 / 8 FORMALIZED；17.3 WORK PACKAGE A 17 / 17 PASS、CONTROLLED LIVE 3 / 3 PASS、BATCH A `/learning` SINGLE-ROUND DEMO PASS）
 
 前置状态：Phase 16.1 与 Phase 16.2 已完成；Phase 16.3A / B 已冻结，Phase 16.3C 工程与轻量人工验收已通过，5—7 个自然日真实运行仍为 `PENDING (0 / 5)`。
 
@@ -938,7 +938,23 @@ Phase 17 完成后仍不能宣称：
 - 单学生 5—7 个自然日验收已自动完成；
 - Observation Dimension 已经成为正式 Profile 维度或能够证明跨维度能力稳定。
 
-## 十九、产品意义
+## 十九、当前产品定位与下一执行顺序
+
+当前准确定位为：
+
+> 已通过真实单轮学习链路验收、具备封闭 Beta 基础的单学生教育系统。
+
+这表示系统已经证明一条正式资源可以进入真实学习入口，经过真实 Diagnosis、Evidence 和学生反馈，并在刷新时保持幂等；它不表示资源生态、多轮连续学习或自然日稳定性已经完成。
+
+下一阶段严格按以下顺序推进：
+
+1. **资源生态扩展**：继续完成 Phase 17.2 Batch B / C，形成 4 个核心 Material Cluster、1—2 个独立 Transfer Cluster 和 24—28 道正式资源，补齐两条 Training -> Retest、两条 Training -> Transfer 与一条跨能力路径；
+2. **连续 Session 验证**：由 Profile、GrowthMemory、Strategy 和正式资源共同驱动下一任务，先完成 3 个受控 Session，再以冻结构建开始 5—7 个自然日运行；
+3. **学生感知验收**：使用 6—10 组真实学习记录验证学生是否能说清系统注意到了什么、自己完成了什么、当前先改哪里以及为什么继续下一任务。
+
+在资源生态不足时，不继续围绕同一道样例题打磨链路，也不使用能力或任务角色错位的资源凑成连续学习。
+
+## 二十、产品意义
 
 Phase 16 证明了学习机器能够安全接收、匹配和执行正式题目。
 

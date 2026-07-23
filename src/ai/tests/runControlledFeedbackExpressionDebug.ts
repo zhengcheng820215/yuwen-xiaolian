@@ -109,6 +109,7 @@ async function main(): Promise<void> {
   await caseMissingEvidenceGapUsesCompletedConclusionWithoutLeakingDetail();
   await casePsychologyGuidanceUsesExplicitReference();
   await caseDoesNotMeetMissingEvidenceDoesNotBecomeWrongConclusion();
+  await caseFullyMeetsAlternativeEvidenceIsNotTreatedAsCumulativeRequirement();
 
   printReport();
   if (cases.some((item) => !item.passed)) {
@@ -215,6 +216,8 @@ async function caseFullyMeetsDoesNotInventDeficit(): Promise<void> {
     matchedRubricItems: ['psychology', 'text_evidence', 'reasoning_relation'],
     missingRubricItems: [],
   });
+  input.taskEvidenceReturnResult.abilityEvidence[0].detail = '学生使用父亲整理物品和关注检票信息的动作说明其细心、关爱。';
+  input.taskEvidenceReturnResult.abilityEvidence[0].observation = '人物特点、文本依据和解释关系均已完成。';
   const run = await execute(input);
   record(
     'case_7_fully_meets_no_invented_deficit',
@@ -1010,11 +1013,65 @@ async function caseThinkingReviewAcceptsQuestionExposedAction(): Promise<void> {
   record(
     'case_48_thinking_review_question_exposed_action',
     '题干已公开且学生实际使用的完整动作可以成为有效依据',
-    evidence?.status === 'partially_covered' &&
+    evidence?.status === 'covered' &&
       evidence.studentEvidence.includes('母亲把伞推向孩子') &&
       evidence.studentMessage?.includes('具体内容') === true &&
       evidence.studentMessage.includes('支持自己的理解'),
     JSON.stringify(evidence),
+  );
+}
+
+async function caseFullyMeetsAlternativeEvidenceIsNotTreatedAsCumulativeRequirement(): Promise<void> {
+  const input = baseInput({ evidenceTypes: ['positive'] });
+  const task = input.taskEvidenceReturnResult.concreteTask;
+  task.readingText = '父亲把水杯裹好，扣紧肩带，又一直关注检票信息。列车开动后，他只在线外挥手，还留下纸条鼓励孩子按自己的想法写。';
+  task.question = '结合父亲在车站中的具体表现，分析他是一个怎样的父亲。';
+  task.answerRequirements = ['概括人物特点', '使用至少一个具体动作作为依据', '说明动作与人物特点之间的关系'];
+  task.scoringPoints = [
+    '细心',
+    '关爱孩子',
+    '整理水杯和肩带',
+    '关注检票信息',
+    '留下纸条',
+    '动作体现细心',
+    '持续关注体现关爱',
+  ];
+  task.questionMetadata.answerAcceptance = {
+    acceptedKeywords: ['细心', '关爱', '尊重', '信任'],
+    semanticEquivalentAllowed: true,
+  };
+  input.taskContext = {
+    readingText: task.readingText,
+    questionText: task.question,
+    answerRequirements: task.answerRequirements,
+  };
+  setStudentAnswer(
+    input,
+    '父亲细心、关爱孩子。他把水杯裹好、扣紧肩带，还一直关注检票信息，说明他处处替孩子考虑。',
+  );
+  setDiagnosis(input, {
+    answerStatus: 'fully_meets',
+    rootCause: '本次作答已使用具体动作说明人物特点，未发现明确能力缺口。',
+    diagnosisSummary: '人物特点、动作依据和解释关系均已完成。',
+    matchedRubricItems: ['character-trait', 'character-evidence', 'character-relation'],
+    missingRubricItems: [],
+  });
+  const run = await execute(input);
+  const review = run.result.finalFeedback.thinkingReview;
+  const evidence = review?.requirementCoverage
+    .find((item) => item.requirementType === 'text_evidence');
+  const relation = review?.requirementCoverage
+    .find((item) => item.requirementType === 'reasoning_relation');
+  record(
+    'case_62_fully_meets_alternative_evidence_not_cumulative',
+    'fully_meets 中多个可接受依据是替代方向，不因未全部命中制造缺口',
+    evidence?.status === 'covered' &&
+      relation?.status === 'covered' &&
+      review?.requirementCoverage.find((item) => item.requirementType === 'conclusion')
+        ?.requirementText === '写出人物的特点' &&
+      review?.primaryGap === undefined &&
+      review?.missingPoints.length === 0,
+    JSON.stringify({ evidence, relation, review }),
   );
 }
 

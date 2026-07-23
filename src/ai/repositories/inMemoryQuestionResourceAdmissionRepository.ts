@@ -26,6 +26,13 @@ implements QuestionResourceAdmissionRepository {
   }
 
   async saveMaterial(material: QuestionMaterialVersion): Promise<QuestionMaterialVersion> {
+    const existing = this.materials.get(material.materialVersionId);
+    if (existing) {
+      if (!sameMaterialVersion(existing, material)) {
+        throw new Error('Material Version is immutable. Create a new version.');
+      }
+      return clone(existing);
+    }
     this.materials.set(material.materialVersionId, clone(material));
     return clone(material);
   }
@@ -187,4 +194,22 @@ function clone<T>(value: T): T {
 
 function cloneNullable<T>(value: T | undefined): T | null {
   return value === undefined ? null : clone(value);
+}
+
+function sameMaterialVersion(
+  left: QuestionMaterialVersion,
+  right: QuestionMaterialVersion,
+): boolean {
+  return left.materialId === right.materialId &&
+    left.materialVersionId === right.materialVersionId &&
+    left.versionNumber === right.versionNumber &&
+    left.title === right.title &&
+    left.content === right.content &&
+    left.source.sourceType === right.source.sourceType &&
+    left.source.description === right.source.description &&
+    left.source.copyrightNote === right.source.copyrightNote &&
+    left.source.externalReference === right.source.externalReference &&
+    left.createdAt === right.createdAt &&
+    left.updatedAt === right.updatedAt &&
+    left.schemaVersion === right.schemaVersion;
 }

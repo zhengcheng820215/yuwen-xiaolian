@@ -74,7 +74,12 @@ function buildConcreteTaskOverrides(
   const rubric: QuestionMetadataRubricItem[] = version.rubric.map((item) => ({
     id: item.itemId,
     name: item.name,
-    description: item.description,
+    description: [
+      item.description,
+      item.acceptedSignals.length > 0
+        ? `可接受观察信号：${item.acceptedSignals.join('、')}。`
+        : '',
+    ].filter(Boolean).join(' '),
     ability: item.abilityId,
     weight: item.importance === 'critical' ? 50 : item.importance === 'important' ? 30 : 20,
     required: item.required,
@@ -90,7 +95,9 @@ function buildConcreteTaskOverrides(
     readingText: version.materialSnapshot?.content,
     question: version.questionStem,
     answerRequirements: buildAnswerRequirements(version),
-    referenceAnswer: acceptedAnswers[0] || acceptedKeywords.join('、') || undefined,
+    referenceAnswer: acceptedAnswers[0] ||
+      (scoringPoints.length > 0 ? scoringPoints.join('；') : acceptedKeywords.join('、')) ||
+      undefined,
     scoringPoints: scoringPoints.length > 0 ? scoringPoints : rubric.map((item) => item.description || item.name),
     rubric,
     questionMetadata: {

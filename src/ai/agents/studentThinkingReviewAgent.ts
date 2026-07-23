@@ -15,7 +15,7 @@ const CONCLUSION_SUPPORTED_PATTERN = /(?:结论|判断|理解|心理|方向).{0,
 const INTERNAL_LANGUAGE_PATTERN = /evidence|diagnosis|root\s*cause|能力证据|置信度|inference|comprehension/i;
 const PROMPT_INJECTION_PATTERN = /忽略(?:之前|前面|以上).*规则|打印.*(?:prompt|提示词)|修改.*mainAbility|判定.*掌握/i;
 const NON_EVIDENCE_FRAGMENT_PATTERN = /^(?:自己|本人|此时|当时|这样|这个|那个|这里|那里|文中|文章中|材料中|父亲|母亲|孩子|人物|动作|细节|内容|语句)$/u;
-const EVIDENCE_PREDICATE_PATTERN = /把|被|向|朝|给|推|撑|淋|打湿|挥|放下|站|停|看|望|捏|夹|拿|握|走|跑|追|哭|笑|说|问|喊|点头|摇头|低头|抬头|转身|离开|回来|等待|沉默|保护|照顾|帮助|拒绝|收起|打开|关上|蹲|扶|抱/u;
+const EVIDENCE_PREDICATE_PATTERN = /把|被|向|朝|给|推|撑|淋|打湿|挥|放下|站|停|看|望|捏|夹|拿|握|走|跑|追|哭|笑|说|问|喊|点头|摇头|低头|抬头|转身|离开|回来|等待|沉默|保护|照顾|帮助|拒绝|收起|打开|关上|蹲|扶|抱|整理|裹|塞|扣|系|关注|检查|核对|留下|递|测量|询问|描|贴/u;
 
 type BuildStudentThinkingReviewOptions = {
   safeStrengths?: string[];
@@ -42,7 +42,10 @@ export function buildStudentThinkingReview(
   const acceptedKeywords = uniqueStrings(task.questionMetadata.answerAcceptance?.acceptedKeywords || []);
   const matchedKeywords = acceptedKeywords.filter((keyword) => answer.includes(keyword));
   const expectedDetails = extractExpectedMaterialDetails(task.scoringPoints, task.readingText || '', task.question);
-  const matchedDetails = matchStudentEvidenceSpans(answer, expectedDetails);
+  const matchedDetails = uniqueStrings([
+    ...matchStudentEvidenceSpans(answer, expectedDetails),
+    ...extractStudentMaterialEvidence(answer, task.readingText || '', task.question),
+  ]).slice(0, 3);
   const formalText = [
     diagnosis.surfaceError,
     diagnosis.rootCause,
@@ -256,7 +259,9 @@ function buildEvidenceCoverage(input: {
 
   if (input.matchedDetails.length > 0) {
     const status: TaskRequirementCoverageStatus =
-      input.expectedDetails.length > 1 && input.matchedDetails.length < input.expectedDetails.length
+      input.answerStatus === 'fully_meets' && !formalMissing
+        ? 'covered'
+        : input.expectedDetails.length > 1 && input.matchedDetails.length < input.expectedDetails.length
         ? 'partially_covered'
         : 'covered';
     return coverageItem(input.taskId, 'text_evidence', '使用文中的具体内容作为依据', status, {
@@ -334,10 +339,16 @@ function buildRelationCoverage(input: {
       FORMAL_RELATION_CONFIRMED_PATTERN.test(input.formalText)
     )
   );
+  const directlyCoveredByCompleteAnswer =
+    input.answerStatus === 'fully_meets' &&
+    rubricMatched &&
+    !rubricMissing &&
+    input.hasRelationMarker &&
+    input.hasMaterialDetail;
 
   if (
     input.answerStatus !== 'does_not_meet' &&
-    !formalMissing &&
+    (!formalMissing || directlyCoveredByCompleteAnswer) &&
     input.hasRelationMarker &&
     input.hasMaterialDetail
   ) {
@@ -466,6 +477,25 @@ function matchStudentEvidenceSpans(answer: string, expectedDetails: string[]): s
   return uniqueStrings(spans).slice(0, 3);
 }
 
+function extractStudentMaterialEvidence(
+  answer: string,
+  readingText: string,
+  questionText: string,
+): string[] {
+  if (!readingText) return [];
+  return uniqueStrings(answer
+    .split(/[，。；！？\n]/u)
+    .map((item) => item.trim())
+    .filter((item) =>
+      isMeaningfulEvidencePhrase(item) &&
+      Boolean(
+        longestSharedMaterialPhrase(item, readingText, questionText) ||
+        isSemanticallyRelatedToTask(item, readingText, questionText),
+      ))
+    .map((item) => item.replace(/^(?:因为|所以|并且|而且|还|但|可是|然而)+/u, '').trim()))
+    .slice(0, 3);
+}
+
 function longestSharedMaterialPhrase(signal: string, readingText: string, questionText: string): string {
   const compactSignal = signal.replace(/[\s“”"'：:（）()]/gu, '');
   const compactReading = readingText.replace(/\s/gu, '');
@@ -554,7 +584,9 @@ function evidenceContextCharacters(value: string, predicates: string[]): Set<str
 
 function describeTaskTarget(question: string, abilityName: string): string {
   if (/心理|心情|情感/.test(question)) return '人物的心理';
-  if (/特点|品质|形象/.test(question)) return '人物的特点';
+  if (/特点|品质|形象|是(?:一位|一个)?怎样的(?:人|人物|父亲|母亲|老师|学生)/.test(question)) {
+    return '人物的特点';
+  }
   if (/原因|为什么/.test(question)) return '事情的原因';
   return `${abilityName || '本题'}的关键内容`;
 }
