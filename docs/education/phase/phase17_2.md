@@ -54,7 +54,19 @@ Observation Focus
 -> Rubric / Answer Acceptance / Calibration
 ```
 
-Question 在工作台中被明确标记为“题目入口”，但仍保留独立题型、作答形式、难度和正式版本。页面同时展示 Primary Ability 与 Material Dimension 的轻量候选覆盖，并以 `AI 候选 -> 导入编辑区 -> 观测计划 -> 逐题审核 -> Frozen` 表达当前正式化位置。该展示只帮助内容人员判断候选和流程状态，不建立新的 Coverage Contract，也不改变 Question Resource 的执行与版本权威。
+Question 在正式 Contract 中仍保留独立题型、作答形式、难度和正式版本；工作台面向内容人员使用“训练任务、评价标准、提交审核、正式发布”等产品语言，不直接暴露不必要的内部对象名称。页面同时展示 Primary Ability 与 Material Dimension 的轻量候选覆盖；只有生成 AI 初稿后，才以 `生成初稿 -> 编辑确认 -> 提交审核 -> 逐题审核 -> 正式发布` 表达当前发布位置。该展示只帮助内容人员判断候选和流程状态，不建立新的 Coverage Contract，也不改变 Question Resource 的执行与版本权威。
+
+2026-07-23 完成素材生产工作台轻量 UX 校准：
+
+1. 主体与头部统一使用 `1120px` 最大宽度，并保持 PC / Tablet 响应式收缩；
+2. 学习材料、训练任务、审核与正式化改为纵向生产顺序，不再把长材料与复杂任务编辑器压入双栏；
+3. 明确区分“选择已有素材”和“录入新素材”，保存新素材后返回已有素材模式；
+4. 校准案例和 Batch A 保留为受控示例资源入口，以绿色表示最近一次成功使用的资源组；
+5. 选择态、焦点态和当前数量统一使用绿色语义；操作成功使用短时 Toast，不使用长期占位横幅；
+6. AI 区域改用“生成训练任务初稿、编辑确认、提交审核、逐题审核、正式发布”等可理解文案；
+7. 删除重复标题、低信息说明与非必要分割线，刷新、版本和任务数量均提供明确反馈。
+
+本次 UX 校准只调整页面结构、展示状态和操作反馈，不修改 Material、Observation Plan、Question Draft、Review、Freeze、Registry 或 Observation Link 的正式职责。
 
 ## 一、阶段目标
 

@@ -99,6 +99,11 @@ button {
   }
 }
 
+.material-resource-workbench :where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid #059669;
+  outline-offset: 2px;
+}
+
 @media (min-width: 1024px) {
   .workspace-viewport {
     background: linear-gradient(

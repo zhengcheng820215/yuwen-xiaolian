@@ -16,8 +16,8 @@ const tools = [
   {
     to: '/material-resource-workbench',
     icon: BookOpenCheck,
-    title: '材料资源生产',
-    description: '从材料观测设计批量生成题目 Draft，并进入既有审核与冻结流程。',
+    title: '素材资源生产',
+    description: '从素材观测设计批量生成题目 Draft，并进入既有审核与冻结流程。',
     meta: '内容维护',
   },
   {
@@ -31,7 +31,7 @@ const tools = [
     to: '/resource-coverage-dashboard-demo',
     icon: Layers3,
     title: '资源覆盖仪表盘',
-    description: '按能力、任务角色和材料集检查正式资源覆盖与缺口。',
+    description: '按能力、任务角色和素材集检查正式资源覆盖与缺口。',
     meta: '覆盖规划',
   },
   {

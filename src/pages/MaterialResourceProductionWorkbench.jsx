@@ -25,7 +25,6 @@ import {
   isPhase17BatchAMaterial,
   loadPhase17BatchAPlansForReview,
   loadTongguanCalibrationPlanForReview,
-  runPhase173BatchAPreflight,
   submitProductionObservationPlan,
   synchronizeProductionObservationLinks,
 } from '../api/materialResourceProductionWorkbench.ts';
@@ -33,6 +32,7 @@ import {
   getMaterialObservationDraftGeneratorStatus,
   requestMaterialObservationDraftCandidates,
 } from '../api/materialObservationDraftGenerator.ts';
+import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
 
 const dimensionOptions = [
   ['fact', '事实'], ['character', '人物'], ['plot', '情节'], ['causality', '因果'],
@@ -81,6 +81,8 @@ const difficultyLabels = Object.fromEntries(difficultyOptions);
 
 export default function MaterialResourceProductionWorkbench() {
   const [snapshot, setSnapshot] = useState(emptySnapshot);
+  const [materialMode, setMaterialMode] = useState('existing');
+  const [activeLoadPreset, setActiveLoadPreset] = useState(null);
   const [selectedMaterialId, setSelectedMaterialId] = useState('');
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [tasks, setTasks] = useState(createInitialTasks);
@@ -94,10 +96,10 @@ export default function MaterialResourceProductionWorkbench() {
     preferredAbilityIds: [],
     requestedFocus: '',
   });
-  const [materialForm, setMaterialForm] = useState({ title: '', content: '', description: '人工录入材料', copyrightNote: '' });
+  const [materialForm, setMaterialForm] = useState({ title: '', content: '', description: '人工录入素材', copyrightNote: '' });
   const [notice, setNotice] = useState(null);
+  const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [phase173Preflight, setPhase173Preflight] = useState(null);
 
   useEffect(() => {
     refresh().catch((error) => setNotice(errorNotice(error)));
@@ -169,6 +171,8 @@ export default function MaterialResourceProductionWorkbench() {
   async function refresh(preferred = {}) {
     const next = await getMaterialResourceProductionSnapshot();
     setSnapshot(next);
+    if (next.materials.length === 0) setMaterialMode('new');
+    if (preferred.materialVersionId) setMaterialMode('existing');
     const materialId = preferred.materialVersionId
       || (selectedMaterialId && next.materials.some((item) => item.materialVersionId === selectedMaterialId) ? selectedMaterialId : next.materials[0]?.materialVersionId)
       || '';
@@ -199,38 +203,61 @@ export default function MaterialResourceProductionWorkbench() {
   async function addMaterial() {
     const material = await run(
       () => createProductionMaterial(materialForm),
-      () => '材料已保存，可以开始设计 3–6 个能力观测任务。',
+      () => '素材已保存，可以开始设计 3–6 个能力观测任务。',
       (result) => ({ materialVersionId: result.materialVersionId }),
     );
-    if (material) setMaterialForm({ title: '', content: '', description: '人工录入材料', copyrightNote: '' });
+    if (material) {
+      setMaterialMode('existing');
+      setMaterialForm({ title: '', content: '', description: '人工录入素材', copyrightNote: '' });
+    }
+  }
+
+  async function refreshWorkbench() {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await refresh();
+      setToast({ id: Date.now(), message: '工作台数据已刷新。' });
+    } catch (error) {
+      setNotice(errorNotice(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function showExistingMaterials() {
+    const materialId = snapshot.materials.some((item) => item.materialVersionId === selectedMaterialId)
+      ? selectedMaterialId
+      : snapshot.materials[0]?.materialVersionId || '';
+    setMaterialMode(snapshot.materials.length > 0 ? 'existing' : 'new');
+    setSelectedMaterialId(materialId);
+    setSelectedPlanId('');
+  }
+
+  function showNewMaterialForm() {
+    setMaterialMode('new');
+    setSelectedMaterialId('');
+    setSelectedPlanId('');
   }
 
   async function loadBatchA() {
-    await run(
+    const result = await run(
       () => loadPhase17BatchAPlansForReview(),
-      (result) => `Batch A 已载入 ${result.materialVersionIds.length} 篇材料和 ${result.materialObservationPlanIds.length} 份待审核观测计划。`,
+      (result) => `Batch A 已载入 ${result.materialVersionIds.length} 篇素材和 ${result.materialObservationPlanIds.length} 份待审核观测计划。`,
       (result) => ({ materialVersionId: result.materialVersionIds[0] }),
     );
+    if (result) setActiveLoadPreset('batch_a');
   }
 
   async function loadTongguanCalibration() {
-    await run(
+    const result = await run(
       () => loadTongguanCalibrationPlanForReview(),
       (result) => result.reused
         ? '《潼关》校准案例已存在，六项真实观测任务已显示在当前工作区。'
         : '《潼关》校准案例已载入，六项真实观测任务已显示并等待人工审核。',
       (result) => ({ materialVersionId: result.materialVersionId, planId: result.materialObservationPlanId }),
     );
-  }
-
-  async function executePhase173Preflight() {
-    const result = await run(
-      () => runPhase173BatchAPreflight(),
-      (value) => value.status === 'updated'
-        ? `17.3 前置检查完成：${value.upgradedResourceIds.length} 个旧版资源已建立受控新版本。`
-        : '17.3 前置检查完成：正式资源无需升级。',
-    );
-    if (result) setPhase173Preflight(result);
+    if (result) setActiveLoadPreset('tongguan');
   }
 
   async function createPlan() {
@@ -355,97 +382,71 @@ export default function MaterialResourceProductionWorkbench() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f6f8fb] text-slate-950">
+    <div className="material-resource-workbench min-h-screen bg-[#f6f8fb] text-slate-950">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex min-h-16 max-w-[1280px] items-center justify-between px-5 md:px-8">
+        <div className="mx-auto flex min-h-16 max-w-[1120px] items-center justify-between px-5 md:px-8">
           <div className="flex items-center gap-3">
             <Link to="/internal" aria-label="返回内部入口" className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"><ArrowLeft size={18} /></Link>
             <div>
-              <h1 className="text-lg font-semibold">材料资源生产</h1>
+              <h1 className="text-lg font-semibold">素材资源生产</h1>
               <p className="text-sm text-slate-500">Phase 17.2 · 最小生产工具</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={loadTongguanCalibration} disabled={busy} className="hidden min-h-10 items-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-3 text-sm font-semibold text-blue-800 hover:bg-blue-100 disabled:opacity-50 md:flex">
-              <BookOpen size={16} />载入《潼关》校准案例
+            <button type="button" onClick={loadTongguanCalibration} disabled={busy} className={`hidden min-h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:opacity-50 md:flex ${activeLoadPreset === 'tongguan' ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
+              <BookOpen size={16} />使用《潼关》校准案例
             </button>
-            <button type="button" onClick={loadBatchA} disabled={busy} className="hidden min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:flex">
-              <PackagePlus size={16} />载入 Batch A
+            <button type="button" onClick={loadBatchA} disabled={busy} className={`hidden min-h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:opacity-50 sm:flex ${activeLoadPreset === 'batch_a' ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
+              <PackagePlus size={16} />使用 Batch A 资源包
             </button>
-            <button type="button" onClick={() => refresh()} disabled={busy} title="刷新数据" className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+            <button type="button" onClick={refreshWorkbench} disabled={busy} title="刷新工作台数据" aria-label="刷新工作台数据" className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50">
               <RefreshCw size={17} className={busy ? 'animate-spin' : ''} />
             </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1280px] px-5 py-7 md:px-8 md:py-9">
+      <main className="mx-auto w-full max-w-[1120px] px-5 py-7 md:px-8 md:py-9">
         <section className="grid gap-3 border-b border-slate-200 pb-7 sm:grid-cols-4" aria-label="生产状态">
-          <Metric label="材料" value={snapshot.materials.length} />
-          <Metric label="观测计划" value={snapshot.plans.length} />
-          <Metric label="题目 Draft" value={snapshot.drafts.filter((draft) => draft.tags.includes('phase17.2')).length} />
-          <Metric label="正式关联" value={snapshot.links.filter((link) => link.status === 'active').length} />
-        </section>
-
-        <section className="border-b border-slate-200 py-6" aria-labelledby="phase173-preflight-title">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
-            <div>
-              <p className="text-sm font-semibold text-blue-700">Phase 17.3 前置任务</p>
-              <h2 id="phase173-preflight-title" className="mt-1 text-lg font-semibold">正式资源串联预检</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                核对 Batch A 的 Registry、Observation Link、提示策略与材料关系声明。旧版本缺少声明时只建立受控新版本，不改题目、Rubric 或能力语义。
-              </p>
-              {phase173Preflight && (
-                <div className={`mt-4 border-l-4 px-4 py-3 text-sm ${phase173Preflight.status === 'blocked' ? 'border-amber-500 bg-amber-50 text-amber-950' : 'border-emerald-500 bg-emerald-50 text-emerald-950'}`}>
-                  <p className="font-semibold">
-                    {phase173Preflight.status === 'blocked' ? '前置检查存在阻断项' : '前置检查通过'}
-                  </p>
-                  <p className="mt-1 leading-6">
-                    Registry {phase173Preflight.activeRegistryCount} / 8 · 正式关联 {phase173Preflight.activeObservationLinkCount} / 8 · Runtime 声明 {phase173Preflight.declarationReadyCount} / 8
-                  </p>
-                  <p className="mt-1 leading-6">
-                    Live 样例：{phase173Preflight.sampleSet.map((sample) => `${roleLabels[sample.taskRole]} ${sample.resourceVersionId}`).join('；') || '尚未就绪'}
-                  </p>
-                  {phase173Preflight.issues.length > 0 && (
-                    <p className="mt-1 leading-6">阻断：{phase173Preflight.issues.join('；')}</p>
-                  )}
-                </div>
-              )}
-            </div>
-            <ActionButton onClick={executePhase173Preflight} disabled={busy} icon={ShieldCheck}>
-              运行 17.3 前置检查
-            </ActionButton>
-          </div>
+          <Metric label="学习材料" value={snapshot.materials.length} />
+          <Metric label="训练任务" value={snapshot.plans.length} />
+          <Metric label="待审核题目" value={snapshot.drafts.filter((draft) => draft.tags.includes('phase17.2')).length} />
+          <Metric label="已发布练习" value={snapshot.links.filter((link) => link.status === 'active').length} />
         </section>
 
         {notice && <div role="status" className={`mt-5 border-l-4 px-4 py-3 text-sm leading-6 ${notice.type === 'error' ? 'border-red-500 bg-red-50 text-red-800' : 'border-emerald-500 bg-emerald-50 text-emerald-800'}`}>{notice.message}</div>}
 
-        <div className="mt-8 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_480px]">
+        <div className="mt-8 space-y-10">
           <section>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-blue-700">1. 材料</p>
-                <h2 className="mt-1 text-lg font-semibold">先确定共同语境</h2>
+            <div className="flex justify-center">
+              <div className="inline-flex rounded-md border border-slate-300 bg-white p-1" aria-label="素材录入方式">
+                <button type="button" onClick={showExistingMaterials} disabled={snapshot.materials.length === 0} className={`min-h-8 rounded px-3 text-sm ${materialMode === 'existing' ? 'bg-emerald-600 text-white' : 'text-slate-600'} disabled:opacity-40`}>选择已有素材</button>
+                <button type="button" onClick={showNewMaterialForm} className={`min-h-8 rounded px-3 text-sm ${materialMode === 'new' ? 'bg-emerald-600 text-white' : 'text-slate-600'}`}>录入新素材</button>
               </div>
-              <select value={selectedMaterialId} onChange={(event) => { setSelectedMaterialId(event.target.value); setSelectedPlanId(''); }} className="min-h-10 max-w-[280px] rounded-md border border-slate-300 bg-white px-3 text-sm">
-                <option value="">选择已有材料</option>
-                {snapshot.materials.map((material) => <option key={material.materialVersionId} value={material.materialVersionId}>{material.title}</option>)}
-              </select>
             </div>
 
-            {!selectedMaterial && (
-              <div className="mt-5 border-t border-slate-200 pt-5">
-                <label className="block text-sm font-semibold">材料标题<input value={materialForm.title} onChange={(event) => setMaterialForm((value) => ({ ...value, title: event.target.value }))} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
-                <label className="mt-4 block text-sm font-semibold">材料正文<textarea value={materialForm.content} onChange={(event) => setMaterialForm((value) => ({ ...value, content: event.target.value }))} rows={10} className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 font-normal leading-7" placeholder="每个自然段换行。" /></label>
+            {materialMode === 'existing' && snapshot.materials.length > 0 && (
+              <label className="mt-5 block text-sm font-semibold">
+                已有素材
+                <select value={selectedMaterialId} onChange={(event) => { setSelectedMaterialId(event.target.value); setSelectedPlanId(''); }} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal">
+                  {snapshot.materials.map((material) => <option key={material.materialVersionId} value={material.materialVersionId}>{material.title}</option>)}
+                </select>
+              </label>
+            )}
+
+            {materialMode === 'new' && (
+              <div className="mt-5">
+                <label className="block text-sm font-semibold">素材标题<input value={materialForm.title} onChange={(event) => setMaterialForm((value) => ({ ...value, title: event.target.value }))} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
+                <label className="mt-4 block text-sm font-semibold">素材正文<textarea value={materialForm.content} onChange={(event) => setMaterialForm((value) => ({ ...value, content: event.target.value }))} rows={10} className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 font-normal leading-7" placeholder="每个自然段换行。" /></label>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <label className="block text-sm font-semibold">来源说明<input value={materialForm.description} onChange={(event) => setMaterialForm((value) => ({ ...value, description: event.target.value }))} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
                   <label className="block text-sm font-semibold">版权备注<input value={materialForm.copyrightNote} onChange={(event) => setMaterialForm((value) => ({ ...value, copyrightNote: event.target.value }))} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
                 </div>
-                <button type="button" onClick={addMaterial} disabled={busy || !materialForm.title.trim() || !materialForm.content.trim()} className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white disabled:opacity-40"><FilePlus2 size={16} />保存材料</button>
+                <button type="button" onClick={addMaterial} disabled={busy || !materialForm.title.trim() || !materialForm.content.trim()} className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white disabled:opacity-40"><FilePlus2 size={16} />保存素材</button>
               </div>
             )}
 
-            {selectedMaterial && (
+            {materialMode === 'existing' && selectedMaterial && (
               <div className="mt-5">
                 <div className="flex items-center gap-2 text-sm text-slate-500"><BookOpen size={16} /><span>{paragraphs.length} 个自然段</span></div>
                 <div className="mt-4 max-h-[660px] space-y-5 overflow-y-auto border-t border-slate-200 py-5 pr-3">
@@ -460,24 +461,22 @@ export default function MaterialResourceProductionWorkbench() {
             )}
           </section>
 
-          <section className="border-l-0 border-slate-200 lg:border-l lg:pl-8">
+          <section className="border-t border-slate-200 pt-8">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-blue-700">2. 观测任务</p>
-                <h2 className="mt-1 text-lg font-semibold">{selectedPlan ? '当前计划的真实任务' : '设计 3–6 个题目入口'}</h2>
+                <h2 className="text-lg font-semibold">训练任务（<span className="text-emerald-600">{tasks.length}</span>/6）</h2>
               </div>
-              <span className="text-sm text-slate-500">{tasks.length} / 6</span>
             </div>
             {selectedPlan && (
               <div className="mt-4 border-l-4 border-blue-500 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-950">
-                正在显示第 {selectedPlan.revision} 版{statusLabels[selectedPlan.status]}的实际内容。直接查看即可；只有修改字段并生成修订计划，才会建立新版本。
+                当前正在查看第 {selectedPlan.revision} 版训练任务（{statusLabels[selectedPlan.status]}）。浏览不会改变内容；修改后点击“生成修订计划”，系统才会创建新版本。
               </div>
             )}
-            <section className="mt-5 border-y border-slate-200 py-5" aria-labelledby="ai-observation-generator-title">
+            <section className="mt-4 py-3" aria-labelledby="ai-observation-generator-title">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h3 id="ai-observation-generator-title" className="flex items-center gap-2 text-sm font-semibold"><Sparkles size={16} className="text-blue-700" />AI 结构化首稿</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">AI 先识别值得观察的内容，再生成对应题目入口和评价首稿；结果只保留在隔离候选区，不自动保存、审核或 Freeze。</p>
+                  <h3 id="ai-observation-generator-title" className="flex items-center gap-2 text-sm font-semibold"><Sparkles size={16} className="text-emerald-600" />AI 生成训练任务初稿</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">AI 会先分析学习材料，再生成可编辑的训练任务和评价标准。生成结果仅作为待确认初稿，不会自动保存、送审或发布。</p>
                 </div>
                 <span className={`text-xs font-semibold ${generatorStatus?.status === 'ready' ? 'text-emerald-700' : 'text-amber-700'}`}>
                   {generatorStatus?.status === 'ready' ? `DeepSeek 已就绪 · ${generatorStatus.model}` : 'AI 服务未配置'}
@@ -494,18 +493,18 @@ export default function MaterialResourceProductionWorkbench() {
                 <div className="mt-2 flex flex-wrap gap-2">
                   {abilityOptions.map(([abilityId, label]) => {
                     const selected = generatorPreferences.preferredAbilityIds.includes(abilityId);
-                    return <button key={abilityId} type="button" aria-pressed={selected} onClick={() => togglePreferredAbility(abilityId)} className={`min-h-9 rounded-md border px-3 text-xs font-semibold ${selected ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-600'}`}>{label}</button>;
+                    return <button key={abilityId} type="button" aria-pressed={selected} onClick={() => togglePreferredAbility(abilityId)} className={`min-h-9 rounded-md border px-3 text-xs font-semibold ${selected ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-slate-300 bg-white text-slate-600'}`}>{label}</button>;
                   })}
                 </div>
               </div>
-              <p className="mt-3 text-xs leading-5 text-slate-500">当前材料库存：{generatorInventory.observations.length} 个 Observation · {generatorInventory.questions.length} 个题目入口。再次生成会先比较库存，只有新 Observation 可以导入。</p>
+              <p className="mt-3 text-xs leading-5 text-slate-500">当前素材库存：{generatorInventory.observations.length} 个 Observation · {generatorInventory.questions.length} 个题目入口。再次生成会先比较库存，只有新 Observation 可以导入。</p>
               <button type="button" onClick={generateObservationCandidates} disabled={generatorBusy || generatorStatus?.status !== 'ready' || !selectedMaterial} className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-40">
                 <Sparkles size={16} />
                 {generatorBusy
-                  ? '正在分析材料并生成候选…'
+                  ? '正在分析素材并生成候选…'
                   : generatorResult
                     ? '再次寻找未覆盖观测任务'
-                    : '根据当前材料生成观测任务首稿'}
+                    : '根据当前素材生成观测任务首稿'}
               </button>
               {generatorResult && <GeneratorCandidatePreview result={generatorResult} onImport={importGeneratedCandidates} />}
             </section>
@@ -520,7 +519,7 @@ export default function MaterialResourceProductionWorkbench() {
               <div className="mt-2 flex flex-wrap gap-2">
                 {dimensionOptions.map(([dimensionId, label]) => {
                   const covered = tasks.some((task) => task.primaryDimension === dimensionId);
-                  return <span key={dimensionId} className={`rounded px-2 py-1 text-xs font-semibold ${covered ? 'bg-blue-50 text-blue-800' : 'bg-slate-100 text-slate-400'}`}>材料维度 · {label}</span>;
+                  return <span key={dimensionId} className={`rounded px-2 py-1 text-xs font-semibold ${covered ? 'bg-blue-50 text-blue-800' : 'bg-slate-100 text-slate-400'}`}>素材维度 · {label}</span>;
                 })}
               </div>
             </div>
@@ -543,7 +542,7 @@ export default function MaterialResourceProductionWorkbench() {
                     <Select label="难度" value={task.difficulty} options={difficultyOptions} onChange={(value) => updateTask(index, { difficulty: value })} />
                   </div>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <Select label="材料范围" value={task.anchorType} options={anchorOptions} onChange={(value) => updateTask(index, { anchorType: value })} />
+                    <Select label="素材范围" value={task.anchorType} options={anchorOptions} onChange={(value) => updateTask(index, { anchorType: value })} />
                     {task.anchorType !== 'full_text' && <label className="block text-sm font-medium">起始段落<input type="number" min="1" max={Math.max(paragraphs.length, 1)} value={task.startParagraph} onChange={(event) => updateTask(index, { startParagraph: Number(event.target.value) })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>}
                     {task.anchorType === 'paragraph_range' && <label className="block text-sm font-medium">结束段落<input type="number" min={task.startParagraph} max={Math.max(paragraphs.length, 1)} value={task.endParagraph} onChange={(event) => updateTask(index, { endParagraph: Number(event.target.value) })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>}
                   </div>
@@ -620,7 +619,7 @@ export default function MaterialResourceProductionWorkbench() {
         <section className="mt-10 border-t border-slate-200 pt-7">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold text-blue-700">3. 审核与正式化</p>
+              <p className="text-sm font-semibold text-blue-700">审核与正式化</p>
               <h2 className="mt-1 text-lg font-semibold">复用现有校验、审核与 Freeze 链</h2>
               <p className="mt-2 max-w-[720px] text-sm leading-6 text-slate-600">生产工具只生成并校验 Draft；正式资源仍需逐题审核，不能自动进入 Registry。</p>
             </div>
@@ -632,7 +631,7 @@ export default function MaterialResourceProductionWorkbench() {
           </div>
 
           {!selectedPlan ? (
-            <p className="mt-5 text-sm text-slate-500">选择材料并生成观测计划后，审核流程会显示在这里。</p>
+            <p className="mt-5 text-sm text-slate-500">选择素材并生成观测计划后，审核流程会显示在这里。</p>
           ) : (
             <>
               <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -654,7 +653,7 @@ export default function MaterialResourceProductionWorkbench() {
                             <p className="text-xs font-semibold text-blue-700">{abilityLabels[task.abilityId]} · {roleLabels[task.taskRole]}</p>
                           </div>
                           <p className="mt-2 text-sm leading-6 text-slate-600">观察：{dimensionLabels[task.primaryDimension]} · {task.observationFocus?.displayName || '未命名焦点'} · 难度：{difficultyLabels[task.difficulty]}</p>
-                          <p className="mt-1 text-sm leading-6 text-slate-600">材料范围：{formatTaskAnchor(task, snapshot.anchors)}</p>
+                          <p className="mt-1 text-sm leading-6 text-slate-600">素材范围：{formatTaskAnchor(task, snapshot.anchors)}</p>
                           <p className="mt-1 text-sm leading-6 text-slate-700">学生需要完成：{task.expectedStudentAction}</p>
                           <p className="mt-1 text-sm leading-6 text-slate-500">设计理由：{task.designReason}</p>
                           {task.intendedComparisonGroupId && <p className="mt-1 text-sm leading-6 text-slate-500">比较链：{task.intendedComparisonGroupId}</p>}
@@ -690,6 +689,14 @@ export default function MaterialResourceProductionWorkbench() {
           )}
         </section>
       </main>
+      {toast && (
+        <WorkspaceToast
+          key={toast.id}
+          message={toast.message}
+          duration={3000}
+          onDismiss={() => setToast((current) => current?.id === toast.id ? null : current)}
+        />
+      )}
     </div>
   );
 }
@@ -712,28 +719,28 @@ function ActionButton({ icon: Icon, children, ...props }) {
 
 function AssistedDraftWorkflow({ stage }) {
   const stages = [
-    ['candidate', 'AI 候选'],
-    ['imported', '导入编辑区'],
-    ['observation_plan', '观测计划'],
+    ['candidate', '生成初稿'],
+    ['imported', '编辑确认'],
+    ['observation_plan', '提交审核'],
     ['question_review', '逐题审核'],
-    ['frozen', 'Frozen'],
+    ['frozen', '正式发布'],
   ];
+  if (stage === 'material') return null;
   const currentIndex = stages.findIndex(([value]) => value === stage);
   return (
-    <div className="mt-4" aria-label="辅助首稿正式化进度">
-      <p className="text-xs font-semibold text-slate-500">正式化进度</p>
+    <div className="mt-4" aria-label="训练任务发布进度">
+      <p className="text-xs font-semibold text-slate-500">发布进度</p>
       <ol className="mt-2 grid grid-cols-5 gap-1">
         {stages.map(([value, label], index) => {
           const reached = currentIndex >= 0 && index <= currentIndex;
           const current = value === stage;
           return (
-            <li key={value} className={`min-w-0 border-t-2 pt-2 text-center text-[11px] font-semibold leading-4 ${reached ? 'border-blue-600 text-blue-800' : 'border-slate-200 text-slate-400'} ${current ? 'bg-blue-50' : ''}`}>
+            <li key={value} className={`min-w-0 border-t-2 pt-2 text-center text-[11px] font-semibold leading-4 ${reached ? 'border-emerald-600 text-emerald-800' : 'border-slate-200 text-slate-400'} ${current ? 'bg-emerald-50' : ''}`}>
               {index + 1}. {label}
             </li>
           );
         })}
       </ol>
-      {stage === 'material' && <p className="mt-2 text-xs leading-5 text-slate-500">选择材料并生成候选后，流程才会进入第一步。</p>}
     </div>
   );
 }
@@ -758,7 +765,7 @@ function GeneratorCandidatePreview({ result, onImport }) {
                 ? '本轮没有发现可导入的新 Observation'
                 : '候选暂不可导入'}
         </p>
-        <p className="text-xs text-slate-500">表面候选 {result.coveragePreview.surfaceCandidateCount} · 新观测 {result.coveragePreview.newObservationCount} · 替代题 {result.coveragePreview.alternateQuestionCount} · 疑似重复 {result.coveragePreview.likelyDuplicateCount} · 材料不支持 {result.coveragePreview.unsupportedByMaterialCount}</p>
+        <p className="text-xs text-slate-500">表面候选 {result.coveragePreview.surfaceCandidateCount} · 新观测 {result.coveragePreview.newObservationCount} · 替代题 {result.coveragePreview.alternateQuestionCount} · 疑似重复 {result.coveragePreview.likelyDuplicateCount} · 素材不支持 {result.coveragePreview.unsupportedByMaterialCount}</p>
       </div>
       {!result.validation.passed && result.validation.issues.length > 0 && (
         <div className="mt-3 border-l-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950">
@@ -771,7 +778,7 @@ function GeneratorCandidatePreview({ result, onImport }) {
       <div className="mt-3 space-y-1 text-xs leading-5 text-slate-600">
         <p><strong className="text-slate-800">比较库存：</strong>{result.coveragePreview.existingObservationCount} 个已有 Observation · {result.coveragePreview.existingQuestionCount} 个已有题目入口</p>
         <p><strong className="text-slate-800">能力覆盖：</strong>{abilitySummary.join('、') || '尚无合法候选'}</p>
-        <p><strong className="text-slate-800">材料维度：</strong>{dimensionSummary.join('、') || '尚无合法候选'}</p>
+        <p><strong className="text-slate-800">素材维度：</strong>{dimensionSummary.join('、') || '尚无合法候选'}</p>
         {result.coveragePreview.possibleDuplicatePairs.length > 0 && <p className="text-amber-700"><strong>重复检查：</strong>发现 {result.coveragePreview.possibleDuplicatePairs.length} 组疑似重复，已隔离且不会增加覆盖。</p>}
       </div>
       {result.candidates.length > 0 && (
@@ -790,7 +797,7 @@ function GeneratorCandidatePreview({ result, onImport }) {
                 <p className="text-xs font-semibold text-slate-500">题目入口</p>
                 <p className="mt-1 text-sm font-medium leading-6 text-slate-900">{candidate.questionStem}</p>
               </div>
-              <p className="mt-2 text-xs leading-5 text-slate-500">材料范围：{formatCandidateAnchor(candidate.materialAnchor)}</p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">素材范围：{formatCandidateAnchor(candidate.materialAnchor)}</p>
               <p className="mt-1 text-sm leading-6 text-slate-600">学生需要完成：{candidate.expectedStudentAction}</p>
               <details className="mt-2">
                 <summary className="cursor-pointer text-xs font-semibold text-blue-700">检查 Rubric、证据边界与校准答案</summary>
@@ -837,7 +844,7 @@ function GeneratorCandidatePreview({ result, onImport }) {
       )}
       {result.limitations.length > 0 && (
         <div className="mt-3 text-xs leading-5 text-slate-500">
-          <p className="font-semibold text-slate-700">{providerFailed ? '安全处理结果' : '材料与生成限制'}</p>
+          <p className="font-semibold text-slate-700">{providerFailed ? '安全处理结果' : '素材与生成限制'}</p>
           <ul className="mt-1 space-y-1">
             {result.limitations.map((limitation, index) => <li key={`${index}-${limitation}`}>- {generatorLimitationLabel(limitation)}</li>)}
           </ul>
@@ -891,7 +898,7 @@ function DraftProductionChecklist({ items }) {
                 <div className="mt-3 grid gap-4 border-l-2 border-slate-200 pl-4 text-sm leading-6 md:grid-cols-2">
                   <PreviewField label="Rubric" value={draft.rubric.map((item) => `${item.name}：${item.description || item.acceptedSignals.join('、')}`).join('\n')} />
                   <PreviewField label="Answer Acceptance" value={formatAnswerAcceptance(draft.answerAcceptance)} />
-                  <PreviewField label="最低作答要求" value={`不少于 ${draft.minimumAnswerRequirement.minLength} 字；${draft.minimumAnswerRequirement.requireTextEvidence ? '需要材料依据' : '不强制材料依据'}；${draft.minimumAnswerRequirement.requireExplanation ? '需要解释' : '不强制解释'}`} />
+                  <PreviewField label="最低作答要求" value={`不少于 ${draft.minimumAnswerRequirement.minLength} 字；${draft.minimumAnswerRequirement.requireTextEvidence ? '需要素材依据' : '不强制素材依据'}；${draft.minimumAnswerRequirement.requireExplanation ? '需要解释' : '不强制解释'}`} />
                   <PreviewField label="正式化状态" value={frozen ? `已生成正式版本 ${frozen.versionNumber}` : '尚未 Freeze；请在逐题审核工作台完成确认'} />
                 </div>
               </details>
@@ -932,7 +939,7 @@ function formatAnswerAcceptance(value) {
 function createInitialTasks() { return [createTask(0), createTask(1), createTask(2)]; }
 function createTask(index) {
   const presets = [
-    { primaryDimension: 'fact', abilityId: 'extraction', focusDisplayName: '关键信息提取', focusDefinition: '准确找到与题目直接相关的显性事实。', questionStem: '', expectedStudentAction: '从材料中提取与题目直接相关的事实。' },
+    { primaryDimension: 'fact', abilityId: 'extraction', focusDisplayName: '关键信息提取', focusDefinition: '准确找到与题目直接相关的显性事实。', questionStem: '', expectedStudentAction: '从素材中提取与题目直接相关的事实。' },
     { primaryDimension: 'character', abilityId: 'inference', focusDisplayName: '人物心理推断', focusDefinition: '依据人物动作或语言形成克制的心理推断。', questionStem: '', expectedStudentAction: '根据人物动作或语言推断其心理，并说明依据。' },
     { primaryDimension: 'theme', abilityId: 'comprehension', focusDisplayName: '情感与态度理解', focusDefinition: '结合全文内容理解作者表达的情感或态度。', questionStem: '', expectedStudentAction: '结合全文内容理解作者表达的情感或态度。' },
   ];
@@ -952,7 +959,7 @@ function createTask(index) {
     minLength: preset.abilityId === 'extraction' ? 6 : 12,
     rubric: [createRubricItem(preset.abilityId, 0)],
     calibrationCases: createCalibrationCases(),
-    designReason: '该任务用于观察学生能否完成对应的材料处理动作。',
+    designReason: '该任务用于观察学生能否完成对应的素材处理动作。',
   };
 }
 
@@ -1182,15 +1189,15 @@ function candidateDispositionLabel(disposition) {
     new_observation_candidate: '新 Observation',
     alternate_question_for_existing_observation: '既有 Observation 的替代问法',
     likely_duplicate: '疑似重复',
-    unsupported_by_material: '材料不支持',
+    unsupported_by_material: '素材不支持',
   })[disposition] || disposition;
 }
 
 function actionForAbility(abilityId) {
   return ({
-    extraction: '从材料中提取与题目直接相关的事实。', comprehension: '结合语境说明材料内容的含义。',
-    summarization: '整合材料信息并形成简洁概括。', analysis: '建立材料依据与分析结论之间的关系。',
-    inference: '根据材料线索形成合理推断并说明依据。', expression: '组织观点、材料依据和清楚表达。',
+    extraction: '从素材中提取与题目直接相关的事实。', comprehension: '结合语境说明素材内容的含义。',
+    summarization: '整合素材信息并形成简洁概括。', analysis: '建立素材依据与分析结论之间的关系。',
+    inference: '根据素材线索形成合理推断并说明依据。', expression: '组织观点、素材依据和清楚表达。',
   })[abilityId];
 }
 function toTaskInput(task) {
@@ -1321,7 +1328,7 @@ function calibrationCategoryLabel(category) {
 
 function formatTaskAnchor(task, anchors) {
   const anchor = anchors.find((item) => task.sourceAnchorIds.includes(item.sourceAnchorId));
-  if (!anchor) return '未找到正式材料锚点';
+  if (!anchor) return '未找到正式素材锚点';
   if (anchor.anchorType === 'full_text') return '全文';
   if (anchor.anchorType === 'paragraph_range') return `第 ${anchor.startParagraph}–${anchor.endParagraph} 段`;
   return `第 ${anchor.startParagraph} 段`;
@@ -1363,9 +1370,9 @@ function generatorIssueLabel(issue) {
     observation_focus_missing: '缺少 Observation Focus',
     observation_focus_name_missing: '缺少 Observation Focus 名称',
     observation_focus_definition_missing: '缺少 Observation Focus 定义',
-    material_anchor_missing: '缺少材料范围',
-    material_anchor_type_invalid: '材料范围类型不合法',
-    material_anchor_out_of_range: '引用的材料段落超出当前材料范围',
+    material_anchor_missing: '缺少素材范围',
+    material_anchor_type_invalid: '素材范围类型不合法',
+    material_anchor_out_of_range: '引用的素材段落超出当前素材范围',
     supporting_ability_duplicates_primary: '辅助能力与 Primary Ability 重复',
     rubric_missing: '缺少 Rubric',
     answer_acceptance_missing: '缺少 Answer Acceptance',
