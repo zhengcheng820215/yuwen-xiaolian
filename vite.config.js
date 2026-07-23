@@ -5,6 +5,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createPhase163DiagnosisBoundary } from './src/server/phase163DiagnosisBoundary.ts';
 import { createStudentWritingCorrectionBoundary } from './src/server/studentWritingCorrectionBoundary.ts';
+import { createMaterialObservationDraftGeneratorBoundary } from './src/server/materialObservationDraftGeneratorBoundary.ts';
 
 const execFileAsync = promisify(execFile);
 
@@ -18,6 +19,7 @@ export default defineConfig({
       configureServer(server) {
       server.middlewares.use('/__runtime/phase16-3/diagnose', createPhase163DiagnosisBoundary());
       server.middlewares.use('/__runtime/phase16-3/writing-corrections', createStudentWritingCorrectionBoundary());
+      server.middlewares.use('/__runtime/phase17/material-observation-candidates', createMaterialObservationDraftGeneratorBoundary());
       server.middlewares.use('/__demo/deepseek-chat', async (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405;

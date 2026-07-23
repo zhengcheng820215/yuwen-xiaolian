@@ -332,7 +332,8 @@ Formal DiagnosisResult
 | 16.3 | Real Learning Operation and Multi-day Continuity（16.3A / B / C 内部工作包） | IN PROGRESS（A / B PASS / FROZEN；C ENGINEERING + HUMAN DEMO PASS / NATURAL-DAY PENDING 0 / 5） | [Phase 16.3](../education/phase/phase16_3.md) |
 | 17 | Learning Resource Coverage Expansion + Material-grounded Ability Observation Foundation（17.1 / 17.2 / 17.3） | ACCEPTED / IN PROGRESS | [Phase 17](../education/phase/phase17.md) |
 | 17.1 | Resource Coverage Contract | ENGINEERING + HUMAN DEMO PASS / INDEXEDDB SMOKE PENDING | [Phase 17.1](../education/phase/phase17_1.md) |
-| 17.2 | Material Observation Design and First Frozen Resource Pack | RUNTIME + MINIMAL PRODUCTION WORKSPACE ENGINEERING PASS / FORMAL CONTENT PACK + HUMAN ACCEPTANCE PENDING | [Phase 17.2](../education/phase/phase17_2.md) |
+| 17.2 | Material Observation Design and First Frozen Resource Pack | BATCH A OWNER REVIEW + FREEZE + REGISTRY + ACTIVE LINK 8 / 8 PASS / 17.3 MINIMUM GATE OPEN | [Phase 17.2](../education/phase/phase17_2.md) |
+| 17.3 | Formal Resource Runtime Integration and Source Preservation | DESIGN READY FOR REVIEW / ENGINEERING NOT STARTED / BATCH A ENTRY PENDING | [Phase 17.3](../education/phase/phase17_3.md) |
 
 当前准确状态：
 
@@ -420,9 +421,9 @@ Phase 16.3 已冻结设计并拆为三个顺序工作包。16.3A / B 为 `PASS /
 
 ### Phase 17：学习资源覆盖扩展
 
-Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster 为组织基础、以能力观测为目标、能够被正式 Runtime 消费和验证的第一套学习资源体系。阶段在既有 Phase 16 资源准入与匹配边界上建立 `Material -> Observation Dimension -> Ability Action -> Question Resource` 的材料能力观测基础。Material Cluster 是内容规划与覆盖聚合的一级单位，Observation Dimension 描述观察材料的什么侧面，Ability Action 描述学生如何处理内容，Frozen Question Resource 仍是审核、版本、匹配和执行的正式资源单位。17.1 已完成 Coverage Runtime、`22 / 22` 专项 Debug 与 Dashboard 人工验收 `8 / 8 PASS`；浏览器 IndexedDB Smoke 仍待完成。17.2 已完成 Material Structure / Anchor、Observation Plan / Review、3—6 题批量 Draft 生产、Existing Phase 16.1 审核与 Freeze 复用、ResourceObservationLink、Pack Manifest 与非权威 Diversity View 的工程实现；核心 Debug `26 / 26 PASS`，最小生产工作台 Debug `12 / 12 PASS`，相关回归与 Production Build 通过，PC / 平板横屏页面级布局 Smoke 通过。首批 4—6 个真实 Material Cluster、26—28 道正式 Frozen Resource、Workspace IndexedDB / 真实内容操作和内容人工验收仍待完成；Debug 合成夹具不计入正式资源包。17.3 将验证观测引用的正式传递。Dimension 暂不进入 Evidence、Profile 或正式 Coverage denominator。
+Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster 为组织基础、以能力观测为目标、能够被正式 Runtime 消费和验证的第一套学习资源体系。阶段在既有 Phase 16 资源准入与匹配边界上建立 `Material -> Observation Dimension -> Ability Action -> Question Resource` 的材料能力观测基础。Material Cluster 是内容规划与覆盖聚合的一级单位，Observation Dimension 描述观察材料的什么侧面，Ability Action 描述学生如何处理内容，Frozen Question Resource 仍是审核、版本、匹配和执行的正式资源单位。17.1 已完成 Coverage Runtime、`22 / 22` 专项 Debug 与 Dashboard 人工验收 `8 / 8 PASS`；浏览器 IndexedDB Smoke 仍待完成。17.2 已完成 Material Structure / Anchor、Observation Plan / Review、3—6 题批量 Draft 生产、Existing Phase 16.1 审核与 Freeze 复用、ResourceObservationLink、Pack Manifest 与非权威 Diversity View 的工程实现；核心 Debug `26 / 26 PASS`，最小生产工作台 Debug `13 / 13 PASS`，Batch A 受控正式化 `14 / 14 PASS`，《潼关》单材料六能力校准 `12 / 12 PASS`，相关回归与 Production Build 通过。辅助首稿生成已完成 `25 / 25 PASS`：Prompt v1.2 / Generator Contract v1.1 只执行“发现新 Observation”，并根据已有 Observation / Question Inventory 将新观测、替代题、疑似重复和材料不支持项分离；只有新观测可导入并增加候选 Coverage。AI Candidate 不能直接 Review、Freeze、写 Registry 或建立 Retest / Transfer。Batch A 浏览器负责人审核、逐题 Freeze、Registry 与 active Observation Link 已完成 `8 / 8`，Phase 17.3 最小入口门已开放。首批资源范围保持 4 个核心 Material Cluster、1—2 个独立新材料 Cluster 和 24—28 道正式 Frozen Resource，并按 Batch A/B/C 形成“单题正式性、资源链可运行、整体覆盖不失衡”三层产出；至少形成 2 条 Training -> Retest、2 条 Training -> Transfer 和 1 条 Strategy 驱动的跨能力连续学习路径。Debug 合成夹具、AI Candidate 与答案 Fixture 均不计入正式资源包。17.3 将验证观测引用和上述学习路径的正式传递。Dimension 暂不进入 Evidence、Profile 或正式 Coverage denominator。
 
-详细文档入口：[Phase 17](../education/phase/phase17.md)、[Phase 17.1](../education/phase/phase17_1.md)、[Phase 17.2](../education/phase/phase17_2.md)。
+详细文档入口：[Phase 17](../education/phase/phase17.md)、[Phase 17.1](../education/phase/phase17_1.md)、[Phase 17.2](../education/phase/phase17_2.md)、[Phase 17.2 First Formal Resource Pack Production Blueprint](../education/phase/phase17_2_first_resource_pack_blueprint.md)。
 
 ## 七、当前重要边界
 
@@ -467,6 +468,7 @@ Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster �
 
 | 想了解什么 | 阅读入口 |
 | --- | --- |
+| 产品负责人控制层、产品级验收和当前优先顺序 | [Product Owner Control Table](../product/PRODUCT_CONTROL_TABLE.md) |
 | 当前系统如何运转 | 本文档 |
 | Runtime 对象如何传递 | [Learning Runtime Overview](LEARNING_RUNTIME_OVERVIEW.md) |
 | 最小闭环开发原则 | [Growth Loop Overview](../education/phase/GROWTH_LOOP_OVERVIEW.md) |
@@ -485,6 +487,7 @@ Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster �
 | PC / 平板学生体验原则 | [PC Learning Workspace UX Calibration](../product/PC_LEARNING_WORKSPACE_UX_CALIBRATION.md) |
 | 单学生产品页面与入口收敛 | [Product Interface Consolidation](../product/STUDENT_PRODUCT_INTERFACE_CONSOLIDATION.md) |
 | 学生学习叙事校准 | [Student Learning Narrative Calibration](../product/STUDENT_LEARNING_NARRATIVE_CALIBRATION.md) |
+| 产品负责人控制表 | [Product Owner Control Table](../product/PRODUCT_CONTROL_TABLE.md) |
 
 推荐阅读顺序：
 

@@ -93,7 +93,7 @@ Phase 17 回答：
 
 1. 当前正式资源来自哪些 Material Cluster，并覆盖了哪些能力、任务角色、难度和作答形式？
 2. 哪些覆盖已经可执行，哪些只是数量存在但不能被 Runtime 消费？
-3. 第一批 20—30 道资源如何形成足以驱动连续学习的最小资源生态？
+3. 第一批 24—28 道资源如何形成足以驱动连续学习的最小资源生态？
 4. Retest 和 Transfer 是否具有必要的材料关系和独立观察价值？
 5. 找不到合适资源时，系统能否形成明确缺口，而不是使用能力错位资源凑匹配？
 6. 新资源进入 Registry 后，覆盖报告和匹配结果能否稳定更新？
@@ -537,18 +537,30 @@ Phase 17.1 的详细 Contract 已进一步明确：Primary Cell Key 为 `ability
 
 > 如何用一批规模可控、质量可审查的正式资源覆盖核心学习流程？
 
-详细 Contract：[Phase 17.2：材料观测设计与首批正式资源包](./phase17_2.md)。
+详细 Contract：[Phase 17.2：材料观测设计与首批正式资源包](./phase17_2.md)。真实内容生产按 [首批正式资源包生产蓝图](./phase17_2_first_resource_pack_blueprint.md) 分 Batch A/B/C 执行；蓝图只管理生产计划和人工验收，不新增 Runtime Schema。
 
-建议首批目标为 26—28 道当前 Frozen Resource：
+首批范围冻结为 24—28 道当前 Frozen Resource。能力数量按整个 Pack 统计，不要求每个 Material Cluster 覆盖六项能力，也不要求每项能力机械配置完整的 Training / Retest / Transfer 组合。
 
-| 建设单元 | 建议数量 | 最小意图 |
+| 能力 | 建议正式题量 | 最小意图 |
 | --- | ---: | --- |
-| 6 项能力 × 2 道 `training` | 12 | 每项能力至少有基础与巩固入口 |
-| 6 项能力 × 1 道 `retest` | 6 | 每项能力具备可比较的复测资源 |
-| 6 项能力 × 1 道 `transfer` | 6 | 每项能力具备新材料迁移入口 |
-| 优先能力的 `diagnosis / observation` | 2—4 | 支持证据不足或冲突时继续观察 |
+| 信息提取 | 3—4 | 覆盖明确事实与必要条件提取 |
+| 理解 | 4—5 | 覆盖句意、行为含义与语境理解 |
+| 概括 | 4—5 | 覆盖事件、段意或要点整合 |
+| 分析 | 4—5 | 覆盖人物、结构、语言或关系分析 |
+| 推理 | 4—5 | 覆盖人物、因果、结构或主题推断 |
+| 表达 | 3—4 | 覆盖观点、依据与表达组织 |
 
-建议使用 4—6 个 Material Cluster，优先接近 6 个；每个材料通常形成 3—6 个由内容真实支持、目标明确的任务。材料可覆盖记叙、成长、写景、议论或校园生活等内容，但主题数量不是验收指标，也不要求每篇材料机械覆盖六项能力。
+首批使用 4 个核心 Material Cluster，并补充 1—2 个具有独立内容语境的新材料 Cluster，用于形成 Retest / Transfer 所需的新观察 Context，总计 5—6 个 Material Cluster。这里的“用于 Transfer”只是首批建设用途，不是 Material Cluster 的永久类型；TaskRole 仍属于具体 Frozen Question Resource。
+
+每个材料通常形成 3—6 个由内容真实支持、目标明确的任务。材料可覆盖记叙、成长、写景、议论或校园生活等内容，但主题数量不是验收指标，也不要求每篇材料机械覆盖六项能力。
+
+首批 Pack 至少形成：
+
+- 2 条完整的 `Training -> Retest` 资源链；
+- 2 条完整的 `Training -> Transfer` 资源链；
+- 1 条由正式 Strategy 驱动、经过两个或以上 Ability Action 的跨能力连续学习路径。
+
+纵向资源链必须保持能力对齐并使用可验证的独立材料关系。跨能力路径是 Phase 17.3 的集成验收场景，不得由页面或 Resource Pack 写死为固定发题顺序。
 
 首批 Pack 的质量优先于数量。每项资源必须具备：
 
@@ -631,6 +643,10 @@ PDF Source
 6. PDF / OCR 失败不得阻塞手工录入，也不得成为 Runtime 的备用取题路径。
 
 ## 十二、Phase 17.3：Runtime 覆盖集成
+
+独立工程文档：[Phase 17.3：正式资源运行集成与来源保持](./phase17_3.md)
+
+当前状态：`DESIGN READY FOR REVIEW / ENGINEERING NOT STARTED`。文档可先冻结；最小工程串联须等待 Phase 17.2 Batch A 提供约 8 道 Human Reviewed、Frozen、Registered、Linked 且可正式查询的真实资源。Phase 17.3 最终产品 PASS 仍须等待完整 24—28 道首批正式资源包。
 
 核心问题：
 
@@ -741,17 +757,17 @@ Draft、pending review、rejected、superseded、retired 或 Rubric 不完整资
 
 资源建设先形成 Material Cluster Plan 和 Observation Task Plan，再生成 Question Draft；不得用一组无材料关系的散题替代材料规划。
 
-**Case 8：六项能力 Training 覆盖**
+**Case 8：六项能力整体覆盖**
 
-每项能力至少有 2 道当前可执行 Training Resource。
+六项能力均达到首批 Pack 的整体建议区间；不以逐能力 TaskRole 配额制造虚假覆盖。
 
 **Case 9：Retest 可比较但不重复**
 
-复测资源保持目标能力和核心要求可比较，但不是原题或旧作答的复制。
+至少两项能力形成 Training 与 Retest 的正式资源链；两端保持能力对齐、使用独立材料且不重复原题。运行时可比性仍由 Phase 13 / 14 校验。
 
 **Case 10：Transfer 使用新材料 Context**
 
-Transfer Resource 与基线 Training 的 `materialClusterId` 不同。
+至少两项能力形成 Training 与 Transfer 的正式资源链；Transfer Resource 与基线 Training 的 `materialClusterId` 不同。
 
 **Case 11：能力边界审核**
 
@@ -838,14 +854,13 @@ Round 1 正式结果形成 Strategy 与 TaskRequest，Round 2 使用对应 Froze
 
 ### Phase 17.2
 
-- 首批形成 26—28 道当前审核有效 Frozen Resource；
-- 形成 4—6 个可追溯 Material Cluster，优先接近 6 个；
-- 六项能力各至少 2 道 Training；
-- 六项能力各至少 1 道 Retest；
-- 六项能力各至少 1 道 Transfer；
+- 首批形成 24—28 道当前审核有效 Frozen Resource；
+- 形成 4 个核心 Material Cluster 和 1—2 个独立新材料 Cluster，总计 5—6 个；
+- 六项能力在整个 Pack 层面达到受控分布目标，不要求逐能力补齐三种 TaskRole；
+- 至少形成 2 条 `Training -> Retest` 和 2 条 `Training -> Transfer` 资源链；
+- 至少形成 1 条由正式 Strategy 驱动的跨能力连续学习路径；
 - Transfer 具备新 Material Cluster；
-- Retest 可比较但不重复原题；
-- 优先能力具备 2—4 道 Diagnosis / Observation 资源；
+- Retest 保持能力对齐、不重复原题，正式可比性仍由运行时校验；
 - 100% 具有来源、Rubric、AnswerAcceptance、Review、Version 和 Registry 追溯；
 - Dashboard 可以从 Material Cluster 查看 Question Resources，也可以从 Ability 反查来源 Material Clusters；
 - advanced 和未完成学生端验收的题型继续被明确记录为 Gap，不虚报覆盖；
@@ -895,11 +910,11 @@ Phase 17 第一版不做：
 2. 实现 Registry Snapshot -> Coverage Report；
 3. 建立轻量 Coverage Dashboard；
 4. 输出第一批资源 Gap List；
-5. 建立 4—6 个 Material Cluster Plan；
+5. 建立 4 个核心 Material Cluster Plan 和 1—2 个独立新材料 Plan；
 6. 完成 Material Intake、校对、来源、版权与 Material Structure 追溯；
 7. 为每个 Material Version 建立并复核 Material Observation Plan；
 8. 从高价值 Dimension × Ability 组合生成 Observation Task Plan；
-9. 按计划生产、审核并冻结 26—28 道资源；
+9. 按计划生产、审核并冻结 24—28 道资源；
 10. 回算 Primary Coverage Report 与 Observation Diversity View；
 11. 执行 Strategy -> TaskRequest -> Match 集成；
 12. 验证 Observation Plan 引用在 Resource -> Task 中保持可追溯；

@@ -784,7 +784,7 @@ Phase 17.1 当前工程与 Debug 验收通过后可以宣称：
 
 仍不能宣称：
 
-- 已经建设首批 26—28 道 Frozen Resource；
+- 已经建设首批 24—28 道 Frozen Resource；
 - 所有六项能力都已达到 covered；
 - 下一轮一定能匹配到正式任务；
 - 已经证明 Retest 可比性或 Transfer 新颖性；

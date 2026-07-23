@@ -9,8 +9,11 @@ import type {
   MaterialObservationReviewDecision,
   MaterialSourceAnchor,
   MaterialStructureSnapshot,
+  ObservationCalibrationCase,
   ObservationDimension,
   ObservationDiversityView,
+  ObservationFocus,
+  ObservationResourceDraftSpecification,
   ObservationTaskPlan,
   ResourceObservationLink,
 } from '../schemas/materialObservation.schema.ts';
@@ -31,15 +34,20 @@ import {
 
 export type MaterialProductionTaskInput = {
   primaryDimension: ObservationDimension;
+  observationFocus?: ObservationFocus;
   abilityId: PrimaryAbilityId;
   taskRole: RecommendedTaskRole;
   difficulty: ObservationTaskPlan['difficulty'];
-  startParagraph: number;
+  anchorType?: MaterialSourceAnchor['anchorType'];
+  startParagraph?: number;
   endParagraph?: number;
   questionStem: string;
   expectedStudentAction: string;
   designReason: string;
+  intendedComparisonGroupId?: string;
   materialRelationIntent?: ObservationTaskPlan['materialRelationIntent'];
+  resourceDraftSpecification?: ObservationResourceDraftSpecification;
+  calibrationCases?: ObservationCalibrationCase[];
 };
 
 export type MaterialProductionDraftResult = {
@@ -110,10 +118,14 @@ export async function createMaterialProductionPlan(
     || await createMaterialStructure(resourceRepository, observationRepository, input.materialVersionId, now);
   const anchors: MaterialSourceAnchor[] = [];
   for (const task of input.tasks) {
+    const anchorType = task.anchorType
+      || (task.startParagraph && task.endParagraph && task.endParagraph !== task.startParagraph
+        ? 'paragraph_range'
+        : 'paragraph');
     anchors.push(await createMaterialAnchor(resourceRepository, observationRepository, {
       materialVersionId: input.materialVersionId,
       materialStructureSnapshotId: structure.materialStructureSnapshotId,
-      anchorType: task.endParagraph && task.endParagraph !== task.startParagraph ? 'paragraph_range' : 'paragraph',
+      anchorType,
       startParagraph: task.startParagraph,
       endParagraph: task.endParagraph,
     }));
@@ -141,6 +153,7 @@ export async function createMaterialProductionPlan(
     dimensionReviews,
     taskPlans: input.tasks.map((task, index) => ({
       primaryDimension: task.primaryDimension,
+      observationFocus: task.observationFocus,
       abilityId: task.abilityId,
       taskRole: task.taskRole,
       difficulty: task.difficulty,
@@ -148,7 +161,10 @@ export async function createMaterialProductionPlan(
       observationGoal: task.questionStem,
       expectedStudentAction: task.expectedStudentAction,
       designReason: task.designReason,
+      intendedComparisonGroupId: task.intendedComparisonGroupId,
       materialRelationIntent: task.materialRelationIntent,
+      resourceDraftSpecification: task.resourceDraftSpecification,
+      calibrationCases: task.calibrationCases,
     })),
     now,
   });
@@ -199,13 +215,15 @@ export async function createAndValidateQuestionDraftBatch(
           draftId,
           resourceId: productionResourceId(task.observationTaskPlanId),
           taskId: productionQuestionId(task.observationTaskPlanId),
-          title: `${abilityLabel(task.abilityId)} · ${dimensionLabel(task.primaryDimension)}`,
+          title: task.resourceDraftSpecification?.title
+            || `${abilityLabel(task.abilityId)} · ${dimensionLabel(task.primaryDimension)}`,
           questionStem: task.observationGoal,
-          questionType: 'reading_comprehension',
-          responseFormat: 'long_text',
-          assessmentMode: 'reasoning_chain',
-          answerAcceptance: { semanticEquivalentAllowed: true, normalizationRules: ['trim', 'ignore_punctuation'] },
-          rubric: [{
+          questionType: task.resourceDraftSpecification?.questionType || 'reading_comprehension',
+          responseFormat: task.resourceDraftSpecification?.responseFormat || 'long_text',
+          assessmentMode: task.resourceDraftSpecification?.assessmentMode || 'reasoning_chain',
+          answerAcceptance: task.resourceDraftSpecification?.answerAcceptance
+            || { semanticEquivalentAllowed: true, normalizationRules: ['trim', 'ignore_punctuation'] },
+          rubric: task.resourceDraftSpecification?.rubric || [{
             itemId: 'primary-observation',
             name: '主要能力动作',
             description: task.expectedStudentAction,
@@ -215,17 +233,23 @@ export async function createAndValidateQuestionDraftBatch(
             evidenceRequirement: { requireTextEvidence: true, requireExplanation: task.abilityId !== 'extraction', requireConclusion: true },
             acceptedSignals: [task.expectedStudentAction],
           }],
-          minimumAnswerRequirement: {
+          minimumAnswerRequirement: task.resourceDraftSpecification?.minimumAnswerRequirement || {
             minLength: task.abilityId === 'extraction' ? 6 : 12,
             requireTextEvidence: true,
             requireExplanation: task.abilityId !== 'extraction',
           },
           source: {
-            sourceType: 'manual',
-            description: input.sourceDescription || '由已审核 Material Observation Plan 生成的人工资源 Draft。',
+            sourceType: task.resourceDraftSpecification?.tags.includes('ai-assisted') ? 'ai_assisted' : 'manual',
+            description: input.sourceDescription || (task.resourceDraftSpecification?.tags.includes('ai-assisted')
+              ? '由人工审核后的 AI-assisted Material Observation Plan 生成。'
+              : '由已审核 Material Observation Plan 生成的人工资源 Draft。'),
             copyrightNote: '沿用关联 Material 的来源与版权审核结果。',
           },
-          tags: ['phase17.2', 'material-observation'],
+          tags: [
+            'phase17.2',
+            'material-observation',
+            ...(task.resourceDraftSpecification?.tags || []),
+          ],
           now: input.now,
         },
       });

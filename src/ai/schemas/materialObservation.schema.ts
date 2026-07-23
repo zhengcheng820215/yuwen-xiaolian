@@ -5,9 +5,18 @@ import {
   isPrimaryAbilityId,
   isQuestionResourceDifficulty,
   isQuestionResourceTaskRole,
+  type MinimumAnswerRequirement,
   type PrimaryAbilityId,
   type QuestionResourceDifficulty,
+  type QuestionResourceRubricItem,
+  type QuestionResponseFormat,
+  type StructuredQuestionType,
 } from './questionResourceAdmission.schema.ts';
+import type {
+  AnswerAcceptance,
+  AssessmentMode,
+  OpenResponseAnswerStatus,
+} from './diagnosis.schema.ts';
 import type { RecommendedTaskRole } from './nextLearningStrategy.schema.ts';
 
 export const MATERIAL_OBSERVATION_PLAN_SCHEMA_VERSION = 'material_observation_plan_v1' as const;
@@ -31,6 +40,36 @@ export type ObservationFocus = {
   displayName: string;
   definition: string;
   scope: 'plan_local';
+};
+
+export type ObservationCalibrationCaseCategory =
+  | 'fully_meets'
+  | 'partially_meets'
+  | 'typical_error'
+  | 'reasonable_alternative'
+  | 'concise_valid'
+  | 'irrelevant';
+
+export type ObservationCalibrationCase = {
+  calibrationCaseId: string;
+  category: ObservationCalibrationCaseCategory;
+  answerText: string;
+  expectedAnswerStatus: OpenResponseAnswerStatus;
+  reviewNote: string;
+};
+
+export type ObservationResourceDraftSpecification = {
+  title?: string;
+  questionType: StructuredQuestionType;
+  responseFormat: QuestionResponseFormat;
+  assessmentMode: AssessmentMode;
+  answerAcceptance?: AnswerAcceptance;
+  rubric: QuestionResourceRubricItem[];
+  minimumAnswerRequirement: MinimumAnswerRequirement;
+  supportingAbilityIds: PrimaryAbilityId[];
+  prerequisiteAbilityIds: PrimaryAbilityId[];
+  gradeRange?: string;
+  tags: string[];
 };
 
 export type MaterialStructureSnapshot = {
@@ -84,6 +123,8 @@ export type ObservationTaskPlan = {
   designReason: string;
   intendedComparisonGroupId?: string;
   materialRelationIntent?: 'same_context' | 'similar_context' | 'new_context';
+  resourceDraftSpecification?: ObservationResourceDraftSpecification;
+  calibrationCases?: ObservationCalibrationCase[];
   linkedDraftId?: string;
   linkedResourceId?: string;
   status: ObservationTaskPlanStatus;

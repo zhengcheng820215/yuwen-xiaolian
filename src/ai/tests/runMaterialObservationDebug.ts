@@ -64,7 +64,7 @@ const cases: DebugCase[] = [
   { name: '20 missing Link remains visible as diversity limitation', run: caseMissingLink },
   { name: '21 transfer design intent is not Runtime proof', run: caseTransferIntentBoundary },
   { name: '22 retest comparison intent is not comparability proof', run: caseRetestIntentBoundary },
-  { name: '23 Pack quota gaps remain explicit', run: casePackQuota },
+  { name: '23 Pack scope and learning-chain gaps remain explicit', run: casePackQuota },
   { name: '24 one-Dimension Ability coverage is reported as biased', run: caseDimensionBias },
   { name: '25 planning and admission create no learner Evidence', run: caseNoLearnerEvidence },
   { name: '26 failed operations do not pollute formal resources', run: caseFailureNoPollution },
@@ -254,7 +254,7 @@ async function caseMissingLink() {
 }
 
 async function caseTransferIntentBoundary() {
-  const fixture = await createFixture({ tasks: [task({ taskRole: 'transfer', materialRelationIntent: 'new_context' })] });
+  const fixture = await createFixture({ tasks: [task({ taskRole: 'transfer', intendedComparisonGroupId: 'comparison-transfer-a', materialRelationIntent: 'new_context' })] });
   const planned = fixture.plan.taskPlans[0];
   expect(planned.materialRelationIntent === 'new_context' && !('materialRelation' in planned), 'Design intent was converted into observed Runtime fact.');
 }
@@ -269,7 +269,14 @@ async function casePackQuota() {
   const fixture = await frozenFixture();
   const linked = await linkFrozenResourceToObservationTask(fixture.resources, fixture.observations, { planId: fixture.plan.materialObservationPlanId, observationTaskPlanId: fixture.plan.taskPlans[0].observationTaskPlanId, resourceVersionId: fixture.version.resourceVersionId });
   const manifest = buildFirstFrozenResourcePackManifest({ resourcePackVersion: 'v1', coverageReportIdBefore: 'before', coverageReportIdAfter: 'after', plans: [fixture.plan], links: [linked.link], versions: [fixture.version], registryEntries: await fixture.resources.listRegistryEntries(), frozenAt: NOW });
-  expect(manifest.limitations.includes('resource_pack_below_26') && manifest.limitations.includes('retest_quota_missing:inference'), 'Pack gaps were padded or hidden.');
+  expect(
+    manifest.limitations.includes('resource_pack_below_24') &&
+    manifest.limitations.includes('ability_target_below_min:inference') &&
+    manifest.limitations.includes('training_retest_chain_below_2') &&
+    manifest.limitations.includes('training_transfer_chain_below_2') &&
+    !manifest.limitations.some((item) => item.startsWith('retest_quota_missing:')),
+    'Pack scope still requires per-ability role quotas or hides missing learning chains.',
+  );
 }
 
 async function caseDimensionBias() {

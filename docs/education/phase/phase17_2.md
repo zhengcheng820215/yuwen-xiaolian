@@ -4,19 +4,63 @@
 
 设计状态：ACCEPTED
 
-工程状态：17.2A / 17.2B RUNTIME + MINIMAL PRODUCTION WORKSPACE ENGINEERING PASS；17.2C MANIFEST / DIVERSITY RUNTIME FOUNDATION PASS；FIRST FORMAL CONTENT PACK + WORKSPACE HUMAN ACCEPTANCE PENDING
+工程状态：17.2A / 17.2B RUNTIME + MINIMAL PRODUCTION WORKSPACE ENGINEERING PASS；17.2C MANIFEST / DIVERSITY RUNTIME FOUNDATION PASS；ASSISTED DRAFT GENERATION 25 / 25 PASS；BATCH A CONTENT IMPLEMENTED + CONTROLLED FORMALIZATION 14 / 14 PASS + OWNER REVIEW / FREEZE / REGISTRY / ACTIVE LINK 8 / 8 PASS；《潼关》MATERIAL CLUSTER CALIBRATION 12 / 12 PASS；PHASE 17.3 MINIMUM ENTRY GATE OPEN
 
 所属总纲：[Phase 17：学习资源覆盖扩展与基于材料的能力观测基础](./phase17.md)
 
 前置状态：Phase 17.1 `ENGINEERING + HUMAN DEMO PASS`；Coverage Dashboard 轻量人工 Demo 已完成 `8 / 8 PASS`，Phase 17.2 工程开发的 Dashboard 前置条件已满足。Phase 17.1 IndexedDB Smoke 仍为独立待验项。
 
-当前工程验收记录：[Phase 17.2 Material Observation Engineering Debug Acceptance](./reports/phase17_2_material_observation_engineering_debug_acceptance_2026-07-22.md)、[Phase 17.2 Minimal Resource Production Workspace Debug Acceptance](./reports/phase17_2_minimal_resource_production_workspace_debug_acceptance_2026-07-22.md)。核心 Contract `26 / 26 PASS`，最小生产工作台专项 Debug `12 / 12 PASS`；PC `1280 × 720` 与平板横屏 `1024 × 768` 页面级布局 Smoke 通过。确定性测试使用合成夹具，不属于正式资源，不计入首批 26—28 道 Frozen Resource Pack。
+当前工程验收记录：[Phase 17.2 Material Observation Engineering Debug Acceptance](./reports/phase17_2_material_observation_engineering_debug_acceptance_2026-07-22.md)、[Phase 17.2 Minimal Resource Production Workspace Debug Acceptance](./reports/phase17_2_minimal_resource_production_workspace_debug_acceptance_2026-07-22.md)。核心 Contract `26 / 26 PASS`，最小生产工作台专项 Debug `13 / 13 PASS`；PC `1280 × 720` 与平板横屏 `1024 × 768` 页面级布局 Smoke 通过。确定性测试使用合成夹具，不属于正式资源，不计入首批 24—28 道 Frozen Resource Pack。
+
+2026-07-23 范围校准：早期工程验收报告保留当时的 `26—28` 道与逐能力 TaskRole 配额表述作为历史快照；当前正式生产政策已收敛为 `24—28` 道、整体 Ability 分布和最少纵向学习链，不再要求每项 Ability 机械补齐 Training / Retest / Transfer。
+
+首批真实内容生产采用独立的只读规划文档：[Phase 17.2 First Formal Resource Pack Production Blueprint](./phase17_2_first_resource_pack_blueprint.md)。该蓝图定义三层产出、Batch A/B/C、答案 Fixture 与 Runtime Verified 派生规则，不新增正式 Schema 或 Repository。
+
+Batch A 当前已实现两篇项目原创 Material、8 道内容完整资源、1 条 Training -> Retest、1 条 Training -> Transfer 和 16 组答案 Fixture；隔离正式 Repository 的 Review / Freeze / Registry / Link / Runtime Query 为 `14 / 14 PASS`。2026-07-23 浏览器工作台已完成 8 道题负责人审核与逐题 Freeze，`Frozen Version = 8`、Registry 一致、材料生产工作台 `正式关联 = 8`，8 道资源均可由正式工作台查询；额外存在的未命名空 Draft 不属于 Batch A，不计入正式资源。Phase 17.3 最小入口门已开放，但完整 24—28 道资源包仍属于 Phase 17.2 最终产品验收范围。记录见 [Batch A 受控正式化验收](./reports/phase17_2_batch_a_controlled_formalization_2026-07-23.md)。
+
+2026-07-23 新增《潼关》Material Cluster 校准：同一公版诗歌材料下建立 6 个 Training Observation Task，分别观察 extraction、comprehension、summarization、analysis、inference 与 expression；工作台现已支持单段 / 段落范围 / 全文 Anchor、plan-local Observation Focus、内容级 Rubric / Answer Acceptance、Supporting Ability 与审核校准答案。专项 Debug `12 / 12 PASS`，浏览器载入和展开审查 Smoke 通过。该 Plan 仍为 `pending_review`，不得计入正式 Frozen Resource Pack。记录见 [《潼关》Material Cluster 校准](./reports/phase17_2_tongguan_material_cluster_calibration_2026-07-23.md)。
+
+2026-07-23 新增 Assisted Draft Generation：内容人员可以提交完整 Material，由真实 Provider 生成 3—6 个结构化 Observation Planning Candidate；系统逐候选校验 Ability、Dimension、Anchor、Rubric、Answer Acceptance、校准答案、重复 Observation 和安全边界。Prompt v1.2 与 Generator Contract v1.1 进一步加入只读 `Existing Observation Inventory`、`Existing Question Inventory`、能力 / Focus 偏好和固定 `discover_new_observation` 模式。再次生成会将候选确定性分类为 `new_observation_candidate`、`alternate_question_for_existing_observation`、`likely_duplicate` 或 `unsupported_by_material`；只有新 Observation 可以导入并增加候选 Coverage，替代问法和疑似重复只保留在隔离预览中。首次生成仍要求至少 3 个合法独立候选；已有库存时允许只发现 1—2 个新 Observation，但 0 个新 Observation 时整批阻断。导入只形成可编辑首稿，不直接写 Repository，不自动 Review、Freeze、更新 Registry 或建立 Retest / Transfer。Live Boundary 保持 `8000 tokens / 90 秒` 和两次受控尝试。专项 Debug 更新为 `25 / 25 PASS`，相关回归和 Production Build 通过。记录见 [辅助首稿生成工程验收](./reports/phase17_2_assisted_draft_generation_engineering_2026-07-23.md)。
+
+### 辅助首稿生成边界
+
+```text
+Material
+-> Material Observation Draft Generator
+-> 3—6 Observation Planning Candidate
+-> Deterministic Candidate Validation
+-> Human Import / Edit
+-> Existing Plan Review / Draft / Freeze / Registry
+```
+
+该能力用于降低从零录题成本，不建立第二套正式资源链：
+
+1. AI 负责结构化首稿，人工负责题目是否值得存在、Primary Ability、Observation、Rubric、Acceptance 与发布决定；
+2. `evidencePotential` 只描述题目设计的观察潜力，不是学生执行后的 Evidence Quality；
+3. Candidate 不得包含正式状态、正式资源 ID 或已发布语义；
+4. 单个坏候选可以隔离拒绝，但不足 3 个合法独立候选时整批不可导入；
+5. 生成失败不得污染现有 Material、Plan、Draft、Frozen Resource 或 Registry；
+6. 受控 Live 质量验收只判断候选可用性，不改变既有 Phase 16.1 正式准入权威。
+7. 默认生成模式只负责发现新 Observation；同一 Observation 的不同问法不增加 Coverage；
+8. 再次生成必须比较已有 Observation / Question Inventory；疑似重复、替代题和材料不支持项不得随新 Observation 批量导入；
+9. Retest、Transfer 和跨材料等价 Observation 继续由正式资源关系设计处理，不混入“再次生成”按钮。
+
+工作台采用 Observation-first 的人工审核顺序：
+
+```text
+Observation Focus
+-> Ability Action / Material Anchor
+-> Question Entry
+-> Rubric / Answer Acceptance / Calibration
+```
+
+Question 在工作台中被明确标记为“题目入口”，但仍保留独立题型、作答形式、难度和正式版本。页面同时展示 Primary Ability 与 Material Dimension 的轻量候选覆盖，并以 `AI 候选 -> 导入编辑区 -> 观测计划 -> 逐题审核 -> Frozen` 表达当前正式化位置。该展示只帮助内容人员判断候选和流程状态，不建立新的 Coverage Contract，也不改变 Question Resource 的执行与版本权威。
 
 ## 一、阶段目标
 
 Phase 17.2 只解决一个核心问题：
 
-> 如何先从正式 Material 中识别有价值的观察对象，再把 Observation Dimension 与既有 Ability Action、TaskRole 和 Difficulty 组合为可审核的任务计划，最终通过 Phase 16.1 建设第一批 26—28 道 Frozen Question Resource？
+> 如何先从正式 Material 中识别有价值的观察对象，再把 Observation Dimension 与既有 Ability Action、TaskRole 和 Difficulty 组合为可审核的任务计划，最终通过 Phase 16.1 建设第一批 24—28 道 Frozen Question Resource？
 
 正式链路：
 
@@ -44,7 +88,7 @@ Phase 17.2 完成后，系统应能够：
 4. 防止为了填满矩阵而生成材料不支持的低价值任务；
 5. 将 Task Plan 转换为 Phase 16.1 可消费的 Question Draft，而不绕过正式准入；
 6. 将 Frozen Resource Version 与原始 Observation Task Plan 建立不可变追溯；
-7. 建设首批 26—28 道审核有效、Registry current 的正式资源；
+7. 建设首批 24—28 道审核有效、Registry current 的正式资源；
 8. 形成首批 Resource Pack Manifest 和 Observation Diversity View；
 9. 为 Phase 17.3 提供可执行资源和正式追溯输入。
 
@@ -515,24 +559,38 @@ Link 只有在以下条件全部满足时才能为 `active`：
 
 ### 10.1 规模
 
-首批目标：26—28 道当前审核有效、Registry current 的 Frozen Resource。
+首批目标：24—28 道当前审核有效、Registry current 的 Frozen Resource。24 道达到质量与链路要求即可冻结，不为补足上限继续扩题。
 
-建议分布：
+能力分布按整个 Pack 统计：
 
-| 建设目标 | 数量 | 说明 |
+| Ability | 建议数量 | 说明 |
 | --- | ---: | --- |
-| 6 Ability × 2 Training | 12 | 每项能力至少覆盖 basic / intermediate，并尽量来自不同 Material Cluster |
-| 6 Ability × 1 Retest | 6 | 保留可比较设计意图，不使用原题复制 |
-| 6 Ability × 1 Transfer | 6 | 保留新 Context 设计意图，实际关系由 Runtime 校验 |
-| 优先能力 Diagnosis / Observation | 2—4 | 用于证据不足、冲突或能力边界验证 |
+| `extraction` | 3—4 | 覆盖明确事实与必要条件提取 |
+| `comprehension` | 4—5 | 覆盖句意、行为含义与语境理解 |
+| `summarization` | 4—5 | 覆盖事件、段意或要点整合 |
+| `analysis` | 4—5 | 覆盖人物、结构、语言或关系分析 |
+| `inference` | 4—5 | 覆盖人物、因果、结构或主题推断 |
+| `expression` | 3—4 | 覆盖观点、依据与表达组织 |
+
+上述区间是首批资源平衡目标，不是允许生成低价值题目的硬配额。单项超出上限应显示偏斜提醒；低于下限应显示正式资源缺口。
+
+TaskRole 不再按每项 Ability 机械配齐。首批 Pack 至少形成：
+
+- 2 条完整的 `Training -> Retest` 资源链；
+- 2 条完整的 `Training -> Transfer` 资源链；
+- 1 条由 Existing Strategy 驱动、经过两个或以上 Ability Action 的跨能力连续学习路径。
+
+前两类资源链要求目标 Ability 一致且材料 Context 独立；Retest 的正式可比性和 Transfer 的正式新颖性仍由既有 Runtime 校验。跨能力路径不写入 Pack 的固定发题顺序，只在 Phase 17.3 中作为集成验收场景。
 
 ### 10.2 Material 规模
 
-- 4—6 个 Material Cluster，优先接近 6 个；
+- 4 个核心 Material Cluster，加 1—2 个具有独立内容语境的新材料 Cluster，总计 5—6 个；
 - 每个 Material 通常形成 3—6 道任务；
 - 不要求每篇材料覆盖六项 Ability；
 - 不要求七个 Observation Dimension 全部出现；
 - Pack 需要展示 Dimension 分布和单一 Dimension 集中风险。
+
+“用于 Retest / Transfer 的新材料 Cluster”只描述首批建设用途，不是 Material Cluster 的永久类型。TaskRole 始终属于具体 Question Resource。
 
 ### 10.3 Difficulty
 
@@ -568,6 +626,24 @@ Link 只有在以下条件全部满足时才能为 `active`：
 - Frozen Version；
 - Registry current head；
 - active ResourceObservationLink。
+
+### 10.6 三层产出与分批冻结
+
+首批资源生产不只统计题量，必须同时成立：
+
+1. 单题正式性：每道题完整通过 Material -> Observation -> Draft -> Rubric / Answer Acceptance -> Review -> Freeze -> Registry -> Link -> Runtime Query；
+2. 资源链可运行：Retest、Transfer 与跨 Ability 路径必须在录入前规划，不能生产后临时拼接；
+3. 整体覆盖不失衡：同时审查 Ability、Material Cluster、Observation Dimension、TaskRole 与 Response Form。
+
+执行分为：
+
+- Batch A：约 8 道核心链验证资源；
+- Batch B：8—10 道能力覆盖扩展资源；
+- Batch C：8—10 道依据正式 Coverage 修正偏斜与边界问题的资源。
+
+Batch A 未完成正式 Runtime 消费验证前，不批量进入 Batch B。边界验证优先采用“正式题目 + 多种学生答案 Fixture”，Fixture 不属于 Frozen Resource，不计入题量。
+
+批次、规划链和验收细则以 [首批正式资源包生产蓝图](./phase17_2_first_resource_pack_blueprint.md) 为准。蓝图中的 `planningChainKey` 不是正式 `chainId`，不得进入 Runtime 权威判断。
 
 ## 十一、Resource Pack Manifest
 
@@ -719,8 +795,10 @@ Phase 17.2 不拆成新 Phase 编号，但工程建议按以下顺序推进。
 
 完成：
 
-- 4—6 个 Material Cluster；
-- 26—28 道 Frozen Resource；
+- 4 个核心 Material Cluster 和 1—2 个独立新材料 Cluster；
+- 24—28 道 Frozen Resource；
+- 2 条 `Training -> Retest` 与 2 条 `Training -> Transfer` 资源链；
+- 1 条由正式 Strategy 驱动的跨能力连续学习验收路径；
 - Resource Pack Manifest；
 - Coverage Recalculation；
 - Observation Diversity View；
@@ -844,9 +922,9 @@ Plan comparisonGroup 不得直接生成 comparable 结论。
 
 ### Pack 与安全
 
-**Case 23：Pack 配额报告**
+**Case 23：Pack 范围与学习链报告**
 
-缺少某 Ability / TaskRole 时输出明确缺口，不用错位资源凑数量。
+总量、整体 Ability 分布或纵向学习链不足时输出明确缺口；不要求逐能力补齐所有 TaskRole，也不用错位资源凑数量。
 
 **Case 24：Dimension 偏斜**
 
@@ -892,6 +970,8 @@ Plan Review、Draft Adapter 或 Link Gate 失败时，不修改 Frozen Resource�
 
 第一版 Workspace 的目标是完成首批资源生产，不是建设永久运营后台或通用 CMS。
 
+工作台的产品职责固定为五项：完成录入、发现缺失字段、预览待正式化对象、交接人工审核与 Freeze、定位阻断错误。它不建设独立于 Existing Question Intake 的第二套审核系统，也不因后台交互仍可优化而延长 Phase 17.2。
+
 固定主流程：
 
 ```text
@@ -915,10 +995,11 @@ Plan Review、Draft Adapter 或 Link Gate 失败时，不修改 Frozen Resource�
 - 在同一材料下批量建立、编辑和复核 3—6 个 Observation Task Plan；
 - 自动继承 Material、Anchor、Dimension、Ability、TaskRole、Difficulty 与追溯 ID；
 - 生成 Phase 16.1 Draft，并集中显示校验问题；
+- 逐题预览 Question、Rubric、AnswerAcceptance、最低作答要求与正式化状态；
 - 校验失败时原地修复，单题失败不阻断同批其他 Draft；
 - 跳转 Existing Question Intake Workspace；
 - 查看 Frozen Resource 与 Observation Link 状态；
-- 查看最小 Pack 配额和 Ability × Dimension Breakdown。
+- 查看 Pack 范围、纵向学习链和 Ability × Dimension Breakdown。
 
 系统自动负责：
 
@@ -970,12 +1051,11 @@ Plan Review、Draft Adapter 或 Link Gate 失败时，不修改 Frozen Resource�
 
 ### 19.3 Resource Pack 验收
 
-- 形成 26—28 道 Registry current Frozen Resource；
-- 形成 4—6 个可追溯 Material Cluster，优先接近 6 个；
-- 六项 Ability 各至少 2 道 Training；
-- 六项 Ability 各至少 1 道 Retest；
-- 六项 Ability 各至少 1 道 Transfer；
-- 优先能力具有 2—4 道 Diagnosis / Observation；
+- 形成 24—28 道 Registry current Frozen Resource；
+- 形成 4 个核心 Material Cluster 和 1—2 个独立新材料 Cluster，总计 5—6 个；
+- 六项 Ability 在整个 Pack 层面达到 10.1 的受控分布，不要求逐能力补齐三种 TaskRole；
+- 至少形成 2 条 `Training -> Retest` 和 2 条 `Training -> Transfer` 资源链；
+- 至少形成 1 条由正式 Strategy 驱动的跨能力连续学习路径；
 - 首批 Pack 中 100% Material Version 具有 reviewed Observation Plan；
 - 首批 Pack 中 100% Resource Version 具有 active Observation Link；
 - 100% 具有来源、Rubric、AnswerAcceptance、Review、Version 和 Registry 追溯；
@@ -1016,8 +1096,8 @@ Plan Review、Draft Adapter 或 Link Gate 失败时，不修改 Frozen Resource�
 
 满足以下条件后，Phase 17.2 必须停止扩展并立即进入冻结与 Phase 17.3：
 
-1. 形成 4—6 个正式 Material Cluster；
-2. 形成 26—28 道 Registry current Frozen Resource；
+1. 形成 4 个核心 Material Cluster 和 1—2 个独立新材料 Cluster，总计 5—6 个；
+2. 形成 24—28 道 Registry current Frozen Resource；
 3. 100% Material Version 具有 reviewed Material Observation Plan；
 4. 100% Pack Resource 具有 active ResourceObservationLink；
 5. 来源、Rubric、AnswerAcceptance、Review、Version 与 Registry 追溯完整；
@@ -1029,7 +1109,9 @@ Plan Review、Draft Adapter 或 Link Gate 失败时，不修改 Frozen Resource�
 
 达到上述条件后，不得因为 Workspace 还能更美观、Manifest 还能增加字段、Focus 还能形成 taxonomy、Diversity 还能建设完整 Dashboard、OCR 或 AI 自动出题尚未加入而延长 Phase 17.2。
 
-资源质量优先于数量。若为了达到 26—28 道必须使用能力、角色、难度或材料错位资源，则不得冻结；应保留明确 Gap，而不是降低标准。
+工作台后续只在真实资源生产出现阻断时修复：无法录入、无法定位缺失字段、无法预览正式候选、无法交接审核/Freeze、无法定位错误。纯视觉美化、通用 CMS 能力、更多管理视图和新增辅助对象均不属于冻结前任务。
+
+资源质量优先于数量。若为了达到 24 道必须使用能力、角色、难度或材料错位资源，则不得冻结；应保留明确 Gap，而不是降低标准。达到 24 道且纵向链路、整体能力分布和追溯要求成立后即可冻结，不得为了接近 28 道继续扩题。
 
 ## 二十一、明确实现了什么
 
@@ -1041,7 +1123,7 @@ Phase 17.2 完成后，系统将第一次具备：
 4. 材料位置与任务设计的版本追溯；
 5. Plan 到 Existing Phase 16.1 Draft 的受控适配；
 6. Frozen Resource Version 到 Observation Plan 的不可变 Link；
-7. 第一批 26—28 道正式资源包；
+7. 第一批 24—28 道正式资源包；
 8. Ability × Observation Dimension 的资源偏斜审查；
 9. Phase 17.3 可以直接消费的正式 Registry 与 Pack Manifest。
 
@@ -1102,7 +1184,7 @@ preserve Plan / Draft / Frozen facts
 
 Phase 17.2 完成后可以宣称：
 
-> 系统能够先基于正式材料建立受控、可审核的观测设计，再将 Observation Dimension、Ability Action 与 TaskRole 转化为 Phase 16.1 可冻结的 Question Resource；首批 26—28 道正式资源具有完整材料、观测计划、Rubric、Review、Version、Registry 和 Observation Link 追溯，并能够揭示同一能力在不同材料观测维度上的资源分布与偏斜。
+> 系统能够先基于正式材料建立受控、可审核的观测设计，再将 Observation Dimension、Ability Action 与 TaskRole 转化为 Phase 16.1 可冻结的 Question Resource；首批 24—28 道正式资源具有完整材料、观测计划、Rubric、Review、Version、Registry 和 Observation Link 追溯，并形成足以验证 Training、Retest、Transfer 与跨能力连续学习的最小资源生态。
 
 仍不能宣称：
 
@@ -1114,10 +1196,11 @@ Phase 17.2 完成后可以宣称：
 
 ## 二十五、首批正式资源生产前置条件
 
-Phase 17.2 Runtime 工程基础已经通过。开始首批 4—6 个 Material Cluster 与 26—28 道正式资源生产前应满足：
+Phase 17.2 Runtime 工程基础已经通过。开始首批 4 个核心 Material Cluster、1—2 个独立新材料 Cluster 与 24—28 道正式资源生产前应满足：
 
 1. Phase 17.1 Coverage Dashboard 轻量人工 Demo PASS；
 2. Observation Dimension V1 的七项定义完成产品与教育评审；
 3. 确认使用独立 `ResourceObservationLink`，不静默修改历史 Frozen Resource；
 4. 确认首批 Material 来源、版权和人工审核责任；
-5. 确认 26—28 道资源是验收目标，不是允许降低质量的硬性生产配额。
+5. 确认 24—28 道是受控范围：达到 24 道且关键链路成立即可停止，不得为了达到上限降低质量或继续扩题；
+6. 在正式录入前冻结 [首批正式资源包生产蓝图](./phase17_2_first_resource_pack_blueprint.md) 的 Batch A 规划行，能够解释每道题的 Observation、Ability、TaskRole、规划链和 Strategy 请求理由。

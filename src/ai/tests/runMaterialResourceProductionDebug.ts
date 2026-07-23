@@ -30,6 +30,7 @@ const cases: DebugCase[] = [
   { name: '10 one Draft failure does not erase successful siblings', run: casePartialFailureIsolation },
   { name: '11 batch creation never auto-freezes or updates Registry', run: caseNoAutomaticFormalization },
   { name: '12 a revised Plan keeps explicit lineage', run: casePlanRevisionLineage },
+  { name: '13 Draft handoff preserves Rubric and Answer Acceptance', run: caseDraftHandoffContent },
 ];
 
 async function main() {
@@ -164,6 +165,15 @@ async function casePlanRevisionLineage() {
   expect(second.plan.revision === 2 && second.plan.parentPlanId === fixture.plan.materialObservationPlanId, 'Plan revision lineage is incomplete.');
 }
 
+async function caseDraftHandoffContent() {
+  const fixture = await reviewedFixture();
+  await createAndValidateQuestionDraftBatch(fixture.resources, fixture.observations, { planId: fixture.plan.materialObservationPlanId, now: NOW });
+  const drafts = await fixture.resources.listDrafts();
+  expect(drafts.every((draft) => draft.rubric.length > 0), 'A production Draft lost its Rubric during handoff.');
+  expect(drafts.every((draft) => draft.answerAcceptance?.semanticEquivalentAllowed), 'A production Draft lost its Answer Acceptance boundary.');
+  expect(drafts.every((draft) => draft.latestValidationId), 'A production Draft cannot locate its field-level validation result.');
+}
+
 async function reviewedFixture() {
   const fixture = await createFixture();
   await reviewPlan(fixture);
@@ -214,11 +224,11 @@ function tasks(): MaterialProductionTaskInput[] {
     },
     {
       primaryDimension: 'character', abilityId: 'inference', taskRole: 'retest', difficulty: 'intermediate', startParagraph: 2,
-      questionStem: '从母亲撑伞的动作中，可以推断出她怎样的心理？请说明理由。', expectedStudentAction: '根据动作推断人物心理并建立依据关系。', designReason: '观察学生能否从显性动作推导隐性心理。', materialRelationIntent: 'similar_context',
+      questionStem: '从母亲撑伞的动作中，可以推断出她怎样的心理？请说明理由。', expectedStudentAction: '根据动作推断人物心理并建立依据关系。', designReason: '观察学生能否从显性动作推导隐性心理。', intendedComparisonGroupId: 'phase17-production-inference', materialRelationIntent: 'similar_context',
     },
     {
       primaryDimension: 'theme', abilityId: 'comprehension', taskRole: 'transfer', difficulty: 'intermediate', startParagraph: 3,
-      questionStem: '结合全文内容，说说这段文字主要表达了怎样的亲情。', expectedStudentAction: '整合全文事实并理解情感表达。', designReason: '观察学生能否从局部事实形成整体理解。', materialRelationIntent: 'new_context',
+      questionStem: '结合全文内容，说说这段文字主要表达了怎样的亲情。', expectedStudentAction: '整合全文事实并理解情感表达。', designReason: '观察学生能否从局部事实形成整体理解。', intendedComparisonGroupId: 'phase17-production-comprehension', materialRelationIntent: 'new_context',
     },
   ];
 }

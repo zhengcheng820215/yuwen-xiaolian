@@ -35,7 +35,9 @@ import {
   type MaterialStructureSnapshot,
   type ObservationDimension,
   type ObservationDiversityView,
+  type ObservationCalibrationCase,
   type ObservationFocus,
+  type ObservationResourceDraftSpecification,
   type ObservationTaskPlan,
   type ResourceObservationLink,
 } from '../schemas/materialObservation.schema.ts';
@@ -52,6 +54,8 @@ export type ObservationTaskPlanInput = {
   designReason: string;
   intendedComparisonGroupId?: string;
   materialRelationIntent?: ObservationTaskPlan['materialRelationIntent'];
+  resourceDraftSpecification?: ObservationResourceDraftSpecification;
+  calibrationCases?: ObservationCalibrationCase[];
 };
 
 export function deriveMaterialStructureSnapshot(
@@ -239,16 +243,19 @@ export function adaptObservationTaskToQuestionDraft(
     materialVersionId: task.materialVersionId,
     abilityMetadata: {
       abilityId: task.abilityId,
-      supportingAbilityIds: [],
-      prerequisiteAbilityIds: [],
+      supportingAbilityIds: task.resourceDraftSpecification?.supportingAbilityIds || [],
+      prerequisiteAbilityIds: task.resourceDraftSpecification?.prerequisiteAbilityIds || [],
       taskRole: task.taskRole,
       difficulty: task.difficulty,
+      gradeRange: task.resourceDraftSpecification?.gradeRange,
     },
     tags: uniqueSorted([
       ...(content.tags || []),
       `observation_plan:${plan.materialObservationPlanId}`,
       `observation_task:${task.observationTaskPlanId}`,
       `observation_dimension:${task.primaryDimension}`,
+      ...(task.observationFocus ? [`observation_focus:${task.observationFocus.focusCode}`] : []),
+      ...(task.intendedComparisonGroupId ? [`comparison_group:${task.intendedComparisonGroupId}`] : []),
     ]),
   };
 }
@@ -417,6 +424,81 @@ function validateTaskPlan(
   if (task.sourceAnchorIds.length === 0) error(issues, 'task.anchor_missing', `${prefix}.sourceAnchorIds`, 'Task Plan requires a Source Anchor.');
   if (!nonEmpty(task.observationGoal) || !nonEmpty(task.expectedStudentAction) || !nonEmpty(task.designReason)) error(issues, 'task.design_incomplete', prefix, 'Task design facts are incomplete.');
   if (task.observationFocus && (!nonEmpty(task.observationFocus.focusCode) || !nonEmpty(task.observationFocus.displayName) || !nonEmpty(task.observationFocus.definition) || task.observationFocus.scope !== 'plan_local')) error(issues, 'task.focus_invalid', `${prefix}.observationFocus`, 'Observation Focus must be a plan-local structured object.');
+  if (['retest', 'transfer'].includes(task.taskRole) && !nonEmpty(task.intendedComparisonGroupId)) {
+    error(issues, 'task.comparison_group_missing', `${prefix}.intendedComparisonGroupId`, 'Retest and Transfer require an explicit comparison group.');
+  }
+  if (task.taskRole === 'transfer' && task.materialRelationIntent !== 'new_context') {
+    error(issues, 'task.transfer_context_invalid', `${prefix}.materialRelationIntent`, 'Transfer requires a new-context intent.');
+  }
+  if (task.resourceDraftSpecification) {
+    validateResourceDraftSpecification(task, index, issues);
+  }
+  if (task.calibrationCases) {
+    validateCalibrationCases(task.calibrationCases, index, issues);
+  }
+}
+
+function validateResourceDraftSpecification(
+  task: ObservationTaskPlan,
+  index: number,
+  issues: MaterialObservationPlanValidation['issues'],
+): void {
+  const specification = task.resourceDraftSpecification!;
+  const prefix = `taskPlans.${index}.resourceDraftSpecification`;
+  if (specification.rubric.length === 0) {
+    error(issues, 'task.rubric_missing', `${prefix}.rubric`, 'A production-ready Task requires at least one Rubric item.');
+  }
+  const declaredAbilities = new Set([task.abilityId, ...specification.supportingAbilityIds]);
+  specification.rubric.forEach((item, rubricIndex) => {
+    if (!nonEmpty(item.itemId) || !nonEmpty(item.name) || item.acceptedSignals.length === 0) {
+      error(issues, 'task.rubric_incomplete', `${prefix}.rubric.${rubricIndex}`, 'Rubric identity, name and accepted signals are required.');
+    }
+    if (!declaredAbilities.has(item.abilityId)) {
+      error(issues, 'task.rubric_ability_undeclared', `${prefix}.rubric.${rubricIndex}.abilityId`, 'Rubric Ability must be the primary or a declared supporting Ability.');
+    }
+  });
+  if (specification.minimumAnswerRequirement.minLength < 1) {
+    error(issues, 'task.minimum_answer_invalid', `${prefix}.minimumAnswerRequirement.minLength`, 'Minimum answer length must be positive.');
+  }
+  if (specification.supportingAbilityIds.includes(task.abilityId)) {
+    error(issues, 'task.supporting_ability_duplicates_primary', `${prefix}.supportingAbilityIds`, 'Primary Ability cannot also be a supporting Ability.');
+  }
+}
+
+function validateCalibrationCases(
+  cases: ObservationCalibrationCase[],
+  taskIndex: number,
+  issues: MaterialObservationPlanValidation['issues'],
+): void {
+  const prefix = `taskPlans.${taskIndex}.calibrationCases`;
+  const allowedCategories = new Set([
+    'fully_meets',
+    'partially_meets',
+    'typical_error',
+    'reasonable_alternative',
+    'concise_valid',
+    'irrelevant',
+  ]);
+  const allowedAnswerStatuses = new Set([
+    'fully_meets',
+    'partially_meets',
+    'does_not_meet',
+    'insufficient_evidence',
+  ]);
+  if (new Set(cases.map((item) => item.calibrationCaseId)).size !== cases.length) {
+    error(issues, 'task.calibration_case_duplicate', prefix, 'Calibration case IDs must be unique inside one Task.');
+  }
+  cases.forEach((item, caseIndex) => {
+    if (!nonEmpty(item.calibrationCaseId) || !nonEmpty(item.answerText) || !nonEmpty(item.reviewNote)) {
+      error(issues, 'task.calibration_case_incomplete', `${prefix}.${caseIndex}`, 'Calibration answer, expected status and review note are required.');
+    }
+    if (!allowedCategories.has(item.category)) {
+      error(issues, 'task.calibration_case_category_invalid', `${prefix}.${caseIndex}.category`, 'Calibration case category is outside the controlled set.');
+    }
+    if (!allowedAnswerStatuses.has(item.expectedAnswerStatus)) {
+      error(issues, 'task.calibration_case_status_invalid', `${prefix}.${caseIndex}.expectedAnswerStatus`, 'Calibration expected answer status is outside the Diagnosis contract.');
+    }
+  });
 }
 
 function validateTaskDistinctness(tasks: ObservationTaskPlan[], issues: MaterialObservationPlanValidation['issues']): void {
@@ -439,19 +521,44 @@ function requireReviewedTask(plan: MaterialObservationPlan, task: ObservationTas
 
 function buildPackLimitations(links: ResourceObservationLink[], materialCount: number): string[] {
   const limitations: string[] = [];
-  if (links.length < 26) limitations.push('resource_pack_below_26');
+  if (links.length < 24) limitations.push('resource_pack_below_24');
   if (links.length > 28) limitations.push('resource_pack_above_28');
-  if (materialCount < 4) limitations.push('material_cluster_below_4');
+  if (materialCount < 5) limitations.push('material_cluster_below_5');
   if (materialCount > 6) limitations.push('material_cluster_above_6');
+  const abilityTargets: Record<PrimaryAbilityId, { min: number; max: number }> = {
+    extraction: { min: 3, max: 4 },
+    comprehension: { min: 4, max: 5 },
+    summarization: { min: 4, max: 5 },
+    analysis: { min: 4, max: 5 },
+    inference: { min: 4, max: 5 },
+    expression: { min: 3, max: 4 },
+  };
   PRIMARY_ABILITY_IDS.forEach((ability) => {
-    if (links.filter((link) => link.abilityId === ability && link.taskRole === 'training').length < 2) limitations.push(`training_quota_missing:${ability}`);
-    if (links.filter((link) => link.abilityId === ability && link.taskRole === 'retest').length < 1) limitations.push(`retest_quota_missing:${ability}`);
-    if (links.filter((link) => link.abilityId === ability && link.taskRole === 'transfer').length < 1) limitations.push(`transfer_quota_missing:${ability}`);
+    const count = links.filter((link) => link.abilityId === ability).length;
+    if (count < abilityTargets[ability].min) limitations.push(`ability_target_below_min:${ability}`);
+    if (count > abilityTargets[ability].max) limitations.push(`ability_target_above_max:${ability}`);
   });
-  const priorityCount = links.filter((link) => ['diagnosis', 'observation'].includes(link.taskRole)).length;
-  if (priorityCount < 2) limitations.push('diagnosis_observation_below_2');
-  if (priorityCount > 4) limitations.push('diagnosis_observation_above_4');
+  if (countCrossMaterialRoleChains(links, 'retest') < 2) limitations.push('training_retest_chain_below_2');
+  if (countCrossMaterialRoleChains(links, 'transfer') < 2) limitations.push('training_transfer_chain_below_2');
   return uniqueSorted(limitations);
+}
+
+function countCrossMaterialRoleChains(
+  links: ResourceObservationLink[],
+  targetRole: 'retest' | 'transfer',
+): number {
+  return PRIMARY_ABILITY_IDS.filter((ability) => {
+    const trainingMaterials = new Set(
+      links
+        .filter((link) => link.abilityId === ability && link.taskRole === 'training')
+        .map((link) => link.materialId),
+    );
+    return links.some((link) => (
+      link.abilityId === ability &&
+      link.taskRole === targetRole &&
+      [...trainingMaterials].some((materialId) => materialId !== link.materialId)
+    ));
+  }).length;
 }
 
 function normalizeParagraphs(content: string): string[] {
