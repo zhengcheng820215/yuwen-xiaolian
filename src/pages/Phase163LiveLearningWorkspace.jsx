@@ -729,7 +729,7 @@ function WorkspaceFailure({ message, onBack }) {
     <main className="mx-auto max-w-[680px] px-6 py-16">
       <h1 className="text-xl font-semibold">{presentation.title}</h1>
       <p className="mt-3 text-base leading-7 text-slate-600">{presentation.message}</p>
-      <button type="button" onClick={onBack} className="mt-7 min-h-11 rounded-md bg-slate-900 px-5 text-sm text-white">返回学习入口</button>
+      <button type="button" onClick={onBack} className="mt-7 min-h-11 rounded-md bg-emerald-600 px-5 text-sm text-white hover:bg-emerald-700">返回学习入口</button>
     </main>
   );
 }
