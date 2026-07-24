@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
   CheckCircle2,
   ChevronRight,
@@ -67,6 +68,16 @@ const initialMaterialForm = {
 };
 
 export default function QuestionResourceWorkbench() {
+  const location = useLocation();
+  const routeContext = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return {
+      mode: params.get('mode'),
+      planId: params.get('planId'),
+      materialVersionId: params.get('materialVersionId'),
+    };
+  }, [location.search]);
+  const planReviewMode = routeContext.mode === 'plan-review' && Boolean(routeContext.planId);
   const [snapshot, setSnapshot] = useState(emptySnapshot);
   const [context, setContext] = useState(null);
   const [form, setForm] = useState(createBlankForm);
@@ -86,15 +97,22 @@ export default function QuestionResourceWorkbench() {
 
   useEffect(() => {
     refreshWorkspace().catch((error) => setNotice(errorNotice(error)));
-  }, []);
+  }, [routeContext.planId]);
 
   async function refreshWorkspace(preferredDraftId = selectedDraftId) {
-    const nextSnapshot = await getQuestionResourceWorkbenchSnapshot();
+    const nextSnapshot = await getQuestionResourceWorkbenchSnapshot({
+      observationPlanId: planReviewMode ? routeContext.planId : undefined,
+    });
     setSnapshot(nextSnapshot);
     const targetId = preferredDraftId && nextSnapshot.drafts.some((item) => item.draftId === preferredDraftId)
       ? preferredDraftId
       : nextSnapshot.drafts[0]?.draftId;
-    if (targetId) await selectDraft(targetId, nextSnapshot);
+    if (targetId) {
+      await selectDraft(targetId, nextSnapshot);
+    } else {
+      setSelectedDraftId(null);
+      setContext(null);
+    }
   }
 
   async function selectDraft(draftId, currentSnapshot = snapshot) {
@@ -247,20 +265,32 @@ export default function QuestionResourceWorkbench() {
   return (
     <div className="min-h-screen bg-[#f5f7fb]">
       <PageHeader
-        title="题目录入工作台"
-        subtitle="Phase 16.1B · Structured Question Intake and Review"
+        title={planReviewMode ? '题目审核与发布' : '题目录入工作台'}
+        subtitle={planReviewMode ? '当前材料 · 本批训练题目' : 'Phase 16.1B · Structured Question Intake and Review'}
         back
       />
 
       <main className="mx-auto max-w-[1600px] px-4 pb-10 sm:px-6">
         <section className="mb-4 grid gap-3 border-y border-slate-200 bg-white px-4 py-4 sm:grid-cols-4">
-          <SummaryItem label="Draft" value={snapshot.drafts.length} />
-          <SummaryItem label="Material" value={snapshot.materials.length} />
-          <SummaryItem label="Frozen Version" value={snapshot.versions.length} />
+          <SummaryItem label={planReviewMode ? '本批题目' : 'Draft'} value={snapshot.drafts.length} />
           <SummaryItem
-            label="Registry"
-            value={snapshot.registryConsistency.passed ? '一致' : '需检查'}
-            tone={snapshot.registryConsistency.passed ? 'success' : 'warning'}
+            label={planReviewMode ? '待处理' : 'Material'}
+            value={planReviewMode
+              ? snapshot.drafts.filter((draft) => !['reviewed', 'rejected'].includes(draft.status)).length
+              : snapshot.materials.length}
+          />
+          <SummaryItem
+            label={planReviewMode ? '审核通过' : 'Frozen Version'}
+            value={planReviewMode
+              ? snapshot.drafts.filter((draft) => draft.status === 'reviewed').length
+              : snapshot.versions.length}
+          />
+          <SummaryItem
+            label={planReviewMode ? '已发布' : 'Registry'}
+            value={planReviewMode
+              ? snapshot.versions.length
+              : snapshot.registryConsistency.passed ? '一致' : '需检查'}
+            tone={planReviewMode || snapshot.registryConsistency.passed ? 'success' : 'warning'}
           />
         </section>
 
@@ -275,6 +305,7 @@ export default function QuestionResourceWorkbench() {
             onSelect={selectDraft}
             onNextVersion={createNextVersion}
             onClear={clearWorkspace}
+            focusedReview={planReviewMode}
           />
 
           <QuestionEditor
@@ -288,6 +319,7 @@ export default function QuestionResourceWorkbench() {
             setMaterialForm={setMaterialForm}
             onCreateMaterial={createMaterial}
             onSave={saveDraft}
+            focusedReview={planReviewMode}
           />
 
           <WorkflowPanel
@@ -312,10 +344,19 @@ export default function QuestionResourceWorkbench() {
   );
 }
 
-function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, onNextVersion, onClear }) {
+function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, onNextVersion, onClear, focusedReview }) {
   return (
     <aside className="overflow-hidden rounded-md border border-slate-200 bg-white xl:sticky xl:top-24">
-      <div className="border-b border-slate-200 p-3">
+      {focusedReview ? (
+        <div className="border-b border-slate-200 p-3">
+          <Link
+            to="/material-resource-workbench"
+            className="flex min-h-10 w-full items-center justify-center rounded-md border border-emerald-600 bg-white px-3 text-sm font-normal text-emerald-700 hover:bg-emerald-50"
+          >
+            返回材料生产工作台
+          </Link>
+        </div>
+      ) : <div className="border-b border-slate-200 p-3">
         <button
           type="button"
           onClick={onNew}
@@ -323,10 +364,10 @@ function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, o
         >
           <FilePlus2 size={16} /> 新建题目 Draft
         </button>
-      </div>
+      </div>}
 
       <div className="max-h-[380px] overflow-auto p-2">
-        <p className="px-2 py-2 text-xs font-semibold text-slate-500">DRAFT / REVIEW</p>
+        <p className="px-2 py-2 text-xs font-semibold text-slate-500">{focusedReview ? '本批待审核题目' : 'DRAFT / REVIEW'}</p>
         {snapshot.drafts.length ? snapshot.drafts.map((draft) => (
           <button
             key={draft.draftId}
@@ -343,7 +384,7 @@ function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, o
         )) : <EmptyText>尚无 Draft</EmptyText>}
       </div>
 
-      <div className="border-t border-slate-200 p-2">
+      {!focusedReview ? <div className="border-t border-slate-200 p-2">
         <p className="px-2 py-2 text-xs font-semibold text-slate-500">FORMAL RESOURCE</p>
         {snapshot.registryEntries.length ? snapshot.registryEntries.map((entry) => (
           <div key={entry.resourceId} className="mb-1 rounded-md bg-slate-50 p-3">
@@ -359,9 +400,9 @@ function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, o
             </button>
           </div>
         )) : <EmptyText>尚无 Frozen Resource</EmptyText>}
-      </div>
+      </div> : null}
 
-      <div className="border-t border-slate-200 p-3">
+      {!focusedReview ? <div className="border-t border-slate-200 p-3">
         <button
           type="button"
           disabled={busy}
@@ -370,12 +411,12 @@ function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, o
         >
           <Trash2 size={15} /> 清除本地 Demo 数据
         </button>
-      </div>
+      </div> : null}
     </aside>
   );
 }
 
-function QuestionEditor({ form, setForm, editable, busy, context, materials, materialForm, setMaterialForm, onCreateMaterial, onSave }) {
+function QuestionEditor({ form, setForm, editable, busy, context, materials, materialForm, setMaterialForm, onCreateMaterial, onSave, focusedReview }) {
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const objectiveQuestion = ['multiple_choice', 'true_false', 'fill_blank'].includes(form.questionType);
   const readingQuestion = form.questionType === 'reading_comprehension';
@@ -388,7 +429,7 @@ function QuestionEditor({ form, setForm, editable, busy, context, materials, mat
     <section className="rounded-md border border-slate-200 bg-white">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-5">
         <div>
-          <h2 className="text-base font-semibold text-slate-950">Question Editor</h2>
+          <h2 className="text-base font-semibold text-slate-950">{focusedReview ? '题目内容与评分标准' : 'Question Editor'}</h2>
           <p className="mt-1 text-xs text-slate-500">
             {context ? `${context.draft.draftId} · ${statusLabels[context.draft.status]}` : '新建未保存 Draft'}
           </p>
@@ -399,7 +440,7 @@ function QuestionEditor({ form, setForm, editable, busy, context, materials, mat
           onClick={onSave}
           className="flex min-h-10 items-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400"
         >
-          <Save size={16} /> 保存 Draft
+          <Save size={16} /> {focusedReview ? '保存修改' : '保存 Draft'}
         </button>
       </div>
 
@@ -436,14 +477,14 @@ function QuestionEditor({ form, setForm, editable, busy, context, materials, mat
 
         <EditorGroup title="Material">
           <Field label="引用已有材料" required={readingQuestion} requirement={readingQuestion ? '当前题型必填' : undefined}>
-            <select value={form.materialVersionId} onChange={(event) => update('materialVersionId', event.target.value)} className={inputClass}>
+            <select disabled={focusedReview} value={form.materialVersionId} onChange={(event) => update('materialVersionId', event.target.value)} className={inputClass}>
               <option value="">不引用 Material</option>
               {materials.map((material) => (
                 <option key={material.materialVersionId} value={material.materialVersionId}>{material.title} · v{material.versionNumber}</option>
               ))}
             </select>
           </Field>
-          <details className="rounded-md bg-slate-50 p-3">
+          {!focusedReview ? <details className="rounded-md bg-slate-50 p-3">
             <summary className="cursor-pointer text-sm text-slate-700">新建 Material</summary>
             <div className="mt-3 space-y-3">
               <Field label="材料标题" required><input value={materialForm.title} onChange={(event) => setMaterialForm({ ...materialForm, title: event.target.value })} className={inputClass} /></Field>
@@ -452,7 +493,7 @@ function QuestionEditor({ form, setForm, editable, busy, context, materials, mat
               <Field label="版权或使用说明" requirement="可选"><input value={materialForm.copyrightNote} onChange={(event) => setMaterialForm({ ...materialForm, copyrightNote: event.target.value })} className={inputClass} /></Field>
               <button type="button" onClick={onCreateMaterial} className="min-h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-normal text-slate-700">创建 Material</button>
             </div>
-          </details>
+          </details> : null}
         </EditorGroup>
 
         <EditorGroup title="能力与任务 Metadata">

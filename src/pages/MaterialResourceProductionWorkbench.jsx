@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ClipboardCheck,
   FilePlus2,
-  Link2,
   LoaderCircle,
   PackagePlus,
   Plus,
@@ -26,7 +25,6 @@ import {
   loadPhase17BatchAPlansForReview,
   loadTongguanCalibrationPlanForReview,
   submitProductionObservationPlan,
-  synchronizeProductionObservationLinks,
 } from '../api/materialResourceProductionWorkbench.ts';
 import {
   getMaterialObservationDraftGeneratorStatus,
@@ -34,7 +32,6 @@ import {
 } from '../api/materialObservationDraftGenerator.ts';
 import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
 import {
-  activeLinksForPlan,
   isPlanFullyPublished,
   selectCurrentPlanDrafts,
   summarizeMaterialResourceWorkbench,
@@ -85,18 +82,6 @@ const statusLabels = {
   draft: '未提交审核', pending_review: '等待审核', revision_required: '需要修订',
   reviewed: '计划已审核', rejected: '已拒绝', superseded: '已被新版本替代',
 };
-const statusBadgeClasses = {
-  draft: 'border-amber-200 bg-amber-50 text-amber-700',
-  pending_review: 'border-blue-200 bg-blue-50 text-blue-700',
-  revision_required: 'border-amber-200 bg-amber-50 text-amber-700',
-  reviewed: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  rejected: 'border-red-200 bg-red-50 text-red-700',
-  superseded: 'border-slate-200 bg-slate-50 text-slate-500',
-};
-const draftStatusLabels = {
-  drafted: '待校验', validation_failed: '校验未通过', pending_review: '等待逐题审核',
-  revision_required: '需要修订', reviewed: '审核通过', rejected: '已拒绝',
-};
 const abilityLabels = Object.fromEntries(abilityOptions);
 const dimensionLabels = Object.fromEntries(dimensionOptions);
 const trainingDirectionLabels = Object.fromEntries(trainingDirectionOptions);
@@ -126,6 +111,7 @@ export default function MaterialResourceProductionWorkbench() {
   const [busy, setBusy] = useState(false);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
   const pendingDiscardActionRef = useRef(null);
+  const taskEditorSectionRef = useRef(null);
 
   useEffect(() => {
     refresh().catch((error) => setNotice(errorNotice(error)));
@@ -151,14 +137,6 @@ export default function MaterialResourceProductionWorkbench() {
     () => selectCurrentPlanDrafts(selectedPlan, snapshot.drafts),
     [selectedPlan, snapshot.drafts],
   );
-  const planLinks = useMemo(
-    () => activeLinksForPlan(selectedPlan, snapshot.links),
-    [selectedPlan, snapshot.links],
-  );
-  const planDraftReadiness = planDrafts.map((draft) => ({
-    draft,
-    readiness: snapshot.draftReadiness.find((item) => item.draftId === draft.draftId) || null,
-  }));
   const planFullyPublished = isPlanFullyPublished({
     plan: selectedPlan,
     currentDrafts: planDrafts,
@@ -349,7 +327,7 @@ export default function MaterialResourceProductionWorkbench() {
   async function createPlan() {
     await run(
       () => createProductionObservationPlan({ materialVersionId: selectedMaterialId, tasks: tasks.map(toTaskInput) }),
-      (result) => result.validation.passed ? '训练任务已保存并通过结构校验。' : '训练任务已保存，但需要先修复校验问题。',
+      (result) => result.validation.passed ? '训练任务已保存并通过内容检查。' : '训练任务已保存，但仍有内容需要调整。',
       (result) => ({ materialVersionId: selectedMaterialId, planId: result.plan.materialObservationPlanId }),
     );
   }
@@ -472,19 +450,6 @@ export default function MaterialResourceProductionWorkbench() {
     );
   }
 
-  async function syncLinks() {
-    await run(
-      () => synchronizeProductionObservationLinks(selectedPlan.materialObservationPlanId),
-      (results) => {
-        const linked = results.filter((item) => item.status === 'linked').length;
-        return linked === results.length
-          ? `${linked} 道训练任务已完成发布关联。`
-          : `已确认 ${linked} 道；其余任务需先完成逐题审核与发布。`;
-      },
-      { materialVersionId: selectedMaterialId, planId: selectedPlan.materialObservationPlanId },
-    );
-  }
-
   function updateTask(index, patch) {
     setTaskEditorDirty(true);
     setTasks((current) => current.map((task, taskIndex) => taskIndex === index ? { ...task, ...patch } : task));
@@ -580,7 +545,7 @@ export default function MaterialResourceProductionWorkbench() {
             )}
           </section>
 
-          <section className="border-t border-slate-200 pt-8">
+          <section ref={taskEditorSectionRef} className="scroll-mt-28 border-t border-slate-200 pt-8">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold">训练任务（<span className="text-emerald-600">{tasks.length}</span>/6）</h2>
@@ -773,11 +738,11 @@ export default function MaterialResourceProductionWorkbench() {
                           {task.rubric.map((item, rubricIndex) => (
                             <div key={item.localId} className="border-l-2 border-slate-200 pl-3">
                               <div className="grid gap-2 sm:grid-cols-2">
-                                <input aria-label={`Rubric ${rubricIndex + 1} 名称`} value={item.name} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { name: event.target.value }) })} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm" placeholder="例如：写出人物心理" />
-                                <select aria-label={`Rubric ${rubricIndex + 1} 能力`} value={item.abilityId} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { abilityId: event.target.value }) })} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">{abilityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+                                <input aria-label={`评分项 ${rubricIndex + 1} 名称`} value={item.name} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { name: event.target.value }) })} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm" placeholder="例如：写出人物心理" />
+                                <select aria-label={`评分项 ${rubricIndex + 1} 能力`} value={item.abilityId} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { abilityId: event.target.value }) })} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">{abilityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
                               </div>
-                              <textarea aria-label={`Rubric ${rubricIndex + 1} 描述`} value={item.description} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { description: event.target.value }) })} rows={2} className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 text-sm leading-6" placeholder="学生需要完成什么" />
-                              <input aria-label={`Rubric ${rubricIndex + 1} 可接受信号`} value={item.acceptedSignalsText} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { acceptedSignalsText: event.target.value }) })} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" placeholder="例如：担心、不舍、焦急（用逗号分隔）" />
+                              <textarea aria-label={`评分项 ${rubricIndex + 1} 描述`} value={item.description} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { description: event.target.value }) })} rows={2} className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 text-sm leading-6" placeholder="学生需要完成什么" />
+                              <input aria-label={`评分项 ${rubricIndex + 1} 可接受表达`} value={item.acceptedSignalsText} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { acceptedSignalsText: event.target.value }) })} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" placeholder="例如：担心、不舍、焦急（用逗号分隔）" />
                               {task.rubric.length > 1 && <button type="button" onClick={() => updateTask(index, { rubric: task.rubric.filter((_, itemIndex) => itemIndex !== rubricIndex) })} className="mt-2 text-xs font-semibold text-red-700">删除此项</button>}
                             </div>
                           ))}
@@ -816,19 +781,9 @@ export default function MaterialResourceProductionWorkbench() {
 
         <section className="mt-10 rounded-md bg-white p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              {selectedPlan ? (
-                <p className="flex flex-wrap items-center gap-2 text-sm font-normal text-slate-500">
-                  <span>当前版本：第 {selectedPlan.revision} 版</span>
-                  <span className={`rounded-md border px-2 py-0.5 text-xs font-normal ${statusBadgeClasses[selectedPlan.status] || statusBadgeClasses.superseded}`}>
-                    {statusLabels[selectedPlan.status]}
-                  </span>
-                </p>
-              ) : (
-                <p className="text-sm font-normal text-slate-500">审核与发布</p>
-              )}
-              <h2 className="mt-3 text-lg font-semibold">确认训练任务并发布</h2>
-              <p className="mt-2 max-w-[720px] text-sm leading-6 text-slate-600">保存训练任务后，可在这里检查题目和评分标准。审核通过的任务才能发布到正式学习系统。</p>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-semibold">确认训练任务</h2>
+              <p className="mt-2 max-w-[720px] text-sm leading-6 text-slate-600">复查训练目标、题目入口和评分标准；需要调整时可返回编辑区修改，当前版本不会被覆盖。</p>
             </div>
             {materialPlans.length > 1 && (
               <select value={selectedPlan?.materialObservationPlanId || ''} onChange={(event) => setSelectedPlanId(event.target.value)} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
@@ -841,13 +796,7 @@ export default function MaterialResourceProductionWorkbench() {
             <p className="mt-5 text-sm text-slate-500">请先在上方保存训练任务。</p>
           ) : (
             <>
-              <div className={`mt-5 grid gap-6 ${
-                selectedPlan.status === 'pending_review'
-                || (selectedPlan.status === 'reviewed' && planDrafts.length < selectedPlan.taskPlans.length)
-                || planDrafts.length > 0
-                  ? 'lg:grid-cols-[1fr_360px]'
-                  : ''
-              }`}>
+              <div className="mt-5">
                 <div>
                   <div>
                     {taskEditorDirty && (
@@ -860,7 +809,8 @@ export default function MaterialResourceProductionWorkbench() {
                         <details key={task.observationTaskPlanId} className="group py-4">
                           <summary className="flex cursor-pointer list-none items-start gap-3">
                             <span className="min-w-0 flex-1 text-sm font-normal leading-6 text-slate-900">
-                              {savedQuestionTitle(index)}：{task.observationGoal}
+                              <span className="font-semibold">{savedQuestionTitle(index)}：</span>
+                              {' '}{task.observationGoal}
                             </span>
                             <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                               <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-normal text-emerald-700">
@@ -881,7 +831,7 @@ export default function MaterialResourceProductionWorkbench() {
                             {task.resourceDraftSpecification && (
                               <details className="mt-3">
                                 <summary className="cursor-pointer text-sm font-normal text-blue-700">查看评分标准、作答范围与答案示例</summary>
-                                <div className="mt-3 grid gap-4 border-l-2 border-slate-200 pl-4 text-sm leading-6 md:grid-cols-2">
+                                <div className="mt-3 space-y-4 border-l-2 border-slate-200 pl-4 text-sm leading-6">
                                   <PreviewField label="评分标准" value={task.resourceDraftSpecification.rubric.map((item) => `${item.name}：${item.description || item.acceptedSignals.join('、')}`).join('\n')} />
                                   <PreviewField label="可接受的作答范围" value={formatAnswerAcceptance(task.resourceDraftSpecification.answerAcceptance)} />
                                   <PreviewField label="相关能力" value={task.resourceDraftSpecification.supportingAbilityIds.map((ability) => abilityLabels[ability]).join('、') || '无'} />
@@ -895,16 +845,6 @@ export default function MaterialResourceProductionWorkbench() {
                     </div>
                   </div>
                 </div>
-                {(selectedPlan.status === 'pending_review'
-                  || (selectedPlan.status === 'reviewed' && planDrafts.length < selectedPlan.taskPlans.length)
-                  || planDrafts.length > 0) && (
-                  <div className="space-y-3">
-                    {selectedPlan.status === 'pending_review' && <ActionButton onClick={approvePlan} disabled={busy} icon={ShieldCheck}>确认训练任务</ActionButton>}
-                    {selectedPlan.status === 'reviewed' && planDrafts.length < selectedPlan.taskPlans.length && <ActionButton onClick={createDrafts} disabled={busy} icon={FilePlus2}>生成待审核题目</ActionButton>}
-                    {planDrafts.length > 0 && <Link to="/question-resource-workbench" className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white"><ClipboardCheck size={16} />进入逐题审核与发布</Link>}
-                    {planDrafts.length > 0 && <ActionButton onClick={syncLinks} disabled={busy} icon={Link2}>检查发布状态</ActionButton>}
-                  </div>
-                )}
               </div>
               {['draft', 'revision_required'].includes(selectedPlan.status) && (
                 <>
@@ -915,14 +855,54 @@ export default function MaterialResourceProductionWorkbench() {
                     type="button"
                     onClick={submitPlan}
                     disabled={busy || !selectedValidation?.passed}
-                    className="mt-6 flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"
+                    className="mt-6 flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-4 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"
                   >
                     <ArrowRight size={16} />
                     提交审核
                   </button>
                 </>
               )}
-              {planDraftReadiness.length > 0 && <DraftProductionChecklist items={planDraftReadiness} />}
+              {selectedPlan.status === 'pending_review' && (
+                <button
+                  type="button"
+                  onClick={approvePlan}
+                  disabled={busy}
+                  className="mt-6 flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"
+                >
+                  <ShieldCheck size={16} />
+                  确认训练任务
+                </button>
+              )}
+              {selectedPlan.status === 'reviewed' && planDrafts.length < selectedPlan.taskPlans.length && (
+                <button
+                  type="button"
+                  onClick={createDrafts}
+                  disabled={busy}
+                  className="mt-6 flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"
+                >
+                  下一步：生成待审核题目
+                </button>
+              )}
+              {planDrafts.length > 0 && (
+                <div className="mt-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => taskEditorSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      className="flex min-h-11 w-full items-center justify-center rounded-md border border-emerald-600 bg-white px-4 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                    >
+                      返回修改
+                    </button>
+                    <Link
+                      to={`/question-resource-workbench?mode=plan-review&planId=${encodeURIComponent(selectedPlan.materialObservationPlanId)}&materialVersionId=${encodeURIComponent(selectedMaterialId)}`}
+                      className="flex min-h-11 w-full items-center justify-center rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                    >
+                      进入审核发布环节
+                    </Link>
+                  </div>
+                  <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-center text-xs font-normal text-amber-700">进入题目审核与发布环节后，可逐题选择“审核通过”“退回修改”或“不采用”。</p>
+                </div>
+              )}
             </>
           )}
         </section>
@@ -1095,7 +1075,7 @@ function GeneratorCandidatePreview({ result, onImport }) {
                 {result.validation.issues.map((issue) => (
                   <li key={issue}>
                     - {issue === 'fewer_than_3_valid_independent_candidates'
-                      ? `至少需要 3 个通过校验且彼此独立的新任务。本次共生成 ${totalCandidateCount} 个：${admittedCandidateCount} 个通过结构校验，其中 ${result.coveragePreview.independentObservationCount} 个属于独立新任务；${result.rejectedCandidates.length} 个被拒绝，因此暂不可导入。`
+                      ? `至少需要 3 个通过内容检查且训练方向不同的新任务。本次共生成 ${totalCandidateCount} 个：${admittedCandidateCount} 个通过内容检查，其中 ${result.coveragePreview.independentObservationCount} 个属于新的训练方向；${result.rejectedCandidates.length} 个未通过，因此暂不可导入。`
                       : generatorIssueLabel(issue)}
                   </li>
                 ))}
@@ -1202,61 +1182,6 @@ function GeneratorCandidatePreview({ result, onImport }) {
       )}
       <button type="button" onClick={onImport} disabled={result.status !== 'candidates_ready' || result.candidates.length === 0} className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-4 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"><ArrowRight size={16} />导入 {result.candidates.length} 条训练任务到编辑区</button>
     </div>
-  );
-}
-
-function DraftProductionChecklist({ items }) {
-  return (
-    <section className="mt-8 border-t border-slate-200 pt-6" aria-labelledby="draft-production-title">
-      <h3 id="draft-production-title" className="text-base font-semibold">题目生产检查</h3>
-      <p className="mt-2 text-sm leading-6 text-slate-600">逐题确认内容、校验与正式化状态。这里不代替人工审核，也不会自动 Freeze。</p>
-      <div className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
-        {items.map(({ draft, readiness }, index) => {
-          const validation = readiness?.validation;
-          const review = readiness?.review;
-          const frozen = readiness?.frozenVersion;
-          const linked = readiness?.observationLink?.status === 'active';
-          return (
-            <article key={draft.draftId} className="py-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold">{index + 1}. {draft.title}</p>
-                  <p className="mt-1 text-sm text-slate-500">{abilityLabels[draft.abilityMetadata.abilityId]} · {roleLabels[draft.abilityMetadata.taskRole]} · {difficultyLabels[draft.abilityMetadata.difficulty]}</p>
-                </div>
-                <p className={`text-sm font-semibold ${linked ? 'text-emerald-700' : validation?.passed ? 'text-blue-700' : 'text-amber-700'}`}>
-                  {linked
-                    ? '已 Freeze 并关联'
-                    : frozen
-                      ? '已 Freeze，待关联'
-                      : review?.action === 'approve'
-                        ? '审核通过，待 Freeze'
-                        : review?.action === 'revision_required'
-                          ? '审核要求修订'
-                          : draft.status === 'pending_review'
-                            ? '等待逐题审核'
-                            : validation?.passed
-                              ? '校验通过，待逐题审核'
-                              : draftStatusLabels[draft.status] || '需要修复'}
-                </p>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-slate-800">{draft.questionStem}</p>
-              {!validation && <p className="mt-3 text-sm text-amber-700">尚未找到结构校验结果，请重新生成或进入逐题审核工作台检查。</p>}
-              {validation && !validation.passed && <IssueList title="需要修复的字段" issues={validation.issues} compact />}
-              {validation?.passed && !frozen && <p className="mt-3 text-sm text-slate-600">结构校验已通过；Rubric、可接受答案和题目质量仍需逐题人工确认。</p>}
-              <details className="mt-4">
-                <summary className="cursor-pointer text-sm font-semibold text-blue-700">预览题目、Rubric 与可接受答案</summary>
-                <div className="mt-3 grid gap-4 border-l-2 border-slate-200 pl-4 text-sm leading-6 md:grid-cols-2">
-                  <PreviewField label="Rubric" value={draft.rubric.map((item) => `${item.name}：${item.description || item.acceptedSignals.join('、')}`).join('\n')} />
-                  <PreviewField label="Answer Acceptance" value={formatAnswerAcceptance(draft.answerAcceptance)} />
-                  <PreviewField label="最低作答要求" value={`不少于 ${draft.minimumAnswerRequirement.minLength} 字；${draft.minimumAnswerRequirement.requireTextEvidence ? '需要素材依据' : '不强制素材依据'}；${draft.minimumAnswerRequirement.requireExplanation ? '需要解释' : '不强制解释'}`} />
-                  <PreviewField label="正式化状态" value={frozen ? `已生成正式版本 ${frozen.versionNumber}` : '尚未 Freeze；请在逐题审核工作台完成确认'} />
-                </div>
-              </details>
-            </article>
-          );
-        })}
-      </div>
-    </section>
   );
 }
 
@@ -1656,7 +1581,7 @@ function expectedStatusForCalibration(category) {
 
 function calibrationReviewNote(category) {
   return ({
-    fully_meets: '应满足主要 Rubric。',
+    fully_meets: '应满足主要评分标准。',
     partially_meets: '应保留已完成部分并指出唯一主要缺口。',
     typical_error: '应识别本次作答中的可观察错误。',
     reasonable_alternative: '不得因未命中参考措辞而降级。',
@@ -1782,29 +1707,29 @@ function generatorIssueLabel(issue) {
     question_draft_missing: '缺少题型或作答形式',
     question_type_invalid: '题目类型不在允许范围',
     response_format_invalid: '作答形式不在允许范围',
-    primary_ability_invalid: 'Primary Ability 缺失或不合法',
+    primary_ability_invalid: '主要训练能力缺失或设置不合理',
     observation_dimension_invalid: 'Material Dimension 缺失或不合法',
     difficulty_invalid: '难度建议不合法',
     assessment_mode_invalid: '评价模式不合法',
     expected_student_action_missing: '缺少预期学生动作',
     design_rationale_missing: '缺少设计理由',
-    observation_focus_missing: '缺少 Observation Focus',
-    observation_focus_name_missing: '缺少 Observation Focus 名称',
-    observation_focus_definition_missing: '缺少 Observation Focus 定义',
+    observation_focus_missing: '缺少具体训练点',
+    observation_focus_name_missing: '缺少训练点名称',
+    observation_focus_definition_missing: '缺少训练点说明',
     material_anchor_missing: '缺少素材范围',
     material_anchor_type_invalid: '素材范围类型不合法',
     material_anchor_out_of_range: '引用的素材段落超出当前素材范围',
-    supporting_ability_duplicates_primary: '辅助能力与 Primary Ability 重复',
-    rubric_missing: '缺少 Rubric',
-    answer_acceptance_missing: '缺少 Answer Acceptance',
-    answer_acceptance_keywords_missing: 'Answer Acceptance 缺少可接受语义要点',
+    supporting_ability_duplicates_primary: '相关能力与主要训练能力重复',
+    rubric_missing: '缺少评分标准',
+    answer_acceptance_missing: '缺少可接受的作答范围',
+    answer_acceptance_keywords_missing: '可接受的作答范围中缺少关键要点',
     semantic_equivalent_must_be_allowed: '未允许合理异表述',
     minimum_answer_requirement_missing: '缺少最低作答要求',
     minimum_answer_length_invalid: '最低字数不合法',
     minimum_answer_flags_invalid: '最低作答条件不完整',
     calibration_answers_missing: '缺少校准答案',
-    evidence_potential_invalid: 'Evidence Potential 不合法',
-    evidence_boundary_missing: '缺少 Evidence Boundary',
+    evidence_potential_invalid: '能力观察强度设置不合理',
+    evidence_boundary_missing: '缺少能力判断边界',
     evidence_boundary_can_observe_missing: '缺少“能够观察什么”',
     evidence_boundary_cannot_conclude_missing: '缺少“不能据此得出什么结论”',
     evidence_boundary_cannot_conclude_not_explicit: '证据边界没有明确禁止过度推断',
@@ -1839,14 +1764,14 @@ function generatorLimitationLabel(limitation) {
     'Provider failed before any candidate was admitted.': '模型服务在产生候选前调用失败；本次没有候选进入校验或正式数据。',
     'Provider retry budget was exhausted.': '模型服务已达到本次受控重试上限；没有写入任何正式数据。',
     'Provider identity does not match the configured generator.': '模型服务身份与当前生成器配置不一致。',
-    'Only new observation candidates are importable in discover_new_observation mode.': '当前只执行“发现新 Observation”；替代问法和疑似重复项不会导入。',
+    'Only new observation candidates are importable in discover_new_observation mode.': '当前只导入新的训练方向；替代问法和疑似重复内容不会导入。',
     'Candidate repair output was invalid JSON; previously admitted candidates were preserved.': '自动修复结果格式无效；第一轮已通过的候选仍被保留。',
     'Candidate repair call failed; previously admitted candidates were preserved.': '自动修复调用未完成；第一轮已通过的候选仍被保留。',
   };
   const rejectedMatch = limitation.match(/^(\d+) candidate\(s\) were rejected before import\.$/);
-  if (rejectedMatch) return `${rejectedMatch[1]} 个候选在导入前被结构校验拒绝。`;
+  if (rejectedMatch) return `${rejectedMatch[1]} 个候选未通过导入前的内容检查。`;
   const withheldMatch = limitation.match(/^(\d+) candidate\(s\) matched existing or same-batch observations and were withheld from import\.$/);
-  if (withheldMatch) return `${withheldMatch[1]} 个候选与已有或本批次 Observation 重合，已保留供查看但不会导入。`;
+  if (withheldMatch) return `${withheldMatch[1]} 个候选与已有或本批次训练方向重复，已保留供查看但不会导入。`;
   const repairedMatch = limitation.match(/^Candidate-level repair recovered (\d+) of (\d+) structurally rejected candidate\(s\)\.$/);
   if (repairedMatch) return `系统已自动修复 ${repairedMatch[2]} 个结构偏差候选中的 ${repairedMatch[1]} 个。`;
   return translated[limitation] || limitation;

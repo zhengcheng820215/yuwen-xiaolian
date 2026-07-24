@@ -36,6 +36,10 @@ export type QuestionResourceWorkbenchSnapshot = {
   registryConsistency: Awaited<ReturnType<typeof validateResourceRegistryConsistency>>;
 };
 
+export type QuestionResourceWorkbenchSnapshotOptions = {
+  observationPlanId?: string;
+};
+
 export type QuestionResourceWorkbenchContext = {
   draft: StructuredQuestionDraft;
   material: QuestionMaterialVersion | null;
@@ -46,7 +50,9 @@ export type QuestionResourceWorkbenchContext = {
   versionHistory: FrozenQuestionResourceVersion[];
 };
 
-export async function getQuestionResourceWorkbenchSnapshot(): Promise<QuestionResourceWorkbenchSnapshot> {
+export async function getQuestionResourceWorkbenchSnapshot(
+  options: QuestionResourceWorkbenchSnapshotOptions = {},
+): Promise<QuestionResourceWorkbenchSnapshot> {
   const [drafts, materials, registryEntries, versions, registryConsistency] = await Promise.all([
     repository.listDrafts(),
     repository.listMaterials(),
@@ -54,6 +60,35 @@ export async function getQuestionResourceWorkbenchSnapshot(): Promise<QuestionRe
     repository.listVersions(),
     validateResourceRegistryConsistency(repository),
   ]);
+
+  if (options.observationPlanId) {
+    const plan = await observationRepository.getPlan(options.observationPlanId);
+    const scopedDrafts = plan
+      ? plan.taskPlans
+        .map((task) => drafts
+          .filter((draft) => (
+            draft.tags.includes(`observation_plan:${plan.materialObservationPlanId}`) &&
+            draft.tags.includes(`observation_task:${task.observationTaskPlanId}`)
+          ))
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] || null)
+        .filter((draft): draft is StructuredQuestionDraft => Boolean(draft))
+      : [];
+    const resourceIds = new Set(scopedDrafts.map((draft) => draft.resourceId));
+    const materialVersionIds = new Set(scopedDrafts
+      .map((draft) => draft.materialVersionId)
+      .filter((value): value is string => Boolean(value)));
+    return {
+      drafts: scopedDrafts,
+      materials: materials.filter((material) => materialVersionIds.has(material.materialVersionId)),
+      registryEntries: registryEntries
+        .filter((entry) => resourceIds.has(entry.resourceId))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+      versions: versions
+        .filter((version) => resourceIds.has(version.resourceId))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+      registryConsistency,
+    };
+  }
 
   return {
     drafts: drafts.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
