@@ -348,7 +348,7 @@ async function ensureDraft(
       source: {
         sourceType: 'ai_assisted',
         description: `Phase 17 Batch A 正式资源：${definition.resourceKey}。已按材料观测目标进行受控设计。`,
-        copyrightNote: '沿用关联 Material 的项目原创版权声明；正式对外使用前需完成内容负责人复核。',
+        copyrightNote: '沿用关联学习材料的项目原创版权声明；正式对外使用前需完成内容负责人复核。',
       },
       tags: [
         'phase17',

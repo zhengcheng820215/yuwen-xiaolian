@@ -468,11 +468,11 @@ export default function MaterialResourceProductionWorkbench() {
   return (
     <div className="material-resource-workbench min-h-screen bg-[#f6f8fb] text-slate-950">
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
-        <div className="mx-auto flex min-h-16 max-w-[1120px] items-center justify-between px-5 md:px-8">
+        <div className="mx-auto flex min-h-16 max-w-[1360px] items-center justify-between px-5 md:px-8">
           <div className="flex items-center gap-3">
             <Link to="/internal" aria-label="返回内部入口" className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"><ArrowLeft size={18} /></Link>
             <div>
-              <h1 className="text-lg font-semibold">素材资源生产</h1>
+              <h1 className="text-lg font-semibold">素材资源录入平台</h1>
               <p className="text-sm text-slate-500">Phase 17.2 · 最小生产工具</p>
             </div>
           </div>
@@ -490,8 +490,8 @@ export default function MaterialResourceProductionWorkbench() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1120px] px-5 py-7 md:px-8 md:py-9">
-        <section className="grid gap-3 border-b border-slate-200 pb-7 sm:grid-cols-4" aria-label="生产状态">
+      <main className="mx-auto w-full max-w-[1360px] px-5 py-7 md:px-8 md:py-9">
+        <section className="grid gap-3 pb-4 sm:grid-cols-4" aria-label="生产状态">
           <Metric label="学习材料" value={workbenchSummary.materialCount} />
           <Metric label="学习任务" value={workbenchSummary.learningTaskCount} />
           <Metric label="待审核题目" value={workbenchSummary.pendingReviewCount} />
@@ -500,7 +500,7 @@ export default function MaterialResourceProductionWorkbench() {
 
         {notice && <div role="status" className={`mt-5 border-l-4 px-4 py-3 text-sm leading-6 ${notice.type === 'error' ? 'border-red-500 bg-red-50 text-red-800' : 'border-emerald-500 bg-emerald-50 text-emerald-800'}`}>{notice.message}</div>}
 
-        <div className="mt-8 space-y-10">
+        <div className="mt-6 space-y-10">
           <section>
             <div className="flex justify-center">
               <div className="inline-flex rounded-md border border-slate-300 bg-white p-1" aria-label="素材录入方式">

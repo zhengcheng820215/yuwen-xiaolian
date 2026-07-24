@@ -16,7 +16,7 @@ const tools = [
   {
     to: '/material-resource-workbench',
     icon: BookOpenCheck,
-    title: '素材资源生产',
+    title: '素材资源录入平台',
     description: '从素材观测设计批量生成题目 Draft，并进入既有审核与冻结流程。',
     meta: '内容维护',
   },

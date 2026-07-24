@@ -241,9 +241,9 @@ export async function createAndValidateQuestionDraftBatch(
           source: {
             sourceType: task.resourceDraftSpecification?.tags.includes('ai-assisted') ? 'ai_assisted' : 'manual',
             description: input.sourceDescription || (task.resourceDraftSpecification?.tags.includes('ai-assisted')
-              ? '由人工审核后的 AI-assisted Material Observation Plan 生成。'
-              : '由已审核 Material Observation Plan 生成的人工资源 Draft。'),
-            copyrightNote: '沿用关联 Material 的来源与版权审核结果。',
+              ? '由人工审核通过的材料观测计划生成。'
+              : '由已审核的材料观测计划生成。'),
+            copyrightNote: '沿用关联学习材料的来源与版权审核结果。',
           },
           tags: [
             'phase17.2',
