@@ -46,7 +46,7 @@ Debug / Acceptance Report
 
 | 模块 | 一句话职责 | Design | Engineering | Product Acceptance | Live |
 | --- | --- | --- | --- | --- | --- |
-| Phase 17.2 首批正式资源包 | 生产经过审核、能被正式学习系统使用的真实题目 | PASS | BATCH A CONTROLLED FORMALIZATION + ASSISTED DRAFT GENERATION PASS | BATCH A OWNER REVIEW / FREEZE 8 / 8 PASS | PENDING |
+| Phase 17.2 首批正式资源包 | 生产经过审核、能被正式学习系统使用的真实题目 | PASS | BATCH A CONTROLLED FORMALIZATION + ASSISTED DRAFT GENERATION 38 / 38 PASS | BATCH A OWNER REVIEW / FREEZE 8 / 8 PASS | THREE-ROUND PROVIDER QUALITY REVIEW PENDING |
 | Phase 17.3 正式资源运行集成 | 证明资源目标、来源、诊断、证据和下一任务在主链中不丢失 | PASS | WORK PACKAGE A 17 / 17 PASS / WORK PACKAGE B CONTROLLED LIVE 3 / 3 PASS | BATCH A `/learning` SINGLE-ROUND PASS | CONTROLLED DEEPSEEK LIVE PASS |
 | `/learning` 正式学习入口 | 让单学生从一个入口开始、恢复、作答、反馈并继续 | PASS | MAIN PATH PASS / CONSOLIDATION IN PROGRESS | CONTROLLED DEMO PASS | `0 / 5` |
 | 多能力调度 | 根据表现和正式资源决定下一步练什么 | PASS | RUNTIME PASS | LIMITED BY RESOURCE PACK | PENDING |

@@ -13,8 +13,10 @@ import {
   type StructuredQuestionDraftPatch,
 } from '../ai/agents/questionResourceAdmissionAgent.ts';
 import { linkFrozenResourceToObservationTask } from '../ai/agents/materialObservationApplicationService.ts';
-import { IndexedDBMaterialObservationRepository } from '../ai/repositories/indexedDBMaterialObservationRepository.ts';
-import { IndexedDBQuestionResourceAdmissionRepository } from '../ai/repositories/indexedDBQuestionResourceAdmissionRepository.ts';
+import {
+  createBrowserMaterialObservationRepository,
+  createBrowserQuestionResourceAdmissionRepository,
+} from '../ai/repositories/formalResourceRepositoryRouter.ts';
 import type {
   FrozenQuestionResourceVersion,
   QuestionMaterialVersion,
@@ -25,8 +27,8 @@ import type {
   StructuredQuestionDraft,
 } from '../ai/schemas/questionResourceAdmission.schema.ts';
 
-const repository = new IndexedDBQuestionResourceAdmissionRepository();
-const observationRepository = new IndexedDBMaterialObservationRepository();
+const repository = createBrowserQuestionResourceAdmissionRepository();
+const observationRepository = createBrowserMaterialObservationRepository();
 
 export type QuestionResourceWorkbenchSnapshot = {
   drafts: StructuredQuestionDraft[];

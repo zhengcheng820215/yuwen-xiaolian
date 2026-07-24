@@ -14,6 +14,7 @@ import {
 export class InMemoryQuestionResourceAdmissionRepository
 implements QuestionResourceAdmissionRepository {
   private readonly materials = new Map<string, QuestionMaterialVersion>();
+  private readonly materialStatuses = new Map<string, 'active' | 'retired'>();
   private readonly drafts = new Map<string, StructuredQuestionDraft>();
   private readonly validations = new Map<string, ResourceValidationResult>();
   private readonly reviews = new Map<string, ResourceReviewDecision>();
@@ -38,13 +39,32 @@ implements QuestionResourceAdmissionRepository {
   }
 
   async getMaterial(materialVersionId: string): Promise<QuestionMaterialVersion | null> {
-    return cloneNullable(this.materials.get(materialVersionId));
+    const material = this.materials.get(materialVersionId);
+    return material ? projectMaterialStatus(material, this.materialStatuses.get(materialVersionId)) : null;
   }
 
   async listMaterials(): Promise<QuestionMaterialVersion[]> {
     return [...this.materials.values()]
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      .map(clone);
+      .map((material) => projectMaterialStatus(
+        material,
+        this.materialStatuses.get(material.materialVersionId),
+      ));
+  }
+
+  async setMaterialStatus(
+    materialVersionId: string,
+    status: 'active' | 'retired',
+  ): Promise<QuestionMaterialVersion> {
+    const material = this.materials.get(materialVersionId);
+    if (!material) throw new Error(`Material not found: ${materialVersionId}`);
+    this.materialStatuses.set(materialVersionId, status);
+    return projectMaterialStatus(material, status);
+  }
+
+  async deleteMaterial(materialVersionId: string): Promise<void> {
+    this.materials.delete(materialVersionId);
+    this.materialStatuses.delete(materialVersionId);
   }
 
   async saveDraft(draft: StructuredQuestionDraft): Promise<StructuredQuestionDraft> {
@@ -179,6 +199,7 @@ implements QuestionResourceAdmissionRepository {
 
   async clear(): Promise<void> {
     this.materials.clear();
+    this.materialStatuses.clear();
     this.drafts.clear();
     this.validations.clear();
     this.reviews.clear();
@@ -212,4 +233,14 @@ function sameMaterialVersion(
     left.createdAt === right.createdAt &&
     left.updatedAt === right.updatedAt &&
     left.schemaVersion === right.schemaVersion;
+}
+
+function projectMaterialStatus(
+  material: QuestionMaterialVersion,
+  status?: 'active' | 'retired',
+): QuestionMaterialVersion {
+  return clone({
+    ...material,
+    status: status || material.status || 'active',
+  });
 }

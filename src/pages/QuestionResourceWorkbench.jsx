@@ -86,7 +86,7 @@ const sourceTypeOptions = [
 
 const statusLabels = {
   drafted: '草稿',
-  validation_failed: '检查未通过',
+  validation_failed: '结构检查未通过',
   pending_review: '待审核',
   revision_required: '退回修改',
   reviewed: '审核通过',
@@ -195,7 +195,7 @@ export default function QuestionResourceWorkbench() {
         taskId: context?.draft.taskId,
         draft: toDraftInput(form),
       }),
-      selectedDraftId ? '草稿已保存，请重新检查题目。' : '题目草稿已创建。',
+      selectedDraftId ? '草稿已保存，请重新执行结构检查。' : '题目草稿已创建。',
       (draft) => draft.draftId,
     );
     if (result) setSelectedDraftId(result.draftId);
@@ -224,7 +224,7 @@ export default function QuestionResourceWorkbench() {
         await validateQuestionResourceWorkbenchDraft(savedDraft.draftId);
         return savedDraft;
       },
-      '题目检查已完成。',
+      '题目结构检查已完成。',
       (draft) => draft.draftId,
     );
     if (result) setSelectedDraftId(result.draftId);
@@ -408,7 +408,7 @@ export default function QuestionResourceWorkbench() {
             value={planReviewMode
               ? snapshot.drafts.filter((draft) => draftDisplayStatus(snapshot, draft) === 'reviewed').length
               : snapshot.versions.length}
-            tone={planReviewMode ? 'success' : undefined}
+            tone={planReviewMode ? 'info' : undefined}
             aligned={planReviewMode}
           />
           <SummaryItem
@@ -784,6 +784,10 @@ function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidat
           <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-sm font-normal text-emerald-700">
             已发布
           </span>
+        ) : draft.status === 'drafted' && hasCurrentPassedValidation ? (
+          <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-sm font-normal text-blue-700">
+            结构检查通过，待提交人工审核
+          </span>
         ) : draft.status === 'drafted' ? (
           <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-sm font-normal text-amber-700">
             草稿
@@ -791,9 +795,9 @@ function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidat
         ) : <StatusBadge status={draft.status} />}
       </div>
 
-      {completedStep >= 1 ? <CompletedActionStep index="1" title="检查题目" /> : null}
-      {completedStep >= 2 ? <CompletedActionStep index="2" title="提交题目审核" /> : null}
-      {completedStep >= 3 ? <CompletedActionStep index="3" title="人工审核" /> : null}
+      {completedStep >= 1 ? <CompletedActionStep index="1" title="自动结构检查" /> : null}
+      {completedStep >= 2 ? <CompletedActionStep index="2" title="提交人工审核" /> : null}
+      {completedStep >= 3 ? <CompletedActionStep index="3" title="逐题人工审核" /> : null}
       {completedStep >= 4 ? <CompletedActionStep index="4" title="正式发布" /> : null}
 
       {draft.status === 'rejected' ? (
@@ -805,20 +809,20 @@ function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidat
       ) : null}
 
       {currentStep === 1 ? (
-        <ActionStep index="1" title="检查题目">
-          <button type="button" disabled={busy || !['drafted', 'validation_failed', 'revision_required'].includes(draft.status)} onClick={onValidate} className={activeWorkflowButtonClass}>保存并检查题目</button>
-          {validation ? <ValidationResult validation={validation} stale={draft.status === 'revision_required'} /> : <p className="mt-2 text-sm text-slate-500">当前修改尚未检查，请保存并检查题目。</p>}
+        <ActionStep index="1" title="自动结构检查">
+          <button type="button" disabled={busy || !['drafted', 'validation_failed', 'revision_required'].includes(draft.status)} onClick={onValidate} className={activeWorkflowButtonClass}>保存并执行结构检查</button>
+          {validation ? <ValidationResult validation={validation} stale={draft.status === 'revision_required'} /> : <p className="mt-2 text-sm text-slate-500">当前修改尚未执行结构检查，请保存后检查。</p>}
         </ActionStep>
       ) : null}
 
       {currentStep === 2 ? (
-        <ActionStep index="2" title="提交题目审核">
-          <button type="button" disabled={busy} onClick={onSubmitReview} className={activeWorkflowButtonClass}>提交题目审核</button>
+        <ActionStep index="2" title="提交人工审核">
+          <button type="button" disabled={busy} onClick={onSubmitReview} className={activeWorkflowButtonClass}>提交人工审核</button>
         </ActionStep>
       ) : null}
 
       {currentStep === 3 ? (
-        <ActionStep index="3" title="人工审核">
+        <ActionStep index="3" title="逐题人工审核">
           <AutoGrowTextarea value={reviewNotes} onChange={(event) => setReviewNotes(event.target.value)} rows={3} placeholder="填写审核说明" />
           <div className="mt-2 grid grid-cols-3 gap-2">
             <button type="button" disabled={busy} onClick={() => onReview('approve')} className="min-h-10 rounded-md bg-emerald-600 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">通过</button>
@@ -848,15 +852,15 @@ function ValidationResult({ validation, stale = false }) {
   if (stale) {
     return (
       <div className="mt-3 rounded-md bg-amber-50 p-3">
-        <p className="text-sm font-semibold text-amber-800">上次检查已通过</p>
-        <p className="mt-1 text-xs leading-5 text-amber-700">题目已退回修改，请保存并重新检查后再提交审核。</p>
+        <p className="text-sm font-semibold text-amber-800">上次结构检查已通过</p>
+        <p className="mt-1 text-xs leading-5 text-amber-700">题目已退回修改，请保存并重新执行结构检查后再提交人工审核。</p>
       </div>
     );
   }
   return (
     <div className={`mt-3 rounded-md p-3 ${validation.passed ? 'bg-emerald-50' : 'bg-rose-50'}`}>
       <p className={`flex items-center gap-2 text-sm font-semibold ${validation.passed ? 'text-emerald-800' : 'text-rose-800'}`}>
-        {validation.passed ? <CheckCircle2 size={16} /> : null}{validation.passed ? '检查通过' : '检查未通过'}
+        {validation.passed ? <CheckCircle2 size={16} /> : null}{validation.passed ? '结构检查通过' : '结构检查未通过'}
       </p>
       {validation.issues.length ? <ul className="mt-2 space-y-2 text-xs leading-5 text-slate-700">{validation.issues.map((issue) => <li key={`${issue.code}-${issue.field}`}><span className={issue.severity === 'error' ? 'text-rose-700' : 'text-amber-700'}>{issue.severity === 'error' ? '阻断' : '提醒'}</span> · {validationMessage(issue)} <span className="text-slate-400">({issue.field})</span></li>)}</ul> : <p className="mt-2 text-xs text-emerald-800">没有阻断项。</p>}
     </div>
@@ -994,13 +998,13 @@ function CompletedActionStep({ index, title }) {
 
 function SummaryItem({ label, value, tone, aligned = false }) {
   if (aligned) {
-    return <div><p className="text-sm text-slate-500">{label}</p><p className={`mt-1 text-lg font-semibold ${tone === 'success' ? 'text-emerald-700' : tone === 'warning' ? 'text-amber-700' : 'text-slate-950'}`}>{value}</p></div>;
+    return <div><p className="text-sm text-slate-500">{label}</p><p className={`mt-1 text-lg font-semibold ${tone === 'success' ? 'text-emerald-700' : tone === 'info' ? 'text-blue-700' : tone === 'warning' ? 'text-amber-700' : 'text-slate-950'}`}>{value}</p></div>;
   }
-  return <div><p className="text-xs font-semibold text-slate-500">{label}</p><p className={`mt-1 text-lg font-semibold ${tone === 'success' ? 'text-emerald-700' : tone === 'warning' ? 'text-amber-700' : 'text-slate-950'}`}>{value}</p></div>;
+  return <div><p className="text-xs font-semibold text-slate-500">{label}</p><p className={`mt-1 text-lg font-semibold ${tone === 'success' ? 'text-emerald-700' : tone === 'info' ? 'text-blue-700' : tone === 'warning' ? 'text-amber-700' : 'text-slate-950'}`}>{value}</p></div>;
 }
 
 function StatusText({ status, large = false }) {
-  const tones = { validation_failed: 'text-rose-700', pending_review: 'text-blue-700', revision_required: 'text-amber-700', reviewed: 'text-emerald-700', rejected: 'text-rose-700', drafted: 'text-slate-600', published: 'text-emerald-700' };
+  const tones = { validation_failed: 'text-rose-700', pending_review: 'text-blue-700', revision_required: 'text-amber-700', reviewed: 'text-blue-700', rejected: 'text-rose-700', drafted: 'text-slate-600', published: 'text-emerald-700' };
   return <span className={`${large ? 'text-sm font-semibold' : ''} ${tones[status] || 'text-slate-600'}`}>{statusLabels[status] || status}</span>;
 }
 
@@ -1009,7 +1013,7 @@ function StatusBadge({ status }) {
     validation_failed: 'bg-rose-50 text-rose-700',
     pending_review: 'bg-amber-50 text-amber-700',
     revision_required: 'bg-amber-50 text-amber-700',
-    reviewed: 'bg-emerald-100 text-emerald-700',
+    reviewed: 'bg-blue-50 text-blue-700',
     rejected: 'bg-rose-50 text-rose-700',
     drafted: 'bg-transparent font-semibold text-slate-600',
     published: 'border border-emerald-200 bg-emerald-50 text-emerald-700',

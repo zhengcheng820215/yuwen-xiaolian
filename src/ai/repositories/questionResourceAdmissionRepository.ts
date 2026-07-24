@@ -13,6 +13,11 @@ export type QuestionResourceAdmissionRepository = {
   saveMaterial(material: QuestionMaterialVersion): Promise<QuestionMaterialVersion>;
   getMaterial(materialVersionId: string): Promise<QuestionMaterialVersion | null>;
   listMaterials(): Promise<QuestionMaterialVersion[]>;
+  setMaterialStatus(
+    materialVersionId: string,
+    status: 'active' | 'retired',
+  ): Promise<QuestionMaterialVersion>;
+  deleteMaterial(materialVersionId: string): Promise<void>;
 
   saveDraft(draft: StructuredQuestionDraft): Promise<StructuredQuestionDraft>;
   getDraft(draftId: string): Promise<StructuredQuestionDraft | null>;

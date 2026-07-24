@@ -70,6 +70,7 @@ export type QuestionMaterialVersion = {
   materialId: string;
   materialVersionId: string;
   versionNumber: number;
+  status?: 'active' | 'retired';
   title: string;
   content: string;
   source: QuestionSource;

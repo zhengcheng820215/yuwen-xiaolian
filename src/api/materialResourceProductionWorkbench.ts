@@ -13,8 +13,10 @@ import {
 } from '../ai/agents/phase17BatchAProductionService.ts';
 import { preparePhase173BatchAPreflight } from '../ai/agents/phase173BatchAPreflightService.ts';
 import { createQuestionMaterial } from '../ai/agents/questionResourceAdmissionAgent.ts';
-import { IndexedDBMaterialObservationRepository } from '../ai/repositories/indexedDBMaterialObservationRepository.ts';
-import { IndexedDBQuestionResourceAdmissionRepository } from '../ai/repositories/indexedDBQuestionResourceAdmissionRepository.ts';
+import {
+  createBrowserMaterialObservationRepository,
+  createBrowserQuestionResourceAdmissionRepository,
+} from '../ai/repositories/formalResourceRepositoryRouter.ts';
 import type {
   MaterialObservationPlan,
   MaterialObservationPlanValidation,
@@ -33,8 +35,8 @@ import {
   PHASE17_TONGGUAN_TASKS,
 } from '../data/phase17TongguanCalibration.ts';
 
-const resourceRepository = new IndexedDBQuestionResourceAdmissionRepository();
-const observationRepository = new IndexedDBMaterialObservationRepository();
+const resourceRepository = createBrowserQuestionResourceAdmissionRepository();
+const observationRepository = createBrowserMaterialObservationRepository();
 
 export type MaterialResourceProductionSnapshot = {
   materials: QuestionMaterialVersion[];
@@ -99,6 +101,12 @@ export async function createProductionMaterial(input: {
   description: string;
   copyrightNote?: string;
 }): Promise<QuestionMaterialVersion> {
+  const duplicate = (await resourceRepository.listMaterials()).find(
+    (material) => normalizeMaterialContent(material.content) === normalizeMaterialContent(input.content),
+  );
+  if (duplicate) {
+    throw new Error(`已存在内容相同的学习材料：《${duplicate.title}》。请直接使用已有素材。`);
+  }
   const suffix = createIdSuffix();
   return createQuestionMaterial(resourceRepository, {
     materialId: `material-${suffix}`,
@@ -112,6 +120,46 @@ export async function createProductionMaterial(input: {
       copyrightNote: input.copyrightNote,
     },
   });
+}
+
+export type ProductionMaterialDisposition = {
+  action: 'delete' | 'retire';
+  dependencyCount: number;
+};
+
+export async function getProductionMaterialDisposition(
+  materialVersionId: string,
+): Promise<ProductionMaterialDisposition> {
+  const [plans, anchors, drafts, versions] = await Promise.all([
+    observationRepository.listPlans(materialVersionId),
+    observationRepository.listAnchors(materialVersionId),
+    resourceRepository.listDrafts(),
+    resourceRepository.listVersions(),
+  ]);
+  const dependencyCount = plans.length
+    + anchors.length
+    + drafts.filter((draft) => draft.materialVersionId === materialVersionId).length
+    + versions.filter((version) => version.materialVersionId === materialVersionId).length;
+  return {
+    action: dependencyCount === 0 ? 'delete' : 'retire',
+    dependencyCount,
+  };
+}
+
+export async function deleteUnusedProductionMaterial(
+  materialVersionId: string,
+): Promise<void> {
+  const disposition = await getProductionMaterialDisposition(materialVersionId);
+  if (disposition.action !== 'delete') {
+    throw new Error('该学习材料已经进入训练任务或题目链，不能删除；请改为停用。');
+  }
+  await resourceRepository.deleteMaterial(materialVersionId);
+}
+
+export async function retireProductionMaterial(
+  materialVersionId: string,
+): Promise<QuestionMaterialVersion> {
+  return resourceRepository.setMaterialStatus(materialVersionId, 'retired');
 }
 
 export async function createProductionObservationPlan(input: {
@@ -236,4 +284,12 @@ function createIdSuffix(): string {
     return crypto.randomUUID().slice(0, 12);
   }
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+export function normalizeMaterialContent(content: string): string {
+  return content
+    .normalize('NFKC')
+    .replace(/\s+/g, '')
+    .replace(/[，。！？；：“”‘’、,.!?;:'"]/g, '')
+    .toLowerCase();
 }

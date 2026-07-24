@@ -4,7 +4,7 @@
 
 设计状态：ACCEPTED
 
-工程状态：IN PROGRESS（17.1 ENGINEERING + HUMAN DEMO PASS / INDEXEDDB SMOKE PENDING；17.2 RUNTIME + MINIMAL PRODUCTION WORKSPACE ENGINEERING PASS，BATCH A 8 / 8 FORMALIZED；17.3 WORK PACKAGE A 17 / 17 PASS、CONTROLLED LIVE 3 / 3 PASS、BATCH A `/learning` SINGLE-ROUND DEMO PASS）
+工程状态：IN PROGRESS（17.1 ENGINEERING + HUMAN DEMO PASS / INDEXEDDB SMOKE PENDING；17.2 RUNTIME + MINIMAL PRODUCTION WORKSPACE ENGINEERING PASS、ASSISTED DRAFT GENERATION 38 / 38 PASS、CONTROLLED LIVE EFFECTIVENESS PENDING、BATCH A 8 / 8 FORMALIZED；17.3 WORK PACKAGE A 17 / 17 PASS、CONTROLLED LIVE 3 / 3 PASS、BATCH A `/learning` SINGLE-ROUND DEMO PASS；17.4A ENGINEERING + AUTOMATED DEBUG 9 / 9 PASS、STANDARD-BROWSER BASELINE CUTOVER PASS / DUAL-BROWSER HUMAN CHECK PENDING；17.4B PLANNED / P2）
 
 前置状态：Phase 16.1 与 Phase 16.2 已完成；Phase 16.3A / B 已冻结，Phase 16.3C 工程与轻量人工验收已通过，5—7 个自然日真实运行仍为 `PENDING (0 / 5)`。
 
@@ -110,7 +110,7 @@ Phase 17 不回答：
 - 是否已经证明所有结构化题型在正式学生端完成端到端验收；
 - Observation Dimension 是否已经可以直接更新 Profile 或形成长期能力结论。
 
-## 五、三个顺序闭环
+## 五、四个顺序闭环
 
 ```text
 Phase 17.1 Resource Coverage Contract
@@ -119,14 +119,20 @@ Phase 17.2 First Frozen Resource Pack
 ↓
 Phase 17.3 Runtime Coverage Integration
 ↓
+Phase 17.4A Shared Store Cutover
+↓
+Phase 17.4B Migration and Recovery Hardening
+↓
 Phase 17 Acceptance / Freeze
 ```
 
-三个子阶段具有明确依赖：
+四个子阶段具有明确依赖，其中 17.4 拆为两个顺序工作包：
 
 - 17.1 先定义什么叫覆盖，防止只追求题目数量；
 - 17.2 以 Material Cluster 为生产单位，先建立 Material Observation Plan，再按正式覆盖缺口建设首批资源；
 - 17.3 证明资源能够被真实 Strategy、TaskRequest 和 TaskFulfillment 消费，并验证观测维度引用在正式执行链中保持可追溯。
+- 17.4A 先把正式资源事实从浏览器私有 IndexedDB 迁移到本机 Shared Store，经统一 Local API 和 Repository Boundary 读写；完成双浏览器一致读取、受控基线导入与基本备份后，即可恢复规模化录题。
+- 17.4B 在稳定录入恢复后，再补齐复杂迁移报告、冲突分析、历史快照、自动备份与恢复能力；该工作包不阻塞 17.4A 通过后的正常资源生产。
 
 ## 六、Material First 与权威数据关系
 
@@ -646,7 +652,7 @@ PDF Source
 
 独立工程文档：[Phase 17.3：正式资源运行集成与来源保持](./phase17_3.md)
 
-当前状态：`DESIGN READY FOR REVIEW / ENGINEERING NOT STARTED`。文档可先冻结；最小工程串联须等待 Phase 17.2 Batch A 提供约 8 道 Human Reviewed、Frozen、Registered、Linked 且可正式查询的真实资源。Phase 17.3 最终产品 PASS 仍须等待完整 24—28 道首批正式资源包。
+当前状态：`ENGINEERING + CONTROLLED LIVE + SINGLE-ROUND DEMO PASS / FULL RESOURCE PACK AND CONTINUOUS LEARNING PENDING`。Phase 17.2 Batch A 已提供 8 道 Human Reviewed、Frozen、Registered、Linked 且可正式查询的真实资源；Work Package A 确定性正式资源串联为 `17 / 17 PASS`，Work Package B Controlled DeepSeek Live 为 `3 / 3 PASS`，Batch A `/learning` 单轮人工 Demo 已通过。Phase 17.3 最终产品 PASS 仍须等待完整 24—28 道首批正式资源包、连续 Session 与学生感知验收。
 
 核心问题：
 

@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "vite --host 0.0.0.0 --port 5174 --strictPort",
     "build": "vite build",
     "debug:diagnosis-training": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runDiagnosisTrainingDebug.ts",
     "debug:question-metadata": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionMetadataDebug.ts",
@@ -80,6 +80,7 @@
     "debug:phase17-3-learning-entry": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase173LearningEntryIntegrationDebug.ts",
     "debug:phase17-3-controlled-live": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase173ControlledLive.ts",
     "debug:phase17-tongguan-calibration": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase17TongguanCalibrationDebug.ts",
+    "debug:phase17-4a": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase174ASharedResourcePersistenceDebug.ts",
     "debug:material-observation-draft-generator": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runMaterialObservationDraftGeneratorDebug.ts",
     "debug:phase16-resource-integration": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase161To162IntegrationDebug.ts",
     "debug:phase1-16-e2e": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase1To162SingleObjectE2EDebug.ts",

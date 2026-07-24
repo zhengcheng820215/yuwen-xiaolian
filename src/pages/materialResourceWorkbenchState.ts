@@ -68,7 +68,7 @@ export function summarizeMaterialResourceWorkbench(
     snapshot.drafts.filter((draft) => draft.tags.includes('phase17.2')),
   );
   return {
-    materialCount: snapshot.materials.length,
+    materialCount: snapshot.materials.filter((material) => material.status !== 'retired').length,
     learningTaskCount: latestPlans.reduce(
       (total, plan) => total + plan.taskPlans.length,
       0,

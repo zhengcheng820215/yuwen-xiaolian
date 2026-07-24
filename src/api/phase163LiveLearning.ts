@@ -34,9 +34,11 @@ import { InMemoryControlledFeedbackRepository } from '../ai/repositories/inMemor
 import { InMemoryFormalDiagnosisRepository } from '../ai/repositories/inMemoryFormalDiagnosisRepository.ts';
 import { IndexedDBLearningPersistenceRepository } from '../ai/repositories/indexedDBLearningPersistenceRepository.ts';
 import { IndexedDBLearningSessionRepository } from '../ai/repositories/indexedDBLearningSessionRepository.ts';
-import { IndexedDBMaterialObservationRepository } from '../ai/repositories/indexedDBMaterialObservationRepository.ts';
 import { IndexedDBPhase163MultiDayRunRepository } from '../ai/repositories/indexedDBPhase163MultiDayRunRepository.ts';
-import { IndexedDBQuestionResourceAdmissionRepository } from '../ai/repositories/indexedDBQuestionResourceAdmissionRepository.ts';
+import {
+  createBrowserMaterialObservationRepository,
+  createBrowserQuestionResourceAdmissionRepository,
+} from '../ai/repositories/formalResourceRepositoryRouter.ts';
 import { IndexedDBRealLearningOperationRepository } from '../ai/repositories/indexedDBRealLearningOperationRepository.ts';
 import { LocalStorageUnifiedLearningEntryRepository } from '../ai/repositories/localStorageUnifiedLearningEntryRepository.ts';
 import type { LearningPersistenceRecord } from '../ai/schemas/learningPersistence.schema.ts';
@@ -67,8 +69,8 @@ const persistenceRepository = new IndexedDBLearningPersistenceRepository();
 const sessionRepository = new IndexedDBLearningSessionRepository();
 const activityRepository = new LocalStorageUnifiedLearningEntryRepository();
 const multiDayRepository = new IndexedDBPhase163MultiDayRunRepository();
-const formalResourceRepository = new IndexedDBQuestionResourceAdmissionRepository();
-const materialObservationRepository = new IndexedDBMaterialObservationRepository();
+const formalResourceRepository = createBrowserQuestionResourceAdmissionRepository();
+const materialObservationRepository = createBrowserMaterialObservationRepository();
 
 export type Phase163LiveWorkspaceState = {
   status: 'ready' | 'submitting' | 'completed' | 'retry_required' | 'review_required' | 'blocked';

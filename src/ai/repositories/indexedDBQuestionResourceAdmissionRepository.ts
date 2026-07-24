@@ -10,10 +10,12 @@ import {
   type ResourceValidationResult,
   type StructuredQuestionDraft,
 } from '../schemas/questionResourceAdmission.schema.ts';
+import type { SharedQuestionResourceState } from '../schemas/sharedFormalResourcePersistence.schema.ts';
 
 const DB_NAME = 'yuwen_xiaolian_question_resource_admission';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const MATERIAL_STORE = 'materials';
+const MATERIAL_STATUS_STORE = 'materialStatuses';
 const DRAFT_STORE = 'drafts';
 const VALIDATION_STORE = 'validations';
 const REVIEW_STORE = 'reviews';
@@ -22,6 +24,25 @@ const REGISTRY_STORE = 'registry';
 
 export class IndexedDBQuestionResourceAdmissionRepository
 implements QuestionResourceAdmissionRepository {
+  async exportSharedState(): Promise<SharedQuestionResourceState> {
+    const [materials, drafts, validations, reviews, versions, registryEntries] = await Promise.all([
+      this.listMaterials(),
+      this.listDrafts(),
+      getAllRecords<ResourceValidationResult>(VALIDATION_STORE),
+      getAllRecords<ResourceReviewDecision>(REVIEW_STORE),
+      this.listVersions(),
+      this.listRegistryEntries(),
+    ]);
+    return {
+      materials,
+      drafts,
+      validations,
+      reviews,
+      versions,
+      registryEntries,
+    };
+  }
+
   async saveMaterial(material: QuestionMaterialVersion): Promise<QuestionMaterialVersion> {
     const existing = await this.getMaterial(material.materialVersionId);
     if (existing) {
@@ -35,12 +56,55 @@ implements QuestionResourceAdmissionRepository {
   }
 
   async getMaterial(materialVersionId: string): Promise<QuestionMaterialVersion | null> {
-    return getRecord<QuestionMaterialVersion>(MATERIAL_STORE, materialVersionId);
+    const material = await getRecord<QuestionMaterialVersion>(MATERIAL_STORE, materialVersionId);
+    if (!material) return null;
+    const lifecycle = await getRecord<MaterialLifecycleRecord>(
+      MATERIAL_STATUS_STORE,
+      materialVersionId,
+    );
+    return projectMaterialStatus(material, lifecycle?.status);
   }
 
   async listMaterials(): Promise<QuestionMaterialVersion[]> {
-    const materials = await getAllRecords<QuestionMaterialVersion>(MATERIAL_STORE);
-    return materials.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    const [materials, lifecycles] = await Promise.all([
+      getAllRecords<QuestionMaterialVersion>(MATERIAL_STORE),
+      getAllRecords<MaterialLifecycleRecord>(MATERIAL_STATUS_STORE),
+    ]);
+    const statuses = new Map(
+      lifecycles.map((lifecycle) => [lifecycle.materialVersionId, lifecycle.status]),
+    );
+    return materials
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .map((material) => projectMaterialStatus(
+        material,
+        statuses.get(material.materialVersionId),
+      ));
+  }
+
+  async setMaterialStatus(
+    materialVersionId: string,
+    status: 'active' | 'retired',
+  ): Promise<QuestionMaterialVersion> {
+    const material = await getRecord<QuestionMaterialVersion>(MATERIAL_STORE, materialVersionId);
+    if (!material) throw new Error(`Material not found: ${materialVersionId}`);
+    await putRecord<MaterialLifecycleRecord>(MATERIAL_STATUS_STORE, {
+      materialVersionId,
+      status,
+      updatedAt: new Date().toISOString(),
+    });
+    return projectMaterialStatus(material, status);
+  }
+
+  async deleteMaterial(materialVersionId: string): Promise<void> {
+    const db = await openDatabase();
+    const transaction = db.transaction(
+      [MATERIAL_STORE, MATERIAL_STATUS_STORE],
+      'readwrite',
+    );
+    transaction.objectStore(MATERIAL_STORE).delete(materialVersionId);
+    transaction.objectStore(MATERIAL_STATUS_STORE).delete(materialVersionId);
+    await transactionToPromise(transaction);
+    db.close();
   }
 
   async saveDraft(draft: StructuredQuestionDraft): Promise<StructuredQuestionDraft> {
@@ -188,6 +252,7 @@ implements QuestionResourceAdmissionRepository {
     const db = await openDatabase();
     const stores = [
       MATERIAL_STORE,
+      MATERIAL_STATUS_STORE,
       DRAFT_STORE,
       VALIDATION_STORE,
       REVIEW_STORE,
@@ -217,6 +282,22 @@ function sameMaterialVersion(
     left.createdAt === right.createdAt &&
     left.updatedAt === right.updatedAt &&
     left.schemaVersion === right.schemaVersion;
+}
+
+type MaterialLifecycleRecord = {
+  materialVersionId: string;
+  status: 'active' | 'retired';
+  updatedAt: string;
+};
+
+function projectMaterialStatus(
+  material: QuestionMaterialVersion,
+  status?: 'active' | 'retired',
+): QuestionMaterialVersion {
+  return clone({
+    ...material,
+    status: status || material.status || 'active',
+  });
 }
 
 async function putRecord<T>(storeName: string, value: T): Promise<void> {
@@ -263,6 +344,7 @@ function openDatabase(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => {
       const db = request.result;
       createStore(db, MATERIAL_STORE, 'materialVersionId');
+      createStore(db, MATERIAL_STATUS_STORE, 'materialVersionId');
       createStore(db, DRAFT_STORE, 'draftId');
       createStore(db, VALIDATION_STORE, 'validationId');
       createStore(db, REVIEW_STORE, 'reviewId');

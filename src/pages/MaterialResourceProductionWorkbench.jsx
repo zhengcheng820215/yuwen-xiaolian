@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
+  Archive,
   BookOpen,
   CheckCircle2,
   ChevronDown,
@@ -11,25 +12,35 @@ import {
   PackagePlus,
   Plus,
   RefreshCw,
-  ShieldCheck,
+  Trash2,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   approveProductionObservationPlan,
   createProductionMaterial,
   createProductionObservationPlan,
   createProductionQuestionDrafts,
   createPhase17BatchADraftsForReview,
+  deleteUnusedProductionMaterial,
+  getProductionMaterialDisposition,
   getMaterialResourceProductionSnapshot,
   isPhase17BatchAMaterial,
   loadPhase17BatchAPlansForReview,
   loadTongguanCalibrationPlanForReview,
+  normalizeMaterialContent,
+  retireProductionMaterial,
   submitProductionObservationPlan,
 } from '../api/materialResourceProductionWorkbench.ts';
 import {
   getMaterialObservationDraftGeneratorStatus,
   requestMaterialObservationDraftCandidates,
 } from '../api/materialObservationDraftGenerator.ts';
+import {
+  downloadFormalResourceBaseline,
+  exportCurrentBrowserFormalResourceBaseline,
+  getSharedFormalResourceStatus,
+  initializeSharedFormalResourceBaseline,
+} from '../api/sharedFormalResourcePersistence.ts';
 import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
 import {
   isPlanFullyPublished,
@@ -89,6 +100,10 @@ const roleLabels = Object.fromEntries(roleOptions);
 const difficultyLabels = Object.fromEntries(difficultyOptions);
 
 export default function MaterialResourceProductionWorkbench() {
+  const navigate = useNavigate();
+  const usesNonCanonicalLocalPort = import.meta.env.DEV
+    && typeof window !== 'undefined'
+    && window.location.port !== '5174';
   const [snapshot, setSnapshot] = useState(emptySnapshot);
   const [materialMode, setMaterialMode] = useState('existing');
   const [activeLoadPreset, setActiveLoadPreset] = useState(null);
@@ -110,17 +125,31 @@ export default function MaterialResourceProductionWorkbench() {
   const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  const [duplicateMaterial, setDuplicateMaterial] = useState(null);
+  const [materialAction, setMaterialAction] = useState(null);
+  const [sharedStoreStatus, setSharedStoreStatus] = useState(null);
+  const [baselinePreview, setBaselinePreview] = useState(null);
   const pendingDiscardActionRef = useRef(null);
-  const taskEditorSectionRef = useRef(null);
 
   useEffect(() => {
     refresh().catch((error) => setNotice(errorNotice(error)));
     getMaterialObservationDraftGeneratorStatus().then(setGeneratorStatus);
+    getSharedFormalResourceStatus()
+      .then(setSharedStoreStatus)
+      .catch((error) => setNotice(errorNotice(error)));
   }, []);
 
   const selectedMaterial = useMemo(
     () => snapshot.materials.find((item) => item.materialVersionId === selectedMaterialId) || null,
     [snapshot.materials, selectedMaterialId],
+  );
+  const activeMaterials = useMemo(
+    () => snapshot.materials.filter((item) => item.status !== 'retired'),
+    [snapshot.materials],
+  );
+  const retiredMaterials = useMemo(
+    () => snapshot.materials.filter((item) => item.status === 'retired'),
+    [snapshot.materials],
   );
   const paragraphs = useMemo(() => splitParagraphs(selectedMaterial?.content || ''), [selectedMaterial]);
   const materialPlans = useMemo(
@@ -186,10 +215,11 @@ export default function MaterialResourceProductionWorkbench() {
   async function refresh(preferred = {}) {
     const next = await getMaterialResourceProductionSnapshot();
     setSnapshot(next);
-    if (next.materials.length === 0) setMaterialMode('new');
+    const availableMaterials = next.materials.filter((item) => item.status !== 'retired');
+    if (availableMaterials.length === 0) setMaterialMode('new');
     if (preferred.materialVersionId) setMaterialMode('existing');
     const materialId = preferred.materialVersionId
-      || (selectedMaterialId && next.materials.some((item) => item.materialVersionId === selectedMaterialId) ? selectedMaterialId : next.materials[0]?.materialVersionId)
+      || (selectedMaterialId && availableMaterials.some((item) => item.materialVersionId === selectedMaterialId) ? selectedMaterialId : availableMaterials[0]?.materialVersionId)
       || '';
     setSelectedMaterialId(materialId);
     const plans = next.plans.filter((plan) => plan.materialVersionId === materialId);
@@ -216,6 +246,13 @@ export default function MaterialResourceProductionWorkbench() {
   }
 
   async function addMaterial() {
+    const duplicate = snapshot.materials.find(
+      (material) => normalizeMaterialContent(material.content) === normalizeMaterialContent(materialForm.content),
+    );
+    if (duplicate) {
+      setDuplicateMaterial(duplicate);
+      return;
+    }
     const material = await run(
       () => createProductionMaterial(materialForm),
       () => '素材已保存，可以开始设计 3–6 个能力观测任务。',
@@ -227,11 +264,74 @@ export default function MaterialResourceProductionWorkbench() {
     }
   }
 
+  function useDuplicateMaterial() {
+    const material = duplicateMaterial;
+    setDuplicateMaterial(null);
+    if (!material) return;
+    if (material.status === 'retired') {
+      setNotice({
+        type: 'error',
+        message: `《${material.title}》已停用。请先核对历史记录，再决定是否录入修订版本。`,
+      });
+      return;
+    }
+    setMaterialMode('existing');
+    setSelectedMaterialId(material.materialVersionId);
+    setSelectedPlanId('');
+    setMaterialForm({ title: '', content: '', description: '人工录入素材', copyrightNote: '' });
+    setNotice({ type: 'success', message: `已切换到已有学习材料《${material.title}》。` });
+  }
+
+  async function requestMaterialRemoval() {
+    if (!selectedMaterial) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const disposition = await getProductionMaterialDisposition(selectedMaterial.materialVersionId);
+      setMaterialAction({ material: selectedMaterial, ...disposition });
+    } catch (error) {
+      setNotice(errorNotice(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmMaterialRemoval() {
+    if (!materialAction) return;
+    const { material, action } = materialAction;
+    setBusy(true);
+    setNotice(null);
+    try {
+      if (action === 'delete') {
+        await deleteUnusedProductionMaterial(material.materialVersionId);
+      } else {
+        await retireProductionMaterial(material.materialVersionId);
+      }
+      setMaterialAction(null);
+      await refresh();
+      setToast({
+        id: Date.now(),
+        message: action === 'delete'
+          ? `未使用的学习材料《${material.title}》已删除。`
+          : `学习材料《${material.title}》已停用，历史训练与题目记录保持不变。`,
+      });
+    } catch (error) {
+      setMaterialAction(null);
+      setNotice(errorNotice(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function refreshWorkbench() {
     setBusy(true);
     setNotice(null);
     try {
-      await refresh();
+      const [, status] = await Promise.all([
+        refresh(),
+        getSharedFormalResourceStatus(),
+      ]);
+      setSharedStoreStatus(status);
       setToast({ id: Date.now(), message: '工作台数据已刷新。' });
     } catch (error) {
       setNotice(errorNotice(error));
@@ -265,10 +365,10 @@ export default function MaterialResourceProductionWorkbench() {
   function showExistingMaterials() {
     if (materialMode === 'existing') return;
     withUnsavedChangesGuard(() => {
-      const materialId = snapshot.materials.some((item) => item.materialVersionId === selectedMaterialId)
+      const materialId = activeMaterials.some((item) => item.materialVersionId === selectedMaterialId)
         ? selectedMaterialId
-        : snapshot.materials[0]?.materialVersionId || '';
-      setMaterialMode(snapshot.materials.length > 0 ? 'existing' : 'new');
+        : activeMaterials[0]?.materialVersionId || '';
+      setMaterialMode(activeMaterials.length > 0 ? 'existing' : 'new');
       setSelectedMaterialId(materialId);
       setSelectedPlanId('');
     });
@@ -416,38 +516,79 @@ export default function MaterialResourceProductionWorkbench() {
     updateTask(taskIndex, { supportingAbilityIdsText: nextIds.join(', ') });
   }
 
-  async function submitPlan() {
-    await run(
-      () => submitProductionObservationPlan(selectedPlan.materialObservationPlanId),
-      () => '训练任务已提交人工审核。',
-      { materialVersionId: selectedMaterialId, planId: selectedPlan.materialObservationPlanId },
-    );
+  async function enterQuestionReview() {
+    if (!selectedPlan || taskEditorDirty) return;
+    const planId = selectedPlan.materialObservationPlanId;
+    const materialVersionId = selectedPlan.materialVersionId;
+    let status = selectedPlan.status;
+
+    setBusy(true);
+    setNotice(null);
+    try {
+      if (['draft', 'revision_required'].includes(status)) {
+        await submitProductionObservationPlan(planId);
+        status = 'pending_review';
+      }
+      if (status === 'pending_review') {
+        await approveProductionObservationPlan(planId);
+        status = 'reviewed';
+      }
+      if (status === 'reviewed' && planDrafts.length < selectedPlan.taskPlans.length) {
+        await (isPhase17BatchAMaterial(materialVersionId)
+          ? createPhase17BatchADraftsForReview(materialVersionId)
+          : createProductionQuestionDrafts(planId));
+      }
+
+      await refresh({ materialVersionId, planId });
+      navigate(`/question-resource-workbench?mode=plan-review&planId=${encodeURIComponent(planId)}&materialVersionId=${encodeURIComponent(materialVersionId)}`);
+    } catch (error) {
+      await refresh({ materialVersionId, planId });
+      setNotice(errorNotice(error));
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function approvePlan() {
-    await run(
-      () => approveProductionObservationPlan(selectedPlan.materialObservationPlanId),
-      () => '训练任务已确认，可以生成待审核题目。',
-      { materialVersionId: selectedMaterialId, planId: selectedPlan.materialObservationPlanId },
-    );
+  async function exportBrowserBaseline() {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const baseline = await exportCurrentBrowserFormalResourceBaseline();
+      downloadFormalResourceBaseline(baseline);
+      setBaselinePreview(baseline);
+      setToast({
+        id: Date.now(),
+        message: `当前浏览器资源已导出：${baseline.counts.materials} 篇学习材料，${baseline.counts.drafts} 道待审核题目。`,
+      });
+    } catch (error) {
+      setNotice(errorNotice(error));
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function createDrafts() {
-    await run(
-      () => isPhase17BatchAMaterial(selectedPlan.materialVersionId)
-        ? createPhase17BatchADraftsForReview(selectedPlan.materialVersionId)
-        : createProductionQuestionDrafts(selectedPlan.materialObservationPlanId),
-      (results) => {
-        if (!Array.isArray(results)) {
-          return `Batch A 已生成 ${results.draftIds.length} 道题，并进入逐题审核。`;
-        }
-        const failed = results.filter((item) => item.status === 'failed').length;
-        return failed === 0
-          ? `已准备 ${results.length} 道待审核题目，并完成内容检查。`
-          : `${results.length - failed} 道题已准备，${failed} 道需要单独处理。`;
-      },
-      { materialVersionId: selectedMaterialId, planId: selectedPlan.materialObservationPlanId },
+  async function initializeSharedBaseline() {
+    if (!baselinePreview) return;
+    const confirmed = window.confirm(
+      '将当前浏览器导出的资源设为唯一共享基线？请确认其他浏览器的数据也已单独导出备份。初始化后，所有浏览器将读取这套共享资源。',
     );
+    if (!confirmed) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const status = await initializeSharedFormalResourceBaseline(baselinePreview);
+      setSharedStoreStatus(status);
+      setBaselinePreview(null);
+      await refresh();
+      setToast({
+        id: Date.now(),
+        message: '共享正式资源库已建立，其他浏览器刷新后将读取同一套资源。',
+      });
+    } catch (error) {
+      setNotice(errorNotice(error));
+    } finally {
+      setBusy(false);
+    }
   }
 
   function updateTask(index, patch) {
@@ -491,6 +632,54 @@ export default function MaterialResourceProductionWorkbench() {
       </header>
 
       <main className="mx-auto w-full max-w-[1360px] px-5 py-7 md:px-8 md:py-9">
+        {usesNonCanonicalLocalPort && (
+          <div role="alert" className="mb-5 border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+            当前端口不是固定入口 5174。浏览器会分别保存不同端口的数据，请停止录入并改用
+            {' '}
+            <strong>http://127.0.0.1:5174/#/material-resource-workbench</strong>
+            。
+          </div>
+        )}
+        {sharedStoreStatus && !sharedStoreStatus.initialized && (
+          <section className="mb-6 rounded-md border border-amber-200 bg-amber-50 px-5 py-4" aria-labelledby="shared-baseline-title">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 id="shared-baseline-title" className="text-base font-semibold text-amber-950">正式资源尚未迁移到共享存储</h2>
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-amber-900">
+                  请分别在内置浏览器和标准浏览器导出快照，再选择内容正确的一侧作为唯一共享基线。系统不会自动合并或覆盖两侧数据。
+                </p>
+                {baselinePreview && (
+                  <p className="mt-2 text-sm font-medium text-amber-950">
+                    当前快照：{baselinePreview.counts.materials} 篇学习材料、{baselinePreview.counts.plans} 个训练计划、{baselinePreview.counts.drafts} 道待审核题目。
+                  </p>
+                )}
+              </div>
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={exportBrowserBaseline}
+                  disabled={busy}
+                  className="min-h-10 rounded-md border border-emerald-600 bg-white px-4 text-sm text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
+                >
+                  导出当前浏览器快照
+                </button>
+                <button
+                  type="button"
+                  onClick={initializeSharedBaseline}
+                  disabled={busy || !baselinePreview}
+                  className="min-h-10 rounded-md bg-emerald-600 px-4 text-sm text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  设为共享基线
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+        {sharedStoreStatus?.initialized && (
+          <p className="mb-4 text-xs text-slate-500">
+            正式资源共享存储已启用 · revision {sharedStoreStatus.revision}
+          </p>
+        )}
         <section className="grid gap-3 pb-4 sm:grid-cols-4" aria-label="生产状态">
           <Metric label="学习材料" value={workbenchSummary.materialCount} />
           <Metric label="学习任务" value={workbenchSummary.learningTaskCount} />
@@ -504,18 +693,41 @@ export default function MaterialResourceProductionWorkbench() {
           <section>
             <div className="flex justify-center">
               <div className="inline-flex rounded-md border border-slate-300 bg-white p-1" aria-label="素材录入方式">
-                <button type="button" onClick={showExistingMaterials} disabled={snapshot.materials.length === 0} className={`min-h-8 rounded px-3 text-sm ${materialMode === 'existing' ? 'bg-emerald-600 text-white' : 'text-slate-600'} disabled:opacity-40`}>选择已有素材</button>
+                <button type="button" onClick={showExistingMaterials} disabled={activeMaterials.length === 0} className={`min-h-8 rounded px-3 text-sm ${materialMode === 'existing' ? 'bg-emerald-600 text-white' : 'text-slate-600'} disabled:opacity-40`}>选择已有素材</button>
                 <button type="button" onClick={showNewMaterialForm} className={`min-h-8 rounded px-3 text-sm ${materialMode === 'new' ? 'bg-emerald-600 text-white' : 'text-slate-600'}`}>录入新素材</button>
               </div>
             </div>
 
-            {materialMode === 'existing' && snapshot.materials.length > 0 && (
-              <label className="mt-5 block text-sm font-semibold">
-                已有素材
-                <select value={selectedMaterialId} onChange={(event) => selectExistingMaterial(event.target.value)} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal">
-                  {snapshot.materials.map((material) => <option key={material.materialVersionId} value={material.materialVersionId}>{material.title}</option>)}
-                </select>
-              </label>
+            {materialMode === 'existing' && activeMaterials.length > 0 && (
+              <div className="mt-5">
+                <label className="block text-sm font-semibold">
+                  已有素材
+                  <select value={selectedMaterialId} onChange={(event) => selectExistingMaterial(event.target.value)} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal">
+                    {activeMaterials.map((material) => <option key={material.materialVersionId} value={material.materialVersionId}>{material.title}</option>)}
+                  </select>
+                </label>
+                {selectedMaterial && (
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={requestMaterialRemoval}
+                      disabled={busy}
+                      className="inline-flex min-h-9 items-center gap-2 rounded-md px-3 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
+                    >
+                      <Trash2 size={16} />
+                      删除或停用素材
+                    </button>
+                  </div>
+                )}
+                {retiredMaterials.length > 0 && (
+                  <details className="mt-3 text-sm text-slate-500">
+                    <summary className="cursor-pointer">已停用素材（{retiredMaterials.length}）</summary>
+                    <ul className="mt-2 space-y-1 pl-5">
+                      {retiredMaterials.map((material) => <li key={material.materialVersionId}>{material.title}</li>)}
+                    </ul>
+                  </details>
+                )}
+              </div>
             )}
 
             {materialMode === 'new' && (
@@ -545,7 +757,7 @@ export default function MaterialResourceProductionWorkbench() {
             )}
           </section>
 
-          <section ref={taskEditorSectionRef} className="scroll-mt-28 border-t border-slate-200 pt-8">
+          <section className="scroll-mt-28 border-t border-slate-200 pt-8">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold">训练任务（<span className="text-emerald-600">{tasks.length}</span>/6）</h2>
@@ -846,62 +1058,24 @@ export default function MaterialResourceProductionWorkbench() {
                   </div>
                 </div>
               </div>
-              {['draft', 'revision_required'].includes(selectedPlan.status) && (
-                <>
-                  {selectedValidation && !selectedValidation.passed && (
-                    <IssueList title="提交前需要修复" issues={selectedValidation.issues} />
-                  )}
-                  <button
-                    type="button"
-                    onClick={submitPlan}
-                    disabled={busy || !selectedValidation?.passed}
-                    className="mt-6 flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-4 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"
-                  >
-                    <ArrowRight size={16} />
-                    提交审核
-                  </button>
-                </>
+              {selectedValidation && !selectedValidation.passed && (
+                <IssueList title="进入审核前需要修复" issues={selectedValidation.issues} />
               )}
-              {selectedPlan.status === 'pending_review' && (
+              {taskEditorDirty && (
+                <p className="mt-6 rounded-md bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+                  请先保存上方训练任务的修改，再进入题目审核。
+                </p>
+              )}
+              {!planFullyPublished && ['draft', 'revision_required', 'pending_review', 'reviewed'].includes(selectedPlan.status) && (
                 <button
                   type="button"
-                  onClick={approvePlan}
-                  disabled={busy}
+                  onClick={enterQuestionReview}
+                  disabled={busy || taskEditorDirty || (['draft', 'revision_required'].includes(selectedPlan.status) && !selectedValidation?.passed)}
                   className="mt-6 flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"
                 >
-                  <ShieldCheck size={16} />
-                  确认训练任务
+                  {busy && <LoaderCircle size={16} className="animate-spin" />}
+                  {busy ? '正在准备待审核题目' : '确认训练任务并进入题目审核'}
                 </button>
-              )}
-              {selectedPlan.status === 'reviewed' && planDrafts.length < selectedPlan.taskPlans.length && (
-                <button
-                  type="button"
-                  onClick={createDrafts}
-                  disabled={busy}
-                  className="mt-6 flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"
-                >
-                  下一步：生成待审核题目
-                </button>
-              )}
-              {planDrafts.length > 0 && (
-                <div className="mt-6">
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => taskEditorSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                      className="flex min-h-11 w-full items-center justify-center rounded-md border border-emerald-600 bg-white px-4 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-                    >
-                      返回修改
-                    </button>
-                    <Link
-                      to={`/question-resource-workbench?mode=plan-review&planId=${encodeURIComponent(selectedPlan.materialObservationPlanId)}&materialVersionId=${encodeURIComponent(selectedMaterialId)}`}
-                      className="flex min-h-11 w-full items-center justify-center rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-                    >
-                      进入审核发布环节
-                    </Link>
-                  </div>
-                  <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-center text-xs font-normal text-amber-700">进入题目审核与发布环节后，可逐题选择“审核通过”“退回修改”或“不采用”。</p>
-                </div>
               )}
             </>
           )}
@@ -921,6 +1095,67 @@ export default function MaterialResourceProductionWorkbench() {
           onConfirm={confirmDiscardChanges}
         />
       )}
+      {duplicateMaterial && (
+        <DuplicateMaterialDialog
+          material={duplicateMaterial}
+          onCancel={() => setDuplicateMaterial(null)}
+          onUseExisting={useDuplicateMaterial}
+        />
+      )}
+      {materialAction && (
+        <MaterialRemovalDialog
+          action={materialAction.action}
+          dependencyCount={materialAction.dependencyCount}
+          material={materialAction.material}
+          busy={busy}
+          onCancel={() => setMaterialAction(null)}
+          onConfirm={confirmMaterialRemoval}
+        />
+      )}
+    </div>
+  );
+}
+
+function DuplicateMaterialDialog({ material, onCancel, onUseExisting }) {
+  const retired = material.status === 'retired';
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-5" role="presentation">
+      <section role="dialog" aria-modal="true" aria-labelledby="duplicate-material-title" className="w-full max-w-md rounded-md bg-white p-6 shadow-xl">
+        <h2 id="duplicate-material-title" className="text-lg font-semibold">发现相同的学习材料</h2>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          当前正文与《{material.title}》相同。系统不会重复保存同一份内容。
+          {retired ? ' 这份素材目前已停用。' : ' 可以直接使用已有素材继续。'}
+        </p>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onCancel} className="min-h-10 rounded-md border border-slate-300 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50">返回检查</button>
+          {!retired && <button type="button" onClick={onUseExisting} className="min-h-10 rounded-md bg-emerald-600 px-4 text-sm text-white hover:bg-emerald-700">使用已有素材</button>}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MaterialRemovalDialog({ action, dependencyCount, material, busy, onCancel, onConfirm }) {
+  const willDelete = action === 'delete';
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-5" role="presentation">
+      <section role="dialog" aria-modal="true" aria-labelledby="material-removal-title" className="w-full max-w-md rounded-md bg-white p-6 shadow-xl">
+        <div className="flex items-center gap-3">
+          {willDelete ? <Trash2 size={20} className="text-red-600" /> : <Archive size={20} className="text-amber-600" />}
+          <h2 id="material-removal-title" className="text-lg font-semibold">{willDelete ? '删除未使用素材？' : '停用这份素材？'}</h2>
+        </div>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          {willDelete
+            ? `《${material.title}》尚未进入训练任务或题目链，可以安全删除。`
+            : `《${material.title}》已有 ${dependencyCount} 项下游记录，不能直接删除。停用后将不再用于新任务，但历史训练、题目和审核记录仍可追溯。`}
+        </p>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onCancel} disabled={busy} className="min-h-10 rounded-md border border-emerald-600 bg-white px-4 text-sm text-emerald-700 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40">取消</button>
+          <button type="button" onClick={onConfirm} disabled={busy} className={`min-h-10 rounded-md px-4 text-sm text-white disabled:opacity-40 ${willDelete ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
+            {busy ? '正在处理' : willDelete ? '确认删除' : '确认停用'}
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

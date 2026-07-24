@@ -6,11 +6,18 @@ import { promisify } from 'node:util';
 import { createPhase163DiagnosisBoundary } from './src/server/phase163DiagnosisBoundary.ts';
 import { createStudentWritingCorrectionBoundary } from './src/server/studentWritingCorrectionBoundary.ts';
 import { createMaterialObservationDraftGeneratorBoundary } from './src/server/materialObservationDraftGeneratorBoundary.ts';
+import { createSharedFormalResourceBoundary } from './src/server/sharedFormalResourceBoundary.ts';
 
 const execFileAsync = promisify(execFile);
+const DEVELOPMENT_PORT = 5174;
 
 export default defineConfig({
   base: './',
+  server: {
+    host: '0.0.0.0',
+    port: DEVELOPMENT_PORT,
+    strictPort: true,
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -20,6 +27,7 @@ export default defineConfig({
       server.middlewares.use('/__runtime/phase16-3/diagnose', createPhase163DiagnosisBoundary());
       server.middlewares.use('/__runtime/phase16-3/writing-corrections', createStudentWritingCorrectionBoundary());
       server.middlewares.use('/__runtime/phase17/material-observation-candidates', createMaterialObservationDraftGeneratorBoundary());
+      server.middlewares.use('/__runtime/phase17-4/formal-resources', createSharedFormalResourceBoundary());
       server.middlewares.use('/__demo/deepseek-chat', async (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405;

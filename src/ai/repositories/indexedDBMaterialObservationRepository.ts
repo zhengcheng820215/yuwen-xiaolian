@@ -8,11 +8,25 @@ import type {
   MaterialStructureSnapshot,
   ResourceObservationLink,
 } from '../schemas/materialObservation.schema.ts';
+import type { SharedMaterialObservationState } from '../schemas/sharedFormalResourcePersistence.schema.ts';
 
 const DB_NAME = 'yuwen_xiaolian_material_observation';
 const DB_VERSION = 1;
 
 export class IndexedDBMaterialObservationRepository implements MaterialObservationRepository {
+  async exportSharedState(): Promise<SharedMaterialObservationState> {
+    const [structures, anchors, plans, validations, reviews, links, manifests] = await Promise.all([
+      all<MaterialStructureSnapshot>('structures'),
+      all<MaterialSourceAnchor>('anchors'),
+      all<MaterialObservationPlan>('plans'),
+      all<MaterialObservationPlanValidation>('validations'),
+      all<MaterialObservationReviewDecision>('reviews'),
+      all<ResourceObservationLink>('links'),
+      all<FirstFrozenResourcePackManifest>('manifests'),
+    ]);
+    return { structures, anchors, plans, validations, reviews, links, manifests };
+  }
+
   saveStructure(value: MaterialStructureSnapshot) { return put('structures', value, 'materialStructureSnapshotId'); }
   getStructure(id: string) { return get<MaterialStructureSnapshot>('structures', id); }
   async listStructures(materialVersionId?: string) { return filter(await all<MaterialStructureSnapshot>('structures'), (v) => !materialVersionId || v.materialVersionId === materialVersionId); }
