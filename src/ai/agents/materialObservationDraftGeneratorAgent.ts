@@ -27,7 +27,10 @@ import {
   DiagnosisProviderError,
   type DiagnosisProviderAdapter,
 } from '../providers/diagnosisProviderAdapter.ts';
-import { buildMaterialObservationDraftPrompt } from '../prompts/materialObservationDraftPrompt.ts';
+import {
+  buildMaterialObservationDraftPrompt,
+  buildMaterialObservationDraftRepairPrompt,
+} from '../prompts/materialObservationDraftPrompt.ts';
 
 const ASSESSMENT_MODES: AssessmentMode[] = [
   'key_points',
@@ -55,6 +58,11 @@ const ANSWER_STATUSES: OpenResponseAnswerStatus[] = [
   'does_not_meet',
   'insufficient_evidence',
 ];
+const MATERIAL_ANCHOR_TYPE_ALIASES: Record<string, 'paragraph' | 'paragraph_range' | 'full_text'> = {
+  single_paragraph: 'paragraph',
+  paragraph_span: 'paragraph_range',
+  whole_text: 'full_text',
+};
 const EVIDENCE_ELIGIBILITY = ['eligible', 'eligible_but_weak', 'ineligible'] as const;
 const EVIDENCE_POTENTIAL = ['weak', 'moderate', 'strong'] as const;
 const PROHIBITED_CANDIDATE_FIELDS = [
@@ -75,6 +83,13 @@ export type MaterialObservationDraftGeneratorConfig = {
   maxOutputTokens: number;
   timeoutMs: number;
   maxAttempts: number;
+};
+
+type PendingCandidateRepair = {
+  originalPayload: Record<string, unknown>;
+  initialResult: MaterialObservationDraftGeneratorResult;
+  rejectedCandidates: RejectedMaterialObservationCandidate[];
+  issueCounts: Record<string, number>;
 };
 
 export function createMaterialObservationDraftGeneratorConfig(input: {
@@ -118,10 +133,11 @@ export async function generateMaterialObservationDraftCandidates(
     });
   }
 
-  const prompt = buildMaterialObservationDraftPrompt(input);
+  let prompt = buildMaterialObservationDraftPrompt(input);
   let totalLatencyMs = 0;
   let tokenUsage: MaterialObservationDraftGeneratorResult['provider']['tokenUsage'];
   let lastIssues = ['provider_failed'];
+  let pendingRepair: PendingCandidateRepair | undefined;
 
   for (let attempt = 1; attempt <= dependencies.config.maxAttempts; attempt += 1) {
     try {
@@ -140,6 +156,14 @@ export async function generateMaterialObservationDraftCandidates(
       if (!parsed) {
         lastIssues = ['provider_output_not_valid_json'];
         if (attempt < dependencies.config.maxAttempts) continue;
+        if (pendingRepair) {
+          return finalizeRepairFallback(pendingRepair, {
+            attemptCount: attempt,
+            latencyMs: totalLatencyMs,
+            tokenUsage,
+            limitation: 'Candidate repair output was invalid JSON; previously admitted candidates were preserved.',
+          });
+        }
         return emptyResult(input, dependencies.config, {
           status: 'review_required',
           issues: lastIssues,
@@ -150,16 +174,47 @@ export async function generateMaterialObservationDraftCandidates(
         });
       }
 
-      return evaluateProviderCandidates(input, parsed, {
+      const evaluatedPayload = pendingRepair
+        ? mergeRepairedCandidates(pendingRepair.originalPayload, parsed, pendingRepair.rejectedCandidates)
+        : parsed;
+      const result = evaluateProviderCandidates(input, evaluatedPayload, {
         config: dependencies.config,
         attemptCount: attempt,
         latencyMs: totalLatencyMs,
         tokenUsage,
       });
+      if (pendingRepair) {
+        return finalizeRepairResult(result, pendingRepair);
+      }
+
+      const repairItems = buildRepairItems(parsed, result.rejectedCandidates);
+      if (
+        result.status === 'review_required' &&
+        repairItems.length > 0 &&
+        attempt < dependencies.config.maxAttempts
+      ) {
+        pendingRepair = {
+          originalPayload: parsed,
+          initialResult: result,
+          rejectedCandidates: result.rejectedCandidates,
+          issueCounts: countRejectedIssues(result.rejectedCandidates),
+        };
+        prompt = buildMaterialObservationDraftRepairPrompt(input, repairItems);
+        continue;
+      }
+      return result;
     } catch (error) {
       const retryable = error instanceof DiagnosisProviderError && error.retryable;
       lastIssues = [error instanceof DiagnosisProviderError ? `provider_${error.category}` : 'provider_failed'];
       if (retryable && attempt < dependencies.config.maxAttempts) continue;
+      if (pendingRepair) {
+        return finalizeRepairFallback(pendingRepair, {
+          attemptCount: attempt,
+          latencyMs: totalLatencyMs,
+          tokenUsage,
+          limitation: 'Candidate repair call failed; previously admitted candidates were preserved.',
+        });
+      }
       return emptyResult(input, dependencies.config, {
         status: 'provider_failed',
         issues: lastIssues,
@@ -181,6 +236,160 @@ export async function generateMaterialObservationDraftCandidates(
   });
 }
 
+function buildRepairItems(
+  payload: Record<string, unknown>,
+  rejectedCandidates: RejectedMaterialObservationCandidate[],
+) {
+  const rawCandidates = Array.isArray(payload.candidates) ? payload.candidates : [];
+  return rejectedCandidates.flatMap((rejected) => {
+    const candidate = rawCandidates[rejected.candidateIndex];
+    if (rejected.candidateIndex >= 6 || !isRecord(candidate)) return [];
+    const allowedRubricAbilityIds = getDeclaredCandidateAbilities(candidate);
+    return [{
+      candidateIndex: rejected.candidateIndex,
+      issues: rejected.issues,
+      allowedRubricAbilityIds,
+      repairInstructions: buildCandidateRepairInstructions(rejected.issues, allowedRubricAbilityIds),
+      candidate,
+    }];
+  });
+}
+
+function getDeclaredCandidateAbilities(candidate: Record<string, unknown>): PrimaryAbilityId[] {
+  const declared = [
+    candidate.primaryAbilityId,
+    ...(Array.isArray(candidate.supportingAbilityIds) ? candidate.supportingAbilityIds : []),
+  ];
+  return [...new Set(declared.filter(
+    (abilityId): abilityId is PrimaryAbilityId => (
+      typeof abilityId === 'string' &&
+      (PRIMARY_ABILITY_IDS as readonly string[]).includes(abilityId)
+    ),
+  ))];
+}
+
+function buildCandidateRepairInstructions(
+  issues: string[],
+  allowedRubricAbilityIds: PrimaryAbilityId[],
+): string[] {
+  const instructions: string[] = [];
+  if (issues.some((issue) => /^rubric_\d+_ability_undeclared$/.test(issue))) {
+    instructions.push(
+      `Rubric 的 abilityId 只能使用：${allowedRubricAbilityIds.join(', ') || '当前候选没有合法已声明能力'}。保持 primaryAbilityId 和 supportingAbilityIds 不变，不得新增辅助能力。`,
+    );
+  }
+  return instructions;
+}
+
+function mergeRepairedCandidates(
+  originalPayload: Record<string, unknown>,
+  repairPayload: Record<string, unknown>,
+  rejectedCandidates: RejectedMaterialObservationCandidate[],
+): Record<string, unknown> {
+  const originalCandidates = Array.isArray(originalPayload.candidates)
+    ? [...originalPayload.candidates]
+    : [];
+  const rejectedIndexes = new Set(rejectedCandidates.map((item) => item.candidateIndex));
+  const repairedCandidates = Array.isArray(repairPayload.candidates) ? repairPayload.candidates : [];
+
+  repairedCandidates.forEach((candidate) => {
+    if (!isRecord(candidate)) return;
+    const repairIndex = readRepairCandidateIndex(candidate.repairOfCandidateIndex);
+    if (repairIndex === undefined || !rejectedIndexes.has(repairIndex)) return;
+    const replacement = { ...candidate };
+    delete replacement.repairOfCandidateIndex;
+    originalCandidates[repairIndex] = replacement;
+  });
+
+  const originalLimitations = Array.isArray(originalPayload.materialLimitations)
+    ? originalPayload.materialLimitations
+    : [];
+  const repairLimitations = Array.isArray(repairPayload.materialLimitations)
+    ? repairPayload.materialLimitations
+    : [];
+  return {
+    ...originalPayload,
+    candidates: originalCandidates,
+    materialLimitations: [...originalLimitations, ...repairLimitations],
+  };
+}
+
+function readRepairCandidateIndex(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
+function countRejectedIssues(
+  rejectedCandidates: RejectedMaterialObservationCandidate[],
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  rejectedCandidates.forEach((candidate) => {
+    candidate.issues.forEach((issue) => {
+      const issueFamily = issue.split(':')[0];
+      counts[issueFamily] = (counts[issueFamily] || 0) + 1;
+    });
+  });
+  return counts;
+}
+
+function finalizeRepairResult(
+  result: MaterialObservationDraftGeneratorResult,
+  pendingRepair: PendingCandidateRepair,
+): MaterialObservationDraftGeneratorResult {
+  const unresolvedIndexes = new Set(result.rejectedCandidates.map((item) => item.candidateIndex));
+  const recoveredCandidateCount = pendingRepair.rejectedCandidates
+    .filter((item) => !unresolvedIndexes.has(item.candidateIndex))
+    .length;
+  const unresolvedCandidateCount = pendingRepair.rejectedCandidates.length - recoveredCandidateCount;
+  return {
+    ...result,
+    provider: {
+      ...result.provider,
+      repair: {
+        attempted: true,
+        requestedCandidateCount: pendingRepair.rejectedCandidates.length,
+        recoveredCandidateCount,
+        unresolvedCandidateCount,
+        issueCounts: pendingRepair.issueCounts,
+      },
+    },
+    limitations: unique([
+      ...result.limitations,
+      `Candidate-level repair recovered ${recoveredCandidateCount} of ${pendingRepair.rejectedCandidates.length} structurally rejected candidate(s).`,
+    ]),
+  };
+}
+
+function finalizeRepairFallback(
+  pendingRepair: PendingCandidateRepair,
+  runtime: {
+    attemptCount: number;
+    latencyMs: number;
+    tokenUsage?: MaterialObservationDraftGeneratorResult['provider']['tokenUsage'];
+    limitation: string;
+  },
+): MaterialObservationDraftGeneratorResult {
+  return {
+    ...pendingRepair.initialResult,
+    provider: {
+      ...pendingRepair.initialResult.provider,
+      attemptCount: runtime.attemptCount,
+      latencyMs: runtime.latencyMs,
+      tokenUsage: runtime.tokenUsage,
+      repair: {
+        attempted: true,
+        requestedCandidateCount: pendingRepair.rejectedCandidates.length,
+        recoveredCandidateCount: 0,
+        unresolvedCandidateCount: pendingRepair.rejectedCandidates.length,
+        issueCounts: pendingRepair.issueCounts,
+      },
+    },
+    limitations: unique([
+      ...pendingRepair.initialResult.limitations,
+      runtime.limitation,
+    ]),
+  };
+}
+
 function evaluateProviderCandidates(
   input: MaterialObservationDraftGeneratorInput,
   payload: Record<string, unknown>,
@@ -198,7 +407,11 @@ function evaluateProviderCandidates(
 
   rawCandidates.forEach((rawCandidate, candidateIndex) => {
     if (candidateIndex >= 6) {
-      rejectedCandidates.push({ candidateIndex, issues: ['candidate_count_above_6'] });
+      rejectedCandidates.push({
+        candidateIndex,
+        issues: ['candidate_count_above_6'],
+        diagnosticContext: buildRejectionDiagnosticContext(rawCandidate, materialParagraphs.length),
+      });
       return;
     }
     const parsed = parseCandidate(rawCandidate, candidateIndex, input, materialParagraphs.length);
@@ -209,6 +422,7 @@ function evaluateProviderCandidates(
       disposition: parsed.issues.some(isUnsupportedByMaterialIssue)
         ? 'unsupported_by_material'
         : undefined,
+      diagnosticContext: buildRejectionDiagnosticContext(rawCandidate, materialParagraphs.length),
     });
   });
 
@@ -292,6 +506,7 @@ function evaluateProviderCandidates(
     validation: {
       passed: status === 'candidates_ready',
       issues: batchIssues,
+      failureIssueCounts: countRejectedIssues(rejectedCandidates),
     },
     provider: {
       providerName: runtime.config.providerName,
@@ -373,6 +588,35 @@ function parseCandidate(
   };
 }
 
+function buildRejectionDiagnosticContext(
+  value: unknown,
+  materialParagraphCount: number,
+): NonNullable<RejectedMaterialObservationCandidate['diagnosticContext']> {
+  if (!isRecord(value)) return { materialParagraphCount };
+  const questionDraft = isRecord(value.questionDraft) ? value.questionDraft : undefined;
+  const materialAnchor = isRecord(value.materialAnchor) ? value.materialAnchor : undefined;
+  return {
+    questionType: readDiagnosticString(questionDraft?.questionType),
+    responseFormat: readDiagnosticString(questionDraft?.responseFormat),
+    materialAnchor: materialAnchor
+      ? {
+        anchorType: readDiagnosticString(materialAnchor.anchorType),
+        startParagraph: readDiagnosticNumber(materialAnchor.startParagraph),
+        endParagraph: readDiagnosticNumber(materialAnchor.endParagraph),
+      }
+      : undefined,
+    materialParagraphCount,
+  };
+}
+
+function readDiagnosticString(value: unknown) {
+  return typeof value === 'string' ? value.slice(0, 80) : undefined;
+}
+
+function readDiagnosticNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
 function readQuestionDraft(value: unknown, issues: string[]) {
   if (!isRecord(value)) {
     issues.push('question_draft_missing');
@@ -398,7 +642,11 @@ function readAnchor(value: unknown, paragraphCount: number, issues: string[]) {
     issues.push('material_anchor_missing');
     return undefined;
   }
-  const anchorType = readEnum(value.anchorType, ['paragraph', 'paragraph_range', 'full_text'] as const, 'material_anchor_type_invalid', issues);
+  const rawAnchorType = typeof value.anchorType === 'string' ? value.anchorType : value.anchorType;
+  const normalizedAnchorType = typeof rawAnchorType === 'string'
+    ? MATERIAL_ANCHOR_TYPE_ALIASES[rawAnchorType] || rawAnchorType
+    : rawAnchorType;
+  const anchorType = readEnum(normalizedAnchorType, ['paragraph', 'paragraph_range', 'full_text'] as const, 'material_anchor_type_invalid', issues);
   if (!anchorType) return undefined;
   if (anchorType === 'full_text') return { anchorType };
   const startParagraph = readPositiveInteger(value.startParagraph);
@@ -713,7 +961,14 @@ function emptyResult(
       observationDimensions: [],
       possibleDuplicatePairs: [],
     },
-    validation: { passed: false, issues: details.issues },
+    validation: {
+      passed: false,
+      issues: details.issues,
+      failureIssueCounts: details.issues.reduce<Record<string, number>>((counts, issue) => {
+        counts[issue] = (counts[issue] || 0) + 1;
+        return counts;
+      }, {}),
+    },
     provider: {
       providerName: config.providerName,
       model: config.model,

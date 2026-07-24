@@ -21,6 +21,7 @@ export type DiagnosisProviderErrorCategory =
   | 'timeout'
   | 'rate_limit'
   | 'authentication_failed'
+  | 'insufficient_balance'
   | 'provider_unavailable'
   | 'network_error'
   | 'malformed_output'

@@ -330,7 +330,7 @@ function mapHttpError(status: number, providerRequestId: string): DiagnosisProvi
   if (status === 402) {
     return new DiagnosisProviderError({
       message: 'Diagnosis provider account has insufficient balance.',
-      category: 'provider_unavailable',
+      category: 'insufficient_balance',
       retryable: false,
       providerRequestId,
     });

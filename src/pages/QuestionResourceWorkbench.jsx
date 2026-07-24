@@ -705,7 +705,7 @@ function EditorGroup({ title, children }) {
 }
 
 function Field({ label, children, required = false, requirement }) {
-  return <label className="block"><span className="mb-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-600"><span>{label}{required ? <span className="ml-0.5 text-rose-600" aria-label="必填">*</span> : null}</span>{requirement ? <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500">{requirement}</span> : null}</span>{children}</label>;
+  return <label className="block"><span className="mb-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-600"><span>{label}{required ? <span className="ml-0.5 text-rose-600" aria-label="必填">*</span> : null}</span>{requirement ? <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-normal text-slate-500">{requirement}</span> : null}</span>{children}</label>;
 }
 
 function Checkbox({ label, checked, onChange }) {

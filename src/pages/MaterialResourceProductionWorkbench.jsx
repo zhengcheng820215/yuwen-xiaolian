@@ -1,18 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
   ClipboardCheck,
   FilePlus2,
   Link2,
+  LoaderCircle,
   PackagePlus,
   Plus,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
-  Trash2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -33,6 +33,12 @@ import {
   requestMaterialObservationDraftCandidates,
 } from '../api/materialObservationDraftGenerator.ts';
 import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
+import {
+  activeLinksForPlan,
+  isPlanFullyPublished,
+  selectCurrentPlanDrafts,
+  summarizeMaterialResourceWorkbench,
+} from './materialResourceWorkbenchState.ts';
 
 const dimensionOptions = [
   ['fact', '事实'], ['character', '人物'], ['plot', '情节'], ['causality', '因果'],
@@ -41,6 +47,15 @@ const dimensionOptions = [
 const abilityOptions = [
   ['extraction', '信息提取'], ['comprehension', '理解'], ['summarization', '概括'],
   ['analysis', '分析'], ['inference', '推理'], ['expression', '表达'],
+];
+const trainingDirectionOptions = [
+  ['fact_details', '事实信息'],
+  ['character_psychology', '人物与心理'],
+  ['plot_development', '情节发展'],
+  ['causal_relation', '原因与结果'],
+  ['text_structure', '文章结构'],
+  ['language_expression', '语言表达'],
+  ['theme_emotion', '主题与情感'],
 ];
 const roleOptions = [
   ['training', '训练'], ['retest', '复测'], ['transfer', '迁移'],
@@ -67,8 +82,16 @@ const responseFormatOptions = [
   ['boolean', '判断'],
 ];
 const statusLabels = {
-  draft: '计划草稿', pending_review: '等待审核', revision_required: '需要修订',
+  draft: '未提交审核', pending_review: '等待审核', revision_required: '需要修订',
   reviewed: '计划已审核', rejected: '已拒绝', superseded: '已被新版本替代',
+};
+const statusBadgeClasses = {
+  draft: 'border-amber-200 bg-amber-50 text-amber-700',
+  pending_review: 'border-blue-200 bg-blue-50 text-blue-700',
+  revision_required: 'border-amber-200 bg-amber-50 text-amber-700',
+  reviewed: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  rejected: 'border-red-200 bg-red-50 text-red-700',
+  superseded: 'border-slate-200 bg-slate-50 text-slate-500',
 };
 const draftStatusLabels = {
   drafted: '待校验', validation_failed: '校验未通过', pending_review: '等待逐题审核',
@@ -76,6 +99,7 @@ const draftStatusLabels = {
 };
 const abilityLabels = Object.fromEntries(abilityOptions);
 const dimensionLabels = Object.fromEntries(dimensionOptions);
+const trainingDirectionLabels = Object.fromEntries(trainingDirectionOptions);
 const roleLabels = Object.fromEntries(roleOptions);
 const difficultyLabels = Object.fromEntries(difficultyOptions);
 
@@ -92,14 +116,16 @@ export default function MaterialResourceProductionWorkbench() {
   const [generatorBusy, setGeneratorBusy] = useState(false);
   const [generatorPreferences, setGeneratorPreferences] = useState({
     gradeRange: '初中',
-    candidateCount: 4,
+    candidateCount: 3,
     preferredAbilityIds: [],
-    requestedFocus: '',
+    requestedFocusIds: [],
   });
   const [materialForm, setMaterialForm] = useState({ title: '', content: '', description: '人工录入素材', copyrightNote: '' });
   const [notice, setNotice] = useState(null);
   const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  const pendingDiscardActionRef = useRef(null);
 
   useEffect(() => {
     refresh().catch((error) => setNotice(errorNotice(error)));
@@ -121,20 +147,31 @@ export default function MaterialResourceProductionWorkbench() {
   const selectedValidation = selectedPlan
     ? snapshot.validations.find((value) => value.materialObservationPlanId === selectedPlan.materialObservationPlanId && value.planRevision === selectedPlan.revision)
     : null;
-  const planDrafts = selectedPlan
-    ? snapshot.drafts.filter((draft) => draft.tags.includes(`observation_plan:${selectedPlan.materialObservationPlanId}`))
-    : [];
-  const planLinks = selectedPlan
-    ? snapshot.links.filter((link) => link.materialObservationPlanId === selectedPlan.materialObservationPlanId && link.status === 'active')
-    : [];
+  const planDrafts = useMemo(
+    () => selectCurrentPlanDrafts(selectedPlan, snapshot.drafts),
+    [selectedPlan, snapshot.drafts],
+  );
+  const planLinks = useMemo(
+    () => activeLinksForPlan(selectedPlan, snapshot.links),
+    [selectedPlan, snapshot.links],
+  );
   const planDraftReadiness = planDrafts.map((draft) => ({
     draft,
     readiness: snapshot.draftReadiness.find((item) => item.draftId === draft.draftId) || null,
   }));
+  const planFullyPublished = isPlanFullyPublished({
+    plan: selectedPlan,
+    currentDrafts: planDrafts,
+    draftReadiness: snapshot.draftReadiness,
+  });
+  const workbenchSummary = useMemo(
+    () => summarizeMaterialResourceWorkbench(snapshot),
+    [snapshot],
+  );
   const selectedPlanUsesAssistedDraft = Boolean(selectedPlan?.taskPlans.some(
     (task) => task.resourceDraftSpecification?.tags?.includes('ai-assisted'),
   ));
-  const assistedDraftStage = planDraftReadiness.some((item) => item.readiness?.frozenVersion)
+  const assistedDraftStage = planFullyPublished
     ? 'frozen'
     : selectedPlanUsesAssistedDraft && planDrafts.length > 0
       ? 'question_review'
@@ -225,19 +262,68 @@ export default function MaterialResourceProductionWorkbench() {
     }
   }
 
+  function withUnsavedChangesGuard(action) {
+    if (!taskEditorDirty) {
+      action();
+      return;
+    }
+    pendingDiscardActionRef.current = action;
+    setDiscardDialogOpen(true);
+  }
+
+  function cancelDiscardChanges() {
+    pendingDiscardActionRef.current = null;
+    setDiscardDialogOpen(false);
+  }
+
+  function confirmDiscardChanges() {
+    const action = pendingDiscardActionRef.current;
+    pendingDiscardActionRef.current = null;
+    setDiscardDialogOpen(false);
+    setTaskEditorDirty(false);
+    action?.();
+  }
+
   function showExistingMaterials() {
-    const materialId = snapshot.materials.some((item) => item.materialVersionId === selectedMaterialId)
-      ? selectedMaterialId
-      : snapshot.materials[0]?.materialVersionId || '';
-    setMaterialMode(snapshot.materials.length > 0 ? 'existing' : 'new');
-    setSelectedMaterialId(materialId);
-    setSelectedPlanId('');
+    if (materialMode === 'existing') return;
+    withUnsavedChangesGuard(() => {
+      const materialId = snapshot.materials.some((item) => item.materialVersionId === selectedMaterialId)
+        ? selectedMaterialId
+        : snapshot.materials[0]?.materialVersionId || '';
+      setMaterialMode(snapshot.materials.length > 0 ? 'existing' : 'new');
+      setSelectedMaterialId(materialId);
+      setSelectedPlanId('');
+    });
   }
 
   function showNewMaterialForm() {
-    setMaterialMode('new');
-    setSelectedMaterialId('');
-    setSelectedPlanId('');
+    if (materialMode === 'new') return;
+    withUnsavedChangesGuard(() => {
+      setMaterialMode('new');
+      setSelectedMaterialId('');
+      setSelectedPlanId('');
+    });
+  }
+
+  function selectExistingMaterial(materialId) {
+    if (materialId === selectedMaterialId) return;
+    withUnsavedChangesGuard(() => {
+      setSelectedMaterialId(materialId);
+      setSelectedPlanId('');
+      setActiveLoadPreset(null);
+    });
+  }
+
+  function requestLoadBatchA() {
+    withUnsavedChangesGuard(() => {
+      loadBatchA();
+    });
+  }
+
+  function requestLoadTongguanCalibration() {
+    withUnsavedChangesGuard(() => {
+      loadTongguanCalibration();
+    });
   }
 
   async function loadBatchA() {
@@ -263,7 +349,7 @@ export default function MaterialResourceProductionWorkbench() {
   async function createPlan() {
     await run(
       () => createProductionObservationPlan({ materialVersionId: selectedMaterialId, tasks: tasks.map(toTaskInput) }),
-      (result) => result.validation.passed ? '观测计划已创建并通过结构校验。' : '观测计划已保存，但需要先修复校验问题。',
+      (result) => result.validation.passed ? '训练任务已保存并通过结构校验。' : '训练任务已保存，但需要先修复校验问题。',
       (result) => ({ materialVersionId: selectedMaterialId, planId: result.plan.materialObservationPlanId }),
     );
   }
@@ -284,7 +370,14 @@ export default function MaterialResourceProductionWorkbench() {
           sourceDescription: selectedMaterial.source?.description,
           copyrightNote: selectedMaterial.source?.copyrightNote,
         },
-        preferences: generatorPreferences,
+        preferences: {
+          gradeRange: generatorPreferences.gradeRange,
+          candidateCount: generatorPreferences.candidateCount,
+          preferredAbilityIds: generatorPreferences.preferredAbilityIds,
+          requestedFocus: generatorPreferences.requestedFocusIds
+            .map((focusId) => trainingDirectionLabels[focusId])
+            .join('；') || undefined,
+        },
         existingInventory: generatorInventory,
       });
       setGeneratorResult(result);
@@ -311,18 +404,44 @@ export default function MaterialResourceProductionWorkbench() {
   }
 
   function togglePreferredAbility(abilityId) {
-    setGeneratorPreferences((current) => ({
-      ...current,
-      preferredAbilityIds: current.preferredAbilityIds.includes(abilityId)
-        ? current.preferredAbilityIds.filter((item) => item !== abilityId)
-        : [...current.preferredAbilityIds, abilityId],
-    }));
+    setGeneratorPreferences((current) => {
+      const selected = current.preferredAbilityIds.includes(abilityId);
+      if (!selected && current.preferredAbilityIds.length >= 2) return current;
+      return {
+        ...current,
+        preferredAbilityIds: selected
+          ? current.preferredAbilityIds.filter((item) => item !== abilityId)
+          : [...current.preferredAbilityIds, abilityId],
+      };
+    });
+  }
+
+  function toggleRequestedFocus(focusId) {
+    setGeneratorPreferences((current) => {
+      const selected = current.requestedFocusIds.includes(focusId);
+      if (!selected && current.requestedFocusIds.length >= 2) return current;
+      return {
+        ...current,
+        requestedFocusIds: selected
+          ? current.requestedFocusIds.filter((item) => item !== focusId)
+          : [...current.requestedFocusIds, focusId],
+      };
+    });
+  }
+
+  function toggleSupportingAbility(taskIndex, abilityId) {
+    const currentTask = tasks[taskIndex];
+    const selectedIds = commaValues(currentTask.supportingAbilityIdsText);
+    const nextIds = selectedIds.includes(abilityId)
+      ? selectedIds.filter((item) => item !== abilityId)
+      : [...selectedIds, abilityId];
+    updateTask(taskIndex, { supportingAbilityIdsText: nextIds.join(', ') });
   }
 
   async function submitPlan() {
     await run(
       () => submitProductionObservationPlan(selectedPlan.materialObservationPlanId),
-      () => '计划已提交人工审核。',
+      () => '训练任务已提交人工审核。',
       { materialVersionId: selectedMaterialId, planId: selectedPlan.materialObservationPlanId },
     );
   }
@@ -330,7 +449,7 @@ export default function MaterialResourceProductionWorkbench() {
   async function approvePlan() {
     await run(
       () => approveProductionObservationPlan(selectedPlan.materialObservationPlanId),
-      () => '计划已人工确认，可以批量生成结构化题目 Draft。',
+      () => '训练任务已确认，可以生成待审核题目。',
       { materialVersionId: selectedMaterialId, planId: selectedPlan.materialObservationPlanId },
     );
   }
@@ -342,12 +461,12 @@ export default function MaterialResourceProductionWorkbench() {
         : createProductionQuestionDrafts(selectedPlan.materialObservationPlanId),
       (results) => {
         if (!Array.isArray(results)) {
-          return `Batch A 已生成 ${results.draftIds.length} 个内容完整的 Draft，并提交逐题审核。`;
+          return `Batch A 已生成 ${results.draftIds.length} 道题，并进入逐题审核。`;
         }
         const failed = results.filter((item) => item.status === 'failed').length;
         return failed === 0
-          ? `已生成或复用 ${results.length} 个 Draft，并完成结构校验。`
-          : `${results.length - failed} 个 Draft 已准备，${failed} 个需要单独处理。`;
+          ? `已准备 ${results.length} 道待审核题目，并完成内容检查。`
+          : `${results.length - failed} 道题已准备，${failed} 道需要单独处理。`;
       },
       { materialVersionId: selectedMaterialId, planId: selectedPlan.materialObservationPlanId },
     );
@@ -359,8 +478,8 @@ export default function MaterialResourceProductionWorkbench() {
       (results) => {
         const linked = results.filter((item) => item.status === 'linked').length;
         return linked === results.length
-          ? `${linked} 个正式资源已完成观测关联。`
-          : `已关联 ${linked} 个；其余资源需先在审核工作台完成 Freeze。`;
+          ? `${linked} 道训练任务已完成发布关联。`
+          : `已确认 ${linked} 道；其余任务需先完成逐题审核与发布。`;
       },
       { materialVersionId: selectedMaterialId, planId: selectedPlan.materialObservationPlanId },
     );
@@ -383,7 +502,7 @@ export default function MaterialResourceProductionWorkbench() {
 
   return (
     <div className="material-resource-workbench min-h-screen bg-[#f6f8fb] text-slate-950">
-      <header className="border-b border-slate-200 bg-white">
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
         <div className="mx-auto flex min-h-16 max-w-[1120px] items-center justify-between px-5 md:px-8">
           <div className="flex items-center gap-3">
             <Link to="/internal" aria-label="返回内部入口" className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"><ArrowLeft size={18} /></Link>
@@ -393,10 +512,10 @@ export default function MaterialResourceProductionWorkbench() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={loadTongguanCalibration} disabled={busy} className={`hidden min-h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:opacity-50 md:flex ${activeLoadPreset === 'tongguan' ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
+            <button type="button" onClick={requestLoadTongguanCalibration} disabled={busy} className={`hidden min-h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:opacity-50 md:flex ${activeLoadPreset === 'tongguan' ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
               <BookOpen size={16} />使用《潼关》校准案例
             </button>
-            <button type="button" onClick={loadBatchA} disabled={busy} className={`hidden min-h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:opacity-50 sm:flex ${activeLoadPreset === 'batch_a' ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
+            <button type="button" onClick={requestLoadBatchA} disabled={busy} className={`hidden min-h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:opacity-50 sm:flex ${activeLoadPreset === 'batch_a' ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
               <PackagePlus size={16} />使用 Batch A 资源包
             </button>
             <button type="button" onClick={refreshWorkbench} disabled={busy} title="刷新工作台数据" aria-label="刷新工作台数据" className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50">
@@ -408,10 +527,10 @@ export default function MaterialResourceProductionWorkbench() {
 
       <main className="mx-auto w-full max-w-[1120px] px-5 py-7 md:px-8 md:py-9">
         <section className="grid gap-3 border-b border-slate-200 pb-7 sm:grid-cols-4" aria-label="生产状态">
-          <Metric label="学习材料" value={snapshot.materials.length} />
-          <Metric label="训练任务" value={snapshot.plans.length} />
-          <Metric label="待审核题目" value={snapshot.drafts.filter((draft) => draft.tags.includes('phase17.2')).length} />
-          <Metric label="已发布练习" value={snapshot.links.filter((link) => link.status === 'active').length} />
+          <Metric label="学习材料" value={workbenchSummary.materialCount} />
+          <Metric label="学习任务" value={workbenchSummary.learningTaskCount} />
+          <Metric label="待审核题目" value={workbenchSummary.pendingReviewCount} />
+          <Metric label="已发布练习" value={workbenchSummary.publishedResourceCount} />
         </section>
 
         {notice && <div role="status" className={`mt-5 border-l-4 px-4 py-3 text-sm leading-6 ${notice.type === 'error' ? 'border-red-500 bg-red-50 text-red-800' : 'border-emerald-500 bg-emerald-50 text-emerald-800'}`}>{notice.message}</div>}
@@ -428,7 +547,7 @@ export default function MaterialResourceProductionWorkbench() {
             {materialMode === 'existing' && snapshot.materials.length > 0 && (
               <label className="mt-5 block text-sm font-semibold">
                 已有素材
-                <select value={selectedMaterialId} onChange={(event) => { setSelectedMaterialId(event.target.value); setSelectedPlanId(''); }} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal">
+                <select value={selectedMaterialId} onChange={(event) => selectExistingMaterial(event.target.value)} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal">
                   {snapshot.materials.map((material) => <option key={material.materialVersionId} value={material.materialVersionId}>{material.title}</option>)}
                 </select>
               </label>
@@ -442,7 +561,7 @@ export default function MaterialResourceProductionWorkbench() {
                   <label className="block text-sm font-semibold">来源说明<input value={materialForm.description} onChange={(event) => setMaterialForm((value) => ({ ...value, description: event.target.value }))} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
                   <label className="block text-sm font-semibold">版权备注<input value={materialForm.copyrightNote} onChange={(event) => setMaterialForm((value) => ({ ...value, copyrightNote: event.target.value }))} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
                 </div>
-                <button type="button" onClick={addMaterial} disabled={busy || !materialForm.title.trim() || !materialForm.content.trim()} className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white disabled:opacity-40"><FilePlus2 size={16} />保存素材</button>
+                <button type="button" onClick={addMaterial} disabled={busy || !materialForm.title.trim() || !materialForm.content.trim()} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"><FilePlus2 size={16} />保存素材</button>
               </div>
             )}
 
@@ -469,124 +588,203 @@ export default function MaterialResourceProductionWorkbench() {
             </div>
             {selectedPlan && (
               <div className="mt-4 border-l-4 border-blue-500 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-950">
-                当前正在查看第 {selectedPlan.revision} 版训练任务（{statusLabels[selectedPlan.status]}）。浏览不会改变内容；修改后点击“生成修订计划”，系统才会创建新版本。
+                当前正在查看第 {selectedPlan.revision} 版训练任务（{statusLabels[selectedPlan.status]}）。浏览不会改变内容；修改后点击“保存任务修改”，系统才会创建新版本。
               </div>
             )}
-            <section className="mt-4 py-3" aria-labelledby="ai-observation-generator-title">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 id="ai-observation-generator-title" className="flex items-center gap-2 text-sm font-semibold"><Sparkles size={16} className="text-emerald-600" />AI 生成训练任务初稿</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">AI 会先分析学习材料，再生成可编辑的训练任务和评价标准。生成结果仅作为待确认初稿，不会自动保存、送审或发布。</p>
+            <section className="mt-4 rounded-md bg-white px-4 py-5 sm:px-5" aria-labelledby="ai-observation-generator-title" aria-busy={generatorBusy}>
+              <div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <h3 id="ai-observation-generator-title" className="text-base font-semibold">AI 生成训练任务</h3>
+                  <span className={`text-xs font-semibold ${generatorStatus?.status === 'ready' ? 'text-emerald-700' : 'text-amber-700'}`}>
+                    {generatorStatus?.status === 'ready' ? `DeepSeek 已就绪 · ${generatorStatus.model}` : 'AI 服务未配置'}
+                  </span>
                 </div>
-                <span className={`text-xs font-semibold ${generatorStatus?.status === 'ready' ? 'text-emerald-700' : 'text-amber-700'}`}>
-                  {generatorStatus?.status === 'ready' ? `DeepSeek 已就绪 · ${generatorStatus.model}` : 'AI 服务未配置'}
-                </span>
+                <p className="mt-2 text-sm leading-6 text-slate-600">AI 根据学习材料生成可编辑的训练任务和评分标准。生成内容需人工确认后才能保存、送审或发布。</p>
               </div>
               <AssistedDraftWorkflow stage={assistedDraftStage} />
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <label className="block text-sm font-medium">年级范围<input value={generatorPreferences.gradeRange} onChange={(event) => setGeneratorPreferences((current) => ({ ...current, gradeRange: event.target.value }))} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
-                <label className="block text-sm font-medium">候选数量<input type="number" min="3" max="6" value={generatorPreferences.candidateCount} onChange={(event) => setGeneratorPreferences((current) => ({ ...current, candidateCount: Number(event.target.value) }))} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
-                <label className="block text-sm font-medium sm:col-span-2">希望补充的观测焦点（可选）<input value={generatorPreferences.requestedFocus} onChange={(event) => setGeneratorPreferences((current) => ({ ...current, requestedFocus: event.target.value }))} placeholder="例如：诗歌语言作用；只作为方向，不保证生成" className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
-              </div>
-              <div className="mt-4">
-                <p className="text-sm font-medium">目标能力偏好（可选，不作为配额）</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {abilityOptions.map(([abilityId, label]) => {
-                    const selected = generatorPreferences.preferredAbilityIds.includes(abilityId);
-                    return <button key={abilityId} type="button" aria-pressed={selected} onClick={() => togglePreferredAbility(abilityId)} className={`min-h-9 rounded-md border px-3 text-xs font-semibold ${selected ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-slate-300 bg-white text-slate-600'}`}>{label}</button>;
-                  })}
+              <div className="mt-4 space-y-4">
+                <div>
+                  <p className="text-sm font-medium">适用学段（生成参考）</p>
+                  <div className="mt-1 flex min-h-10 items-center rounded-md border border-slate-300 bg-slate-50 px-3 text-sm font-normal text-slate-700">初中</div>
+                  <p className="mt-1 text-xs font-normal leading-5 text-slate-500">仅用于 AI 生成参考，不代表正式年级或能力难度判断。</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">生成任务数量</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {[3, 4, 5, 6].map((count) => (
+                      <button
+                        key={count}
+                        type="button"
+                        aria-pressed={generatorPreferences.candidateCount === count}
+                        disabled={generatorBusy}
+                        onClick={() => setGeneratorPreferences((current) => ({ ...current, candidateCount: count }))}
+                        className={`min-h-10 w-14 rounded-md border text-sm font-normal transition disabled:cursor-not-allowed disabled:opacity-40 ${generatorPreferences.candidateCount === count ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-slate-300 bg-white text-slate-600'}`}
+                      >
+                        {count}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">AI 将尝试生成该数量的待确认训练任务，实际任务数量可能更少。</span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">训练方向（可选）</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {trainingDirectionOptions.map(([focusId, label]) => {
+                      const selected = generatorPreferences.requestedFocusIds.includes(focusId);
+                      const selectionLimitReached = generatorPreferences.requestedFocusIds.length >= 2;
+                      return (
+                        <button
+                          key={focusId}
+                          type="button"
+                          aria-pressed={selected}
+                          disabled={generatorBusy || (!selected && selectionLimitReached)}
+                          onClick={() => toggleRequestedFocus(focusId)}
+                          className={`min-h-9 rounded-md border px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-35 ${selected ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-slate-300 bg-white text-slate-600'}`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">最多能选择 2 项；当不选择时由 AI 根据材料判断。</p>
                 </div>
               </div>
-              <p className="mt-3 text-xs leading-5 text-slate-500">当前素材库存：{generatorInventory.observations.length} 个 Observation · {generatorInventory.questions.length} 个题目入口。再次生成会先比较库存，只有新 Observation 可以导入。</p>
-              <button type="button" onClick={generateObservationCandidates} disabled={generatorBusy || generatorStatus?.status !== 'ready' || !selectedMaterial} className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-40">
-                <Sparkles size={16} />
+              <div className="mt-4">
+                <p className="text-sm font-medium">训练能力（可选）</p>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {abilityOptions.map(([abilityId, label]) => {
+                    const selected = generatorPreferences.preferredAbilityIds.includes(abilityId);
+                    const selectionLimitReached = generatorPreferences.preferredAbilityIds.length >= 2;
+                    return <button key={abilityId} type="button" aria-pressed={selected} disabled={generatorBusy || (!selected && selectionLimitReached)} onClick={() => togglePreferredAbility(abilityId)} className={`min-h-9 rounded-md border px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-35 ${selected ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-slate-300 bg-white text-slate-600'}`}>{label}</button>;
+                  })}
+                </div>
+                <p className="mt-1 text-xs leading-5 text-slate-500">最多能选择 2 项；当不选择时由 AI 根据材料判断。</p>
+              </div>
+              <div className="mt-4 border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-950">
+                {!selectedMaterial
+                  ? '请先选择或保存素材。生成训练任务后，系统会自动过滤重复内容。'
+                  : generatorInventory.observations.length === 0 && generatorInventory.questions.length === 0
+                    ? '当前素材尚未保存训练任务。再次生成时，系统会自动过滤重复内容，只保留新的训练方向。'
+                    : `当前素材已保存：训练方向（${generatorInventory.observations.length}）· 训练任务（${generatorInventory.questions.length}）。再次生成时，系统会自动过滤重复内容。`}
+              </div>
+              <button type="button" onClick={generateObservationCandidates} disabled={generatorBusy || generatorStatus?.status !== 'ready' || !selectedMaterial} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40">
                 {generatorBusy
-                  ? '正在分析素材并生成候选…'
+                  ? <><LoaderCircle aria-hidden="true" size={18} className="animate-spin" /><span aria-live="polite">正在分析素材并生成训练任务…</span></>
                   : generatorResult
-                    ? '再次寻找未覆盖观测任务'
-                    : '根据当前素材生成观测任务首稿'}
+                    ? '再次生成训练任务'
+                    : 'AI根据素材生成训练任务'}
               </button>
               {generatorResult && <GeneratorCandidatePreview result={generatorResult} onImport={importGeneratedCandidates} />}
             </section>
-            <div className="mt-4 border-t border-slate-200 pt-4" aria-label="当前编辑区观测预览">
-              <p className="text-xs font-semibold text-slate-500">当前编辑区观测预览</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {abilityOptions.map(([abilityId, label]) => {
-                  const covered = tasks.some((task) => task.abilityId === abilityId);
-                  return <span key={abilityId} className={`rounded px-2 py-1 text-xs font-semibold ${covered ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-400'}`}>能力 · {label}</span>;
-                })}
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {dimensionOptions.map(([dimensionId, label]) => {
-                  const covered = tasks.some((task) => task.primaryDimension === dimensionId);
-                  return <span key={dimensionId} className={`rounded px-2 py-1 text-xs font-semibold ${covered ? 'bg-blue-50 text-blue-800' : 'bg-slate-100 text-slate-400'}`}>素材维度 · {label}</span>;
-                })}
+            <div className="mt-5 rounded-md bg-white p-4 sm:p-5" aria-label="当前训练任务覆盖">
+              <p className="text-base font-semibold text-slate-700">当前训练任务覆盖</p>
+              <div className="mt-3 grid gap-5 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-medium text-slate-500">已包含的能力</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {abilityOptions
+                      .filter(([abilityId]) => tasks.some((task) => task.abilityId === abilityId))
+                      .map(([abilityId, label]) => (
+                        <span key={abilityId} className="rounded bg-emerald-50 px-2 py-1 text-xs font-normal text-emerald-800">{label}</span>
+                      ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500">已包含的训练方向</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {dimensionOptions
+                      .filter(([dimensionId]) => tasks.some((task) => task.primaryDimension === dimensionId))
+                      .map(([dimensionId, label]) => (
+                        <span key={dimensionId} className="rounded bg-blue-50 px-2 py-1 text-xs font-normal text-blue-800">{label}</span>
+                      ))}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="mt-5 divide-y divide-slate-200 border-y border-slate-200">
+            <div className="mt-5 space-y-4">
               {tasks.map((task, index) => (
-                <div key={task.localId} className="py-5">
+                <div key={task.localId} className="rounded-md bg-white p-4 sm:p-5">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">观测任务 {index + 1}</h3>
-                    <button type="button" title="删除观测任务" aria-label={`删除观测任务 ${index + 1}`} disabled={tasks.length <= 3} onClick={() => removeTask(index)} className="flex h-8 w-8 items-center justify-center text-slate-400 hover:text-red-600 disabled:opacity-25"><Trash2 size={16} /></button>
+                    <h3 className="text-base font-semibold">{taskEditorTitle(index)}</h3>
+                    <button type="button" aria-label={`删除${taskEditorTitle(index)}`} disabled={tasks.length <= 3} onClick={() => removeTask(index)} className="min-h-8 px-2 text-sm font-normal text-red-600 hover:text-red-700 disabled:cursor-not-allowed disabled:text-red-200">删除</button>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-3">
-                    <Select label="观察什么" value={task.primaryDimension} options={dimensionOptions} onChange={(value) => updateTask(index, { primaryDimension: value })} />
-                    <Select label="能力动作" value={task.abilityId} options={abilityOptions} onChange={(value) => updateTask(index, {
+                    <Select label="训练内容" value={task.primaryDimension} options={dimensionOptions} onChange={(value) => updateTask(index, { primaryDimension: value })} />
+                    <Select label="训练能力" value={task.abilityId} options={abilityOptions} onChange={(value) => updateTask(index, {
                       abilityId: value,
                       expectedStudentAction: actionForAbility(value),
                       rubric: task.rubric.map((item, rubricIndex) => rubricIndex === 0 ? { ...item, abilityId: value } : item),
                     })} />
-                    <Select label="任务角色" value={task.taskRole} options={roleOptions} onChange={(value) => updateTask(index, { taskRole: value })} />
+                    <Select label="任务用途" value={task.taskRole} options={roleOptions} onChange={(value) => updateTask(index, { taskRole: value })} />
                     <Select label="难度" value={task.difficulty} options={difficultyOptions} onChange={(value) => updateTask(index, { difficulty: value })} />
                   </div>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <Select label="素材范围" value={task.anchorType} options={anchorOptions} onChange={(value) => updateTask(index, { anchorType: value })} />
-                    {task.anchorType !== 'full_text' && <label className="block text-sm font-medium">起始段落<input type="number" min="1" max={Math.max(paragraphs.length, 1)} value={task.startParagraph} onChange={(event) => updateTask(index, { startParagraph: Number(event.target.value) })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>}
+                    <Select label="阅读范围" value={task.anchorType} options={anchorOptions} onChange={(value) => updateTask(index, { anchorType: value })} />
+                    {task.anchorType !== 'full_text' && <label className="block text-sm font-medium">开始段落<input type="number" min="1" max={Math.max(paragraphs.length, 1)} value={task.startParagraph} onChange={(event) => updateTask(index, { startParagraph: Number(event.target.value) })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>}
                     {task.anchorType === 'paragraph_range' && <label className="block text-sm font-medium">结束段落<input type="number" min={task.startParagraph} max={Math.max(paragraphs.length, 1)} value={task.endParagraph} onChange={(event) => updateTask(index, { endParagraph: Number(event.target.value) })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>}
                   </div>
-                  <label className="mt-3 block text-sm font-medium">题目入口<input value={task.questionStem} onChange={(event) => updateTask(index, { questionStem: event.target.value })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" placeholder="写出学生实际看到的题目" /></label>
-                  <label className="mt-3 block text-sm font-medium">预期能力动作<input value={task.expectedStudentAction} onChange={(event) => updateTask(index, { expectedStudentAction: event.target.value })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
-                  <label className="mt-3 block text-sm font-medium">设计理由<input value={task.designReason} onChange={(event) => updateTask(index, { designReason: event.target.value })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
-                  <details className="mt-4 border-t border-slate-200 pt-4">
-                    <summary className="cursor-pointer text-sm font-semibold text-blue-700">观测焦点、Rubric 与校准答案</summary>
-                    <div className="mt-4 space-y-4">
+                  <label className="mt-3 block text-sm font-medium">题目<AutoGrowingTextarea value={task.questionStem} onChange={(value) => updateTask(index, { questionStem: value })} placeholder="写出学生实际看到的题目" /></label>
+                  <label className="mt-3 block text-sm font-medium">学生需要完成什么<AutoGrowingTextarea value={task.expectedStudentAction} onChange={(value) => updateTask(index, { expectedStudentAction: value })} placeholder="例如：找出人物的一个具体动作，并说明它表现了怎样的心理。" /></label>
+                  <label className="mt-3 block text-sm font-medium">为什么设计这道题<AutoGrowingTextarea value={task.designReason} onChange={(value) => updateTask(index, { designReason: value })} placeholder="例如：检查学生能否建立“人物动作—心理判断”的关系。" /></label>
+                  <details className="mt-4 pt-1">
+                    <summary className="cursor-pointer text-sm font-normal text-blue-700">评分标准与答案示例</summary>
+                    <div className="mt-4 space-y-4 px-4 sm:px-5">
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="block text-sm font-medium">观测焦点名称<input value={task.focusDisplayName} onChange={(event) => updateTask(index, { focusDisplayName: event.target.value })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
-                        <label className="block text-sm font-medium">辅助能力 ID<input value={task.supportingAbilityIdsText} onChange={(event) => updateTask(index, { supportingAbilityIdsText: event.target.value })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" placeholder="analysis, expression" /></label>
+                        <label className="block text-sm font-medium">具体训练点<input value={task.focusDisplayName} onChange={(event) => updateTask(index, { focusDisplayName: event.target.value })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" placeholder="例如：从动作推断人物心理" /></label>
+                        <div>
+                          <p className="text-sm font-medium">相关能力（可选）</p>
+                          <div className="mt-1 flex min-h-10 flex-wrap gap-2">
+                            {abilityOptions
+                              .filter(([abilityId]) => abilityId !== task.abilityId)
+                              .map(([abilityId, label]) => {
+                                const selected = commaValues(task.supportingAbilityIdsText).includes(abilityId);
+                                return (
+                                  <button
+                                    key={abilityId}
+                                    type="button"
+                                    aria-pressed={selected}
+                                    onClick={() => toggleSupportingAbility(index, abilityId)}
+                                    className={`min-h-9 rounded-md border px-3 text-xs font-normal transition ${selected ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-slate-300 bg-white text-slate-600'}`}
+                                  >
+                                    {label}
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        </div>
                       </div>
-                      <label className="block text-sm font-medium">观测焦点定义<textarea value={task.focusDefinition} onChange={(event) => updateTask(index, { focusDefinition: event.target.value })} rows={2} className="mt-1 w-full rounded-md border border-slate-300 bg-white p-3 font-normal leading-6" /></label>
-                      {['retest', 'transfer'].includes(task.taskRole) && <label className="block text-sm font-medium">比较链 ID<input value={task.comparisonGroupId} onChange={(event) => updateTask(index, { comparisonGroupId: event.target.value })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" placeholder="同一能力 Training / Retest / Transfer 共用" /></label>}
+                      <label className="block text-sm font-medium">训练点说明<textarea value={task.focusDefinition} onChange={(event) => updateTask(index, { focusDefinition: event.target.value })} rows={2} className="mt-1 w-full rounded-md border border-slate-300 bg-white p-3 font-normal leading-6" placeholder="例如：学生能够引用具体动作，并说明动作与人物心理之间的关系。" /></label>
+                      {['retest', 'transfer'].includes(task.taskRole) && <label className="block text-sm font-medium">关联训练组 ID<input value={task.comparisonGroupId} onChange={(event) => updateTask(index, { comparisonGroupId: event.target.value })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" placeholder="同一能力 Training / Retest / Transfer 共用" /></label>}
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <Select label="评价模式" value={task.assessmentMode} options={assessmentModeOptions} onChange={(value) => updateTask(index, { assessmentMode: value })} />
+                        <Select label="评分方式" value={task.assessmentMode} options={assessmentModeOptions} onChange={(value) => updateTask(index, { assessmentMode: value })} />
                         <label className="block text-sm font-medium">最低字数<input type="number" min="1" value={task.minLength} onChange={(event) => updateTask(index, { minLength: Number(event.target.value) })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
                         <Select label="题目类型" value={task.questionType} options={questionTypeOptions} onChange={(value) => updateTask(index, { questionType: value })} />
                         <Select label="作答形式" value={task.responseFormat} options={responseFormatOptions} onChange={(value) => updateTask(index, { responseFormat: value })} />
                       </div>
-                      <label className="block text-sm font-medium">可接受要点（每行一项）<textarea value={task.acceptedKeywordsText} onChange={(event) => updateTask(index, { acceptedKeywordsText: event.target.value })} rows={3} className="mt-1 w-full rounded-md border border-slate-300 bg-white p-3 font-normal leading-6" /></label>
+                      <label className="block text-sm font-medium">可接受要点（每行一项）<textarea value={task.acceptedKeywordsText} onChange={(event) => updateTask(index, { acceptedKeywordsText: event.target.value })} rows={3} className="mt-1 w-full rounded-md border border-slate-300 bg-white p-3 font-normal leading-6" placeholder={'例如：\n母亲把伞推向孩子\n自己的肩膀被淋湿'} /></label>
                       <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={task.semanticEquivalentAllowed} onChange={(event) => updateTask(index, { semanticEquivalentAllowed: event.target.checked })} />允许语义等价表达</label>
                       <div>
                         <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-semibold">Rubric</p>
-                          <button type="button" onClick={() => updateTask(index, { rubric: [...task.rubric, createRubricItem(task.abilityId, task.rubric.length)] })} className="text-sm font-semibold text-blue-700">增加观察项</button>
+                          <p className="text-sm font-semibold">评分要点</p>
+                          <button type="button" onClick={() => updateTask(index, { rubric: [...task.rubric, createRubricItem(task.abilityId, task.rubric.length)] })} className="text-sm font-semibold text-blue-700">增加评分项</button>
                         </div>
                         <div className="mt-2 space-y-3">
                           {task.rubric.map((item, rubricIndex) => (
                             <div key={item.localId} className="border-l-2 border-slate-200 pl-3">
                               <div className="grid gap-2 sm:grid-cols-2">
-                                <input aria-label={`Rubric ${rubricIndex + 1} 名称`} value={item.name} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { name: event.target.value }) })} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm" placeholder="观察项名称" />
+                                <input aria-label={`Rubric ${rubricIndex + 1} 名称`} value={item.name} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { name: event.target.value }) })} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm" placeholder="例如：写出人物心理" />
                                 <select aria-label={`Rubric ${rubricIndex + 1} 能力`} value={item.abilityId} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { abilityId: event.target.value }) })} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">{abilityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
                               </div>
                               <textarea aria-label={`Rubric ${rubricIndex + 1} 描述`} value={item.description} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { description: event.target.value }) })} rows={2} className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 text-sm leading-6" placeholder="学生需要完成什么" />
-                              <input aria-label={`Rubric ${rubricIndex + 1} 可接受信号`} value={item.acceptedSignalsText} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { acceptedSignalsText: event.target.value }) })} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" placeholder="可接受信号，逗号分隔" />
+                              <input aria-label={`Rubric ${rubricIndex + 1} 可接受信号`} value={item.acceptedSignalsText} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { acceptedSignalsText: event.target.value }) })} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" placeholder="例如：担心、不舍、焦急（用逗号分隔）" />
                               {task.rubric.length > 1 && <button type="button" onClick={() => updateTask(index, { rubric: task.rubric.filter((_, itemIndex) => itemIndex !== rubricIndex) })} className="mt-2 text-xs font-semibold text-red-700">删除此项</button>}
                             </div>
                           ))}
                         </div>
                       </div>
                       <div>
-                        <p className="text-sm font-semibold">校准答案（审核辅助，不进入 Evidence）</p>
+                        <p className="text-sm font-semibold">答案示例（仅供审核，不影响学生记录）</p>
                         <div className="mt-2 space-y-3">
                           {task.calibrationCases.map((item, caseIndex) => (
                             <div key={item.localId} className="grid gap-2 sm:grid-cols-[140px_1fr]">
@@ -598,7 +796,7 @@ export default function MaterialResourceProductionWorkbench() {
                                 <option value="concise_valid">简短有效</option>
                                 <option value="irrelevant">无关回答</option>
                               </select>
-                              <textarea value={item.answerText} onChange={(event) => updateTask(index, { calibrationCases: updateArrayItem(task.calibrationCases, caseIndex, { answerText: event.target.value }) })} rows={2} className="rounded-md border border-slate-300 bg-white p-3 text-sm leading-6" placeholder="学生答案样例" />
+                              <textarea value={item.answerText} onChange={(event) => updateTask(index, { calibrationCases: updateArrayItem(task.calibrationCases, caseIndex, { answerText: event.target.value }) })} rows={2} className="rounded-md border border-slate-300 bg-white p-3 text-sm leading-6" placeholder="例如：父亲很担心孩子，因为他反复向门外张望。" />
                             </div>
                           ))}
                         </div>
@@ -610,20 +808,29 @@ export default function MaterialResourceProductionWorkbench() {
             </div>
 
             <div className="mt-4 flex gap-3">
-              <button type="button" disabled={tasks.length >= 6} onClick={addTask} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold disabled:opacity-40"><Plus size={16} />增加任务</button>
-              <button type="button" disabled={busy || !selectedMaterial || Boolean(selectedPlan && !taskEditorDirty) || tasks.some((task) => !isTaskReady(task))} onClick={createPlan} className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white disabled:opacity-40"><ClipboardCheck size={16} />{selectedPlan ? '生成修订计划' : '生成观测计划'}</button>
+              <button type="button" disabled={tasks.length >= 6} onClick={addTask} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-4 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"><Plus size={16} />增加训练任务</button>
+              <button type="button" disabled={busy || !selectedMaterial || Boolean(selectedPlan && !taskEditorDirty) || tasks.some((task) => !isTaskReady(task))} onClick={createPlan} className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"><ClipboardCheck size={16} />{selectedPlan ? '保存任务修改' : '保存训练任务'}</button>
             </div>
           </section>
         </div>
 
-        <section className="mt-10 border-t border-slate-200 pt-7">
+        <section className="mt-10 rounded-md bg-white p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold text-blue-700">审核与正式化</p>
-              <h2 className="mt-1 text-lg font-semibold">复用现有校验、审核与 Freeze 链</h2>
-              <p className="mt-2 max-w-[720px] text-sm leading-6 text-slate-600">生产工具只生成并校验 Draft；正式资源仍需逐题审核，不能自动进入 Registry。</p>
+              {selectedPlan ? (
+                <p className="flex flex-wrap items-center gap-2 text-sm font-normal text-slate-500">
+                  <span>当前版本：第 {selectedPlan.revision} 版</span>
+                  <span className={`rounded-md border px-2 py-0.5 text-xs font-normal ${statusBadgeClasses[selectedPlan.status] || statusBadgeClasses.superseded}`}>
+                    {statusLabels[selectedPlan.status]}
+                  </span>
+                </p>
+              ) : (
+                <p className="text-sm font-normal text-slate-500">审核与发布</p>
+              )}
+              <h2 className="mt-3 text-lg font-semibold">确认训练任务并发布</h2>
+              <p className="mt-2 max-w-[720px] text-sm leading-6 text-slate-600">保存训练任务后，可在这里检查题目和评分标准。审核通过的任务才能发布到正式学习系统。</p>
             </div>
-            {materialPlans.length > 0 && (
+            {materialPlans.length > 1 && (
               <select value={selectedPlan?.materialObservationPlanId || ''} onChange={(event) => setSelectedPlanId(event.target.value)} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
                 {materialPlans.map((plan) => <option key={plan.materialObservationPlanId} value={plan.materialObservationPlanId}>第 {plan.revision} 版 · {statusLabels[plan.status]}</option>)}
               </select>
@@ -631,59 +838,90 @@ export default function MaterialResourceProductionWorkbench() {
           </div>
 
           {!selectedPlan ? (
-            <p className="mt-5 text-sm text-slate-500">选择素材并生成观测计划后，审核流程会显示在这里。</p>
+            <p className="mt-5 text-sm text-slate-500">请先在上方保存训练任务。</p>
           ) : (
             <>
-              <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_360px]">
+              <div className={`mt-5 grid gap-6 ${
+                selectedPlan.status === 'pending_review'
+                || (selectedPlan.status === 'reviewed' && planDrafts.length < selectedPlan.taskPlans.length)
+                || planDrafts.length > 0
+                  ? 'lg:grid-cols-[1fr_360px]'
+                  : ''
+              }`}>
                 <div>
-                  <div className="divide-y divide-slate-200 border-y border-slate-200">
-                    <WorkflowRow title="观测计划" value={statusLabels[selectedPlan.status]} done={['pending_review', 'reviewed'].includes(selectedPlan.status)} />
-                    <WorkflowRow title="结构校验" value={selectedValidation?.passed ? '通过' : '未通过'} done={Boolean(selectedValidation?.passed)} />
-                    <WorkflowRow title="题目 Draft" value={`${planDrafts.length} / ${selectedPlan.taskPlans.length}`} done={planDrafts.length === selectedPlan.taskPlans.length} />
-                    <WorkflowRow title="正式关联" value={`${planLinks.length} / ${selectedPlan.taskPlans.length}`} done={planLinks.length === selectedPlan.taskPlans.length} />
-                  </div>
-                  <div className="mt-7">
-                    <h3 className="text-base font-semibold">观测计划内容</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">确认每道题观察什么、要求学生完成什么能力动作，以及任务角色是否真实成立。</p>
-                    <div className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
+                  <div>
+                    {taskEditorDirty && (
+                      <p className="border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+                        上方编辑区存在未保存修改，可能与这里的已保存版本不同。
+                      </p>
+                    )}
+                    <div className={`${taskEditorDirty ? 'mt-4' : ''} divide-y divide-slate-200 border-y border-slate-200`}>
                       {selectedPlan.taskPlans.map((task, index) => (
-                        <article key={task.observationTaskPlanId} className="py-4">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="text-sm font-semibold">{index + 1}. {task.observationGoal}</p>
-                            <p className="text-xs font-semibold text-blue-700">{abilityLabels[task.abilityId]} · {roleLabels[task.taskRole]}</p>
+                        <details key={task.observationTaskPlanId} className="group py-4">
+                          <summary className="flex cursor-pointer list-none items-start gap-3">
+                            <span className="min-w-0 flex-1 text-sm font-normal leading-6 text-slate-900">
+                              {savedQuestionTitle(index)}：{task.observationGoal}
+                            </span>
+                            <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                              <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-normal text-emerald-700">
+                                {abilityLabels[task.abilityId]}
+                              </span>
+                              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-normal text-slate-600">
+                                {roleLabels[task.taskRole]}
+                              </span>
+                            </span>
+                            <ChevronDown size={17} className="mt-1 shrink-0 text-slate-400 transition group-open:rotate-180" />
+                          </summary>
+                          <div className="mt-4 border-l-2 border-slate-200 pl-4">
+                            <p className="text-sm leading-6 text-slate-600">训练内容：{dimensionLabels[task.primaryDimension]} · {task.observationFocus?.displayName || '未命名训练点'} · 难度：{difficultyLabels[task.difficulty]}</p>
+                            <p className="mt-1 text-sm leading-6 text-slate-600">题目依据：{formatTaskAnchor(task, snapshot.anchors)}</p>
+                            <p className="mt-1 text-sm leading-6 text-slate-700">作答要求：{task.expectedStudentAction}</p>
+                            <p className="mt-1 text-sm leading-6 text-slate-500">设计说明：{task.designReason}</p>
+                            {task.intendedComparisonGroupId && <p className="mt-1 text-sm leading-6 text-slate-500">关联训练组：{task.intendedComparisonGroupId}</p>}
+                            {task.resourceDraftSpecification && (
+                              <details className="mt-3">
+                                <summary className="cursor-pointer text-sm font-normal text-blue-700">查看评分标准、作答范围与答案示例</summary>
+                                <div className="mt-3 grid gap-4 border-l-2 border-slate-200 pl-4 text-sm leading-6 md:grid-cols-2">
+                                  <PreviewField label="评分标准" value={task.resourceDraftSpecification.rubric.map((item) => `${item.name}：${item.description || item.acceptedSignals.join('、')}`).join('\n')} />
+                                  <PreviewField label="可接受的作答范围" value={formatAnswerAcceptance(task.resourceDraftSpecification.answerAcceptance)} />
+                                  <PreviewField label="相关能力" value={task.resourceDraftSpecification.supportingAbilityIds.map((ability) => abilityLabels[ability]).join('、') || '无'} />
+                                  <PreviewField label="答案示例" value={(task.calibrationCases || []).map((item) => `${calibrationCategoryLabel(item.category)}：${item.answerText}`).join('\n') || '未配置'} />
+                                </div>
+                              </details>
+                            )}
                           </div>
-                          <p className="mt-2 text-sm leading-6 text-slate-600">观察：{dimensionLabels[task.primaryDimension]} · {task.observationFocus?.displayName || '未命名焦点'} · 难度：{difficultyLabels[task.difficulty]}</p>
-                          <p className="mt-1 text-sm leading-6 text-slate-600">素材范围：{formatTaskAnchor(task, snapshot.anchors)}</p>
-                          <p className="mt-1 text-sm leading-6 text-slate-700">学生需要完成：{task.expectedStudentAction}</p>
-                          <p className="mt-1 text-sm leading-6 text-slate-500">设计理由：{task.designReason}</p>
-                          {task.intendedComparisonGroupId && <p className="mt-1 text-sm leading-6 text-slate-500">比较链：{task.intendedComparisonGroupId}</p>}
-                          {task.resourceDraftSpecification && (
-                            <details className="mt-3">
-                              <summary className="cursor-pointer text-sm font-semibold text-blue-700">检查 Rubric、接受边界与校准答案</summary>
-                              <div className="mt-3 grid gap-4 border-l-2 border-slate-200 pl-4 text-sm leading-6 md:grid-cols-2">
-                                <PreviewField label="Rubric" value={task.resourceDraftSpecification.rubric.map((item) => `${item.name}：${item.description || item.acceptedSignals.join('、')}`).join('\n')} />
-                                <PreviewField label="Answer Acceptance" value={formatAnswerAcceptance(task.resourceDraftSpecification.answerAcceptance)} />
-                                <PreviewField label="辅助能力" value={task.resourceDraftSpecification.supportingAbilityIds.map((ability) => abilityLabels[ability]).join('、') || '无'} />
-                                <PreviewField label="校准答案" value={(task.calibrationCases || []).map((item) => `${calibrationCategoryLabel(item.category)}：${item.answerText}`).join('\n') || '未配置'} />
-                              </div>
-                            </details>
-                          )}
-                        </article>
+                        </details>
                       ))}
                     </div>
                   </div>
-                  {selectedValidation && !selectedValidation.passed && (
-                    <IssueList title="观测计划需要修复" issues={selectedValidation.issues} />
-                  )}
                 </div>
-                <div className="space-y-3">
-                  {['draft', 'revision_required'].includes(selectedPlan.status) && <ActionButton onClick={submitPlan} disabled={busy || !selectedValidation?.passed} icon={ArrowRight}>提交计划审核</ActionButton>}
-                  {selectedPlan.status === 'pending_review' && <ActionButton onClick={approvePlan} disabled={busy} icon={ShieldCheck}>确认观测设计</ActionButton>}
-                  {selectedPlan.status === 'reviewed' && planDrafts.length < selectedPlan.taskPlans.length && <ActionButton onClick={createDrafts} disabled={busy} icon={FilePlus2}>{isPhase17BatchAMaterial(selectedPlan.materialVersionId) ? '生成 Batch A 正式 Draft' : '生成并校验题目 Draft'}</ActionButton>}
-                  {planDrafts.length > 0 && <Link to="/question-resource-workbench" className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white"><ClipboardCheck size={16} />进入逐题审核与 Freeze</Link>}
-                  {planDrafts.length > 0 && <ActionButton onClick={syncLinks} disabled={busy} icon={Link2}>检查正式关联</ActionButton>}
-                </div>
+                {(selectedPlan.status === 'pending_review'
+                  || (selectedPlan.status === 'reviewed' && planDrafts.length < selectedPlan.taskPlans.length)
+                  || planDrafts.length > 0) && (
+                  <div className="space-y-3">
+                    {selectedPlan.status === 'pending_review' && <ActionButton onClick={approvePlan} disabled={busy} icon={ShieldCheck}>确认训练任务</ActionButton>}
+                    {selectedPlan.status === 'reviewed' && planDrafts.length < selectedPlan.taskPlans.length && <ActionButton onClick={createDrafts} disabled={busy} icon={FilePlus2}>生成待审核题目</ActionButton>}
+                    {planDrafts.length > 0 && <Link to="/question-resource-workbench" className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white"><ClipboardCheck size={16} />进入逐题审核与发布</Link>}
+                    {planDrafts.length > 0 && <ActionButton onClick={syncLinks} disabled={busy} icon={Link2}>检查发布状态</ActionButton>}
+                  </div>
+                )}
               </div>
+              {['draft', 'revision_required'].includes(selectedPlan.status) && (
+                <>
+                  {selectedValidation && !selectedValidation.passed && (
+                    <IssueList title="提交前需要修复" issues={selectedValidation.issues} />
+                  )}
+                  <button
+                    type="button"
+                    onClick={submitPlan}
+                    disabled={busy || !selectedValidation?.passed}
+                    className="mt-6 flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"
+                  >
+                    <ArrowRight size={16} />
+                    提交审核
+                  </button>
+                </>
+              )}
               {planDraftReadiness.length > 0 && <DraftProductionChecklist items={planDraftReadiness} />}
             </>
           )}
@@ -697,6 +935,34 @@ export default function MaterialResourceProductionWorkbench() {
           onDismiss={() => setToast((current) => current?.id === toast.id ? null : current)}
         />
       )}
+      {discardDialogOpen && (
+        <DiscardChangesDialog
+          onCancel={cancelDiscardChanges}
+          onConfirm={confirmDiscardChanges}
+        />
+      )}
+    </div>
+  );
+}
+
+function DiscardChangesDialog({ onCancel, onConfirm }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-5" role="presentation">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="discard-task-edits-title"
+        className="w-full max-w-md rounded-md bg-white p-6 shadow-xl"
+      >
+        <h2 id="discard-task-edits-title" className="text-lg font-semibold">放弃未保存的任务修改？</h2>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          当前编辑区包含尚未生成计划的修改。切换素材后，这些本地修改将不会保留。
+        </p>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onCancel} className="min-h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">继续编辑</button>
+          <button type="button" onClick={onConfirm} className="min-h-10 rounded-md bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700">放弃修改并切换</button>
+        </div>
+      </section>
     </div>
   );
 }
@@ -706,11 +972,43 @@ function Metric({ label, value }) {
 }
 
 function Select({ label, value, options, onChange }) {
-  return <label className="block text-sm font-medium">{label}<select value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-2 font-normal">{options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}</select></label>;
+  const selectedLabel = options.find(([optionValue]) => optionValue === value)?.[1] || value;
+  return (
+    <label className="block text-sm font-medium">
+      {label}
+      <span className="relative mt-1 flex min-h-10 w-full items-center rounded-md border border-slate-300 bg-white px-2 pr-10 transition focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-100">
+        <span className="pointer-events-none inline-flex max-w-full items-center rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-sm font-normal text-emerald-700">
+          {selectedLabel}
+        </span>
+        <ChevronDown aria-hidden="true" size={18} className="pointer-events-none absolute right-3 text-slate-500" />
+        <select value={value} onChange={(event) => onChange(event.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0">
+          {options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}
+        </select>
+      </span>
+    </label>
+  );
 }
 
-function WorkflowRow({ title, value, done }) {
-  return <div className="flex min-h-14 items-center justify-between gap-4 py-3"><span className="flex items-center gap-2 text-sm font-semibold">{done ? <CheckCircle2 size={17} className="text-emerald-600" /> : <span className="h-4 w-4 rounded-full border border-slate-300" />}{title}</span><span className="text-sm text-slate-600">{value}</span></div>;
+function AutoGrowingTextarea({ value, onChange, placeholder }) {
+  const textareaRef = useRef(null);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [value]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      rows={1}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="mt-1 min-h-10 w-full resize-none overflow-hidden rounded-md border border-slate-300 bg-white px-3 py-2 font-normal leading-6"
+      placeholder={placeholder}
+    />
+  );
 }
 
 function ActionButton({ icon: Icon, children, ...props }) {
@@ -719,11 +1017,11 @@ function ActionButton({ icon: Icon, children, ...props }) {
 
 function AssistedDraftWorkflow({ stage }) {
   const stages = [
-    ['candidate', '生成初稿'],
-    ['imported', '编辑确认'],
-    ['observation_plan', '提交审核'],
-    ['question_review', '逐题审核'],
-    ['frozen', '正式发布'],
+    ['candidate', 'AI 生成训练任务', '已生成'],
+    ['imported', '保存训练任务', '已保存'],
+    ['observation_plan', '提交审核', '已提交'],
+    ['question_review', '审核题目', '已审核'],
+    ['frozen', '发布任务', '已发布'],
   ];
   if (stage === 'material') return null;
   const currentIndex = stages.findIndex(([value]) => value === stage);
@@ -731,11 +1029,13 @@ function AssistedDraftWorkflow({ stage }) {
     <div className="mt-4" aria-label="训练任务发布进度">
       <p className="text-xs font-semibold text-slate-500">发布进度</p>
       <ol className="mt-2 grid grid-cols-5 gap-1">
-        {stages.map(([value, label], index) => {
+        {stages.map(([value, actionLabel, completedLabel], index) => {
           const reached = currentIndex >= 0 && index <= currentIndex;
           const current = value === stage;
+          const completed = index < currentIndex || (current && value === 'frozen');
+          const label = completed ? completedLabel : actionLabel;
           return (
-            <li key={value} className={`min-w-0 border-t-2 pt-2 text-center text-[11px] font-semibold leading-4 ${reached ? 'border-emerald-600 text-emerald-800' : 'border-slate-200 text-slate-400'} ${current ? 'bg-emerald-50' : ''}`}>
+            <li key={value} className={`min-w-0 border-t-2 pt-2 text-center text-xs font-semibold leading-4 ${reached ? 'border-emerald-600 text-emerald-800' : 'border-slate-200 text-slate-400'} ${current ? 'bg-emerald-50' : ''}`}>
               {index + 1}. {label}
             </li>
           );
@@ -747,74 +1047,145 @@ function AssistedDraftWorkflow({ stage }) {
 
 function GeneratorCandidatePreview({ result, onImport }) {
   const providerFailed = result.status === 'provider_failed';
-  const abilitySummary = result.coveragePreview.primaryAbilityIds
-    .map((abilityId) => abilityLabels[abilityId])
-    .filter(Boolean);
-  const dimensionSummary = result.coveragePreview.observationDimensions
-    .map((dimensionId) => dimensionLabels[dimensionId])
-    .filter(Boolean);
+  const admittedCandidateCount = result.candidates.length + result.withheldCandidates.length;
+  const totalCandidateCount = admittedCandidateCount + result.rejectedCandidates.length;
+  const visibleLimitations = result.limitations.filter(
+    (limitation) => !/^\d+ candidate\(s\) were rejected before import\.$/.test(limitation),
+  );
   return (
     <div className="mt-5 border-l-4 border-slate-300 pl-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm font-semibold">
+        <p className="text-base font-semibold">
           {result.status === 'candidates_ready'
-            ? '发现新的 Observation 候选'
+            ? '已生成可导入的新训练任务'
             : providerFailed
               ? 'AI 服务调用未完成'
               : result.withheldCandidates.length > 0
-                ? '本轮没有发现可导入的新 Observation'
+                ? '本轮没有发现新的训练方向'
                 : '候选暂不可导入'}
         </p>
-        <p className="text-xs text-slate-500">表面候选 {result.coveragePreview.surfaceCandidateCount} · 新观测 {result.coveragePreview.newObservationCount} · 替代题 {result.coveragePreview.alternateQuestionCount} · 疑似重复 {result.coveragePreview.likelyDuplicateCount} · 素材不支持 {result.coveragePreview.unsupportedByMaterialCount}</p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600" aria-label="本次生成统计">
+          {[
+            ['生成', result.coveragePreview.surfaceCandidateCount],
+            ['可导入', result.coveragePreview.newObservationCount],
+            ['替代题', result.coveragePreview.alternateQuestionCount],
+            ['疑似重复', result.coveragePreview.likelyDuplicateCount],
+            ['素材不支持', result.coveragePreview.unsupportedByMaterialCount],
+          ].map(([label, value]) => (
+            <span key={label} className="inline-flex items-center gap-1.5">
+              <span>{label}</span>
+              <span className={`inline-flex min-w-7 items-center justify-center rounded px-2 py-0.5 text-sm font-normal ${value > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                {value}
+              </span>
+            </span>
+          ))}
+        </div>
       </div>
-      {!result.validation.passed && result.validation.issues.length > 0 && (
-        <div className="mt-3 border-l-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950">
-          <p className="font-semibold">{providerFailed ? '调用失败原因' : '整批校验结果'}</p>
-          <ul className="mt-1 space-y-1">
-            {result.validation.issues.map((issue) => <li key={issue}>- {generatorIssueLabel(issue)}</li>)}
-          </ul>
+      {(result.validation.issues.length > 0 || result.rejectedCandidates.length > 0 || visibleLimitations.length > 0) && (
+        <section className="mt-3 space-y-3" aria-label="生成校验结果">
+          {!result.validation.passed && result.validation.issues.length > 0 && (
+            <div className="border-l-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950">
+              <p className="font-semibold">{providerFailed ? '调用失败原因' : '整批校验结果'}</p>
+              {providerFailed && (
+                <p className="mt-1">
+                  系统已自动尝试 {result.provider.attemptCount} 次，本次仍未获得训练任务。
+                </p>
+              )}
+              <ul className="mt-1 space-y-1">
+                {result.validation.issues.map((issue) => (
+                  <li key={issue}>
+                    - {issue === 'fewer_than_3_valid_independent_candidates'
+                      ? `至少需要 3 个通过校验且彼此独立的新任务。本次共生成 ${totalCandidateCount} 个：${admittedCandidateCount} 个通过结构校验，其中 ${result.coveragePreview.independentObservationCount} 个属于独立新任务；${result.rejectedCandidates.length} 个被拒绝，因此暂不可导入。`
+                      : generatorIssueLabel(issue)}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2"><strong>下一步：</strong>{providerFailed ? providerFailureNextStep(result.validation.issues) : '系统已隔离不合格任务。请在下方查看具体原因，再点击上方“再次生成训练任务”。'}</p>
+            </div>
+          )}
+          {result.rejectedCandidates.length > 0 && (
+            <details className="border-l-2 border-amber-300 pl-3">
+              <summary className="cursor-pointer text-xs font-semibold text-amber-800">查看 {result.rejectedCandidates.length} 道未通过任务</summary>
+              <p className="mt-2 text-xs leading-5 text-amber-900">AI 生成的是待确认内容，可能出现段落或字段偏差。系统已在导入前隔离这些任务，不会写入正式资源。</p>
+              <ol className="mt-2 space-y-2 text-xs leading-5 text-amber-950">
+                {result.rejectedCandidates.map((candidate) => (
+                  <li key={`${candidate.candidateIndex}-${candidate.issues.join('|')}`} className="border-l-2 border-amber-300 pl-3">
+                    <strong>任务 {candidate.candidateIndex + 1}</strong>
+                    <ul className="mt-1 space-y-2">
+                      {candidate.issues.map((issue) => (
+                        <li key={issue}>
+                          <p>{generatorIssueLabel(issue)}</p>
+                          {generatorIssueDetail(issue, candidate.diagnosticContext)}
+                          <p className="mt-1 text-amber-900"><strong>操作：</strong>{generatorIssueAction(issue)}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ol>
+            </details>
+          )}
+          {visibleLimitations.length > 0 && (
+            <details className="border-l-2 border-slate-300 pl-3 text-xs leading-5 text-slate-500">
+              <summary className="cursor-pointer font-semibold text-slate-700">{providerFailed ? '查看安全处理结果' : '查看生成说明'}</summary>
+              <ul className="mt-2 space-y-1">
+                {visibleLimitations.map((limitation, index) => <li key={`${index}-${limitation}`}>- {generatorLimitationLabel(limitation)}</li>)}
+              </ul>
+            </details>
+          )}
+        </section>
+      )}
+      {(result.provider.repair?.attempted || result.coveragePreview.possibleDuplicatePairs.length > 0) && (
+        <div className="mt-3 space-y-1 text-xs leading-5 text-slate-600">
+          {result.provider.repair?.attempted && (
+            <p className={result.provider.repair.recoveredCandidateCount > 0 ? 'text-emerald-700' : 'text-amber-700'}>
+              <strong>自动修复：</strong>
+              已针对 {result.provider.repair.requestedCandidateCount} 个结构偏差候选修复一次，
+              恢复（{result.provider.repair.recoveredCandidateCount}） · 仍未通过（{result.provider.repair.unresolvedCandidateCount}）
+            </p>
+          )}
+          {result.coveragePreview.possibleDuplicatePairs.length > 0 && <p className="text-amber-700"><strong>重复检查：</strong>发现 {result.coveragePreview.possibleDuplicatePairs.length} 组疑似重复，已隔离且不会增加覆盖。</p>}
         </div>
       )}
-      <div className="mt-3 space-y-1 text-xs leading-5 text-slate-600">
-        <p><strong className="text-slate-800">比较库存：</strong>{result.coveragePreview.existingObservationCount} 个已有 Observation · {result.coveragePreview.existingQuestionCount} 个已有题目入口</p>
-        <p><strong className="text-slate-800">能力覆盖：</strong>{abilitySummary.join('、') || '尚无合法候选'}</p>
-        <p><strong className="text-slate-800">素材维度：</strong>{dimensionSummary.join('、') || '尚无合法候选'}</p>
-        {result.coveragePreview.possibleDuplicatePairs.length > 0 && <p className="text-amber-700"><strong>重复检查：</strong>发现 {result.coveragePreview.possibleDuplicatePairs.length} 组疑似重复，已隔离且不会增加覆盖。</p>}
-      </div>
       {result.candidates.length > 0 && (
         <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
           {result.candidates.map((candidate, index) => (
             <article key={candidate.candidateId} className="py-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p className="text-xs font-semibold text-blue-700">新 Observation {index + 1}</p>
-                  <p className="mt-1 text-sm font-semibold">{candidate.observationFocus.displayName}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="inline-flex rounded bg-emerald-50 px-2 py-1 text-xs font-normal text-emerald-700">待确认训练任务 {index + 1}</p>
+                  <p className="text-sm font-normal text-slate-600">{candidate.observationFocus.displayName}</p>
                 </div>
-                <span className="text-xs font-semibold text-blue-700">{abilityLabels[candidate.primaryAbilityId]} · {dimensionLabels[candidate.observationDimension]} · {evidencePotentialLabel(candidate.evidencePotential)}</span>
+                <span className="text-xs font-normal text-slate-600">{abilityLabels[candidate.primaryAbilityId]} · {dimensionLabels[candidate.observationDimension]}</span>
               </div>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{candidate.observationFocus.definition}</p>
-              <div className="mt-3 border-l-2 border-blue-200 pl-3">
-                <p className="text-xs font-semibold text-slate-500">题目入口</p>
+              <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs font-semibold text-slate-500">生成的题目</p>
+                  <p className="text-xs font-normal text-slate-500">题目依据：{formatCandidateAnchor(candidate.materialAnchor)}</p>
+                </div>
                 <p className="mt-1 text-sm font-medium leading-6 text-slate-900">{candidate.questionStem}</p>
               </div>
-              <p className="mt-2 text-xs leading-5 text-slate-500">素材范围：{formatCandidateAnchor(candidate.materialAnchor)}</p>
-              <p className="mt-1 text-sm leading-6 text-slate-600">学生需要完成：{candidate.expectedStudentAction}</p>
-              <details className="mt-2">
-                <summary className="cursor-pointer text-xs font-semibold text-blue-700">检查 Rubric、证据边界与校准答案</summary>
-                <div className="mt-2 space-y-2 border-l-2 border-slate-200 pl-3 text-xs leading-5 text-slate-600">
-                  <p><strong className="text-slate-800">Rubric：</strong>{candidate.rubricDraft.map((item) => `${item.name}：${item.description}`).join('；')}</p>
-                  <p><strong className="text-slate-800">能够观察：</strong>{candidate.evidenceBoundary.canObserve}</p>
-                  <p><strong className="text-slate-800">不能推断：</strong>{candidate.evidenceBoundary.cannotConclude}</p>
-                  <p><strong className="text-slate-800">校准答案：</strong>{candidate.calibrationAnswers.length} 类</p>
-                </div>
-              </details>
+              <div className="px-4">
+                <p className="mt-1 text-sm leading-6 text-slate-600">作答要求：{formatExpectedStudentAction(candidate.expectedStudentAction)}</p>
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs font-normal text-blue-700">查看评分标准、可观察范围与答案示例</summary>
+                  <div className="mt-2 space-y-2 border-l-2 border-slate-200 pl-3 text-xs leading-5 text-slate-600">
+                    <p><strong className="text-slate-800">训练点说明：</strong>{candidate.observationFocus.definition}</p>
+                    <p><strong className="text-slate-800">评分标准：</strong>{candidate.rubricDraft.map((item) => `${item.name}：${item.description}`).join('；')}</p>
+                    <p><strong className="text-slate-800">能够观察：</strong>{candidate.evidenceBoundary.canObserve}</p>
+                    <p><strong className="text-slate-800">不能推断：</strong>{candidate.evidenceBoundary.cannotConclude}</p>
+                    <p><strong className="text-slate-800">预计观察信息：</strong>{evidencePotentialLabel(candidate.evidencePotential)}，仅供审核参考</p>
+                    <p><strong className="text-slate-800">答案示例：</strong>{candidate.calibrationAnswers.length} 类</p>
+                  </div>
+                </details>
+              </div>
             </article>
           ))}
         </div>
       )}
       {result.withheldCandidates.length > 0 && (
         <details className="mt-3 border-l-2 border-slate-300 pl-3">
-          <summary className="cursor-pointer text-xs font-semibold text-slate-700">查看 {result.withheldCandidates.length} 个不增加覆盖的候选</summary>
+          <summary className="cursor-pointer text-xs font-semibold text-slate-700">查看 {result.withheldCandidates.length} 个重复或替代任务</summary>
           <div className="mt-2 divide-y divide-slate-200 text-xs leading-5 text-slate-600">
             {result.withheldCandidates.map((candidate) => (
               <article key={candidate.candidateId} className="py-3">
@@ -829,28 +1200,7 @@ function GeneratorCandidatePreview({ result, onImport }) {
           </div>
         </details>
       )}
-      {result.rejectedCandidates.length > 0 && (
-        <details className="mt-3 border-l-2 border-amber-300 pl-3">
-          <summary className="cursor-pointer text-xs font-semibold text-amber-800">查看 {result.rejectedCandidates.length} 个候选的拒绝原因</summary>
-          <ol className="mt-2 space-y-2 text-xs leading-5 text-amber-950">
-            {result.rejectedCandidates.map((candidate) => (
-              <li key={`${candidate.candidateIndex}-${candidate.issues.join('|')}`}>
-                <strong>候选 {candidate.candidateIndex + 1}：</strong>
-                {candidate.issues.map(generatorIssueLabel).join('；')}
-              </li>
-            ))}
-          </ol>
-        </details>
-      )}
-      {result.limitations.length > 0 && (
-        <div className="mt-3 text-xs leading-5 text-slate-500">
-          <p className="font-semibold text-slate-700">{providerFailed ? '安全处理结果' : '素材与生成限制'}</p>
-          <ul className="mt-1 space-y-1">
-            {result.limitations.map((limitation, index) => <li key={`${index}-${limitation}`}>- {generatorLimitationLabel(limitation)}</li>)}
-          </ul>
-        </div>
-      )}
-      <button type="button" onClick={onImport} disabled={result.status !== 'candidates_ready' || result.candidates.length === 0} className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-blue-600 bg-white px-4 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-40"><ArrowRight size={16} />导入 {result.candidates.length} 个新 Observation 到编辑区</button>
+      <button type="button" onClick={onImport} disabled={result.status !== 'candidates_ready' || result.candidates.length === 0} className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-4 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"><ArrowRight size={16} />导入 {result.candidates.length} 条训练任务到编辑区</button>
     </div>
   );
 }
@@ -1339,13 +1689,84 @@ function formatCandidateAnchor(anchor) {
   return `第 ${anchor.startParagraph} 段`;
 }
 function evidencePotentialLabel(value) {
-  return ({ weak: '证据潜力：弱', moderate: '证据潜力：中', strong: '证据潜力：强' })[value] || value;
+  return ({ weak: '弱', moderate: '中', strong: '强' })[value] || value;
+}
+function generatorIssueDetail(issue, context) {
+  if (issue === 'material_anchor_out_of_range') {
+    const paragraphCount = context?.materialParagraphCount;
+    const actual = formatRejectedAnchor(context?.materialAnchor);
+    const allowed = paragraphCount > 0
+      ? `第 1–${paragraphCount} 段、其中任一单段，或全文`
+      : '当前素材中的有效段落或全文';
+    return (
+      <p className="mt-1 text-amber-800">
+        实际填写：{actual}。允许范围：{allowed}。
+      </p>
+    );
+  }
+  if (issue === 'material_anchor_type_invalid') {
+    return (
+      <p className="mt-1 text-amber-800">
+        实际填写：{context?.materialAnchor?.anchorType || '未提供'}。允许范围：单段、段落范围、全文。
+      </p>
+    );
+  }
+  if (issue === 'question_type_invalid') {
+    return (
+      <p className="mt-1 text-amber-800">
+        实际填写：{questionTypeDisplay(context?.questionType)}。允许范围：{questionTypeOptions.map(([, label]) => label).join('、')}。
+      </p>
+    );
+  }
+  if (issue === 'response_format_invalid') {
+    return (
+      <p className="mt-1 text-amber-800">
+        实际填写：{responseFormatDisplay(context?.responseFormat)}。允许范围：{responseFormatOptions.map(([, label]) => label).join('、')}。
+      </p>
+    );
+  }
+  return null;
+}
+function generatorIssueAction(issue) {
+  if (issue === 'material_anchor_out_of_range') {
+    return '先检查素材是否按自然段正确分段；确认后点击上方“再次生成训练任务”。该候选不会被导入。';
+  }
+  if (issue === 'material_anchor_type_invalid') {
+    return '点击上方“再次生成训练任务”，系统会重新按单段、段落范围或全文生成。';
+  }
+  if (issue === 'question_type_invalid' || issue === 'response_format_invalid') {
+    return '点击上方“再次生成训练任务”，系统会重新按当前支持的题型和作答形式生成。';
+  }
+  return '点击上方“再次生成训练任务”；若连续失败，可将任务数量调整为 3，并选择更明确的训练方向后重试。';
+}
+function formatRejectedAnchor(anchor) {
+  if (!anchor) return '未提供';
+  if (anchor.anchorType === 'full_text') return '全文';
+  if (anchor.anchorType === 'paragraph') {
+    return anchor.startParagraph ? `第 ${anchor.startParagraph} 段` : '单段，但未提供有效段落号';
+  }
+  if (anchor.anchorType === 'paragraph_range') {
+    const start = anchor.startParagraph ?? '未提供';
+    const end = anchor.endParagraph ?? '未提供';
+    return `第 ${start}–${end} 段`;
+  }
+  return anchor.anchorType || '未提供';
+}
+function formatExpectedStudentAction(value) {
+  return String(value || '').replace(/^(学生需要|学生应当|学生应|学生须)\s*/, '');
+}
+function questionTypeDisplay(value) {
+  return questionTypeOptions.find(([id]) => id === value)?.[1] || value || '未提供';
+}
+function responseFormatDisplay(value) {
+  return responseFormatOptions.find(([id]) => id === value)?.[1] || value || '未提供';
 }
 function generatorIssueLabel(issue) {
   const exact = {
     provider_timeout: '模型在规定时间内没有完成生成。可以直接重试；若持续出现，可将候选数量改为 3。',
     provider_network_error: '连接模型服务时发生网络错误，请稍后重试。',
     provider_rate_limit: '模型服务当前请求较多，请稍后重试。',
+    provider_insufficient_balance: 'AI 服务账户余额不足，本次请求未执行。',
     provider_authentication_failed: '模型服务凭据未通过验证，需要检查服务配置。',
     provider_authentication_error: '模型服务凭据未通过验证，需要检查服务配置。',
     provider_provider_unavailable: '模型服务暂时不可用，请稍后重试。',
@@ -1391,26 +1812,43 @@ function generatorIssueLabel(issue) {
     observation_candidate_duplicate: '与另一候选观察同一认知动作，已作为重复项隔离',
   };
   if (exact[issue]) return exact[issue];
-  if (issue.startsWith('prohibited_formal_fields:')) return `包含禁止出现的正式字段：${issue.split(':')[1]}`;
+  if (issue.startsWith('prohibited_formal_fields:')) return '候选包含不应由 AI 直接生成的正式发布信息，已被阻断。';
   if (issue.startsWith('calibration_category_missing:')) return `缺少校准答案类型：${calibrationCategoryLabel(issue.split(':')[1])}`;
-  if (/^rubric_\d+_/.test(issue)) return `Rubric 字段不完整：${issue}`;
-  if (/^calibration_\d+_/.test(issue)) return `校准答案字段不完整：${issue}`;
-  return `结构字段未通过校验：${issue}`;
+  if (/^rubric_\d+_ability_undeclared$/.test(issue)) return '评分标准使用了当前任务未声明的训练能力，暂不能导入。';
+  if (/^rubric_\d+_/.test(issue)) return '评分标准存在缺失或不一致，暂不能导入。';
+  if (/^calibration_\d+_/.test(issue)) return '答案示例存在缺失或不一致，暂不能导入。';
+  return '候选内容未通过导入校验，已被安全阻断。';
+}
+function providerFailureNextStep(issues) {
+  if (issues.includes('provider_insufficient_balance')) {
+    return '请先检查并补充 AI 服务账户余额，确认账户可用后再点击“再次生成训练任务”。';
+  }
+  if (issues.includes('provider_authentication_failed') || issues.includes('provider_authentication_error')) {
+    return '请检查 AI 服务凭据配置，确认凭据有效后再生成。';
+  }
+  if (issues.includes('provider_unknown')) {
+    return '请检查当前模型名称和 AI 服务配置；确认无误后再生成。';
+  }
+  return '请稍后点击“再次生成训练任务”；若持续失败，再检查 AI 服务状态。';
 }
 function generatorLimitationLabel(limitation) {
   const translated = {
     'Candidates are AI-assisted drafts and require human educational review.': '候选为 AI 辅助首稿，必须经过人工教育审核。',
-    'Evidence potential is not actual Evidence quality.': '证据潜力不是学生作答后的实际 Evidence Quality。',
+    'Evidence potential is not actual Evidence quality.': '预计观察信息仅供审核参考，不代表学生实际作答产生的证据质量。',
     'Provider output could not be converted into isolated candidates.': 'Provider 输出无法转换为可隔离校验的候选。',
     'Provider failed before any candidate was admitted.': '模型服务在产生候选前调用失败；本次没有候选进入校验或正式数据。',
     'Provider retry budget was exhausted.': '模型服务已达到本次受控重试上限；没有写入任何正式数据。',
     'Provider identity does not match the configured generator.': '模型服务身份与当前生成器配置不一致。',
     'Only new observation candidates are importable in discover_new_observation mode.': '当前只执行“发现新 Observation”；替代问法和疑似重复项不会导入。',
+    'Candidate repair output was invalid JSON; previously admitted candidates were preserved.': '自动修复结果格式无效；第一轮已通过的候选仍被保留。',
+    'Candidate repair call failed; previously admitted candidates were preserved.': '自动修复调用未完成；第一轮已通过的候选仍被保留。',
   };
   const rejectedMatch = limitation.match(/^(\d+) candidate\(s\) were rejected before import\.$/);
   if (rejectedMatch) return `${rejectedMatch[1]} 个候选在导入前被结构校验拒绝。`;
   const withheldMatch = limitation.match(/^(\d+) candidate\(s\) matched existing or same-batch observations and were withheld from import\.$/);
   if (withheldMatch) return `${withheldMatch[1]} 个候选与已有或本批次 Observation 重合，已保留供查看但不会导入。`;
+  const repairedMatch = limitation.match(/^Candidate-level repair recovered (\d+) of (\d+) structurally rejected candidate\(s\)\.$/);
+  if (repairedMatch) return `系统已自动修复 ${repairedMatch[2]} 个结构偏差候选中的 ${repairedMatch[1]} 个。`;
   return translated[limitation] || limitation;
 }
 function createGeneratorRequestId(materialVersionId) {
@@ -1418,6 +1856,14 @@ function createGeneratorRequestId(materialVersionId) {
     ? crypto.randomUUID().slice(0, 12)
     : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   return `material-observation-generator-${materialVersionId}-${suffix}`;
+}
+function taskEditorTitle(index) {
+  const labels = ['一', '二', '三', '四', '五', '六'];
+  return `训练任务${labels[index] || index + 1} · 编辑区`;
+}
+function savedQuestionTitle(index) {
+  const labels = ['一', '二', '三', '四', '五', '六'];
+  return `题目${labels[index] || index + 1}`;
 }
 function splitParagraphs(content) { return content.replace(/\r\n/g, '\n').trim().split(/\n\s*\n|\n/).map((value) => value.trim()).filter(Boolean); }
 function errorNotice(error) { return { type: 'error', message: error instanceof Error ? error.message : String(error) }; }

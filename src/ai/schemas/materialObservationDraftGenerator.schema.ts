@@ -14,7 +14,7 @@ import type {
   OpenResponseAnswerStatus,
 } from './diagnosis.schema.ts';
 
-export const MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION = 'material_observation_draft_generator_v1_1' as const;
+export const MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION = 'material_observation_draft_generator_v1_2' as const;
 
 export type MaterialObservationGenerationMode = 'discover_new_observation';
 
@@ -135,6 +135,16 @@ export type RejectedMaterialObservationCandidate = {
   candidateIndex: number;
   issues: string[];
   disposition?: Extract<MaterialObservationCandidateDisposition, 'unsupported_by_material'>;
+  diagnosticContext?: {
+    questionType?: string;
+    responseFormat?: string;
+    materialAnchor?: {
+      anchorType?: string;
+      startParagraph?: number;
+      endParagraph?: number;
+    };
+    materialParagraphCount: number;
+  };
 };
 
 export type MaterialObservationDraftGeneratorResult = {
@@ -163,12 +173,20 @@ export type MaterialObservationDraftGeneratorResult = {
   validation: {
     passed: boolean;
     issues: string[];
+    failureIssueCounts: Record<string, number>;
   };
   provider: {
     providerName: string;
     model: string;
     attemptCount: number;
     latencyMs: number;
+    repair?: {
+      attempted: boolean;
+      requestedCandidateCount: number;
+      recoveredCandidateCount: number;
+      unresolvedCandidateCount: number;
+      issueCounts: Record<string, number>;
+    };
     tokenUsage?: {
       inputTokens?: number;
       outputTokens?: number;

@@ -4,7 +4,7 @@
 
 设计状态：ACCEPTED
 
-工程状态：17.2A / 17.2B RUNTIME + MINIMAL PRODUCTION WORKSPACE ENGINEERING PASS；17.2C MANIFEST / DIVERSITY RUNTIME FOUNDATION PASS；ASSISTED DRAFT GENERATION 25 / 25 PASS；BATCH A CONTENT IMPLEMENTED + CONTROLLED FORMALIZATION 14 / 14 PASS + OWNER REVIEW / FREEZE / REGISTRY / ACTIVE LINK 8 / 8 PASS；《潼关》MATERIAL CLUSTER CALIBRATION 12 / 12 PASS；PHASE 17.3 MINIMUM ENTRY GATE OPEN
+工程状态：17.2A / 17.2B RUNTIME + MINIMAL PRODUCTION WORKSPACE ENGINEERING PASS；17.2C MANIFEST / DIVERSITY RUNTIME FOUNDATION PASS；ASSISTED DRAFT GENERATION 38 / 38 PASS；BATCH A CONTENT IMPLEMENTED + CONTROLLED FORMALIZATION 14 / 14 PASS + OWNER REVIEW / FREEZE / REGISTRY / ACTIVE LINK 8 / 8 PASS；《潼关》MATERIAL CLUSTER CALIBRATION 12 / 12 PASS；PHASE 17.3 MINIMUM ENTRY GATE OPEN
 
 所属总纲：[Phase 17：学习资源覆盖扩展与基于材料的能力观测基础](./phase17.md)
 
@@ -20,7 +20,7 @@ Batch A 当前已实现两篇项目原创 Material、8 道内容完整资源、1
 
 2026-07-23 新增《潼关》Material Cluster 校准：同一公版诗歌材料下建立 6 个 Training Observation Task，分别观察 extraction、comprehension、summarization、analysis、inference 与 expression；工作台现已支持单段 / 段落范围 / 全文 Anchor、plan-local Observation Focus、内容级 Rubric / Answer Acceptance、Supporting Ability 与审核校准答案。专项 Debug `12 / 12 PASS`，浏览器载入和展开审查 Smoke 通过。该 Plan 仍为 `pending_review`，不得计入正式 Frozen Resource Pack。记录见 [《潼关》Material Cluster 校准](./reports/phase17_2_tongguan_material_cluster_calibration_2026-07-23.md)。
 
-2026-07-23 新增 Assisted Draft Generation：内容人员可以提交完整 Material，由真实 Provider 生成 3—6 个结构化 Observation Planning Candidate；系统逐候选校验 Ability、Dimension、Anchor、Rubric、Answer Acceptance、校准答案、重复 Observation 和安全边界。Prompt v1.2 与 Generator Contract v1.1 进一步加入只读 `Existing Observation Inventory`、`Existing Question Inventory`、能力 / Focus 偏好和固定 `discover_new_observation` 模式。再次生成会将候选确定性分类为 `new_observation_candidate`、`alternate_question_for_existing_observation`、`likely_duplicate` 或 `unsupported_by_material`；只有新 Observation 可以导入并增加候选 Coverage，替代问法和疑似重复只保留在隔离预览中。首次生成仍要求至少 3 个合法独立候选；已有库存时允许只发现 1—2 个新 Observation，但 0 个新 Observation 时整批阻断。导入只形成可编辑首稿，不直接写 Repository，不自动 Review、Freeze、更新 Registry 或建立 Retest / Transfer。Live Boundary 保持 `8000 tokens / 90 秒` 和两次受控尝试。专项 Debug 更新为 `25 / 25 PASS`，相关回归和 Production Build 通过。记录见 [辅助首稿生成工程验收](./reports/phase17_2_assisted_draft_generation_engineering_2026-07-23.md)。
+2026-07-24 Assisted Draft Generation 校准至 Prompt v1.4 / Generator Contract v1.2：内容人员可以提交完整 Material，由真实 Provider 生成 3—6 个结构化 Observation Planning Candidate；系统逐候选校验 Ability、Dimension、Anchor、Rubric、Answer Acceptance、校准答案、重复 Observation 和安全边界。Prompt 现在按 Runtime 的确定性分段规则向 Provider 提供带编号自然段、段落总数、完整合法枚举、题型与作答形式映射及输出前自检要求，不再要求模型猜测 Contract。Supporting Ability 默认留空，Rubric 只能引用候选已经声明的能力；能力错位修复会收到明确允许集合，且不得通过新增辅助能力强行放行。首次有效 JSON 若因结构拒绝导致整批不足，剩余一次 Provider 预算只修复失败候选，已通过候选原样保留；修复输出失败时回退第一轮结果。重复 Observation、材料不支持和无法安全推断的问题不进入自动修复。再次生成仍按 `new_observation_candidate`、`alternate_question_for_existing_observation`、`likely_duplicate` 或 `unsupported_by_material` 分类，只有新 Observation 可以导入并增加候选 Coverage。导入只形成可编辑首稿，不直接写 Repository，不自动 Review、Freeze、更新 Registry 或建立 Retest / Transfer。Provider 失败提示已区分账户余额不足与上游临时异常，并显示实际自动尝试次数及对应操作。专项 Debug 更新为 `38 / 38 PASS`，工作台状态 `5 / 5 PASS`、资源生产 `13 / 13 PASS`、Production Build 通过。记录见 [辅助首稿生成工程验收](./reports/phase17_2_assisted_draft_generation_engineering_2026-07-23.md)。
 
 ### 辅助首稿生成边界
 
@@ -44,6 +44,23 @@ Material
 7. 默认生成模式只负责发现新 Observation；同一 Observation 的不同问法不增加 Coverage；
 8. 再次生成必须比较已有 Observation / Question Inventory；疑似重复、替代题和材料不支持项不得随新 Observation 批量导入；
 9. Retest、Transfer 和跨材料等价 Observation 继续由正式资源关系设计处理，不混入“再次生成”按钮。
+10. Provider 必须获得与 Validator 相同的段落编号和合法枚举；结构拒绝导致整批不足时只允许一次候选级定向修复，不重新生成或覆盖合格候选。
+11. 定向修复只处理 Contract 字段错误；重复、无材料依据、虚构内容和教育语义越界继续阻断。
+
+### AI 候选高拒绝率问题与当前结论
+
+真实使用曾出现 AI 已成功返回候选，但多个候选因 Anchor 超出材料段落、字段枚举不合法或末端结构缺失而被整题拒绝。复核确认其中一部分不是教育设计错误，而是 Provider 没有获得与 Validator 完全一致的输入协议：Prompt 要求段落号，却未提供 Runtime 的真实编号；Schema 严格限制题型、作答形式和 Anchor 类型，Prompt 却未完整暴露合法值；有效 JSON 进入结构校验后也没有候选级修复机会。
+
+当前已完成：
+
+1. Prompt v1.3 使用 Runtime 同源分段结果，逐段提供编号及总段落数；
+2. 完整暴露关键枚举和题型 / 作答形式映射；
+3. 结构拒绝导致整批不足时，使用剩余一次 Provider 预算定向修复失败候选；
+4. 合格候选保持不变，修复失败时回退并保留第一轮结果；
+5. Validation 记录失败 issue count，页面显示请求修复、恢复和仍未通过数量；
+6. 重复、材料不支持、虚构内容和教育语义越界不进入自动修复。
+
+当前状态为 `ENGINEERING PASS / CONTROLLED LIVE EFFECTIVENESS PENDING`。确定性 Debug 已证明修复机制和安全边界成立，但尚未用优化后的真实 Provider 连续生成证明结构合格率达到目标。后续使用同一已知材料执行 3 轮受控生成，按总候选、首轮结构通过、自动修复、最终可导入、正确阻断和人工轻改可用数统计；建议结构合格率目标为 `>= 85%`、人工轻量修改后可用率为 `>= 60%`。未完成该验收前，不宣称“不合格候选问题已经完全解决”。
 
 工作台采用 Observation-first 的人工审核顺序：
 
@@ -67,6 +84,16 @@ Question 在正式 Contract 中仍保留独立题型、作答形式、难度和�
 7. 删除重复标题、低信息说明与非必要分割线，刷新、版本和任务数量均提供明确反馈。
 
 本次 UX 校准只调整页面结构、展示状态和操作反馈，不修改 Material、Observation Plan、Question Draft、Review、Freeze、Registry 或 Observation Link 的正式职责。
+
+2026-07-24 完成工作台状态语义校准：
+
+1. 当前计划只展示每个 Observation Task 对应的最新 Draft，历史版本继续保留追溯但不重复进入当前计数；
+2. “正式发布”只有在全部当前任务均已 Freeze 且 active Observation Link 完整时才成立；
+3. 顶部“学习任务”按每篇素材最新计划中的任务数统计，“待审核题目”按当前 Resource Draft 和真实审核状态去重统计；
+4. 人工编辑或导入 AI 初稿后，切换素材、录入模式或受控示例包前必须明确确认是否放弃未保存修改；
+5. 状态选择器专项 Debug `5 / 5 PASS`，原生产工作台 `13 / 13 PASS`、辅助首稿生成 `38 / 38 PASS` 与 Production Build 均保持通过。
+
+本次修复只校准当前工作区的只读选择、计数和交互保护，不删除历史 Draft，不改写 Formal Resource，也不改变 Review、Freeze、Registry 或 Link Contract。
 
 ## 一、阶段目标
 
@@ -610,6 +637,8 @@ TaskRole 不再按每项 Ability 机械配齐。首批 Pack 至少形成：
 - Retest / Transfer 首批以 `intermediate` 为主；
 - `advanced` 可以保持 Gap；
 - 不得为完成 difficulty 配额静默改变题目真实复杂度。
+- 工作台中的“适用学段”当前只作为辅助生成 Prompt 的参考条件，不进入正式匹配、Coverage、Evidence 或 Profile，也不代表系统已经建立初一、初二、初三的难度常模；
+- 后续 Question 能力匹配机制可以在独立设计中增加“Ability × Grade / Difficulty Calibration”，但在正式 Contract、资源标注协议和真实样本校准完成前，不得把 `gradeRange` 当作确定性难度依据。
 
 ### 10.4 QuestionType 与 ResponseFormat
 
@@ -1095,10 +1124,23 @@ Plan Review、Draft Adapter 或 Link Gate 失败时，不修改 Frozen Resource�
 
 ### 19.6 资源生产效率验收
 
+- 工作台遵循“可选择则不手填”的交互原则：受控枚举、固定数量、能力、方向、角色、难度与类型优先使用标签、分段按钮或下拉选择，不要求内容人员记忆并输入内部代码；
+- 只有材料正文、题目、学生动作、设计说明、评分要点和答案样例等开放内容允许自由填写；所有开放输入必须提供与当前字段匹配的中文示例或格式提示；
+- 工作台辅助说明和标签字号不得低于 `12px`，普通正文不得低于 `14px`，前端源码不再使用低于 `12px` 的显式字号；
+- 同一区域内并列展示多个数量时，统一使用“名称（数量）”格式，例如“生成（4）· 可导入（3）· 疑似重复（0）”；不混用“名称 4”“4 个名称”或单位前置等统计版式；
+- 页面标签使用产品语言，正式 Schema、内部 ID 与 Runtime 语义继续由 Adapter 和 Application Service 维护，不得为了简化页面而放宽正式 Contract；
 - 一篇已经校对的 Material 应在 15—30 分钟内形成 3—6 道可审核 Draft；
 - Material、Anchor 与基础元数据无需在同一材料的多道题中重复填写；
 - 内容人员在一个主生产入口和 Existing Question Intake 审核入口内完成任务，不在多个独立 Workspace 之间往返；
 - 校验错误能够定位到具体题目和字段，并允许原地修复；
+- 枚举或范围校验失败时，页面必须同时展示“模型实际填写值、当前允许值或有效范围、用户当前可执行的操作”；不得只显示“超出范围”或“不在允许范围”等无法执行的结论；
+- 不改变教育语义的受控字段别名可由 Adapter 确定性归一；涉及不存在段落、题意变化或教育判断的错误不得自动猜测修复，必须隔离并引导重新生成；
+- 生产工作台按“生成、编辑、审核与发布”三个主要区域组织，使用统一白色容器、响应式内边距和克制圆角；不得通过重复标题、重复状态或大面积边框增加无效层级；
+- AI 生成区、训练任务编辑区与审核区的动作名称必须一致：`AI 生成训练任务 -> 保存训练任务 -> 提交审核 -> 审核题目 -> 发布任务`；完成后使用“已生成、已保存、已提交、已审核、已发布”说明结果；
+- 正常状态不重复展示可由按钮状态或顶部版本标签推断的信息；结构校验失败时，问题与可执行操作必须紧邻被阻断的主按钮；
+- 审核区默认外显正式题目，Ability 与 TaskRole 使用辅助标签；Anchor、作答要求、设计说明、Rubric 与答案示例按需展开，不完整复制上方编辑区；
+- 单版本只显示只读版本状态，多版本才提供版本选择；`未提交审核` 等状态使用独立标签，不以内部状态码或技术对象名面向内容人员；
+- 长题目和开放文本输入必须支持自适应高度；工作台头部在长页面滚动时保持可见，桌面与平板不得产生横向溢出；
 - 单题失败不污染 Material、其他 Draft、Frozen Resource、Registry 或 Manifest；
 - 批量提交可以提高审核准备效率，但每道资源仍需正式人工确认后才能 Freeze；
 - Freeze 后 Link 与覆盖重算自动完成，不要求人工复制内部 ID；

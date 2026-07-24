@@ -178,7 +178,7 @@ await check('C19 Prompt 示例完整展开五类校准答案并预留足够输�
     && request?.maxOutputTokens === 8_000;
 });
 
-await check('C20 浏览器真实入口使用 Prompt v1.2 所需的输出与超时预算', async () => {
+await check('C20 浏览器真实入口使用 Prompt v1.4 所需的输出与超时预算', async () => {
   const config = createMaterialObservationDraftLiveConfig('deepseek_chat', 'deepseek-v4-flash');
   return config.maxOutputTokens === MATERIAL_OBSERVATION_DRAFT_LIVE_MAX_OUTPUT_TOKENS
     && config.maxOutputTokens === 8_000
@@ -243,6 +243,213 @@ await check('C25 Prompt 接收只读库存和观测焦点但保持发现模式',
     && prompt.includes('<existing_inventory>')
     && prompt.includes('补充尚未覆盖的语言作用观察')
     && prompt.includes('不得用改写题干凑数量');
+});
+
+await check('C26 素材范围拒绝保留实际段落与允许上限', async () => {
+  const payload = validPayload();
+  payload.candidates[0] = {
+    ...payload.candidates[0],
+    materialAnchor: { anchorType: 'paragraph_range', startParagraph: 2, endParagraph: 99 },
+  };
+  const result = await run(input, providerWith(payload));
+  const rejected = result.rejectedCandidates.find((item) => item.issues.includes('material_anchor_out_of_range'));
+  return rejected?.diagnosticContext?.materialAnchor?.startParagraph === 2
+    && rejected.diagnosticContext.materialAnchor.endParagraph === 99
+    && rejected.diagnosticContext.materialParagraphCount === 2;
+});
+
+await check('C27 非法题型拒绝保留实际值供页面解释', async () => {
+  const payload = validPayload();
+  payload.candidates[0] = {
+    ...payload.candidates[0],
+    questionDraft: { ...payload.candidates[0].questionDraft, questionType: 'essay' },
+  };
+  const result = await run(input, providerWith(payload));
+  const rejected = result.rejectedCandidates.find((item) => item.issues.includes('question_type_invalid'));
+  return rejected?.diagnosticContext?.questionType === 'essay';
+});
+
+await check('C28 安全同义素材范围类型由 Adapter 自动归一', async () => {
+  const payload = validPayload();
+  payload.candidates[0] = {
+    ...payload.candidates[0],
+    materialAnchor: { anchorType: 'single_paragraph', startParagraph: 1 },
+  };
+  const result = await run(input, providerWith(payload));
+  return result.status === 'candidates_ready'
+    && result.candidates[0]?.materialAnchor.anchorType === 'paragraph'
+    && result.rejectedCandidates.every((item) => !item.issues.includes('material_anchor_type_invalid'));
+});
+
+await check('C29 Prompt 暴露真实段落编号与全部关键枚举', async () => {
+  const provider = providerWith(validPayload());
+  await run(input, provider);
+  const prompt = provider.getRequests()[0]?.prompt || '';
+  return prompt.includes('paragraphCount="2"')
+    && prompt.includes('<paragraph index="1">')
+    && prompt.includes('<paragraph index="2">')
+    && prompt.includes(`questionType：multiple_choice, true_false, fill_blank, open_short_answer, reading_comprehension`)
+    && prompt.includes(`responseFormat：single_choice, boolean, short_text, long_text`)
+    && prompt.includes('materialAnchor.anchorType：paragraph, paragraph_range, full_text');
+});
+
+await check('C30 结构拒绝导致整批不足时只修复失败候选', async () => {
+  const firstPayload = validPayload();
+  firstPayload.candidates[2] = {
+    ...firstPayload.candidates[2],
+    materialAnchor: { anchorType: 'paragraph', startParagraph: 99 },
+  };
+  const repairedCandidate = {
+    ...validPayload().candidates[2],
+    repairOfCandidateIndex: 2,
+  };
+  const provider = new ScriptedDiagnosisProviderAdapter([
+    { type: 'response', rawOutput: JSON.stringify(firstPayload) },
+    { type: 'response', rawOutput: JSON.stringify({ candidates: [repairedCandidate], materialLimitations: [] }) },
+  ]);
+  const result = await run(input, provider);
+  const repairPrompt = provider.getRequests()[1]?.prompt || '';
+  return result.status === 'candidates_ready'
+    && result.candidates.length === 3
+    && result.rejectedCandidates.length === 0
+    && result.provider.repair?.recoveredCandidateCount === 1
+    && result.provider.repair.unresolvedCandidateCount === 0
+    && provider.getCallCount() === 2
+    && repairPrompt.includes('这是一次候选级定向修复')
+    && repairPrompt.includes('"candidateIndex":2')
+    && repairPrompt.includes('material_anchor_out_of_range');
+});
+
+await check('C31 首轮达到准入标准时不额外调用修复', async () => {
+  const provider = new ScriptedDiagnosisProviderAdapter([
+    { type: 'response', rawOutput: JSON.stringify(validPayload()) },
+    { type: 'response', rawOutput: JSON.stringify(validPayload()) },
+  ]);
+  const result = await run(input, provider);
+  return result.status === 'candidates_ready'
+    && result.provider.repair === undefined
+    && provider.getCallCount() === 1;
+});
+
+await check('C32 修复输出异常时保留第一轮合法候选', async () => {
+  const firstPayload = validPayload();
+  firstPayload.candidates[2] = {
+    ...firstPayload.candidates[2],
+    materialAnchor: { anchorType: 'paragraph', startParagraph: 99 },
+  };
+  const provider = new ScriptedDiagnosisProviderAdapter([
+    { type: 'response', rawOutput: JSON.stringify(firstPayload) },
+    { type: 'response', rawOutput: '{invalid-repair-json' },
+  ]);
+  const result = await run(input, provider);
+  return result.status === 'review_required'
+    && result.candidates.length === 2
+    && result.rejectedCandidates.length === 1
+    && result.provider.repair?.attempted === true
+    && result.provider.repair.recoveredCandidateCount === 0
+    && result.provider.attemptCount === 2;
+});
+
+await check('C33 同批 Observation 重复不触发结构修复', async () => {
+  const payload = validPayload();
+  payload.candidates[2] = {
+    ...payload.candidates[0],
+    questionStem: '再次找出父亲的动作。',
+  };
+  const provider = new ScriptedDiagnosisProviderAdapter([
+    { type: 'response', rawOutput: JSON.stringify(payload) },
+    { type: 'response', rawOutput: JSON.stringify(validPayload()) },
+  ]);
+  const result = await run(input, provider);
+  return result.status === 'review_required'
+    && result.coveragePreview.likelyDuplicateCount === 1
+    && result.provider.repair === undefined
+    && provider.getCallCount() === 1;
+});
+
+await check('C34 账户余额不足不重试且不产生候选', async () => {
+  const provider = new ScriptedDiagnosisProviderAdapter([{
+    type: 'error',
+    category: 'insufficient_balance',
+    retryable: false,
+  }]);
+  const result = await run(input, provider);
+  return result.status === 'provider_failed'
+    && result.validation.issues.includes('provider_insufficient_balance')
+    && result.provider.attemptCount === 1
+    && result.candidates.length === 0
+    && result.withheldCandidates.length === 0
+    && provider.getCallCount() === 1;
+});
+
+await check('C35 上游临时异常按预算重试且不污染候选', async () => {
+  const provider = new ScriptedDiagnosisProviderAdapter([{
+    type: 'error',
+    category: 'provider_unavailable',
+    retryable: true,
+  }]);
+  const result = await run(input, provider);
+  return result.status === 'provider_failed'
+    && result.validation.issues.includes('provider_provider_unavailable')
+    && result.provider.attemptCount === 2
+    && result.candidates.length === 0
+    && result.withheldCandidates.length === 0
+    && provider.getCallCount() === 2;
+});
+
+await check('C36 主 Prompt 默认收紧辅助能力并限制 Rubric 能力集合', async () => {
+  const provider = providerWith(validPayload());
+  await run(input, provider);
+  const prompt = provider.getRequests()[0]?.prompt || '';
+  return prompt.includes('supportingAbilityIds 默认为空数组')
+    && prompt.includes('每个 rubricDraft[*].abilityId 只能取自该候选的 primaryAbilityId 或 supportingAbilityIds')
+    && prompt.includes('不得为了容纳 Rubric 而临时增加辅助能力')
+    && prompt.includes('"supportingAbilityIds": []');
+});
+
+await check('C37 能力错位修复获得允许集合且禁止新增辅助能力', async () => {
+  const firstPayload = validPayload();
+  firstPayload.candidates[2] = {
+    ...firstPayload.candidates[2],
+    rubricDraft: [{
+      ...firstPayload.candidates[2].rubricDraft[0],
+      abilityId: 'expression',
+    }],
+  };
+  const provider = new ScriptedDiagnosisProviderAdapter([
+    { type: 'response', rawOutput: JSON.stringify(firstPayload) },
+    { type: 'response', rawOutput: JSON.stringify({ candidates: [], materialLimitations: [] }) },
+  ]);
+  await run(input, provider);
+  const repairPrompt = provider.getRequests()[1]?.prompt || '';
+  return repairPrompt.includes('"allowedRubricAbilityIds":["summarization"]')
+    && repairPrompt.includes('保持 primaryAbilityId 和 supportingAbilityIds 不变，不得新增辅助能力')
+    && repairPrompt.includes('rubric_0_ability_undeclared');
+});
+
+await check('C38 能力错位仅修改 Rubric 后重新通过完整校验', async () => {
+  const firstPayload = validPayload();
+  firstPayload.candidates[2] = {
+    ...firstPayload.candidates[2],
+    rubricDraft: [{
+      ...firstPayload.candidates[2].rubricDraft[0],
+      abilityId: 'expression',
+    }],
+  };
+  const repairedCandidate = {
+    ...validPayload().candidates[2],
+    repairOfCandidateIndex: 2,
+  };
+  const provider = new ScriptedDiagnosisProviderAdapter([
+    { type: 'response', rawOutput: JSON.stringify(firstPayload) },
+    { type: 'response', rawOutput: JSON.stringify({ candidates: [repairedCandidate], materialLimitations: [] }) },
+  ]);
+  const result = await run(input, provider);
+  const repaired = result.candidates.find((candidateItem) => candidateItem.primaryAbilityId === 'summarization');
+  return result.status === 'candidates_ready'
+    && result.provider.repair?.recoveredCandidateCount === 1
+    && repaired?.supportingAbilityIds.length === 0
+    && repaired.rubricDraft.every((rubric) => rubric.abilityId === 'summarization');
 });
 
 console.log('\nPhase 17.2 Material Observation Draft Generator Debug');
