@@ -123,7 +123,7 @@ export default function UnifiedLearningEntry() {
                   type="button"
                   disabled={(!entry.canEnterWorkspace && !canFinishReviewedSession) || busy}
                   onClick={canFinishReviewedSession ? endSession : enterWorkspace}
-                  className="flex min-h-11 min-w-44 items-center justify-center gap-2 rounded-md bg-slate-900 px-5 text-sm font-normal text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                  className="flex min-h-11 min-w-44 items-center justify-center gap-2 rounded-md bg-emerald-600 px-5 text-sm font-normal text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {busy ? <RefreshCw size={16} className="animate-spin" /> : <ArrowRight size={16} />}
                   {entry.primaryActionText}
@@ -133,7 +133,7 @@ export default function UnifiedLearningEntry() {
                     type="button"
                     disabled={busy}
                     onClick={endSession}
-                    className="min-h-11 rounded-md border border-slate-300 bg-white px-5 text-sm font-normal text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                    className="min-h-11 rounded-md border border-emerald-600 bg-white px-5 text-sm font-normal text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     结束本次学习
                   </button>
@@ -202,7 +202,7 @@ function ErrorState({ message, onRetry }) {
     <section className="max-w-[680px]">
       <h1 className="text-xl font-semibold">暂时无法打开学习入口</h1>
       <p className="mt-3 text-base leading-7 text-slate-600">{message}</p>
-      <button type="button" onClick={onRetry} className="mt-6 min-h-11 rounded-md bg-slate-900 px-5 text-sm text-white">重新尝试</button>
+      <button type="button" onClick={onRetry} className="mt-6 min-h-11 rounded-md bg-emerald-600 px-5 text-sm text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2">重新尝试</button>
     </section>
   );
 }

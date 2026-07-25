@@ -288,7 +288,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
                     setAnalysisRetry(false);
                     showMessage('可以修改回答，完成后重新提交。');
                   } : saveDraft}
-                  className="flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                  className="flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-4 text-sm text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {analysisRetry ? <Pencil size={16} /> : <Save size={16} />}
                   {analysisRetry ? '返回修改' : '保存草稿'}
@@ -297,7 +297,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
                   type="button"
                   disabled={busy}
                   onClick={submitAnswer}
-                  className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-sm text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                  className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 text-sm text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {busy || analysisRetry || runtimeAvailability === 'checking' ? <RefreshCw size={16} className={busy || runtimeAvailability === 'checking' ? 'animate-spin' : ''} /> : <ArrowRight size={16} />}
                   {analysisRetry ? '重新分析' : '提交本轮回答'}
@@ -405,13 +405,13 @@ function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus,
               type="button"
               disabled={busy}
               onClick={onContinue}
-              className="flex min-h-11 min-w-52 items-center justify-center gap-2 rounded-md bg-slate-900 px-5 text-sm text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+              className="flex min-h-11 min-w-52 items-center justify-center gap-2 rounded-md bg-emerald-600 px-5 text-sm text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? <RefreshCw size={16} className="animate-spin" /> : <ArrowRight size={16} />}
               进入下一轮任务
             </button>
           ) : (
-            <button type="button" onClick={onReturn} className="min-h-11 rounded-md bg-slate-900 px-5 text-sm text-white hover:bg-slate-800">
+            <button type="button" onClick={onReturn} className="min-h-11 rounded-md bg-emerald-600 px-5 text-sm text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2">
               返回学习入口
             </button>
           )}
@@ -454,7 +454,7 @@ function PausedWorkspace({ state, writingCorrections, busy, onReturn }) {
           ) : null}
         </section>
         <div className="mt-8 flex justify-center">
-          <button type="button" disabled={busy} onClick={onReturn} className="min-h-11 rounded-md bg-slate-900 px-5 text-sm text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400">返回学习入口</button>
+          <button type="button" disabled={busy} onClick={onReturn} className="min-h-11 rounded-md bg-emerald-600 px-5 text-sm text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40">返回学习入口</button>
         </div>
       </div>
     </main>
@@ -469,11 +469,11 @@ function RecoveringWorkspace({ state, busy, runtimeAvailability, onResume, onRet
       <h1 className="mt-4 text-lg font-semibold">{unavailable ? '分析服务尚未就绪' : '恢复本次提交'}</h1>
       <p className="mt-3 text-base leading-7 text-slate-600">{unavailable ? RUNTIME_UNAVAILABLE_MESSAGE : state.studentMessage}</p>
       <div className="mt-8 flex flex-wrap gap-3">
-        <button type="button" disabled={busy || runtimeAvailability !== 'ready'} onClick={onResume} className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-slate-900 px-5 text-sm text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400">
+        <button type="button" disabled={busy || runtimeAvailability !== 'ready'} onClick={onResume} className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-600 px-5 text-sm text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40">
           {busy ? <RefreshCw size={16} className="animate-spin" /> : <ArrowRight size={16} />}
           {unavailable ? '分析服务尚未就绪' : '继续处理'}
         </button>
-        <button type="button" disabled={busy} onClick={onReturn} className="min-h-11 rounded-md border border-slate-300 bg-white px-5 text-sm text-slate-700 hover:bg-slate-50 disabled:text-slate-300">稍后继续</button>
+        <button type="button" disabled={busy} onClick={onReturn} className="min-h-11 rounded-md border border-emerald-600 bg-white px-5 text-sm text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40">稍后继续</button>
       </div>
     </main>
   );
