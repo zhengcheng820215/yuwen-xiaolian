@@ -1155,3 +1155,27 @@ Evidence 生成时，应尽量保留：
 最终目标：
 
 > 让 AI 少猜题目，多读取结构化题目意图。
+
+## 十一、生成质量评估与 Metadata 边界
+
+Question Quality Assessment 不新增与现有字段平行的 `difficultyLevel`、`questionRole`、`observationValue` 或第二套 `designReason`。
+
+质量评估继续读取：
+
+- `difficultySuggestion / difficulty`
+- `primaryAbilityId / abilityId`
+- `observationFocus`
+- `expectedStudentAction`
+- `designRationale / designReason`
+- `evidencePotential`
+- `materialAnchor`
+- `calibrationAnswers`
+- `rubric`
+
+Metadata 描述题目声明；质量评估检查这些声明是否具有材料支持、内部一致性和人工审核价值。
+
+质量结果必须以独立 `QuestionQualityAssessment` 保存，并绑定 `draftId`、`resourceId`、`assessedDraftRevision` 和 `ruleVersion`。Draft Revision 变化后，旧质量结果不得继续用于 Review 或 Freeze。
+
+质量评估不修改 Metadata，不替代 Contract Validator，也不替代正式资源进入学生任务前的 Resource Matching Quality Gate。
+
+详细契约见 [Phase 17.5](./phase/phase17_5.md)。

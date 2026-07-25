@@ -4,5 +4,7 @@ dist
 __MACOSX/
 pnpm-lock.yaml
 vite-dev.*.log
+.vite-*.log
+.tmp_doc_review/
 start-vite.ps1
 .local-data/

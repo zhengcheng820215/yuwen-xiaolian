@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
+  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
   ChevronDown,
@@ -751,7 +752,7 @@ function WorkflowPanel(props) {
 
 function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision }) {
   if (!context) return <EmptyText>先保存 Draft，再执行正式校验与审核。</EmptyText>;
-  const { draft, validation, versionHistory } = context;
+  const { draft, validation, qualityAssessment, versionHistory } = context;
   const isFrozen = versionHistory.some((version) => version.sourceDraftId === draft.draftId);
   const hasCurrentPassedValidation = Boolean(
     validation?.passed &&
@@ -795,6 +796,13 @@ function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidat
         ) : <StatusBadge status={draft.status} />}
       </div>
 
+      {hasCurrentPassedValidation ? (
+        <QuestionQualitySummary
+          assessment={qualityAssessment}
+          draftRevision={draft.revision}
+        />
+      ) : null}
+
       {completedStep >= 1 ? <CompletedActionStep index="1" title="自动结构检查" /> : null}
       {completedStep >= 2 ? <CompletedActionStep index="2" title="提交人工审核" /> : null}
       {completedStep >= 3 ? <CompletedActionStep index="3" title="逐题人工审核" /> : null}
@@ -817,7 +825,26 @@ function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidat
 
       {currentStep === 2 ? (
         <ActionStep index="2" title="提交人工审核">
-          <button type="button" disabled={busy} onClick={onSubmitReview} className={activeWorkflowButtonClass}>提交人工审核</button>
+          {qualityAssessment?.decision === 'revision_recommended' ? (
+            <p className="mb-3 text-sm leading-6 text-amber-800">
+              质量检查建议先修改。你仍可提交人工审核，由审核者结合警告作最终决定。
+            </p>
+          ) : null}
+          <button
+            type="button"
+            disabled={busy || !qualityAssessment}
+            onClick={onSubmitReview}
+            className={activeWorkflowButtonClass}
+          >
+            {qualityAssessment?.decision === 'revision_recommended'
+              ? '仍提交人工审核'
+              : '提交人工审核'}
+          </button>
+          {!qualityAssessment ? (
+            <p className="mt-2 text-xs leading-5 text-rose-700">
+              当前 Revision 尚无有效质量评估，请重新执行结构检查。
+            </p>
+          ) : null}
         </ActionStep>
       ) : null}
 
@@ -867,6 +894,87 @@ function ValidationResult({ validation, stale = false }) {
   );
 }
 
+const qualityCheckLabels = {
+  materialGrounding: '材料依据',
+  observationClarity: '观察目标',
+  observationDistinctness: '观察独立性',
+  discriminativePower: '表现区分度',
+  difficultyCoherence: '难度一致性',
+  rubricAlignment: '评分标准对齐',
+  scopeClarity: '题目范围',
+};
+
+function QuestionQualitySummary({ assessment, draftRevision, compact = false }) {
+  if (!assessment) {
+    return (
+      <div className="rounded-md border border-rose-200 bg-rose-50 p-4">
+        <p className="text-sm font-semibold text-rose-800">质量评估尚未形成</p>
+        <p className="mt-1 text-xs leading-5 text-rose-700">
+          当前 Revision 不能提交审核或发布，请重新执行结构检查。
+        </p>
+      </div>
+    );
+  }
+
+  const needsRevision = assessment.decision === 'revision_recommended';
+  const hasWarnings = assessment.warnings.length > 0;
+  return (
+    <section className={`rounded-md border p-4 ${needsRevision ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-950">题目质量检查</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Revision {draftRevision} · {assessment.ruleVersion}
+          </p>
+        </div>
+        <span className={`rounded-md px-2 py-1 text-xs font-normal ${
+          needsRevision
+            ? 'bg-amber-100 text-amber-800'
+            : hasWarnings
+              ? 'bg-blue-100 text-blue-800'
+              : 'bg-emerald-100 text-emerald-800'
+        }`}>
+          {needsRevision ? '建议修改' : hasWarnings ? '带提醒可审核' : '检查通过'}
+        </span>
+      </div>
+
+      <div className={`mt-4 grid gap-2 ${compact ? 'sm:grid-cols-2' : 'sm:grid-cols-2 xl:grid-cols-3'}`}>
+        {Object.entries(assessment.checks).map(([check, status]) => {
+          const passed = status === 'pass';
+          return (
+            <div key={check} className="flex min-h-8 items-center gap-2 text-xs text-slate-700">
+              {passed
+                ? <CheckCircle2 size={15} className="shrink-0 text-emerald-600" />
+                : <AlertTriangle size={15} className="shrink-0 text-amber-600" />}
+              <span>{qualityCheckLabels[check] || check}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {hasWarnings ? (
+        <div className="mt-4 border-t border-amber-200 pt-3">
+          <p className="text-xs font-semibold text-slate-900">需要人工关注</p>
+          <ul className="mt-2 space-y-2">
+            {assessment.warnings.map((warning) => (
+              <li key={`${warning.code}-${warning.check}`} className="text-xs leading-5 text-slate-700">
+                <span className={warning.severity === 'strong_warning' ? 'text-amber-800' : 'text-blue-700'}>
+                  {qualityCheckLabels[warning.check] || warning.check}
+                </span>
+                {' · '}{warning.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="mt-3 text-xs leading-5 text-emerald-800">
+          七项检查均通过；这不等于人工审核通过。
+        </p>
+      )}
+    </section>
+  );
+}
+
 function validationMessage(issue) {
   const messages = {
     'content.title': '资源标题不能为空。',
@@ -905,6 +1013,13 @@ function ReviewPreview({ context, form, material }) {
       <ReviewBlock title="Metadata" rows={[
         ['abilityId', form.abilityId], ['taskRole', form.taskRole], ['difficulty', form.difficulty], ['questionType', form.questionType], ['assessmentMode', form.assessmentMode],
       ]} />
+      {draft ? (
+        <QuestionQualitySummary
+          assessment={context?.qualityAssessment}
+          draftRevision={draft.revision}
+          compact
+        />
+      ) : null}
       <ReviewBlock title="Material / Source" rows={[
         ['material', material?.title || '无'], ['sourceType', form.sourceType], ['source', form.sourceDescription || '未填写'],
       ]} />

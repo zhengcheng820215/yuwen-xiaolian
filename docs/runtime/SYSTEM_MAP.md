@@ -38,7 +38,11 @@
 ```text
 StructuredQuestionDraft
 ↓
-ResourceValidationResult / ResourceReviewDecision
+ResourceValidationResult
+↓
+QuestionQualityAssessment
+↓
+ResourceReviewDecision
 ↓
 FrozenQuestionResource / ResourceRegistry
 ↓
@@ -279,6 +283,7 @@ Formal DiagnosisResult
 | --- | --- |
 | StructuredQuestionDraft | 保存尚未成为正式资源的可编辑题目草稿。 |
 | ResourceValidationResult | 校验题目内容、评价依据、能力、角色与版本关系。 |
+| QuestionQualityAssessment | 评估当前 Draft Revision 的材料支持、观察价值、区分潜力与内部一致性，只提供审核建议。 |
 | ResourceReviewDecision | 记录人工审核通过、退回或拒绝及其理由。 |
 | FrozenQuestionResource | 保存通过校验和审核、不可静默修改的正式资源版本。 |
 | ResourceRegistry | 维护资源的唯一当前冻结版本和完整版本历史。 |
@@ -330,12 +335,13 @@ Formal DiagnosisResult
 | 16.1 | Structured Question Intake and Review | PASS | [Phase 16.1](../education/phase/phase16_1.md) |
 | 16.2 | Resource Metadata and Matching Quality（16.2A / 16.2B 内部工作包） | PASS / FROZEN | [Phase 16.2](../education/phase/phase16_2.md) |
 | 16.3 | Real Learning Operation and Multi-day Continuity（16.3A / B / C 内部工作包） | IN PROGRESS（A / B PASS / FROZEN；C ENGINEERING + HUMAN DEMO PASS / NATURAL-DAY PENDING 0 / 5） | [Phase 16.3](../education/phase/phase16_3.md) |
-| 17 | Learning Resource Coverage Expansion + Material-grounded Ability Observation Foundation（17.1 / 17.2 / 17.3 / 17.4A / 17.4B） | ACCEPTED / IN PROGRESS | [Phase 17](../education/phase/phase17.md) |
+| 17 | Learning Resource Coverage Expansion + Material-grounded Ability Observation Foundation（17.1 / 17.2 / 17.3 / 17.4A / 17.4B / 17.5） | ACCEPTED / IN PROGRESS | [Phase 17](../education/phase/phase17.md) |
 | 17.1 | Resource Coverage Contract | ENGINEERING + HUMAN DEMO PASS / INDEXEDDB SMOKE PENDING | [Phase 17.1](../education/phase/phase17_1.md) |
 | 17.2 | Material Observation Design and First Frozen Resource Pack | ASSISTED DRAFT GENERATION 38 / 38 PASS / BATCH A OWNER REVIEW + FREEZE + REGISTRY + ACTIVE LINK 8 / 8 PASS / CONTROLLED LIVE EFFECTIVENESS PENDING | [Phase 17.2](../education/phase/phase17_2.md) |
 | 17.3 | Formal Resource Runtime Integration and Source Preservation | WORK PACKAGE A 17 / 17 PASS / CONTROLLED LIVE 3 / 3 PASS / BATCH A `/learning` SINGLE-ROUND DEMO PASS | [Phase 17.3](../education/phase/phase17_3.md) |
 | 17.4A | Shared Store Cutover | ENGINEERING + AUTOMATED DEBUG 8 / 8 PASS / HUMAN BASELINE CUTOVER PENDING | [Phase 17.4](../education/phase/phase17_4.md) |
 | 17.4B | Migration and Recovery Hardening | PLANNED / P2 | [Phase 17.4](../education/phase/phase17_4.md) |
+| 17.5 | Question Generation Quality Assessment | 17.5A DEBUG PASS（12 / 12）；17.5B REVIEW CONSUMPTION + DEBUG PASS（9 / 9）；17.5C PENDING / P1 | [Phase 17.5](../education/phase/phase17_5.md) |
 
 当前准确状态：
 
@@ -423,9 +429,9 @@ Phase 16.3 已冻结设计并拆为三个顺序工作包。16.3A / B 为 `PASS /
 
 ### Phase 17：学习资源覆盖扩展
 
-Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster 为组织基础、以能力观测为目标、能够被正式 Runtime 消费和验证的第一套学习资源体系。阶段在既有 Phase 16 资源准入与匹配边界上建立 `Material -> Observation Dimension -> Ability Action -> Question Resource` 的材料能力观测基础。Material 是正式内容、语境和来源权威；Frozen Resource 必须引用确定的 Material Version，历史 Response、Diagnosis 与 Evidence 保留执行时版本和内容哈希，版本缺失、错位或 Anchor 失效必须阻断。17.1 Coverage Runtime 与 Dashboard 人工验收已通过；17.2 已完成 Material Observation、最小生产工作台、Prompt v1.4 / Generator Contract v1.2 辅助首稿生成工程闭环和 Batch A 8 道正式资源，Assisted Draft Generation 为 `38 / 38 PASS`，但三轮真实 Provider 生成质量验收仍为 `PENDING`。17.3 Work Package A 正式资源串联为 `17 / 17 PASS`，Work Package B Controlled DeepSeek Live 为 `3 / 3 PASS`；Batch A `/learning` 单轮 Demo 已证明正式资源、真实 Diagnosis、Evidence、学生反馈和刷新幂等成立，下一任务缺少兼容资源时安全阻断。17.4A 已建立本机 Shared Store、Local API、Repository Adapter、显式基线初始化和基本备份，专项 `8 / 8 PASS`、相关回归 `88 / 88 PASS`；当前仍需真实两浏览器快照导出、人工基线切换和一致性验收，完成前不得恢复规模化录题。17.4B 再完成复杂迁移报告、冲突治理、历史快照和自动恢复。当前产品定位为“已通过真实单轮学习链路验收、具备封闭 Beta 基础的单学生教育系统”；下一步依次完成共享基线切换、资源生态、连续 Session 和学生感知验收，仍不得提前宣称完整 24—28 道资源包、多轮路径或 Phase 17 最终 PASS。Observation Dimension 暂不进入 Evidence、Profile 或正式 Coverage denominator；完整 Material 治理体系不在 17.3 范围内。
+Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster 为组织基础、以能力观测为目标、能够被正式 Runtime 消费和验证的第一套学习资源体系。阶段在既有 Phase 16 资源准入与匹配边界上建立 `Material -> Observation Dimension -> Ability Action -> Question Resource` 的材料能力观测基础。Material 是正式内容、语境和来源权威；Frozen Resource 必须引用确定的 Material Version，历史 Response、Diagnosis 与 Evidence 保留执行时版本和内容哈希，版本缺失、错位或 Anchor 失效必须阻断。17.1 Coverage Runtime 与 Dashboard 人工验收已通过；17.2 已完成 Material Observation、最小生产工作台、Prompt v1.4 / Generator Contract v1.2 辅助首稿生成工程闭环和 Batch A 8 道正式资源，Assisted Draft Generation 为 `38 / 38 PASS`，但三轮真实 Provider 生成质量验收仍为 `PENDING`。17.3 Work Package A 正式资源串联为 `17 / 17 PASS`，Work Package B Controlled DeepSeek Live 为 `3 / 3 PASS`；Batch A `/learning` 单轮 Demo 已证明正式资源、真实 Diagnosis、Evidence、学生反馈和刷新幂等成立，下一任务缺少兼容资源时安全阻断。17.4A 已建立本机 Shared Store、Local API、Repository Adapter、显式基线初始化和基本备份，专项 `9 / 9 PASS`；当前仍需完成真实双浏览器人工一致性确认。17.4B 再完成复杂迁移报告、冲突治理、历史快照和自动恢复。17.5A 已建立绑定 Draft Revision 与当前 Validation 的 Question Quality Assessment、七项确定性检查、Revision 失效规则和不可变 Repository，专项 `12 / 12 PASS`；17.5B 已完成审核页质量摘要、Warning 展示、Human Review / Freeze 当前 Assessment 消费门与专项 `9 / 9 PASS`，相关 Question Admission `22 / 22`、17.2 Generator `38 / 38` 及 Build 均通过；独立语义评估、Shared Store 正式持久化、批次摘要和十篇材料校准仍未完成。质量评估不自动审核或冻结，也不替代 16.2 正式资源匹配质量门。当前产品定位为“已通过真实单轮学习链路验收、具备封闭 Beta 基础的单学生教育系统”；下一步依次完成质量校准、资源生态、连续 Session 和学生感知验收，仍不得提前宣称完整 24—28 道资源包、多轮路径或 Phase 17 最终 PASS。Observation Dimension 暂不进入 Evidence、Profile 或正式 Coverage denominator；完整 Material 治理体系不在 17.3 范围内。
 
-详细文档入口：[Phase 17](../education/phase/phase17.md)、[Phase 17.1](../education/phase/phase17_1.md)、[Phase 17.2](../education/phase/phase17_2.md)、[Phase 17.2 First Formal Resource Pack Production Blueprint](../education/phase/phase17_2_first_resource_pack_blueprint.md)、[Phase 17.3](../education/phase/phase17_3.md)、[Phase 17.4](../education/phase/phase17_4.md)。
+详细文档入口：[Phase 17](../education/phase/phase17.md)、[Phase 17.1](../education/phase/phase17_1.md)、[Phase 17.2](../education/phase/phase17_2.md)、[Phase 17.2 First Formal Resource Pack Production Blueprint](../education/phase/phase17_2_first_resource_pack_blueprint.md)、[Phase 17.3](../education/phase/phase17_3.md)、[Phase 17.4](../education/phase/phase17_4.md)、[Phase 17.5](../education/phase/phase17_5.md)。
 
 ## 七、当前重要边界
 
@@ -484,6 +490,7 @@ Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster �
 | Phase 17.2 材料观测设计与首批正式资源包 | [Phase 17.2](../education/phase/phase17_2.md) |
 | Phase 17.3 正式资源运行集成与来源保持 | [Phase 17.3](../education/phase/phase17_3.md) |
 | Phase 17.4 本机共享正式资源持久化 | [Phase 17.4](../education/phase/phase17_4.md) |
+| Phase 17.5 题目生成质量评估 | [Phase 17.5](../education/phase/phase17_5.md) |
 | Phase 16.3C 轻量人工验收 | [验收报告](../education/phase/reports/phase16_3c_demo_acceptance_2026-07-21.md) |
 | Phase 16.3 Product / Demo 作用域隔离 | [验收报告](../education/phase/reports/phase16_3_product_demo_scope_isolation_debug_2026-07-21.md) |
 | Phase 1–16.2 组合式 Runtime 回归 | [集成回归记录](../education/phase/reports/phase1_16_2_integrated_runtime_regression_2026-07-20.md) |

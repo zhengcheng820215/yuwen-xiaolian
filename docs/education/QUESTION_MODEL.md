@@ -507,3 +507,39 @@ AI Coach 贯穿作答、反馈、训练、修正和复测过程。它应使用�
 所有能力最终都需要通过题目进行观察和验证。
 
 题目不是学习目标，而是能力成长载体。未来所有题目、AI 诊断、能力训练和能力评估，都必须引用本模型。
+
+## 十三、题目生成质量边界
+
+结构合法的 Question Draft 不等于高质量题目。
+
+题目生成质量评估必须作为独立对象存在，并继续复用 Question 已有的能力、难度、观察目标、学生行动、设计理由、材料锚点、Calibration Answer 与 Rubric，不建立平行 Metadata。
+
+```text
+Material
+↓
+AI Candidate Generation
+↓
+Contract Validation
+↓
+StructuredQuestionDraft
+↓
+QuestionQualityAssessment
+↓
+Human Review
+↓
+Freeze
+```
+
+`QuestionQualityAssessment` 只判断 Draft 是否具有足够的材料支持、观察清晰度、独立观察价值、区分潜力、难度一致性、Rubric 对齐和范围清晰度。
+
+它必须绑定当前 Draft Revision。Draft 修改后，旧评估失效。
+
+题目生成质量评估不得：
+
+- 自动修改或删除题目；
+- 自动形成审核结论；
+- 自动冻结资源；
+- 替代正式 Resource Matching Quality Gate；
+- 生成学生能力结论或 AbilityEvidence。
+
+详细阶段契约见 [Phase 17.5](./phase/phase17_5.md)。

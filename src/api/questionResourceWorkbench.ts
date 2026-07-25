@@ -3,16 +3,20 @@ import {
   createNextQuestionResourceVersionDraft,
   createQuestionMaterial,
   createStructuredQuestionDraft,
-  freezeQuestionResourceDraft,
-  reviewQuestionResourceDraft,
-  submitQuestionResourceForReview,
   updateStructuredQuestionDraft,
   validateResourceRegistryConsistency,
   validateStructuredQuestionDraft,
   type CreateStructuredQuestionDraftInput,
   type StructuredQuestionDraftPatch,
 } from '../ai/agents/questionResourceAdmissionAgent.ts';
+import {
+  freezeQuestionResourceDraftWithQuality,
+  getOrAssessCurrentQuestionDraftQuality,
+  reviewQuestionResourceDraftWithQuality,
+  submitQuestionResourceForQualityReview,
+} from '../ai/agents/questionQualityReviewGate.ts';
 import { linkFrozenResourceToObservationTask } from '../ai/agents/materialObservationApplicationService.ts';
+import { InMemoryQuestionQualityAssessmentRepository } from '../ai/repositories/inMemoryQuestionQualityAssessmentRepository.ts';
 import {
   createBrowserMaterialObservationRepository,
   createBrowserQuestionResourceAdmissionRepository,
@@ -26,9 +30,13 @@ import type {
   ResourceValidationResult,
   StructuredQuestionDraft,
 } from '../ai/schemas/questionResourceAdmission.schema.ts';
+import type {
+  QuestionQualityAssessment,
+} from '../ai/schemas/questionQualityAssessment.schema.ts';
 
 const repository = createBrowserQuestionResourceAdmissionRepository();
 const observationRepository = createBrowserMaterialObservationRepository();
+const qualityRepository = new InMemoryQuestionQualityAssessmentRepository();
 
 export type QuestionResourceWorkbenchSnapshot = {
   drafts: StructuredQuestionDraft[];
@@ -47,6 +55,7 @@ export type QuestionResourceWorkbenchContext = {
   material: QuestionMaterialVersion | null;
   validation: ResourceValidationResult | null;
   review: ResourceReviewDecision | null;
+  qualityAssessment: QuestionQualityAssessment | null;
   frozenVersion: FrozenQuestionResourceVersion | null;
   registryEntry: ResourceRegistryEntry | null;
   versionHistory: FrozenQuestionResourceVersion[];
@@ -107,16 +116,26 @@ export async function getQuestionResourceWorkbenchContext(
   const draft = await repository.getDraft(draftId);
   if (!draft) throw new Error(`Draft not found: ${draftId}`);
 
-  const [material, validation, review, frozenVersion, registryEntry, versionHistory] = await Promise.all([
+  const [material, validation, review, qualityAssessment, frozenVersion, registryEntry, versionHistory] = await Promise.all([
     draft.materialVersionId ? repository.getMaterial(draft.materialVersionId) : Promise.resolve(null),
     draft.latestValidationId ? repository.getValidation(draft.latestValidationId) : Promise.resolve(null),
     draft.latestReviewId ? repository.getReview(draft.latestReviewId) : Promise.resolve(null),
+    getOrAssessCurrentQuestionDraftQuality(repository, qualityRepository, draft.draftId),
     repository.getVersionByDraftId(draft.draftId),
     repository.getRegistryEntry(draft.resourceId),
     repository.listVersions(draft.resourceId),
   ]);
 
-  return { draft, material, validation, review, frozenVersion, registryEntry, versionHistory };
+  return {
+    draft,
+    material,
+    validation,
+    review,
+    qualityAssessment,
+    frozenVersion,
+    registryEntry,
+    versionHistory,
+  };
 }
 
 export async function createWorkbenchMaterial(input: {
@@ -181,11 +200,23 @@ export async function saveQuestionResourceWorkbenchDraft(input: {
 }
 
 export async function validateQuestionResourceWorkbenchDraft(draftId: string) {
-  return validateStructuredQuestionDraft(repository, draftId);
+  const validation = await validateStructuredQuestionDraft(repository, draftId);
+  if (validation.passed) {
+    await getOrAssessCurrentQuestionDraftQuality(
+      repository,
+      qualityRepository,
+      draftId,
+    );
+  }
+  return validation;
 }
 
 export async function submitQuestionResourceWorkbenchReview(draftId: string) {
-  return submitQuestionResourceForReview(repository, draftId);
+  return submitQuestionResourceForQualityReview(
+    repository,
+    qualityRepository,
+    draftId,
+  );
 }
 
 export async function decideQuestionResourceWorkbenchReview(input: {
@@ -194,11 +225,19 @@ export async function decideQuestionResourceWorkbenchReview(input: {
   reviewerId: string;
   notes: string;
 }) {
-  return reviewQuestionResourceDraft(repository, input);
+  return reviewQuestionResourceDraftWithQuality(
+    repository,
+    qualityRepository,
+    input,
+  );
 }
 
 export async function freezeQuestionResourceWorkbenchDraft(draftId: string) {
-  const result = await freezeQuestionResourceDraft(repository, draftId);
+  const result = await freezeQuestionResourceDraftWithQuality(
+    repository,
+    qualityRepository,
+    draftId,
+  );
   const draft = await repository.getDraft(draftId);
   const planId = readTagValue(draft?.tags, 'observation_plan:');
   const observationTaskPlanId = readTagValue(draft?.tags, 'observation_task:');

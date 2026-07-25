@@ -4,7 +4,7 @@
 
 设计状态：ACCEPTED
 
-工程状态：IN PROGRESS（17.1 ENGINEERING + HUMAN DEMO PASS / INDEXEDDB SMOKE PENDING；17.2 RUNTIME + MINIMAL PRODUCTION WORKSPACE ENGINEERING PASS、ASSISTED DRAFT GENERATION 38 / 38 PASS、CONTROLLED LIVE EFFECTIVENESS PENDING、BATCH A 8 / 8 FORMALIZED；17.3 WORK PACKAGE A 17 / 17 PASS、CONTROLLED LIVE 3 / 3 PASS、BATCH A `/learning` SINGLE-ROUND DEMO PASS；17.4A ENGINEERING + AUTOMATED DEBUG 9 / 9 PASS、STANDARD-BROWSER BASELINE CUTOVER PASS / DUAL-BROWSER HUMAN CHECK PENDING；17.4B PLANNED / P2）
+工程状态：IN PROGRESS（17.1 ENGINEERING + HUMAN DEMO PASS / INDEXEDDB SMOKE PENDING；17.2 RUNTIME + MINIMAL PRODUCTION WORKSPACE ENGINEERING PASS、ASSISTED DRAFT GENERATION 38 / 38 PASS、CONTROLLED LIVE EFFECTIVENESS PENDING、BATCH A 8 / 8 FORMALIZED；17.3 WORK PACKAGE A 17 / 17 PASS、CONTROLLED LIVE 3 / 3 PASS、BATCH A `/learning` SINGLE-ROUND DEMO PASS；17.4A ENGINEERING + AUTOMATED DEBUG 9 / 9 PASS、STANDARD-BROWSER BASELINE CUTOVER PASS / DUAL-BROWSER HUMAN CHECK PENDING；17.4B PLANNED / P2；17.5A ENGINEERING + AUTOMATED DEBUG 12 / 12 PASS，17.5B REVIEW CONSUMPTION + AUTOMATED DEBUG 9 / 9 PASS，17.5C PENDING / P1）
 
 前置状态：Phase 16.1 与 Phase 16.2 已完成；Phase 16.3A / B 已冻结，Phase 16.3C 工程与轻量人工验收已通过，5—7 个自然日真实运行仍为 `PENDING (0 / 5)`。
 
@@ -110,7 +110,7 @@ Phase 17 不回答：
 - 是否已经证明所有结构化题型在正式学生端完成端到端验收；
 - Observation Dimension 是否已经可以直接更新 Profile 或形成长期能力结论。
 
-## 五、四个顺序闭环
+## 五、阶段闭环与当前顺序
 
 ```text
 Phase 17.1 Resource Coverage Contract
@@ -121,18 +121,26 @@ Phase 17.3 Runtime Coverage Integration
 ↓
 Phase 17.4A Shared Store Cutover
 ↓
-Phase 17.4B Migration and Recovery Hardening
+Phase 17.5 Question Generation Quality Assessment
+↓
+Phase 17.2 Batch B / C Resource Production
 ↓
 Phase 17 Acceptance / Freeze
+
+Phase 17.4B Migration and Recovery Hardening
+-> P2 非阻塞增强
 ```
 
-四个子阶段具有明确依赖，其中 17.4 拆为两个顺序工作包：
+Phase 17.5 是对 17.2 题目生成能力的质量增强，不是第二套资源模型。它复用现有 Question Metadata，在 Draft Contract Validation 与 Human Review 之间增加绑定 Draft Revision 的独立质量评估；它不替代 16.2 的正式资源匹配质量门。
+
+各子阶段具有明确依赖，其中 17.4B 是不阻塞资源生产的后续增强：
 
 - 17.1 先定义什么叫覆盖，防止只追求题目数量；
 - 17.2 以 Material Cluster 为生产单位，先建立 Material Observation Plan，再按正式覆盖缺口建设首批资源；
 - 17.3 证明资源能够被真实 Strategy、TaskRequest 和 TaskFulfillment 消费，并验证观测维度引用在正式执行链中保持可追溯。
 - 17.4A 先把正式资源事实从浏览器私有 IndexedDB 迁移到本机 Shared Store，经统一 Local API 和 Repository Boundary 读写；完成双浏览器一致读取、受控基线导入与基本备份后，即可恢复规模化录题。
 - 17.4B 在稳定录入恢复后，再补齐复杂迁移报告、冲突分析、历史快照、自动备份与恢复能力；该工作包不阻塞 17.4A 通过后的正常资源生产。
+- 17.5 在继续生产 Batch B / C 前评估结构合法 Draft 的材料支持、观察清晰度、区分潜力和审核价值，减少低价值候选进入人工审核。
 
 ## 六、Material First 与权威数据关系
 
@@ -920,13 +928,15 @@ Phase 17 第一版不做：
 6. 完成 Material Intake、校对、来源、版权与 Material Structure 追溯；
 7. 为每个 Material Version 建立并复核 Material Observation Plan；
 8. 从高价值 Dimension × Ability 组合生成 Observation Task Plan；
-9. 按计划生产、审核并冻结 24—28 道资源；
-10. 回算 Primary Coverage Report 与 Observation Diversity View；
-11. 执行 Strategy -> TaskRequest -> Match 集成；
-12. 验证 Observation Plan 引用在 Resource -> Task 中保持可追溯；
-13. 运行连续两到三轮真实资源链；
-14. 完成浏览器人工验收与阶段记录；
-15. 固定资源基线后开始 Phase 16.3C 5—7 个自然日真实运行。
+9. 完成 Phase 17.4A 真实共享基线切换与双浏览器一致性确认；
+10. 完成 Phase 17.5，并使用固定 10 篇材料校准生成质量、审核效率和 Ability / Difficulty 分布；
+11. 按计划生产、审核并冻结 24—28 道资源；
+12. 回算 Primary Coverage Report 与 Observation Diversity View；
+13. 执行 Strategy -> TaskRequest -> Match 集成；
+14. 验证 Observation Plan 引用在 Resource -> Task 中保持可追溯；
+15. 运行连续两到三轮真实资源链；
+16. 完成浏览器人工验收与阶段记录；
+17. 固定资源基线后开始 Phase 16.3C 5—7 个自然日真实运行。
 
 ## 十八、完成后的准确能力声明
 
