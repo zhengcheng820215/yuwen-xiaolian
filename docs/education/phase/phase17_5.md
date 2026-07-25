@@ -710,3 +710,42 @@ Phase 17.5B 完成后仍未完成：
 因此当前准确结论是：
 
 > 系统已经能够把当前题目质量评估安全地呈现给审核者，并在提交审核、人工决定与冻结前校验其时效；质量评估仍只提供审核依据，不替代人工决定。Phase 17.5C 完成批次校准与持久化补齐前，不宣称整个 Phase 17.5 已完成。
+## Phase 17.5B Demo 验收记录
+
+验收入口：
+
+`#/phase17-5-question-quality-demo`
+
+Demo 直接消费正式 `QuestionQualityAssessment` 规则，不使用固定结论文案模拟评估结果。
+
+覆盖四类最小 Case：
+
+- `pass`：七项检查通过，但仍需人工审核；
+- `pass_with_warnings`：保留具体提醒，允许进入人工审核；
+- `revision_recommended`：突出修改建议，但不自动拒绝；
+- stale assessment：Draft Revision 改变后旧评估失效，并阻断提交审核。
+
+自动化验收：
+
+- Phase 17.5B Demo Debug：9 / 9 PASS；
+- Phase 17.5B Review Gate Debug：9 / 9 PASS；
+- Production Build：PASS。
+
+浏览器冒烟验收：
+
+- 四个 Case 可正常切换；
+- decision、warning 数量和检查状态随正式输入变化；
+- `revision_recommended` 仍保持人工决定边界；
+- stale assessment 明确显示旧评估身份并阻断提交；
+- 页面在当前桌面视口无横向溢出。
+
+人工演示验收：
+
+- 验收日期：2026-07-25；
+- 验收结论：`PASS`；
+- `pass`、`pass_with_warnings`、`revision_recommended` 与 stale assessment 四类 Case 均符合预期；
+- Phase 17.5B Demo 正式通过人工演示验收。
+
+当前结论：
+
+> Phase 17.5B 已完成工程 Debug、生产构建、浏览器冒烟与人工 Demo 验收。Demo 证明质量评估结果能够被审核流程正确消费，并能在 Draft Revision 改变后阻断旧评估；它不代表题目已自动审核通过，也不改变人工审核与 Freeze 的职责边界。

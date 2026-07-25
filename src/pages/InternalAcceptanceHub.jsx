@@ -3,6 +3,13 @@ import { Link } from 'react-router-dom';
 
 const acceptanceItems = [
   {
+    to: '/phase17-5-question-quality-demo',
+    title: '题目质量审核验收',
+    description: '验证质量通过、带提醒通过、建议修改与 Revision 失效四类审核边界。',
+    provider: '不调用 Provider',
+    data: '正式评估规则生成',
+  },
+  {
     to: '/student-learning-narrative-calibration-demo',
     title: '学生理解感校准',
     description: '并排复核回应锚点、已完成点、主要缺口和当前答案修改动作。',

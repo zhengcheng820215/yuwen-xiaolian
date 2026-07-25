@@ -39,6 +39,7 @@ import InternalAcceptanceHub from './pages/InternalAcceptanceHub.jsx';
 import ResourceCoverageDashboardDemo from './pages/ResourceCoverageDashboardDemo.jsx';
 import MaterialResourceProductionWorkbench from './pages/MaterialResourceProductionWorkbench.jsx';
 import StudentLearningNarrativeCalibrationDemo from './pages/StudentLearningNarrativeCalibrationDemo.jsx';
+import Phase175QuestionQualityDemo from './pages/Phase175QuestionQualityDemo.jsx';
 
 export default function App() {
   return (
@@ -84,6 +85,7 @@ export default function App() {
         <Route path="/resource-coverage-dashboard-demo" element={<ResourceCoverageDashboardDemo />} />
         <Route path="/material-resource-workbench" element={<MaterialResourceProductionWorkbench />} />
         <Route path="/student-learning-narrative-calibration-demo" element={<StudentLearningNarrativeCalibrationDemo />} />
+        <Route path="/phase17-5-question-quality-demo" element={<Phase175QuestionQualityDemo />} />
       </Routes>
     </Layout>
   );
