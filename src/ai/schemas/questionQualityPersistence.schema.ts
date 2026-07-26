@@ -6,6 +6,14 @@ import {
 import type {
   QuestionQualityAssessment,
 } from './questionQualityAssessment.schema.ts';
+import type {
+  QuestionGenerationBatchQualitySummary,
+  QuestionGenerationQualityBatchManifest,
+} from './questionQualityBatchSummary.schema.ts';
+import type {
+  TenMaterialCalibrationManifest,
+  TenMaterialCalibrationReport,
+} from './questionQualityCalibration.schema.ts';
 
 export const QUESTION_QUALITY_PERSISTENCE_SCHEMA_VERSION =
   'question_quality_persistence_v1' as const;
@@ -33,8 +41,10 @@ export type SharedQuestionQualityState = {
   semanticAssessments: QuestionSemanticQualityAssessment[];
   assessmentBundles: QuestionQualityAssessmentBundle[];
   frozenQualityTraces: FrozenQuestionQualityTrace[];
-  batchSummaries: unknown[];
-  calibrationReports: unknown[];
+  batchManifests: QuestionGenerationQualityBatchManifest[];
+  batchSummaries: QuestionGenerationBatchQualitySummary[];
+  calibrationManifests: TenMaterialCalibrationManifest[];
+  calibrationReports: TenMaterialCalibrationReport[];
 };
 
 export function createEmptySharedQuestionQualityState(): SharedQuestionQualityState {
@@ -43,7 +53,9 @@ export function createEmptySharedQuestionQualityState(): SharedQuestionQualitySt
     semanticAssessments: [],
     assessmentBundles: [],
     frozenQualityTraces: [],
+    batchManifests: [],
     batchSummaries: [],
+    calibrationManifests: [],
     calibrationReports: [],
   };
 }

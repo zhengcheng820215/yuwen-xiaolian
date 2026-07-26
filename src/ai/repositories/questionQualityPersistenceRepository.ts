@@ -9,6 +9,14 @@ import type {
   FrozenQuestionQualityTrace,
 } from '../schemas/questionQualityPersistence.schema.ts';
 import type {
+  QuestionGenerationBatchQualitySummary,
+  QuestionGenerationQualityBatchManifest,
+} from '../schemas/questionQualityBatchSummary.schema.ts';
+import type {
+  TenMaterialCalibrationManifest,
+  TenMaterialCalibrationReport,
+} from '../schemas/questionQualityCalibration.schema.ts';
+import type {
   QuestionQualityAssessmentBundle,
   QuestionSemanticQualityAssessment,
 } from '../schemas/questionSemanticQualityAssessment.schema.ts';
@@ -85,6 +93,30 @@ export type QuestionQualityPersistenceRepository = {
   getTraceForResourceVersion(
     resourceVersionId: string,
   ): Promise<FrozenQuestionQualityTrace | null>;
+  saveBatchManifest(
+    value: QuestionGenerationQualityBatchManifest,
+  ): Promise<QuestionGenerationQualityBatchManifest>;
+  getBatchManifest(
+    manifestId: string,
+  ): Promise<QuestionGenerationQualityBatchManifest | null>;
+  saveBatchSummary(
+    value: QuestionGenerationBatchQualitySummary,
+  ): Promise<QuestionGenerationBatchQualitySummary>;
+  getBatchSummary(
+    summaryId: string,
+  ): Promise<QuestionGenerationBatchQualitySummary | null>;
+  saveCalibrationManifest(
+    value: TenMaterialCalibrationManifest,
+  ): Promise<TenMaterialCalibrationManifest>;
+  getCalibrationManifest(
+    manifestId: string,
+  ): Promise<TenMaterialCalibrationManifest | null>;
+  saveCalibrationReport(
+    value: TenMaterialCalibrationReport,
+  ): Promise<TenMaterialCalibrationReport>;
+  getCalibrationReport(
+    reportId: string,
+  ): Promise<TenMaterialCalibrationReport | null>;
   commitFreezeWithQualityTrace(
     commit: QualityTracedFreezeCommit,
   ): Promise<QualityTracedFreezeResult>;

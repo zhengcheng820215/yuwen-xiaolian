@@ -3,6 +3,20 @@ import { Link } from 'react-router-dom';
 
 const acceptanceItems = [
   {
+    to: '/phase17-5c3a-batch-quality-summary-demo',
+    title: '批次题目质量汇总验收',
+    description: '验证完整、缺项、版本混杂、冲突阻断与零分母五类批次边界。',
+    provider: '不调用 Provider',
+    data: '正式 Summary Agent 固定输入',
+  },
+  {
+    to: '/phase17-5c2-quality-persistence-demo',
+    title: '题目质量持久化与追溯验收',
+    description: '验证重启恢复、Revision 失效、Freeze 追溯、失败回滚与旧规则阻断。',
+    provider: '不调用 Provider',
+    data: '受控持久化快照',
+  },
+  {
     to: '/phase17-5c1-semantic-quality-demo',
     title: '题目语义质量评估验收',
     description: '验证七项语义 Finding、语义警告保留、Provider 失败阻断与安全退出分支。',

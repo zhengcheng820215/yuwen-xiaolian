@@ -19,6 +19,14 @@ import type {
   QuestionQualityAssessmentBundle,
   QuestionSemanticQualityAssessment,
 } from '../schemas/questionSemanticQualityAssessment.schema.ts';
+import type {
+  QuestionGenerationBatchQualitySummary,
+  QuestionGenerationQualityBatchManifest,
+} from '../schemas/questionQualityBatchSummary.schema.ts';
+import type {
+  TenMaterialCalibrationManifest,
+  TenMaterialCalibrationReport,
+} from '../schemas/questionQualityCalibration.schema.ts';
 
 export class LocalApiQuestionQualityPersistenceRepository
 implements QuestionQualityPersistenceRepository {
@@ -180,6 +188,66 @@ implements QuestionQualityPersistenceRepository {
     );
   }
 
+  saveBatchManifest(
+    value: QuestionGenerationQualityBatchManifest,
+  ): Promise<QuestionGenerationQualityBatchManifest> {
+    return this.saveImmutable('batchManifests', 'manifestId', value);
+  }
+
+  async getBatchManifest(
+    manifestId: string,
+  ): Promise<QuestionGenerationQualityBatchManifest | null> {
+    const state = (await this.client.read()).snapshot.data.questionQuality;
+    return cloneNullable(
+      state.batchManifests.find((item) => item.manifestId === manifestId),
+    );
+  }
+
+  saveBatchSummary(
+    value: QuestionGenerationBatchQualitySummary,
+  ): Promise<QuestionGenerationBatchQualitySummary> {
+    return this.saveImmutable('batchSummaries', 'summaryId', value);
+  }
+
+  async getBatchSummary(
+    summaryId: string,
+  ): Promise<QuestionGenerationBatchQualitySummary | null> {
+    const state = (await this.client.read()).snapshot.data.questionQuality;
+    return cloneNullable(
+      state.batchSummaries.find((item) => item.summaryId === summaryId),
+    );
+  }
+
+  saveCalibrationManifest(
+    value: TenMaterialCalibrationManifest,
+  ): Promise<TenMaterialCalibrationManifest> {
+    return this.saveImmutable('calibrationManifests', 'manifestId', value);
+  }
+
+  async getCalibrationManifest(
+    manifestId: string,
+  ): Promise<TenMaterialCalibrationManifest | null> {
+    const state = (await this.client.read()).snapshot.data.questionQuality;
+    return cloneNullable(
+      state.calibrationManifests.find((item) => item.manifestId === manifestId),
+    );
+  }
+
+  saveCalibrationReport(
+    value: TenMaterialCalibrationReport,
+  ): Promise<TenMaterialCalibrationReport> {
+    return this.saveImmutable('calibrationReports', 'reportId', value);
+  }
+
+  async getCalibrationReport(
+    reportId: string,
+  ): Promise<TenMaterialCalibrationReport | null> {
+    const state = (await this.client.read()).snapshot.data.questionQuality;
+    return cloneNullable(
+      state.calibrationReports.find((item) => item.reportId === reportId),
+    );
+  }
+
   async commitFreezeWithQualityTrace(
     commit: QualityTracedFreezeCommit,
   ): Promise<QualityTracedFreezeResult> {
@@ -257,11 +325,19 @@ implements QuestionQualityPersistenceRepository {
     K extends
       | 'deterministicAssessments'
       | 'semanticAssessments'
-      | 'assessmentBundles',
+      | 'assessmentBundles'
+      | 'batchManifests'
+      | 'batchSummaries'
+      | 'calibrationManifests'
+      | 'calibrationReports',
     T extends
       | QuestionQualityAssessment
       | QuestionSemanticQualityAssessment
-      | QuestionQualityAssessmentBundle,
+      | QuestionQualityAssessmentBundle
+      | QuestionGenerationQualityBatchManifest
+      | QuestionGenerationBatchQualitySummary
+      | TenMaterialCalibrationManifest
+      | TenMaterialCalibrationReport,
   >(
     collectionName: K,
     key: keyof T,

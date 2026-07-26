@@ -27,6 +27,14 @@ import {
   isQuestionQualityAssessmentBundle,
   isQuestionSemanticQualityAssessment,
 } from '../ai/schemas/questionSemanticQualityAssessment.schema.ts';
+import {
+  isQuestionGenerationBatchQualitySummary,
+  isQuestionGenerationQualityBatchManifest,
+} from '../ai/schemas/questionQualityBatchSummary.schema.ts';
+import {
+  isTenMaterialCalibrationManifest,
+  isTenMaterialCalibrationReport,
+} from '../ai/schemas/questionQualityCalibration.schema.ts';
 
 export type SharedFormalResourceStoreOptions = {
   storePath?: string;
@@ -211,14 +219,22 @@ function validateData(value: SharedFormalResourceData): SharedFormalResourceData
   if (!value?.questionResources || !value?.materialObservations || !value?.questionQuality) {
     throw new Error('Shared formal resource data is incomplete.');
   }
+  const normalized: SharedFormalResourceData = {
+    ...value,
+    questionQuality: {
+      ...createEmptySharedQuestionQualityState(),
+      ...value.questionQuality,
+    },
+  };
   const collections = [
-    ...Object.values(value.questionResources),
-    ...Object.values(value.materialObservations),
-    ...Object.values(value.questionQuality),
+    ...Object.values(normalized.questionResources),
+    ...Object.values(normalized.materialObservations),
+    ...Object.values(normalized.questionQuality),
   ];
   if (collections.some((collection) => !Array.isArray(collection))) {
     throw new Error('Shared formal resource collections must be arrays.');
   }
+  value = normalized;
   assertUniqueIdentity(value.questionResources.materials, 'materialVersionId');
   assertUniqueIdentity(value.questionResources.drafts, 'draftId');
   assertUniqueIdentity(value.questionResources.validations, 'validationId');
@@ -236,6 +252,10 @@ function validateData(value: SharedFormalResourceData): SharedFormalResourceData
   assertUniqueIdentity(value.questionQuality.semanticAssessments, 'semanticAssessmentId');
   assertUniqueIdentity(value.questionQuality.assessmentBundles, 'bundleId');
   assertUniqueIdentity(value.questionQuality.frozenQualityTraces, 'traceId');
+  assertUniqueIdentity(value.questionQuality.batchManifests, 'manifestId');
+  assertUniqueIdentity(value.questionQuality.batchSummaries, 'summaryId');
+  assertUniqueIdentity(value.questionQuality.calibrationManifests, 'manifestId');
+  assertUniqueIdentity(value.questionQuality.calibrationReports, 'reportId');
   if (!value.questionQuality.deterministicAssessments.every(isQuestionQualityAssessment)) {
     throw new Error('Shared deterministic quality assessment is invalid.');
   }
@@ -247,6 +267,18 @@ function validateData(value: SharedFormalResourceData): SharedFormalResourceData
   }
   if (!value.questionQuality.frozenQualityTraces.every(isFrozenQuestionQualityTrace)) {
     throw new Error('Shared frozen quality trace is invalid.');
+  }
+  if (!value.questionQuality.batchManifests.every(isQuestionGenerationQualityBatchManifest)) {
+    throw new Error('Shared question quality batch manifest is invalid.');
+  }
+  if (!value.questionQuality.batchSummaries.every(isQuestionGenerationBatchQualitySummary)) {
+    throw new Error('Shared question quality batch summary is invalid.');
+  }
+  if (!value.questionQuality.calibrationManifests.every(isTenMaterialCalibrationManifest)) {
+    throw new Error('Shared ten-material calibration manifest is invalid.');
+  }
+  if (!value.questionQuality.calibrationReports.every(isTenMaterialCalibrationReport)) {
+    throw new Error('Shared ten-material calibration report is invalid.');
   }
   return cloneSharedFormalResourceValue(value);
 }

@@ -41,6 +41,8 @@ import MaterialResourceProductionWorkbench from './pages/MaterialResourceProduct
 import StudentLearningNarrativeCalibrationDemo from './pages/StudentLearningNarrativeCalibrationDemo.jsx';
 import Phase175QuestionQualityDemo from './pages/Phase175QuestionQualityDemo.jsx';
 import Phase175C1SemanticQualityDemo from './pages/Phase175C1SemanticQualityDemo.jsx';
+import Phase175C2QualityPersistenceDemo from './pages/Phase175C2QualityPersistenceDemo.jsx';
+import Phase175C3ABatchQualitySummaryDemo from './pages/Phase175C3ABatchQualitySummaryDemo.jsx';
 
 export default function App() {
   return (
@@ -88,6 +90,8 @@ export default function App() {
         <Route path="/student-learning-narrative-calibration-demo" element={<StudentLearningNarrativeCalibrationDemo />} />
         <Route path="/phase17-5-question-quality-demo" element={<Phase175QuestionQualityDemo />} />
         <Route path="/phase17-5c1-semantic-quality-demo" element={<Phase175C1SemanticQualityDemo />} />
+        <Route path="/phase17-5c2-quality-persistence-demo" element={<Phase175C2QualityPersistenceDemo />} />
+        <Route path="/phase17-5c3a-batch-quality-summary-demo" element={<Phase175C3ABatchQualitySummaryDemo />} />
       </Routes>
     </Layout>
   );

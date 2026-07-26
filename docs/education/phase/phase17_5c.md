@@ -4,7 +4,7 @@
 
 设计状态：ENGINEERING TASK SPEC READY
 
-工程状态：17.5C1 ENGINEERING + AUTOMATED DEBUG PASS（18 / 18）；C1 LIGHT DEMO + HUMAN ACCEPTANCE PASS（12 / 12）；17.5C2 ENGINEERING + AUTOMATED DEBUG PASS（17 / 17）；17.5C3 PENDING
+工程状态：17.5C1 ENGINEERING + AUTOMATED DEBUG PASS（18 / 18）；C1 LIGHT DEMO + HUMAN ACCEPTANCE PASS（12 / 12）；17.5C2 ENGINEERING + AUTOMATED DEBUG PASS（17 / 17），LIGHT DEMO + HUMAN ACCEPTANCE PASS（12 / 12）；17.5C3A BATCH QUALITY SUMMARY ENGINEERING + AUTOMATED DEBUG PASS（13 / 13），LIGHT DEMO + HUMAN ACCEPTANCE PASS；17.5C3B CALIBRATION RUNTIME + AUTOMATED DEBUG PASS（16 / 16），REAL TEN-MATERIAL CALIBRATION PENDING
 
 优先级：P1，在恢复 Phase 17.2 Batch B / C 规模化生产前完成
 
@@ -15,6 +15,14 @@
 17.5C1 Demo 验收记录：[Phase 17.5C1 轻量 Demo 接入与人工验收记录](./reports/phase17_5c1_semantic_quality_demo_acceptance_2026-07-26.md)
 
 17.5C2 验收记录：[Phase 17.5C2 Assessment Persistence and Frozen Traceability 工程 Debug 验收记录](./reports/phase17_5c2_quality_persistence_engineering_debug_acceptance_2026-07-26.md)
+
+17.5C2 Demo 接入记录：[Phase 17.5C2 Persistence Demo 工程接入与 Debug 记录](./reports/phase17_5c2_persistence_demo_engineering_acceptance_2026-07-26.md)
+
+17.5C3A 验收记录：[Phase 17.5C3A Batch Quality Summary 工程 Debug 验收记录](./reports/phase17_5c3a_batch_quality_summary_engineering_debug_acceptance_2026-07-26.md)
+
+17.5C3A Demo 接入记录：[Phase 17.5C3A Batch Quality Summary 轻量 Demo 工程接入与 Debug 记录](./reports/phase17_5c3a_batch_quality_summary_demo_engineering_acceptance_2026-07-26.md)
+
+17.5C3B 验收记录：[Phase 17.5C3B Ten-material Calibration Runtime 工程 Debug 验收记录](./reports/phase17_5c3b_ten_material_calibration_engineering_debug_acceptance_2026-07-26.md)
 
 前置状态：
 
@@ -1336,6 +1344,71 @@ Prompt Version 升级后，旧 Semantic Assessment 不再是 Current。
 
 ## 三十、回归范围
 
+### 29.1 Phase 17.5C3A 工程结果
+
+17.5C3A 已完成批次摘要的最小工程闭环：
+
+- 固定 `QuestionGenerationQualityBatchManifest`，Summary 不扫描 Repository 猜测批次成员；
+- 只消费 Manifest 中指定的 Draft Revision、Validation、Material Version 与当前质量规则；
+- 缺失 Current Bundle 输出 `incomplete`；
+- Revision、Rule、Prompt、Merge Rule 或 Material Version 错位输出 `mixed_versions`；
+- 重复 Current Bundle 或身份冲突输出 `blocked`；
+- 输出 Decision、Warning、Ability、Difficulty 与 Human Review 分布；
+- 所有比例保存 numerator、denominator 与 value，分母为 `0` 时 value 为 `null`；
+- Summary 身份对输入顺序不敏感，Bundle 或 Review 改变时生成新身份；
+- Manifest 与正式 Summary 可幂等保存到 Shared Store，并可在运行重启后恢复。
+
+专项 Debug：`13 / 13 PASS`。
+
+轻量 Demo 已接入：
+
+`#/phase17-5c3a-batch-quality-summary-demo`
+
+Demo 直接调用正式 `summarizeQuestionGenerationBatchQuality`，覆盖：
+
+- `complete`：完整批次与 100% 当前质量覆盖；
+- `incomplete`：缺少当前 Bundle；
+- `mixed_versions`：Draft Revision 与质量事实版本混杂；
+- `blocked`：同一 Draft 存在重复 Current Bundle；
+- 零分母：指标 value 保持 `null`，页面显示“暂无数据”并保留原始分子、分母。
+
+Demo 自动化 Debug：`13 / 13 PASS`；Production Build：`PASS`；浏览器冒烟：`PASS`。
+
+2026-07-26 人工演示验收结论：`PASS`。五个 Case 的状态、计数、指标分母与问题代码均符合预期。
+
+C3A 本阶段不包含固定十篇材料 Manifest、Calibration Report 或人工校准签署；这些属于 17.5C3B。
+
+### 29.2 Phase 17.5C3B 工程结果
+
+17.5C3B 已完成十篇材料校准的工程 Runtime：
+
+- 固定 `TenMaterialCalibrationManifest`，要求恰好 10 个互不重复的 Material Version；
+- 形成独立 `TenMaterialCalibrationReport`，绑定 Manifest、Batch Summary、人工签署身份与 Report Rule Version；
+- 计算八项系统硬检查，任一失败时禁止形成 `pass` 或 `conditional_pass`；
+- `fail` 与 `conditional_pass` 必须指出明确的 Adjustment Target；
+- `conditional_pass` 必须保留限制或后续复核说明；
+- 重复 Summary 必须保持统计稳定，版本、Provider、Prompt、Rule、冻结追溯缺失均可阻断；
+- Calibration Manifest 与 Report 作为不可变事实写入 Shared Store；
+- 相同身份、相同内容保持幂等，相同身份、不同内容明确冲突；
+- 服务重启后可恢复 Manifest、Summary 与 Report；
+- 校准计算不修改既有 Summary、Review 或 Freeze 事实。
+
+专项 Debug：`16 / 16 PASS`。
+
+本结果只证明校准 Runtime 与隔离工程样例成立。固定真实十篇材料的采集、运行、人工观察、签署和正式报告仍未执行，因此 Phase 17.5C 尚不能标记整体 PASS。
+
+### 29.3 真实材料准备基线（2026-07-26）
+
+当前 Shared Store 共保存 6 条 Material Version：
+
+- 3 份可暂计入真实文本候选：《散步》《秋天的怀念》与谭嗣同《潼关》；
+- 2 份为 Phase 17 Batch A 的 AI 辅助项目原创材料，不计入本次“真实十篇材料”口径；
+- 1 份为已停用的《秋天的怀念》重复记录，不计入校准集。
+
+因此当前真实十篇材料准备度为：`3 / 10`。
+
+《潼关》正文属于公版文本，但创作背景为人工概括；冻结正式 Calibration Manifest 前仍须完成人工来源复核。其余 7 份真实材料尚待录入、来源检查与版本冻结。
+
 17.5C 完成后至少回归：
 
 - Phase 17.5A Deterministic Assessment；
@@ -1413,4 +1486,4 @@ Phase 17.5C 完成后，系统可以宣称：
 
 在此之前，准确状态保持：
 
-> 17.5C1 ENGINEERING + AUTOMATED DEBUG PASS / C1 LIGHT DEMO HUMAN ACCEPTANCE PASS / 17.5C2 ENGINEERING + AUTOMATED DEBUG PASS / 17.5C3 IMPLEMENTATION PENDING
+> 17.5C1 ENGINEERING + AUTOMATED DEBUG PASS / C1 LIGHT DEMO HUMAN ACCEPTANCE PASS / 17.5C2 ENGINEERING + AUTOMATED DEBUG PASS / C2 LIGHT DEMO HUMAN ACCEPTANCE PASS / 17.5C3A BATCH QUALITY SUMMARY ENGINEERING + AUTOMATED DEBUG PASS / C3A LIGHT DEMO HUMAN ACCEPTANCE PASS / 17.5C3B CALIBRATION RUNTIME + AUTOMATED DEBUG PASS / REAL TEN-MATERIAL CALIBRATION PENDING
