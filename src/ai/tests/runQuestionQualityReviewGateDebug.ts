@@ -91,14 +91,14 @@ async function caseUnvalidatedDraft(): Promise<void> {
 
 async function caseSubmitRequiresAssessment(): Promise<void> {
   const fixture = await validatedFixture('submit-blocked');
-  await assertRejects(
+  await assertRejectsCode(
     () => submitQuestionResourceForQualityReview(
       fixture.resources,
       fixture.quality,
       fixture.draft.draftId,
       NOW,
     ),
-    'Current Question Quality Assessment is required',
+    'QUALITY_ASSESSMENT_REQUIRED',
   );
 }
 
@@ -147,14 +147,14 @@ async function caseEditInvalidatesAssessment(): Promise<void> {
     LATER,
   );
 
-  await assertRejects(
+  await assertRejectsCode(
     () => submitQuestionResourceForQualityReview(
       fixture.resources,
       fixture.quality,
       updated.draftId,
       LATER,
     ),
-    'Current Question Quality Assessment is required',
+    'QUALITY_ASSESSMENT_REQUIRED',
   );
 }
 
@@ -174,7 +174,7 @@ async function caseReviewRequiresAssessment(): Promise<void> {
   );
   await fixture.quality.clear();
 
-  await assertRejects(
+  await assertRejectsCode(
     () => reviewQuestionResourceDraftWithQuality(
       fixture.resources,
       fixture.quality,
@@ -186,7 +186,7 @@ async function caseReviewRequiresAssessment(): Promise<void> {
         now: NOW,
       },
     ),
-    'Current Question Quality Assessment is required',
+    'QUALITY_ASSESSMENT_REQUIRED',
   );
 }
 
@@ -194,14 +194,14 @@ async function caseFreezeRequiresAssessment(): Promise<void> {
   const fixture = await reviewedFixture('freeze-blocked');
   await fixture.quality.clear();
 
-  await assertRejects(
+  await assertRejectsCode(
     () => freezeQuestionResourceDraftWithQuality(
       fixture.resources,
       fixture.quality,
       fixture.draft.draftId,
       NOW,
     ),
-    'Current Question Quality Assessment is required',
+    'QUALITY_ASSESSMENT_REQUIRED',
   );
 }
 
@@ -416,6 +416,22 @@ async function assertRejects(
     return;
   }
   throw new Error(`Expected rejection containing: ${expectedMessage}`);
+}
+
+async function assertRejectsCode(
+  action: () => Promise<unknown>,
+  expectedCode: string,
+): Promise<void> {
+  try {
+    await action();
+  } catch (error) {
+    const code = error && typeof error === 'object' && 'code' in error
+      ? String(error.code)
+      : '';
+    assert(code === expectedCode, `Expected error code "${expectedCode}", got "${code}".`);
+    return;
+  }
+  throw new Error(`Expected rejection with code: ${expectedCode}`);
 }
 
 function assert(condition: unknown, message: string): asserts condition {

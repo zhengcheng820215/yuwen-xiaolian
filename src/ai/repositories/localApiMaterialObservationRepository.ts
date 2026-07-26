@@ -1,5 +1,6 @@
 import type { MaterialObservationRepository } from './materialObservationRepository.ts';
 import { LocalApiFormalResourceClient } from './localApiFormalResourceClient.ts';
+import { createStructuredRuntimeError } from '../errors/structuredRuntimeError.ts';
 import type {
   FirstFrozenResourcePackManifest,
   MaterialObservationPlan,
@@ -37,13 +38,25 @@ export class LocalApiMaterialObservationRepository implements MaterialObservatio
     const existing = await this.getPlan(value.materialObservationPlanId);
     if (existing && JSON.stringify(existing) !== JSON.stringify(value)) {
       if (existing.status === 'reviewed') {
-        throw new Error('Reviewed MaterialObservationPlan is immutable. Create a new revision.');
+        throw createStructuredRuntimeError({
+          code: 'FORMAL_RESOURCE_IMMUTABLE_CONFLICT',
+          message: '已审核训练任务不可覆盖，请创建新修订版本。',
+          operation: 'material_observation_plan.save',
+          objectId: value.materialObservationPlanId,
+          recoverability: 'new_revision_required',
+        });
       }
       if (
         value.revision < existing.revision
         || (value.revision === existing.revision && !samePlanContent(existing, value))
       ) {
-        throw new Error(`Material Observation Plan revision conflict: ${value.materialObservationPlanId}`);
+        throw createStructuredRuntimeError({
+          code: 'FORMAL_RESOURCE_REVISION_CONFLICT',
+          message: '训练任务修订版本发生冲突，请刷新后再继续。',
+          operation: 'material_observation_plan.save',
+          objectId: value.materialObservationPlanId,
+          recoverability: 'reload_required',
+        });
       }
     }
     return this.saveMutable('plans', 'materialObservationPlanId', value);
@@ -81,7 +94,12 @@ export class LocalApiMaterialObservationRepository implements MaterialObservatio
   listManifests() { return this.list('manifests', () => true); }
 
   async clear(): Promise<void> {
-    throw new Error('Shared formal resource store cannot be cleared from the workbench.');
+    throw createStructuredRuntimeError({
+      code: 'OPERATION_NOT_ALLOWED',
+      message: '工作台不能直接清空共享正式资源。',
+      operation: 'shared_formal_resource.clear',
+      recoverability: 'human_review_required',
+    });
   }
 
   private async saveMutable<
@@ -106,7 +124,13 @@ export class LocalApiMaterialObservationRepository implements MaterialObservatio
     const existing = await this.get(collectionName, key, String(value[key]));
     if (existing) {
       if (JSON.stringify(existing) !== JSON.stringify(value)) {
-        throw new Error(`Immutable record conflict: ${String(value[key])}`);
+        throw createStructuredRuntimeError({
+          code: 'FORMAL_RESOURCE_IMMUTABLE_CONFLICT',
+          message: '不可变正式记录发生内容冲突。',
+          operation: 'shared_formal_resource.save',
+          objectId: String(value[key]),
+          recoverability: 'new_revision_required',
+        });
       }
       return clone(existing as T);
     }

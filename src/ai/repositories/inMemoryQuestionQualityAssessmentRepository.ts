@@ -5,6 +5,7 @@ import {
   cloneQuestionQualityValue,
   type QuestionQualityAssessment,
 } from '../schemas/questionQualityAssessment.schema.ts';
+import { createStructuredRuntimeError } from '../errors/structuredRuntimeError.ts';
 
 export class InMemoryQuestionQualityAssessmentRepository
 implements QuestionQualityAssessmentRepository {
@@ -16,9 +17,13 @@ implements QuestionQualityAssessmentRepository {
     const existing = this.assessments.get(assessment.assessmentId);
     if (existing) {
       if (!sameAssessment(existing, assessment)) {
-        throw new Error(
-          `Question quality assessment is immutable: ${assessment.assessmentId}`,
-        );
+        throw createStructuredRuntimeError({
+          code: 'FORMAL_RESOURCE_IMMUTABLE_CONFLICT',
+          message: '题目质量评估为不可变记录，不能覆盖已有评估。',
+          operation: 'question_quality_assessment.save',
+          objectId: assessment.assessmentId,
+          recoverability: 'new_revision_required',
+        });
       }
       return clone(existing);
     }

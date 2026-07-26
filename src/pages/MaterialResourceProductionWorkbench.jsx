@@ -42,6 +42,7 @@ import {
   initializeSharedFormalResourceBaseline,
 } from '../api/sharedFormalResourcePersistence.ts';
 import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
+import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
 import {
   isPlanFullyPublished,
   selectCurrentPlanDrafts,
@@ -687,7 +688,18 @@ export default function MaterialResourceProductionWorkbench() {
           <Metric label="已发布练习" value={workbenchSummary.publishedResourceCount} />
         </section>
 
-        {notice && <div role="status" className={`mt-5 border-l-4 px-4 py-3 text-sm leading-6 ${notice.type === 'error' ? 'border-red-500 bg-red-50 text-red-800' : 'border-emerald-500 bg-emerald-50 text-emerald-800'}`}>{notice.message}</div>}
+        {notice && (
+          <div role="status" className={`mt-5 border-l-4 px-4 py-3 text-sm leading-6 ${notice.type === 'error' ? 'border-red-500 bg-red-50 text-red-800' : 'border-emerald-500 bg-emerald-50 text-emerald-800'}`}>
+            <p>{notice.message}</p>
+            {notice.errorCode && (
+              <p className="mt-1 text-xs opacity-80">
+                错误码：{notice.errorCode}
+                {notice.objectId ? ` · 对象：${notice.objectId}` : ''}
+                {` · ${notice.recoveryMessage}`}
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="mt-6 space-y-10">
           <section>
@@ -2026,5 +2038,5 @@ function savedQuestionTitle(index) {
   return `题目${labels[index] || index + 1}`;
 }
 function splitParagraphs(content) { return content.replace(/\r\n/g, '\n').trim().split(/\n\s*\n|\n/).map((value) => value.trim()).filter(Boolean); }
-function errorNotice(error) { return { type: 'error', message: error instanceof Error ? error.message : String(error) }; }
+function errorNotice(error) { return createWorkbenchErrorNotice(error, { operation: 'material_workbench.operation' }); }
 const emptySnapshot = { materials: [], anchors: [], plans: [], validations: [], drafts: [], frozenVersions: [], links: [], draftReadiness: [] };

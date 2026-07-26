@@ -12,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
+import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
 import {
   clearQuestionResourceWorkbench,
   createQuestionResourceWorkbenchNextVersion,
@@ -1150,7 +1151,18 @@ function optionLabel(options, value) {
 }
 
 function Notice({ notice }) {
-  return <div className={`mb-4 rounded-md border px-4 py-3 text-sm ${notice.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800'}`}>{notice.message}</div>;
+  return (
+    <div className={`mb-4 rounded-md border px-4 py-3 text-sm ${notice.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800'}`}>
+      <p>{notice.message}</p>
+      {notice.errorCode && (
+        <p className="mt-1 text-xs opacity-80">
+          错误码：{notice.errorCode}
+          {notice.objectId ? ` · 对象：${notice.objectId}` : ''}
+          {` · ${notice.recoveryMessage}`}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function EmptyText({ children }) {
@@ -1262,7 +1274,7 @@ function updateAbility(abilityId, setForm) {
 
 function lines(value) { return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean); }
 function commaValues(value) { return value.split(/[,，]/).map((item) => item.trim()).filter(Boolean); }
-function errorNotice(error) { return { type: 'error', message: error instanceof Error ? error.message : String(error) }; }
+function errorNotice(error) { return createWorkbenchErrorNotice(error, { operation: 'question_workbench.operation' }); }
 
 const emptySnapshot = { drafts: [], materials: [], registryEntries: [], versions: [], registryConsistency: { passed: true, issues: [] } };
 const inputClass = 'min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none focus:border-blue-500 disabled:bg-slate-50';

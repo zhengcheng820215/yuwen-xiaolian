@@ -297,9 +297,9 @@ async function caseRepositoryGuarantees(): Promise<void> {
   });
   const stored = await repository.getAssessment(saved.assessmentId);
   assert(stored?.warnings.length === 0, 'Repository record was mutated through returned value.');
-  await assertRejects(
+  await assertRejectsCode(
     () => repository.saveAssessment(saved),
-    'Question quality assessment is immutable',
+    'FORMAL_RESOURCE_IMMUTABLE_CONFLICT',
   );
 }
 
@@ -475,6 +475,22 @@ async function assertRejects(
     return;
   }
   throw new Error(`Expected rejection containing: ${expectedMessage}`);
+}
+
+async function assertRejectsCode(
+  action: () => Promise<unknown>,
+  expectedCode: string,
+): Promise<void> {
+  try {
+    await action();
+  } catch (error) {
+    const code = error && typeof error === 'object' && 'code' in error
+      ? String(error.code)
+      : '';
+    assert(code === expectedCode, `Expected error code "${expectedCode}", got "${code}".`);
+    return;
+  }
+  throw new Error(`Expected rejection with code: ${expectedCode}`);
 }
 
 function assert(condition: unknown, message: string): asserts condition {

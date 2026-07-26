@@ -18,6 +18,7 @@ import {
   QUESTION_QUALITY_RULE_VERSION,
   type QuestionQualityAssessment,
 } from '../schemas/questionQualityAssessment.schema.ts';
+import { createStructuredRuntimeError } from '../errors/structuredRuntimeError.ts';
 import type {
   ResourceFreezeResult,
   ResourceReviewAction,
@@ -81,7 +82,7 @@ export async function requireCurrentQuestionDraftQuality(
 }> {
   const draft = await resourceRepository.getDraft(draftId);
   if (!draft?.latestValidationId) {
-    throw new Error('Current Question Quality Assessment is required.');
+    throw missingQualityAssessment(draftId);
   }
   const validation = await resourceRepository.getValidation(draft.latestValidationId);
   const assessment = (
@@ -93,15 +94,25 @@ export async function requireCurrentQuestionDraftQuality(
       candidate.ruleVersion === QUESTION_QUALITY_RULE_VERSION,
   );
   if (!validation || !assessment) {
-    throw new Error('Current Question Quality Assessment is required.');
+    throw missingQualityAssessment(draftId);
   }
   if (!isCurrentQuestionQualityAssessment(draft, validation, assessment)) {
-    throw new Error('Current Question Quality Assessment is required.');
+    throw missingQualityAssessment(draftId);
   }
   return {
     draft,
     assessment: requireCurrentQuestionQualityAssessment(draft, validation, assessment),
   };
+}
+
+function missingQualityAssessment(draftId: string) {
+  return createStructuredRuntimeError({
+    code: 'QUALITY_ASSESSMENT_REQUIRED',
+    message: '缺少当前修订版本的题目质量评估，不能继续审核或冻结。',
+    operation: 'question_quality_review_gate.require_assessment',
+    objectId: draftId,
+    recoverability: 'user_action_required',
+  });
 }
 
 export async function submitQuestionResourceForQualityReview(

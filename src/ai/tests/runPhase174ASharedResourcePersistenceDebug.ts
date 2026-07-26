@@ -159,12 +159,12 @@ async function casePlanLifecycleTransition(): Promise<void> {
 
     assert(submitted.status === 'pending_review', 'Lifecycle transition was blocked as a content conflict.');
     assert(submitted.revision === plan.revision, 'Lifecycle transition changed the content revision.');
-    await assertRejects(
+    await assertRejectsCode(
       () => repository.savePlan({
         ...submitted,
         materialVersionId: 'material-plan:v2',
       }),
-      'revision conflict',
+      'FORMAL_RESOURCE_REVISION_CONFLICT',
     );
   });
 }
@@ -519,6 +519,19 @@ async function assertRejects(action: () => Promise<unknown>, expectedMessage: st
     return;
   }
   throw new Error(`Expected rejection containing: ${expectedMessage}`);
+}
+
+async function assertRejectsCode(action: () => Promise<unknown>, expectedCode: string): Promise<void> {
+  try {
+    await action();
+  } catch (error) {
+    const code = error && typeof error === 'object' && 'code' in error
+      ? String(error.code)
+      : '';
+    assert(code === expectedCode, `Expected code "${expectedCode}", got "${code}".`);
+    return;
+  }
+  throw new Error(`Expected rejection with code: ${expectedCode}`);
 }
 
 function assert(condition: unknown, message: string): asserts condition {

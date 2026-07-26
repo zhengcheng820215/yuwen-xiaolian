@@ -1,4 +1,5 @@
 import type { QuestionResourceAdmissionRepository } from '../repositories/questionResourceAdmissionRepository.ts';
+import { createStructuredRuntimeError } from '../errors/structuredRuntimeError.ts';
 import {
   PRIMARY_ABILITY_IDS,
   QUESTION_RESOURCE_ADMISSION_SCHEMA_VERSION,
@@ -755,11 +756,33 @@ async function requireCurrentPassedValidation(
   repository: QuestionResourceAdmissionRepository,
   draft: StructuredQuestionDraft,
 ): Promise<ResourceValidationResult> {
-  if (!draft.latestValidationId) throw new Error('Draft has not been validated.');
+  if (!draft.latestValidationId) {
+    throw createStructuredRuntimeError({
+      code: 'VALIDATION_REQUIRED',
+      message: '当前题目尚未完成结构化校验。',
+      operation: 'question_resource.require_validation',
+      objectId: draft.draftId,
+      recoverability: 'user_action_required',
+    });
+  }
   const validation = await repository.getValidation(draft.latestValidationId);
-  if (!validation || !validation.passed) throw new Error('Draft validation has not passed.');
+  if (!validation || !validation.passed) {
+    throw createStructuredRuntimeError({
+      code: 'VALIDATION_FAILED',
+      message: '当前题目校验未通过，不能继续审核或冻结。',
+      operation: 'question_resource.require_validation',
+      objectId: draft.draftId,
+      recoverability: 'user_action_required',
+    });
+  }
   if (validation.validatedDraftRevision !== draft.revision) {
-    throw new Error('Draft validation is stale.');
+    throw createStructuredRuntimeError({
+      code: 'VALIDATION_STALE',
+      message: '题目已被修改，原校验结果已失效，请重新校验。',
+      operation: 'question_resource.require_validation',
+      objectId: draft.draftId,
+      recoverability: 'user_action_required',
+    });
   }
   return validation;
 }

@@ -193,9 +193,9 @@ async function caseValidationBlocksReview(): Promise<void> {
   const repo = await repositoryWithMaterial();
   const draft = await createDraft(repo, 'review-blocked', { title: '' });
   await validateStructuredQuestionDraft(repo, draft.draftId, NOW);
-  await assertRejects(
+  await assertRejectsCode(
     () => submitQuestionResourceForReview(repo, draft.draftId, NOW),
-    'Draft validation has not passed',
+    'VALIDATION_FAILED',
   );
 }
 
@@ -302,9 +302,9 @@ async function caseStaleValidation(): Promise<void> {
   const draft = await createDraft(repo, 'stale');
   await validateStructuredQuestionDraft(repo, draft.draftId, NOW);
   await updateStructuredQuestionDraft(repo, draft.draftId, { questionStem: 'Changed after validation.' }, LATER);
-  await assertRejects(
+  await assertRejectsCode(
     () => submitQuestionResourceForReview(repo, draft.draftId, LATER),
-    'has not been validated',
+    'VALIDATION_REQUIRED',
   );
 }
 
@@ -572,6 +572,19 @@ async function assertRejects(action: () => Promise<unknown>, expectedMessage: st
     return;
   }
   throw new Error(`Expected rejection containing: ${expectedMessage}`);
+}
+
+async function assertRejectsCode(action: () => Promise<unknown>, expectedCode: string): Promise<void> {
+  try {
+    await action();
+  } catch (error) {
+    const code = error && typeof error === 'object' && 'code' in error
+      ? String(error.code)
+      : '';
+    assert(code === expectedCode, `Expected error code "${expectedCode}", got "${code}".`);
+    return;
+  }
+  throw new Error(`Expected rejection with code: ${expectedCode}`);
 }
 
 function assert(condition: unknown, message: string): asserts condition {

@@ -491,6 +491,7 @@ Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster �
 | Phase 17.3 正式资源运行集成与来源保持 | [Phase 17.3](../education/phase/phase17_3.md) |
 | Phase 17.4 本机共享正式资源持久化 | [Phase 17.4](../education/phase/phase17_4.md) |
 | Phase 17.5 题目生成质量评估 | [Phase 17.5](../education/phase/phase17_5.md) |
+| 结构化运行时错误契约 | [补强与验收记录](../education/phase/reports/structured_runtime_error_contract_2026-07-26.md) |
 | Phase 16.3C 轻量人工验收 | [验收报告](../education/phase/reports/phase16_3c_demo_acceptance_2026-07-21.md) |
 | Phase 16.3 Product / Demo 作用域隔离 | [验收报告](../education/phase/reports/phase16_3_product_demo_scope_isolation_debug_2026-07-21.md) |
 | Phase 1–16.2 组合式 Runtime 回归 | [集成回归记录](../education/phase/reports/phase1_16_2_integrated_runtime_regression_2026-07-20.md) |
