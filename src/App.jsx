@@ -40,6 +40,7 @@ import ResourceCoverageDashboardDemo from './pages/ResourceCoverageDashboardDemo
 import MaterialResourceProductionWorkbench from './pages/MaterialResourceProductionWorkbench.jsx';
 import StudentLearningNarrativeCalibrationDemo from './pages/StudentLearningNarrativeCalibrationDemo.jsx';
 import Phase175QuestionQualityDemo from './pages/Phase175QuestionQualityDemo.jsx';
+import Phase175C1SemanticQualityDemo from './pages/Phase175C1SemanticQualityDemo.jsx';
 
 export default function App() {
   return (
@@ -86,6 +87,7 @@ export default function App() {
         <Route path="/material-resource-workbench" element={<MaterialResourceProductionWorkbench />} />
         <Route path="/student-learning-narrative-calibration-demo" element={<StudentLearningNarrativeCalibrationDemo />} />
         <Route path="/phase17-5-question-quality-demo" element={<Phase175QuestionQualityDemo />} />
+        <Route path="/phase17-5c1-semantic-quality-demo" element={<Phase175C1SemanticQualityDemo />} />
       </Routes>
     </Layout>
   );

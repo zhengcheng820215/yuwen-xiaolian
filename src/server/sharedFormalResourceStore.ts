@@ -8,6 +8,7 @@ import {
 } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import {
+  LEGACY_SHARED_FORMAL_RESOURCE_SCHEMA_VERSION,
   SHARED_FORMAL_RESOURCE_SCHEMA_VERSION,
   cloneSharedFormalResourceValue,
   createEmptySharedFormalResourceData,
@@ -15,6 +16,17 @@ import {
   type SharedFormalResourceSnapshot,
   type SharedFormalResourceStatus,
 } from '../ai/schemas/sharedFormalResourcePersistence.schema.ts';
+import {
+  createEmptySharedQuestionQualityState,
+  isFrozenQuestionQualityTrace,
+} from '../ai/schemas/questionQualityPersistence.schema.ts';
+import {
+  isQuestionQualityAssessment,
+} from '../ai/schemas/questionQualityAssessment.schema.ts';
+import {
+  isQuestionQualityAssessmentBundle,
+  isQuestionSemanticQualityAssessment,
+} from '../ai/schemas/questionSemanticQualityAssessment.schema.ts';
 
 export type SharedFormalResourceStoreOptions = {
   storePath?: string;
@@ -65,7 +77,13 @@ export class SharedFormalResourceStore {
   async read(): Promise<SharedFormalResourceSnapshot> {
     try {
       const raw = await readFile(this.storePath, 'utf8');
-      return validateSnapshot(JSON.parse(raw) as unknown);
+      const parsed = JSON.parse(raw) as unknown;
+      if (isLegacySnapshot(parsed)) {
+        const migrated = migrateLegacySnapshot(parsed, this.now());
+        await this.commit(migrated, false);
+        return cloneSharedFormalResourceValue(migrated);
+      }
+      return validateSnapshot(parsed);
     } catch (error) {
       if (isMissingFileError(error)) return createEmptySnapshot(this.now());
       throw error;
@@ -190,12 +208,13 @@ function validateSnapshot(value: unknown): SharedFormalResourceSnapshot {
 }
 
 function validateData(value: SharedFormalResourceData): SharedFormalResourceData {
-  if (!value?.questionResources || !value?.materialObservations) {
+  if (!value?.questionResources || !value?.materialObservations || !value?.questionQuality) {
     throw new Error('Shared formal resource data is incomplete.');
   }
   const collections = [
     ...Object.values(value.questionResources),
     ...Object.values(value.materialObservations),
+    ...Object.values(value.questionQuality),
   ];
   if (collections.some((collection) => !Array.isArray(collection))) {
     throw new Error('Shared formal resource collections must be arrays.');
@@ -213,6 +232,80 @@ function validateData(value: SharedFormalResourceData): SharedFormalResourceData
   assertUniqueIdentity(value.materialObservations.reviews, 'reviewId');
   assertUniqueIdentity(value.materialObservations.links, 'resourceObservationLinkId');
   assertUniqueIdentity(value.materialObservations.manifests, 'resourcePackId');
+  assertUniqueIdentity(value.questionQuality.deterministicAssessments, 'assessmentId');
+  assertUniqueIdentity(value.questionQuality.semanticAssessments, 'semanticAssessmentId');
+  assertUniqueIdentity(value.questionQuality.assessmentBundles, 'bundleId');
+  assertUniqueIdentity(value.questionQuality.frozenQualityTraces, 'traceId');
+  if (!value.questionQuality.deterministicAssessments.every(isQuestionQualityAssessment)) {
+    throw new Error('Shared deterministic quality assessment is invalid.');
+  }
+  if (!value.questionQuality.semanticAssessments.every(isQuestionSemanticQualityAssessment)) {
+    throw new Error('Shared semantic quality assessment is invalid.');
+  }
+  if (!value.questionQuality.assessmentBundles.every(isQuestionQualityAssessmentBundle)) {
+    throw new Error('Shared quality assessment bundle is invalid.');
+  }
+  if (!value.questionQuality.frozenQualityTraces.every(isFrozenQuestionQualityTrace)) {
+    throw new Error('Shared frozen quality trace is invalid.');
+  }
+  return cloneSharedFormalResourceValue(value);
+}
+
+function isLegacySnapshot(value: unknown): value is {
+  schemaVersion: typeof LEGACY_SHARED_FORMAL_RESOURCE_SCHEMA_VERSION;
+  initialized: boolean;
+  revision: number;
+  baselineSource?: string;
+  createdAt: string;
+  updatedAt: string;
+  data: Omit<SharedFormalResourceData, 'questionQuality'>;
+} {
+  return Boolean(
+    value &&
+    typeof value === 'object' &&
+    'schemaVersion' in value &&
+    value.schemaVersion === LEGACY_SHARED_FORMAL_RESOURCE_SCHEMA_VERSION,
+  );
+}
+
+function migrateLegacySnapshot(
+  legacy: {
+    initialized: boolean;
+    revision: number;
+    baselineSource?: string;
+    createdAt: string;
+    data: Omit<SharedFormalResourceData, 'questionQuality'>;
+  },
+  now: string,
+): SharedFormalResourceSnapshot {
+  const data = validateLegacyData(legacy.data);
+  return validateSnapshot({
+    schemaVersion: SHARED_FORMAL_RESOURCE_SCHEMA_VERSION,
+    initialized: legacy.initialized === true,
+    revision: legacy.revision + 1,
+    baselineSource: legacy.baselineSource,
+    createdAt: legacy.createdAt,
+    updatedAt: now,
+    data: {
+      ...data,
+      questionQuality: createEmptySharedQuestionQualityState(),
+    },
+  });
+}
+
+function validateLegacyData(
+  value: Omit<SharedFormalResourceData, 'questionQuality'>,
+): Omit<SharedFormalResourceData, 'questionQuality'> {
+  if (!value?.questionResources || !value?.materialObservations) {
+    throw new Error('Legacy shared formal resource data is incomplete.');
+  }
+  const collections = [
+    ...Object.values(value.questionResources),
+    ...Object.values(value.materialObservations),
+  ];
+  if (collections.some((collection) => !Array.isArray(collection))) {
+    throw new Error('Legacy shared formal resource collections must be arrays.');
+  }
   return cloneSharedFormalResourceValue(value);
 }
 

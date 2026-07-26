@@ -15,8 +15,13 @@ import type {
   ResourceValidationResult,
   StructuredQuestionDraft,
 } from './questionResourceAdmission.schema.ts';
+import {
+  createEmptySharedQuestionQualityState,
+  type SharedQuestionQualityState,
+} from './questionQualityPersistence.schema.ts';
 
-export const SHARED_FORMAL_RESOURCE_SCHEMA_VERSION = '17.4A-v1' as const;
+export const LEGACY_SHARED_FORMAL_RESOURCE_SCHEMA_VERSION = '17.4A-v1' as const;
+export const SHARED_FORMAL_RESOURCE_SCHEMA_VERSION = '17.5C-v1' as const;
 
 export type SharedQuestionResourceState = {
   materials: QuestionMaterialVersion[];
@@ -40,6 +45,7 @@ export type SharedMaterialObservationState = {
 export type SharedFormalResourceData = {
   questionResources: SharedQuestionResourceState;
   materialObservations: SharedMaterialObservationState;
+  questionQuality: SharedQuestionQualityState;
 };
 
 export type SharedFormalResourceSnapshot = {
@@ -80,10 +86,10 @@ export function createEmptySharedFormalResourceData(): SharedFormalResourceData 
       links: [],
       manifests: [],
     },
+    questionQuality: createEmptySharedQuestionQualityState(),
   };
 }
 
 export function cloneSharedFormalResourceValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
-

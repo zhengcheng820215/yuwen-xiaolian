@@ -3,6 +3,13 @@ import { Link } from 'react-router-dom';
 
 const acceptanceItems = [
   {
+    to: '/phase17-5c1-semantic-quality-demo',
+    title: '题目语义质量评估验收',
+    description: '验证七项语义 Finding、语义警告保留、Provider 失败阻断与安全退出分支。',
+    provider: 'Scripted Provider 结果',
+    data: '不写 Shared Store',
+  },
+  {
     to: '/phase17-5-question-quality-demo',
     title: '题目质量审核验收',
     description: '验证质量通过、带提醒通过、建议修改与 Revision 失效四类审核边界。',

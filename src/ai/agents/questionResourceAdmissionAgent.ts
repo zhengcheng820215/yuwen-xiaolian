@@ -16,6 +16,7 @@ import {
   type QuestionResourceRubricItem,
   type QuestionResponseFormat,
   type QuestionSource,
+  type ResourceFreezeCommit,
   type ResourceFreezeResult,
   type ResourceRegistryConsistencyResult,
   type ResourceRegistryEntry,
@@ -375,6 +376,19 @@ export async function freezeQuestionResourceDraft(
     return { version: existing, registryEntry, inserted: false };
   }
 
+  const commit = await prepareQuestionResourceFreezeCommit(
+    repository,
+    draftId,
+    now,
+  );
+  return repository.commitFreeze(commit);
+}
+
+export async function prepareQuestionResourceFreezeCommit(
+  repository: QuestionResourceAdmissionRepository,
+  draftId: string,
+  now = new Date().toISOString(),
+): Promise<ResourceFreezeCommit> {
   const draft = await requireDraft(repository, draftId);
   if (draft.status !== 'reviewed') {
     throw new Error(`Only reviewed drafts can be frozen. Current status: ${draft.status}`);
@@ -434,11 +448,11 @@ export async function freezeQuestionResourceDraft(
   };
   const registryEntry = buildRegistryEntry(version, currentRegistry, now);
 
-  return repository.commitFreeze({
+  return {
     version,
     registryEntry,
     previousVersionId: currentRegistry?.currentFrozenVersionId,
-  });
+  };
 }
 
 export async function createNextQuestionResourceVersionDraft(
