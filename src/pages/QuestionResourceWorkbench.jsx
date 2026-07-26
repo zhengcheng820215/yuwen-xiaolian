@@ -388,7 +388,7 @@ export default function QuestionResourceWorkbench() {
       )}
 
       <main className={planReviewMode
-        ? 'mx-auto w-full max-w-[1360px] px-5 py-7 md:px-8 md:py-9'
+        ? 'mx-auto w-full max-w-[1200px] px-5 py-7 md:px-8 md:py-9'
         : 'mx-auto max-w-[1600px] px-4 pb-10 sm:px-6'}
       >
         <section className={planReviewMode

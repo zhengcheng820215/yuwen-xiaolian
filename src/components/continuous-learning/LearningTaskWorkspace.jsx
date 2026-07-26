@@ -56,7 +56,7 @@ export default function LearningTaskWorkspace({
                 type="button"
                 disabled={busy || draftStatus === 'saving'}
                 onClick={onSaveDraft}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-normal text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                className="flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-4 text-sm font-normal text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400"
               >
                 {draftStatus === 'saving' ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
                 {draftStatus === 'saving' ? '保存中…' : '保存草稿'}
@@ -65,7 +65,7 @@ export default function LearningTaskWorkspace({
                 type="button"
                 disabled={busy || draftStatus === 'saving'}
                 onClick={onSubmit}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-normal text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 text-sm font-normal text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
               >
                 {busy ? <RefreshCw className="animate-spin" size={16} /> : <ArrowRight size={16} />}
                 {busy ? '正在分析并保存' : '提交本轮回答'}

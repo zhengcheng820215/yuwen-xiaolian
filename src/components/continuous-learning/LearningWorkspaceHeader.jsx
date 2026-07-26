@@ -8,7 +8,7 @@ export default function LearningWorkspaceHeader({
 }) {
   return (
     <header className="sticky top-0 z-30 w-full border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className={`mx-auto flex min-h-16 max-w-[1208px] items-center px-4 py-2 md:px-6 ${onBack ? 'justify-between' : 'justify-end'}`}>
+      <div className={`mx-auto flex min-h-16 max-w-[1360px] items-center px-4 py-2 md:px-6 ${onBack ? 'justify-between' : 'justify-end'}`}>
         {onBack ? (
           <button
             type="button"

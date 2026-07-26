@@ -234,7 +234,7 @@ function CompletedRoundPanel({ state, busy, onContinue }) {
           type="button"
           disabled={!state.canContinue || busy}
           onClick={onContinue}
-          className="flex min-h-11 min-w-48 items-center justify-center gap-2 rounded-md bg-slate-900 px-5 text-sm font-normal text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+          className="flex min-h-11 min-w-48 items-center justify-center gap-2 rounded-md bg-emerald-600 px-5 text-sm font-normal text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
         >
           {busy ? <RefreshCw className="animate-spin" size={16} /> : <ArrowRight size={16} />}
           进入下一轮任务
@@ -277,7 +277,7 @@ function FinishedPanel({ state, busy, onReset, actionLabel }) {
           type="button"
           disabled={busy}
           onClick={onReset}
-          className="flex min-h-11 min-w-48 items-center justify-center gap-2 rounded-md bg-slate-900 px-5 text-sm font-normal text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+          className="flex min-h-11 min-w-48 items-center justify-center gap-2 rounded-md bg-emerald-600 px-5 text-sm font-normal text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
         >
           <RefreshCw size={16} />
           {actionLabel}
@@ -297,7 +297,7 @@ function ErrorRoundPanel({ state, busy, onRetry, onReset, resetLabel }) {
           type="button"
           disabled={busy}
           onClick={onReset}
-          className="min-h-11 min-w-40 rounded-md border border-slate-300 bg-white px-4 text-sm font-normal text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+          className="min-h-11 min-w-40 rounded-md border border-emerald-600 bg-white px-4 text-sm font-normal text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
         >
           {resetLabel}
         </button>
@@ -305,7 +305,7 @@ function ErrorRoundPanel({ state, busy, onRetry, onReset, resetLabel }) {
           type="button"
           disabled={busy || !state.answerDraft?.trim()}
           onClick={onRetry}
-          className="min-h-11 min-w-40 rounded-md bg-slate-900 px-4 text-sm font-normal text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+          className="min-h-11 min-w-40 rounded-md bg-emerald-600 px-4 text-sm font-normal text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
         >
           重试本轮
         </button>

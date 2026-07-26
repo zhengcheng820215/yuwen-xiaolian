@@ -73,13 +73,13 @@ export default function UnifiedLearningEntry() {
   return (
     <div className="min-h-screen bg-[#f7f9fc] text-slate-950">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex min-h-16 max-w-[1120px] items-center px-5 md:px-8">
+        <div className="mx-auto flex min-h-16 max-w-[1360px] items-center px-5 md:px-8">
           <BookOpen size={20} className="text-blue-600" />
           <span className="ml-3 text-lg font-semibold">学习</span>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1120px] px-5 py-10 md:px-8 md:py-14">
+      <main className="mx-auto w-full max-w-[1200px] px-5 py-10 md:px-8 md:py-14">
         {busy && !entry ? <LoadingState /> : null}
         {error ? <ErrorState message={error} onRetry={refreshEntry} /> : null}
         {entry && !error ? (

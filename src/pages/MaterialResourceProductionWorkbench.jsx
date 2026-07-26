@@ -631,7 +631,7 @@ export default function MaterialResourceProductionWorkbench() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1360px] px-5 py-7 md:px-8 md:py-9">
+      <main className="mx-auto w-full max-w-[1200px] px-5 py-7 md:px-8 md:py-9">
         {usesNonCanonicalLocalPort && (
           <div role="alert" className="mb-5 border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
             当前端口不是固定入口 5174。浏览器会分别保存不同端口的数据，请停止录入并改用
