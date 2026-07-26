@@ -15,7 +15,7 @@ implements QuestionQualityAssessmentRepository {
   ): Promise<QuestionQualityAssessment> {
     const existing = this.assessments.get(assessment.assessmentId);
     if (existing) {
-      if (JSON.stringify(existing) !== JSON.stringify(assessment)) {
+      if (!sameAssessment(existing, assessment)) {
         throw new Error(
           `Question quality assessment is immutable: ${assessment.assessmentId}`,
         );
@@ -68,4 +68,13 @@ function clone<T>(value: T): T {
 
 function cloneNullable<T>(value: T | undefined): T | null {
   return value === undefined ? null : clone(value);
+}
+
+function sameAssessment(
+  left: QuestionQualityAssessment,
+  right: QuestionQualityAssessment,
+): boolean {
+  const { assessedAt: _leftAssessedAt, ...leftIdentity } = left;
+  const { assessedAt: _rightAssessedAt, ...rightIdentity } = right;
+  return JSON.stringify(leftIdentity) === JSON.stringify(rightIdentity);
 }

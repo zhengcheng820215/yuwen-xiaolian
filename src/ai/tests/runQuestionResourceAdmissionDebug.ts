@@ -46,6 +46,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '20 AI-assisted draft never auto-freezes', run: caseAiDraftRequiresReview },
   { name: '21 version switch always keeps one formal head', run: caseVersionSwitchInvariant },
   { name: '22 rejected draft can create an auditable revision draft', run: caseRejectedRevisionDraft },
+  { name: '23 repeated validation reuses the immutable result', run: caseRepeatedValidationIsIdempotent },
 ];
 
 async function main(): Promise<void> {
@@ -83,6 +84,20 @@ async function caseValidDraft(): Promise<void> {
   const result = await validateStructuredQuestionDraft(repo, draft.draftId, NOW);
   assert(result.passed, 'Expected valid draft to pass.');
   assert(result.issues.every((issue) => issue.severity !== 'error'), 'Expected no validation errors.');
+}
+
+async function caseRepeatedValidationIsIdempotent(): Promise<void> {
+  const repo = await repositoryWithMaterial();
+  const draft = await createDraft(repo, 'repeat-validation');
+  const first = await validateStructuredQuestionDraft(repo, draft.draftId, NOW);
+  const second = await validateStructuredQuestionDraft(repo, draft.draftId, LATER);
+
+  assert(first.validationId === second.validationId, 'Validation identity changed.');
+  assert(first.checkedAt === second.checkedAt, 'Immutable validation was regenerated.');
+  assert(
+    (await repo.getDraft(draft.draftId))?.latestValidationId === first.validationId,
+    'Draft no longer points to the reused validation.',
+  );
 }
 
 async function caseRejectedRevisionDraft(): Promise<void> {

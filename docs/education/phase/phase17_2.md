@@ -1309,3 +1309,15 @@ Phase 17.2 Runtime 工程基础已经通过。开始首批 4 个核心 Material 
 4. 确认首批 Material 来源、版权和人工审核责任；
 5. 确认 24—28 道是受控范围：达到 24 道且关键链路成立即可停止，不得为了达到上限降低质量或继续扩题；
 6. 在正式录入前冻结 [首批正式资源包生产蓝图](./phase17_2_first_resource_pack_blueprint.md) 的 Batch A 规划行，能够解释每道题的 Observation、Ability、TaskRole、规划链和 Strategy 请求理由。
+## 2026-07-26 审核交接幂等修复
+
+素材资源录入平台到题目审核平台的真实交接已完成专项修复：
+
+- Observation Plan 预览校验与提交审核复用同一 Revision 的 Validation；
+- 点击“确认训练任务并进入题目审核”可正常进入逐题审核页面；
+- Question Resource Admission Debug 更新为 `23 / 23 PASS`；
+- Material Observation Debug 更新为 `27 / 27 PASS`；
+- Material Resource Production 回归保持 `13 / 13 PASS`。
+
+完整记录见：
+[Phase 17 训练任务到题目审核交接修复记录](./reports/phase17_review_handoff_idempotency_fix_2026-07-26.md)

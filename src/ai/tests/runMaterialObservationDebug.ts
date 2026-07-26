@@ -68,6 +68,7 @@ const cases: DebugCase[] = [
   { name: '24 one-Dimension Ability coverage is reported as biased', run: caseDimensionBias },
   { name: '25 planning and admission create no learner Evidence', run: caseNoLearnerEvidence },
   { name: '26 failed operations do not pollute formal resources', run: caseFailureNoPollution },
+  { name: '27 submitting after preview validation reuses immutable Validation', run: caseSubmitAfterPreviewValidation },
 ];
 
 async function main(): Promise<void> {
@@ -99,6 +100,28 @@ async function caseValidPlan() {
   const fixture = await createFixture();
   const validation = await validateAndSaveMaterialObservationPlan(fixture.resources, fixture.observations, fixture.plan.materialObservationPlanId, NOW);
   expect(validation.passed, codes(validation));
+}
+
+async function caseSubmitAfterPreviewValidation() {
+  const fixture = await createFixture();
+  const preview = await validateAndSaveMaterialObservationPlan(
+    fixture.resources,
+    fixture.observations,
+    fixture.plan.materialObservationPlanId,
+    NOW,
+  );
+  const submitted = await submitMaterialObservationPlanForReview(
+    fixture.resources,
+    fixture.observations,
+    fixture.plan.materialObservationPlanId,
+    LATER,
+  );
+  const validations = await fixture.observations.listValidations(fixture.plan.materialObservationPlanId);
+
+  expect(submitted.status === 'pending_review', 'Validated Plan did not enter pending_review.');
+  expect(validations.length === 1, 'Preview validation was duplicated during submit.');
+  expect(validations[0].validationId === preview.validationId, 'Submit did not reuse current immutable Validation.');
+  expect(validations[0].checkedAt === NOW, 'Submit silently replaced the original Validation record.');
 }
 
 async function caseInvalidDimension() {

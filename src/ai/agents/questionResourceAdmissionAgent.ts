@@ -284,6 +284,20 @@ export async function validateStructuredQuestionDraft(
     checkedAt: now,
   };
 
+  const existing = await repository.getValidation(validationId);
+  if (existing) {
+    if (draft.latestValidationId !== validationId) {
+      await repository.saveDraft({
+        ...draft,
+        status: existing.passed ? 'drafted' : 'validation_failed',
+        latestValidationId: validationId,
+        latestReviewId: undefined,
+        updatedAt: now,
+      });
+    }
+    return clone(existing);
+  }
+
   await repository.saveValidation(result);
   await repository.saveDraft({
     ...draft,

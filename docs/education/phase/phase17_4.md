@@ -447,3 +447,13 @@ Production Build                                  PASS
 因此当前准确状态是：
 
 > Phase 17.4A 工程实现、自动化 Debug 与标准浏览器正式基线切换已通过；共享存储已成为正式资源来源。规模化录题前仍需完成内置浏览器快照备份和双浏览器人工一致性确认。
+## 2026-07-26 Shared Store 生命周期 Revision 对齐
+
+Phase 17.4A Repository 已补充同一内容 Revision 下的生命周期转换规则：
+
+- 允许 `draft -> pending_review` 等不改变 Plan 内容的合法状态转换；
+- 继续阻断同一 Revision 下对 Material、Task Plan 等正式内容的静默修改；
+- Phase 17.4A Shared Resource Persistence Debug 更新为 `10 / 10 PASS`。
+
+完整记录见：
+[Phase 17 训练任务到题目审核交接修复记录](./reports/phase17_review_handoff_idempotency_fix_2026-07-26.md)

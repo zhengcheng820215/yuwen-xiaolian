@@ -751,3 +751,14 @@ Demo 直接消费正式 `QuestionQualityAssessment` 规则，不使用固定结�
 当前结论：
 
 > Phase 17.5B 已完成工程 Debug、生产构建、浏览器冒烟与人工 Demo 验收。Demo 证明质量评估结果能够被审核流程正确消费，并能在 Draft Revision 改变后阻断旧评估；它不代表题目已自动审核通过，也不改变人工审核与 Freeze 的职责边界。
+## 2026-07-26 审核页质量评估并发幂等修复
+
+题目审核页重复加载同一 Draft Revision 时，质量评估现在保持单一正式身份：
+
+- 仅评估时间不同的同内容重复请求复用第一次 Assessment；
+- Decision、Checks 或 Warnings 不同的同身份写入仍然阻断；
+- Question Quality Assessment Debug 保持 `12 / 12 PASS`，并强化并发重复写入验收；
+- 浏览器验证中 3 道待审核题目正常加载，不再显示 immutable conflict。
+
+完整记录见：
+[Phase 17 训练任务到题目审核交接修复记录](./reports/phase17_review_handoff_idempotency_fix_2026-07-26.md)

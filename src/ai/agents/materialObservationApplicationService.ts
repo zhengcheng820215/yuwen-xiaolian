@@ -286,6 +286,8 @@ export async function validateAndSaveMaterialObservationPlan(
     observationRepository.listAnchors(plan.materialVersionId),
   ]);
   const validation = validateMaterialObservationPlan({ plan, material, structure, anchors, checkedAt: now });
+  const existing = await observationRepository.getValidation(validation.validationId);
+  if (existing) return existing;
   await observationRepository.saveValidation(validation);
   if (!validation.passed && plan.status !== 'reviewed') {
     await observationRepository.savePlan({ ...plan, status: 'revision_required', updatedAt: now });

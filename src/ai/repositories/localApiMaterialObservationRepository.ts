@@ -39,7 +39,10 @@ export class LocalApiMaterialObservationRepository implements MaterialObservatio
       if (existing.status === 'reviewed') {
         throw new Error('Reviewed MaterialObservationPlan is immutable. Create a new revision.');
       }
-      if (value.revision <= existing.revision) {
+      if (
+        value.revision < existing.revision
+        || (value.revision === existing.revision && !samePlanContent(existing, value))
+      ) {
         throw new Error(`Material Observation Plan revision conflict: ${value.materialObservationPlanId}`);
       }
     }
@@ -143,4 +146,19 @@ type ObservationCollections = {
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function samePlanContent(left: MaterialObservationPlan, right: MaterialObservationPlan): boolean {
+  const omitLifecycle = (value: MaterialObservationPlan) => {
+    const {
+      status: _status,
+      reviewerId: _reviewerId,
+      reviewNote: _reviewNote,
+      reviewedAt: _reviewedAt,
+      updatedAt: _updatedAt,
+      ...content
+    } = value;
+    return content;
+  };
+  return JSON.stringify(omitLifecycle(left)) === JSON.stringify(omitLifecycle(right));
 }

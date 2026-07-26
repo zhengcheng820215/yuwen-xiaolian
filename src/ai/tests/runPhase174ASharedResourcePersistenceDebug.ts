@@ -11,6 +11,7 @@ import {
   validateStructuredQuestionDraft,
 } from '../agents/questionResourceAdmissionAgent.ts';
 import { LocalApiFormalResourceClient } from '../repositories/localApiFormalResourceClient.ts';
+import { LocalApiMaterialObservationRepository } from '../repositories/localApiMaterialObservationRepository.ts';
 import { LocalApiQuestionResourceAdmissionRepository } from '../repositories/localApiQuestionResourceAdmissionRepository.ts';
 import {
   cloneSharedFormalResourceValue,
@@ -18,6 +19,7 @@ import {
   type SharedFormalResourceData,
 } from '../schemas/sharedFormalResourcePersistence.schema.ts';
 import type { CreateStructuredQuestionDraftInput } from '../agents/questionResourceAdmissionAgent.ts';
+import type { MaterialObservationPlan } from '../schemas/materialObservation.schema.ts';
 import { createSharedFormalResourceBoundary } from '../../server/sharedFormalResourceBoundary.ts';
 import { SharedFormalResourceStore } from '../../server/sharedFormalResourceStore.ts';
 
@@ -32,6 +34,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: 'A7 baseline import is explicit and identity-safe', run: caseBaselineImportSafety },
   { name: 'A8 failed commit rolls back without partial state', run: caseFailedCommitRollback },
   { name: 'A9 split UTF-8 request chunks preserve Chinese content', run: caseSplitUtf8Request },
+  { name: 'A10 Plan lifecycle transitions preserve the content revision', run: casePlanLifecycleTransition },
 ];
 
 async function main(): Promise<void> {
@@ -139,6 +142,30 @@ async function caseIdempotentWrites(): Promise<void> {
     assert(first.version.resourceVersionId === second.version.resourceVersionId, 'Freeze retry changed identity.');
     assert(!second.inserted, 'Freeze retry must report inserted=false.');
     assert((await repository.listVersions()).length === 1, 'Freeze retry created a duplicate version.');
+  });
+}
+
+async function casePlanLifecycleTransition(): Promise<void> {
+  await withRuntime(async ({ clientA }) => {
+    await clientA.initialize(createEmptySharedFormalResourceData(), 'browser-a-manual-baseline');
+    const repository = new LocalApiMaterialObservationRepository(clientA);
+    const plan = materialObservationPlanFixture();
+    await repository.savePlan(plan);
+    const submitted = await repository.savePlan({
+      ...plan,
+      status: 'pending_review',
+      updatedAt: '2026-07-24T09:05:00.000Z',
+    });
+
+    assert(submitted.status === 'pending_review', 'Lifecycle transition was blocked as a content conflict.');
+    assert(submitted.revision === plan.revision, 'Lifecycle transition changed the content revision.');
+    await assertRejects(
+      () => repository.savePlan({
+        ...submitted,
+        materialVersionId: 'material-plan:v2',
+      }),
+      'revision conflict',
+    );
   });
 }
 
@@ -461,6 +488,22 @@ function materialFixture(materialVersionId: string, title: string) {
     createdAt: NOW,
     updatedAt: NOW,
     schemaVersion: 'question-resource-admission-v1' as const,
+  };
+}
+
+function materialObservationPlanFixture(): MaterialObservationPlan {
+  return {
+    materialObservationPlanId: 'material-observation-plan-lifecycle',
+    materialId: 'material-plan',
+    materialVersionId: 'material-plan:v1',
+    materialStructureSnapshotId: 'material-structure-plan',
+    revision: 1,
+    status: 'draft',
+    dimensionReviews: [],
+    taskPlans: [],
+    createdAt: NOW,
+    updatedAt: NOW,
+    schemaVersion: 'material_observation_plan_v1',
   };
 }
 

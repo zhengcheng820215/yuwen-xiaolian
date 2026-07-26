@@ -272,10 +272,17 @@ async function caseRevisionInvalidation(): Promise<void> {
 async function caseRepositoryGuarantees(): Promise<void> {
   const fixture = await validFixture('repository');
   const repository = new InMemoryQuestionQualityAssessmentRepository();
-  const saved = await assessAndSaveQuestionDraftQuality(repository, fixture);
-  const duplicate = await assessAndSaveQuestionDraftQuality(repository, fixture);
+  const saved = await assessAndSaveQuestionDraftQuality(repository, {
+    ...fixture,
+    assessedAt: NOW,
+  });
+  const duplicate = await assessAndSaveQuestionDraftQuality(repository, {
+    ...fixture,
+    assessedAt: LATER,
+  });
 
   assert(saved.assessmentId === duplicate.assessmentId, 'Idempotent save changed assessment identity.');
+  assert(duplicate.assessedAt === NOW, 'Duplicate save replaced the original assessment timestamp.');
   assert(
     (await repository.listAssessmentsForDraft(fixture.draft.draftId)).length === 1,
     'Duplicate save created another record.',
@@ -290,6 +297,10 @@ async function caseRepositoryGuarantees(): Promise<void> {
   });
   const stored = await repository.getAssessment(saved.assessmentId);
   assert(stored?.warnings.length === 0, 'Repository record was mutated through returned value.');
+  await assertRejects(
+    () => repository.saveAssessment(saved),
+    'Question quality assessment is immutable',
+  );
 }
 
 async function caseSchemaGuard(): Promise<void> {
