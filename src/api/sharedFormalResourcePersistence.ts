@@ -1,8 +1,13 @@
 import { IndexedDBMaterialObservationRepository } from '../ai/repositories/indexedDBMaterialObservationRepository.ts';
 import { IndexedDBQuestionResourceAdmissionRepository } from '../ai/repositories/indexedDBQuestionResourceAdmissionRepository.ts';
 import { LocalApiFormalResourceClient } from '../ai/repositories/localApiFormalResourceClient.ts';
+import {
+  createEmptySharedQuestionQualityState,
+} from '../ai/schemas/questionQualityPersistence.schema.ts';
 import type {
   SharedFormalResourceData,
+  SharedMaterialObservationState,
+  SharedQuestionResourceState,
   SharedFormalResourceStatus,
 } from '../ai/schemas/sharedFormalResourcePersistence.schema.ts';
 
@@ -38,7 +43,10 @@ export async function exportCurrentBrowserFormalResourceBaseline(
   return {
     source,
     exportedAt: new Date().toISOString(),
-    data: { questionResources, materialObservations },
+    data: buildSharedFormalResourceBaselineData(
+      questionResources,
+      materialObservations,
+    ),
     counts: {
       materials: questionResources.materials.length,
       plans: materialObservations.plans.length,
@@ -53,12 +61,36 @@ export async function exportCurrentBrowserFormalResourceBaseline(
 export async function initializeSharedFormalResourceBaseline(
   baseline: LegacyFormalResourceBaseline,
 ): Promise<SharedFormalResourceStatus> {
-  assertBaselineIdentityIntegrity(baseline.data);
+  const data = normalizeSharedFormalResourceBaselineData(baseline.data);
+  assertBaselineIdentityIntegrity(data);
   const result = await client.initialize(
-    baseline.data,
+    data,
     `${baseline.source} @ ${baseline.exportedAt}`,
   );
   return result.status;
+}
+
+export function buildSharedFormalResourceBaselineData(
+  questionResources: SharedQuestionResourceState,
+  materialObservations: SharedMaterialObservationState,
+): SharedFormalResourceData {
+  return {
+    questionResources,
+    materialObservations,
+    questionQuality: createEmptySharedQuestionQualityState(),
+  };
+}
+
+export function normalizeSharedFormalResourceBaselineData(
+  data: SharedFormalResourceData,
+): SharedFormalResourceData {
+  return {
+    ...data,
+    questionQuality: {
+      ...createEmptySharedQuestionQualityState(),
+      ...(data.questionQuality || {}),
+    },
+  };
 }
 
 export function downloadFormalResourceBaseline(
@@ -89,6 +121,14 @@ export function assertBaselineIdentityIntegrity(data: SharedFormalResourceData):
   assertUniqueIdentity(data.materialObservations.reviews, 'reviewId');
   assertUniqueIdentity(data.materialObservations.links, 'resourceObservationLinkId');
   assertUniqueIdentity(data.materialObservations.manifests, 'resourcePackId');
+  assertUniqueIdentity(data.questionQuality.deterministicAssessments, 'assessmentId');
+  assertUniqueIdentity(data.questionQuality.semanticAssessments, 'semanticAssessmentId');
+  assertUniqueIdentity(data.questionQuality.assessmentBundles, 'bundleId');
+  assertUniqueIdentity(data.questionQuality.frozenQualityTraces, 'traceId');
+  assertUniqueIdentity(data.questionQuality.batchManifests, 'batchId');
+  assertUniqueIdentity(data.questionQuality.batchSummaries, 'summaryId');
+  assertUniqueIdentity(data.questionQuality.calibrationManifests, 'calibrationSetId');
+  assertUniqueIdentity(data.questionQuality.calibrationReports, 'reportId');
 }
 
 function assertUniqueIdentity<T extends object>(values: T[], key: keyof T): void {
@@ -108,4 +148,3 @@ function describeCurrentBrowserSource(): string {
   if (typeof navigator === 'undefined' || typeof window === 'undefined') return 'unknown-browser';
   return `${navigator.userAgent} | ${window.location.origin}`;
 }
-

@@ -22,6 +22,11 @@ import type { CreateStructuredQuestionDraftInput } from '../agents/questionResou
 import type { MaterialObservationPlan } from '../schemas/materialObservation.schema.ts';
 import { createSharedFormalResourceBoundary } from '../../server/sharedFormalResourceBoundary.ts';
 import { SharedFormalResourceStore } from '../../server/sharedFormalResourceStore.ts';
+import {
+  assertBaselineIdentityIntegrity,
+  buildSharedFormalResourceBaselineData,
+  normalizeSharedFormalResourceBaselineData,
+} from '../../api/sharedFormalResourcePersistence.ts';
 
 const NOW = '2026-07-24T09:00:00.000Z';
 const cases: Array<{ name: string; run: () => Promise<void> }> = [
@@ -238,15 +243,55 @@ async function caseBaselineImportSafety(): Promise<void> {
     );
     assert(!(await invalidStore.getStatus()).initialized, 'Rejected baseline initialized the store.');
 
-    const valid = createEmptySharedFormalResourceData();
-    valid.questionResources.materials.push(materialFixture('material-valid:v1', 'valid'));
+    const legacy = createEmptySharedFormalResourceData();
+    legacy.questionResources.materials.push(materialFixture('material-valid:v1', 'valid'));
+    const { questionQuality: _quality, ...legacyWithoutQuality } = legacy;
+    const valid = normalizeSharedFormalResourceBaselineData(
+      legacyWithoutQuality as SharedFormalResourceData,
+    );
+    assert(
+      valid.questionQuality.deterministicAssessments.length === 0 &&
+      valid.questionQuality.semanticAssessments.length === 0 &&
+      valid.questionQuality.assessmentBundles.length === 0 &&
+      valid.questionQuality.frozenQualityTraces.length === 0 &&
+      valid.questionQuality.batchManifests.length === 0 &&
+      valid.questionQuality.batchSummaries.length === 0 &&
+      valid.questionQuality.calibrationManifests.length === 0 &&
+      valid.questionQuality.calibrationReports.length === 0,
+      'Legacy baseline did not receive a complete empty quality state.',
+    );
+    assertBaselineIdentityIntegrity(valid);
+
     const validStore = new SharedFormalResourceStore({
       storePath: join(directory, 'valid.json'),
     });
     const initialized = await validStore.initialize(valid, 'manually-selected-browser-a');
     assert(initialized.baselineSource === 'manually-selected-browser-a', 'Baseline source was not recorded.');
     assert(initialized.data.questionResources.materials.length === 1, 'Valid baseline was not imported.');
+    assert(
+      initialized.data.questionQuality.deterministicAssessments.length === 0,
+      'Initialized baseline did not preserve the normalized quality state.',
+    );
     assert((await validStore.getStatus()).backupAvailable, 'Initialized baseline backup was not created.');
+
+    const generated = buildSharedFormalResourceBaselineData(
+      createEmptySharedFormalResourceData().questionResources,
+      createEmptySharedFormalResourceData().materialObservations,
+    );
+    assert(
+      Object.keys(generated.questionQuality).length === 8,
+      'Fresh baseline export does not contain the complete quality state.',
+    );
+
+    const duplicateQualityIdentity = cloneSharedFormalResourceValue(generated);
+    duplicateQualityIdentity.questionQuality.deterministicAssessments = [
+      { assessmentId: 'assessment-conflict', marker: 'first' },
+      { assessmentId: 'assessment-conflict', marker: 'second' },
+    ] as never[];
+    await assertRejects(
+      async () => assertBaselineIdentityIntegrity(duplicateQualityIdentity),
+      '同一 ID 存在不同内容',
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

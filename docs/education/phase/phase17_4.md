@@ -4,11 +4,13 @@
 
 设计状态：ACCEPTED
 
-工程状态：17.4A ENGINEERING + AUTOMATED DEBUG + STANDARD-BROWSER BASELINE CUTOVER PASS / DUAL-BROWSER HUMAN CHECK PENDING；17.4B PLANNED
+工程状态：17.4A ENGINEERING + AUTOMATED DEBUG + STANDARD-BROWSER BASELINE CUTOVER + FRESH BASELINE QUALITY INITIALIZATION + CONTROLLED DUAL-CLIENT HUMAN CHECK PASS / INDEPENDENT BROWSER-KERNEL CONFIRMATION PENDING；17.4B PLANNED
 
 优先级：17.4A P1（继续规模化录题前完成）/ 17.4B P2
 
 所属总纲：[Phase 17：学习资源覆盖扩展与基于材料的能力观测基础](./phase17.md)
+
+最新验收记录：[Phase 17.4A 受控双端人工验收记录（2026-07-27）](./reports/phase17_4a_controlled_dual_client_human_acceptance_2026-07-27.md)
 
 前置阶段：
 
@@ -437,16 +439,25 @@ Production Build                                  PASS
 - 修复后已恢复受影响字段，正式资源中不存在 Unicode 替换字符；
 - 当前共享数据包含 6 篇学习材料、6 个训练计划、23 个训练任务、9 个题目 Draft、9 个 Frozen Version、9 个 Registry Entry 与 9 个 Observation Link。
 
+2026-07-27 受控双端人工检查已完成：
+
+- 全新基线初始化与 `questionQuality` 补齐通过；
+- A 端写入、B 端读取通过；
+- B 端发布、A 端读取通过；
+- 旧 Revision 写入返回 HTTP `409`；
+- 重启开发服务后共享正式资源保持；
+- 验收临时素材已清理。
+
 当前仍未完成：
 
-- 导出并保留内置浏览器旧数据快照；
-- 使用真实两个浏览器完成相同计数、Stable ID 与 Registry Head 的视觉确认；
-- 完成一次“一端新增、另一端刷新可见”的人工验收；
-- 重启真实开发服务后确认共享正式资源保持。
+- 使用内置浏览器与一个独立标准浏览器内核完成最终视觉确认；
+- 核对两端相同计数、Stable ID 与 Registry Head；
+- 在独立浏览器内核之间完成一次“一端新增、另一端刷新可见”。
 
 因此当前准确状态是：
 
-> Phase 17.4A 工程实现、自动化 Debug 与标准浏览器正式基线切换已通过；共享存储已成为正式资源来源。规模化录题前仍需完成内置浏览器快照备份和双浏览器人工一致性确认。
+> Phase 17.4A 工程实现、自动化 Debug、标准浏览器正式基线切换、全新基线初始化与受控双端人工检查已通过；共享存储已成为正式资源来源。规模化录题或宣称阶段最终完成前，仍需补一次独立浏览器内核一致性确认。
+
 ## 2026-07-26 Shared Store 生命周期 Revision 对齐
 
 Phase 17.4A Repository 已补充同一内容 Revision 下的生命周期转换规则：
