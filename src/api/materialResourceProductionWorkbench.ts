@@ -162,6 +162,12 @@ export async function retireProductionMaterial(
   return resourceRepository.setMaterialStatus(materialVersionId, 'retired');
 }
 
+export async function reactivateProductionMaterial(
+  materialVersionId: string,
+): Promise<QuestionMaterialVersion> {
+  return resourceRepository.setMaterialStatus(materialVersionId, 'active');
+}
+
 export async function createProductionObservationPlan(input: {
   materialVersionId: string;
   tasks: MaterialProductionTaskInput[];

@@ -1,5 +1,7 @@
 import {
+  buildMaterialResourceWorkbenchDetails,
   isPlanFullyPublished,
+  scopeMaterialResourceWorkbenchDetails,
   selectCurrentPlanDrafts,
   summarizeMaterialResourceWorkbench,
 } from '../../pages/materialResourceWorkbenchState.ts';
@@ -16,8 +18,20 @@ function check(name: string, condition: boolean, detail: string): void {
   cases.push({ name, passed: condition, detail });
 }
 
-const taskA = { observationTaskPlanId: 'task-a' };
-const taskB = { observationTaskPlanId: 'task-b' };
+const taskA = {
+  observationTaskPlanId: 'task-a',
+  observationGoal: '任务 A',
+  abilityId: 'analysis',
+  taskRole: 'training',
+  difficulty: 'intermediate',
+};
+const taskB = {
+  observationTaskPlanId: 'task-b',
+  observationGoal: '任务 B',
+  abilityId: 'comprehension',
+  taskRole: 'training',
+  difficulty: 'basic',
+};
 const planV1 = {
   materialObservationPlanId: 'plan-v1',
   materialVersionId: 'material:v1',
@@ -99,7 +113,10 @@ check(
 );
 
 const snapshot = {
-  materials: [{ materialVersionId: 'material:v1' }],
+  materials: [
+    { materialVersionId: 'material:v1', title: '测试材料', status: 'active' },
+    { materialVersionId: 'material:v2', title: '另一篇材料', status: 'active' },
+  ],
   plans: [planV1, planV2],
   drafts: [
     oldDraftA,
@@ -124,12 +141,15 @@ const snapshot = {
   ],
   anchors: [],
   validations: [],
-  frozenVersions: [],
+  frozenVersions: [
+    frozenVersion('resource-a:v2', 'material:v1', '分析题'),
+    frozenVersion('resource-b:v1', 'material:v1', '理解题'),
+  ],
   draftReadiness: [],
 };
 const summary = summarizeMaterialResourceWorkbench(snapshot as never);
 check(
-  '04 顶部任务数只统计每篇素材的最新计划',
+  '04 汇总任务数只统计每篇素材的最新计划',
   summary.learningTaskCount === 2,
   `learningTaskCount=${summary.learningTaskCount}`,
 );
@@ -137,6 +157,34 @@ check(
   '05 待审核与已发布按当前资源去重',
   summary.pendingReviewCount === 1 && summary.publishedResourceCount === 2,
   `pending=${summary.pendingReviewCount}, published=${summary.publishedResourceCount}`,
+);
+const details = buildMaterialResourceWorkbenchDetails(snapshot as never);
+check(
+  '06 汇总数字与可查看明细数量一致',
+  details.materials.length === summary.materialCount
+    && details.learningTasks.length === summary.learningTaskCount
+    && details.pendingReviews.length === summary.pendingReviewCount
+    && details.publishedResources.length === summary.publishedResourceCount,
+  `materials=${details.materials.length}, tasks=${details.learningTasks.length}, pending=${details.pendingReviews.length}, published=${details.publishedResources.length}`,
+);
+check(
+  '07 待审核明细只保留当前资源版本',
+  details.pendingReviews[0]?.draftId === 'draft-b-v1',
+  `pendingDraft=${details.pendingReviews[0]?.draftId}`,
+);
+check(
+  '08 学习材料明细包含已规划任务数量',
+  details.materials[0]?.plannedTaskCount === 2,
+  `plannedTaskCount=${details.materials[0]?.plannedTaskCount}`,
+);
+const scopedDetails = scopeMaterialResourceWorkbenchDetails(details, 'material:v1');
+check(
+  '09 当前素材统计不混入其他素材',
+  scopedDetails.materials.length === 1
+    && scopedDetails.learningTasks.length === 2
+    && scopedDetails.pendingReviews.length === 1
+    && scopedDetails.publishedResources.length === 2,
+  `materials=${scopedDetails.materials.length}, tasks=${scopedDetails.learningTasks.length}, pending=${scopedDetails.pendingReviews.length}, published=${scopedDetails.publishedResources.length}`,
 );
 
 console.log('Phase 17.2 Material Resource Workbench State Debug');
@@ -163,6 +211,16 @@ function draft(input: {
 }) {
   return {
     ...input,
+    materialVersionId: 'material:v1',
+    title: `题目 ${input.taskId}`,
+    questionStem: `题干 ${input.taskId}`,
+    abilityMetadata: {
+      abilityId: 'analysis',
+      supportingAbilityIds: [],
+      prerequisiteAbilityIds: [],
+      taskRole: 'training',
+      difficulty: 'intermediate',
+    },
     revision: 1,
     tags: [
       ...(input.phase17 === false ? [] : ['phase17.2']),
@@ -193,5 +251,18 @@ function link(
     resourceId,
     resourceVersionId,
     status,
+  };
+}
+
+function frozenVersion(resourceVersionId: string, materialVersionId: string, title: string) {
+  return {
+    resourceVersionId,
+    materialVersionId,
+    title,
+    questionStem: title,
+    abilityMetadata: {
+      abilityId: 'analysis',
+      taskRole: 'training',
+    },
   };
 }

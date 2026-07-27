@@ -60,11 +60,11 @@ Debug / Acceptance Report
 | 控制项 | 产品负责人视图 |
 | --- | --- |
 | 为什么需要 | Runtime 已能诊断和调度，但缺少足够真实正式内容。 |
-| 使用者变化 | 学生可持续做真实题；内容人员从 Material 和 Observation 开始审核 AI 首稿，再将 Question 作为可执行入口完成 Review / Freeze；验收人员可追溯来源。 |
+| 使用者变化 | 学生可持续做真实题；内容人员通过“已有素材 / 录入新素材 / 已停用素材”三个明确模式管理 Material，再只处理当前素材的待审核题目、已发布练习与 AI 首稿；停用素材可逐条恢复且不丢失历史；最后将 Question 作为可执行入口完成 Review / Freeze；验收人员可追溯来源。 |
 | 只做 | 4 个核心 Cluster、1—2 个独立新材料 Cluster、24—28 道正式资源、四条纵向链和一条跨 Ability 路径。 |
 | 不做 | 不新增正式教育判断 Agent、Repository 或 `chainId`；辅助 Draft Generator 只执行“发现新 Observation”，替代题、重复题与材料不支持项不得增加 Coverage 或批量导入；不具备 Review / Freeze 权威；不重构工作台；不建设完整 CMS。 |
 | 产品级 PASS | ① 24—28 道全部 Review / Freeze / Registry / Link；② 六项 Ability 均有正式资源；③ 两条 Retest、两条 Transfer、一条跨 Ability 路径可查询；④ 核心题 Rubric、Acceptance 与答案 Fixture 通过；⑤ 无明显低质量或错位题。 |
-| 演示路径 | Batch A Material -> Observation Plan -> Question / Rubric / Acceptance -> Review -> Freeze -> Registry -> Link -> Runtime Query。 |
+| 演示路径 | 选择或保存 Batch A Material -> 核对当前素材的待审核题目与已发布练习 -> Observation Plan -> Question / Rubric / Acceptance -> Review -> Freeze -> Registry -> Link -> Runtime Query；另选一条已停用素材执行重新启用，确认历史关系保留并返回已有素材库存。未选择 Material 时不显示下游生产模块。 |
 | FAIL 先查 | 题目与 Rubric：内容；Freeze / Registry / Link：Runtime；录入审核困难：交互。 |
 | 证据 | [Phase 17.2](../education/phase/phase17_2.md) · [生产蓝图](../education/phase/phase17_2_first_resource_pack_blueprint.md) · [辅助首稿生成验收](../education/phase/reports/phase17_2_assisted_draft_generation_engineering_2026-07-23.md) |
 

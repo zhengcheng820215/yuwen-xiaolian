@@ -25,6 +25,43 @@ export type MaterialResourceWorkbenchSummary = {
   publishedResourceCount: number;
 };
 
+export type MaterialResourceWorkbenchDetails = {
+  materials: Array<{
+    materialVersionId: string;
+    title: string;
+    plannedTaskCount: number;
+  }>;
+  learningTasks: Array<{
+    observationTaskPlanId: string;
+    materialObservationPlanId: string;
+    materialVersionId: string;
+    materialTitle: string;
+    title: string;
+    abilityId: string;
+    taskRole: string;
+    difficulty: string;
+  }>;
+  pendingReviews: Array<{
+    draftId: string;
+    materialObservationPlanId: string;
+    materialVersionId: string;
+    materialTitle: string;
+    title: string;
+    abilityId: string;
+    status: QuestionResourceDraftStatus;
+  }>;
+  publishedResources: Array<{
+    resourceId: string;
+    resourceVersionId: string;
+    materialObservationPlanId: string;
+    materialVersionId: string;
+    materialTitle: string;
+    title: string;
+    abilityId: string;
+    taskRole: string;
+  }>;
+};
+
 export function selectCurrentPlanDrafts(
   plan: MaterialObservationPlan | null,
   drafts: StructuredQuestionDraft[],
@@ -84,6 +121,107 @@ export function summarizeMaterialResourceWorkbench(
   };
 }
 
+export function buildMaterialResourceWorkbenchDetails(
+  snapshot: MaterialResourceProductionSnapshot,
+): MaterialResourceWorkbenchDetails {
+  const materialByVersionId = new Map(
+    snapshot.materials.map((material) => [material.materialVersionId, material]),
+  );
+  const latestPlans = selectLatestPlansByMaterial(snapshot.plans);
+  const latestPlanByMaterialVersionId = new Map(
+    latestPlans.map((plan) => [plan.materialVersionId, plan]),
+  );
+  const currentDrafts = selectLatestDraftsByResource(
+    snapshot.drafts.filter((draft) => draft.tags.includes('phase17.2')),
+  );
+  const frozenByVersionId = new Map(
+    snapshot.frozenVersions.map((version) => [version.resourceVersionId, version]),
+  );
+  const activePublishedByResource = new Map<string, ResourceObservationLink>();
+
+  for (const link of snapshot.links) {
+    if (link.status === 'active' && !activePublishedByResource.has(link.resourceId)) {
+      activePublishedByResource.set(link.resourceId, link);
+    }
+  }
+
+  return {
+    materials: snapshot.materials
+      .filter((material) => material.status !== 'retired')
+      .map((material) => ({
+        materialVersionId: material.materialVersionId,
+        title: material.title,
+        plannedTaskCount: latestPlanByMaterialVersionId.get(material.materialVersionId)?.taskPlans.length || 0,
+      })),
+    learningTasks: latestPlans.flatMap((plan) => {
+      const materialTitle = materialByVersionId.get(plan.materialVersionId)?.title || '未命名材料';
+      return plan.taskPlans.map((task) => ({
+        observationTaskPlanId: task.observationTaskPlanId,
+        materialObservationPlanId: plan.materialObservationPlanId,
+        materialVersionId: plan.materialVersionId,
+        materialTitle,
+        title: task.resourceDraftSpecification?.title || task.observationGoal,
+        abilityId: task.abilityId,
+        taskRole: task.taskRole,
+        difficulty: task.difficulty,
+      }));
+    }),
+    pendingReviews: currentDrafts
+      .filter((draft) => REVIEW_PENDING_STATUSES.has(draft.status))
+      .map((draft) => ({
+        draftId: draft.draftId,
+        materialObservationPlanId: tagValue(draft.tags, 'observation_plan:'),
+        materialVersionId: draft.materialVersionId || '',
+        materialTitle: materialByVersionId.get(draft.materialVersionId || '')?.title || '未命名材料',
+        title: draft.questionStem || draft.title,
+        abilityId: draft.abilityMetadata.abilityId,
+        status: draft.status,
+      })),
+    publishedResources: [...activePublishedByResource.values()].map((link) => {
+      const version = frozenByVersionId.get(link.resourceVersionId);
+      const materialVersionId = version?.materialVersionId || '';
+      return {
+        resourceId: link.resourceId,
+        resourceVersionId: link.resourceVersionId,
+        materialObservationPlanId: link.materialObservationPlanId,
+        materialVersionId,
+        materialTitle: materialByVersionId.get(materialVersionId)?.title || '未命名材料',
+        title: version?.questionStem || version?.title || '未命名练习',
+        abilityId: version?.abilityMetadata.abilityId || '',
+        taskRole: version?.abilityMetadata.taskRole || '',
+      };
+    }),
+  };
+}
+
+export function scopeMaterialResourceWorkbenchDetails(
+  details: MaterialResourceWorkbenchDetails,
+  materialVersionId: string,
+): MaterialResourceWorkbenchDetails {
+  if (!materialVersionId) {
+    return {
+      materials: [],
+      learningTasks: [],
+      pendingReviews: [],
+      publishedResources: [],
+    };
+  }
+  return {
+    materials: details.materials.filter(
+      (item) => item.materialVersionId === materialVersionId,
+    ),
+    learningTasks: details.learningTasks.filter(
+      (item) => item.materialVersionId === materialVersionId,
+    ),
+    pendingReviews: details.pendingReviews.filter(
+      (item) => item.materialVersionId === materialVersionId,
+    ),
+    publishedResources: details.publishedResources.filter(
+      (item) => item.materialVersionId === materialVersionId,
+    ),
+  };
+}
+
 function selectLatestPlansByMaterial(
   plans: MaterialObservationPlan[],
 ): MaterialObservationPlan[] {
@@ -127,6 +265,10 @@ function compareMostRecent(
   }
   if (left.revision !== right.revision) return right.revision - left.revision;
   return right.updatedAt.localeCompare(left.updatedAt);
+}
+
+function tagValue(tags: string[], prefix: string): string {
+  return tags.find((tag) => tag.startsWith(prefix))?.slice(prefix.length) || '';
 }
 
 export function activeLinksForPlan(

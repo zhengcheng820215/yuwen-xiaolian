@@ -28,6 +28,7 @@ import {
   loadPhase17BatchAPlansForReview,
   loadTongguanCalibrationPlanForReview,
   normalizeMaterialContent,
+  reactivateProductionMaterial,
   retireProductionMaterial,
   submitProductionObservationPlan,
 } from '../api/materialResourceProductionWorkbench.ts';
@@ -44,9 +45,10 @@ import {
 import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
 import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
 import {
+  buildMaterialResourceWorkbenchDetails,
   isPlanFullyPublished,
+  scopeMaterialResourceWorkbenchDetails,
   selectCurrentPlanDrafts,
-  summarizeMaterialResourceWorkbench,
 } from './materialResourceWorkbenchState.ts';
 
 const dimensionOptions = [
@@ -94,6 +96,12 @@ const statusLabels = {
   draft: '未提交审核', pending_review: '等待审核', revision_required: '需要修订',
   reviewed: '计划已审核', rejected: '已拒绝', superseded: '已被新版本替代',
 };
+const draftStatusLabels = {
+  drafted: '草稿',
+  validation_failed: '需重新检查',
+  pending_review: '待审核',
+  revision_required: '退回修改',
+};
 const abilityLabels = Object.fromEntries(abilityOptions);
 const dimensionLabels = Object.fromEntries(dimensionOptions);
 const trainingDirectionLabels = Object.fromEntries(trainingDirectionOptions);
@@ -130,6 +138,7 @@ export default function MaterialResourceProductionWorkbench() {
   const [materialAction, setMaterialAction] = useState(null);
   const [sharedStoreStatus, setSharedStoreStatus] = useState(null);
   const [baselinePreview, setBaselinePreview] = useState(null);
+  const [activeSummaryKey, setActiveSummaryKey] = useState(null);
   const pendingDiscardActionRef = useRef(null);
 
   useEffect(() => {
@@ -172,9 +181,13 @@ export default function MaterialResourceProductionWorkbench() {
     currentDrafts: planDrafts,
     draftReadiness: snapshot.draftReadiness,
   });
-  const workbenchSummary = useMemo(
-    () => summarizeMaterialResourceWorkbench(snapshot),
+  const workbenchDetails = useMemo(
+    () => buildMaterialResourceWorkbenchDetails(snapshot),
     [snapshot],
+  );
+  const selectedMaterialResourceDetails = useMemo(
+    () => scopeMaterialResourceWorkbenchDetails(workbenchDetails, selectedMaterialId),
+    [workbenchDetails, selectedMaterialId],
   );
   const selectedPlanUsesAssistedDraft = Boolean(selectedPlan?.taskPlans.some(
     (task) => task.resourceDraftSpecification?.tags?.includes('ai-assisted'),
@@ -211,6 +224,7 @@ export default function MaterialResourceProductionWorkbench() {
 
   useEffect(() => {
     setGeneratorResult(null);
+    setActiveSummaryKey(null);
   }, [selectedMaterialId]);
 
   async function refresh(preferred = {}) {
@@ -220,7 +234,7 @@ export default function MaterialResourceProductionWorkbench() {
     if (availableMaterials.length === 0) setMaterialMode('new');
     if (preferred.materialVersionId) setMaterialMode('existing');
     const materialId = preferred.materialVersionId
-      || (selectedMaterialId && availableMaterials.some((item) => item.materialVersionId === selectedMaterialId) ? selectedMaterialId : availableMaterials[0]?.materialVersionId)
+      || (selectedMaterialId && availableMaterials.some((item) => item.materialVersionId === selectedMaterialId) ? selectedMaterialId : '')
       || '';
     setSelectedMaterialId(materialId);
     const plans = next.plans.filter((plan) => plan.materialVersionId === materialId);
@@ -324,6 +338,28 @@ export default function MaterialResourceProductionWorkbench() {
     }
   }
 
+  async function reactivateMaterial(material) {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await reactivateProductionMaterial(material.materialVersionId);
+      if (retiredMaterials.length === 1) {
+        await refresh({ materialVersionId: material.materialVersionId });
+      } else {
+        await refresh();
+        setMaterialMode('retired');
+      }
+      setToast({
+        id: Date.now(),
+        message: `学习材料《${material.title}》已重新启用。`,
+      });
+    } catch (error) {
+      setNotice(errorNotice(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function refreshWorkbench() {
     setBusy(true);
     setNotice(null);
@@ -368,7 +404,7 @@ export default function MaterialResourceProductionWorkbench() {
     withUnsavedChangesGuard(() => {
       const materialId = activeMaterials.some((item) => item.materialVersionId === selectedMaterialId)
         ? selectedMaterialId
-        : activeMaterials[0]?.materialVersionId || '';
+        : '';
       setMaterialMode(activeMaterials.length > 0 ? 'existing' : 'new');
       setSelectedMaterialId(materialId);
       setSelectedPlanId('');
@@ -384,6 +420,16 @@ export default function MaterialResourceProductionWorkbench() {
     });
   }
 
+  function showRetiredMaterials() {
+    if (materialMode === 'retired') return;
+    withUnsavedChangesGuard(() => {
+      setMaterialMode('retired');
+      setSelectedMaterialId('');
+      setSelectedPlanId('');
+      setActiveLoadPreset(null);
+    });
+  }
+
   function selectExistingMaterial(materialId) {
     if (materialId === selectedMaterialId) return;
     withUnsavedChangesGuard(() => {
@@ -391,6 +437,13 @@ export default function MaterialResourceProductionWorkbench() {
       setSelectedPlanId('');
       setActiveLoadPreset(null);
     });
+  }
+
+  function openQuestionSummaryItem(item) {
+    const params = new URLSearchParams({ mode: 'plan-review' });
+    if (item.materialObservationPlanId) params.set('planId', item.materialObservationPlanId);
+    if (item.materialVersionId) params.set('materialVersionId', item.materialVersionId);
+    navigate(`/question-resource-workbench?${params.toString()}`);
   }
 
   function requestLoadBatchA() {
@@ -676,18 +729,6 @@ export default function MaterialResourceProductionWorkbench() {
             </div>
           </section>
         )}
-        {sharedStoreStatus?.initialized && (
-          <p className="mb-4 text-xs text-slate-500">
-            正式资源共享存储已启用 · revision {sharedStoreStatus.revision}
-          </p>
-        )}
-        <section className="grid gap-3 pb-4 sm:grid-cols-4" aria-label="生产状态">
-          <Metric label="学习材料" value={workbenchSummary.materialCount} />
-          <Metric label="学习任务" value={workbenchSummary.learningTaskCount} />
-          <Metric label="待审核题目" value={workbenchSummary.pendingReviewCount} />
-          <Metric label="已发布练习" value={workbenchSummary.publishedResourceCount} />
-        </section>
-
         {notice && (
           <div role="status" className={`mt-5 border-l-4 px-4 py-3 text-sm leading-6 ${notice.type === 'error' ? 'border-red-500 bg-red-50 text-red-800' : 'border-emerald-500 bg-emerald-50 text-emerald-800'}`}>
             <p>{notice.message}</p>
@@ -702,44 +743,102 @@ export default function MaterialResourceProductionWorkbench() {
         )}
 
         <div className="mt-6 space-y-10">
-          <section>
+          <section id="material-resource-editor" className="scroll-mt-28">
             <div className="flex justify-center">
               <div className="inline-flex rounded-md border border-slate-300 bg-white p-1" aria-label="素材录入方式">
-                <button type="button" onClick={showExistingMaterials} disabled={activeMaterials.length === 0} className={`min-h-8 rounded px-3 text-sm ${materialMode === 'existing' ? 'bg-emerald-600 text-white' : 'text-slate-600'} disabled:opacity-40`}>选择已有素材</button>
-                <button type="button" onClick={showNewMaterialForm} className={`min-h-8 rounded px-3 text-sm ${materialMode === 'new' ? 'bg-emerald-600 text-white' : 'text-slate-600'}`}>录入新素材</button>
+                <button type="button" onClick={showExistingMaterials} disabled={activeMaterials.length === 0} className={`min-h-8 whitespace-nowrap rounded px-3 text-sm ${materialMode === 'existing' ? 'bg-emerald-600 text-white' : 'text-slate-600'} disabled:opacity-40`}>已有素材</button>
+                <button type="button" onClick={showNewMaterialForm} className={`min-h-8 whitespace-nowrap rounded px-3 text-sm ${materialMode === 'new' ? 'bg-emerald-600 text-white' : 'text-slate-600'}`}>录入新素材</button>
+                <button type="button" onClick={showRetiredMaterials} disabled={retiredMaterials.length === 0} className={`min-h-8 whitespace-nowrap rounded px-3 text-sm ${materialMode === 'retired' ? 'bg-emerald-600 text-white' : 'text-slate-600'} disabled:opacity-40`}>已停用素材（{retiredMaterials.length}）</button>
               </div>
             </div>
 
             {materialMode === 'existing' && activeMaterials.length > 0 && (
               <div className="mt-5">
                 <label className="block text-sm font-semibold">
-                  已有素材
+                  已有素材（{activeMaterials.length}）
                   <select value={selectedMaterialId} onChange={(event) => selectExistingMaterial(event.target.value)} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal">
+                    <option value="">请选择一篇学习材料</option>
                     {activeMaterials.map((material) => <option key={material.materialVersionId} value={material.materialVersionId}>{material.title}</option>)}
                   </select>
                 </label>
                 {selectedMaterial && (
-                  <div className="mt-3 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={requestMaterialRemoval}
-                      disabled={busy}
-                      className="inline-flex min-h-9 items-center gap-2 rounded-md px-3 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
+                  <section className="mt-4 bg-transparent" aria-labelledby="selected-material-summary-title">
+                    <div
+                      className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_auto] sm:items-stretch"
+                      aria-label={`${selectedMaterial.title}的题目状态`}
                     >
-                      <Trash2 size={16} />
-                      删除或停用素材
-                    </button>
+                      <div className="min-h-20 px-3 py-3 sm:px-4">
+                        <p className="text-sm text-slate-500">当前素材</p>
+                        <h2 id="selected-material-summary-title" className="mt-1 flex flex-wrap items-baseline gap-x-2 text-base font-semibold text-slate-950">
+                          <span>{selectedMaterial.title}</span>
+                          <span className="text-sm font-normal text-slate-500">· 共 {paragraphs.length} 个自然段</span>
+                        </h2>
+                      </div>
+                      <Metric
+                        label="待审核题目"
+                        value={selectedMaterialResourceDetails.pendingReviews.length}
+                        active={activeSummaryKey === 'pendingReviews'}
+                        onClick={() => setActiveSummaryKey((current) => current === 'pendingReviews' ? null : 'pendingReviews')}
+                      />
+                      <Metric
+                        label="已发布练习"
+                        value={selectedMaterialResourceDetails.publishedResources.length}
+                        active={activeSummaryKey === 'publishedResources'}
+                        onClick={() => setActiveSummaryKey((current) => current === 'publishedResources' ? null : 'publishedResources')}
+                      />
+                      <div className="flex min-h-20 items-center px-3 py-3 sm:justify-end sm:px-4">
+                        <button
+                          type="button"
+                          onClick={requestMaterialRemoval}
+                          disabled={busy}
+                          className="inline-flex min-h-9 items-center gap-2 rounded-md px-3 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
+                        >
+                          <Trash2 size={16} />
+                          删除或停用素材
+                        </button>
+                      </div>
+                    </div>
+                    {activeSummaryKey && (
+                      <SummaryMetricDetails
+                        metricKey={activeSummaryKey}
+                        details={selectedMaterialResourceDetails}
+                        onOpenQuestion={openQuestionSummaryItem}
+                      />
+                    )}
+                  </section>
+                )}
+                {!selectedMaterial && (
+                  <div className="mt-4 border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-950">
+                    请先选择一篇学习材料，查看并处理对应的待审核题目和已发布练习。
                   </div>
                 )}
-                {retiredMaterials.length > 0 && (
-                  <details className="mt-3 text-sm text-slate-500">
-                    <summary className="cursor-pointer">已停用素材（{retiredMaterials.length}）</summary>
-                    <ul className="mt-2 space-y-1 pl-5">
-                      {retiredMaterials.map((material) => <li key={material.materialVersionId}>{material.title}</li>)}
-                    </ul>
-                  </details>
-                )}
               </div>
+            )}
+
+            {materialMode === 'retired' && (
+              <section className="mt-5" aria-labelledby="retired-materials-title">
+                <h2 id="retired-materials-title" className="text-sm font-semibold text-slate-950">
+                  已停用素材（{retiredMaterials.length}）
+                </h2>
+                <ul className="mt-2 space-y-1">
+                  {retiredMaterials.map((material) => (
+                    <li
+                      key={material.materialVersionId}
+                      className="flex min-h-9 items-center gap-3"
+                    >
+                      <span className="min-w-0 truncate text-sm text-slate-950">{material.title}</span>
+                      <button
+                        type="button"
+                        onClick={() => reactivateMaterial(material)}
+                        disabled={busy}
+                        className="shrink-0 rounded px-1 py-1 text-sm font-medium text-emerald-700 transition hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        重新启用
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             )}
 
             {materialMode === 'new' && (
@@ -756,8 +855,7 @@ export default function MaterialResourceProductionWorkbench() {
 
             {materialMode === 'existing' && selectedMaterial && (
               <div className="mt-5">
-                <div className="flex items-center gap-2 text-sm text-slate-500"><BookOpen size={16} /><span>{paragraphs.length} 个自然段</span></div>
-                <div className="mt-4 max-h-[660px] space-y-5 overflow-y-auto border-t border-slate-200 py-5 pr-3">
+                <div className="max-h-[660px] space-y-5 overflow-y-auto border-t border-slate-200 py-5 pr-3">
                   {paragraphs.map((paragraph, index) => (
                     <div key={`${index}-${paragraph.slice(0, 10)}`} className="grid grid-cols-[28px_1fr] gap-3">
                       <span className="pt-1 text-sm font-semibold text-slate-400">{index + 1}</span>
@@ -769,7 +867,8 @@ export default function MaterialResourceProductionWorkbench() {
             )}
           </section>
 
-          <section className="scroll-mt-28 border-t border-slate-200 pt-8">
+          {selectedMaterial && (
+            <section id="training-task-editor" className="scroll-mt-28 border-t border-slate-200 pt-8">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold">训练任务（<span className="text-emerald-600">{tasks.length}</span>/6）</h2>
@@ -1000,10 +1099,12 @@ export default function MaterialResourceProductionWorkbench() {
               <button type="button" disabled={tasks.length >= 6} onClick={addTask} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-4 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"><Plus size={16} />增加训练任务</button>
               <button type="button" disabled={busy || !selectedMaterial || Boolean(selectedPlan && !taskEditorDirty) || tasks.some((task) => !isTaskReady(task))} onClick={createPlan} className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"><ClipboardCheck size={16} />{selectedPlan ? '保存任务修改' : '保存训练任务'}</button>
             </div>
-          </section>
+            </section>
+          )}
         </div>
 
-        <section className="mt-10 rounded-md bg-white p-4 sm:p-5">
+        {selectedMaterial && (
+          <section className="mt-10 rounded-md bg-white p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <h2 className="text-lg font-semibold">确认训练任务</h2>
@@ -1091,7 +1192,8 @@ export default function MaterialResourceProductionWorkbench() {
               )}
             </>
           )}
-        </section>
+          </section>
+        )}
       </main>
       {toast && (
         <WorkspaceToast
@@ -1194,8 +1296,88 @@ function DiscardChangesDialog({ onCancel, onConfirm }) {
   );
 }
 
-function Metric({ label, value }) {
-  return <div><p className="text-sm text-slate-500">{label}</p><p className="mt-1 text-lg font-semibold">{value}</p></div>;
+function Metric({ label, value, active, onClick }) {
+  return (
+    <button
+      type="button"
+      aria-expanded={active}
+      aria-controls="workbench-summary-details"
+      onClick={onClick}
+      className="flex min-h-20 flex-col items-start bg-transparent px-3 py-3 text-left transition hover:text-slate-950 sm:px-4"
+    >
+      <span className={`block text-sm ${active ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>{label}</span>
+      <span className={`mt-1 flex items-center gap-2 text-lg font-semibold ${active ? 'text-emerald-700' : 'text-slate-950'}`}>
+        {value}
+        <span aria-hidden="true" className={`text-xs ${active ? 'text-emerald-700' : 'text-slate-400'}`}>{active ? '▼' : '▶'}</span>
+      </span>
+    </button>
+  );
+}
+
+function SummaryMetricDetails({ metricKey, details, onOpenQuestion }) {
+  const configurations = {
+    pendingReviews: {
+      title: '待审核题目明细',
+      empty: '目前没有待审核题目。',
+      items: details.pendingReviews,
+      onOpen: onOpenQuestion,
+      renderTitle: (item) => item.title,
+      renderMeta: (item) => [
+        item.materialTitle,
+        abilityLabels[item.abilityId],
+        draftStatusLabels[item.status],
+      ].filter(Boolean).join(' · '),
+    },
+    publishedResources: {
+      title: '已发布练习明细',
+      empty: '目前还没有已发布练习。',
+      items: details.publishedResources,
+      onOpen: onOpenQuestion,
+      renderTitle: (item) => item.title,
+      renderMeta: (item) => [
+        item.materialTitle,
+        abilityLabels[item.abilityId],
+        roleLabels[item.taskRole],
+        '已发布',
+      ].filter(Boolean).join(' · '),
+    },
+  };
+  const configuration = configurations[metricKey];
+
+  return (
+    <section id="workbench-summary-details" className="bg-transparent px-4 py-4 sm:px-5" aria-live="polite">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-slate-950">{configuration.title}</h2>
+        <span className="text-xs text-slate-500">共 {configuration.items.length} 项</span>
+      </div>
+      {configuration.items.length > 0 ? (
+        <ul className="mt-2 max-h-72 overflow-y-auto">
+          {configuration.items.map((item) => (
+            <li key={summaryItemKey(metricKey, item)}>
+              <button
+                type="button"
+                onClick={() => configuration.onOpen(item)}
+                className="flex min-h-14 w-full items-center justify-between gap-4 px-1 py-3 text-left hover:bg-slate-50"
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium leading-6 text-slate-900">{configuration.renderTitle(item)}</span>
+                  <span className="mt-0.5 block text-xs leading-5 text-slate-500">{configuration.renderMeta(item)}</span>
+                </span>
+                <span className="shrink-0 text-xs font-medium text-emerald-700">查看</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-sm text-slate-500">{configuration.empty}</p>
+      )}
+    </section>
+  );
+}
+
+function summaryItemKey(metricKey, item) {
+  if (metricKey === 'pendingReviews') return item.draftId;
+  return item.resourceVersionId;
 }
 
 function Select({ label, value, options, onChange }) {
