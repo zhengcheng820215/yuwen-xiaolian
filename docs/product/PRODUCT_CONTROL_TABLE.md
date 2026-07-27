@@ -48,7 +48,7 @@ Debug / Acceptance Report
 | --- | --- | --- | --- | --- | --- |
 | Phase 17.2 首批正式资源包 | 生产经过审核、能被正式学习系统使用的真实题目 | PASS | BATCH A CONTROLLED FORMALIZATION + ASSISTED DRAFT GENERATION 38 / 38 PASS | BATCH A OWNER REVIEW / FREEZE 8 / 8 PASS | THREE-ROUND PROVIDER QUALITY REVIEW PENDING |
 | Phase 17.3 正式资源运行集成 | 证明资源目标、来源、诊断、证据和下一任务在主链中不丢失 | PASS | WORK PACKAGE A 17 / 17 PASS / WORK PACKAGE B CONTROLLED LIVE 3 / 3 PASS | BATCH A `/learning` SINGLE-ROUND PASS | CONTROLLED DEEPSEEK LIVE PASS |
-| Phase 17.4 本机共享正式资源 | 让不同本机客户端读取同一份正式资源，并保护版本与冲突 | PASS | DEBUG 10 / 10 + BASELINE CUTOVER + FRESH INITIALIZATION PASS | CONTROLLED DUAL-CLIENT CHECK PASS / INDEPENDENT BROWSER-KERNEL CHECK PENDING | RESTART PERSISTENCE PASS |
+| Phase 17.4 本机共享正式资源 | 让不同本机客户端读取同一份正式资源，并保护版本与冲突 | PASS | DEBUG 10 / 10 + BASELINE CUTOVER + FRESH INITIALIZATION PASS | CONTROLLED DUAL-CLIENT + INDEPENDENT BROWSER-KERNEL CHECK PASS | RESTART PERSISTENCE PASS |
 | Phase 17.5 题目生成质量评估 | 在发布前发现结构、语义和批次质量问题 | PASS | 17.5A / B / C1 / C2 / C3A / C3B RUNTIME PASS | LIGHTWEIGHT DEMO PASS | REAL TEN-MATERIAL CALIBRATION PENDING |
 | `/learning` 正式学习入口 | 让单学生从一个入口开始、恢复、作答、反馈并继续 | PASS | MAIN PATH PASS / CONSOLIDATION IN PROGRESS | CONTROLLED DEMO PASS | `0 / 5` |
 | 多能力调度 | 根据表现和正式资源决定下一步练什么 | PASS | RUNTIME PASS | LIMITED BY RESOURCE PACK | PENDING |
@@ -171,10 +171,9 @@ Debug / Acceptance Report
 
 ```text
 1. 真实十素材校准：固定 10 篇代表材料，运行生成、质量评估与人工观察，形成 Phase 17.5 校准结论
-2. 独立浏览器内核确认：使用内置浏览器与一个标准浏览器完成一次最终一致性检查，关闭 Phase 17.4A 人工验收门
-3. 资源生态：继续生产 Phase 17.2 Batch B / C，完成 24—28 道正式资源与既定 Retest / Transfer / 跨能力路径
-4. 连续 Session 与学生感知：完成 3 个受控 Session，并使用 6—10 组真实记录验收 Narrative
-5. 冻结稳定构建，开始 Phase 16.3C 5—7 个自然日运行
+2. 资源生态：继续生产 Phase 17.2 Batch B / C，完成 24—28 道正式资源与既定 Retest / Transfer / 跨能力路径
+3. 连续 Session 与学生感知：完成 3 个受控 Session，并使用 6—10 组真实记录验收 Narrative
+4. 冻结稳定构建，开始 Phase 16.3C 5—7 个自然日运行
 ```
 
 产品负责人不需要重新掌握全部字段和对象。主要责任是守住目标、用户结果、PASS 标准、模块边界和问题分类。

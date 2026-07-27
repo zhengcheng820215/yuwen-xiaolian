@@ -4,7 +4,7 @@
 
 设计状态：ACCEPTED
 
-工程状态：17.4A ENGINEERING + AUTOMATED DEBUG + STANDARD-BROWSER BASELINE CUTOVER + FRESH BASELINE QUALITY INITIALIZATION + CONTROLLED DUAL-CLIENT HUMAN CHECK PASS / INDEPENDENT BROWSER-KERNEL CONFIRMATION PENDING；17.4B PLANNED
+工程状态：17.4A ENGINEERING + AUTOMATED DEBUG + STANDARD-BROWSER BASELINE CUTOVER + FRESH BASELINE QUALITY INITIALIZATION + CONTROLLED DUAL-CLIENT HUMAN CHECK + INDEPENDENT BROWSER-KERNEL CONSISTENCY PASS；17.4B PLANNED
 
 优先级：17.4A P1（继续规模化录题前完成）/ 17.4B P2
 
@@ -448,15 +448,16 @@ Production Build                                  PASS
 - 重启开发服务后共享正式资源保持；
 - 验收临时素材已清理。
 
-当前仍未完成：
+2026-07-27 独立浏览器内核最终确认已完成：
 
-- 使用内置浏览器与一个独立标准浏览器内核完成最终视觉确认；
-- 核对两端相同计数、Stable ID 与 Registry Head；
-- 在独立浏览器内核之间完成一次“一端新增、另一端刷新可见”。
+- Codex 内置浏览器写入，隔离用户目录的独立 Google Chrome 刷新可见；
+- 独立 Google Chrome 写入，内置浏览器刷新并选择最新版本后可见；
+- 两端最终计数一致：学习材料 `2`、学习任务 `8`、待审核题目 `3`、已发布练习 `1`；
+- 验收前完整数据已恢复，两端均不存在临时验收标记。
 
 因此当前准确状态是：
 
-> Phase 17.4A 工程实现、自动化 Debug、标准浏览器正式基线切换、全新基线初始化与受控双端人工检查已通过；共享存储已成为正式资源来源。规模化录题或宣称阶段最终完成前，仍需补一次独立浏览器内核一致性确认。
+> Phase 17.4A 工程实现、自动化 Debug、标准浏览器正式基线切换、全新基线初始化、受控双端检查与独立浏览器内核一致性确认均已通过；共享存储已成为本机正式资源来源。Phase 17.4B 继续负责复杂迁移、冲突治理、历史快照和自动恢复。
 
 ## 2026-07-26 Shared Store 生命周期 Revision 对齐
 
