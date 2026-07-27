@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
 import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
+import { requestQuestionStemOptimization } from '../api/questionStemOptimization.ts';
 import {
   clearQuestionResourceWorkbench,
   createQuestionResourceWorkbenchNextVersion,
@@ -125,6 +126,11 @@ export default function QuestionResourceWorkbench() {
   const [reviewNotes, setReviewNotes] = useState('内容与元数据已人工核对。');
   const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [stemOptimization, setStemOptimization] = useState(null);
+  const [stemOptimizationError, setStemOptimizationError] = useState('');
+  const [stemOptimizationBusy, setStemOptimizationBusy] = useState(false);
+  const [qualityResultStale, setQualityResultStale] = useState(false);
+  const stemOptimizationRequestRef = useRef(0);
 
   const editable = !context || ['drafted', 'validation_failed', 'revision_required'].includes(context.draft.status);
   const selectedMaterial = useMemo(
@@ -154,21 +160,31 @@ export default function QuestionResourceWorkbench() {
   }
 
   async function selectDraft(draftId, currentSnapshot = snapshot) {
+    stemOptimizationRequestRef.current += 1;
     const nextContext = await getQuestionResourceWorkbenchContext(draftId);
     setSelectedDraftId(draftId);
     setContext(nextContext);
     setForm(toForm(nextContext.draft));
     setNotice(null);
+    setStemOptimization(null);
+    setStemOptimizationError('');
+    setStemOptimizationBusy(false);
+    setQualityResultStale(false);
     if (!currentSnapshot.materials.length && nextContext.material) {
       setSnapshot((value) => ({ ...value, materials: [nextContext.material] }));
     }
   }
 
   function startNewDraft() {
+    stemOptimizationRequestRef.current += 1;
     setSelectedDraftId(null);
     setContext(null);
     setForm(createBlankForm());
     setNotice(null);
+    setStemOptimization(null);
+    setStemOptimizationError('');
+    setStemOptimizationBusy(false);
+    setQualityResultStale(false);
     setActivePanel('workflow');
   }
 
@@ -284,6 +300,77 @@ export default function QuestionResourceWorkbench() {
     );
   }
 
+  async function optimizeStem() {
+    const material = selectedMaterial || context?.material;
+    if (!material) {
+      setStemOptimizationError('请先为题目关联学习材料。');
+      return;
+    }
+    const requestSequence = stemOptimizationRequestRef.current + 1;
+    stemOptimizationRequestRef.current = requestSequence;
+    setStemOptimizationBusy(true);
+    setStemOptimization(null);
+    setStemOptimizationError('');
+    try {
+      const result = await requestQuestionStemOptimization({
+        requestId: typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `question-stem-${Date.now()}`,
+        material: {
+          materialVersionId: material.materialVersionId,
+          title: material.title,
+          content: material.content,
+        },
+        question: {
+          questionStem: form.questionStem,
+          observationFocus: form.title,
+          abilityId: form.abilityId,
+          difficulty: form.difficulty,
+          rubricFocuses: form.rubric.map((item) => item.name).filter(Boolean),
+        },
+        qualityIssues: (context?.qualityAssessment?.warnings || []).map((warning) => ({
+          check: warning.check,
+          message: warning.message,
+        })),
+      });
+      if (stemOptimizationRequestRef.current === requestSequence) {
+        setStemOptimization(result);
+      }
+    } catch (error) {
+      if (stemOptimizationRequestRef.current === requestSequence) {
+        setStemOptimizationError(error instanceof Error ? error.message : 'AI 题干优化失败，请稍后重试。');
+      }
+    } finally {
+      if (stemOptimizationRequestRef.current === requestSequence) {
+        setStemOptimizationBusy(false);
+      }
+    }
+  }
+
+  function updateQuestionStem(value) {
+    stemOptimizationRequestRef.current += 1;
+    setStemOptimizationBusy(false);
+    setForm((current) => ({ ...current, questionStem: value }));
+    setStemOptimization(null);
+    setStemOptimizationError('');
+    setQualityResultStale(true);
+  }
+
+  function applyOptimizedStem() {
+    if (!stemOptimization?.suggestedStem) return;
+    setForm((current) => ({
+      ...current,
+      questionStem: stemOptimization.suggestedStem,
+    }));
+    setStemOptimization(null);
+    setStemOptimizationError('');
+    setQualityResultStale(true);
+    setNotice({
+      type: 'success',
+      message: '题干已修改，等待重新检查。请确认内容后保存并检查题目。',
+    });
+  }
+
   async function clearWorkspace() {
     if (!window.confirm('确认清除本浏览器中的 Phase 16.1 工作台数据？')) return;
     setBusy(true);
@@ -326,6 +413,18 @@ export default function QuestionResourceWorkbench() {
       setMaterialForm={setMaterialForm}
       onCreateMaterial={createMaterial}
       onSave={saveDraft}
+      onOptimizeStem={optimizeStem}
+      onQuestionStemChange={updateQuestionStem}
+      onApplyOptimizedStem={applyOptimizedStem}
+      onDismissStemOptimization={() => {
+        stemOptimizationRequestRef.current += 1;
+        setStemOptimizationBusy(false);
+        setStemOptimization(null);
+        setStemOptimizationError('');
+      }}
+      stemOptimization={stemOptimization}
+      stemOptimizationError={stemOptimizationError}
+      stemOptimizationBusy={stemOptimizationBusy}
       focusedReview={planReviewMode}
       selectedQuestionNumber={selectedQuestionIndex >= 0 ? toChineseNumber(selectedQuestionIndex + 1) : null}
     />
@@ -347,6 +446,7 @@ export default function QuestionResourceWorkbench() {
       onFreeze={freezeDraft}
       onCreateRejectedRevision={createRejectedRevision}
       focusedReview={planReviewMode}
+      qualityResultStale={qualityResultStale}
     />
   );
 
@@ -533,7 +633,27 @@ function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, o
   );
 }
 
-function QuestionEditor({ form, setForm, editable, busy, context, materials, materialForm, setMaterialForm, onCreateMaterial, onSave, focusedReview, selectedQuestionNumber }) {
+function QuestionEditor({
+  form,
+  setForm,
+  editable,
+  busy,
+  context,
+  materials,
+  materialForm,
+  setMaterialForm,
+  onCreateMaterial,
+  onSave,
+  onOptimizeStem,
+  onQuestionStemChange,
+  onApplyOptimizedStem,
+  onDismissStemOptimization,
+  stemOptimization,
+  stemOptimizationError,
+  stemOptimizationBusy,
+  focusedReview,
+  selectedQuestionNumber,
+}) {
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const objectiveQuestion = ['multiple_choice', 'true_false', 'fill_blank'].includes(form.questionType);
   const readingQuestion = form.questionType === 'reading_comprehension';
@@ -598,9 +718,75 @@ function QuestionEditor({ form, setForm, editable, busy, context, materials, mat
               />
             </Field>
           </div>
-          <Field label="题干" required>
-            <AutoGrowTextarea value={form.questionStem} onChange={(event) => update('questionStem', event.target.value)} rows={4} placeholder="输入学生实际看到的题目要求" />
-          </Field>
+          <div>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-slate-600">
+                题干<span className="ml-0.5 text-rose-600" aria-label="必填">*</span>
+              </span>
+              <button
+                type="button"
+                disabled={
+                  busy ||
+                  stemOptimizationBusy ||
+                  !editable ||
+                  !form.questionStem.trim() ||
+                  !form.materialVersionId
+                }
+                onClick={onOptimizeStem}
+                className="min-h-9 rounded-md border border-emerald-600 bg-white px-3 text-sm font-normal text-emerald-700 hover:bg-emerald-50 disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
+              >
+                {stemOptimizationBusy ? '正在优化题干…' : 'AI 优化题干'}
+              </button>
+            </div>
+            <AutoGrowTextarea
+              value={form.questionStem}
+              onChange={(event) => onQuestionStemChange(event.target.value)}
+              rows={4}
+              placeholder="输入学生实际看到的题目要求"
+              disabled={stemOptimizationBusy}
+            />
+            {!form.materialVersionId ? (
+              <p className="mt-2 text-xs leading-5 text-slate-500">关联学习材料后，AI 才能依据原文优化题干。</p>
+            ) : null}
+            {stemOptimizationError ? (
+              <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-800">
+                {stemOptimizationError}
+              </p>
+            ) : null}
+            {stemOptimization ? (
+              <section className="mt-3 rounded-md border border-emerald-200 bg-emerald-50/60 p-4">
+                <p className="text-sm font-semibold text-slate-950">AI 优化建议</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-900">
+                  {stemOptimization.suggestedStem}
+                </p>
+                <div className="mt-3 text-xs leading-5 text-slate-600">
+                  <p>{stemOptimization.rationale}</p>
+                  {stemOptimization.changes.length ? (
+                    <p className="mt-1">本次调整：{stemOptimization.changes.join('；')}</p>
+                  ) : null}
+                </div>
+                <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+                  采用后仅更新当前编辑区，不会自动保存、提交审核或发布。
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={onApplyOptimizedStem}
+                    className="min-h-9 rounded-md bg-emerald-600 px-4 text-sm font-normal text-white hover:bg-emerald-700"
+                  >
+                    采用此题干
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onDismissStemOptimization}
+                    className="min-h-9 rounded-md border border-slate-300 bg-white px-4 text-sm font-normal text-slate-600 hover:bg-slate-50"
+                  >
+                    保留原题干
+                  </button>
+                </div>
+              </section>
+            ) : null}
+          </div>
           {form.questionType === 'multiple_choice' ? (
             <Field label="选项（每行一项）" required requirement="当前题型必填">
               <AutoGrowTextarea value={form.optionsText} onChange={(event) => update('optionsText', event.target.value)} rows={4} />
@@ -721,10 +907,10 @@ function QuestionEditor({ form, setForm, editable, busy, context, materials, mat
 }
 
 function WorkflowPanel(props) {
-  const { activePanel, setActivePanel, context, form, material, previewResource, reviewNotes, setReviewNotes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, focusedReview } = props;
+  const { activePanel, setActivePanel, context, form, material, previewResource, reviewNotes, setReviewNotes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, focusedReview, qualityResultStale } = props;
   return (
     <aside className={`overflow-hidden rounded-md bg-white ${focusedReview ? '' : 'border border-slate-200 lg:col-span-2 xl:col-span-1 xl:sticky xl:top-24'}`}>
-      <div className="grid grid-cols-3 border-b border-slate-200 p-1">
+      <div className="grid grid-cols-3 gap-2 p-2">
         {[['workflow', '校验 / 审核'], ['student', '学生预览'], ['review', '审核预览']].map(([value, label]) => (
           <button key={value} type="button" onClick={() => setActivePanel(value)} className={`min-h-10 rounded text-sm font-normal ${activePanel === value ? (focusedReview ? 'bg-emerald-600 text-white' : 'bg-slate-950 text-white') : 'text-slate-600 hover:bg-slate-50'}`}>{label}</button>
         ))}
@@ -742,16 +928,17 @@ function WorkflowPanel(props) {
             onReview={onReview}
             onFreeze={onFreeze}
             onCreateRejectedRevision={onCreateRejectedRevision}
+            qualityResultStale={qualityResultStale}
           />
         ) : null}
         {activePanel === 'student' ? <StudentPreview resource={previewResource} material={material} isFrozen={Boolean(context?.frozenVersion)} /> : null}
-        {activePanel === 'review' ? <ReviewPreview context={context} form={form} material={material} /> : null}
+        {activePanel === 'review' ? <ReviewPreview context={context} form={form} material={material} qualityResultStale={qualityResultStale} /> : null}
       </div>
     </aside>
   );
 }
 
-function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision }) {
+function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, qualityResultStale }) {
   if (!context) return <EmptyText>先保存 Draft，再执行正式校验与审核。</EmptyText>;
   const { draft, validation, qualityAssessment, versionHistory } = context;
   const isFrozen = versionHistory.some((version) => version.sourceDraftId === draft.draftId);
@@ -801,6 +988,7 @@ function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidat
         <QuestionQualitySummary
           assessment={qualityAssessment}
           draftRevision={draft.revision}
+          stale={qualityResultStale}
         />
       ) : null}
 
@@ -833,7 +1021,7 @@ function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidat
           ) : null}
           <button
             type="button"
-            disabled={busy || !qualityAssessment}
+            disabled={busy || !qualityAssessment || qualityResultStale}
             onClick={onSubmitReview}
             className={activeWorkflowButtonClass}
           >
@@ -841,9 +1029,11 @@ function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidat
               ? '仍提交人工审核'
               : '提交人工审核'}
           </button>
-          {!qualityAssessment ? (
-            <p className="mt-2 text-xs leading-5 text-rose-700">
-              当前 Revision 尚无有效质量评估，请重新执行结构检查。
+          {!qualityAssessment || qualityResultStale ? (
+            <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+              {qualityResultStale
+                ? '题干已经修改，请先保存并重新检查题目。'
+                : '当前题目尚无有效质量检查结果，请重新执行结构检查。'}
             </p>
           ) : null}
         </ActionStep>
@@ -853,9 +1043,9 @@ function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidat
         <ActionStep index="3" title="逐题人工审核">
           <AutoGrowTextarea value={reviewNotes} onChange={(event) => setReviewNotes(event.target.value)} rows={3} placeholder="填写审核说明" />
           <div className="mt-2 grid grid-cols-3 gap-2">
-            <button type="button" disabled={busy} onClick={() => onReview('approve')} className="min-h-10 rounded-md bg-emerald-600 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">通过</button>
-            <button type="button" disabled={busy} onClick={() => onReview('revision_required')} className="min-h-10 rounded-md bg-amber-500 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">退回修改</button>
-            <button type="button" disabled={busy} onClick={() => onReview('reject')} className="min-h-10 rounded-md bg-rose-600 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">不采用</button>
+            <button type="button" disabled={busy} onClick={() => onReview('approve')} className="min-h-10 rounded-md bg-emerald-600 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">该题通过</button>
+            <button type="button" disabled={busy} onClick={() => onReview('revision_required')} className="min-h-10 rounded-md bg-amber-500 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">该题需修改</button>
+            <button type="button" disabled={busy} onClick={() => onReview('reject')} className="min-h-10 rounded-md bg-rose-600 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">该题不采用</button>
           </div>
         </ActionStep>
       ) : null}
@@ -896,16 +1086,63 @@ function ValidationResult({ validation, stale = false }) {
 }
 
 const qualityCheckLabels = {
-  materialGrounding: '材料依据',
-  observationClarity: '观察目标',
-  observationDistinctness: '观察独立性',
-  discriminativePower: '表现区分度',
-  difficultyCoherence: '难度一致性',
-  rubricAlignment: '评分标准对齐',
-  scopeClarity: '题目范围',
+  materialGrounding: {
+    pass: '题目有明确的材料依据',
+    warning: '题目缺少明确的材料依据',
+  },
+  observationClarity: {
+    pass: '题目考查的能力目标明确',
+    warning: '题目考查的能力目标不够明确',
+  },
+  observationDistinctness: {
+    pass: '本题训练重点与其他题目不重复',
+    warning: '本题训练重点可能与其他题目重复',
+  },
+  discriminativePower: {
+    pass: '评分能区分不同完成水平',
+    warning: '评分难以区分不同完成水平',
+  },
+  difficultyCoherence: {
+    pass: '题目要求与设定难度一致',
+    warning: '题目要求与设定难度可能不一致',
+  },
+  rubricAlignment: {
+    pass: '评分标准与题目要求一致',
+    warning: '评分标准与题目要求可能不一致',
+  },
+  scopeClarity: {
+    pass: '题目的作答范围清楚',
+    warning: '题目的作答范围不够清楚',
+  },
 };
 
-function QuestionQualitySummary({ assessment, draftRevision, compact = false }) {
+const qualityCheckActions = {
+  materialGrounding: '在题干中补充具体段落、原句或关键词，例如“结合第 3 段……”。',
+  observationClarity: '在题干中明确学生需要完成的动作，例如“概括、分析并说明依据”。',
+  observationDistinctness: '调整题干或训练目标，使本题考查的学生动作与其他题目明显不同。',
+  discriminativePower: '在评分标准中补充分层要求，明确完整完成、部分完成和未完成的区别。',
+  difficultyCoherence: '调整任务步骤、提示量或材料范围，使题目要求符合当前难度设置。',
+  rubricAlignment: '让每个评分项逐一对应题干要求，删除题干未要求的评价内容。',
+  scopeClarity: '缩小材料范围或减少子任务，明确学生需要回答的内容边界。',
+};
+
+function qualityCheckLabel(check, passed = true) {
+  const labels = qualityCheckLabels[check];
+  if (!labels) return check;
+  return passed ? labels.pass : labels.warning;
+}
+
+function QuestionQualitySummary({ assessment, compact = false, stale = false }) {
+  if (stale) {
+    return (
+      <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+        <p className="text-sm font-semibold text-amber-900">题干已修改，等待重新检查</p>
+        <p className="mt-1 text-xs leading-5 text-amber-800">
+          上次检查结果已失效。保存并检查题目后，系统会根据新题干更新结果。
+        </p>
+      </div>
+    );
+  }
   if (!assessment) {
     return (
       <div className="rounded-md border border-rose-200 bg-rose-50 p-4">
@@ -924,18 +1161,15 @@ function QuestionQualitySummary({ assessment, draftRevision, compact = false }) 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-slate-950">题目质量检查</p>
-          <p className="mt-1 text-xs text-slate-500">
-            Revision {draftRevision} · {assessment.ruleVersion}
-          </p>
         </div>
         <span className={`rounded-md px-2 py-1 text-xs font-normal ${
           needsRevision
             ? 'bg-amber-100 text-amber-800'
             : hasWarnings
-              ? 'bg-blue-100 text-blue-800'
+              ? 'bg-yellow-100 text-yellow-800'
               : 'bg-emerald-100 text-emerald-800'
         }`}>
-          {needsRevision ? '建议修改' : hasWarnings ? '带提醒可审核' : '检查通过'}
+          {needsRevision ? '系统建议修改' : hasWarnings ? '系统检查有提醒' : '系统检查通过'}
         </span>
       </div>
 
@@ -943,26 +1177,33 @@ function QuestionQualitySummary({ assessment, draftRevision, compact = false }) 
         {Object.entries(assessment.checks).map(([check, status]) => {
           const passed = status === 'pass';
           return (
-            <div key={check} className="flex min-h-8 items-center gap-2 text-xs text-slate-700">
+            <div key={check} className="flex min-h-8 items-center gap-2 text-sm text-slate-700">
               {passed
                 ? <CheckCircle2 size={15} className="shrink-0 text-emerald-600" />
                 : <AlertTriangle size={15} className="shrink-0 text-amber-600" />}
-              <span>{qualityCheckLabels[check] || check}</span>
+              <span>{qualityCheckLabel(check, passed)}</span>
             </div>
           );
         })}
       </div>
 
       {hasWarnings ? (
-        <div className="mt-4 border-t border-amber-200 pt-3">
+        <div className="mt-4 border-t border-slate-200 pt-3">
           <p className="text-xs font-semibold text-slate-900">需要人工关注</p>
           <ul className="mt-2 space-y-2">
             {assessment.warnings.map((warning) => (
               <li key={`${warning.code}-${warning.check}`} className="text-xs leading-5 text-slate-700">
-                <span className={warning.severity === 'strong_warning' ? 'text-amber-800' : 'text-blue-700'}>
-                  {qualityCheckLabels[warning.check] || warning.check}
-                </span>
-                {' · '}{warning.message}
+                <p>
+                  <span className={warning.severity === 'strong_warning' ? 'text-amber-800' : 'text-blue-700'}>
+                    {qualityCheckLabel(warning.check, false)}
+                  </span>
+                  {' · '}{warning.message}
+                </p>
+                {qualityCheckActions[warning.check] ? (
+                  <p className="mt-1 text-slate-600">
+                    修改建议：{qualityCheckActions[warning.check]}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -991,7 +1232,7 @@ function validationMessage(issue) {
 function StudentPreview({ resource, material, isFrozen }) {
   return (
     <div>
-      <div className="flex items-center justify-between gap-3"><h3 className="text-base font-semibold text-slate-950">学生端任务</h3><span className={`rounded px-2 py-1 text-xs ${isFrozen ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>{isFrozen ? 'Frozen' : 'Draft Preview'}</span></div>
+      <div className="flex items-center justify-between gap-3"><h3 className="text-base font-semibold text-slate-950">学生端任务</h3><span className={`rounded px-2 py-1 text-xs ${isFrozen ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>{isFrozen ? '已发布' : '草稿预览'}</span></div>
       {material?.content ? <div className="mt-4 rounded-md bg-slate-50 p-4"><p className="text-xs font-semibold text-slate-500">阅读材料</p><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-800">{material.content}</p></div> : null}
       <div className="mt-4"><p className="text-xs font-semibold text-slate-500">题目</p><p className="mt-2 whitespace-pre-wrap text-base leading-7 text-slate-950">{resource.questionStem || '尚未录入题干'}</p></div>
       {resource.options?.length ? <div className="mt-4 space-y-2">{resource.options.map((option, index) => <div key={`${option}-${index}`} className="rounded-md border border-slate-200 p-3 text-sm text-slate-700">{String.fromCharCode(65 + index)}. {option}</div>)}</div> : null}
@@ -1000,7 +1241,7 @@ function StudentPreview({ resource, material, isFrozen }) {
   );
 }
 
-function ReviewPreview({ context, form, material }) {
+function ReviewPreview({ context, form, material, qualityResultStale = false }) {
   const draft = context?.draft;
   return (
     <div className="space-y-5">
@@ -1019,6 +1260,7 @@ function ReviewPreview({ context, form, material }) {
           assessment={context?.qualityAssessment}
           draftRevision={draft.revision}
           compact
+          stale={qualityResultStale}
         />
       ) : null}
       <ReviewBlock title="Material / Source" rows={[
@@ -1040,7 +1282,7 @@ function EditorGroup({ title, children }) {
   return <section className="space-y-4 border-b border-slate-100 pb-6 last:border-0 last:pb-0"><h3 className="text-sm font-semibold text-slate-950">{title}</h3>{children}</section>;
 }
 
-function AutoGrowTextarea({ value, onChange, rows = 3, placeholder }) {
+function AutoGrowTextarea({ value, onChange, rows = 3, placeholder, disabled = false }) {
   const textareaRef = useRef(null);
 
   useEffect(() => {
@@ -1058,7 +1300,8 @@ function AutoGrowTextarea({ value, onChange, rows = 3, placeholder }) {
       onChange={onChange}
       rows={rows}
       placeholder={placeholder}
-      className={`${textareaClass} resize-none overflow-hidden`}
+      disabled={disabled}
+      className={`${textareaClass} resize-none overflow-hidden disabled:cursor-wait disabled:bg-slate-50 disabled:text-slate-500`}
     />
   );
 }

@@ -139,10 +139,27 @@ function checkMaterialGrounding(
   const hasQuotedAnchor = quotedAnchors.some(
     (anchor) => content.includes(normalizeText(anchor)),
   );
+  const paragraphCount = countMaterialParagraphs(material.content);
+  const paragraphReferences = extractParagraphReferences(draft.questionStem);
+  const hasInvalidParagraphReference = paragraphReferences.some(
+    ({ start, end }) => start < 1 || end < start || end > paragraphCount,
+  );
+  if (hasInvalidParagraphReference) {
+    addWarning(
+      warnings,
+      'quality.material.paragraph_out_of_range',
+      'materialGrounding',
+      'strong_warning',
+      `题干引用的段落超出当前材料范围（材料共 ${paragraphCount} 段）。`,
+      ['questionStem', 'materialVersionId'],
+    );
+    return 'fail';
+  }
+  const hasValidParagraphReference = paragraphReferences.length > 0;
   const refersToMaterial = /(结合(材料|全文|上下文)|根据(材料|全文|文中)|文中|文章|原文|这一(动作|细节|语句|段落))/.test(stem);
   const longestAnchorLength = longestCommonChineseRun(stem, content);
 
-  if (hasQuotedAnchor || longestAnchorLength >= 4) return 'pass';
+  if (hasValidParagraphReference || hasQuotedAnchor || longestAnchorLength >= 4) return 'pass';
   if (refersToMaterial) {
     addWarning(
       warnings,
@@ -164,6 +181,25 @@ function checkMaterialGrounding(
     ['questionStem', 'materialVersionId'],
   );
   return 'fail';
+}
+
+function countMaterialParagraphs(content: string): number {
+  return content
+    .replace(/\r\n?/g, '\n')
+    .split(/\n+/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .length;
+}
+
+function extractParagraphReferences(
+  text: string,
+): Array<{ start: number; end: number }> {
+  return [...text.matchAll(/第\s*(\d+)\s*(?:[-—–至到]\s*第?\s*(\d+)\s*)?段/g)]
+    .map((match) => ({
+      start: Number(match[1]),
+      end: Number(match[2] || match[1]),
+    }));
 }
 
 function checkObservationClarity(

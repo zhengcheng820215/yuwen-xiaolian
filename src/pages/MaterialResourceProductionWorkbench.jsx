@@ -685,7 +685,7 @@ export default function MaterialResourceProductionWorkbench() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1200px] px-5 py-7 md:px-8 md:py-9">
+      <main className="mx-auto w-full max-w-[1200px] px-5 pb-7 pt-4 md:px-8 md:pb-9 md:pt-4">
         {usesNonCanonicalLocalPort && (
           <div role="alert" className="mb-5 border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
             当前端口不是固定入口 5174。浏览器会分别保存不同端口的数据，请停止录入并改用
@@ -742,13 +742,13 @@ export default function MaterialResourceProductionWorkbench() {
           </div>
         )}
 
-        <div className="mt-6 space-y-10">
+        <div className="mt-2 space-y-10">
           <section id="material-resource-editor" className="scroll-mt-28">
             <div className="flex justify-center">
-              <div className="inline-flex rounded-md border border-slate-300 bg-white p-1" aria-label="素材录入方式">
-                <button type="button" onClick={showExistingMaterials} disabled={activeMaterials.length === 0} className={`min-h-8 whitespace-nowrap rounded px-3 text-sm ${materialMode === 'existing' ? 'bg-emerald-600 text-white' : 'text-slate-600'} disabled:opacity-40`}>已有素材</button>
-                <button type="button" onClick={showNewMaterialForm} className={`min-h-8 whitespace-nowrap rounded px-3 text-sm ${materialMode === 'new' ? 'bg-emerald-600 text-white' : 'text-slate-600'}`}>录入新素材</button>
-                <button type="button" onClick={showRetiredMaterials} disabled={retiredMaterials.length === 0} className={`min-h-8 whitespace-nowrap rounded px-3 text-sm ${materialMode === 'retired' ? 'bg-emerald-600 text-white' : 'text-slate-600'} disabled:opacity-40`}>已停用素材（{retiredMaterials.length}）</button>
+              <div className="inline-flex items-center gap-1" aria-label="素材录入方式">
+                <button type="button" onClick={showExistingMaterials} disabled={activeMaterials.length === 0} className={`material-mode-button h-10 whitespace-nowrap rounded px-3 ${materialMode === 'existing' ? 'is-active bg-emerald-600 text-white' : 'text-slate-600'} disabled:opacity-40`}>已有素材</button>
+                <button type="button" onClick={showNewMaterialForm} className={`material-mode-button h-10 whitespace-nowrap rounded px-3 ${materialMode === 'new' ? 'is-active bg-emerald-600 text-white' : 'text-slate-600'}`}>素材录入</button>
+                <button type="button" onClick={showRetiredMaterials} disabled={retiredMaterials.length === 0} className={`material-mode-button h-10 whitespace-nowrap rounded px-3 ${materialMode === 'retired' ? 'is-active bg-emerald-600 text-white' : 'text-slate-600'} disabled:opacity-40`}>停用素材（{retiredMaterials.length}）</button>
               </div>
             </div>
 
@@ -794,7 +794,7 @@ export default function MaterialResourceProductionWorkbench() {
                           className="inline-flex min-h-9 items-center gap-2 rounded-md px-3 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
                         >
                           <Trash2 size={16} />
-                          删除或停用素材
+                          删除或停用该素材
                         </button>
                       </div>
                     </div>
@@ -883,8 +883,8 @@ export default function MaterialResourceProductionWorkbench() {
               <div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <h3 id="ai-observation-generator-title" className="text-base font-semibold">AI 生成训练任务</h3>
-                  <span className={`text-xs font-semibold ${generatorStatus?.status === 'ready' ? 'text-emerald-700' : 'text-amber-700'}`}>
-                    {generatorStatus?.status === 'ready' ? `DeepSeek 已就绪 · ${generatorStatus.model}` : 'AI 服务未配置'}
+                  <span className={`rounded px-2 py-1 text-sm ${generatorStatus?.status === 'ready' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                    {generatorStatus?.status === 'ready' ? 'AI 服务可用' : 'AI 服务未配置'}
                   </span>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-600">AI 根据学习材料生成可编辑的训练任务和评分标准。生成内容需人工确认后才能保存、送审或发布。</p>

@@ -40,6 +40,8 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '10 draft revision invalidates previous assessment', run: caseRevisionInvalidation },
   { name: '11 repository save is idempotent and immutable', run: caseRepositoryGuarantees },
   { name: '12 schema guard rejects malformed assessment', run: caseSchemaGuard },
+  { name: '13 valid paragraph reference is accepted as material grounding', run: caseValidParagraphReference },
+  { name: '14 out-of-range paragraph reference is rejected', run: caseInvalidParagraphReference },
 ];
 
 async function main(): Promise<void> {
@@ -317,6 +319,38 @@ async function caseSchemaGuard(): Promise<void> {
   );
 }
 
+async function caseValidParagraphReference(): Promise<void> {
+  const fixture = await validFixture('valid-paragraph-reference', {
+    questionStem: '结合第 3 段，分析人物当时的心理。',
+  });
+  const assessment = assessQuestionDraftQuality(fixture);
+
+  assert(
+    assessment.checks.materialGrounding === 'pass',
+    'Valid paragraph reference was not accepted as material grounding.',
+  );
+  assert(
+    !hasWarning(assessment, 'quality.material.anchor_weak'),
+    'Valid paragraph reference still produced a weak-anchor warning.',
+  );
+}
+
+async function caseInvalidParagraphReference(): Promise<void> {
+  const fixture = await validFixture('invalid-paragraph-reference', {
+    questionStem: '结合第 9 段，分析人物当时的心理。',
+  });
+  const assessment = assessQuestionDraftQuality(fixture);
+
+  assert(
+    assessment.checks.materialGrounding === 'fail',
+    'Out-of-range paragraph reference was not rejected.',
+  );
+  assert(
+    hasWarning(assessment, 'quality.material.paragraph_out_of_range'),
+    'Out-of-range paragraph warning is missing.',
+  );
+}
+
 async function validFixture(
   suffix: string,
   overrides: Partial<CreateStructuredQuestionDraftInput> = {},
@@ -350,7 +384,11 @@ async function repositoryWithMaterial(): Promise<AdmissionRepository> {
     materialVersionId: 'material-leaf:v1',
     versionNumber: 1,
     title: '旧书中的树叶',
-    content: '父亲整理书柜时，从一本旧书里发现一片已经褪色的树叶。他捏着树叶站了很久，最后把它小心地夹回原处。',
+    content: [
+      '父亲整理书柜时，发现了一本多年没有翻动的旧书。',
+      '他从书里找到一片已经褪色的树叶。',
+      '他捏着树叶站了很久，最后把它小心地夹回原处。',
+    ].join('\n'),
     source: {
       sourceType: 'manual',
       description: 'Internal question quality material.',

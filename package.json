@@ -93,6 +93,7 @@
     "debug:phase17-5c3a-demo": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase175C3ABatchQualitySummaryDemoDebug.ts",
     "debug:phase17-5c3b": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runTenMaterialCalibrationDebug.ts",
     "debug:material-observation-draft-generator": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runMaterialObservationDraftGeneratorDebug.ts",
+    "debug:question-stem-optimization": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionStemOptimizationDebug.ts",
     "debug:phase16-resource-integration": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase161To162IntegrationDebug.ts",
     "debug:phase1-16-e2e": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase1To162SingleObjectE2EDebug.ts",
     "debug:phase16-real-provider-smoke": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase16RealProviderSingleObjectSmoke.ts",

@@ -1357,3 +1357,10 @@ Phase 17.2 Runtime 工程基础已经通过。开始首批 4 个核心 Material 
 - 已停用素材：两条停用记录分别显示独立“重新启用”操作，恢复后回到已有素材库存，历史训练与题目记录保持不变；
 - 当前素材范围专项 Debug `9 / 9 PASS`；
 - Production Build `PASS`，保留既有非阻断 Bundle Warning。
+
+## 2026-07-27 审核修改辅助能力
+
+题目进入“题目审核与发布平台”后，可以在保持训练目标和评分边界不变的前提下请求 AI 优化题干。该能力属于审核修改辅助，不回写 Material Observation Plan，也不在素材录入平台建立第二套题目生成或审核流程。
+
+采用 AI 建议只修改当前题干编辑值，并使旧质量检查失效；内容人员仍需保存、重新检查并提交人工审核。完整实现、规则版本和验收结果见：
+[Phase 17.5 题干优化与检查时效补强记录](./reports/phase17_5_question_stem_optimization_and_review_freshness_2026-07-27.md)

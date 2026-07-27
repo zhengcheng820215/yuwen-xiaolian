@@ -4,7 +4,7 @@
 
 设计状态：17.5A-B IMPLEMENTED / 17.5C1-C2 IMPLEMENTED / 17.5C3A IMPLEMENTED / 17.5C3B CALIBRATION RUNTIME IMPLEMENTED
 
-工程状态：17.5A ENGINEERING + AUTOMATED DEBUG PASS（12 / 12）；17.5B REVIEW CONSUMPTION + AUTOMATED DEBUG PASS（9 / 9）；17.5C1 INDEPENDENT SEMANTIC ASSESSMENT + AUTOMATED DEBUG PASS（18 / 18），LIGHT DEMO + HUMAN ACCEPTANCE PASS（12 / 12）；17.5C2 ASSESSMENT PERSISTENCE + FROZEN TRACEABILITY AUTOMATED DEBUG PASS（17 / 17），LIGHT DEMO + HUMAN ACCEPTANCE PASS（12 / 12）；17.5C3A BATCH QUALITY SUMMARY ENGINEERING + AUTOMATED DEBUG PASS（13 / 13），LIGHT DEMO + HUMAN ACCEPTANCE PASS；17.5C3B CALIBRATION RUNTIME + AUTOMATED DEBUG PASS（16 / 16）；固定真实十篇材料校准尚未完成
+工程状态：17.5A RULE V2 + AUTOMATED DEBUG PASS（14 / 14）；REVIEW STEM OPTIMIZATION + AUTOMATED DEBUG PASS（5 / 5）；17.5B REVIEW CONSUMPTION + AUTOMATED DEBUG PASS（9 / 9）；17.5C1 INDEPENDENT SEMANTIC ASSESSMENT + AUTOMATED DEBUG PASS（18 / 18），LIGHT DEMO + HUMAN ACCEPTANCE PASS（12 / 12）；17.5C2 ASSESSMENT PERSISTENCE + FROZEN TRACEABILITY AUTOMATED DEBUG PASS（17 / 17），LIGHT DEMO + HUMAN ACCEPTANCE PASS（12 / 12）；17.5C3A BATCH QUALITY SUMMARY ENGINEERING + AUTOMATED DEBUG PASS（13 / 13），LIGHT DEMO + HUMAN ACCEPTANCE PASS；17.5C3B CALIBRATION RUNTIME + AUTOMATED DEBUG PASS（16 / 16）；固定真实十篇材料校准尚未完成
 
 17.5C 独立工程任务文档：[Phase 17.5C：独立语义评估、质量持久化与批次校准](./phase17_5c.md)
 
@@ -762,3 +762,36 @@ Demo 直接消费正式 `QuestionQualityAssessment` 规则，不使用固定结�
 
 完整记录见：
 [Phase 17 训练任务到题目审核交接修复记录](./reports/phase17_review_handoff_idempotency_fix_2026-07-26.md)
+
+## 2026-07-27 题干优化与检查时效补强
+
+题目审核平台新增受控“AI 优化题干”能力，但不改变人工审核边界：
+
+```text
+当前 Draft + Material + Quality Warning
+-> AI 题干建议
+-> 人工采用
+-> 旧 Assessment 失效
+-> 保存当前 Draft Revision
+-> 重新校验与质量评估
+-> 人工审核
+```
+
+正式规则：
+
+1. AI 只能改写题干文字，不得修改能力、Observation、难度、Rubric、Answer Acceptance 或 Material；
+2. 建议先进入预览，人工采用前不写入 Draft，采用后也不自动保存、提交或发布；
+3. 手工或 AI 修改题干后，旧质量结果立即失效，页面必须显示等待重新检查，不得继续展示旧“检查通过”或旧提醒作为当前结论；
+4. 提交审核只能消费保存后、绑定当前 Draft Revision 的 Validation 与 QuestionQualityAssessment；
+5. 材料依据规则升级为 `question_quality_rules_v2`，合法段落引用可作为明确依据，越界段落引用形成强提醒；
+6. AI 建议仍未解决提醒时保留人工关注，不通过隐藏 Warning 提高表面通过率。
+
+专项验收：
+
+- Question Quality Assessment：`14 / 14 PASS`；
+- Question Stem Optimization：`5 / 5 PASS`；
+- Production Build：`PASS`；
+- 浏览器确认修改题干后旧质量结果消失、等待重新检查提示出现、提交审核保持阻断。
+
+完整记录见：
+[Phase 17.5 题干优化与检查时效补强记录](./reports/phase17_5_question_stem_optimization_and_review_freshness_2026-07-27.md)

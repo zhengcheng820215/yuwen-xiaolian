@@ -104,6 +104,15 @@ button {
   outline-offset: 2px;
 }
 
+.material-resource-workbench .material-mode-button {
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.material-resource-workbench .material-mode-button.is-active {
+  font-weight: 600;
+}
+
 @media (min-width: 1024px) {
   .workspace-viewport {
     background: linear-gradient(
