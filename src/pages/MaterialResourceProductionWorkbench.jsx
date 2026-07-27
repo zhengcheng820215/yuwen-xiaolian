@@ -1426,11 +1426,11 @@ function ActionButton({ icon: Icon, children, ...props }) {
 
 function AssistedDraftWorkflow({ stage }) {
   const stages = [
-    ['candidate', 'AI 生成训练任务', '已生成'],
-    ['imported', '保存训练任务', '已保存'],
-    ['observation_plan', '提交审核', '已提交'],
-    ['question_review', '审核题目', '已审核'],
-    ['frozen', '发布任务', '已发布'],
+    ['candidate', '生成训练任务'],
+    ['imported', '导入编辑区'],
+    ['observation_plan', '保存训练任务'],
+    ['question_review', '进入题目审核'],
+    ['frozen', '发布正式题目'],
   ];
   if (stage === 'material') return null;
   const currentIndex = stages.findIndex(([value]) => value === stage);
@@ -1438,14 +1438,12 @@ function AssistedDraftWorkflow({ stage }) {
     <div className="mt-4" aria-label="训练任务发布进度">
       <p className="text-xs font-semibold text-slate-500">发布进度</p>
       <ol className="mt-2 grid grid-cols-5 gap-1">
-        {stages.map(([value, actionLabel, completedLabel], index) => {
+        {stages.map(([value, actionLabel], index) => {
           const reached = currentIndex >= 0 && index <= currentIndex;
           const current = value === stage;
-          const completed = index < currentIndex || (current && value === 'frozen');
-          const label = completed ? completedLabel : actionLabel;
           return (
             <li key={value} className={`min-w-0 border-t-2 pt-2 text-center text-xs font-semibold leading-4 ${reached ? 'border-emerald-600 text-emerald-800' : 'border-slate-200 text-slate-400'} ${current ? 'bg-emerald-50' : ''}`}>
-              {index + 1}. {label}
+              {index + 1}. {actionLabel}
             </li>
           );
         })}
@@ -1609,7 +1607,7 @@ function GeneratorCandidatePreview({ result, onImport }) {
           </div>
         </details>
       )}
-      <button type="button" onClick={onImport} disabled={result.status !== 'candidates_ready' || result.candidates.length === 0} className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-4 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"><ArrowRight size={16} />导入 {result.candidates.length} 条训练任务到编辑区</button>
+      <button type="button" onClick={onImport} disabled={result.status !== 'candidates_ready' || result.candidates.length === 0} className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:bg-slate-200 disabled:text-slate-400"><ArrowRight size={16} />导入 {result.candidates.length} 条训练任务到编辑区</button>
     </div>
   );
 }

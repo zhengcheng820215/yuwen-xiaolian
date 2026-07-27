@@ -15,6 +15,7 @@ import {
   QUESTION_QUALITY_CHECKS,
   type QuestionQualityCheck,
 } from '../schemas/questionQualityAssessment.schema.ts';
+import { reviewQuestionStemSuggestion } from './questionStemSuggestionReview.ts';
 
 export type QuestionStemOptimizationConfig = {
   providerName: string;
@@ -144,6 +145,7 @@ function validateProviderResult(
       changes,
       rationale,
       addressedChecks,
+      suggestionReview: reviewQuestionStemSuggestion(input, suggestedStem),
       version: QUESTION_STEM_OPTIMIZATION_VERSION,
     },
     issues: [],

@@ -3,7 +3,7 @@ import type {
 } from '../schemas/questionStemOptimization.schema.ts';
 
 export const QUESTION_STEM_OPTIMIZATION_PROMPT_VERSION =
-  'question_stem_optimization_prompt_v1';
+  'question_stem_optimization_prompt_v2';
 
 export function buildQuestionStemOptimizationPrompt(
   input: QuestionStemOptimizationInput,
@@ -12,6 +12,7 @@ export function buildQuestionStemOptimizationPrompt(
     material: input.material,
     question: input.question,
     qualityIssues: input.qualityIssues,
+    optimizationFocus: input.targetChecks || [],
   };
 
   return [
@@ -19,6 +20,7 @@ export function buildQuestionStemOptimizationPrompt(
     '你是语文训练题干优化助手。',
     '你的唯一任务是优化“题干文字”，不得修改训练能力、观察重点、难度、评分标准或材料。',
     '优先解决 qualityIssues 中指出的问题；如果没有问题，则提升题干的清晰度、材料依据和作答边界。',
+    '如 optimizationFocus 不为空，本次必须优先修复其中列出的检查项，不要用无关润色替代实质修复。',
     '必须保持原题考查目标不变，不得降低或提高能力要求，不得把一道题拆成多道题。',
     '题干必须能由给定材料支持。不得编造材料原句、段落、人物、事件或背景知识。',
     '如引用段落号或原句，必须能在材料中准确定位；无法确定时使用“结合材料”而不是猜测段落号。',

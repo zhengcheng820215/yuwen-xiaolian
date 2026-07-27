@@ -770,6 +770,8 @@ Demo 直接消费正式 `QuestionQualityAssessment` 规则，不使用固定结�
 ```text
 当前 Draft + Material + Quality Warning
 -> AI 题干建议
+-> 候选预检查
+-> 如仍有提醒，针对剩余问题重试一次或转人工修改
 -> 人工采用
 -> 旧 Assessment 失效
 -> 保存当前 Draft Revision
@@ -784,14 +786,36 @@ Demo 直接消费正式 `QuestionQualityAssessment` 规则，不使用固定结�
 3. 手工或 AI 修改题干后，旧质量结果立即失效，页面必须显示等待重新检查，不得继续展示旧“检查通过”或旧提醒作为当前结论；
 4. 提交审核只能消费保存后、绑定当前 Draft Revision 的 Validation 与 QuestionQualityAssessment；
 5. 材料依据规则升级为 `question_quality_rules_v2`，合法段落引用可作为明确依据，越界段落引用形成强提醒；
-6. AI 建议仍未解决提醒时保留人工关注，不通过隐藏 Warning 提高表面通过率。
+6. AI 建议仍未解决提醒时保留人工关注，不通过隐藏 Warning 提高表面通过率；
+7. 候选预检查只覆盖题干能够直接影响的材料依据、考查动作和作答范围；它不是正式 Assessment；
+8. Observation 重复、Rubric 区分度、难度和评分标准对齐等问题必须返回对应编辑位置，不能通过反复改写题干伪装为已解决；
+9. 单次题干编辑最多执行 2 次受控 AI 优化；仍未改善时停止调用并转人工处理。
 
 专项验收：
 
 - Question Quality Assessment：`14 / 14 PASS`；
-- Question Stem Optimization：`5 / 5 PASS`；
+- Question Stem Optimization：`8 / 8 PASS`；
 - Production Build：`PASS`；
-- 浏览器确认修改题干后旧质量结果消失、等待重新检查提示出现、提交审核保持阻断。
+- 浏览器确认修改题干后旧质量结果消失、等待重新检查提示出现、提交审核保持阻断；
+- AI 候选未通过预检查时不展示直接采用入口，页面改为提供“针对提醒再次优化”“转到题干手动修改”和“保留原题干”。
 
 完整记录见：
 [Phase 17.5 题干优化与检查时效补强记录](./reports/phase17_5_question_stem_optimization_and_review_freshness_2026-07-27.md)
+
+## 2026-07-27 质量相关编辑统一失效规则
+
+题干优化建立的检查时效机制已经扩展到题目编辑器中的全部正式资源字段。题干、题型、作答格式、材料关联、能力映射、任务角色、难度、Answer Acceptance、Rubric、最低作答要求和来源声明等内容发生修改后，只要当前 Revision 已存在 Validation 或 QuestionQualityAssessment，页面立即将旧结果标记为历史结果，并阻断继续提交审核。
+
+保存修改后系统创建新的 Draft Revision；旧 Revision 与旧 Assessment 保留用于审计，但 Human Review、Freeze 和正式发布只能消费新 Revision 重新形成的当前结果。审核说明等不写入正式题目内容的操作不触发失效。
+
+该规则采用保守默认：当前题目编辑器中所有持久化正式字段均视为质量相关字段。后续只有在能够证明某字段不参与任何质量判断时，才允许从失效依赖中排除。
+
+专项验收：
+
+- Question Quality Assessment：`14 / 14 PASS`；
+- Phase 17.5B Review Gate：`9 / 9 PASS`；
+- Question Stem Optimization：`8 / 8 PASS`；
+- Production Build：`PASS`。
+
+跨对象原则与依赖范围见：
+[基于 Revision 的质量评估失效记录](./reports/revision_bound_assessment_invalidation_2026-07-27.md)

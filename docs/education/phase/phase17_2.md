@@ -1364,3 +1364,12 @@ Phase 17.2 Runtime 工程基础已经通过。开始首批 4 个核心 Material 
 
 采用 AI 建议只修改当前题干编辑值，并使旧质量检查失效；内容人员仍需保存、重新检查并提交人工审核。完整实现、规则版本和验收结果见：
 [Phase 17.5 题干优化与检查时效补强记录](./reports/phase17_5_question_stem_optimization_and_review_freshness_2026-07-27.md)
+
+## 2026-07-27 Material Observation 质量时效规则
+
+Material Observation 不是可在原 Revision 上静默改写的辅助字段。Observation Focus、Dimension、Ability Mapping、Material Anchor 或材料版本发生修改时，必须创建新的 Observation Plan Revision；依赖旧 Observation 或 Anchor 的 Question Quality Assessment、Observation Link 和发布判断不得继续作为当前结论。
+
+旧 Plan Revision、旧 Assessment 和已发布资源继续保留用于追溯。只有受到变更影响的下游对象需要重新确认，不因一处修改删除历史对象或无差别重评无关资源。
+
+完整跨对象原则见：
+[基于 Revision 的质量评估失效记录](./reports/revision_bound_assessment_invalidation_2026-07-27.md)

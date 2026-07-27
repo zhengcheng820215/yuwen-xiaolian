@@ -225,7 +225,28 @@ Formal DiagnosisResult
 
 只有通过 Schema、身份、语义边界和 Prompt 泄漏检查，并完成原子提交的 Candidate，才能成为正式 Diagnosis。Live 失败不能静默使用 mock 生成正式 Evidence。
 
-### 8. Runtime 与学生展示
+### 8. 基于 Revision 的质量评估失效
+
+```text
+正式对象 Revision N
++ Assessment N
+↓
+质量相关字段发生修改
+↓
+正式对象 Revision N + 1
+↓
+Assessment N 只保留用于历史追溯
+↓
+基于 Revision N + 1 重新评估
+```
+
+任何会改变正式质量判断输入的编辑，都必须使相关 Assessment 失效。旧结果不能继续代表新内容，也不能被 Review、Freeze、Registry 或正式 Runtime 当作当前依据。
+
+当前规则适用于 Question 的题干、Rubric、Answer Acceptance、Difficulty、Ability Mapping、Material 关联与其他持久化内容；Material Observation 修改同样必须形成新 Plan Revision，并使依赖旧 Observation 或 Anchor 的下游质量判断进入重新确认。审核备注、界面展开状态等不改变正式对象的操作不触发失效。
+
+失效不等于删除：旧 Revision 与旧 Assessment 继续保留用于审计；已经发布的版本不被覆盖，修改必须通过新 Revision 重新检查、审核和发布。
+
+### 9. Runtime 与学生展示
 
 学生页面只消费学生可读状态和反馈，不重新判断能力，也不直接展示 Prompt、Raw Output、Evidence、Profile、内部 ID 或 Schema 字段。
 
@@ -344,7 +365,7 @@ Formal DiagnosisResult
 | 17.3 | Formal Resource Runtime Integration and Source Preservation | WORK PACKAGE A 17 / 17 PASS / CONTROLLED LIVE 3 / 3 PASS / BATCH A `/learning` SINGLE-ROUND DEMO PASS | [Phase 17.3](../education/phase/phase17_3.md) |
 | 17.4A | Shared Store Cutover | ENGINEERING + AUTOMATED DEBUG 10 / 10 PASS / STANDARD-BROWSER BASELINE CUTOVER + FRESH BASELINE QUALITY INITIALIZATION + CONTROLLED DUAL-CLIENT + INDEPENDENT BROWSER-KERNEL CONSISTENCY PASS | [Phase 17.4](../education/phase/phase17_4.md) |
 | 17.4B | Migration and Recovery Hardening | PLANNED / P2 | [Phase 17.4](../education/phase/phase17_4.md) |
-| 17.5 | Question Generation Quality Assessment | 17.5A RULE V2 14 / 14 PASS；REVIEW STEM OPTIMIZATION 5 / 5 PASS；17.5B 9 / 9 PASS；17.5C1 18 / 18 PASS；17.5C2 17 / 17 PASS；17.5C3A 13 / 13 PASS；17.5C3B CALIBRATION RUNTIME 16 / 16 PASS / REAL TEN-MATERIAL CALIBRATION PENDING | [Phase 17.5](../education/phase/phase17_5.md) |
+| 17.5 | Question Generation Quality Assessment | 17.5A RULE V2 14 / 14 PASS；REVIEW STEM OPTIMIZATION 8 / 8 PASS；17.5B 9 / 9 PASS；17.5C1 18 / 18 PASS；17.5C2 17 / 17 PASS；17.5C3A 13 / 13 PASS；17.5C3B CALIBRATION RUNTIME 16 / 16 PASS / REAL TEN-MATERIAL CALIBRATION PENDING | [Phase 17.5](../education/phase/phase17_5.md) |
 
 当前准确状态：
 
@@ -432,7 +453,7 @@ Phase 16.3 已冻结设计并拆为三个顺序工作包。16.3A / B 为 `PASS /
 
 ### Phase 17：学习资源覆盖扩展
 
-Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster 为组织基础、以能力观测为目标、能够被正式 Runtime 消费和验证的第一套学习资源体系。阶段在既有 Phase 16 资源准入与匹配边界上建立 `Material -> Observation Dimension -> Ability Action -> Question Resource` 的材料能力观测基础。Material 是正式内容、语境和来源权威；Frozen Resource 必须引用确定的 Material Version，历史 Response、Diagnosis 与 Evidence 保留执行时版本和内容哈希，版本缺失、错位或 Anchor 失效必须阻断。17.1 Coverage Runtime 与 Dashboard 人工验收已通过；17.2 已完成 Material Observation、最小生产工作台、Prompt v1.4 / Generator Contract v1.2 辅助首稿生成工程闭环和 Batch A 8 道正式资源，Assisted Draft Generation 为 `38 / 38 PASS`，但三轮真实 Provider 生成质量验收仍为 `PENDING`。17.3 Work Package A 正式资源串联为 `17 / 17 PASS`，Work Package B Controlled DeepSeek Live 为 `3 / 3 PASS`；Batch A `/learning` 单轮 Demo 已证明正式资源、真实 Diagnosis、Evidence、学生反馈和刷新幂等成立，下一任务缺少兼容资源时安全阻断。17.4A 已建立本机 Shared Store、Local API、Repository Adapter、显式基线初始化和基本备份，专项 `10 / 10 PASS`，标准浏览器基线切换与全新基线质量初始化已完成；A 写 B 读、B 发布 A 读、旧 Revision `409` 和服务重启持久化已在受控双端人工检查中通过；Codex 内置浏览器与隔离用户目录的独立 Google Chrome 又完成双向写入、刷新读取和临时数据清理，独立浏览器内核一致性门已关闭。Shared Store API 目前由本机 Vite 服务提供，仍属于单机封闭 Beta 基础设施；17.4B 再完成复杂迁移报告、冲突治理、历史快照和自动恢复。17.5A 已建立绑定 Draft Revision 与当前 Validation 的 Question Quality Assessment、七项确定性检查、Revision 失效规则和不可变 Repository，材料依据规则 v2 专项 `14 / 14 PASS`；审核平台增加只改题干的受控 AI 建议，专项 `5 / 5 PASS`，采用建议后旧 Assessment 失效，必须保存并重新检查；17.5B 已完成审核页质量摘要、Warning 展示、Human Review / Freeze 当前 Assessment 消费门与专项 `9 / 9 PASS`；17.5C1 独立语义评估 `18 / 18 PASS`，17.5C2 质量持久化与 Frozen Trace `17 / 17 PASS`，17.5C3A 批次质量摘要 `13 / 13 PASS`，17.5C3B 十素材校准 Runtime `16 / 16 PASS`。固定真实十篇材料的采集、运行、人工观察与签署仍未完成，因此 17.5 整体仍为 `PENDING`。质量评估和题干建议都不自动审核或冻结，也不替代 16.2 正式资源匹配质量门。当前产品定位为“已通过真实单轮学习链路验收、具备正式资源发布前质量治理和本机共享持久化基础的单学生封闭 Beta”；下一主任务是真实十素材校准，随后再扩展资源生态、连续 Session 和学生感知验收。仍不得提前宣称完整 24—28 道资源包、多轮路径、资源使用后自优化闭环或 Phase 17 最终 PASS。Observation Dimension 暂不进入 Evidence、Profile 或正式 Coverage denominator；完整 Material 治理体系不在 17.3 范围内。
+Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster 为组织基础、以能力观测为目标、能够被正式 Runtime 消费和验证的第一套学习资源体系。阶段在既有 Phase 16 资源准入与匹配边界上建立 `Material -> Observation Dimension -> Ability Action -> Question Resource` 的材料能力观测基础。Material 是正式内容、语境和来源权威；Frozen Resource 必须引用确定的 Material Version，历史 Response、Diagnosis 与 Evidence 保留执行时版本和内容哈希，版本缺失、错位或 Anchor 失效必须阻断。17.1 Coverage Runtime 与 Dashboard 人工验收已通过；17.2 已完成 Material Observation、最小生产工作台、Prompt v1.4 / Generator Contract v1.2 辅助首稿生成工程闭环和 Batch A 8 道正式资源，Assisted Draft Generation 为 `38 / 38 PASS`，但三轮真实 Provider 生成质量验收仍为 `PENDING`。17.3 Work Package A 正式资源串联为 `17 / 17 PASS`，Work Package B Controlled DeepSeek Live 为 `3 / 3 PASS`；Batch A `/learning` 单轮 Demo 已证明正式资源、真实 Diagnosis、Evidence、学生反馈和刷新幂等成立，下一任务缺少兼容资源时安全阻断。17.4A 已建立本机 Shared Store、Local API、Repository Adapter、显式基线初始化和基本备份，专项 `10 / 10 PASS`，标准浏览器基线切换与全新基线质量初始化已完成；A 写 B 读、B 发布 A 读、旧 Revision `409` 和服务重启持久化已在受控双端人工检查中通过；Codex 内置浏览器与隔离用户目录的独立 Google Chrome 又完成双向写入、刷新读取和临时数据清理，独立浏览器内核一致性门已关闭。Shared Store API 目前由本机 Vite 服务提供，仍属于单机封闭 Beta 基础设施；17.4B 再完成复杂迁移报告、冲突治理、历史快照和自动恢复。17.5A 已建立绑定 Draft Revision 与当前 Validation 的 Question Quality Assessment、七项确定性检查、Revision 失效规则和不可变 Repository，材料依据规则 v2 专项 `14 / 14 PASS`；审核平台增加只改题干的受控 AI 建议，专项 `8 / 8 PASS`，采用建议后旧 Assessment 失效，必须保存并重新检查；17.5B 已完成审核页质量摘要、Warning 展示、Human Review / Freeze 当前 Assessment 消费门与专项 `9 / 9 PASS`；17.5C1 独立语义评估 `18 / 18 PASS`，17.5C2 质量持久化与 Frozen Trace `17 / 17 PASS`，17.5C3A 批次质量摘要 `13 / 13 PASS`，17.5C3B 十素材校准 Runtime `16 / 16 PASS`。固定真实十篇材料的采集、运行、人工观察与签署仍未完成，因此 17.5 整体仍为 `PENDING`。质量评估和题干建议都不自动审核或冻结，也不替代 16.2 正式资源匹配质量门。当前产品定位为“已通过真实单轮学习链路验收、具备正式资源发布前质量治理和本机共享持久化基础的单学生封闭 Beta”；下一主任务是真实十素材校准，随后再扩展资源生态、连续 Session 和学生感知验收。仍不得提前宣称完整 24—28 道资源包、多轮路径、资源使用后自优化闭环或 Phase 17 最终 PASS。Observation Dimension 暂不进入 Evidence、Profile 或正式 Coverage denominator；完整 Material 治理体系不在 17.3 范围内。
 
 素材资源录入平台采用 Material-scoped Workspace：顶部以“已有素材 / 录入新素材 / 已停用素材”三个模式区分使用、创建与生命周期管理。用户明确选择或保存 active Material Version 后，系统才建立当前素材上下文，并只投影该素材的待审核题目、已发布练习及后续生成、编辑、审核入口；未选择素材或进入停用素材管理模式时，下游生产模块保持隐藏。切换素材必须同时切换统计与明细上下文。Material Version 支持 `active -> retired -> active` 的可逆状态流转，停用保留既有训练、题目和来源关系；只有完全无依赖的未使用素材可以删除。跨素材全局库存属于资源总览或 Coverage Dashboard，不属于单素材生产工作台。
 
@@ -457,6 +478,7 @@ Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster �
 15. StructuredQuestionDraft 不是正式资源，只有审核有效的 FrozenQuestionResource 可以进入正式匹配。
 16. FrozenQuestionResource 不可静默修改；修订必须生成新版本，旧版本只有在新版本正式冻结后才可 supersede。
 17. 资源准入通过不等于匹配成功，匹配成功也不等于已经证明教学有效。
+18. AI 编辑建议的候选预检查不等于正式质量评估；只有保存后的新 Revision 才能重新生成可用于审核与发布的 Assessment。
 
 ## 八、尚未完成或尚未产品化
 

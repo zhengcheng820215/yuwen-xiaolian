@@ -129,6 +129,7 @@ export default function QuestionResourceWorkbench() {
   const [stemOptimization, setStemOptimization] = useState(null);
   const [stemOptimizationError, setStemOptimizationError] = useState('');
   const [stemOptimizationBusy, setStemOptimizationBusy] = useState(false);
+  const [stemOptimizationAttempts, setStemOptimizationAttempts] = useState(0);
   const [qualityResultStale, setQualityResultStale] = useState(false);
   const stemOptimizationRequestRef = useRef(0);
 
@@ -169,6 +170,7 @@ export default function QuestionResourceWorkbench() {
     setStemOptimization(null);
     setStemOptimizationError('');
     setStemOptimizationBusy(false);
+    setStemOptimizationAttempts(0);
     setQualityResultStale(false);
     if (!currentSnapshot.materials.length && nextContext.material) {
       setSnapshot((value) => ({ ...value, materials: [nextContext.material] }));
@@ -184,8 +186,21 @@ export default function QuestionResourceWorkbench() {
     setStemOptimization(null);
     setStemOptimizationError('');
     setStemOptimizationBusy(false);
+    setStemOptimizationAttempts(0);
     setQualityResultStale(false);
     setActivePanel('workflow');
+  }
+
+  function updateQualityRelevantForm(updater) {
+    stemOptimizationRequestRef.current += 1;
+    setStemOptimizationBusy(false);
+    setForm(updater);
+    setStemOptimization(null);
+    setStemOptimizationError('');
+    setStemOptimizationAttempts(0);
+    if (context?.validation || context?.qualityAssessment) {
+      setQualityResultStale(true);
+    }
   }
 
   async function run(action, successMessage, preferredDraftId) {
@@ -225,7 +240,7 @@ export default function QuestionResourceWorkbench() {
       'Material 已创建并可供题目引用。',
     );
     if (material) {
-      setForm((value) => ({ ...value, materialVersionId: material.materialVersionId }));
+      updateQualityRelevantForm((value) => ({ ...value, materialVersionId: material.materialVersionId }));
       setMaterialForm(initialMaterialForm);
     }
   }
@@ -300,17 +315,38 @@ export default function QuestionResourceWorkbench() {
     );
   }
 
-  async function optimizeStem() {
+  async function optimizeStem(targetChecks = []) {
     const material = selectedMaterial || context?.material;
     if (!material) {
       setStemOptimizationError('请先为题目关联学习材料。');
       return;
     }
+    if (stemOptimizationAttempts >= 2) {
+      setStemOptimizationError('已完成 2 次受控优化。请直接在“题干”中修改，或保留原题干。');
+      return;
+    }
+    const previousSuggestion = stemOptimization;
+    const assessmentWarnings = context?.qualityAssessment?.warnings || [];
+    const qualityIssues = targetChecks.length
+      ? targetChecks.map((check) => {
+        const warning = assessmentWarnings.find((item) => item.check === check);
+        const remainingIssue = previousSuggestion?.suggestionReview?.remainingIssues
+          ?.find((item) => item.check === check);
+        return {
+          check,
+          message: remainingIssue?.message || warning?.message || '请针对该项质量提醒继续优化。',
+        };
+      })
+      : assessmentWarnings.map((warning) => ({
+        check: warning.check,
+        message: warning.message,
+      }));
     const requestSequence = stemOptimizationRequestRef.current + 1;
     stemOptimizationRequestRef.current = requestSequence;
     setStemOptimizationBusy(true);
     setStemOptimization(null);
     setStemOptimizationError('');
+    setStemOptimizationAttempts((value) => value + 1);
     try {
       const result = await requestQuestionStemOptimization({
         requestId: typeof crypto !== 'undefined' && crypto.randomUUID
@@ -328,10 +364,8 @@ export default function QuestionResourceWorkbench() {
           difficulty: form.difficulty,
           rubricFocuses: form.rubric.map((item) => item.name).filter(Boolean),
         },
-        qualityIssues: (context?.qualityAssessment?.warnings || []).map((warning) => ({
-          check: warning.check,
-          message: warning.message,
-        })),
+        qualityIssues,
+        targetChecks,
       });
       if (stemOptimizationRequestRef.current === requestSequence) {
         setStemOptimization(result);
@@ -348,23 +382,15 @@ export default function QuestionResourceWorkbench() {
   }
 
   function updateQuestionStem(value) {
-    stemOptimizationRequestRef.current += 1;
-    setStemOptimizationBusy(false);
-    setForm((current) => ({ ...current, questionStem: value }));
-    setStemOptimization(null);
-    setStemOptimizationError('');
-    setQualityResultStale(true);
+    updateQualityRelevantForm((current) => ({ ...current, questionStem: value }));
   }
 
   function applyOptimizedStem() {
     if (!stemOptimization?.suggestedStem) return;
-    setForm((current) => ({
+    updateQualityRelevantForm((current) => ({
       ...current,
       questionStem: stemOptimization.suggestedStem,
     }));
-    setStemOptimization(null);
-    setStemOptimizationError('');
-    setQualityResultStale(true);
     setNotice({
       type: 'success',
       message: '题干已修改，等待重新检查。请确认内容后保存并检查题目。',
@@ -404,7 +430,7 @@ export default function QuestionResourceWorkbench() {
   const questionEditor = (
     <QuestionEditor
       form={form}
-      setForm={setForm}
+      setForm={updateQualityRelevantForm}
       editable={editable}
       busy={busy}
       context={context}
@@ -425,6 +451,7 @@ export default function QuestionResourceWorkbench() {
       stemOptimization={stemOptimization}
       stemOptimizationError={stemOptimizationError}
       stemOptimizationBusy={stemOptimizationBusy}
+      stemOptimizationAttempts={stemOptimizationAttempts}
       focusedReview={planReviewMode}
       selectedQuestionNumber={selectedQuestionIndex >= 0 ? toChineseNumber(selectedQuestionIndex + 1) : null}
     />
@@ -651,16 +678,23 @@ function QuestionEditor({
   stemOptimization,
   stemOptimizationError,
   stemOptimizationBusy,
+  stemOptimizationAttempts,
   focusedReview,
   selectedQuestionNumber,
 }) {
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const objectiveQuestion = ['multiple_choice', 'true_false', 'fill_blank'].includes(form.questionType);
   const readingQuestion = form.questionType === 'reading_comprehension';
+  const suggestionNeedsAttention = stemOptimization?.suggestionReview?.status === 'needs_attention';
+  const remainingSuggestionIssues = stemOptimization?.suggestionReview?.remainingIssues || [];
+  const canRetryStemOptimization = suggestionNeedsAttention && stemOptimizationAttempts < 2;
   const updateRubric = (index, key, value) => setForm((current) => ({
     ...current,
     rubric: current.rubric.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item),
   }));
+  const focusQuestionStem = () => {
+    document.getElementById('question-stem-editor')?.focus();
+  };
 
   return (
     <section className={`rounded-md bg-white ${focusedReview ? '[&_input:focus]:border-emerald-500 [&_select:focus]:border-emerald-500 [&_textarea:focus]:border-emerald-500' : 'border border-slate-200'}`}>
@@ -732,13 +766,14 @@ function QuestionEditor({
                   !form.questionStem.trim() ||
                   !form.materialVersionId
                 }
-                onClick={onOptimizeStem}
+                onClick={() => onOptimizeStem()}
                 className="min-h-9 rounded-md border border-emerald-600 bg-white px-3 text-sm font-normal text-emerald-700 hover:bg-emerald-50 disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
               >
                 {stemOptimizationBusy ? '正在优化题干…' : 'AI 优化题干'}
               </button>
             </div>
             <AutoGrowTextarea
+              id="question-stem-editor"
               value={form.questionStem}
               onChange={(event) => onQuestionStemChange(event.target.value)}
               rows={4}
@@ -754,8 +789,21 @@ function QuestionEditor({
               </p>
             ) : null}
             {stemOptimization ? (
-              <section className="mt-3 rounded-md border border-emerald-200 bg-emerald-50/60 p-4">
-                <p className="text-sm font-semibold text-slate-950">AI 优化建议</p>
+              <section className={`mt-3 rounded-md border p-4 ${
+                suggestionNeedsAttention
+                  ? 'border-amber-200 bg-amber-50/60'
+                  : 'border-emerald-200 bg-emerald-50/60'
+              }`}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-slate-950">AI 题干建议</p>
+                  <span className={`rounded-md px-2 py-1 text-xs font-normal ${
+                    suggestionNeedsAttention
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-emerald-100 text-emerald-800'
+                  }`}>
+                    {suggestionNeedsAttention ? '预检查仍有提醒' : '建议已通过预检查'}
+                  </span>
+                </div>
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-900">
                   {stemOptimization.suggestedStem}
                 </p>
@@ -765,17 +813,56 @@ function QuestionEditor({
                     <p className="mt-1">本次调整：{stemOptimization.changes.join('；')}</p>
                   ) : null}
                 </div>
-                <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
-                  采用后仅更新当前编辑区，不会自动保存、提交审核或发布。
+                {remainingSuggestionIssues.length ? (
+                  <div className="mt-3 space-y-2">
+                    {remainingSuggestionIssues.map((issue) => (
+                      <div key={issue.check} className="rounded-md bg-amber-100/70 px-3 py-2 text-xs leading-5 text-amber-900">
+                        <p className="font-semibold">{qualityCheckLabel(issue.check, false)}</p>
+                        <p>{issue.message}</p>
+                        <p className="mt-1">修改位置与方法：{issue.recommendedAction}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                <p className={`mt-3 rounded-md px-3 py-2 text-xs leading-5 ${
+                  suggestionNeedsAttention
+                    ? 'bg-white/70 text-amber-900'
+                    : 'bg-emerald-100/70 text-emerald-900'
+                }`}>
+                  {suggestionNeedsAttention
+                    ? stemOptimizationAttempts >= 2
+                      ? '已完成 2 次受控优化。建议转到题干手动修改，或保留原题干；不要为了消除提醒而采用没有实质改善的建议。'
+                      : '系统会针对剩余提醒再优化 1 次。候选预检查不替代保存后的正式题目检查。'
+                    : '采用后仅更新当前编辑区，不会自动保存、提交审核或发布；保存后仍需重新检查题目。'}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={onApplyOptimizedStem}
-                    className="min-h-9 rounded-md bg-emerald-600 px-4 text-sm font-normal text-white hover:bg-emerald-700"
-                  >
-                    采用此题干
-                  </button>
+                  {!suggestionNeedsAttention ? (
+                    <button
+                      type="button"
+                      onClick={onApplyOptimizedStem}
+                      className="min-h-9 rounded-md bg-emerald-600 px-4 text-sm font-normal text-white hover:bg-emerald-700"
+                    >
+                      采用此题干
+                    </button>
+                  ) : null}
+                  {canRetryStemOptimization ? (
+                    <button
+                      type="button"
+                      onClick={() => onOptimizeStem(remainingSuggestionIssues.map((issue) => issue.check))}
+                      className="min-h-9 rounded-md bg-emerald-600 px-4 text-sm font-normal text-white hover:bg-emerald-700"
+                    >
+                      针对提醒再次优化
+                    </button>
+                  ) : null}
+                  {suggestionNeedsAttention ? (
+                    <button
+                      type="button"
+                      onClick={focusQuestionStem}
+                      className="min-h-9 rounded-md border border-emerald-600 bg-white px-4 text-sm font-normal text-emerald-700 hover:bg-emerald-50"
+                    >
+                      转到题干手动修改
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     onClick={onDismissStemOptimization}
@@ -1032,7 +1119,7 @@ function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidat
           {!qualityAssessment || qualityResultStale ? (
             <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
               {qualityResultStale
-                ? '题干已经修改，请先保存并重新检查题目。'
+                ? '题目内容已经修改，请先保存并重新检查题目。'
                 : '当前题目尚无有效质量检查结果，请重新执行结构检查。'}
             </p>
           ) : null}
@@ -1043,7 +1130,7 @@ function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidat
         <ActionStep index="3" title="逐题人工审核">
           <AutoGrowTextarea value={reviewNotes} onChange={(event) => setReviewNotes(event.target.value)} rows={3} placeholder="填写审核说明" />
           <div className="mt-2 grid grid-cols-3 gap-2">
-            <button type="button" disabled={busy} onClick={() => onReview('approve')} className="min-h-10 rounded-md bg-emerald-600 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">该题通过</button>
+            <button type="button" disabled={busy} onClick={() => onReview('approve')} className="min-h-10 rounded-md bg-emerald-600 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">该题审核通过</button>
             <button type="button" disabled={busy} onClick={() => onReview('revision_required')} className="min-h-10 rounded-md bg-amber-500 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">该题需修改</button>
             <button type="button" disabled={busy} onClick={() => onReview('reject')} className="min-h-10 rounded-md bg-rose-600 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">该题不采用</button>
           </div>
@@ -1052,7 +1139,7 @@ function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidat
 
       {currentStep === 4 ? (
         <ActionStep index="4" title="正式发布">
-          <button type="button" disabled={busy} onClick={onFreeze} className="flex min-h-10 w-full items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">发布为正式题目</button>
+          <button type="button" disabled={busy} onClick={onFreeze} className="flex min-h-10 w-full items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">该题发布为正式题目</button>
         </ActionStep>
       ) : null}
 
@@ -1126,6 +1213,16 @@ const qualityCheckActions = {
   scopeClarity: '缩小材料范围或减少子任务，明确学生需要回答的内容边界。',
 };
 
+const qualityCheckEditLocations = {
+  materialGrounding: '基础内容 → 题干',
+  observationClarity: '基础内容 → 题干；训练设置 → 主要能力',
+  observationDistinctness: '基础内容 → 题干；训练设置 → 主要能力',
+  discriminativePower: '评分标准 → 评分项',
+  difficultyCoherence: '训练设置 → 难度；基础内容 → 题干',
+  rubricAlignment: '基础内容 → 题干；评分标准 → 评分项',
+  scopeClarity: '基础内容 → 题干',
+};
+
 function qualityCheckLabel(check, passed = true) {
   const labels = qualityCheckLabels[check];
   if (!labels) return check;
@@ -1136,9 +1233,9 @@ function QuestionQualitySummary({ assessment, compact = false, stale = false }) 
   if (stale) {
     return (
       <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
-        <p className="text-sm font-semibold text-amber-900">题干已修改，等待重新检查</p>
+        <p className="text-sm font-semibold text-amber-900">题目内容已修改，等待重新检查</p>
         <p className="mt-1 text-xs leading-5 text-amber-800">
-          上次检查结果已失效。保存并检查题目后，系统会根据新题干更新结果。
+          上次检查结果仅对应修改前的版本，不能继续作为当前题目的审核依据。请保存并重新检查。
         </p>
       </div>
     );
@@ -1199,6 +1296,11 @@ function QuestionQualitySummary({ assessment, compact = false, stale = false }) 
                   </span>
                   {' · '}{warning.message}
                 </p>
+                {qualityCheckEditLocations[warning.check] ? (
+                  <p className="mt-1 font-medium text-slate-700">
+                    修改位置：{qualityCheckEditLocations[warning.check]}
+                  </p>
+                ) : null}
                 {qualityCheckActions[warning.check] ? (
                   <p className="mt-1 text-slate-600">
                     修改建议：{qualityCheckActions[warning.check]}
@@ -1282,7 +1384,7 @@ function EditorGroup({ title, children }) {
   return <section className="space-y-4 border-b border-slate-100 pb-6 last:border-0 last:pb-0"><h3 className="text-sm font-semibold text-slate-950">{title}</h3>{children}</section>;
 }
 
-function AutoGrowTextarea({ value, onChange, rows = 3, placeholder, disabled = false }) {
+function AutoGrowTextarea({ id, value, onChange, rows = 3, placeholder, disabled = false }) {
   const textareaRef = useRef(null);
 
   useEffect(() => {
@@ -1295,6 +1397,7 @@ function AutoGrowTextarea({ value, onChange, rows = 3, placeholder, disabled = f
 
   return (
     <textarea
+      id={id}
       ref={textareaRef}
       value={value}
       onChange={onChange}

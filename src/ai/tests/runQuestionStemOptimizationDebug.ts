@@ -34,6 +34,7 @@ await check('C01 合法建议可以返回', async () => {
   const result = await run(input, provider);
   return result.suggestedStem.includes('第2段') &&
     result.addressedChecks.includes('materialGrounding') &&
+    result.suggestionReview.status === 'improved' &&
     provider.getCallCount() === 1;
 });
 
@@ -90,6 +91,43 @@ await check('C05 Prompt 明确限制只改题干', async () => {
   return prompt.includes('唯一任务是优化“题干文字”') &&
     prompt.includes('不得修改训练能力、观察重点、难度、评分标准或材料') &&
     prompt.includes('不得编造材料原句、段落、人物、事件或背景知识');
+});
+
+await check('C06 泛化材料表述仍会保留提醒', async () => {
+  const provider = providerWith({
+    ...validOutput(),
+    suggestedStem: '结合材料，分析这段景物描写在文中的作用。',
+  });
+  const result = await run(input, provider);
+  return result.suggestionReview.status === 'needs_attention' &&
+    result.suggestionReview.remainingIssues.some(
+      (issue) => issue.check === 'materialGrounding',
+    );
+});
+
+await check('C07 定向重试会完整暴露优化重点', async () => {
+  const provider = providerWith(validOutput());
+  await run({
+    ...input,
+    targetChecks: ['materialGrounding'],
+  }, provider);
+  const prompt = provider.getRequests()[0]?.prompt || '';
+  return prompt.includes('"optimizationFocus":["materialGrounding"]') &&
+    prompt.includes('必须优先修复其中列出的检查项');
+});
+
+await check('C08 非题干字段问题会明确返回修改位置', async () => {
+  const provider = providerWith(validOutput());
+  const result = await run({
+    ...input,
+    qualityIssues: [{
+      check: 'rubricAlignment',
+      message: '评分标准与题干不一致。',
+    }],
+    targetChecks: ['rubricAlignment'],
+  }, provider);
+  return result.suggestionReview.status === 'needs_attention' &&
+    result.suggestionReview.remainingIssues[0]?.recommendedAction.includes('评分标准');
 });
 
 const failed = reports.filter((report) => !report.passed);

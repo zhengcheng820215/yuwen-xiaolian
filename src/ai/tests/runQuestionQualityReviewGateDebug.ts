@@ -19,6 +19,9 @@ import type {
   QuestionResourceRubricItem,
   StructuredQuestionDraft,
 } from '../schemas/questionResourceAdmission.schema.ts';
+import {
+  QUESTION_QUALITY_RULE_VERSION,
+} from '../schemas/questionQualityAssessment.schema.ts';
 
 type ResourceRepository = InMemoryQuestionResourceAdmissionRepository;
 type QualityRepository = InMemoryQuestionQualityAssessmentRepository;
@@ -243,7 +246,7 @@ async function caseRuleVersionRefresh(): Promise<void> {
     fixture.draft.draftId,
     LATER,
   );
-  assert(current?.ruleVersion === 'question_quality_rules_v1', 'Old rule assessment was not refreshed.');
+  assert(current?.ruleVersion === QUESTION_QUALITY_RULE_VERSION, 'Old rule assessment was not refreshed.');
   assert(
     (await fixture.quality.listAssessmentsForDraft(fixture.draft.draftId)).length === 2,
     'Rule refresh did not preserve the previous assessment for traceability.',

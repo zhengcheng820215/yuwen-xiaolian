@@ -28,7 +28,11 @@ DeepSeek Provider
 ↓
 Structure / Material Reference Validation
 ↓
-Editable Suggestion Preview
+Suggestion Precheck
+├── improved
+└── needs_attention
+    ├── targeted retry (最多 1 次)
+    └── manual edit / keep original
 ↓
 Human Apply
 ↓
@@ -43,6 +47,11 @@ Revalidate + Reassess
 - Prompt 明确限定“只改题干”，禁止修改材料、能力、观察重点、难度和评分标准；
 - Provider 输出必须通过 JSON 结构、长度、非原样返回、段落范围和原文引用检查；
 - 首次输出不合格时只允许一次定向修复，不重跑整批题目；
+- Provider 合法返回后仍需执行候选级预检查，重新判断材料依据、可观察动作和作答范围是否得到实质改善；
+- 候选级预检查只评价 AI 建议，不创建正式 `QuestionQualityAssessment`，也不能替代保存后的 Revision 级质量评估；
+- 建议仍有提醒时不提供直接采用入口；系统允许针对剩余提醒再优化一次，并明确显示需要人工修改的字段与操作；
+- 两次受控优化后仍有提醒时停止继续调用，转为人工修改或保留原题干，避免以反复改写制造“问题已解决”的错觉；
+- Observation 重复、Rubric 区分度、难度一致性和评分标准对齐等上游问题，不伪装成题干改写可以独立解决的问题；
 - 审核页提供“AI 优化题干”，先展示建议、调整理由和变化说明，人工确认后才写入编辑表单；
 - AI 建议不自动保存、不自动重新检查、不自动提交审核；
 - 手工修改或采用 AI 建议后，旧质量结果立即标记为失效，页面显示“题干已修改，等待重新检查”，提交审核保持不可用；
@@ -78,13 +87,23 @@ AI 优化完成后仍出现旧提醒，不再被视为正常的当前状态。�
 - 已保存并检查：展示绑定当前 Revision 的新结果；
 - 新结果仍有提醒：说明当前题干仍未满足对应规则，需要继续人工判断或修改。
 
+候选预检查与正式评估必须保持分离：
+
+```text
+Suggestion Precheck
+= 判断 AI 候选是否值得采用
+
+Revision-bound QuestionQualityAssessment
+= 判断已保存的新 Revision 能否继续审核
+```
+
 ## 五、验收
 
 自动化结果：
 
 ```text
 Question Quality Assessment       14 / 14 PASS
-Question Stem Optimization         5 / 5 PASS
+Question Stem Optimization         8 / 8 PASS
 Production Build                       PASS
 ```
 
@@ -94,7 +113,10 @@ Production Build                       PASS
 2. 材料缺失时不调用 Provider；
 3. 原样返回被拒绝并定向重试；
 4. 越界段落被拦截并定向重试；
-5. Prompt 明确限制只修改题干。
+5. Prompt 明确限制只修改题干；
+6. 泛化材料表述仍会保留材料依据提醒；
+7. 针对剩余提醒重试时，Prompt 明确接收优化重点；
+8. 非题干字段问题会返回真实修改位置，不被误判为已解决。
 
 质量检查新增覆盖：
 
