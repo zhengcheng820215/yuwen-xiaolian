@@ -1215,7 +1215,7 @@ export default function MaterialResourceProductionWorkbench() {
                     {taskEditable ? (
                       <>
                         <label className="block text-sm font-semibold">题目<AutoGrowingTextarea id={taskFieldId(task, 'questionStem')} value={task.questionStem} onChange={(value) => updateTask(index, { questionStem: value })} placeholder="写出学生实际看到的题目" /></label>
-                        <label className="block text-sm font-semibold">学生需要完成什么<AutoGrowingTextarea id={taskFieldId(task, 'expectedStudentAction')} value={task.expectedStudentAction} onChange={(value) => updateTask(index, { expectedStudentAction: value })} placeholder="例如：找出人物的一个具体动作，并说明它表现了怎样的心理。" /></label>
+                        <label className="block text-sm font-semibold">学生任务<AutoGrowingTextarea id={taskFieldId(task, 'expectedStudentAction')} value={task.expectedStudentAction} onChange={(value) => updateTask(index, { expectedStudentAction: value })} placeholder="例如：找出人物的一个具体动作，并说明它表现了怎样的心理。" /></label>
                       </>
                     ) : (
                       <>
@@ -1224,11 +1224,15 @@ export default function MaterialResourceProductionWorkbench() {
                           <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{task.questionStem}</p>
                         </section>
                         <section>
-                          <p className="text-sm font-semibold text-slate-900">学生需要完成什么</p>
+                          <p className="text-sm font-semibold text-slate-900">学生任务</p>
                           <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{task.expectedStudentAction}</p>
                         </section>
                       </>
                     )}
+                    <section>
+                      <p className="text-sm font-semibold text-slate-900">观察目标</p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{task.focusDefinition || '尚未填写观察目标'}</p>
+                    </section>
                   </div>
                   <details className="mt-5 pt-1">
                     <summary className="cursor-pointer text-sm font-normal text-blue-700">评分标准与答案示例</summary>
@@ -1302,7 +1306,7 @@ export default function MaterialResourceProductionWorkbench() {
                     </div>
                   </details>
                   <details className="mt-4">
-                    <summary className="cursor-pointer text-sm font-normal text-slate-900">为什么设计这道题</summary>
+                    <summary className="cursor-pointer text-sm font-normal text-slate-900">设计依据</summary>
                     <div className="mt-3">
                       {taskEditable ? (
                         <AutoGrowingTextarea id={taskFieldId(task, 'designReason')} value={task.designReason} onChange={(value) => updateTask(index, { designReason: value })} placeholder="例如：检查学生能否建立“人物动作—心理判断”的关系。" />
@@ -2504,7 +2508,7 @@ function collectEditableTaskIssues(task, taskIndex) {
     targetId: taskFieldId(task, field),
   });
   if (!task.questionStem.trim()) add('questionStem', '题目', '请补充学生实际看到的题目。');
-  if (!task.expectedStudentAction.trim()) add('expectedStudentAction', '学生需要完成什么', '请写清学生需要完成的具体作答动作。');
+  if (!task.expectedStudentAction.trim()) add('expectedStudentAction', '学生任务', '请写清学生需要完成的具体作答动作。');
   if (!task.designReason.trim()) add('designReason', '设计理由', '请说明该题用于观察什么。');
   if (!task.focusDisplayName.trim()) add('focusDisplayName', '具体训练点', '请为本任务填写明确的训练点名称。');
   if (!task.focusDefinition.trim()) add('focusDefinition', '训练点说明', '请说明这个训练点具体观察什么。');
