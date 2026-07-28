@@ -60,11 +60,11 @@ Debug / Acceptance Report
 | 控制项 | 产品负责人视图 |
 | --- | --- |
 | 为什么需要 | Runtime 已能诊断和调度，但缺少足够真实正式内容。 |
-| 使用者变化 | 学生可持续做真实题；内容人员通过“已有素材 / 录入新素材 / 已停用素材”三个明确模式管理 Material，再只处理当前素材的待审核题目、已发布练习与 AI 首稿；同一素材的题号跨待审核、已发布状态保持稳定，明细按统一题号升序且不会因筛选重新编号；题目质量提醒提供具体修改位置、修改原则和参考写法，评分标准按可独立判断的评分项编辑；相同内容不会被重复保存为新 Revision；停用素材可逐条恢复且不丢失历史；最后将 Question 作为可执行入口完成 Review / Freeze；验收人员可追溯来源。 |
+| 使用者变化 | 学生可持续做真实题；内容人员通过“已有素材 / 录入新素材 / 已停用素材”三个明确模式管理 Material，再只处理当前素材的待审核资源、已发布练习与 AI 首稿；训练任务以来源、审核状态、能力目标、题目和学生动作作为首层信息，详细评分与设计依据按需展开；提交题目审核时只核对版本、覆盖、材料范围和结构检查，不重复展示完整题目；同一素材的题号跨待审核、已发布状态保持稳定，明细按统一题号升序且不会因筛选重新编号；题目质量提醒提供具体修改位置、修改原则和参考写法，评分标准按可独立判断的评分项编辑；相同内容不会被重复保存为新 Revision；停用素材可逐条恢复且不丢失历史；最后将 Question 作为可执行入口完成 Review / Freeze；验收人员可追溯来源。 |
 | 只做 | 4 个核心 Cluster、1—2 个独立新材料 Cluster、24—28 道正式资源、四条纵向链和一条跨 Ability 路径。 |
 | 不做 | 不新增正式教育判断 Agent、Repository 或 `chainId`；辅助 Draft Generator 只执行“发现新 Observation”，替代题、重复题与材料不支持项不得增加 Coverage 或批量导入；不具备 Review / Freeze 权威；不重构工作台；不建设完整 CMS。 |
 | 产品级 PASS | ① 24—28 道全部 Review / Freeze / Registry / Link；② 六项 Ability 均有正式资源；③ 两条 Retest、两条 Transfer、一条跨 Ability 路径可查询；④ 核心题 Rubric、Acceptance 与答案 Fixture 通过；⑤ 无明显低质量或错位题。 |
-| 演示路径 | 选择或保存 Batch A Material -> 核对当前素材的待审核题目与已发布练习，并确认两类明细沿用同一题号顺序 -> Observation Plan -> Question / Rubric / Acceptance -> Review -> Freeze -> Registry -> Link -> Runtime Query；另选一条已停用素材执行重新启用，确认历史关系保留并返回已有素材库存。未选择 Material 时不显示下游生产模块。 |
+| 演示路径 | 选择或保存 Batch A Material -> 核对当前素材的待审核资源与已发布练习，并确认两类明细沿用同一题号顺序 -> 校准训练任务 -> 在“提交题目审核”核对版本、能力覆盖、材料范围与结构检查 -> Question / Rubric / Acceptance -> Review -> Freeze -> Registry -> Link -> Runtime Query；另选一条已停用素材执行重新启用，确认历史关系保留并返回已有素材库存。未选择 Material 时不显示下游生产模块。 |
 | FAIL 先查 | 题目与 Rubric：内容；Freeze / Registry / Link：Runtime；录入审核困难：交互。 |
 | 证据 | [Phase 17.2](../education/phase/phase17_2.md) · [生产蓝图](../education/phase/phase17_2_first_resource_pack_blueprint.md) · [辅助首稿生成验收](../education/phase/reports/phase17_2_assisted_draft_generation_engineering_2026-07-23.md) |
 
