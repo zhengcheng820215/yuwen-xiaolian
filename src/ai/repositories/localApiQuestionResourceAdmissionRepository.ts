@@ -95,6 +95,22 @@ implements QuestionResourceAdmissionRepository {
     return (await this.client.read()).snapshot.data.questionResources.drafts.map(clone);
   }
 
+  async deleteDraft(draftId: string): Promise<void> {
+    await this.client.mutate((data) => {
+      const before = data.questionResources.drafts.length;
+      data.questionResources.drafts = data.questionResources.drafts
+        .filter((item) => item.draftId !== draftId);
+      if (before === data.questionResources.drafts.length) {
+        throw new Error(`Draft not found: ${draftId}`);
+      }
+      data.questionResources.validations = data.questionResources.validations
+        .filter((item) => item.draftId !== draftId);
+      data.questionResources.reviews = data.questionResources.reviews
+        .filter((item) => item.draftId !== draftId);
+      return null;
+    });
+  }
+
   async saveValidation(result: ResourceValidationResult): Promise<ResourceValidationResult> {
     return this.saveImmutable('validations', 'validationId', result);
   }

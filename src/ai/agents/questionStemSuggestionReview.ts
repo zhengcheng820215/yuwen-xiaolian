@@ -6,6 +6,9 @@ import type {
 import type {
   QuestionQualityCheck,
 } from '../schemas/questionQualityAssessment.schema.ts';
+import {
+  assessMaterialEvidenceBoundary,
+} from '../patterns/materialEvidenceBoundary.ts';
 
 const STEM_REVIEWABLE_CHECKS: QuestionQualityCheck[] = [
   'materialGrounding',
@@ -53,7 +56,7 @@ function reviewCheck(
   }
 
   const upstreamActions: Partial<Record<QuestionQualityCheck, string>> = {
-    observationDistinctness: '请在本批题目列表中与其他题目比较；如训练重点重复，应调整训练重点或不采用该题。',
+    observationDistinctness: '请与系统列出的对照题比较回答对象、材料依据和评分目标；能力或问法相同不代表重复，只有三项都高度重合时才需要调整。',
     discriminativePower: '请在“评分标准”中补充不同完成水平的观察项与可接受信号。',
     difficultyCoherence: '请检查“难度”“最低作答要求”和“评分标准”的复杂度是否一致。',
     rubricAlignment: '请检查“评分标准”是否覆盖题干要求的材料依据、解释或推理动作。',
@@ -69,23 +72,16 @@ function reviewMaterialGrounding(
   stem: string,
   materialContent: string,
 ): QuestionStemOptimizationSuggestionReviewIssue | null {
-  const normalizedStem = normalizeText(stem);
-  const normalizedContent = normalizeText(materialContent);
-  const paragraphCount = countParagraphs(materialContent);
-  const paragraphReferences = extractParagraphReferences(stem);
-  const hasValidParagraphReference = paragraphReferences.some(
-    ({ start, end }) => start >= 1 && end >= start && end <= paragraphCount,
-  );
-  const hasQuotedAnchor = extractQuotedPhrases(stem).some(
-    (anchor) => anchor.length >= 3 && normalizedContent.includes(normalizeText(anchor)),
-  );
-  const hasTextAnchor = longestCommonChineseRun(normalizedStem, normalizedContent) >= 4;
-
-  if (hasValidParagraphReference || hasQuotedAnchor || hasTextAnchor) return null;
+  const boundary = assessMaterialEvidenceBoundary(stem, materialContent);
+  if (['local', 'whole_text', 'open_evidence', 'mixed'].includes(boundary.kind)) {
+    return null;
+  }
   return {
     check: 'materialGrounding',
-    message: '建议题干仍缺少可快速核对的具体材料依据。',
-    recommendedAction: '请在“题干”中补充具体段落、原句、关键词或情节锚点，例如“结合第 3 段……”或引用材料中的关键短语。',
+    message: boundary.kind === 'generic'
+      ? '建议题干只写了“结合材料”，尚未说明应依据全文、局部内容还是自主选取证据。'
+      : '建议题干仍未说明学生应依据材料的什么范围作答。',
+    recommendedAction: '请按考查目标选择一种范围：全文题写明“结合全文”；局部题标明段落、场景、原句或关键词；开放取证题写明证据数量和类型。',
   };
 }
 
@@ -121,53 +117,6 @@ function reviewScopeClarity(
 
 function uniqueChecks(checks: QuestionQualityCheck[]): QuestionQualityCheck[] {
   return [...new Set(checks)];
-}
-
-function countParagraphs(content: string): number {
-  return content
-    .replace(/\r\n?/g, '\n')
-    .split(/\n+/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean)
-    .length;
-}
-
-function extractParagraphReferences(
-  text: string,
-): Array<{ start: number; end: number }> {
-  return [...text.matchAll(/第\s*(\d+)\s*(?:[-—–至到]\s*第?\s*(\d+)\s*)?段/g)]
-    .map((match) => ({
-      start: Number(match[1]),
-      end: Number(match[2] || match[1]),
-    }));
-}
-
-function extractQuotedPhrases(value: string): string[] {
-  const phrases: string[] = [];
-  for (const match of value.matchAll(/[“"《]([^”"》]+)[”"》]/g)) {
-    if (match[1]) phrases.push(match[1].trim());
-  }
-  return phrases;
-}
-
-function longestCommonChineseRun(left: string, right: string): number {
-  const leftText = [...left].filter((char) => /[\u4e00-\u9fff]/.test(char)).join('');
-  const rightText = [...right].filter((char) => /[\u4e00-\u9fff]/.test(char)).join('');
-  if (!leftText || !rightText) return 0;
-
-  let longest = 0;
-  let previous = new Array(rightText.length + 1).fill(0) as number[];
-  for (let leftIndex = 1; leftIndex <= leftText.length; leftIndex += 1) {
-    const current = new Array(rightText.length + 1).fill(0) as number[];
-    for (let rightIndex = 1; rightIndex <= rightText.length; rightIndex += 1) {
-      if (leftText[leftIndex - 1] === rightText[rightIndex - 1]) {
-        current[rightIndex] = previous[rightIndex - 1] + 1;
-        longest = Math.max(longest, current[rightIndex]);
-      }
-    }
-    previous = current;
-  }
-  return longest;
 }
 
 function normalizeText(value: string): string {

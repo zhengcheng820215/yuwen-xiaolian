@@ -120,6 +120,29 @@ implements QuestionResourceAdmissionRepository {
     return getAllRecords<StructuredQuestionDraft>(DRAFT_STORE);
   }
 
+  async deleteDraft(draftId: string): Promise<void> {
+    const existing = await this.getDraft(draftId);
+    if (!existing) throw new Error(`Draft not found: ${draftId}`);
+    const [validations, reviews] = await Promise.all([
+      getAllRecords<ResourceValidationResult>(VALIDATION_STORE),
+      getAllRecords<ResourceReviewDecision>(REVIEW_STORE),
+    ]);
+    const db = await openDatabase();
+    const transaction = db.transaction(
+      [DRAFT_STORE, VALIDATION_STORE, REVIEW_STORE],
+      'readwrite',
+    );
+    transaction.objectStore(DRAFT_STORE).delete(draftId);
+    validations
+      .filter((validation) => validation.draftId === draftId)
+      .forEach((validation) => transaction.objectStore(VALIDATION_STORE).delete(validation.validationId));
+    reviews
+      .filter((review) => review.draftId === draftId)
+      .forEach((review) => transaction.objectStore(REVIEW_STORE).delete(review.reviewId));
+    await transactionToPromise(transaction);
+    db.close();
+  }
+
   async saveValidation(result: ResourceValidationResult): Promise<ResourceValidationResult> {
     await putRecord(VALIDATION_STORE, result);
     return clone(result);

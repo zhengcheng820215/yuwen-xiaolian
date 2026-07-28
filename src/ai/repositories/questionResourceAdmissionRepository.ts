@@ -22,6 +22,7 @@ export type QuestionResourceAdmissionRepository = {
   saveDraft(draft: StructuredQuestionDraft): Promise<StructuredQuestionDraft>;
   getDraft(draftId: string): Promise<StructuredQuestionDraft | null>;
   listDrafts(): Promise<StructuredQuestionDraft[]>;
+  deleteDraft(draftId: string): Promise<void>;
 
   saveValidation(result: ResourceValidationResult): Promise<ResourceValidationResult>;
   getValidation(validationId: string): Promise<ResourceValidationResult | null>;

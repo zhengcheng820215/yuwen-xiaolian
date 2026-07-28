@@ -136,14 +136,17 @@ const snapshot = {
   ],
   links: [
     link('link-a-v1', 'resource-a', 'resource-a:v1', 'superseded'),
+    link('link-a-invalid', 'resource-a', 'resource-a:v0', 'invalid'),
     link('link-a-v2', 'resource-a', 'resource-a:v2', 'active'),
     link('link-b-v1', 'resource-b', 'resource-b:v1', 'active'),
+    link('link-c-v1', 'resource-c', 'resource-c:v1', 'invalid'),
   ],
   anchors: [],
   validations: [],
   frozenVersions: [
     frozenVersion('resource-a:v2', 'material:v1', '分析题'),
     frozenVersion('resource-b:v1', 'material:v1', '理解题'),
+    frozenVersion('resource-c:v1', 'material:v1', '发布未完成题'),
   ],
   draftReadiness: [],
 };
@@ -191,6 +194,12 @@ check(
   details.pendingReviews[0]?.questionNumber === 2
     && details.publishedResources.map((item) => item.questionNumber).join(',') === '1,2',
   `pending=${details.pendingReviews[0]?.questionNumber}, published=${details.publishedResources.map((item) => item.questionNumber).join(',')}`,
+);
+check(
+  '11 无有效发布关联的正式题目单独显示为发布未完成',
+  scopedDetails.incompletePublications.length === 1
+    && scopedDetails.incompletePublications[0]?.resourceId === 'resource-c',
+  `incomplete=${scopedDetails.incompletePublications.map((item) => item.resourceId).join(',')}`,
 );
 
 console.log('Phase 17.2 Material Resource Workbench State Debug');

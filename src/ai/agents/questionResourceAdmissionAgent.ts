@@ -76,6 +76,7 @@ export type StructuredQuestionDraftPatch = Partial<Pick<
   | 'abilityMetadata'
   | 'source'
   | 'tags'
+  | 'qualityRevisionProgress'
 >>;
 
 export async function createQuestionMaterial(
@@ -171,10 +172,10 @@ export async function createRevisionFromRejectedQuestionResourceDraft(
     draft.draftId !== source.draftId &&
     draft.resourceId === source.resourceId &&
     draft.proposedVersionNumber === source.proposedVersionNumber &&
-    draft.status !== 'rejected'
+    !['rejected', 'archived'].includes(draft.status)
   ));
   if (activeSibling) {
-    throw new Error(`An active revision draft already exists: ${activeSibling.draftId}`);
+    return activeSibling;
   }
 
   return createStructuredQuestionDraft(repository, {
@@ -195,9 +196,25 @@ export async function createRevisionFromRejectedQuestionResourceDraft(
     minimumAnswerRequirement: source.minimumAnswerRequirement,
     abilityMetadata: source.abilityMetadata,
     source: source.source,
-    tags: source.tags,
+    tags: [...source.tags, `rejected_revision_source:${source.draftId}`],
     now: input.now,
   });
+}
+
+export function findActiveQuestionResourceRevisionDraft(
+  drafts: StructuredQuestionDraft[],
+  input: {
+    resourceId: string;
+    parentVersionId: string;
+  },
+): StructuredQuestionDraft | null {
+  return drafts
+    .filter((draft) => (
+      draft.resourceId === input.resourceId &&
+      draft.parentVersionId === input.parentVersionId &&
+      !['rejected', 'archived'].includes(draft.status)
+    ))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] || null;
 }
 
 export async function updateStructuredQuestionDraft(

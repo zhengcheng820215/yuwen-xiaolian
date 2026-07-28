@@ -31,6 +31,8 @@ const cases: DebugCase[] = [
   { name: '11 batch creation never auto-freezes or updates Registry', run: caseNoAutomaticFormalization },
   { name: '12 a revised Plan keeps explicit lineage', run: casePlanRevisionLineage },
   { name: '13 Draft handoff preserves Rubric and Answer Acceptance', run: caseDraftHandoffContent },
+  { name: '14 deleting a Draft also removes its temporary validation', run: caseDeleteDraftCleansTemporaryRecords },
+  { name: '15 an archived Draft does not block a replacement Draft', run: caseArchivedDraftAllowsReplacement },
 ];
 
 async function main() {
@@ -172,6 +174,43 @@ async function caseDraftHandoffContent() {
   expect(drafts.every((draft) => draft.rubric.length > 0), 'A production Draft lost its Rubric during handoff.');
   expect(drafts.every((draft) => draft.answerAcceptance?.semanticEquivalentAllowed), 'A production Draft lost its Answer Acceptance boundary.');
   expect(drafts.every((draft) => draft.latestValidationId), 'A production Draft cannot locate its field-level validation result.');
+}
+
+async function caseDeleteDraftCleansTemporaryRecords() {
+  const fixture = await reviewedFixture();
+  const results = await createAndValidateQuestionDraftBatch(fixture.resources, fixture.observations, {
+    planId: fixture.plan.materialObservationPlanId,
+    now: NOW,
+  });
+  const draft = await fixture.resources.getDraft(results[0].draftId);
+  expect(Boolean(draft?.latestValidationId), 'Fixture Draft is missing its temporary validation.');
+  const validationId = draft!.latestValidationId!;
+  await fixture.resources.deleteDraft(draft!.draftId);
+  expect((await fixture.resources.getDraft(draft!.draftId)) === null, 'Deleted Draft is still readable.');
+  expect((await fixture.resources.getValidation(validationId)) === null, 'Deleted Draft left a temporary validation behind.');
+}
+
+async function caseArchivedDraftAllowsReplacement() {
+  const fixture = await reviewedFixture();
+  const first = await createAndValidateQuestionDraftBatch(fixture.resources, fixture.observations, {
+    planId: fixture.plan.materialObservationPlanId,
+    now: NOW,
+  });
+  const archived = await fixture.resources.getDraft(first[0].draftId);
+  expect(Boolean(archived), 'Fixture Draft was not created.');
+  await fixture.resources.saveDraft({
+    ...archived!,
+    status: 'archived',
+    updatedAt: '2026-07-22T10:30:00.000Z',
+  });
+  const repeated = await createAndValidateQuestionDraftBatch(fixture.resources, fixture.observations, {
+    planId: fixture.plan.materialObservationPlanId,
+    now: '2026-07-22T11:00:00.000Z',
+  });
+  expect(repeated[0].status === 'created', 'Archived Draft was incorrectly reused.');
+  expect(repeated[0].draftId !== archived!.draftId, 'Replacement Draft reused the archived Draft identity.');
+  const activeDrafts = (await fixture.resources.listDrafts()).filter((draft) => draft.status !== 'archived');
+  expect(activeDrafts.length === 3, 'Archived Draft changed the number of active production Drafts.');
 }
 
 async function reviewedFixture() {

@@ -90,7 +90,10 @@ await check('C05 Prompt 明确限制只改题干', async () => {
   const prompt = provider.getRequests()[0]?.prompt || '';
   return prompt.includes('唯一任务是优化“题干文字”') &&
     prompt.includes('不得修改训练能力、观察重点、难度、评分标准或材料') &&
-    prompt.includes('不得编造材料原句、段落、人物、事件或背景知识');
+    prompt.includes('不得编造材料原句、段落、人物、事件或背景知识') &&
+    prompt.includes('全文型') &&
+    prompt.includes('开放取证型') &&
+    prompt.includes('不要用笼统的“结合材料”替代范围判断');
 });
 
 await check('C06 泛化材料表述仍会保留提醒', async () => {
@@ -128,6 +131,30 @@ await check('C08 非题干字段问题会明确返回修改位置', async () => 
   }, provider);
   return result.suggestionReview.status === 'needs_attention' &&
     result.suggestionReview.remainingIssues[0]?.recommendedAction.includes('评分标准');
+});
+
+await check('C09 全文型题目可以通过材料依据预检查', async () => {
+  const provider = providerWith({
+    ...validOutput(),
+    suggestedStem: '结合《初春田野》全文，概括景物描写的主要特点，并分析其在文中的作用。',
+  });
+  const result = await run(input, provider);
+  return result.suggestionReview.status === 'improved' &&
+    !result.suggestionReview.remainingIssues.some(
+      (issue) => issue.check === 'materialGrounding',
+    );
+});
+
+await check('C10 开放取证题目可以通过材料依据预检查', async () => {
+  const provider = providerWith({
+    ...validOutput(),
+    suggestedStem: '从文中任选两处景物描写，分析这些描写在文中的作用。',
+  });
+  const result = await run(input, provider);
+  return result.suggestionReview.status === 'improved' &&
+    !result.suggestionReview.remainingIssues.some(
+      (issue) => issue.check === 'materialGrounding',
+    );
 });
 
 const failed = reports.filter((report) => !report.passed);

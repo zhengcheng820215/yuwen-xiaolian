@@ -13,6 +13,9 @@ import {
   type QuestionQualityAssessment,
   type QuestionQualityWarning,
 } from '../schemas/questionQualityAssessment.schema.ts';
+import {
+  assessMaterialEvidenceBoundary,
+} from '../patterns/materialEvidenceBoundary.ts';
 
 export type AssessQuestionDraftQualityInput = {
   draft: StructuredQuestionDraft;
@@ -23,11 +26,61 @@ export type AssessQuestionDraftQualityInput = {
   ruleVersion?: string;
 };
 
+export function selectComparableQuestionDrafts(
+  draft: StructuredQuestionDraft,
+  peerDrafts: StructuredQuestionDraft[],
+): StructuredQuestionDraft[] {
+  const observationPlanTag = draft.tags.find((tag) => tag.startsWith('observation_plan:'));
+  const candidates = peerDrafts.filter((peer) => (
+    peer.draftId !== draft.draftId &&
+    peer.resourceId !== draft.resourceId &&
+    peer.materialVersionId === draft.materialVersionId &&
+    peer.status !== 'archived' &&
+    peer.status !== 'rejected' &&
+    (!observationPlanTag || peer.tags.includes(observationPlanTag))
+  ));
+  const latestByResource = new Map<string, StructuredQuestionDraft>();
+  candidates.forEach((peer) => {
+    const current = latestByResource.get(peer.resourceId);
+    if (!current || compareDraftFreshness(peer, current) > 0) {
+      latestByResource.set(peer.resourceId, peer);
+    }
+  });
+  return [...latestByResource.values()].sort((left, right) =>
+    left.resourceId.localeCompare(right.resourceId) ||
+    left.draftId.localeCompare(right.draftId)
+  );
+}
+
+export function buildQuestionQualityComparisonContextHash(
+  draft: StructuredQuestionDraft,
+  peerDrafts: StructuredQuestionDraft[],
+): string {
+  const context = selectComparableQuestionDrafts(draft, peerDrafts)
+    .map((peer) => [
+      peer.draftId,
+      peer.resourceId,
+      peer.revision,
+      peer.status,
+      peer.updatedAt,
+    ].join(':'))
+    .join('|');
+  return `quality-peers-v1:${fnv1a(context)}`;
+}
+
 export function assessQuestionDraftQuality(
   input: AssessQuestionDraftQualityInput,
 ): QuestionQualityAssessment {
   assertCurrentPassedValidation(input.draft, input.validation);
 
+  const comparablePeerDrafts = selectComparableQuestionDrafts(
+    input.draft,
+    input.peerDrafts || [],
+  );
+  const comparisonContextHash = buildQuestionQualityComparisonContextHash(
+    input.draft,
+    comparablePeerDrafts,
+  );
   const warnings: QuestionQualityWarning[] = [];
   const materialGrounding = checkMaterialGrounding(
     input.draft,
@@ -37,7 +90,7 @@ export function assessQuestionDraftQuality(
   const observationClarity = checkObservationClarity(input.draft, warnings);
   const observationDistinctness = checkObservationDistinctness(
     input.draft,
-    input.peerDrafts || [],
+    comparablePeerDrafts,
     warnings,
   );
   const discriminativePower = checkDiscriminativePower(input.draft, warnings);
@@ -55,11 +108,12 @@ export function assessQuestionDraftQuality(
   const ruleVersion = input.ruleVersion || QUESTION_QUALITY_RULE_VERSION;
 
   return {
-    assessmentId: `${input.draft.draftId}:quality:r${input.draft.revision}:${ruleVersion}`,
+    assessmentId: `${input.draft.draftId}:quality:r${input.draft.revision}:${ruleVersion}:${comparisonContextHash}`,
     draftId: input.draft.draftId,
     resourceId: input.draft.resourceId,
     assessedDraftRevision: input.draft.revision,
     validationId: input.validation.validationId,
+    comparisonContextHash,
     checks: {
       materialGrounding,
       observationClarity,
@@ -89,6 +143,7 @@ export function isCurrentQuestionQualityAssessment(
   draft: StructuredQuestionDraft,
   validation: ResourceValidationResult,
   assessment: QuestionQualityAssessment | null | undefined,
+  comparisonContextHash?: string,
 ): assessment is QuestionQualityAssessment {
   return Boolean(
     assessment &&
@@ -97,6 +152,10 @@ export function isCurrentQuestionQualityAssessment(
     assessment.assessedDraftRevision === draft.revision &&
     assessment.validationId === validation.validationId &&
     assessment.ruleVersion === QUESTION_QUALITY_RULE_VERSION &&
+    (
+      comparisonContextHash === undefined ||
+      assessment.comparisonContextHash === comparisonContextHash
+    ) &&
     validation.draftId === draft.draftId &&
     validation.validatedDraftRevision === draft.revision &&
     validation.passed,
@@ -107,8 +166,14 @@ export function requireCurrentQuestionQualityAssessment(
   draft: StructuredQuestionDraft,
   validation: ResourceValidationResult,
   assessment: QuestionQualityAssessment | null | undefined,
+  comparisonContextHash?: string,
 ): QuestionQualityAssessment {
-  if (!isCurrentQuestionQualityAssessment(draft, validation, assessment)) {
+  if (!isCurrentQuestionQualityAssessment(
+    draft,
+    validation,
+    assessment,
+    comparisonContextHash,
+  )) {
     throw new Error('Question quality assessment is missing or stale.');
   }
   return cloneQuestionQualityValue(assessment);
@@ -132,43 +197,25 @@ function checkMaterialGrounding(
     return 'fail';
   }
 
-  const stem = normalizeText(draft.questionStem);
-  const content = normalizeText(material.content);
-  const quotedAnchors = extractQuotedPhrases(draft.questionStem)
-    .filter((phrase) => phrase.length >= 3);
-  const hasQuotedAnchor = quotedAnchors.some(
-    (anchor) => content.includes(normalizeText(anchor)),
+  const boundary = assessMaterialEvidenceBoundary(
+    draft.questionStem,
+    material.content,
   );
-  const paragraphCount = countMaterialParagraphs(material.content);
-  const paragraphReferences = extractParagraphReferences(draft.questionStem);
-  const hasInvalidParagraphReference = paragraphReferences.some(
-    ({ start, end }) => start < 1 || end < start || end > paragraphCount,
-  );
-  if (hasInvalidParagraphReference) {
+  if (boundary.hasInvalidParagraphReference) {
     addWarning(
       warnings,
       'quality.material.paragraph_out_of_range',
       'materialGrounding',
       'strong_warning',
-      `题干引用的段落超出当前材料范围（材料共 ${paragraphCount} 段）。`,
+      `题干引用的段落超出当前材料范围（材料共 ${boundary.paragraphCount} 段）。`,
       ['questionStem', 'materialVersionId'],
     );
     return 'fail';
   }
-  const hasValidParagraphReference = paragraphReferences.length > 0;
-  const refersToMaterial = /(结合(材料|全文|上下文)|根据(材料|全文|文中)|文中|文章|原文|这一(动作|细节|语句|段落))/.test(stem);
-  const hasWholeTextBoundary = /(结合|根据|依据)(全文|全篇|整篇|通篇|文章整体)|通读全文/.test(stem);
-  const hasOpenEvidenceBoundary = /(任选|选取|找出|列举|举出).{0,12}(一|二|两|三|\d+)?\s*(处|个|项|例).{0,12}(细节|语句|情节|证据|描写|内容)/.test(stem);
-  const longestAnchorLength = longestCommonChineseRun(stem, content);
-
-  if (
-    hasValidParagraphReference ||
-    hasQuotedAnchor ||
-    longestAnchorLength >= 4 ||
-    hasWholeTextBoundary ||
-    hasOpenEvidenceBoundary
-  ) return 'pass';
-  if (refersToMaterial) {
+  if (['local', 'whole_text', 'open_evidence', 'mixed'].includes(boundary.kind)) {
+    return 'pass';
+  }
+  if (boundary.kind === 'generic') {
     addWarning(
       warnings,
       'quality.material.anchor_weak',
@@ -189,25 +236,6 @@ function checkMaterialGrounding(
     ['questionStem', 'materialVersionId'],
   );
   return 'fail';
-}
-
-function countMaterialParagraphs(content: string): number {
-  return content
-    .replace(/\r\n?/g, '\n')
-    .split(/\n+/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean)
-    .length;
-}
-
-function extractParagraphReferences(
-  text: string,
-): Array<{ start: number; end: number }> {
-  return [...text.matchAll(/第\s*(\d+)\s*(?:[-—–至到]\s*第?\s*(\d+)\s*)?段/g)]
-    .map((match) => ({
-      start: Number(match[1]),
-      end: Number(match[2] || match[1]),
-    }));
 }
 
 function checkObservationClarity(
@@ -237,15 +265,30 @@ function checkObservationDistinctness(
   peerDrafts: StructuredQuestionDraft[],
   warnings: QuestionQualityWarning[],
 ): 'pass' | 'warning' {
-  const duplicate = peerDrafts.find((peer) => (
-    peer.draftId !== draft.draftId &&
-    peer.materialVersionId === draft.materialVersionId &&
-    peer.abilityMetadata.abilityId === draft.abilityMetadata.abilityId &&
-    (
-      normalizedSimilarity(peer.questionStem, draft.questionStem) >= 0.72 ||
-      criticalRubricFingerprint(peer) === criticalRubricFingerprint(draft)
-    )
-  ));
+  const duplicate = peerDrafts
+    .map((peer) => {
+    const stemSimilarity = normalizedSimilarity(peer.questionStem, draft.questionStem);
+    const evidenceSimilarity = normalizedSimilarity(
+      rubricEvidenceFingerprint(peer),
+      rubricEvidenceFingerprint(draft),
+    );
+    const sameCriticalRubric = criticalRubricFingerprint(peer) === criticalRubricFingerprint(draft);
+
+      return {
+        peer,
+        stemSimilarity,
+        evidenceSimilarity,
+        isDuplicate: (
+      (stemSimilarity >= 0.78 && evidenceSimilarity >= 0.55) ||
+      (stemSimilarity >= 0.55 && evidenceSimilarity >= 0.78 && sameCriticalRubric)
+        ),
+      };
+    })
+    .filter((candidate) => candidate.isDuplicate)
+    .sort((left, right) =>
+      (right.stemSimilarity + right.evidenceSimilarity) -
+      (left.stemSimilarity + left.evidenceSimilarity)
+    )[0];
 
   if (!duplicate) return 'pass';
   addWarning(
@@ -253,8 +296,15 @@ function checkObservationDistinctness(
     'quality.observation.duplicate',
     'observationDistinctness',
     'warning',
-    '当前材料中已有题目观察相近的能力动作，请人工比较是否重复。',
-    ['questionStem', `peerDraft:${duplicate.draftId}`],
+    '系统发现本题与另一道当前题目的题干或评分要点较为接近，请人工确认两题的回答对象、材料依据和评分目标是否确实重复。',
+    ['questionStem', `peerDraft:${duplicate.peer.draftId}`],
+    {
+      peerDraftId: duplicate.peer.draftId,
+      peerResourceId: duplicate.peer.resourceId,
+      peerQuestionStem: duplicate.peer.questionStem,
+      stemSimilarity: duplicate.stemSimilarity,
+      rubricEvidenceSimilarity: duplicate.evidenceSimilarity,
+    },
   );
   return 'warning';
 }
@@ -397,37 +447,30 @@ function addWarning(
   severity: QuestionQualityWarning['severity'],
   message: string,
   evidenceRefs: string[],
+  comparison?: QuestionQualityWarning['comparison'],
 ): void {
-  warnings.push({ code, check, severity, message, evidenceRefs });
+  warnings.push({ code, check, severity, message, evidenceRefs, comparison });
 }
 
-function extractQuotedPhrases(value: string): string[] {
-  const phrases: string[] = [];
-  for (const match of value.matchAll(/[“"《]([^”"》]+)[”"》]/g)) {
-    if (match[1]) phrases.push(match[1].trim());
+function compareDraftFreshness(
+  left: StructuredQuestionDraft,
+  right: StructuredQuestionDraft,
+): number {
+  const updatedAtDifference = Date.parse(left.updatedAt) - Date.parse(right.updatedAt);
+  if (updatedAtDifference !== 0) return updatedAtDifference;
+  if (left.revision !== right.revision) return left.revision - right.revision;
+  return left.draftId.localeCompare(right.draftId);
+}
+
+function fnv1a(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
   }
-  return phrases;
+  return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
-function longestCommonChineseRun(left: string, right: string): number {
-  const leftText = [...left].filter((char) => /[\u4e00-\u9fff]/.test(char)).join('');
-  const rightText = [...right].filter((char) => /[\u4e00-\u9fff]/.test(char)).join('');
-  if (!leftText || !rightText) return 0;
-
-  let longest = 0;
-  let previous = new Array(rightText.length + 1).fill(0) as number[];
-  for (let leftIndex = 1; leftIndex <= leftText.length; leftIndex += 1) {
-    const current = new Array(rightText.length + 1).fill(0) as number[];
-    for (let rightIndex = 1; rightIndex <= rightText.length; rightIndex += 1) {
-      if (leftText[leftIndex - 1] === rightText[rightIndex - 1]) {
-        current[rightIndex] = previous[rightIndex - 1] + 1;
-        longest = Math.max(longest, current[rightIndex]);
-      }
-    }
-    previous = current;
-  }
-  return longest;
-}
 
 function normalizedSimilarity(left: string, right: string): number {
   const leftTokens = new Set(toBigrams(normalizeText(left)));
@@ -453,6 +496,16 @@ function criticalRubricFingerprint(draft: StructuredQuestionDraft): string {
   return draft.rubric
     .filter((item) => item.required && item.importance === 'critical')
     .map((item) => `${item.abilityId}:${normalizeText(item.name)}`)
+    .sort()
+    .join('|');
+}
+
+function rubricEvidenceFingerprint(draft: StructuredQuestionDraft): string {
+  return draft.rubric
+    .filter((item) => item.required)
+    .flatMap((item) => [item.name, ...(item.acceptedSignals || [])])
+    .map(normalizeText)
+    .filter(Boolean)
     .sort()
     .join('|');
 }

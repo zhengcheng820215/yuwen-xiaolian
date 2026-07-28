@@ -1,6 +1,7 @@
 import {
   assessAndSaveQuestionDraftQuality,
   assessQuestionDraftQuality,
+  buildQuestionQualityComparisonContextHash,
   isCurrentQuestionQualityAssessment,
   requireCurrentQuestionQualityAssessment,
 } from '../agents/questionQualityAssessmentAgent.ts';
@@ -45,6 +46,11 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '15 explicit whole-text scope is accepted as material grounding', run: caseWholeTextBoundary },
   { name: '16 open evidence scope is accepted as material grounding', run: caseOpenEvidenceBoundary },
   { name: '17 generic material reference remains a warning', run: caseGenericMaterialReference },
+  { name: '18 same ability with distinct evidence is not duplicate', run: caseSameAbilityDistinctEvidence },
+  { name: '19 revisions of the same resource are not peers', run: caseSameResourceRevisionIgnored },
+  { name: '20 duplicate content is detected across ability labels', run: caseDifferentAbilityDuplicate },
+  { name: '21 archived peers are ignored', run: caseArchivedPeerIgnored },
+  { name: '22 peer changes invalidate comparison context', run: casePeerContextInvalidation },
 ];
 
 async function main(): Promise<void> {
@@ -189,6 +195,132 @@ async function caseDuplicateObservation(): Promise<void> {
     'Duplicate observation was not detected.',
   );
   assert(hasWarning(assessment, 'quality.observation.duplicate'), 'Duplicate warning is missing.');
+}
+
+async function caseSameAbilityDistinctEvidence(): Promise<void> {
+  const fixture = await validFixture('distinct-evidence');
+  const peer = await createDraft(fixture.repository, 'distinct-evidence-peer', {
+    questionStem: '结合全文，分析母亲挡在窗前这一动作体现了怎样的情感。',
+    rubric: [
+      {
+        ...validRubric('inference')[0],
+        name: '母亲动作与情感',
+        acceptedSignals: ['挡住落叶', '保护孩子情绪', '深沉的母爱'],
+      },
+      {
+        ...validRubric('inference')[1],
+        name: '动作依据与情感解释',
+        acceptedSignals: ['窗前动作', '避免孩子触景伤情'],
+      },
+    ],
+  });
+  const assessment = assessQuestionDraftQuality({
+    ...fixture,
+    peerDrafts: [peer],
+  });
+
+  assert(
+    assessment.checks.observationDistinctness === 'pass',
+    'Same ability with distinct answer evidence should not be treated as duplicate.',
+  );
+}
+
+async function caseSameResourceRevisionIgnored(): Promise<void> {
+  const fixture = await validFixture('same-resource-revision');
+  const priorRevision = await createDraft(fixture.repository, 'same-resource-prior', {
+    resourceId: fixture.draft.resourceId,
+    questionStem: fixture.draft.questionStem,
+  });
+  const assessment = assessQuestionDraftQuality({
+    ...fixture,
+    peerDrafts: [priorRevision],
+  });
+
+  assert(
+    assessment.checks.observationDistinctness === 'pass',
+    'A prior revision of the same resource must not be treated as another question.',
+  );
+}
+
+async function caseDifferentAbilityDuplicate(): Promise<void> {
+  const fixture = await validFixture('different-ability-duplicate');
+  const peer = await createDraft(fixture.repository, 'different-ability-peer', {
+    questionStem: fixture.draft.questionStem,
+    rubric: fixture.draft.rubric,
+    abilityMetadata: {
+      ...validAbilityMetadata(),
+      abilityId: 'comprehension',
+    },
+  });
+  const assessment = assessQuestionDraftQuality({
+    ...fixture,
+    peerDrafts: [peer],
+  });
+
+  assert(
+    assessment.checks.observationDistinctness === 'warning',
+    'Duplicate content should not be hidden by a different ability label.',
+  );
+  const warning = assessment.warnings.find(
+    (item) => item.code === 'quality.observation.duplicate',
+  );
+  assert(
+    warning?.comparison?.peerDraftId === peer.draftId,
+    'Duplicate warning should identify the concrete comparison draft.',
+  );
+}
+
+async function caseArchivedPeerIgnored(): Promise<void> {
+  const fixture = await validFixture('archived-peer');
+  const peer = await createDraft(fixture.repository, 'archived-peer-match', {
+    questionStem: fixture.draft.questionStem,
+  });
+  const assessment = assessQuestionDraftQuality({
+    ...fixture,
+    peerDrafts: [{ ...peer, status: 'archived' }],
+  });
+
+  assert(
+    assessment.checks.observationDistinctness === 'pass',
+    'Archived questions must not participate in current-batch comparison.',
+  );
+}
+
+async function casePeerContextInvalidation(): Promise<void> {
+  const fixture = await validFixture('peer-context');
+  const peer = await createDraft(fixture.repository, 'peer-context-item');
+  const initialHash = buildQuestionQualityComparisonContextHash(
+    fixture.draft,
+    [peer],
+  );
+  const changedHash = buildQuestionQualityComparisonContextHash(
+    fixture.draft,
+    [{ ...peer, revision: peer.revision + 1, updatedAt: LATER }],
+  );
+
+  assert(initialHash !== changedHash, 'A changed peer should produce a new context hash.');
+  const assessment = assessQuestionDraftQuality({
+    ...fixture,
+    peerDrafts: [peer],
+  });
+  assert(
+    isCurrentQuestionQualityAssessment(
+      fixture.draft,
+      fixture.validation,
+      assessment,
+      initialHash,
+    ),
+    'Assessment should be current for the peer context it assessed.',
+  );
+  assert(
+    !isCurrentQuestionQualityAssessment(
+      fixture.draft,
+      fixture.validation,
+      assessment,
+      changedHash,
+    ),
+    'Assessment should become stale when the peer context changes.',
+  );
 }
 
 async function caseWeakDiscriminativePower(): Promise<void> {

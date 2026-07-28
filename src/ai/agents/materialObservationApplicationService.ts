@@ -192,9 +192,18 @@ export async function createAndValidateQuestionDraftBatch(
   const existingDrafts = await resourceRepository.listDrafts();
   const results: MaterialProductionDraftResult[] = [];
   for (const task of plan.taskPlans) {
-    const draftId = productionDraftId(task.observationTaskPlanId);
+    const baseDraftId = productionDraftId(task.observationTaskPlanId);
+    const observationTaskTag = `observation_task:${task.observationTaskPlanId}`;
+    const existing = existingDrafts
+      .filter((draft) => draft.status !== 'archived' && draft.tags.includes(observationTaskTag))
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]
+      || existingDrafts.find((draft) => draft.status !== 'archived' && draft.draftId === baseDraftId);
+    const draftId = existing
+      ? existing.draftId
+      : existingDrafts.some((draft) => draft.status === 'archived' && draft.draftId === baseDraftId)
+        ? archivedRevisionDraftId(baseDraftId)
+        : baseDraftId;
     try {
-      const existing = existingDrafts.find((draft) => draft.draftId === draftId);
       if (existing && !['drafted', 'validation_failed', 'revision_required'].includes(existing.status)) {
         const validation = existing.latestValidationId
           ? await resourceRepository.getValidation(existing.latestValidationId)
@@ -472,6 +481,12 @@ async function findCurrentValidation(
 function productionDraftId(taskId: string): string { return `draft-${taskId}`; }
 function productionResourceId(taskId: string): string { return `resource-${taskId}`; }
 function productionQuestionId(taskId: string): string { return `question-${taskId}`; }
+function archivedRevisionDraftId(baseDraftId: string): string {
+  const randomSuffix = typeof globalThis.crypto?.randomUUID === 'function'
+    ? globalThis.crypto.randomUUID().slice(0, 8)
+    : Date.now().toString(36);
+  return `${baseDraftId}-revision-${randomSuffix}`;
+}
 function normalize(value: string): string { return value.trim().replace(/\s+/g, ' ').toLowerCase(); }
 function unique(values: string[]): string[] { return [...new Set(values)].sort(); }
 function abilityLabel(value: PrimaryAbilityId): string {

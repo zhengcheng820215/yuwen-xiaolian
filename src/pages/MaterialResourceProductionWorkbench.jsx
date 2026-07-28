@@ -116,6 +116,7 @@ export default function MaterialResourceProductionWorkbench() {
     return {
       materialVersionId: params.get('materialVersionId') || '',
       planId: params.get('planId') || '',
+      editTasks: params.get('edit') === 'training-tasks',
     };
   }, [location.search]);
   const usesNonCanonicalLocalPort = import.meta.env.DEV
@@ -126,6 +127,7 @@ export default function MaterialResourceProductionWorkbench() {
   const [activeLoadPreset, setActiveLoadPreset] = useState(null);
   const [selectedMaterialId, setSelectedMaterialId] = useState('');
   const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [taskWorkspaceOpen, setTaskWorkspaceOpen] = useState(false);
   const [tasks, setTasks] = useState(createInitialTasks);
   const [taskEditorDirty, setTaskEditorDirty] = useState(false);
   const [generatorStatus, setGeneratorStatus] = useState(null);
@@ -147,6 +149,7 @@ export default function MaterialResourceProductionWorkbench() {
   const [sharedStoreStatus, setSharedStoreStatus] = useState(null);
   const [baselinePreview, setBaselinePreview] = useState(null);
   const [activeSummaryKey, setActiveSummaryKey] = useState(null);
+  const [materialPreviewExpanded, setMaterialPreviewExpanded] = useState(false);
   const pendingDiscardActionRef = useRef(null);
 
   useEffect(() => {
@@ -233,7 +236,20 @@ export default function MaterialResourceProductionWorkbench() {
   useEffect(() => {
     setGeneratorResult(null);
     setActiveSummaryKey(null);
+    setMaterialPreviewExpanded(false);
   }, [selectedMaterialId]);
+
+  useEffect(() => {
+    setTaskWorkspaceOpen(Boolean(
+      routeSelection.editTasks
+      && routeSelection.materialVersionId
+      && routeSelection.materialVersionId === selectedMaterialId
+    ));
+  }, [
+    routeSelection.editTasks,
+    routeSelection.materialVersionId,
+    selectedMaterialId,
+  ]);
 
   async function refresh(preferred = {}) {
     const next = await getMaterialResourceProductionSnapshot();
@@ -443,7 +459,22 @@ export default function MaterialResourceProductionWorkbench() {
     withUnsavedChangesGuard(() => {
       setSelectedMaterialId(materialId);
       setSelectedPlanId('');
+      setTaskWorkspaceOpen(false);
       setActiveLoadPreset(null);
+    });
+  }
+
+  function openTaskWorkspace() {
+    setTaskWorkspaceOpen(true);
+    window.requestAnimationFrame(() => {
+      document.querySelector('#training-task-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  function closeTaskWorkspace() {
+    withUnsavedChangesGuard(() => {
+      setTaskWorkspaceOpen(false);
+      document.querySelector('#material-resource-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
 
@@ -780,7 +811,7 @@ export default function MaterialResourceProductionWorkbench() {
                 {selectedMaterial && (
                   <section className="mt-4 bg-transparent" aria-labelledby="selected-material-summary-title">
                     <div
-                      className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_auto] sm:items-stretch"
+                      className="grid gap-2 sm:grid-cols-2 sm:items-stretch lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.55fr)_minmax(0,0.55fr)_minmax(0,0.55fr)_auto]"
                       aria-label={`${selectedMaterial.title}的题目状态`}
                     >
                       <div className="flex min-h-20 flex-col items-start px-3 py-3 sm:px-4">
@@ -797,12 +828,35 @@ export default function MaterialResourceProductionWorkbench() {
                         onClick={() => setActiveSummaryKey((current) => current === 'pendingReviews' ? null : 'pendingReviews')}
                       />
                       <Metric
+                        label="发布未完成"
+                        value={selectedMaterialResourceDetails.incompletePublications.length}
+                        active={activeSummaryKey === 'incompletePublications'}
+                        tone="warning"
+                        onClick={() => setActiveSummaryKey((current) => current === 'incompletePublications' ? null : 'incompletePublications')}
+                      />
+                      <Metric
                         label="已发布练习"
                         value={selectedMaterialResourceDetails.publishedResources.length}
                         active={activeSummaryKey === 'publishedResources'}
+                        tone="success"
                         onClick={() => setActiveSummaryKey((current) => current === 'publishedResources' ? null : 'publishedResources')}
                       />
-                      <div className="flex min-h-20 items-center px-3 py-3 sm:justify-end sm:px-4">
+                      <div className="flex min-h-20 flex-wrap items-center gap-2 px-3 py-3 sm:justify-end sm:px-4">
+                        <button
+                          type="button"
+                          onClick={taskWorkspaceOpen ? closeTaskWorkspace : openTaskWorkspace}
+                          className={`inline-flex min-h-9 items-center rounded-md border border-emerald-600 px-3 text-sm transition ${
+                            taskWorkspaceOpen
+                              ? 'bg-transparent text-emerald-700 hover:bg-emerald-50'
+                              : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                          }`}
+                        >
+                          {taskWorkspaceOpen
+                            ? '收起编辑区'
+                            : selectedPlan
+                              ? '重新发布训练任务'
+                              : '编辑训练任务'}
+                        </button>
                         <button
                           type="button"
                           onClick={requestMaterialRemoval}
@@ -821,6 +875,11 @@ export default function MaterialResourceProductionWorkbench() {
                         onOpenQuestion={openQuestionSummaryItem}
                       />
                     )}
+                    <MaterialContentPreview
+                      paragraphs={paragraphs}
+                      expanded={materialPreviewExpanded}
+                      onToggle={() => setMaterialPreviewExpanded((current) => !current)}
+                    />
                   </section>
                 )}
                 {!selectedMaterial && (
@@ -869,21 +928,9 @@ export default function MaterialResourceProductionWorkbench() {
               </div>
             )}
 
-            {materialMode === 'existing' && selectedMaterial && (
-              <div className="mt-5">
-                <div className="max-h-[660px] space-y-5 overflow-y-auto border-t border-slate-200 py-5 pr-3">
-                  {paragraphs.map((paragraph, index) => (
-                    <div key={`${index}-${paragraph.slice(0, 10)}`} className="grid grid-cols-[28px_1fr] gap-3">
-                      <span className="pt-1 text-sm font-semibold text-slate-400">{index + 1}</span>
-                      <p className="text-base leading-8 text-slate-800">{paragraph}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </section>
 
-          {selectedMaterial && (
+          {selectedMaterial && taskWorkspaceOpen && (
             <section id="training-task-editor" className="scroll-mt-28 border-t border-slate-200 pt-8">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -891,6 +938,9 @@ export default function MaterialResourceProductionWorkbench() {
                   {selectedPlan ? '修改训练任务' : '编辑训练任务'}
                   <span className="ml-2 font-normal text-slate-500">（<span className="text-emerald-600">{tasks.length}</span>/6）</span>
                 </h2>
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  在这里定义训练目标与阅读范围；进入题目审核平台后将直接沿用，仅在需要纠正时调整。
+                </p>
               </div>
             </div>
             {selectedPlan && (
@@ -1019,16 +1069,16 @@ export default function MaterialResourceProductionWorkbench() {
                     <button type="button" aria-label={`删除${taskEditorTitle(index)}`} disabled={tasks.length <= 3} onClick={() => removeTask(index)} className="min-h-8 px-2 text-sm font-normal text-red-600 hover:text-red-700 disabled:cursor-not-allowed disabled:text-red-200">删除</button>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-3">
-                    <Select label="训练内容" value={task.primaryDimension} options={dimensionOptions} onChange={(value) => updateTask(index, { primaryDimension: value })} />
-                    <Select label="训练能力" value={task.abilityId} options={abilityOptions} onChange={(value) => updateTask(index, {
+                    <Select label="内容侧重" value={task.primaryDimension} options={dimensionOptions} onChange={(value) => updateTask(index, { primaryDimension: value })} />
+                    <Select label="主要能力" value={task.abilityId} options={abilityOptions} onChange={(value) => updateTask(index, {
                       abilityId: value,
                       expectedStudentAction: actionForAbility(value),
                       rubric: task.rubric.map((item, rubricIndex) => rubricIndex === 0 ? { ...item, abilityId: value } : item),
                     })} />
-                    <Select label="任务用途" value={task.taskRole} options={roleOptions} onChange={(value) => updateTask(index, { taskRole: value })} />
+                    <Select label="任务角色" value={task.taskRole} options={roleOptions} onChange={(value) => updateTask(index, { taskRole: value })} />
                     <Select label="难度" value={task.difficulty} options={difficultyOptions} onChange={(value) => updateTask(index, { difficulty: value })} />
                   </div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(8rem,1fr)_minmax(8rem,1fr)]">
                     <Select label="阅读范围" value={task.anchorType} options={anchorOptions} onChange={(value) => updateTask(index, { anchorType: value })} />
                     {task.anchorType !== 'full_text' && <label className="block text-sm font-medium">开始段落<input type="number" min="1" max={Math.max(paragraphs.length, 1)} value={task.startParagraph} onChange={(event) => updateTask(index, { startParagraph: Number(event.target.value) })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>}
                     {task.anchorType === 'paragraph_range' && <label className="block text-sm font-medium">结束段落<input type="number" min={task.startParagraph} max={Math.max(paragraphs.length, 1)} value={task.endParagraph} onChange={(event) => updateTask(index, { endParagraph: Number(event.target.value) })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>}
@@ -1087,7 +1137,7 @@ export default function MaterialResourceProductionWorkbench() {
                               </div>
                               <textarea aria-label={`评分项 ${rubricIndex + 1} 描述`} value={item.description} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { description: event.target.value }) })} rows={2} className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 text-sm leading-6" placeholder="学生需要完成什么" />
                               <input aria-label={`评分项 ${rubricIndex + 1} 可接受表达`} value={item.acceptedSignalsText} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { acceptedSignalsText: event.target.value }) })} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" placeholder="例如：担心、不舍、焦急（用逗号分隔）" />
-                              {task.rubric.length > 1 && <button type="button" onClick={() => updateTask(index, { rubric: task.rubric.filter((_, itemIndex) => itemIndex !== rubricIndex) })} className="mt-2 text-xs font-semibold text-red-700">删除此项</button>}
+                              {task.rubric.length > 1 && <button type="button" onClick={() => updateTask(index, { rubric: task.rubric.filter((_, itemIndex) => itemIndex !== rubricIndex) })} className="mt-2 text-xs font-semibold text-red-600 hover:text-red-700">删除此项</button>}
                             </div>
                           ))}
                         </div>
@@ -1124,7 +1174,7 @@ export default function MaterialResourceProductionWorkbench() {
           )}
         </div>
 
-        {selectedMaterial && (
+        {selectedMaterial && taskWorkspaceOpen && (
           <section className="mt-10 rounded-md bg-white p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
@@ -1317,7 +1367,15 @@ function DiscardChangesDialog({ onCancel, onConfirm }) {
   );
 }
 
-function Metric({ label, value, active, onClick }) {
+function Metric({ label, value, active, onClick, tone = 'default' }) {
+  const activeTone = tone === 'warning' ? 'text-amber-700' : 'text-emerald-700';
+  const valueTone = active
+    ? activeTone
+    : tone === 'warning' && value > 0
+      ? 'text-amber-700'
+      : tone === 'success'
+        ? 'text-emerald-700'
+      : 'text-slate-950';
   return (
     <button
       type="button"
@@ -1327,11 +1385,54 @@ function Metric({ label, value, active, onClick }) {
       className="flex min-h-20 flex-col items-start bg-transparent px-3 py-3 text-left transition hover:text-slate-950 sm:px-4"
     >
       <span className={`block text-sm leading-5 ${active ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>{label}</span>
-      <span className={`mt-1 flex min-h-7 items-baseline gap-2 text-lg font-semibold leading-7 ${active ? 'text-emerald-700' : 'text-slate-950'}`}>
+      <span className={`mt-1 flex min-h-7 items-baseline gap-2 text-lg font-semibold leading-7 ${valueTone}`}>
         {value}
-        <span aria-hidden="true" className={`text-xs leading-7 ${active ? 'text-emerald-700' : 'text-slate-400'}`}>{active ? '▼' : '▶'}</span>
+        <span aria-hidden="true" className={`text-xs leading-7 ${active ? activeTone : 'text-slate-400'}`}>{active ? '▼' : '▶'}</span>
       </span>
     </button>
+  );
+}
+
+function MaterialContentPreview({ paragraphs, expanded, onToggle }) {
+  const previewLimit = 4;
+  const visibleParagraphs = expanded ? paragraphs : paragraphs.slice(0, previewLimit);
+  const canToggle = paragraphs.length > previewLimit;
+
+  return (
+    <section className="mt-3 px-4 py-4 sm:px-5" aria-labelledby="material-content-preview-title">
+      <div className="flex min-h-7 items-center">
+        <h2 id="material-content-preview-title" className="text-[14px] font-semibold text-slate-950">
+          素材内容
+        </h2>
+      </div>
+      {visibleParagraphs.length > 0 ? (
+        <ol className="mt-3 space-y-3">
+          {visibleParagraphs.map((paragraph, index) => (
+            <li key={`${index}-${paragraph.slice(0, 24)}`} className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2 text-[14px] leading-7 text-slate-700">
+              <span className="text-right text-xs leading-7 text-slate-400">{index + 1}</span>
+              <p className="whitespace-pre-wrap">{paragraph}</p>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="mt-3 text-[14px] text-slate-500">当前素材暂无正文内容。</p>
+      )}
+      {canToggle && (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          className="mt-4 inline-flex min-h-9 items-center gap-1 rounded px-1 text-[14px] font-medium text-emerald-700 transition hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+        >
+          {expanded ? '收起全文' : '展开全文'}
+          <ChevronDown
+            size={16}
+            aria-hidden="true"
+            className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
+          />
+        </button>
+      )}
+    </section>
   );
 }
 
@@ -1347,6 +1448,18 @@ function SummaryMetricDetails({ metricKey, details, onOpenQuestion }) {
         item.materialTitle,
         abilityLabels[item.abilityId],
         draftStatusLabels[item.status],
+      ].filter(Boolean).join(' · '),
+    },
+    incompletePublications: {
+      title: '发布未完成题目明细',
+      empty: '目前没有发布未完成的题目。',
+      items: details.incompletePublications,
+      onOpen: onOpenQuestion,
+      renderTitle: (item) => item.title,
+      renderMeta: (item) => [
+        item.materialTitle,
+        abilityLabels[item.abilityId],
+        '发布未完成',
       ].filter(Boolean).join(' · '),
     },
     publishedResources: {

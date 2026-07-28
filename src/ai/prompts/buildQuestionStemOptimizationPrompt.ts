@@ -3,7 +3,7 @@ import type {
 } from '../schemas/questionStemOptimization.schema.ts';
 
 export const QUESTION_STEM_OPTIMIZATION_PROMPT_VERSION =
-  'question_stem_optimization_prompt_v2';
+  'question_stem_optimization_prompt_v3';
 
 export function buildQuestionStemOptimizationPrompt(
   input: QuestionStemOptimizationInput,
@@ -23,7 +23,12 @@ export function buildQuestionStemOptimizationPrompt(
     '如 optimizationFocus 不为空，本次必须优先修复其中列出的检查项，不要用无关润色替代实质修复。',
     '必须保持原题考查目标不变，不得降低或提高能力要求，不得把一道题拆成多道题。',
     '题干必须能由给定材料支持。不得编造材料原句、段落、人物、事件或背景知识。',
-    '如引用段落号或原句，必须能在材料中准确定位；无法确定时使用“结合材料”而不是猜测段落号。',
+    '必须根据原题实际考查范围选择一种材料依据边界：',
+    '1. 全文型：考查整体情节、人物变化或主题时，明确写“结合全文”或“结合《材料标题》全文”。',
+    '2. 局部型：考查特定内容时，使用材料中可核对的段落、场景、原句或关键词。',
+    '3. 开放取证型：允许学生自主选证据时，明确证据数量和类型，例如“从文中任选两处动作描写”。',
+    '4. 混合型：需要整体判断并关注局部时，写明“结合全文，并重点关注……”。',
+    '不要用笼统的“结合材料”替代范围判断。如无法核实局部位置，不得猜测段落号或编造引文；原题属于整体任务时应改用明确的全文范围。',
     '不要在题干中泄露答案、评分点或参考答案。',
     '只输出合法 JSON，不要 Markdown，不要解释性前后缀。',
     '输出结构：',

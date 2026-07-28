@@ -5,6 +5,7 @@ import {
 } from './questionResourceAdmissionAgent.ts';
 import {
   assessAndSaveQuestionDraftQuality,
+  buildQuestionQualityComparisonContextHash,
   isCurrentQuestionQualityAssessment,
   requireCurrentQuestionQualityAssessment,
 } from './questionQualityAssessmentAgent.ts';
@@ -42,27 +43,37 @@ export async function getOrAssessCurrentQuestionDraftQuality(
     return null;
   }
 
-  const existing = (
-    await qualityRepository.listAssessmentsForDraft(draft.draftId)
-  ).find(
-    (assessment) =>
-      assessment.assessedDraftRevision === draft.revision &&
-      assessment.validationId === validation.validationId &&
-      assessment.ruleVersion === QUESTION_QUALITY_RULE_VERSION,
-  );
-  if (
-    existing?.ruleVersion === QUESTION_QUALITY_RULE_VERSION &&
-    isCurrentQuestionQualityAssessment(draft, validation, existing)
-  ) {
-    return existing;
-  }
-
   const [material, peerDrafts] = await Promise.all([
     draft.materialVersionId
       ? resourceRepository.getMaterial(draft.materialVersionId)
       : Promise.resolve(null),
     resourceRepository.listDrafts(),
   ]);
+  const comparisonContextHash = buildQuestionQualityComparisonContextHash(
+    draft,
+    peerDrafts,
+  );
+  const existing = (
+    await qualityRepository.listAssessmentsForDraft(draft.draftId)
+  ).find(
+    (assessment) =>
+      assessment.assessedDraftRevision === draft.revision &&
+      assessment.validationId === validation.validationId &&
+      assessment.ruleVersion === QUESTION_QUALITY_RULE_VERSION &&
+      assessment.comparisonContextHash === comparisonContextHash,
+  );
+  if (
+    existing?.ruleVersion === QUESTION_QUALITY_RULE_VERSION &&
+    isCurrentQuestionQualityAssessment(
+      draft,
+      validation,
+      existing,
+      comparisonContextHash,
+    )
+  ) {
+    return existing;
+  }
+
   return assessAndSaveQuestionDraftQuality(qualityRepository, {
     draft,
     validation,
@@ -85,23 +96,39 @@ export async function requireCurrentQuestionDraftQuality(
     throw missingQualityAssessment(draftId);
   }
   const validation = await resourceRepository.getValidation(draft.latestValidationId);
+  const peerDrafts = await resourceRepository.listDrafts();
+  const comparisonContextHash = buildQuestionQualityComparisonContextHash(
+    draft,
+    peerDrafts,
+  );
   const assessment = (
     await qualityRepository.listAssessmentsForDraft(draft.draftId)
   ).find(
     (candidate) =>
       candidate.assessedDraftRevision === draft.revision &&
       candidate.validationId === validation.validationId &&
-      candidate.ruleVersion === QUESTION_QUALITY_RULE_VERSION,
+      candidate.ruleVersion === QUESTION_QUALITY_RULE_VERSION &&
+      candidate.comparisonContextHash === comparisonContextHash,
   );
   if (!validation || !assessment) {
     throw missingQualityAssessment(draftId);
   }
-  if (!isCurrentQuestionQualityAssessment(draft, validation, assessment)) {
+  if (!isCurrentQuestionQualityAssessment(
+    draft,
+    validation,
+    assessment,
+    comparisonContextHash,
+  )) {
     throw missingQualityAssessment(draftId);
   }
   return {
     draft,
-    assessment: requireCurrentQuestionQualityAssessment(draft, validation, assessment),
+    assessment: requireCurrentQuestionQualityAssessment(
+      draft,
+      validation,
+      assessment,
+      comparisonContextHash,
+    ),
   };
 }
 

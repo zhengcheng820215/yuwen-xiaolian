@@ -4,7 +4,7 @@ import type {
 } from './questionResourceAdmission.schema.ts';
 
 export const QUESTION_QUALITY_ASSESSMENT_VERSION = 'phase17_5a_v1';
-export const QUESTION_QUALITY_RULE_VERSION = 'question_quality_rules_v2';
+export const QUESTION_QUALITY_RULE_VERSION = 'question_quality_rules_v3';
 
 export const QUESTION_QUALITY_CHECKS = [
   'materialGrounding',
@@ -30,6 +30,13 @@ export type QuestionQualityWarning = {
   severity: 'warning' | 'strong_warning';
   message: string;
   evidenceRefs: string[];
+  comparison?: {
+    peerDraftId: string;
+    peerResourceId: string;
+    peerQuestionStem: string;
+    stemSimilarity: number;
+    rubricEvidenceSimilarity: number;
+  };
 };
 
 export type QuestionQualityAssessment = {
@@ -38,6 +45,7 @@ export type QuestionQualityAssessment = {
   resourceId: string;
   assessedDraftRevision: number;
   validationId: string;
+  comparisonContextHash?: string;
   checks: {
     materialGrounding: MaterialGroundingCheckStatus;
     observationClarity: QuestionQualityCheckStatus;
@@ -79,6 +87,10 @@ export function isQuestionQualityAssessment(
     Number.isInteger(assessment.assessedDraftRevision) &&
     assessment.assessedDraftRevision > 0 &&
     nonEmpty(assessment.validationId) &&
+    (
+      assessment.comparisonContextHash === undefined ||
+      nonEmpty(assessment.comparisonContextHash)
+    ) &&
     Boolean(checks) &&
     ['pass', 'warning', 'fail'].includes(checks.materialGrounding) &&
     QUESTION_QUALITY_CHECKS
@@ -106,8 +118,26 @@ function isQuestionQualityWarning(value: unknown): value is QuestionQualityWarni
     ['warning', 'strong_warning'].includes(warning.severity) &&
     nonEmpty(warning.message) &&
     Array.isArray(warning.evidenceRefs) &&
-    warning.evidenceRefs.every(nonEmpty)
+    warning.evidenceRefs.every(nonEmpty) &&
+    isWarningComparison(warning.comparison)
   );
+}
+
+function isWarningComparison(
+  value: QuestionQualityWarning['comparison'] | undefined,
+): boolean {
+  if (value === undefined) return true;
+  return (
+    nonEmpty(value.peerDraftId) &&
+    nonEmpty(value.peerResourceId) &&
+    nonEmpty(value.peerQuestionStem) &&
+    finiteRatio(value.stemSimilarity) &&
+    finiteRatio(value.rubricEvidenceSimilarity)
+  );
+}
+
+function finiteRatio(value: unknown): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
 }
 
 function nonEmpty(value: unknown): value is string {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -13,12 +13,21 @@ import {
 import PageHeader from '../components/PageHeader.jsx';
 import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
 import { requestQuestionStemOptimization } from '../api/questionStemOptimization.ts';
+import { requestRubricItemOptimization } from '../api/rubricItemOptimization.ts';
+import {
+  buildQuestionQualityRepairQueue,
+  markCurrentQuestionQualityIssueModified,
+  parseQuestionQualityRevisionProgress,
+  reconcileQuestionQualityRevisionProgress,
+} from './questionQualityRevisionProgress.ts';
 import {
   clearQuestionResourceWorkbench,
   createQuestionResourceWorkbenchNextVersion,
+  createQuestionResourceWorkbenchPublicationRepair,
   createQuestionResourceWorkbenchRejectedRevision,
   createWorkbenchMaterial,
   decideQuestionResourceWorkbenchReview,
+  discardQuestionResourceWorkbenchDraft,
   freezeQuestionResourceWorkbenchDraft,
   getQuestionResourceWorkbenchContext,
   getQuestionResourceWorkbenchSnapshot,
@@ -59,6 +68,8 @@ const responseFormatOptions = [
   ['long_text', '长文本'],
 ];
 
+const unsavedChangesMessage = '当前题目还有未保存的修改。离开后这些修改将丢失，确认继续吗？';
+
 const difficultyOptions = [
   ['basic', '基础'],
   ['intermediate', '中等'],
@@ -86,6 +97,25 @@ const sourceTypeOptions = [
   ['ocr_assisted', 'OCR 辅助'],
 ];
 
+const qualityChecksByFormField = {
+  materialVersionId: ['materialGrounding'],
+  title: ['observationClarity', 'observationDistinctness'],
+  questionStem: ['materialGrounding', 'observationClarity', 'observationDistinctness', 'rubricAlignment', 'scopeClarity'],
+  questionType: ['scopeClarity', 'rubricAlignment', 'discriminativePower'],
+  responseFormat: ['scopeClarity', 'rubricAlignment', 'discriminativePower'],
+  optionsText: ['scopeClarity', 'rubricAlignment'],
+  assessmentMode: ['rubricAlignment', 'discriminativePower'],
+  acceptedAnswersText: ['rubricAlignment', 'discriminativePower'],
+  acceptedKeywordsText: ['rubricAlignment', 'discriminativePower'],
+  semanticEquivalentAllowed: ['rubricAlignment'],
+  minLength: ['scopeClarity', 'difficultyCoherence'],
+  requireTextEvidence: ['materialGrounding', 'rubricAlignment'],
+  requireExplanation: ['rubricAlignment', 'discriminativePower'],
+  abilityId: ['observationClarity', 'observationDistinctness', 'rubricAlignment'],
+  taskRole: ['observationClarity'],
+  difficulty: ['difficultyCoherence'],
+};
+
 const statusLabels = {
   drafted: '草稿',
   validation_failed: '结构检查未通过',
@@ -93,7 +123,9 @@ const statusLabels = {
   revision_required: '退回修改',
   reviewed: '审核通过',
   rejected: '不采用',
+  archived: '已归档',
   published: '已发布',
+  publication_incomplete: '发布未完成',
 };
 
 const initialMaterialForm = {
@@ -107,6 +139,7 @@ const initialMaterialForm = {
 
 export default function QuestionResourceWorkbench() {
   const location = useLocation();
+  const navigate = useNavigate();
   const routeContext = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return {
@@ -138,8 +171,14 @@ export default function QuestionResourceWorkbench() {
   const [stemOptimizationError, setStemOptimizationError] = useState('');
   const [stemOptimizationBusy, setStemOptimizationBusy] = useState(false);
   const [stemOptimizationAttempts, setStemOptimizationAttempts] = useState(0);
+  const [rubricOptimization, setRubricOptimization] = useState(null);
+  const [rubricOptimizationAttempts, setRubricOptimizationAttempts] = useState({});
   const [qualityResultStale, setQualityResultStale] = useState(false);
+  const [qualityRevisionProgress, setQualityRevisionProgress] = useState(null);
   const stemOptimizationRequestRef = useRef(0);
+  const rubricOptimizationRequestRef = useRef(0);
+  const postNavigationNoticeRef = useRef(null);
+  const qualityRepairEditCheckRef = useRef(null);
 
   const editable = !context || ['drafted', 'validation_failed', 'revision_required'].includes(context.draft.status);
   const selectedMaterial = useMemo(
@@ -156,6 +195,33 @@ export default function QuestionResourceWorkbench() {
     refreshWorkspace(routeContext.draftId).catch((error) => setNotice(errorNotice(error)));
   }, [routeContext.planId, routeContext.draftId]);
 
+  useEffect(() => {
+    const preventUnsavedExit = (event) => {
+      if (!hasUnsavedChanges) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', preventUnsavedExit);
+    return () => window.removeEventListener('beforeunload', preventUnsavedExit);
+  }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    qualityRepairEditCheckRef.current = null;
+    if (!selectedDraftId) {
+      setQualityRevisionProgress(null);
+      return;
+    }
+    const stored = parseQuestionQualityRevisionProgress(
+      context?.draft?.qualityRevisionProgress,
+      selectedDraftId,
+    );
+    const next = reconcileQuestionQualityRevisionProgress(
+      stored,
+      context?.qualityAssessment,
+    );
+    setQualityRevisionProgress(next);
+  }, [selectedDraftId, context?.draft?.qualityRevisionProgress, context?.qualityAssessment?.assessmentId]);
+
   async function refreshWorkspace(preferredDraftId = selectedDraftId) {
     const nextSnapshot = await getQuestionResourceWorkbenchSnapshot({
       observationPlanId: planReviewMode ? routeContext.planId : undefined,
@@ -170,10 +236,15 @@ export default function QuestionResourceWorkbench() {
       setSelectedDraftId(null);
       setContext(null);
     }
+    if (postNavigationNoticeRef.current) {
+      setNotice(postNavigationNoticeRef.current);
+      postNavigationNoticeRef.current = null;
+    }
   }
 
   async function selectDraft(draftId, currentSnapshot = snapshot) {
     stemOptimizationRequestRef.current += 1;
+    rubricOptimizationRequestRef.current += 1;
     const nextContext = await getQuestionResourceWorkbenchContext(draftId);
     setSelectedDraftId(draftId);
     setContext(nextContext);
@@ -185,14 +256,29 @@ export default function QuestionResourceWorkbench() {
     setStemOptimizationError('');
     setStemOptimizationBusy(false);
     setStemOptimizationAttempts(0);
+    setRubricOptimization(null);
+    setRubricOptimizationAttempts({});
     setQualityResultStale(false);
+    setQualityRevisionProgress(null);
+    qualityRepairEditCheckRef.current = null;
     if (!currentSnapshot.materials.length && nextContext.material) {
       setSnapshot((value) => ({ ...value, materials: [nextContext.material] }));
     }
   }
 
+  function confirmUnsavedNavigation() {
+    return !hasUnsavedChanges || window.confirm(unsavedChangesMessage);
+  }
+
+  async function selectDraftWithConfirmation(draftId) {
+    if (draftId === selectedDraftId) return;
+    if (!confirmUnsavedNavigation()) return;
+    await selectDraft(draftId);
+  }
+
   function startNewDraft() {
     stemOptimizationRequestRef.current += 1;
+    rubricOptimizationRequestRef.current += 1;
     setSelectedDraftId(null);
     setContext(null);
     const nextForm = createBlankForm();
@@ -203,20 +289,61 @@ export default function QuestionResourceWorkbench() {
     setStemOptimizationError('');
     setStemOptimizationBusy(false);
     setStemOptimizationAttempts(0);
+    setRubricOptimization(null);
+    setRubricOptimizationAttempts({});
     setQualityResultStale(false);
+    setQualityRevisionProgress(null);
+    qualityRepairEditCheckRef.current = null;
     setActivePanel('workflow');
   }
 
-  function updateQualityRelevantForm(updater) {
+  function startNewDraftWithConfirmation() {
+    if (!confirmUnsavedNavigation()) return;
+    startNewDraft();
+  }
+
+  function returnToMaterialWorkbench(event) {
+    if (confirmUnsavedNavigation()) return;
+    event.preventDefault();
+  }
+
+  function refreshWorkspaceWithConfirmation() {
+    if (!confirmUnsavedNavigation()) return;
+    refreshWorkspace().catch((error) => setNotice(errorNotice(error)));
+  }
+
+  function updateQualityRelevantForm(updater, affectedChecks = []) {
     stemOptimizationRequestRef.current += 1;
+    rubricOptimizationRequestRef.current += 1;
     setStemOptimizationBusy(false);
     setForm(updater);
     setStemOptimization(null);
     setStemOptimizationError('');
     setStemOptimizationAttempts(0);
+    setRubricOptimization(null);
+    setRubricOptimizationAttempts({});
     if (context?.validation || context?.qualityAssessment) {
       setQualityResultStale(true);
+      setQualityRevisionProgress((current) => buildModifiedQualityProgress(current, affectedChecks));
     }
+  }
+
+  function buildModifiedQualityProgress(current, affectedChecks) {
+    const reconciled = reconcileQuestionQualityRevisionProgress(
+      current,
+      context?.qualityAssessment,
+    );
+    const queue = buildQuestionQualityRepairQueue(reconciled);
+    const editCheck = qualityRepairEditCheckRef.current || queue.current?.check || null;
+    if (editCheck && affectedChecks.includes(editCheck)) {
+      qualityRepairEditCheckRef.current = editCheck;
+    }
+    return markCurrentQuestionQualityIssueModified(
+      reconciled,
+      context?.qualityAssessment,
+      affectedChecks,
+      editCheck,
+    );
   }
 
   async function run(action, successMessage, preferredDraftId) {
@@ -243,6 +370,7 @@ export default function QuestionResourceWorkbench() {
         resourceId: context?.draft.resourceId,
         taskId: context?.draft.taskId,
         draft: toDraftInput(form),
+        qualityRevisionProgress,
       }),
       selectedDraftId ? '修改已保存，请重新检查题目。' : '题目草稿已创建。',
       (draft) => draft.draftId,
@@ -264,20 +392,46 @@ export default function QuestionResourceWorkbench() {
   async function validateDraft() {
     const result = await run(
       async () => {
-        const savedDraft = await saveQuestionResourceWorkbenchDraft({
-          draftId: selectedDraftId || undefined,
-          resourceId: context?.draft.resourceId,
-          taskId: context?.draft.taskId,
-          draft: toDraftInput(form),
-        });
-        await validateQuestionResourceWorkbenchDraft(savedDraft.draftId);
-        return savedDraft;
+        const draftToValidate = hasUnsavedChanges || !selectedDraftId
+          ? await saveQuestionResourceWorkbenchDraft({
+            draftId: selectedDraftId || undefined,
+            resourceId: context?.draft.resourceId,
+            taskId: context?.draft.taskId,
+            draft: toDraftInput(form),
+            qualityRevisionProgress,
+          })
+          : context.draft;
+        await validateQuestionResourceWorkbenchDraft(draftToValidate.draftId);
+        return draftToValidate;
       },
       '题目结构检查已完成。',
       (draft) => draft.draftId,
     );
     if (result) setSelectedDraftId(result.draftId);
     setActivePanel('workflow');
+  }
+
+  async function saveAndRecheckDraft(nextForm, nextProgress, successMessage) {
+    const result = await run(
+      async () => {
+        const savedDraft = await saveQuestionResourceWorkbenchDraft({
+          draftId: selectedDraftId || undefined,
+          resourceId: context?.draft.resourceId,
+          taskId: context?.draft.taskId,
+          draft: toDraftInput(nextForm),
+          qualityRevisionProgress: nextProgress,
+        });
+        await validateQuestionResourceWorkbenchDraft(savedDraft.draftId);
+        return savedDraft;
+      },
+      successMessage,
+      (draft) => draft.draftId,
+    );
+    if (result) {
+      setSelectedDraftId(result.draftId);
+      setActivePanel('workflow');
+    }
+    return result;
   }
 
   async function submitReview() {
@@ -323,12 +477,96 @@ export default function QuestionResourceWorkbench() {
     );
   }
 
-  async function createRejectedRevision() {
-    await run(
-      () => createQuestionResourceWorkbenchRejectedRevision(selectedDraftId),
-      '修订稿已创建，原有“不采用”记录继续保留。',
+  async function repairPublication() {
+    const existingRepairDraft = findPublicationRepairDraft(snapshot, context?.draft);
+    const result = await run(
+      () => createQuestionResourceWorkbenchPublicationRepair(selectedDraftId),
+      existingRepairDraft
+        ? '已打开当前题已有的发布修订稿，不会重复创建待审核题目。'
+        : '已为当前题创建一份发布修订稿，并按训练计划同步设置。请检查后重新提交审核。',
       (draft) => draft.draftId,
     );
+    if (!result) return;
+    const params = new URLSearchParams(location.search);
+    params.set('draftId', result.draftId);
+    navigate(
+      { pathname: location.pathname, search: `?${params.toString()}` },
+      { replace: true },
+    );
+  }
+
+  async function createRejectedRevision() {
+    const existingRevision = findRejectedRevisionDraft(snapshot, context?.draft);
+    const result = await run(
+      () => createQuestionResourceWorkbenchRejectedRevision(selectedDraftId),
+      existingRevision
+        ? '已打开当前题已有的修订稿，不会重复创建草稿。'
+        : '修订稿已创建，原有“不采用”记录继续保留。',
+      (draft) => draft.draftId,
+    );
+    if (!result) return;
+    const params = new URLSearchParams(location.search);
+    params.set('draftId', result.draftId);
+    navigate(
+      { pathname: location.pathname, search: `?${params.toString()}` },
+      { replace: true },
+    );
+  }
+
+  async function discardDraft(targetDraftId = selectedDraftId) {
+    const targetDraft = snapshot.drafts.find((draft) => draft.draftId === targetDraftId);
+    if (!targetDraftId || !targetDraft) return;
+    const hasFrozenVersion = snapshot.versions.some((version) => version.sourceDraftId === targetDraftId);
+    const requiresArchive = Boolean(
+      hasFrozenVersion ||
+      targetDraft.latestReviewId ||
+      ['pending_review', 'revision_required', 'reviewed', 'rejected'].includes(targetDraft.status),
+    );
+    const actionLabel = targetDraft.status === 'revision_required'
+      ? '放弃本次修改'
+      : targetDraft.status === 'pending_review'
+        ? '撤回并归档'
+        : targetDraft.status === 'rejected'
+          ? '归档题目'
+          : '删除草稿';
+    const consequence = requiresArchive
+      ? '该题将从当前工作列表隐藏，已有审核及版本记录会继续保留。'
+      : '该草稿及其临时检查记录将被删除，且无法恢复。';
+    if (!window.confirm(`确认${actionLabel}？\n${consequence}`)) return;
+
+    setBusy(true);
+    setNotice(null);
+    try {
+      const result = await discardQuestionResourceWorkbenchDraft(targetDraftId);
+      const nextParams = new URLSearchParams(location.search);
+      const routePointsToTargetDraft = nextParams.get('draftId') === targetDraftId;
+      const deletingSelectedDraft = selectedDraftId === targetDraftId;
+      if (routePointsToTargetDraft) nextParams.delete('draftId');
+      const successNotice = {
+        type: 'success',
+        message: result.action === 'archived'
+          ? '该题已归档，审核与版本记录继续保留。'
+          : '草稿及其临时检查记录已删除。',
+      };
+      if (deletingSelectedDraft) {
+        setSelectedDraftId(null);
+        setContext(null);
+      }
+      if (routePointsToTargetDraft) {
+        postNavigationNoticeRef.current = successNotice;
+        navigate(
+          { pathname: location.pathname, search: nextParams.toString() ? `?${nextParams}` : '' },
+          { replace: true },
+        );
+      } else {
+        await refreshWorkspace(deletingSelectedDraft ? null : selectedDraftId);
+        setNotice(successNotice);
+      }
+    } catch (error) {
+      setNotice(errorNotice(error));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function optimizeStem(targetChecks = []) {
@@ -398,19 +636,208 @@ export default function QuestionResourceWorkbench() {
   }
 
   function updateQuestionStem(value) {
-    updateQualityRelevantForm((current) => ({ ...current, questionStem: value }));
+    updateQualityRelevantForm(
+      (current) => ({ ...current, questionStem: value }),
+      ['materialGrounding', 'observationClarity', 'observationDistinctness', 'rubricAlignment', 'scopeClarity'],
+    );
   }
 
-  function applyOptimizedStem() {
+  function locateQualityIssue(check) {
+    qualityRepairEditCheckRef.current = check;
+    const targetIds = {
+      materialGrounding: 'question-stem-editor',
+      observationClarity: 'question-stem-editor',
+      observationDistinctness: 'question-stem-editor',
+      difficultyCoherence: 'question-difficulty-editor',
+      scopeClarity: 'question-stem-editor',
+    };
+    const targetId = ['discriminativePower', 'rubricAlignment'].includes(check)
+      ? rubricIssueTargetId(form, check)
+      : targetIds[check];
+    window.dispatchEvent(new CustomEvent('question-quality-locate', { detail: { check } }));
+    window.setTimeout(() => {
+      const target = document.getElementById(targetId || 'question-stem-editor');
+      if (!target) return;
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.add('ring-2', 'ring-amber-400', 'ring-offset-2');
+      window.setTimeout(() => {
+        target.classList.remove('ring-2', 'ring-amber-400', 'ring-offset-2');
+      }, 1800);
+      if (typeof target.focus === 'function') {
+        window.setTimeout(() => target.focus({ preventScroll: true }), 350);
+      }
+    }, check === 'difficultyCoherence' ? 80 : 0);
+  }
+
+  async function applyOptimizedStem() {
     if (!stemOptimization?.suggestedStem) return;
-    updateQualityRelevantForm((current) => ({
-      ...current,
+    const affectedChecks = [
+      'materialGrounding',
+      'observationClarity',
+      'observationDistinctness',
+      'rubricAlignment',
+      'scopeClarity',
+    ];
+    const nextForm = {
+      ...form,
       questionStem: stemOptimization.suggestedStem,
-    }));
-    setNotice({
-      type: 'success',
-      message: '题干已修改，等待重新检查。请确认内容后保存并检查题目。',
+    };
+    const nextProgress = buildModifiedQualityProgress(
+      qualityRevisionProgress,
+      affectedChecks,
+    );
+    setForm(nextForm);
+    setQualityRevisionProgress(nextProgress);
+    setQualityResultStale(true);
+    setStemOptimization(null);
+    await saveAndRecheckDraft(
+      nextForm,
+      nextProgress,
+      'AI 题干建议已采用，并已基于修改后的内容重新检查。',
+    );
+  }
+
+  async function optimizeRubricItem(itemIndex) {
+    const material = selectedMaterial || context?.material;
+    const rubricItem = form.rubric[itemIndex];
+    const attemptCount = rubricOptimizationAttempts[rubricItem?.localId] || 0;
+    if (attemptCount >= 2) {
+      setRubricOptimization({
+        itemId: rubricItem?.localId,
+        result: null,
+        error: '该评分项已完成 2 次受控优化。请按当前提示直接修改，避免继续生成相近内容。',
+        busy: false,
+      });
+      return;
+    }
+    if (!material) {
+      setRubricOptimization({
+        itemId: rubricItem?.localId,
+        result: null,
+        error: '请先为题目关联学习材料。',
+        busy: false,
+      });
+      return;
+    }
+    if (!rubricItem?.name?.trim()) {
+      setRubricOptimization({
+        itemId: rubricItem?.localId,
+        result: null,
+        error: '请先填写当前评分项的评分内容。',
+        busy: false,
+      });
+      return;
+    }
+
+    const requestSequence = rubricOptimizationRequestRef.current + 1;
+    rubricOptimizationRequestRef.current = requestSequence;
+    setRubricOptimization({
+      itemId: rubricItem.localId,
+      result: null,
+      error: '',
+      busy: true,
     });
+    setRubricOptimizationAttempts((current) => ({
+      ...current,
+      [rubricItem.localId]: (current[rubricItem.localId] || 0) + 1,
+    }));
+    try {
+      const relevantWarnings = (context?.qualityAssessment?.warnings || [])
+        .filter((warning) => ['discriminativePower', 'rubricAlignment'].includes(warning.check))
+        .map((warning) => warning.message);
+      const result = await requestRubricItemOptimization({
+        requestId: typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `rubric-item-${Date.now()}`,
+        material: {
+          materialVersionId: material.materialVersionId,
+          title: material.title,
+          content: material.content,
+        },
+        question: {
+          questionStem: form.questionStem,
+          observationFocus: form.title,
+          abilityId: form.abilityId,
+          difficulty: form.difficulty,
+        },
+        rubricItem: {
+          localId: rubricItem.localId,
+          name: rubricItem.name,
+          abilityId: rubricItem.abilityId,
+          importance: rubricItem.importance,
+          required: rubricItem.required,
+          acceptedSignals: commaValues(rubricItem.acceptedSignalsText),
+          requireTextEvidence: rubricItem.requireTextEvidence,
+          requireExplanation: rubricItem.requireExplanation,
+        },
+        siblingRubricItems: form.rubric
+          .filter((_, index) => index !== itemIndex)
+          .filter((item) => item.name?.trim())
+          .map((item) => ({
+            name: item.name,
+            abilityId: item.abilityId,
+            importance: item.importance,
+            required: item.required,
+            acceptedSignals: commaValues(item.acceptedSignalsText),
+            requireTextEvidence: item.requireTextEvidence,
+            requireExplanation: item.requireExplanation,
+          })),
+        qualityIssues: relevantWarnings,
+      });
+      if (rubricOptimizationRequestRef.current === requestSequence) {
+        setRubricOptimization({
+          itemId: rubricItem.localId,
+          result,
+          error: '',
+          busy: false,
+        });
+      }
+    } catch (error) {
+      if (rubricOptimizationRequestRef.current === requestSequence) {
+        const message = error instanceof Error ? error.message : 'AI 评分项优化失败，请稍后重试。';
+        setRubricOptimization({
+          itemId: rubricItem.localId,
+          result: null,
+          error: attemptCount + 1 >= 2
+            ? `${message} 已完成 2 次受控优化，请直接人工修改本评分项。`
+            : message,
+          busy: false,
+        });
+      }
+    }
+  }
+
+  async function applyOptimizedRubricItem(itemIndex) {
+    const suggestion = rubricOptimization?.result?.suggestedItem;
+    if (!suggestion) return;
+    const affectedChecks = ['discriminativePower', 'rubricAlignment'];
+    const nextForm = {
+      ...form,
+      rubric: form.rubric.map((item, index) => index === itemIndex
+        ? {
+          ...item,
+          name: suggestion.name,
+          importance: suggestion.importance,
+          required: suggestion.required,
+          acceptedSignalsText: suggestion.acceptedSignals.join('，'),
+          requireTextEvidence: suggestion.requireTextEvidence,
+          requireExplanation: suggestion.requireExplanation,
+        }
+        : item),
+    };
+    const nextProgress = buildModifiedQualityProgress(
+      qualityRevisionProgress,
+      affectedChecks,
+    );
+    setForm(nextForm);
+    setQualityRevisionProgress(nextProgress);
+    setQualityResultStale(true);
+    setRubricOptimization(null);
+    await saveAndRecheckDraft(
+      nextForm,
+      nextProgress,
+      'AI 评分项建议已采用，并已基于修改后的内容重新检查。',
+    );
   }
 
   async function clearWorkspace() {
@@ -436,10 +863,11 @@ export default function QuestionResourceWorkbench() {
       snapshot={snapshot}
       selectedDraftId={selectedDraftId}
       busy={busy}
-      onNew={startNewDraft}
-      onSelect={selectDraft}
+      onNew={startNewDraftWithConfirmation}
+      onSelect={selectDraftWithConfirmation}
       onNextVersion={createNextVersion}
       onClear={clearWorkspace}
+      onDiscardDraft={discardDraft}
       focusedReview={planReviewMode}
     />
   );
@@ -468,6 +896,14 @@ export default function QuestionResourceWorkbench() {
       stemOptimizationError={stemOptimizationError}
       stemOptimizationBusy={stemOptimizationBusy}
       stemOptimizationAttempts={stemOptimizationAttempts}
+      rubricOptimization={rubricOptimization}
+      rubricOptimizationAttempts={rubricOptimizationAttempts}
+      onOptimizeRubricItem={optimizeRubricItem}
+      onApplyOptimizedRubricItem={applyOptimizedRubricItem}
+      onDismissRubricOptimization={() => {
+        rubricOptimizationRequestRef.current += 1;
+        setRubricOptimization(null);
+      }}
       focusedReview={planReviewMode}
       selectedQuestionNumber={selectedQuestionIndex >= 0 ? toChineseNumber(selectedQuestionIndex + 1) : null}
       hasUnsavedChanges={hasUnsavedChanges}
@@ -489,8 +925,18 @@ export default function QuestionResourceWorkbench() {
       onReview={review}
       onFreeze={freezeDraft}
       onCreateRejectedRevision={createRejectedRevision}
+      onRepairPublication={repairPublication}
+      onLocateQualityIssue={locateQualityIssue}
+      onOptimizeStem={optimizeStem}
+      stemOptimizationBusy={stemOptimizationBusy}
       focusedReview={planReviewMode}
       qualityResultStale={qualityResultStale}
+      qualityRevisionProgress={qualityRevisionProgress}
+      hasUnsavedChanges={hasUnsavedChanges}
+      publicationStatus={context ? draftDisplayStatus(snapshot, context.draft) : null}
+      publicationMismatch={context ? getPublicationMismatch(snapshot, context.draft) : null}
+      publicationPreflightMismatch={context ? getPublicationPreflightMismatch(context) : null}
+      publicationRepairDraft={context ? findPublicationRepairDraft(snapshot, context.draft) : null}
     />
   );
 
@@ -502,6 +948,7 @@ export default function QuestionResourceWorkbench() {
             <div className="flex items-center gap-3">
               <Link
                 to={materialWorkbenchReturnPath}
+                onClick={returnToMaterialWorkbench}
                 aria-label="返回素材资源录入平台"
                 className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
               >
@@ -514,7 +961,7 @@ export default function QuestionResourceWorkbench() {
             </div>
             <button
               type="button"
-              onClick={() => refreshWorkspace()}
+              onClick={refreshWorkspaceWithConfirmation}
               disabled={busy}
               title="刷新审核数据"
               aria-label="刷新审核数据"
@@ -560,7 +1007,9 @@ export default function QuestionResourceWorkbench() {
           <SummaryItem
             label={planReviewMode ? '已发布' : 'Registry'}
             value={planReviewMode
-              ? new Set(snapshot.versions.map((version) => version.resourceId)).size
+              ? new Set(snapshot.observationLinks
+                .filter((link) => link.status === 'active')
+                .map((link) => link.resourceVersionId)).size
               : snapshot.registryConsistency.passed ? '一致' : '需检查'}
             tone={planReviewMode || snapshot.registryConsistency.passed ? 'success' : 'warning'}
             aligned={planReviewMode}
@@ -570,7 +1019,7 @@ export default function QuestionResourceWorkbench() {
         {notice ? <Notice notice={notice} /> : null}
 
         {planReviewMode ? (
-          <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
             <div className="min-w-0 space-y-5">
               {questionEditor}
               {workflowPanel}
@@ -589,7 +1038,7 @@ export default function QuestionResourceWorkbench() {
   );
 }
 
-function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, onNextVersion, onClear, focusedReview }) {
+function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, onNextVersion, onClear, onDiscardDraft, focusedReview }) {
   return (
     <aside className={`overflow-hidden rounded-md bg-white ${focusedReview ? 'lg:sticky lg:top-24' : 'border border-slate-200 xl:sticky xl:top-24'}`}>
       {!focusedReview ? <div className="border-b border-slate-200 p-3">
@@ -604,27 +1053,55 @@ function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, o
 
       <div className={`${focusedReview ? 'max-h-[560px]' : 'max-h-[380px]'} overflow-auto p-2`}>
         <p className={focusedReview
-          ? 'mb-1 border-b border-slate-200 px-2 pb-3 pt-2 text-sm font-semibold text-slate-950'
+          ? 'mb-1 border-b border-slate-200 px-2 pb-3 pt-2 text-base font-semibold text-slate-950'
           : 'px-2 py-2 text-xs font-semibold text-slate-500'}
         >
           {focusedReview ? '本批待审核题目' : 'DRAFT / REVIEW'}
         </p>
-        {snapshot.drafts.length ? snapshot.drafts.map((draft, index) => (
-          <button
-            key={draft.draftId}
-            type="button"
-            onClick={() => onSelect(draft.draftId)}
-            className={`relative mb-1 w-full rounded-md px-3 py-3 text-left transition-colors ${selectedDraftId === draft.draftId ? (focusedReview ? 'bg-emerald-50 text-emerald-800 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-r before:bg-emerald-600' : 'bg-blue-50 text-blue-800') : 'hover:bg-slate-50'}`}
-          >
+        {snapshot.drafts.length ? snapshot.drafts.map((draft, index) => {
+          const hasFrozenVersion = snapshot.versions.some((version) => version.sourceDraftId === draft.draftId);
+          const canDiscard = !hasFrozenVersion && ['drafted', 'validation_failed', 'pending_review', 'revision_required', 'rejected'].includes(draft.status);
+          return (
+          <div key={draft.draftId} className="relative mb-1">
+            <button
+              type="button"
+              onClick={() => onSelect(draft.draftId)}
+              className={`relative w-full rounded-md px-3 py-3 text-left transition-colors ${selectedDraftId === draft.draftId ? (focusedReview ? 'bg-emerald-50 text-emerald-800 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-r before:bg-emerald-600' : 'bg-blue-50 text-blue-800') : 'hover:bg-slate-50'}`}
+            >
             {focusedReview ? (
               <>
-                <span className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-slate-950">题目{toChineseNumber(index + 1)}</span>
-                  <StatusBadge status={draftDisplayStatus(snapshot, draft)} />
+                <span className="flex min-w-0 items-start justify-between gap-3">
+                  <span className="min-w-0 text-sm font-semibold text-slate-950">题目{toChineseNumber(index + 1)}</span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    <StatusBadge status={draftDisplayStatus(snapshot, draft)} />
+                    {canDiscard ? (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        title="删除这道草稿题目"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDiscardDraft(draft.draftId);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            onDiscardDraft(draft.draftId);
+                          }
+                        }}
+                        className={`text-xs font-normal ${busy ? 'pointer-events-none text-slate-400' : 'text-red-600 hover:text-red-700'}`}
+                      >
+                        删除
+                      </span>
+                    ) : null}
+                  </span>
                 </span>
                 <span
-                  className="mt-1 block overflow-hidden text-xs leading-5 text-slate-600"
-                  style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}
+                  className={`mt-1 block text-xs leading-5 text-slate-600 ${selectedDraftId === draft.draftId ? '' : 'overflow-hidden'}`}
+                  style={selectedDraftId === draft.draftId
+                    ? undefined
+                    : { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3 }}
                 >
                   {draft.questionStem || '尚未填写题目内容'}
                 </span>
@@ -641,8 +1118,9 @@ function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, o
                 </span>
               </>
             )}
-          </button>
-        )) : <EmptyText>尚无 Draft</EmptyText>}
+            </button>
+          </div>
+        )}) : <EmptyText>尚无 Draft</EmptyText>}
       </div>
 
       {!focusedReview ? <div className="border-t border-slate-200 p-2">
@@ -668,12 +1146,34 @@ function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, o
           type="button"
           disabled={busy}
           onClick={onClear}
-          className="flex min-h-9 w-full items-center justify-center gap-2 rounded-md text-sm font-normal text-slate-500 hover:bg-slate-50 hover:text-rose-700"
+          className="flex min-h-9 w-full items-center justify-center gap-2 rounded-md text-sm font-normal text-red-600 hover:bg-red-50 hover:text-red-700"
         >
           <Trash2 size={15} /> 清除本地 Demo 数据
         </button>
       </div> : null}
     </aside>
+  );
+}
+
+function SuggestionComparison({ label, content, details = [], tone = 'neutral' }) {
+  const styles = {
+    neutral: 'border-slate-200 bg-white',
+    success: 'border-emerald-200 bg-emerald-50',
+    warning: 'border-amber-200 bg-amber-50',
+  };
+  return (
+    <div className={`rounded-md border p-3 ${styles[tone] || styles.neutral}`}>
+      <p className="text-xs font-semibold text-slate-600">{label}</p>
+      <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-900">{content}</p>
+      {details.length ? (
+        <div className="mt-2 border-t border-slate-200 pt-2">
+          <p className="text-xs text-slate-500">答案要点</p>
+          <ul className="mt-1 space-y-1 text-xs leading-5 text-slate-700">
+            {details.map((detail) => <li key={detail}>• {detail}</li>)}
+          </ul>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -696,23 +1196,64 @@ function QuestionEditor({
   stemOptimizationError,
   stemOptimizationBusy,
   stemOptimizationAttempts,
+  rubricOptimization,
+  rubricOptimizationAttempts,
+  onOptimizeRubricItem,
+  onApplyOptimizedRubricItem,
+  onDismissRubricOptimization,
   focusedReview,
   selectedQuestionNumber,
   hasUnsavedChanges,
 }) {
-  const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  const update = (key, value) => setForm(
+    (current) => ({ ...current, [key]: value }),
+    qualityChecksByFormField[key] || [],
+  );
   const objectiveQuestion = ['multiple_choice', 'true_false', 'fill_blank'].includes(form.questionType);
   const readingQuestion = form.questionType === 'reading_comprehension';
   const suggestionNeedsAttention = stemOptimization?.suggestionReview?.status === 'needs_attention';
   const remainingSuggestionIssues = stemOptimization?.suggestionReview?.remainingIssues || [];
+  const resolvedSuggestionChecks = stemOptimization?.suggestionReview?.resolvedChecks || [];
   const canRetryStemOptimization = suggestionNeedsAttention && stemOptimizationAttempts < 2;
-  const updateRubric = (index, key, value) => setForm((current) => ({
-    ...current,
-    rubric: current.rubric.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item),
-  }));
+  const [showTrainingSettingsEditor, setShowTrainingSettingsEditor] = useState(false);
+  const [showOptionalTrainingSettings, setShowOptionalTrainingSettings] = useState(false);
+  const [showOptionalAnswerSettings, setShowOptionalAnswerSettings] = useState(false);
+  const reviewMaterial = materials.find((material) => material.materialVersionId === form.materialVersionId) || null;
+  const optionalTrainingSettingCount = [
+    form.supportingAbilityIdsText,
+    form.prerequisiteAbilityIdsText,
+    form.gradeRange,
+    form.tagsText,
+  ].filter((value) => String(value || '').trim()).length;
+  const optionalAnswerSettingCount = [
+    !objectiveQuestion && form.acceptedAnswersText,
+    form.acceptedKeywordsText,
+    form.semanticEquivalentAllowed ? 'configured' : '',
+  ].filter((value) => String(value || '').trim()).length;
+  const updateRubric = (index, key, value) => setForm(
+    (current) => ({
+      ...current,
+      rubric: current.rubric.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item),
+    }),
+    ['discriminativePower', 'rubricAlignment'],
+  );
   const focusQuestionStem = () => {
     document.getElementById('question-stem-editor')?.focus();
   };
+  useEffect(() => {
+    setShowTrainingSettingsEditor(false);
+    setShowOptionalTrainingSettings(false);
+    setShowOptionalAnswerSettings(false);
+  }, [context?.draft?.draftId]);
+  useEffect(() => {
+    const revealQualityIssueTarget = (event) => {
+      if (event.detail?.check === 'difficultyCoherence') {
+        setShowTrainingSettingsEditor(true);
+      }
+    };
+    window.addEventListener('question-quality-locate', revealQualityIssueTarget);
+    return () => window.removeEventListener('question-quality-locate', revealQualityIssueTarget);
+  }, []);
 
   return (
     <section className={`rounded-md bg-white ${focusedReview ? '[&_input:focus]:border-emerald-500 [&_select:focus]:border-emerald-500 [&_textarea:focus]:border-emerald-500' : 'border border-slate-200'}`}>
@@ -811,20 +1352,36 @@ function QuestionEditor({
                       ? 'bg-amber-100 text-amber-800'
                       : 'bg-emerald-100 text-emerald-800'
                   }`}>
-                    {suggestionNeedsAttention ? '预检查仍有提醒' : '建议已通过预检查'}
+                    {suggestionNeedsAttention ? '仍有问题未解决' : '针对性预检查通过'}
                   </span>
                 </div>
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-900">
-                  {stemOptimization.suggestedStem}
-                </p>
+                <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                  <SuggestionComparison
+                    label="修改前"
+                    content={stemOptimization.originalStem}
+                    tone="neutral"
+                  />
+                  <SuggestionComparison
+                    label="AI 建议"
+                    content={stemOptimization.suggestedStem}
+                    tone={suggestionNeedsAttention ? 'warning' : 'success'}
+                  />
+                </div>
                 <div className="mt-3 text-xs leading-5 text-slate-600">
                   <p>{stemOptimization.rationale}</p>
                   {stemOptimization.changes.length ? (
                     <p className="mt-1">本次调整：{stemOptimization.changes.join('；')}</p>
                   ) : null}
                 </div>
+                {resolvedSuggestionChecks.length ? (
+                  <div className="mt-3 rounded-md bg-emerald-100/70 px-3 py-2 text-xs leading-5 text-emerald-900">
+                    <p className="font-semibold">本次建议已解决</p>
+                    <p>{resolvedSuggestionChecks.map((check) => qualityCheckLabel(check, false)).join('；')}</p>
+                  </div>
+                ) : null}
                 {remainingSuggestionIssues.length ? (
                   <div className="mt-3 space-y-2">
+                    <p className="text-xs font-semibold text-amber-900">仍需继续处理</p>
                     {remainingSuggestionIssues.map((issue) => (
                       <div key={issue.check} className="rounded-md bg-amber-100/70 px-3 py-2 text-xs leading-5 text-amber-900">
                         <p className="font-semibold">{qualityCheckLabel(issue.check, false)}</p>
@@ -842,17 +1399,18 @@ function QuestionEditor({
                   {suggestionNeedsAttention
                     ? stemOptimizationAttempts >= 2
                       ? '已完成 2 次受控优化。建议转到题干手动修改，或保留原题干；不要为了消除提醒而采用没有实质改善的建议。'
-                      : '系统会针对剩余提醒再优化 1 次。候选预检查不替代保存后的正式题目检查。'
-                    : '采用后仅更新当前编辑区，不会自动保存、提交审核或发布；保存后仍需重新检查题目。'}
+                      : '系统会针对剩余提醒再优化 1 次。局部预检查不代表整题通过。'
+                    : '这只表示本次指定问题已解决，不代表整题通过。采用后系统会自动保存，并基于新内容重新检查整题。'}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {!suggestionNeedsAttention ? (
                     <button
                       type="button"
+                      disabled={busy}
                       onClick={onApplyOptimizedStem}
-                      className="min-h-9 rounded-md bg-emerald-600 px-4 text-sm font-normal text-white hover:bg-emerald-700"
+                      className="min-h-9 rounded-md bg-emerald-600 px-4 text-sm font-normal text-white hover:bg-emerald-700 disabled:bg-slate-300"
                     >
-                      采用此题干
+                      {busy ? '正在保存并检查…' : '采用并重新检查'}
                     </button>
                   ) : null}
                   {canRetryStemOptimization ? (
@@ -891,76 +1449,160 @@ function QuestionEditor({
           ) : null}
         </EditorGroup>
 
-        <EditorGroup title="学习材料">
-          <Field label="引用已有材料" required={readingQuestion} requirement={readingQuestion ? '当前题型必填' : undefined}>
-            <SelectInput
-              disabled={focusedReview}
-              value={form.materialVersionId}
-              onChange={(value) => update('materialVersionId', value)}
-              options={[
-                ['', '不引用学习材料'],
-                ...materials.map((material) => [material.materialVersionId, `${material.title} · v${material.versionNumber}`]),
-              ]}
-              aligned={focusedReview}
-            />
-          </Field>
-          {!focusedReview ? <details className="rounded-md bg-slate-50 p-3">
-            <summary className="cursor-pointer text-sm text-slate-700">新建学习材料</summary>
-            <div className="mt-3 space-y-3">
-              <Field label="材料标题" required><input value={materialForm.title} onChange={(event) => setMaterialForm({ ...materialForm, title: event.target.value })} className={inputClass} /></Field>
-              <Field label="阅读材料正文" required><AutoGrowTextarea value={materialForm.content} onChange={(event) => setMaterialForm({ ...materialForm, content: event.target.value })} rows={5} /></Field>
-              <Field label="来源说明" required><input value={materialForm.description} onChange={(event) => setMaterialForm({ ...materialForm, description: event.target.value })} className={inputClass} /></Field>
-              <Field label="版权或使用说明" requirement="可选"><input value={materialForm.copyrightNote} onChange={(event) => setMaterialForm({ ...materialForm, copyrightNote: event.target.value })} className={inputClass} /></Field>
-              <button type="button" onClick={onCreateMaterial} className="min-h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-normal text-slate-700">创建学习材料</button>
+        <EditorGroup title={focusedReview ? '关联材料' : '学习材料'}>
+          {focusedReview ? (
+            <div className="flex min-h-11 items-center rounded-md bg-slate-50 px-3 text-sm text-slate-700">
+              {reviewMaterial
+                ? <><span className="font-semibold text-slate-950">{reviewMaterial.title}</span><span className="ml-2 text-slate-500">版本 {reviewMaterial.versionNumber}</span></>
+                : <span className="text-slate-500">未关联学习材料</span>}
+            </div>
+          ) : (
+            <>
+              <Field label="引用已有材料" required={readingQuestion} requirement={readingQuestion ? '当前题型必填' : undefined}>
+                <SelectInput
+                  value={form.materialVersionId}
+                  onChange={(value) => update('materialVersionId', value)}
+                  options={[
+                    ['', '不引用学习材料'],
+                    ...materials.map((material) => [material.materialVersionId, `${material.title} · v${material.versionNumber}`]),
+                  ]}
+                />
+              </Field>
+              <details className="rounded-md bg-slate-50 p-3">
+                <summary className="cursor-pointer text-sm text-slate-700">新建学习材料</summary>
+                <div className="mt-3 space-y-3">
+                  <Field label="材料标题" required><input value={materialForm.title} onChange={(event) => setMaterialForm({ ...materialForm, title: event.target.value })} className={inputClass} /></Field>
+                  <Field label="阅读材料正文" required><AutoGrowTextarea value={materialForm.content} onChange={(event) => setMaterialForm({ ...materialForm, content: event.target.value })} rows={5} /></Field>
+                  <Field label="来源说明" required><input value={materialForm.description} onChange={(event) => setMaterialForm({ ...materialForm, description: event.target.value })} className={inputClass} /></Field>
+                  <Field label="版权或使用说明" requirement="可选"><input value={materialForm.copyrightNote} onChange={(event) => setMaterialForm({ ...materialForm, copyrightNote: event.target.value })} className={inputClass} /></Field>
+                  <button type="button" onClick={onCreateMaterial} className="min-h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-normal text-slate-700">创建学习材料</button>
+                </div>
+              </details>
+            </>
+          )}
+        </EditorGroup>
+
+        <div id="question-training-targets" tabIndex="-1" className="scroll-mt-24 outline-none">
+        <EditorGroup title={focusedReview ? '训练目标' : '训练设置'}>
+          {focusedReview ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-h-11 flex-wrap items-center gap-2" aria-label="由素材录入平台带入的训练目标">
+                <span className="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                  {optionLabel(abilityOptions, form.abilityId)}
+                </span>
+                <span className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">
+                  {optionLabel(taskRoleOptions, form.taskRole)}
+                </span>
+                <span className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">
+                  {optionLabel(difficultyOptions, form.difficulty)}
+                </span>
+                <span className="text-sm text-slate-500">由素材录入平台带入</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTrainingSettingsEditor((value) => !value)}
+                className="min-h-10 rounded-md border border-emerald-600 bg-white px-4 text-sm font-normal text-emerald-700 hover:bg-emerald-50"
+              >
+                {showTrainingSettingsEditor ? '收起调整' : '调整训练目标'}
+              </button>
+            </div>
+          ) : null}
+          {!focusedReview || showTrainingSettingsEditor ? (
+            <div className={focusedReview ? 'mt-4 rounded-md bg-slate-50 p-4' : ''}>
+              {focusedReview ? (
+                <p className="mb-4 text-sm leading-6 text-amber-700">
+                  调整后会与素材录入平台中的原训练计划产生差异，保存后需要重新检查题目。
+                </p>
+              ) : null}
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field label="主要能力" required>
+                  <SelectInput value={form.abilityId} onChange={(value) => updateAbility(value, setForm)} options={abilityOptions} aligned={focusedReview} />
+                </Field>
+                <Field label="任务角色" required>
+                  <SelectInput value={form.taskRole} onChange={(value) => update('taskRole', value)} options={taskRoleOptions} aligned={focusedReview} />
+                </Field>
+                <div id="question-difficulty-editor" tabIndex="-1" className="scroll-mt-24 rounded-md outline-none">
+                  <Field label="难度" required>
+                    <SelectInput value={form.difficulty} onChange={(value) => update('difficulty', value)} options={difficultyOptions} aligned={focusedReview} />
+                  </Field>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {!focusedReview || showTrainingSettingsEditor ? <details open={showOptionalTrainingSettings}>
+            <summary
+              className="cursor-pointer text-sm font-normal text-slate-700"
+              onClick={(event) => {
+                event.preventDefault();
+                setShowOptionalTrainingSettings((value) => !value);
+              }}
+            >
+              更多训练设置（非必填）
+              {optionalTrainingSettingCount ? (
+                <span className="ml-2 text-slate-500">已填写 {optionalTrainingSettingCount} 项</span>
+              ) : null}
+            </summary>
+            <div className="mt-4 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="辅助训练能力（逗号分隔）">
+                  <input value={form.supportingAbilityIdsText} onChange={(event) => update('supportingAbilityIdsText', event.target.value)} className={inputClass} />
+                </Field>
+                <Field label="前置训练能力（逗号分隔）">
+                  <input value={form.prerequisiteAbilityIdsText} onChange={(event) => update('prerequisiteAbilityIdsText', event.target.value)} className={inputClass} />
+                </Field>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="适用年级">
+                  <input value={form.gradeRange} onChange={(event) => update('gradeRange', event.target.value)} className={inputClass} />
+                </Field>
+                <Field label="标签（逗号分隔）">
+                  <input value={form.tagsText} onChange={(event) => update('tagsText', event.target.value)} className={inputClass} />
+                </Field>
+              </div>
             </div>
           </details> : null}
         </EditorGroup>
-
-        <EditorGroup title="训练设置">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="主要能力" required>
-              <SelectInput value={form.abilityId} onChange={(value) => updateAbility(value, setForm)} options={abilityOptions} aligned={focusedReview} />
-            </Field>
-            <Field label="任务角色" required>
-              <SelectInput value={form.taskRole} onChange={(value) => update('taskRole', value)} options={taskRoleOptions} aligned={focusedReview} />
-            </Field>
-            <Field label="难度" required>
-              <SelectInput value={form.difficulty} onChange={(value) => update('difficulty', value)} options={difficultyOptions} aligned={focusedReview} />
-            </Field>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="辅助训练能力（逗号分隔）">
-              <input value={form.supportingAbilityIdsText} onChange={(event) => update('supportingAbilityIdsText', event.target.value)} className={inputClass} />
-            </Field>
-            <Field label="前置训练能力（逗号分隔）">
-              <input value={form.prerequisiteAbilityIdsText} onChange={(event) => update('prerequisiteAbilityIdsText', event.target.value)} className={inputClass} />
-            </Field>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="适用年级">
-              <input value={form.gradeRange} onChange={(event) => update('gradeRange', event.target.value)} className={inputClass} />
-            </Field>
-            <Field label="标签（逗号分隔）">
-              <input value={form.tagsText} onChange={(event) => update('tagsText', event.target.value)} className={inputClass} />
-            </Field>
-          </div>
-        </EditorGroup>
+        </div>
 
         <EditorGroup title="作答判定">
           <Field label="评价模式" required>
             <SelectInput value={form.assessmentMode} onChange={(value) => update('assessmentMode', value)} options={assessmentModeOptions} aligned={focusedReview} />
           </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="可接受答案（每行一项）" required={objectiveQuestion} requirement={objectiveQuestion ? '当前题型必填' : undefined}>
+          {objectiveQuestion ? (
+            <Field label="可接受答案（每行一项）" required requirement="当前题型必填">
               <AutoGrowTextarea value={form.acceptedAnswersText} onChange={(event) => update('acceptedAnswersText', event.target.value)} rows={3} />
             </Field>
-            <Field label="可接受关键词（每行一项）">
-              <AutoGrowTextarea value={form.acceptedKeywordsText} onChange={(event) => update('acceptedKeywordsText', event.target.value)} rows={3} />
-            </Field>
-          </div>
-          <Checkbox label="允许语义等价表达" checked={form.semanticEquivalentAllowed} onChange={(value) => update('semanticEquivalentAllowed', value)} />
+          ) : null}
+          <details open={showOptionalAnswerSettings}>
+            <summary
+              className="cursor-pointer text-sm font-normal text-slate-700"
+              onClick={(event) => {
+                event.preventDefault();
+                setShowOptionalAnswerSettings((value) => !value);
+              }}
+            >
+              更多作答判定设置（非必填）
+              {optionalAnswerSettingCount ? (
+                <span className="ml-2 text-slate-500">已配置 {optionalAnswerSettingCount} 项</span>
+              ) : null}
+            </summary>
+            <div className="mt-4 space-y-4">
+              <div className={`grid gap-4 ${objectiveQuestion ? '' : 'sm:grid-cols-2'}`}>
+                {!objectiveQuestion ? (
+                  <Field label="可接受答案（每行一项）">
+                    <AutoGrowTextarea value={form.acceptedAnswersText} onChange={(event) => update('acceptedAnswersText', event.target.value)} rows={3} />
+                  </Field>
+                ) : null}
+                <Field label="可接受关键词（每行一项）">
+                  <AutoGrowTextarea value={form.acceptedKeywordsText} onChange={(event) => update('acceptedKeywordsText', event.target.value)} rows={3} />
+                </Field>
+              </div>
+              <Checkbox label="允许语义等价表达" checked={form.semanticEquivalentAllowed} onChange={(value) => update('semanticEquivalentAllowed', value)} />
+            </div>
+          </details>
         </EditorGroup>
 
+        <div id="question-rubric-editor" tabIndex="-1" className="scroll-mt-24 outline-none">
         <EditorGroup title="评分标准">
           <div className="rounded-md bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
             <p>把题目拆成 2 至 3 个可以分别判断的评分要求，每个评分项只判断一件事。</p>
@@ -968,10 +1610,40 @@ function QuestionEditor({
           </div>
           <div className="space-y-3">
             {form.rubric.map((item, index) => (
-              <div key={item.localId} className="rounded-md border border-slate-200 p-3">
-                <div className="mb-3">
-                  <p className="text-sm font-semibold text-slate-950">{`评分项${toChineseNumber(index + 1)}`}</p>
-                  <p className="mt-1 text-xs text-slate-500">这一项只判断一个明确的作答要求。</p>
+              <div
+                key={item.localId}
+                id={`question-rubric-item-${item.localId}`}
+                tabIndex="-1"
+                className="scroll-mt-24 rounded-md border border-slate-200 p-3 outline-none"
+              >
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-950">{`评分项${toChineseNumber(index + 1)}`}</p>
+                    <p className="mt-1 text-xs text-slate-500">这一项只判断一个明确的作答要求。</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {(rubricOptimizationAttempts[item.localId] || 0) > 0 ? (
+                      <span className="text-xs text-slate-500">
+                        AI 尝试 {rubricOptimizationAttempts[item.localId]}/2
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={
+                        busy ||
+                        rubricOptimization?.busy ||
+                        (rubricOptimizationAttempts[item.localId] || 0) >= 2
+                      }
+                      onClick={() => onOptimizeRubricItem(index)}
+                      className="min-h-9 rounded-md border border-emerald-600 bg-white px-4 text-sm font-normal text-emerald-700 hover:bg-emerald-50 disabled:border-slate-300 disabled:text-slate-400"
+                    >
+                      {rubricOptimization?.itemId === item.localId && rubricOptimization.busy
+                        ? '正在优化本项…'
+                        : (rubricOptimizationAttempts[item.localId] || 0) >= 2
+                          ? '请人工修改'
+                          : 'AI 优化本项'}
+                    </button>
+                  </div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="评分内容（这一项判断什么）" required>
@@ -995,23 +1667,110 @@ function QuestionEditor({
                     />
                   </Field>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-4">
-                  <Checkbox label="完整回答必须满足本项" checked={item.required} onChange={(value) => updateRubric(index, 'required', value)} />
-                  <Checkbox label="需结合材料内容" checked={item.requireTextEvidence} onChange={(value) => updateRubric(index, 'requireTextEvidence', value)} />
-                  <Checkbox label="需说明原因或过程" checked={item.requireExplanation} onChange={(value) => updateRubric(index, 'requireExplanation', value)} />
-                  {form.rubric.length > 1 ? <button type="button" onClick={() => setForm((current) => ({ ...current, rubric: current.rubric.filter((_, itemIndex) => itemIndex !== index) }))} className="ml-auto text-sm text-rose-700">删除</button> : null}
+                <div className="mt-3">
+                  <p className="text-sm font-medium text-slate-900">本评分项的判定条件</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">勾选后，学生的完整回答必须满足对应条件。</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-4">
+                    <Checkbox label="必须达到本评分项" checked={item.required} onChange={(value) => updateRubric(index, 'required', value)} />
+                    <Checkbox label="必须引用材料内容" checked={item.requireTextEvidence} onChange={(value) => updateRubric(index, 'requireTextEvidence', value)} />
+                    <Checkbox label="必须说明理由或过程" checked={item.requireExplanation} onChange={(value) => updateRubric(index, 'requireExplanation', value)} />
+                    {form.rubric.length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => setForm(
+                          (current) => ({
+                            ...current,
+                            rubric: current.rubric.filter((_, itemIndex) => itemIndex !== index),
+                          }),
+                          ['discriminativePower', 'rubricAlignment'],
+                        )}
+                        className="ml-auto text-sm text-red-600 hover:text-red-700"
+                      >
+                        删除
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
+                {rubricOptimization?.itemId === item.localId && rubricOptimization.error ? (
+                  <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-800">
+                    {rubricOptimization.error}
+                  </p>
+                ) : null}
+                {rubricOptimization?.itemId === item.localId && rubricOptimization.result ? (
+                  <section className="mt-3 rounded-md border border-emerald-200 bg-emerald-50/60 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-emerald-900">AI 优化建议</p>
+                      <span className="text-xs text-emerald-800">
+                        {optionLabel(rubricImportanceOptions, rubricOptimization.result.suggestedItem.importance)}
+                      </span>
+                    </div>
+                    <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                      <SuggestionComparison
+                        label="修改前"
+                        content={rubricOptimization.result.originalItem.name}
+                        details={rubricOptimization.result.originalItem.acceptedSignals}
+                        tone="neutral"
+                      />
+                      <SuggestionComparison
+                        label="AI 建议"
+                        content={rubricOptimization.result.suggestedItem.name}
+                        details={rubricOptimization.result.suggestedItem.acceptedSignals}
+                        tone="success"
+                      />
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-slate-700">
+                      判定条件：{[
+                        rubricOptimization.result.suggestedItem.required && '完整作答必须达到本项',
+                        rubricOptimization.result.suggestedItem.requireTextEvidence && '必须引用材料内容',
+                        rubricOptimization.result.suggestedItem.requireExplanation && '必须说明理由或过程',
+                      ].filter(Boolean).join('；') || '无额外要求'}
+                    </p>
+                    <p className="mt-2 text-xs leading-5 text-slate-600">
+                      {rubricOptimization.result.rationale}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      本次调整：{rubricOptimization.result.changes.join('；')}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => onApplyOptimizedRubricItem(index)}
+                        className="min-h-9 rounded-md bg-emerald-600 px-4 text-sm font-normal text-white hover:bg-emerald-700 disabled:bg-slate-300"
+                      >
+                        {busy ? '正在保存并检查…' : '采用并重新检查'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onDismissRubricOptimization}
+                        className="min-h-9 rounded-md border border-slate-300 bg-white px-4 text-sm font-normal text-slate-600 hover:bg-slate-50"
+                      >
+                        保留原评分项
+                      </button>
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      采用后会保存当前题并重新执行系统检查，不会自动提交人工审核或发布。
+                    </p>
+                  </section>
+                ) : null}
               </div>
             ))}
           </div>
           <button
             type="button"
-            onClick={() => setForm((current) => ({ ...current, rubric: [...current.rubric, createRubricItem(current.abilityId)] }))}
+            onClick={() => setForm(
+              (current) => ({
+                ...current,
+                rubric: [...current.rubric, createRubricItem(current.abilityId)],
+              }),
+              ['discriminativePower', 'rubricAlignment'],
+            )}
             className="flex min-h-10 w-full items-center justify-center rounded-md border border-emerald-600 bg-white px-4 text-sm font-normal text-emerald-700 hover:bg-emerald-50"
           >
             添加评分项
           </button>
         </EditorGroup>
+        </div>
 
         <EditorGroup title="最低作答与来源">
           <div className="grid gap-4 sm:grid-cols-3">
@@ -1019,7 +1778,14 @@ function QuestionEditor({
             <Field label="来源类型" required><SelectInput value={form.sourceType} onChange={(value) => update('sourceType', value)} options={sourceTypeOptions} aligned={focusedReview} /></Field>
             <Field label="来源说明" required><input value={form.sourceDescription} onChange={(event) => update('sourceDescription', event.target.value)} className={inputClass} /></Field>
           </div>
-          <div className="flex flex-wrap gap-4"><Checkbox label="最低要求包含文本依据" checked={form.requireTextEvidence} onChange={(value) => update('requireTextEvidence', value)} /><Checkbox label="最低要求包含解释" checked={form.requireExplanation} onChange={(value) => update('requireExplanation', value)} /></div>
+          <div>
+            <p className="text-sm font-medium text-slate-900">最低作答条件</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">勾选后，未满足条件的回答将被视为未达到最低作答要求。</p>
+            <div className="mt-2 flex flex-wrap gap-4">
+              <Checkbox label="回答必须有材料依据" checked={form.requireTextEvidence} onChange={(value) => update('requireTextEvidence', value)} />
+              <Checkbox label="回答必须包含解释" checked={form.requireExplanation} onChange={(value) => update('requireExplanation', value)} />
+            </div>
+          </div>
           <Field label="版权或使用说明" requirement="建议填写"><input value={form.copyrightNote} onChange={(event) => update('copyrightNote', event.target.value)} className={inputClass} /></Field>
         </EditorGroup>
 
@@ -1037,7 +1803,7 @@ function QuestionEditor({
 }
 
 function WorkflowPanel(props) {
-  const { activePanel, setActivePanel, context, form, material, previewResource, reviewNotes, setReviewNotes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, focusedReview, qualityResultStale } = props;
+  const { activePanel, setActivePanel, context, form, material, previewResource, reviewNotes, setReviewNotes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onOptimizeStem, stemOptimizationBusy, focusedReview, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft } = props;
   return (
     <aside className={`overflow-hidden rounded-md bg-white ${focusedReview ? '' : 'border border-slate-200 lg:col-span-2 xl:col-span-1 xl:sticky xl:top-24'}`}>
       <div className="grid grid-cols-3 gap-2 p-2">
@@ -1060,26 +1826,44 @@ function WorkflowPanel(props) {
             onReview={onReview}
             onFreeze={onFreeze}
             onCreateRejectedRevision={onCreateRejectedRevision}
+            onRepairPublication={onRepairPublication}
+            onLocateQualityIssue={onLocateQualityIssue}
+            onOptimizeStem={onOptimizeStem}
+            stemOptimizationBusy={stemOptimizationBusy}
             qualityResultStale={qualityResultStale}
+            qualityRevisionProgress={qualityRevisionProgress}
+            hasUnsavedChanges={hasUnsavedChanges}
+            publicationStatus={publicationStatus}
+            publicationMismatch={publicationMismatch}
+            publicationPreflightMismatch={publicationPreflightMismatch}
+            publicationRepairDraft={publicationRepairDraft}
           />
         ) : null}
         {activePanel === 'student' ? <StudentPreview resource={previewResource} material={material} isFrozen={Boolean(context?.frozenVersion)} /> : null}
-        {activePanel === 'review' ? <ReviewPreview context={context} form={form} material={material} qualityResultStale={qualityResultStale} /> : null}
+        {activePanel === 'review' ? <ReviewPreview context={context} form={form} material={material} qualityResultStale={qualityResultStale} qualityRevisionProgress={qualityRevisionProgress} /> : null}
       </div>
     </aside>
   );
 }
 
-function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, qualityResultStale }) {
+function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onOptimizeStem, stemOptimizationBusy, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft }) {
   if (!context) return <EmptyText>先保存 Draft，再执行正式校验与审核。</EmptyText>;
   const { draft, validation, qualityAssessment, versionHistory } = context;
-  const isFrozen = versionHistory.some((version) => version.sourceDraftId === draft.draftId);
+  const hasFrozenVersion = versionHistory.some((version) => version.sourceDraftId === draft.draftId);
+  const isPublished = publicationStatus === 'published';
+  const publicationIncomplete = publicationStatus === 'publication_incomplete';
+  const publicationBlocked = (
+    !hasFrozenVersion &&
+    draft.status === 'reviewed' &&
+    publicationPreflightMismatch &&
+    !publicationPreflightMismatch.passed
+  );
   const hasCurrentPassedValidation = Boolean(
     validation?.passed &&
     validation.validatedDraftRevision === draft.revision &&
     draft.status !== 'revision_required',
   );
-  const completedStep = isFrozen
+  const completedStep = isPublished
     ? 4
     : draft.status === 'reviewed'
       ? 3
@@ -1088,7 +1872,7 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
         : draft.status === 'drafted' && hasCurrentPassedValidation
           ? 1
           : 0;
-  const currentStep = isFrozen || draft.status === 'rejected'
+  const currentStep = hasFrozenVersion || draft.status === 'rejected'
     ? null
     : draft.status === 'reviewed'
       ? 4
@@ -1097,32 +1881,186 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
         : draft.status === 'drafted' && hasCurrentPassedValidation
           ? 2
           : 1;
+  const validationActionLabel = hasUnsavedChanges
+    ? '保存并检查题目'
+    : validation
+      ? '重新检查题目'
+      : '检查当前题目';
+  const awaitingIssueRecheck = Boolean(
+    qualityResultStale ||
+    (
+      qualityRevisionProgress?.items.some((item) => item.status === 'modified_pending_recheck') &&
+      qualityAssessment?.assessedDraftRevision !== draft.revision
+    ),
+  );
+  const publicationReadiness = [
+    { label: '当前内容已保存', passed: !hasUnsavedChanges },
+    {
+      label: '结构与质量检查对应当前版本',
+      passed: hasCurrentPassedValidation && !awaitingIssueRecheck,
+    },
+    {
+      label: '已完成人工审核',
+      passed: ['reviewed', 'published'].includes(draft.status) || hasFrozenVersion,
+    },
+    {
+      label: '题目设置与训练计划一致',
+      passed: !publicationPreflightMismatch || publicationPreflightMismatch.passed,
+    },
+  ];
+  const publicationReadyCount = publicationReadiness.filter((item) => item.passed).length;
+  const canPublish = publicationReadiness.every((item) => item.passed);
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-semibold text-slate-950">当前状态：</span>
-        {isFrozen ? (
-          <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-sm font-normal text-emerald-700">
-            已发布
-          </span>
-        ) : draft.status === 'drafted' && hasCurrentPassedValidation ? (
-          <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-sm font-normal text-blue-700">
-            结构检查通过，待提交人工审核
-          </span>
-        ) : draft.status === 'drafted' ? (
-          <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-sm font-normal text-amber-700">
-            草稿
-          </span>
-        ) : <StatusBadge status={draft.status} />}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-slate-950">当前状态：</span>
+          {isPublished ? (
+            <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-sm font-normal text-emerald-700">
+              已发布
+            </span>
+          ) : publicationBlocked ? (
+            <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-sm font-normal text-amber-700">
+              发布前设置待调整
+            </span>
+          ) : publicationIncomplete ? (
+            <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-sm font-normal text-amber-700">
+              发布未完成
+            </span>
+          ) : draft.status === 'drafted' && hasCurrentPassedValidation ? (
+            <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-sm font-normal text-blue-700">
+              结构检查通过，待提交人工审核
+            </span>
+          ) : draft.status === 'drafted' ? (
+            <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-sm font-normal text-amber-700">
+              草稿
+            </span>
+          ) : <StatusBadge status={draft.status} />}
+        </div>
       </div>
 
-      {hasCurrentPassedValidation ? (
+      {hasCurrentPassedValidation || awaitingIssueRecheck ? (
         <QuestionQualitySummary
           assessment={qualityAssessment}
           form={form}
           material={material}
-          stale={qualityResultStale}
+          stale={awaitingIssueRecheck}
+          revisionProgress={qualityRevisionProgress}
+          onLocate={onLocateQualityIssue}
+          onOptimizeStem={onOptimizeStem}
+          optimizationBusy={stemOptimizationBusy}
         />
+      ) : null}
+
+      {(currentStep === 4 || publicationBlocked || publicationIncomplete) ? (
+        <section className={`rounded-md px-4 py-3 ${
+          canPublish ? 'bg-emerald-50' : 'bg-amber-50'
+        }`}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-slate-950">发布准备</p>
+            <span className={`text-xs font-semibold ${
+              canPublish ? 'text-emerald-700' : 'text-amber-800'
+            }`}>
+              {publicationReadyCount}/{publicationReadiness.length} 项完成
+            </span>
+          </div>
+          <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+            {publicationReadiness.map((item) => (
+              <li
+                key={item.label}
+                className={`flex items-center gap-2 text-xs ${
+                  item.passed ? 'text-emerald-800' : 'font-semibold text-amber-900'
+                }`}
+              >
+                {item.passed
+                  ? <CheckCircle2 size={15} className="shrink-0" />
+                  : <AlertTriangle size={15} className="shrink-0" />}
+                {item.label}
+              </li>
+            ))}
+          </ul>
+          {!canPublish ? (
+            <p className="mt-2 text-xs leading-5 text-amber-800">
+              未完成项会阻止发布。请按本区域下方的解决方法处理，无需点击发布后再确认。
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {publicationIncomplete ? (
+        <div className="rounded-md bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+          <p className="font-semibold">该题尚未完成发布</p>
+          <p className="mt-1">
+            {publicationMismatch?.differences.length
+              ? '题目与当前训练计划存在以下设置差异，因此尚未进入已发布练习：'
+              : '题目与当前训练计划的设置不一致，因此尚未进入已发布练习。'}
+          </p>
+          {publicationMismatch?.differences.length ? (
+            <ul className="mt-1 list-disc space-y-1 pl-5">
+              {publicationMismatch.differences.map((difference) => (
+                <li key={difference.field}>
+                  {difference.label}：题目为“{difference.questionValue}”，训练计划为“{difference.planValue}”
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="mt-3 font-semibold">解决方法</p>
+          <ol className="mt-1 list-decimal space-y-1 pl-5">
+            <li>
+              点击下方“{publicationRepairDraft ? '继续处理修订稿' : '创建修订稿并同步训练设置'}”。
+            </li>
+            <li>
+              {publicationMismatch?.differences.length
+                ? `系统会把${publicationMismatch.differences.map((difference) => `${difference.label}从“${difference.questionValue}”调整为“${difference.planValue}”`).join('；')}。`
+                : '系统会把当前题的相关设置调整为训练计划中的设置。'}
+            </li>
+            <li>在新修订稿中确认内容，完成检查和人工审核后，再发布当前题。</li>
+          </ol>
+          <p className="mt-2 text-amber-800">
+            只处理当前题，不会重新生成其他题目；已有正式版本也会继续保留。
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onRepairPublication}
+            className="mt-3 inline-flex min-h-9 items-center justify-center rounded-md bg-amber-600 px-4 text-sm font-normal text-white hover:bg-amber-700 disabled:bg-slate-200 disabled:text-slate-400"
+          >
+            {publicationRepairDraft ? '继续处理修订稿' : '创建修订稿并同步训练设置'}
+          </button>
+        </div>
+      ) : null}
+
+      {publicationBlocked ? (
+        <div className="rounded-md bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+          <p className="font-semibold">发布前需要先调整训练设置</p>
+          {publicationPreflightMismatch.issue ? (
+            <p className="mt-1">
+              当前题目关联的训练计划信息不可用，请返回素材资源录入平台重新确认训练任务后再发布。
+            </p>
+          ) : (
+            <>
+              <p className="mt-1">系统已在正式发布前发现以下设置差异：</p>
+              <ul className="mt-1 list-disc space-y-1 pl-5">
+                {publicationPreflightMismatch.differences.map((difference) => (
+                  <li key={difference.field}>
+                    {difference.label}：题目为“{difference.questionValue}”，训练计划为“{difference.planValue}”
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2">
+                点击下方按钮后，系统只为当前题创建修订稿并同步上述设置，不会生成正式版本，也不会影响其他题目。
+              </p>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onRepairPublication}
+                className="mt-3 inline-flex min-h-9 items-center justify-center rounded-md bg-amber-600 px-4 text-sm font-normal text-white hover:bg-amber-700 disabled:bg-slate-200 disabled:text-slate-400"
+              >
+                {publicationRepairDraft ? '继续处理修订稿' : '创建修订稿并同步训练设置'}
+              </button>
+            </>
+          )}
+        </div>
       ) : null}
 
       {completedStep >= 1 ? <CompletedActionStep index="1" title="自动结构检查" /> : null}
@@ -1140,7 +2078,7 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
 
       {currentStep === 1 ? (
         <ActionStep index="1" title="自动结构检查">
-          <button type="button" disabled={busy || !['drafted', 'validation_failed', 'revision_required'].includes(draft.status)} onClick={onValidate} className={activeWorkflowButtonClass}>保存并执行结构检查</button>
+          <button type="button" disabled={busy || !['drafted', 'validation_failed', 'revision_required'].includes(draft.status)} onClick={onValidate} className={activeWorkflowButtonClass}>{validationActionLabel}</button>
           {validation ? <ValidationResult validation={validation} stale={draft.status === 'revision_required'} /> : <p className="mt-2 text-sm text-slate-500">当前修改尚未执行结构检查，请保存后检查。</p>}
         </ActionStep>
       ) : null}
@@ -1185,7 +2123,13 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
 
       {currentStep === 4 ? (
         <ActionStep index="4" title="正式发布">
-          <button type="button" disabled={busy} onClick={onFreeze} className="flex min-h-10 w-full items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">该题发布为正式题目</button>
+          {publicationBlocked ? (
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-800">
+              请先完成上方训练设置调整，重新检查并通过人工审核后再发布。
+            </p>
+          ) : (
+            <button type="button" disabled={busy || !canPublish} onClick={onFreeze} className="flex min-h-10 w-full items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">该题发布为正式题目</button>
+          )}
         </ActionStep>
       ) : null}
 
@@ -1228,8 +2172,8 @@ const qualityCheckLabels = {
     warning: '题目考查的能力目标不够明确',
   },
   observationDistinctness: {
-    pass: '本题训练重点与其他题目不重复',
-    warning: '本题训练重点可能与其他题目重复',
+    pass: '本题与其他题目的考查内容有明确区别',
+    warning: '本题可能与另一道当前题目较为接近',
   },
   discriminativePower: {
     pass: '评分能区分不同完成水平',
@@ -1259,8 +2203,8 @@ const qualityCheckActions = {
     '在题干中使用“概括、分析、推断、说明依据”等明确动词，并写清最终需要输出什么。',
   ],
   observationDistinctness: [
-    '对照本批其他题目的训练能力和题干要求。',
-    '保留本题最有价值的一个训练动作，删除与其他题目相同的问法或换一个训练重点。',
+    '先打开下方列出的对照题，比较两题的回答对象、材料依据和评分目标。',
+    '训练能力或问法相同不等于重复。只要其中一项有明确区别，就可以保留；三项都高度重合时，再考虑合并、调整或不采用。',
   ],
   discriminativePower: [
     '在“评分标准”中增加至 2 至 3 个评分项，每个评分项只判断一件事。',
@@ -1283,12 +2227,28 @@ const qualityCheckActions = {
 const qualityCheckEditLocations = {
   materialGrounding: '基础内容 → 题干',
   observationClarity: '基础内容 → 题干；训练设置 → 主要能力',
-  observationDistinctness: '基础内容 → 题干；训练设置 → 主要能力',
+  observationDistinctness: '基础内容 → 题干；评分标准 → 评分项',
   discriminativePower: '评分标准 → 评分项一（可继续增加评分项）',
   difficultyCoherence: '训练设置 → 难度；基础内容 → 题干',
   rubricAlignment: '基础内容 → 题干；评分标准 → 评分项',
   scopeClarity: '基础内容 → 题干',
 };
+
+const qualityCheckAcceptance = {
+  materialGrounding: '学生能从题干判断应依据全文、指定局部内容，还是自主选取明确数量和类型的证据。',
+  observationClarity: '题干只有一个主要作答目标，并写清学生要完成的动作和最终输出。',
+  observationDistinctness: '与对照题相比，回答对象、材料依据或评分目标至少有一项明确不同。',
+  discriminativePower: '评分标准包含 2 至 3 个可独立判断的评分项，并能区分完整、部分和未达要求的回答。',
+  difficultyCoherence: '题目的阅读范围、子任务数量、解释要求与所选难度相符。',
+  rubricAlignment: '题干中的每一项作答要求都有对应评分项，评分项也不包含题干未要求的内容。',
+  scopeClarity: '题干明确阅读范围、回答对象和主要动作，学生无需猜测回答边界。',
+};
+
+const stemReviewableChecks = new Set([
+  'materialGrounding',
+  'observationClarity',
+  'scopeClarity',
+]);
 
 function qualityCheckLabel(check, passed = true) {
   const labels = qualityCheckLabels[check];
@@ -1299,6 +2259,12 @@ function qualityCheckLabel(check, passed = true) {
 function qualityWarningMessage(warning) {
   if (warning.message === '当前 Rubric 较难区分完整、部分与不足回答。') {
     return '当前评分标准还不能清楚区分完整回答、部分回答和未达到要求的回答。';
+  }
+  if (warning.check === 'observationDistinctness') {
+    const peerStem = warning.comparison?.peerQuestionStem?.trim();
+    return peerStem
+      ? `${warning.message} 对照题：“${peerStem}”`
+      : warning.message;
   }
   return warning.message;
 }
@@ -1312,7 +2278,7 @@ function qualityCheckExample(check, form, material) {
   const examples = {
     materialGrounding: `局部依据可写明段落、场景、原句或关键词；全文依据可写为“结合${materialTitle}全文，${removeGenericMaterialLead(currentStem) || '回答原题要求'}”；开放取证可写为“从文中任选两处相关细节并说明依据”。请按实际考查目标选用，不必照搬句式。`,
     observationClarity: `可改为：“结合指定内容，先概括【关键信息】，再说明【需要解释的原因或作用】。”`,
-    observationDistinctness: `示例：若其他题目已经要求“分析原因”，本题可只保留“按顺序概括关键步骤”，或改为考查“找出材料依据”。`,
+    observationDistinctness: `系统只根据题干和评分要点的相似程度给出提醒，并未判定两题重复。两题可以使用相同问法或训练同一种能力；请以回答对象、材料依据和评分目标是否重合为准。`,
     discriminativePower: `可拆为：评分项一“关键内容完整”（核心要求，完整回答必须满足）；评分项二“顺序或逻辑正确”（重要要求）；评分项三“有材料依据”（重要要求）。在每项的“满足本项的答案要点”中填写可用于判断的具体内容。`,
     difficultyCoherence: `示例：将“结合全文分析两个原因并评价作用”改为“结合第 3 段，分析一个主要原因”，可降低任务难度。`,
     rubricAlignment: `示例：题干要求“概括并说明依据”，评分标准至少应包含“概括结果”和“材料依据”两个评分项。`,
@@ -1320,6 +2286,29 @@ function qualityCheckExample(check, form, material) {
   };
 
   return examples[check]?.replace('目标能力', rubricAbility) || '';
+}
+
+function qualityCurrentProblem(warning, form) {
+  const stem = form?.questionStem?.trim() || '尚未填写题干';
+  const rubricNames = (form?.rubric || []).map((item) => item.name?.trim()).filter(Boolean);
+  const ability = optionLabel(abilityOptions, form?.abilityId);
+  const difficulty = optionLabel(difficultyOptions, form?.difficulty);
+  const peerStem = warning.comparison?.peerQuestionStem?.trim();
+
+  const problems = {
+    materialGrounding: `当前题干：“${stem}”`,
+    observationClarity: `当前主要能力为“${ability}”，题干为：“${stem}”`,
+    observationDistinctness: peerStem
+      ? `当前题干：“${stem}”；对照题：“${peerStem}”`
+      : `当前题干：“${stem}”；系统检测到同批题目存在相近考查内容。`,
+    discriminativePower: rubricNames.length
+      ? `当前共有 ${rubricNames.length} 个评分项：${rubricNames.join('；')}`
+      : '当前还没有可用于区分完成水平的评分项。',
+    difficultyCoherence: `当前难度为“${difficulty}”，最低字数为 ${form?.minLength || '未设置'} 字。`,
+    rubricAlignment: `题干要求：“${stem}”；当前评分项：${rubricNames.join('；') || '尚未填写'}。`,
+    scopeClarity: `当前题干：“${stem}”`,
+  };
+  return problems[warning.check] || qualityWarningMessage(warning);
 }
 
 function removeGenericMaterialLead(stem) {
@@ -1330,14 +2319,100 @@ function removeGenericMaterialLead(stem) {
     .trim();
 }
 
-function QuestionQualitySummary({ assessment, form, material, compact = false, stale = false }) {
+function QuestionQualitySummary({
+  assessment,
+  form,
+  material,
+  compact = false,
+  stale = false,
+  revisionProgress,
+  onLocate,
+  onOptimizeStem,
+  optimizationBusy = false,
+}) {
+  const progressItems = revisionProgress?.items || [];
+  const activeProgressItems = progressItems.filter((item) => item.status !== 'resolved');
+  const progressByCheck = new Map(progressItems.map((item) => [item.check, item]));
+  const repairQueue = buildQuestionQualityRepairQueue(revisionProgress);
+  const handledCount = repairQueue.resolved.length + repairQueue.awaitingRecheck.length;
+
   if (stale) {
     return (
       <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
-        <p className="text-sm font-semibold text-amber-900">题目内容已修改，等待重新检查</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-amber-900">本次修改待重新检查</p>
+          <span className="rounded-md bg-amber-100 px-2 py-1 text-xs font-normal text-amber-800">
+            {activeProgressItems.length
+              ? `${activeProgressItems.length} 项待确认`
+              : '待重新检查'}
+          </span>
+        </div>
         <p className="mt-1 text-xs leading-5 text-amber-800">
-          上次检查结果仅对应修改前的版本，不能继续作为当前题目的审核依据。请保存并重新检查。
+          按顺序处理待修改项；全部修改完成后，只需统一保存并重新检查一次。
         </p>
+        {repairQueue.total ? (
+          <div className="mt-3">
+            <div className="flex flex-wrap items-center gap-3 text-xs">
+              <span className="font-semibold text-slate-900">
+                修复进度 {handledCount}/{repairQueue.total}
+              </span>
+              <span className="text-slate-600">
+                待修改 {repairQueue.pending.length} 项 · 待复检 {repairQueue.awaitingRecheck.length} 项
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded bg-amber-100">
+              <div
+                className="h-full bg-emerald-600 transition-[width]"
+                style={{ width: `${Math.round((handledCount / repairQueue.total) * 100)}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
+        {activeProgressItems.length ? (
+          <ul className="mt-3 space-y-2">
+            {[...repairQueue.pending, ...repairQueue.awaitingRecheck].map((item, index) => {
+              const isCurrent = item.check === repairQueue.current?.check;
+              return (
+              <li
+                key={item.check}
+                className={`flex flex-wrap items-center justify-between gap-3 rounded-md px-3 py-2 ${
+                  isCurrent ? 'border border-emerald-300 bg-white' : 'bg-white/70'
+                }`}
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className={`flex size-5 shrink-0 items-center justify-center rounded text-xs ${
+                    isCurrent
+                      ? 'bg-emerald-100 font-semibold text-emerald-800'
+                      : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    {index + 1}
+                  </span>
+                  <span className="truncate text-sm text-slate-800">{qualityCheckLabel(item.check, false)}</span>
+                  {isCurrent ? <span className="text-xs font-semibold text-emerald-700">当前处理</span> : null}
+                  <QualityIssueStatusBadge status={item.status} />
+                </div>
+                {onLocate && item.status === 'pending' && isCurrent ? (
+                  <button
+                    type="button"
+                    onClick={() => onLocate(item.check)}
+                    className="text-xs font-normal text-emerald-700 hover:text-emerald-800"
+                  >
+                    开始修改
+                  </button>
+                ) : item.status === 'pending' ? (
+                  <span className="text-xs text-slate-500">等待前项</span>
+                ) : (
+                  <span className="text-xs text-slate-500">等待统一复检</span>
+                )}
+              </li>
+            )})}
+          </ul>
+        ) : null}
+        {repairQueue.pending.length === 0 && repairQueue.awaitingRecheck.length > 0 ? (
+          <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+            所有问题均已逐项修改。请点击页面下方“保存本次修改”，然后执行“保存并检查题目”。
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -1354,6 +2429,13 @@ function QuestionQualitySummary({ assessment, form, material, compact = false, s
 
   const needsRevision = assessment.decision === 'revision_recommended';
   const hasWarnings = assessment.warnings.length > 0;
+  const resolvedThisRound = progressItems.filter(
+    (item) => (
+      item.status === 'resolved' &&
+      item.resolvedAtAssessmentId === assessment.assessmentId
+    ),
+  );
+  const currentCheck = repairQueue.current?.check || assessment.warnings[0]?.check;
   return (
     <section className={`rounded-md border p-4 ${needsRevision ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1387,24 +2469,98 @@ function QuestionQualitySummary({ assessment, form, material, compact = false, s
 
       {hasWarnings ? (
         <div className="mt-4 border-t border-slate-200 pt-3">
-          <p className="text-xs font-semibold text-slate-900">需要人工关注</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-slate-900">需要人工关注</p>
+            <p className="text-xs text-slate-600">建议按顺序修改，完成后统一保存并重新检查</p>
+          </div>
           <ul className="mt-2 space-y-2">
-            {assessment.warnings.map((warning) => (
-              <li key={`${warning.code}-${warning.check}`} className="rounded-md bg-white/70 px-3 py-3 text-xs leading-5 text-slate-700">
-                <p>
-                  <span className="text-sm font-medium text-amber-800">
-                    {qualityCheckLabel(warning.check, false)}
-                  </span>
-                  {' · '}{qualityWarningMessage(warning)}
+            {assessment.warnings.map((warning, warningIndex) => {
+              const isCurrent = warning.check === currentCheck;
+              const recheckCount = progressByCheck.get(warning.check)?.recheckCount || 0;
+              const shouldUseManualRepair = recheckCount >= 2;
+              return (
+              <li
+                key={`${warning.code}-${warning.check}`}
+                className={`rounded-md px-3 py-3 text-sm leading-6 text-slate-700 ${
+                  isCurrent ? 'border border-emerald-300 bg-white' : 'bg-white/80'
+                }`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p>
+                      <span className={`mr-2 inline-flex size-5 items-center justify-center rounded text-xs ${
+                        isCurrent
+                          ? 'bg-emerald-100 font-semibold text-emerald-800'
+                          : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {warningIndex + 1}
+                      </span>
+                      <span className="font-semibold text-amber-800">
+                      {qualityCheckLabel(warning.check, false)}
+                      </span>
+                      {' · '}{qualityWarningMessage(warning)}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      {isCurrent ? <span className="text-xs font-semibold text-emerald-700">当前优先处理</span> : null}
+                      <QualityIssueStatusBadge status={progressByCheck.get(warning.check)?.status || 'pending'} />
+                      {shouldUseManualRepair ? (
+                        <span className="text-xs font-medium text-rose-700">
+                          已连续复检 {recheckCount} 次仍存在
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {onLocate && isCurrent && !shouldUseManualRepair ? (
+                      <button
+                        type="button"
+                        onClick={() => onLocate(warning.check)}
+                        className="min-h-8 rounded-md border border-emerald-600 bg-white px-3 text-xs font-normal text-emerald-700 hover:bg-emerald-50"
+                      >
+                        定位修改
+                      </button>
+                    ) : null}
+                    {onOptimizeStem && isCurrent && stemReviewableChecks.has(warning.check) && !shouldUseManualRepair ? (
+                      <button
+                        type="button"
+                        disabled={optimizationBusy}
+                        onClick={() => {
+                          onLocate?.(warning.check);
+                          onOptimizeStem([warning.check]);
+                        }}
+                        className="min-h-8 rounded-md bg-emerald-600 px-3 text-xs font-normal text-white hover:bg-emerald-700 disabled:bg-slate-300"
+                      >
+                        {optimizationBusy ? '正在优化…' : 'AI 优化这一项'}
+                      </button>
+                    ) : null}
+                    {onLocate && isCurrent && shouldUseManualRepair ? (
+                      <button
+                        type="button"
+                        onClick={() => onLocate(warning.check)}
+                        className="min-h-8 rounded-md bg-emerald-600 px-3 text-xs font-normal text-white hover:bg-emerald-700"
+                      >
+                        转为人工修改
+                      </button>
+                    ) : null}
+                    {!isCurrent ? (
+                      <span className="text-xs text-slate-500">完成当前项后再处理</span>
+                    ) : null}
+                  </div>
+                </div>
+                {isCurrent ? <>
+                <p className="mt-2 rounded-md bg-slate-50 px-3 py-2">
+                  <span className="font-semibold text-slate-900">当前问题：</span>
+                  {qualityCurrentProblem(warning, form)}
                 </p>
                 {qualityCheckEditLocations[warning.check] ? (
-                  <p className="mt-1 font-medium text-slate-700">
-                    修改位置：{qualityCheckEditLocations[warning.check]}
+                  <p className="mt-2">
+                    <span className="font-semibold text-slate-900">修改位置：</span>
+                    {qualityCheckEditLocations[warning.check]}
                   </p>
                 ) : null}
                 {qualityCheckActions[warning.check] ? (
                   <div className="mt-2">
-                    <p className="font-medium text-slate-700">修改原则：</p>
+                    <p className="font-semibold text-slate-900">建议怎么改：</p>
                     <ol className="mt-1 list-decimal space-y-1 pl-5 text-slate-600">
                       {qualityCheckActions[warning.check].map((action) => (
                         <li key={action}>{action}</li>
@@ -1414,20 +2570,63 @@ function QuestionQualitySummary({ assessment, form, material, compact = false, s
                 ) : null}
                 {qualityCheckExample(warning.check, form, material) ? (
                   <p className="mt-2 rounded-md bg-slate-50 px-3 py-2 text-slate-700">
-                    <span className="font-medium">参考写法（非固定格式）：</span>
+                    <span className="font-semibold">参考写法（非固定格式）：</span>
                     {qualityCheckExample(warning.check, form, material)}
                   </p>
                 ) : null}
+                {qualityCheckAcceptance[warning.check] ? (
+                  <p className="mt-2 border-t border-slate-200 pt-2 text-slate-700">
+                    <span className="font-semibold text-slate-900">改到什么程度算完成：</span>
+                    {qualityCheckAcceptance[warning.check]}
+                  </p>
+                ) : null}
+                {shouldUseManualRepair ? (
+                  <p className="mt-2 rounded-md bg-rose-50 px-3 py-2 text-rose-800">
+                    该问题连续 {recheckCount} 次复检仍未解决。系统已停止推荐重复生成，请按上方“当前问题、建议怎么改、完成标准”人工修改；如果题目确实无需满足此项，可在人工审核说明中写明保留理由。
+                  </p>
+                ) : null}
+                </> : null}
               </li>
-            ))}
+            )})}
           </ul>
+          {resolvedThisRound.length ? (
+            <div className="mt-3 rounded-md bg-emerald-50 px-3 py-2">
+              <p className="text-xs font-semibold text-emerald-800">
+                本轮已解决 {resolvedThisRound.length} 项
+              </p>
+              <p className="mt-1 text-xs leading-5 text-emerald-700">
+                {resolvedThisRound.map((item) => qualityCheckLabel(item.check, true)).join('、')}
+              </p>
+            </div>
+          ) : null}
         </div>
       ) : (
-        <p className="mt-3 text-xs leading-5 text-emerald-800">
-          七项检查均通过；这不等于人工审核通过。
-        </p>
+        <div className="mt-3 text-xs leading-5 text-emerald-800">
+          <p>七项系统检查均通过；下一步仍需人工审核。</p>
+          {resolvedThisRound.length ? (
+            <p className="mt-1">本轮解决：{resolvedThisRound.map((item) => qualityCheckLabel(item.check, true)).join('、')}</p>
+          ) : null}
+        </div>
       )}
     </section>
+  );
+}
+
+function QualityIssueStatusBadge({ status }) {
+  const styles = {
+    pending: 'bg-amber-100 text-amber-800',
+    modified_pending_recheck: 'bg-blue-100 text-blue-700',
+    resolved: 'bg-emerald-100 text-emerald-700',
+  };
+  const labels = {
+    pending: '待处理',
+    modified_pending_recheck: '已修改待检查',
+    resolved: '已解决',
+  };
+  return (
+    <span className={`rounded-md px-2 py-0.5 text-xs font-normal ${styles[status] || styles.pending}`}>
+      {labels[status] || labels.pending}
+    </span>
   );
 }
 
@@ -1455,8 +2654,15 @@ function StudentPreview({ resource, material, isFrozen }) {
   );
 }
 
-function ReviewPreview({ context, form, material, qualityResultStale = false }) {
+function ReviewPreview({ context, form, material, qualityResultStale = false, qualityRevisionProgress = null }) {
   const draft = context?.draft;
+  const awaitingIssueRecheck = Boolean(
+    qualityResultStale ||
+    (
+      qualityRevisionProgress?.items?.some((item) => item.status === 'modified_pending_recheck') &&
+      context?.qualityAssessment?.assessedDraftRevision !== draft?.revision
+    ),
+  );
   return (
     <div className="space-y-5">
       <div><h3 className="text-base font-semibold text-slate-950">审核视图</h3><p className="mt-1 text-xs leading-5 text-slate-500">显示审核者需要确认的完整结构，不生成教育结论。</p></div>
@@ -1475,7 +2681,8 @@ function ReviewPreview({ context, form, material, qualityResultStale = false }) 
           form={form}
           material={material}
           compact
-          stale={qualityResultStale}
+          stale={awaitingIssueRecheck}
+          revisionProgress={qualityRevisionProgress}
         />
       ) : null}
       <ReviewBlock title="Material / Source" rows={[
@@ -1592,6 +2799,7 @@ function StatusBadge({ status }) {
     rejected: 'bg-rose-50 text-rose-700',
     drafted: 'bg-transparent font-semibold text-slate-600',
     published: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
+    publication_incomplete: 'border border-amber-200 bg-amber-50 text-amber-700',
   };
   return <span className={`shrink-0 rounded px-2 py-1 text-sm ${tones[status] || 'bg-slate-100 text-slate-600'}`}>{statusLabels[status] || status}</span>;
 }
@@ -1602,7 +2810,110 @@ function toChineseNumber(value) {
 }
 
 function draftDisplayStatus(snapshot, draft) {
-  return snapshot.versions.some((version) => version.sourceDraftId === draft.draftId) ? 'published' : draft.status;
+  const version = snapshot.versions.find((item) => item.sourceDraftId === draft.draftId);
+  if (!version) return draft.status;
+  return snapshot.observationLinks.some((link) => (
+    link.resourceVersionId === version.resourceVersionId &&
+    link.status === 'active'
+  ))
+    ? 'published'
+    : 'publication_incomplete';
+}
+
+function getPublicationMismatch(snapshot, draft) {
+  const version = snapshot.versions.find((item) => item.sourceDraftId === draft.draftId);
+  if (!version) return null;
+  const expectedSettings = snapshot.observationLinks.find((link) => (
+    link.resourceVersionId === version.resourceVersionId &&
+    link.status === 'invalid'
+  ));
+  if (!expectedSettings) return { differences: [] };
+
+  const comparisons = [
+    {
+      field: 'abilityId',
+      label: '训练能力',
+      questionValue: optionLabel(abilityOptions, version.abilityMetadata.abilityId),
+      planValue: optionLabel(abilityOptions, expectedSettings.abilityId),
+      expectedValue: expectedSettings.abilityId,
+    },
+    {
+      field: 'difficulty',
+      label: '难度',
+      questionValue: optionLabel(difficultyOptions, version.abilityMetadata.difficulty),
+      planValue: optionLabel(difficultyOptions, expectedSettings.difficulty),
+      expectedValue: expectedSettings.difficulty,
+    },
+    {
+      field: 'taskRole',
+      label: '任务用途',
+      questionValue: optionLabel(taskRoleOptions, version.abilityMetadata.taskRole),
+      planValue: optionLabel(taskRoleOptions, expectedSettings.taskRole),
+      expectedValue: expectedSettings.taskRole,
+    },
+  ];
+
+  return {
+    differences: comparisons.filter((item) => item.questionValue !== item.planValue),
+  };
+}
+
+function getPublicationPreflightMismatch(context) {
+  const preflight = context.publicationPreflight;
+  if (!preflight?.scoped) return { passed: true, differences: [] };
+  if (preflight.issue) return { passed: false, issue: preflight.issue, differences: [] };
+
+  const optionGroups = {
+    abilityId: abilityOptions,
+    difficulty: difficultyOptions,
+    taskRole: taskRoleOptions,
+  };
+  const labels = {
+    abilityId: '训练能力',
+    difficulty: '难度',
+    taskRole: '任务用途',
+  };
+  return {
+    passed: preflight.passed,
+    differences: preflight.differences.map((difference) => ({
+      ...difference,
+      label: labels[difference.field],
+      questionValue: optionLabel(optionGroups[difference.field], difference.questionValue),
+      planValue: optionLabel(optionGroups[difference.field], difference.planValue),
+    })),
+  };
+}
+
+function findPublicationRepairDraft(snapshot, draft) {
+  if (!draft) return null;
+  const version = snapshot.versions.find((item) => item.sourceDraftId === draft.draftId);
+  if (!version) {
+    return snapshot.drafts
+      .filter((item) => (
+        item.tags.includes(`publication_repair_source:${draft.draftId}`) &&
+        !['rejected', 'archived'].includes(item.status)
+      ))
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] || null;
+  }
+  return snapshot.drafts
+    .filter((item) => (
+      item.resourceId === version.resourceId &&
+      item.parentVersionId === version.resourceVersionId &&
+      !['rejected', 'archived'].includes(item.status)
+    ))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] || null;
+}
+
+function findRejectedRevisionDraft(snapshot, draft) {
+  if (!draft || draft.status !== 'rejected') return null;
+  return snapshot.drafts
+    .filter((candidate) => (
+      candidate.draftId !== draft.draftId &&
+      candidate.resourceId === draft.resourceId &&
+      candidate.proposedVersionNumber === draft.proposedVersionNumber &&
+      !['rejected', 'archived'].includes(candidate.status)
+    ))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] || null;
 }
 
 function optionLabel(options, value) {
@@ -1728,18 +3039,62 @@ function toRubric(form) {
 
 function handleQuestionType(questionType, setForm) {
   const formats = { multiple_choice: ['single_choice', 'exact_match'], true_false: ['boolean', 'exact_match'], fill_blank: ['short_text', 'exact_match'], open_short_answer: ['short_text', 'key_points'], reading_comprehension: ['long_text', 'reasoning_chain'] };
-  setForm((current) => ({ ...current, questionType, responseFormat: formats[questionType][0], assessmentMode: formats[questionType][1], optionsText: questionType === 'multiple_choice' ? current.optionsText : '' }));
+  setForm(
+    (current) => ({ ...current, questionType, responseFormat: formats[questionType][0], assessmentMode: formats[questionType][1], optionsText: questionType === 'multiple_choice' ? current.optionsText : '' }),
+    qualityChecksByFormField.questionType,
+  );
 }
 
 function updateAbility(abilityId, setForm) {
-  setForm((current) => ({ ...current, abilityId, rubric: current.rubric.map((item, index) => index === 0 ? { ...item, abilityId } : item) }));
+  setForm(
+    (current) => ({ ...current, abilityId, rubric: current.rubric.map((item, index) => index === 0 ? { ...item, abilityId } : item) }),
+    qualityChecksByFormField.abilityId,
+  );
+}
+
+function rubricIssueTargetId(form, check) {
+  const rubric = form.rubric || [];
+  if (!rubric.length) return 'question-rubric-editor';
+  if (check !== 'discriminativePower' || rubric.length === 1) {
+    return `question-rubric-item-${rubric[0].localId}`;
+  }
+
+  const signatures = new Map();
+  for (const item of rubric) {
+    const name = normalizeRubricComparisonText(item.name);
+    const signals = commaValues(item.acceptedSignalsText)
+      .map(normalizeRubricComparisonText)
+      .filter(Boolean)
+      .sort()
+      .join('|');
+    const signature = `${name}::${signals}`;
+    if (signature !== '::' && signatures.has(signature)) {
+      return `question-rubric-item-${item.localId}`;
+    }
+    signatures.set(signature, item.localId);
+  }
+
+  return `question-rubric-item-${rubric[1].localId}`;
+}
+
+function normalizeRubricComparisonText(value) {
+  return String(value || '')
+    .replace(/[，。！？、；：,.!?;:\s]/gu, '')
+    .trim();
 }
 
 function lines(value) { return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean); }
 function commaValues(value) { return value.split(/[,，]/).map((item) => item.trim()).filter(Boolean); }
 function errorNotice(error) { return createWorkbenchErrorNotice(error, { operation: 'question_workbench.operation' }); }
 
-const emptySnapshot = { drafts: [], materials: [], registryEntries: [], versions: [], registryConsistency: { passed: true, issues: [] } };
+const emptySnapshot = {
+  drafts: [],
+  materials: [],
+  registryEntries: [],
+  versions: [],
+  observationLinks: [],
+  registryConsistency: { passed: true, issues: [] },
+};
 const inputClass = 'min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none focus:border-blue-500 disabled:bg-slate-50';
 const textareaClass = 'w-full rounded-md border border-slate-200 bg-white p-3 text-sm leading-6 text-slate-950 outline-none focus:border-blue-500 disabled:bg-slate-50';
 const activeWorkflowButtonClass = 'flex min-h-10 w-full items-center justify-center rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-normal text-white hover:bg-emerald-700 disabled:border-slate-300 disabled:bg-slate-50 disabled:text-slate-400';

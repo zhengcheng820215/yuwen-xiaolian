@@ -18,6 +18,14 @@ const REVIEW_PENDING_STATUSES = new Set<QuestionResourceDraftStatus>([
   'revision_required',
 ]);
 
+const ACTIVE_REVISION_STATUSES = new Set<QuestionResourceDraftStatus>([
+  'drafted',
+  'validation_failed',
+  'pending_review',
+  'revision_required',
+  'reviewed',
+]);
+
 export type MaterialResourceWorkbenchSummary = {
   materialCount: number;
   learningTaskCount: number;
@@ -51,6 +59,19 @@ export type MaterialResourceWorkbenchDetails = {
     title: string;
     abilityId: string;
     status: QuestionResourceDraftStatus;
+  }>;
+  incompletePublications: Array<{
+    draftId: string;
+    resourceId: string;
+    resourceVersionId: string;
+    observationTaskPlanId: string;
+    questionNumber: number | null;
+    materialObservationPlanId: string;
+    materialVersionId: string;
+    materialTitle: string;
+    title: string;
+    abilityId: string;
+    taskRole: string;
   }>;
   publishedResources: Array<{
     draftId: string;
@@ -148,12 +169,45 @@ export function buildMaterialResourceWorkbenchDetails(
     snapshot.frozenVersions.map((version) => [version.resourceVersionId, version]),
   );
   const activePublishedByResource = new Map<string, ResourceObservationLink>();
+  const incompletePublicationByResource = new Map<string, ResourceObservationLink>();
 
   for (const link of snapshot.links) {
     if (link.status === 'active' && !activePublishedByResource.has(link.resourceId)) {
       activePublishedByResource.set(link.resourceId, link);
     }
   }
+  for (const link of snapshot.links) {
+    if (
+      link.status === 'invalid' &&
+      !activePublishedByResource.has(link.resourceId) &&
+      !incompletePublicationByResource.has(link.resourceId)
+    ) {
+      incompletePublicationByResource.set(link.resourceId, link);
+    }
+  }
+
+  const publicationDetails = (link: ResourceObservationLink) => {
+    const version = frozenByVersionId.get(link.resourceVersionId);
+    const materialVersionId = version?.materialVersionId || link.materialVersionId || '';
+    const activeRepairDraft = currentDrafts.find((draft) => (
+      draft.resourceId === link.resourceId &&
+      draft.parentVersionId === link.resourceVersionId &&
+      ACTIVE_REVISION_STATUSES.has(draft.status)
+    ));
+    return {
+      draftId: activeRepairDraft?.draftId || version?.sourceDraftId || '',
+      resourceId: link.resourceId,
+      resourceVersionId: link.resourceVersionId,
+      observationTaskPlanId: link.observationTaskPlanId,
+      questionNumber: questionNumberByTaskId.get(link.observationTaskPlanId) || null,
+      materialObservationPlanId: link.materialObservationPlanId,
+      materialVersionId,
+      materialTitle: materialByVersionId.get(materialVersionId)?.title || '未命名材料',
+      title: version?.questionStem || version?.title || '未命名练习',
+      abilityId: version?.abilityMetadata.abilityId || link.abilityId || '',
+      taskRole: version?.abilityMetadata.taskRole || link.taskRole || '',
+    };
+  };
 
   return {
     materials: snapshot.materials
@@ -192,23 +246,8 @@ export function buildMaterialResourceWorkbenchDetails(
           status: draft.status,
         };
       }),
-    publishedResources: [...activePublishedByResource.values()].map((link) => {
-      const version = frozenByVersionId.get(link.resourceVersionId);
-      const materialVersionId = version?.materialVersionId || '';
-      return {
-        draftId: version?.sourceDraftId || '',
-        resourceId: link.resourceId,
-        resourceVersionId: link.resourceVersionId,
-        observationTaskPlanId: link.observationTaskPlanId,
-        questionNumber: questionNumberByTaskId.get(link.observationTaskPlanId) || null,
-        materialObservationPlanId: link.materialObservationPlanId,
-        materialVersionId,
-        materialTitle: materialByVersionId.get(materialVersionId)?.title || '未命名材料',
-        title: version?.questionStem || version?.title || '未命名练习',
-        abilityId: version?.abilityMetadata.abilityId || '',
-        taskRole: version?.abilityMetadata.taskRole || '',
-      };
-    }),
+    incompletePublications: [...incompletePublicationByResource.values()].map(publicationDetails),
+    publishedResources: [...activePublishedByResource.values()].map(publicationDetails),
   };
 }
 
@@ -221,6 +260,7 @@ export function scopeMaterialResourceWorkbenchDetails(
       materials: [],
       learningTasks: [],
       pendingReviews: [],
+      incompletePublications: [],
       publishedResources: [],
     };
   }
@@ -232,6 +272,9 @@ export function scopeMaterialResourceWorkbenchDetails(
       (item) => item.materialVersionId === materialVersionId,
     ),
     pendingReviews: details.pendingReviews.filter(
+      (item) => item.materialVersionId === materialVersionId,
+    ),
+    incompletePublications: details.incompletePublications.filter(
       (item) => item.materialVersionId === materialVersionId,
     ),
     publishedResources: details.publishedResources.filter(

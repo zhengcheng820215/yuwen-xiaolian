@@ -80,6 +80,16 @@ implements QuestionResourceAdmissionRepository {
     return [...this.drafts.values()].map(clone);
   }
 
+  async deleteDraft(draftId: string): Promise<void> {
+    if (!this.drafts.delete(draftId)) throw new Error(`Draft not found: ${draftId}`);
+    for (const [validationId, validation] of this.validations) {
+      if (validation.draftId === draftId) this.validations.delete(validationId);
+    }
+    for (const [reviewId, review] of this.reviews) {
+      if (review.draftId === draftId) this.reviews.delete(reviewId);
+    }
+  }
+
   async saveValidation(result: ResourceValidationResult): Promise<ResourceValidationResult> {
     this.validations.set(result.validationId, clone(result));
     return clone(result);

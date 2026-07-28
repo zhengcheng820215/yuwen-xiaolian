@@ -117,7 +117,33 @@ export type QuestionResourceDraftStatus =
   | 'pending_review'
   | 'revision_required'
   | 'reviewed'
-  | 'rejected';
+  | 'rejected'
+  | 'archived';
+
+export type StoredQuestionQualityCheck =
+  | 'materialGrounding'
+  | 'observationClarity'
+  | 'observationDistinctness'
+  | 'discriminativePower'
+  | 'difficultyCoherence'
+  | 'rubricAlignment'
+  | 'scopeClarity';
+
+export type QuestionQualityRevisionProgressSnapshot = {
+  version: 1;
+  draftId: string;
+  lastAssessmentId?: string;
+  items: Array<{
+    check: StoredQuestionQualityCheck;
+    code: string;
+    message: string;
+    status: 'pending' | 'modified_pending_recheck' | 'resolved';
+    recheckCount: number;
+    firstSeenRevision: number;
+    lastSeenRevision: number;
+    resolvedAtAssessmentId?: string;
+  }>;
+};
 
 export type StructuredQuestionDraft = {
   draftId: string;
@@ -138,6 +164,7 @@ export type StructuredQuestionDraft = {
   abilityMetadata: QuestionAbilityMetadata;
   source: QuestionSource;
   tags: string[];
+  qualityRevisionProgress?: QuestionQualityRevisionProgressSnapshot;
   status: QuestionResourceDraftStatus;
   revision: number;
   latestValidationId?: string;
@@ -303,7 +330,7 @@ export function isStructuredQuestionDraft(value: unknown): value is StructuredQu
     Boolean(draft.abilityMetadata) &&
     Boolean(draft.source) &&
     Array.isArray(draft.tags) &&
-    ['drafted', 'validation_failed', 'pending_review', 'revision_required', 'reviewed', 'rejected'].includes(draft.status) &&
+    ['drafted', 'validation_failed', 'pending_review', 'revision_required', 'reviewed', 'rejected', 'archived'].includes(draft.status) &&
     isPositiveInteger(draft.revision) &&
     isNonEmptyString(draft.createdAt) &&
     isNonEmptyString(draft.updatedAt) &&

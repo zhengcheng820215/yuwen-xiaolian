@@ -4,6 +4,7 @@ import {
   createNextQuestionResourceVersionDraft,
   createQuestionMaterial,
   createStructuredQuestionDraft,
+  findActiveQuestionResourceRevisionDraft,
   freezeQuestionResourceDraft,
   rebuildResourceRegistry,
   reviewQuestionResourceDraft,
@@ -47,6 +48,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '21 version switch always keeps one formal head', run: caseVersionSwitchInvariant },
   { name: '22 rejected draft can create an auditable revision draft', run: caseRejectedRevisionDraft },
   { name: '23 repeated validation reuses the immutable result', run: caseRepeatedValidationIsIdempotent },
+  { name: '24 active publication revision is reused through review states', run: caseActivePublicationRevisionReuse },
 ];
 
 async function main(): Promise<void> {
@@ -128,6 +130,52 @@ async function caseRejectedRevisionDraft(): Promise<void> {
   assert(revision.proposedVersionNumber === source.proposedVersionNumber, 'Revision copy must target the same proposed version.');
   assert(revision.questionStem === source.questionStem, 'Revision copy must retain question content.');
   assert(!revision.latestValidationId && !revision.latestReviewId, 'Revision copy must not inherit validation or review decisions.');
+  const repeated = await createRevisionFromRejectedQuestionResourceDraft(repo, {
+    sourceDraftId: source.draftId,
+    draftId: 'draft-rejected-revision-duplicate',
+    now: '2026-07-17T12:03:00.000Z',
+  });
+  assert(repeated.draftId === revision.draftId, 'Repeated rejected revision must reuse the active draft.');
+  assert(
+    (await repo.listDrafts()).filter((draft) => (
+      draft.resourceId === source.resourceId &&
+      draft.proposedVersionNumber === source.proposedVersionNumber &&
+      !['rejected', 'archived'].includes(draft.status)
+    )).length === 1,
+    'Repeated rejected revision created more than one active draft.',
+  );
+}
+
+async function caseActivePublicationRevisionReuse(): Promise<void> {
+  const repo = await repositoryWithMaterial();
+  const sourceVersion = await createFrozenV1(repo, 'active-publication-revision');
+  const revision = await createNextQuestionResourceVersionDraft(repo, {
+    resourceId: sourceVersion.resourceId,
+    draftId: 'draft-active-publication-revision-v2',
+    now: LATER,
+  });
+  const lookup = async () => findActiveQuestionResourceRevisionDraft(
+    await repo.listDrafts(),
+    {
+      resourceId: sourceVersion.resourceId,
+      parentVersionId: sourceVersion.resourceVersionId,
+    },
+  );
+
+  assert((await lookup())?.draftId === revision.draftId, 'Drafted publication revision was not found.');
+
+  await validateStructuredQuestionDraft(repo, revision.draftId, LATER);
+  await submitQuestionResourceForReview(repo, revision.draftId, LATER);
+  assert((await lookup())?.draftId === revision.draftId, 'Pending-review publication revision was not reused.');
+
+  await reviewQuestionResourceDraft(repo, {
+    draftId: revision.draftId,
+    action: 'approve',
+    reviewerId: 'reviewer-1',
+    notes: 'Publication repair is ready.',
+    now: LATER,
+  });
+  assert((await lookup())?.draftId === revision.draftId, 'Reviewed publication revision was not reused.');
 }
 
 async function caseMissingField(): Promise<void> {

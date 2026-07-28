@@ -7,6 +7,7 @@ import { createPhase163DiagnosisBoundary } from './src/server/phase163DiagnosisB
 import { createStudentWritingCorrectionBoundary } from './src/server/studentWritingCorrectionBoundary.ts';
 import { createMaterialObservationDraftGeneratorBoundary } from './src/server/materialObservationDraftGeneratorBoundary.ts';
 import { createQuestionStemOptimizationBoundary } from './src/server/questionStemOptimizationBoundary.ts';
+import { createRubricItemOptimizationBoundary } from './src/server/rubricItemOptimizationBoundary.ts';
 import { createSharedFormalResourceBoundary } from './src/server/sharedFormalResourceBoundary.ts';
 
 const execFileAsync = promisify(execFile);
@@ -29,6 +30,7 @@ export default defineConfig({
       server.middlewares.use('/__runtime/phase16-3/writing-corrections', createStudentWritingCorrectionBoundary());
       server.middlewares.use('/__runtime/phase17/material-observation-candidates', createMaterialObservationDraftGeneratorBoundary());
       server.middlewares.use('/__runtime/phase17-5/question-stem-optimization', createQuestionStemOptimizationBoundary());
+      server.middlewares.use('/__runtime/phase17-5/rubric-item-optimization', createRubricItemOptimizationBoundary());
       server.middlewares.use('/__runtime/phase17-4/formal-resources', createSharedFormalResourceBoundary());
       server.middlewares.use('/__demo/deepseek-chat', async (req, res) => {
         if (req.method !== 'POST') {
