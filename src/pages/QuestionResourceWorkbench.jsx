@@ -644,20 +644,28 @@ export default function QuestionResourceWorkbench() {
 
   function locateQualityIssue(check) {
     qualityRepairEditCheckRef.current = check;
-    const targetIds = {
-      materialGrounding: 'question-stem-editor',
-      observationClarity: 'question-stem-editor',
-      observationDistinctness: 'question-stem-editor',
-      difficultyCoherence: 'question-difficulty-editor',
-      scopeClarity: 'question-stem-editor',
+    const targetIdsByCheck = {
+      materialGrounding: ['question-stem-editor'],
+      observationClarity: ['question-stem-editor'],
+      observationDistinctness: ['question-stem-editor'],
+      difficultyCoherence: planReviewMode
+        ? ['question-stem-editor', 'question-training-targets']
+        : ['question-difficulty-editor', 'question-stem-editor'],
+      scopeClarity: ['question-stem-editor'],
     };
-    const targetId = ['discriminativePower', 'rubricAlignment'].includes(check)
-      ? rubricIssueTargetId(form, check)
-      : targetIds[check];
+    const targetIds = ['discriminativePower', 'rubricAlignment'].includes(check)
+      ? [rubricIssueTargetId(form, check), 'question-rubric-editor']
+      : (targetIdsByCheck[check] || ['question-stem-editor']);
     window.dispatchEvent(new CustomEvent('question-quality-locate', { detail: { check } }));
     window.setTimeout(() => {
-      const target = document.getElementById(targetId || 'question-stem-editor');
-      if (!target) return;
+      const target = targetIds
+        .filter(Boolean)
+        .map((targetId) => document.getElementById(targetId))
+        .find(Boolean);
+      if (!target) {
+        setNotice({ type: 'error', message: '暂未找到对应的修改位置，请刷新页面后重试。' });
+        return;
+      }
       target.scrollIntoView({ behavior: 'smooth', block: 'center' });
       target.classList.add('ring-2', 'ring-amber-400', 'ring-offset-2');
       window.setTimeout(() => {
@@ -1215,7 +1223,6 @@ function QuestionEditor({
   const remainingSuggestionIssues = stemOptimization?.suggestionReview?.remainingIssues || [];
   const resolvedSuggestionChecks = stemOptimization?.suggestionReview?.resolvedChecks || [];
   const canRetryStemOptimization = suggestionNeedsAttention && stemOptimizationAttempts < 2;
-  const [showTrainingSettingsEditor, setShowTrainingSettingsEditor] = useState(false);
   const [showOptionalTrainingSettings, setShowOptionalTrainingSettings] = useState(false);
   const [showOptionalAnswerSettings, setShowOptionalAnswerSettings] = useState(false);
   const reviewMaterial = materials.find((material) => material.materialVersionId === form.materialVersionId) || null;
@@ -1241,19 +1248,9 @@ function QuestionEditor({
     document.getElementById('question-stem-editor')?.focus();
   };
   useEffect(() => {
-    setShowTrainingSettingsEditor(false);
     setShowOptionalTrainingSettings(false);
     setShowOptionalAnswerSettings(false);
   }, [context?.draft?.draftId]);
-  useEffect(() => {
-    const revealQualityIssueTarget = (event) => {
-      if (event.detail?.check === 'difficultyCoherence') {
-        setShowTrainingSettingsEditor(true);
-      }
-    };
-    window.addEventListener('question-quality-locate', revealQualityIssueTarget);
-    return () => window.removeEventListener('question-quality-locate', revealQualityIssueTarget);
-  }, []);
 
   return (
     <section className={`rounded-md bg-white ${focusedReview ? '[&_input:focus]:border-emerald-500 [&_select:focus]:border-emerald-500 [&_textarea:focus]:border-emerald-500' : 'border border-slate-200'}`}>
@@ -1485,7 +1482,7 @@ function QuestionEditor({
         <div id="question-training-targets" tabIndex="-1" className="scroll-mt-24 outline-none">
         <EditorGroup title={focusedReview ? '训练目标' : '训练设置'}>
           {focusedReview ? (
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
               <div className="flex min-h-11 flex-wrap items-center gap-2" aria-label="由素材录入平台带入的训练目标">
                 <span className="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700">
                   {optionLabel(abilityOptions, form.abilityId)}
@@ -1498,38 +1495,29 @@ function QuestionEditor({
                 </span>
                 <span className="text-sm text-slate-500">由素材录入平台带入</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowTrainingSettingsEditor((value) => !value)}
-                className="min-h-10 rounded-md border border-emerald-600 bg-white px-4 text-sm font-normal text-emerald-700 hover:bg-emerald-50"
-              >
-                {showTrainingSettingsEditor ? '收起调整' : '调整训练目标'}
-              </button>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                训练能力、任务用途和难度以素材录入平台中的训练计划为准，审核平台不会重复修改。
+              </p>
             </div>
           ) : null}
-          {!focusedReview || showTrainingSettingsEditor ? (
-            <div className={focusedReview ? 'mt-4 rounded-md bg-slate-50 p-4' : ''}>
-              {focusedReview ? (
-                <p className="mb-4 text-sm leading-6 text-amber-700">
-                  调整后会与素材录入平台中的原训练计划产生差异，保存后需要重新检查题目。
-                </p>
-              ) : null}
+          {!focusedReview ? (
+            <div>
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field label="主要能力" required>
-                  <SelectInput value={form.abilityId} onChange={(value) => updateAbility(value, setForm)} options={abilityOptions} aligned={focusedReview} />
+                  <SelectInput value={form.abilityId} onChange={(value) => updateAbility(value, setForm)} options={abilityOptions} />
                 </Field>
                 <Field label="任务角色" required>
-                  <SelectInput value={form.taskRole} onChange={(value) => update('taskRole', value)} options={taskRoleOptions} aligned={focusedReview} />
+                  <SelectInput value={form.taskRole} onChange={(value) => update('taskRole', value)} options={taskRoleOptions} />
                 </Field>
                 <div id="question-difficulty-editor" tabIndex="-1" className="scroll-mt-24 rounded-md outline-none">
                   <Field label="难度" required>
-                    <SelectInput value={form.difficulty} onChange={(value) => update('difficulty', value)} options={difficultyOptions} aligned={focusedReview} />
+                    <SelectInput value={form.difficulty} onChange={(value) => update('difficulty', value)} options={difficultyOptions} />
                   </Field>
                 </div>
               </div>
             </div>
           ) : null}
-          {!focusedReview || showTrainingSettingsEditor ? <details open={showOptionalTrainingSettings}>
+          <details open={showOptionalTrainingSettings}>
             <summary
               className="cursor-pointer text-sm font-normal text-slate-700"
               onClick={(event) => {
@@ -1560,7 +1548,7 @@ function QuestionEditor({
                 </Field>
               </div>
             </div>
-          </details> : null}
+          </details>
         </EditorGroup>
         </div>
 
@@ -2888,10 +2876,14 @@ function findPublicationRepairDraft(snapshot, draft) {
   if (!draft) return null;
   const version = snapshot.versions.find((item) => item.sourceDraftId === draft.draftId);
   if (!version) {
+    const repairRootDraftId = readTagValue(draft.tags, 'publication_repair_source:') || draft.draftId;
+    const repairSourceTag = `publication_repair_source:${repairRootDraftId}`;
+    const observationTaskTag = draft.tags.find((tag) => tag.startsWith('observation_task:'));
     return snapshot.drafts
       .filter((item) => (
-        item.tags.includes(`publication_repair_source:${draft.draftId}`) &&
-        !['rejected', 'archived'].includes(item.status)
+        item.tags.includes(repairSourceTag) &&
+        (!observationTaskTag || item.tags.includes(observationTaskTag)) &&
+        ['drafted', 'validation_failed', 'revision_required'].includes(item.status)
       ))
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] || null;
   }
@@ -2918,6 +2910,10 @@ function findRejectedRevisionDraft(snapshot, draft) {
 
 function optionLabel(options, value) {
   return options.find(([optionValue]) => optionValue === value)?.[1] || value;
+}
+
+function readTagValue(tags, prefix) {
+  return tags?.find((tag) => tag.startsWith(prefix))?.slice(prefix.length) || null;
 }
 
 function Notice({ notice }) {

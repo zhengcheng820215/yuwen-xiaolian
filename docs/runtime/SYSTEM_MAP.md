@@ -463,6 +463,8 @@ Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster �
 
 题目质量检查采用“证据边界清晰”规则，而不是固定句式或段落号规则。题干只要能让学生明确应从什么材料范围寻找、组织和引用依据即可：可以指向具体段落、场景、原句或关键词，可以明确要求综合全文，也可以允许自主选取指定数量和类型的文本证据。只有笼统写“结合材料”且未说明局部、全文或取证方式时才产生提醒；完全脱离材料时仍建议修订。界面中的参考写法只用于说明规则，不是必须照抄的模板。
 
+Material Observation Plan 是训练任务主要能力、任务用途和难度的唯一计划来源；题目审核平台沿用并核对计划值，不建立第二套可独立漂移的训练设置。发布未完成题目的修订以 Observation Task 和稳定修订根为身份边界，同一题目重复进入修复流程时复用当前有效修订稿，发布前必须重新通过计划一致性检查。质量提醒的“定位修改”只能指向当前模式中真实存在且可编辑的字段，并在目标缺失时显式反馈，不得静默失败。
+
 详细文档入口：[Phase 17](../education/phase/phase17.md)、[Phase 17.1](../education/phase/phase17_1.md)、[Phase 17.2](../education/phase/phase17_2.md)、[Phase 17.2 First Formal Resource Pack Production Blueprint](../education/phase/phase17_2_first_resource_pack_blueprint.md)、[Phase 17.3](../education/phase/phase17_3.md)、[Phase 17.4](../education/phase/phase17_4.md)、[Phase 17.5](../education/phase/phase17_5.md)。
 
 ## 七、当前重要边界

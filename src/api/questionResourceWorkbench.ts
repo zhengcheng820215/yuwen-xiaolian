@@ -199,23 +199,24 @@ export async function saveQuestionResourceWorkbenchDraft(input: {
   draft: Omit<CreateStructuredQuestionDraftInput, 'draftId' | 'resourceId' | 'taskId'>;
   qualityRevisionProgress?: StructuredQuestionDraft['qualityRevisionProgress'];
 }): Promise<StructuredQuestionDraft> {
+  const normalizedDraft = await alignDraftInputWithObservationPlan(input.draft);
   if (input.draftId) {
     const existing = await repository.getDraft(input.draftId);
     if (existing) {
       const patch: StructuredQuestionDraftPatch = {
-        materialVersionId: input.draft.materialVersionId,
-        title: input.draft.title,
-        questionStem: input.draft.questionStem,
-        questionType: input.draft.questionType,
-        responseFormat: input.draft.responseFormat,
-        options: input.draft.options,
-        assessmentMode: input.draft.assessmentMode,
-        answerAcceptance: input.draft.answerAcceptance,
-        rubric: input.draft.rubric,
-        minimumAnswerRequirement: input.draft.minimumAnswerRequirement,
-        abilityMetadata: input.draft.abilityMetadata,
-        source: input.draft.source,
-        tags: input.draft.tags,
+        materialVersionId: normalizedDraft.materialVersionId,
+        title: normalizedDraft.title,
+        questionStem: normalizedDraft.questionStem,
+        questionType: normalizedDraft.questionType,
+        responseFormat: normalizedDraft.responseFormat,
+        options: normalizedDraft.options,
+        assessmentMode: normalizedDraft.assessmentMode,
+        answerAcceptance: normalizedDraft.answerAcceptance,
+        rubric: normalizedDraft.rubric,
+        minimumAnswerRequirement: normalizedDraft.minimumAnswerRequirement,
+        abilityMetadata: normalizedDraft.abilityMetadata,
+        source: normalizedDraft.source,
+        tags: normalizedDraft.tags,
         qualityRevisionProgress: input.qualityRevisionProgress,
       };
       return updateStructuredQuestionDraft(repository, input.draftId, patch);
@@ -224,7 +225,7 @@ export async function saveQuestionResourceWorkbenchDraft(input: {
 
   const suffix = createIdSuffix();
   return createStructuredQuestionDraft(repository, {
-    ...input.draft,
+    ...normalizedDraft,
     draftId: input.draftId || `draft-${suffix}`,
     resourceId: input.resourceId || `resource-${suffix}`,
     taskId: input.taskId || `task-${suffix}`,
@@ -308,7 +309,8 @@ export async function createQuestionResourceWorkbenchPublicationRepair(sourceDra
 
   const sourceVersion = await repository.getVersionByDraftId(sourceDraftId);
   const drafts = await repository.listDrafts();
-  const repairSourceTag = `publication_repair_source:${sourceDraftId}`;
+  const repairRootDraftId = readTagValue(sourceDraft.tags, 'publication_repair_source:') || sourceDraftId;
+  const repairSourceTag = `publication_repair_source:${repairRootDraftId}`;
   let expectedSettings: QuestionPublicationPreflight['expectedSettings'];
   let repairDraft: StructuredQuestionDraft | null = null;
 
@@ -328,9 +330,21 @@ export async function createQuestionResourceWorkbenchPublicationRepair(sourceDra
     if (preflight.passed || !expectedSettings) {
       throw new Error('当前题目没有需要修复的发布设置差异。');
     }
+    const observationTaskTag = sourceDraft.tags.find((tag) => tag.startsWith('observation_task:'));
     repairDraft = drafts
-      .filter((draft) => draft.tags.includes(repairSourceTag) && draft.status !== 'archived')
+      .filter((draft) => (
+        ['drafted', 'validation_failed', 'revision_required'].includes(draft.status) &&
+        draft.tags.includes(repairSourceTag) &&
+        (!observationTaskTag || draft.tags.includes(observationTaskTag))
+      ))
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] || null;
+    if (
+      !repairDraft &&
+      ['drafted', 'validation_failed', 'revision_required'].includes(sourceDraft.status) &&
+      sourceDraft.tags.includes(repairSourceTag)
+    ) {
+      repairDraft = sourceDraft;
+    }
   }
 
   if (!expectedSettings) throw new Error('当前题目没有可同步的训练计划设置。');
@@ -359,19 +373,32 @@ export async function createQuestionResourceWorkbenchPublicationRepair(sourceDra
         minimumAnswerRequirement: sourceDraft.minimumAnswerRequirement,
         abilityMetadata: sourceDraft.abilityMetadata,
         source: sourceDraft.source,
-        tags: [...sourceDraft.tags, repairSourceTag],
+        tags: [
+          ...sourceDraft.tags.filter((tag) => !tag.startsWith('publication_repair_source:')),
+          repairSourceTag,
+        ],
       });
   }
 
+  const normalizedRepairTags = [
+    ...repairDraft.tags.filter((tag) => !tag.startsWith('publication_repair_source:')),
+    repairSourceTag,
+  ];
   const alreadyAligned = (
     repairDraft.abilityMetadata.abilityId === expectedSettings.abilityId &&
     repairDraft.abilityMetadata.difficulty === expectedSettings.difficulty &&
-    repairDraft.abilityMetadata.taskRole === expectedSettings.taskRole
+    repairDraft.abilityMetadata.taskRole === expectedSettings.taskRole &&
+    repairDraft.tags.length === normalizedRepairTags.length &&
+    repairDraft.tags.every((tag, index) => tag === normalizedRepairTags[index])
   );
-  if (alreadyAligned) return repairDraft;
+  if (alreadyAligned) {
+    await assertPublicationRepairAligned(repairDraft);
+    return repairDraft;
+  }
 
   const previousAbilityId = repairDraft.abilityMetadata.abilityId;
-  return updateStructuredQuestionDraft(repository, repairDraft.draftId, {
+  const updatedDraft = await updateStructuredQuestionDraft(repository, repairDraft.draftId, {
+    tags: normalizedRepairTags,
     abilityMetadata: {
       ...repairDraft.abilityMetadata,
       abilityId: expectedSettings.abilityId,
@@ -384,6 +411,8 @@ export async function createQuestionResourceWorkbenchPublicationRepair(sourceDra
         : item
     )),
   });
+  await assertPublicationRepairAligned(updatedDraft);
+  return updatedDraft;
 }
 
 export async function getQuestionResourceWorkbenchPublicationPreflight(
@@ -476,4 +505,39 @@ function createIdSuffix(): string {
 
 function readTagValue(tags: string[] | undefined, prefix: string): string | null {
   return tags?.find((tag) => tag.startsWith(prefix))?.slice(prefix.length) || null;
+}
+
+async function alignDraftInputWithObservationPlan(
+  draft: Omit<CreateStructuredQuestionDraftInput, 'draftId' | 'resourceId' | 'taskId'>,
+): Promise<Omit<CreateStructuredQuestionDraftInput, 'draftId' | 'resourceId' | 'taskId'>> {
+  const planId = readTagValue(draft.tags, 'observation_plan:');
+  const observationTaskPlanId = readTagValue(draft.tags, 'observation_task:');
+  if (!planId || !observationTaskPlanId) return draft;
+
+  const plan = await observationRepository.getPlan(planId);
+  const task = plan?.taskPlans.find((item) => item.observationTaskPlanId === observationTaskPlanId);
+  if (!task) return draft;
+
+  const previousAbilityId = draft.abilityMetadata.abilityId;
+  return {
+    ...draft,
+    abilityMetadata: {
+      ...draft.abilityMetadata,
+      abilityId: task.abilityId,
+      difficulty: task.difficulty,
+      taskRole: task.taskRole,
+    },
+    rubric: draft.rubric.map((item) => (
+      item.abilityId === previousAbilityId
+        ? { ...item, abilityId: task.abilityId }
+        : item
+    )),
+  };
+}
+
+async function assertPublicationRepairAligned(draft: StructuredQuestionDraft): Promise<void> {
+  const preflight = await getQuestionResourceWorkbenchPublicationPreflight(draft);
+  if (!preflight.passed) {
+    throw new Error('训练设置同步未完成，请重试；系统不会创建新的修订稿。');
+  }
 }
