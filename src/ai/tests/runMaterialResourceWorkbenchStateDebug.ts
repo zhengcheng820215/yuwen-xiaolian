@@ -186,6 +186,12 @@ check(
     && scopedDetails.publishedResources.length === 2,
   `materials=${scopedDetails.materials.length}, tasks=${scopedDetails.learningTasks.length}, pending=${scopedDetails.pendingReviews.length}, published=${scopedDetails.publishedResources.length}`,
 );
+check(
+  '10 待审核与已发布题目共用素材计划顺序',
+  details.pendingReviews[0]?.questionNumber === 2
+    && details.publishedResources.map((item) => item.questionNumber).join(',') === '1,2',
+  `pending=${details.pendingReviews[0]?.questionNumber}, published=${details.publishedResources.map((item) => item.questionNumber).join(',')}`,
+);
 
 console.log('Phase 17.2 Material Resource Workbench State Debug');
 console.log('='.repeat(76));
@@ -248,6 +254,8 @@ function link(
 ) {
   return {
     resourceObservationLinkId,
+    materialObservationPlanId: 'plan-v2',
+    observationTaskPlanId: resourceId.replace('resource-', 'task-'),
     resourceId,
     resourceVersionId,
     status,

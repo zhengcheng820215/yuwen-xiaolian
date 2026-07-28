@@ -14,7 +14,7 @@ import {
   RefreshCw,
   Trash2,
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   approveProductionObservationPlan,
   createProductionMaterial,
@@ -109,7 +109,15 @@ const roleLabels = Object.fromEntries(roleOptions);
 const difficultyLabels = Object.fromEntries(difficultyOptions);
 
 export default function MaterialResourceProductionWorkbench() {
+  const location = useLocation();
   const navigate = useNavigate();
+  const routeSelection = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return {
+      materialVersionId: params.get('materialVersionId') || '',
+      planId: params.get('planId') || '',
+    };
+  }, [location.search]);
   const usesNonCanonicalLocalPort = import.meta.env.DEV
     && typeof window !== 'undefined'
     && window.location.port !== '5174';
@@ -142,12 +150,12 @@ export default function MaterialResourceProductionWorkbench() {
   const pendingDiscardActionRef = useRef(null);
 
   useEffect(() => {
-    refresh().catch((error) => setNotice(errorNotice(error)));
+    refresh(routeSelection).catch((error) => setNotice(errorNotice(error)));
     getMaterialObservationDraftGeneratorStatus().then(setGeneratorStatus);
     getSharedFormalResourceStatus()
       .then(setSharedStoreStatus)
       .catch((error) => setNotice(errorNotice(error)));
-  }, []);
+  }, [routeSelection.materialVersionId, routeSelection.planId]);
 
   const selectedMaterial = useMemo(
     () => snapshot.materials.find((item) => item.materialVersionId === selectedMaterialId) || null,
@@ -443,6 +451,7 @@ export default function MaterialResourceProductionWorkbench() {
     const params = new URLSearchParams({ mode: 'plan-review' });
     if (item.materialObservationPlanId) params.set('planId', item.materialObservationPlanId);
     if (item.materialVersionId) params.set('materialVersionId', item.materialVersionId);
+    if (item.draftId) params.set('draftId', item.draftId);
     navigate(`/question-resource-workbench?${params.toString()}`);
   }
 
@@ -479,9 +488,16 @@ export default function MaterialResourceProductionWorkbench() {
   }
 
   async function createPlan() {
+    const isRevision = Boolean(selectedPlan);
     await run(
       () => createProductionObservationPlan({ materialVersionId: selectedMaterialId, tasks: tasks.map(toTaskInput) }),
-      (result) => result.validation.passed ? '训练任务已保存并通过内容检查。' : '训练任务已保存，但仍有内容需要调整。',
+      (result) => result.validation.passed
+        ? isRevision
+          ? '修改已保存为新版本，并通过内容检查。'
+          : '训练任务已保存并通过内容检查。'
+        : isRevision
+          ? '修改已保存为新版本，但仍有内容需要调整。'
+          : '训练任务已保存，但仍有内容需要调整。',
       (result) => ({ materialVersionId: selectedMaterialId, planId: result.plan.materialObservationPlanId }),
     );
   }
@@ -767,11 +783,11 @@ export default function MaterialResourceProductionWorkbench() {
                       className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_auto] sm:items-stretch"
                       aria-label={`${selectedMaterial.title}的题目状态`}
                     >
-                      <div className="min-h-20 px-3 py-3 sm:px-4">
-                        <p className="text-sm text-slate-500">当前素材</p>
-                        <h2 id="selected-material-summary-title" className="mt-1 flex flex-wrap items-baseline gap-x-2 text-base font-semibold text-slate-950">
+                      <div className="flex min-h-20 flex-col items-start px-3 py-3 sm:px-4">
+                        <p className="text-sm leading-5 text-slate-500">当前素材</p>
+                        <h2 id="selected-material-summary-title" className="mt-1 flex min-h-7 flex-wrap items-baseline gap-x-2 text-base font-semibold leading-7 text-slate-950">
                           <span>{selectedMaterial.title}</span>
-                          <span className="text-sm font-normal text-slate-500">· 共 {paragraphs.length} 个自然段</span>
+                          <span className="text-sm font-normal leading-7 text-slate-500">· 共 {paragraphs.length} 个自然段</span>
                         </h2>
                       </div>
                       <Metric
@@ -791,7 +807,7 @@ export default function MaterialResourceProductionWorkbench() {
                           type="button"
                           onClick={requestMaterialRemoval}
                           disabled={busy}
-                          className="inline-flex min-h-9 items-center gap-2 rounded-md px-3 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
+                          className="inline-flex min-h-9 items-center gap-2 rounded-md border border-emerald-600 bg-transparent px-3 text-sm text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-40"
                         >
                           <Trash2 size={16} />
                           删除或停用该素材
@@ -871,12 +887,17 @@ export default function MaterialResourceProductionWorkbench() {
             <section id="training-task-editor" className="scroll-mt-28 border-t border-slate-200 pt-8">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold">训练任务（<span className="text-emerald-600">{tasks.length}</span>/6）</h2>
+                <h2 className="text-lg font-semibold">
+                  {selectedPlan ? '修改训练任务' : '编辑训练任务'}
+                  <span className="ml-2 font-normal text-slate-500">（<span className="text-emerald-600">{tasks.length}</span>/6）</span>
+                </h2>
               </div>
             </div>
             {selectedPlan && (
-              <div className="mt-4 border-l-4 border-blue-500 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-950">
-                当前正在查看第 {selectedPlan.revision} 版训练任务（{statusLabels[selectedPlan.status]}）。浏览不会改变内容；修改后点击“保存任务修改”，系统才会创建新版本。
+              <div className={`mt-4 border-l-4 px-4 py-3 text-sm leading-6 ${taskEditorDirty ? 'border-amber-500 bg-amber-50 text-amber-950' : 'border-blue-500 bg-blue-50 text-blue-950'}`}>
+                {taskEditorDirty
+                  ? `正在修改第 ${selectedPlan.revision} 版。保存后将保留当前版本，创建新的待审核版本并重新检查内容。`
+                  : `当前正在查看第 ${selectedPlan.revision} 版训练任务（${statusLabels[selectedPlan.status]}）。只有修改并保存后，系统才会创建新版本。`}
               </div>
             )}
             <section className="mt-4 rounded-md bg-white px-4 py-5 sm:px-5" aria-labelledby="ai-observation-generator-title" aria-busy={generatorBusy}>
@@ -1097,7 +1118,7 @@ export default function MaterialResourceProductionWorkbench() {
 
             <div className="mt-4 flex gap-3">
               <button type="button" disabled={tasks.length >= 6} onClick={addTask} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-4 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"><Plus size={16} />增加训练任务</button>
-              <button type="button" disabled={busy || !selectedMaterial || Boolean(selectedPlan && !taskEditorDirty) || tasks.some((task) => !isTaskReady(task))} onClick={createPlan} className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"><ClipboardCheck size={16} />{selectedPlan ? '保存任务修改' : '保存训练任务'}</button>
+              <button type="button" disabled={busy || !selectedMaterial || Boolean(selectedPlan && !taskEditorDirty) || tasks.some((task) => !isTaskReady(task))} onClick={createPlan} className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"><ClipboardCheck size={16} />{selectedPlan ? '保存修改并重新检查' : '保存训练任务'}</button>
             </div>
             </section>
           )}
@@ -1305,10 +1326,10 @@ function Metric({ label, value, active, onClick }) {
       onClick={onClick}
       className="flex min-h-20 flex-col items-start bg-transparent px-3 py-3 text-left transition hover:text-slate-950 sm:px-4"
     >
-      <span className={`block text-sm ${active ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>{label}</span>
-      <span className={`mt-1 flex items-center gap-2 text-lg font-semibold ${active ? 'text-emerald-700' : 'text-slate-950'}`}>
+      <span className={`block text-sm leading-5 ${active ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>{label}</span>
+      <span className={`mt-1 flex min-h-7 items-baseline gap-2 text-lg font-semibold leading-7 ${active ? 'text-emerald-700' : 'text-slate-950'}`}>
         {value}
-        <span aria-hidden="true" className={`text-xs ${active ? 'text-emerald-700' : 'text-slate-400'}`}>{active ? '▼' : '▶'}</span>
+        <span aria-hidden="true" className={`text-xs leading-7 ${active ? 'text-emerald-700' : 'text-slate-400'}`}>{active ? '▼' : '▶'}</span>
       </span>
     </button>
   );
@@ -1343,16 +1364,20 @@ function SummaryMetricDetails({ metricKey, details, onOpenQuestion }) {
     },
   };
   const configuration = configurations[metricKey];
+  const orderedItems = [...configuration.items].sort((left, right) => (
+    (left.questionNumber ?? Number.MAX_SAFE_INTEGER)
+    - (right.questionNumber ?? Number.MAX_SAFE_INTEGER)
+  ));
 
   return (
     <section id="workbench-summary-details" className="bg-transparent px-4 py-4 sm:px-5" aria-live="polite">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-slate-950">{configuration.title}</h2>
-        <span className="text-xs text-slate-500">共 {configuration.items.length} 项</span>
+        <span className="text-xs text-slate-500">共 {orderedItems.length} 项</span>
       </div>
-      {configuration.items.length > 0 ? (
+      {orderedItems.length > 0 ? (
         <ul className="mt-2 max-h-72 overflow-y-auto">
-          {configuration.items.map((item) => (
+          {orderedItems.map((item, index) => (
             <li key={summaryItemKey(metricKey, item)}>
               <button
                 type="button"
@@ -1360,7 +1385,12 @@ function SummaryMetricDetails({ metricKey, details, onOpenQuestion }) {
                 className="flex min-h-14 w-full items-center justify-between gap-4 px-1 py-3 text-left hover:bg-slate-50"
               >
                 <span className="min-w-0">
-                  <span className="block text-sm font-medium leading-6 text-slate-900">{configuration.renderTitle(item)}</span>
+                  <span className="block text-sm font-medium leading-6 text-slate-900">
+                    <span className="font-semibold">
+                      {savedQuestionTitle((item.questionNumber || index + 1) - 1)}：
+                    </span>
+                    {configuration.renderTitle(item)}
+                  </span>
                   <span className="mt-0.5 block text-xs leading-5 text-slate-500">{configuration.renderMeta(item)}</span>
                 </span>
                 <span className="shrink-0 text-xs font-medium text-emerald-700">查看</span>

@@ -43,6 +43,8 @@ export type MaterialResourceWorkbenchDetails = {
   }>;
   pendingReviews: Array<{
     draftId: string;
+    observationTaskPlanId: string;
+    questionNumber: number | null;
     materialObservationPlanId: string;
     materialVersionId: string;
     materialTitle: string;
@@ -51,8 +53,11 @@ export type MaterialResourceWorkbenchDetails = {
     status: QuestionResourceDraftStatus;
   }>;
   publishedResources: Array<{
+    draftId: string;
     resourceId: string;
     resourceVersionId: string;
+    observationTaskPlanId: string;
+    questionNumber: number | null;
     materialObservationPlanId: string;
     materialVersionId: string;
     materialTitle: string;
@@ -131,6 +136,11 @@ export function buildMaterialResourceWorkbenchDetails(
   const latestPlanByMaterialVersionId = new Map(
     latestPlans.map((plan) => [plan.materialVersionId, plan]),
   );
+  const questionNumberByTaskId = new Map(
+    latestPlans.flatMap((plan) => (
+      plan.taskPlans.map((task, index) => [task.observationTaskPlanId, index + 1] as const)
+    )),
+  );
   const currentDrafts = selectLatestDraftsByResource(
     snapshot.drafts.filter((draft) => draft.tags.includes('phase17.2')),
   );
@@ -168,21 +178,29 @@ export function buildMaterialResourceWorkbenchDetails(
     }),
     pendingReviews: currentDrafts
       .filter((draft) => REVIEW_PENDING_STATUSES.has(draft.status))
-      .map((draft) => ({
-        draftId: draft.draftId,
-        materialObservationPlanId: tagValue(draft.tags, 'observation_plan:'),
-        materialVersionId: draft.materialVersionId || '',
-        materialTitle: materialByVersionId.get(draft.materialVersionId || '')?.title || '未命名材料',
-        title: draft.questionStem || draft.title,
-        abilityId: draft.abilityMetadata.abilityId,
-        status: draft.status,
-      })),
+      .map((draft) => {
+        const observationTaskPlanId = tagValue(draft.tags, 'observation_task:');
+        return {
+          draftId: draft.draftId,
+          observationTaskPlanId,
+          questionNumber: questionNumberByTaskId.get(observationTaskPlanId) || null,
+          materialObservationPlanId: tagValue(draft.tags, 'observation_plan:'),
+          materialVersionId: draft.materialVersionId || '',
+          materialTitle: materialByVersionId.get(draft.materialVersionId || '')?.title || '未命名材料',
+          title: draft.questionStem || draft.title,
+          abilityId: draft.abilityMetadata.abilityId,
+          status: draft.status,
+        };
+      }),
     publishedResources: [...activePublishedByResource.values()].map((link) => {
       const version = frozenByVersionId.get(link.resourceVersionId);
       const materialVersionId = version?.materialVersionId || '';
       return {
+        draftId: version?.sourceDraftId || '',
         resourceId: link.resourceId,
         resourceVersionId: link.resourceVersionId,
+        observationTaskPlanId: link.observationTaskPlanId,
+        questionNumber: questionNumberByTaskId.get(link.observationTaskPlanId) || null,
         materialObservationPlanId: link.materialObservationPlanId,
         materialVersionId,
         materialTitle: materialByVersionId.get(materialVersionId)?.title || '未命名材料',

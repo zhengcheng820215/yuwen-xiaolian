@@ -8,7 +8,6 @@ import {
   ChevronRight,
   FilePlus2,
   RefreshCw,
-  Save,
   Trash2,
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
@@ -75,9 +74,9 @@ const assessmentModeOptions = [
 ];
 
 const rubricImportanceOptions = [
-  ['critical', '关键'],
-  ['important', '重要'],
-  ['supporting', '辅助'],
+  ['critical', '核心要求'],
+  ['important', '重要要求'],
+  ['supporting', '补充要求'],
 ];
 
 const sourceTypeOptions = [
@@ -114,12 +113,21 @@ export default function QuestionResourceWorkbench() {
       mode: params.get('mode'),
       planId: params.get('planId'),
       materialVersionId: params.get('materialVersionId'),
+      draftId: params.get('draftId'),
     };
   }, [location.search]);
   const planReviewMode = routeContext.mode === 'plan-review' && Boolean(routeContext.planId);
+  const materialWorkbenchReturnPath = useMemo(() => {
+    const params = new URLSearchParams();
+    if (routeContext.materialVersionId) params.set('materialVersionId', routeContext.materialVersionId);
+    if (routeContext.planId) params.set('planId', routeContext.planId);
+    const query = params.toString();
+    return `/material-resource-workbench${query ? `?${query}` : ''}`;
+  }, [routeContext.materialVersionId, routeContext.planId]);
   const [snapshot, setSnapshot] = useState(emptySnapshot);
   const [context, setContext] = useState(null);
   const [form, setForm] = useState(createBlankForm);
+  const [savedFormSignature, setSavedFormSignature] = useState(() => draftInputSignature(createBlankForm()));
   const [materialForm, setMaterialForm] = useState(initialMaterialForm);
   const [selectedDraftId, setSelectedDraftId] = useState(null);
   const [activePanel, setActivePanel] = useState('workflow');
@@ -139,10 +147,14 @@ export default function QuestionResourceWorkbench() {
     [snapshot.materials, form.materialVersionId],
   );
   const previewResource = context?.frozenVersion || form;
+  const hasUnsavedChanges = useMemo(
+    () => draftInputSignature(form) !== savedFormSignature,
+    [form, savedFormSignature],
+  );
 
   useEffect(() => {
-    refreshWorkspace().catch((error) => setNotice(errorNotice(error)));
-  }, [routeContext.planId]);
+    refreshWorkspace(routeContext.draftId).catch((error) => setNotice(errorNotice(error)));
+  }, [routeContext.planId, routeContext.draftId]);
 
   async function refreshWorkspace(preferredDraftId = selectedDraftId) {
     const nextSnapshot = await getQuestionResourceWorkbenchSnapshot({
@@ -165,7 +177,9 @@ export default function QuestionResourceWorkbench() {
     const nextContext = await getQuestionResourceWorkbenchContext(draftId);
     setSelectedDraftId(draftId);
     setContext(nextContext);
-    setForm(toForm(nextContext.draft));
+    const nextForm = toForm(nextContext.draft);
+    setForm(nextForm);
+    setSavedFormSignature(draftInputSignature(nextForm));
     setNotice(null);
     setStemOptimization(null);
     setStemOptimizationError('');
@@ -181,7 +195,9 @@ export default function QuestionResourceWorkbench() {
     stemOptimizationRequestRef.current += 1;
     setSelectedDraftId(null);
     setContext(null);
-    setForm(createBlankForm());
+    const nextForm = createBlankForm();
+    setForm(nextForm);
+    setSavedFormSignature(draftInputSignature(nextForm));
     setNotice(null);
     setStemOptimization(null);
     setStemOptimizationError('');
@@ -228,7 +244,7 @@ export default function QuestionResourceWorkbench() {
         taskId: context?.draft.taskId,
         draft: toDraftInput(form),
       }),
-      selectedDraftId ? '草稿已保存，请重新执行结构检查。' : '题目草稿已创建。',
+      selectedDraftId ? '修改已保存，请重新检查题目。' : '题目草稿已创建。',
       (draft) => draft.draftId,
     );
     if (result) setSelectedDraftId(result.draftId);
@@ -454,6 +470,7 @@ export default function QuestionResourceWorkbench() {
       stemOptimizationAttempts={stemOptimizationAttempts}
       focusedReview={planReviewMode}
       selectedQuestionNumber={selectedQuestionIndex >= 0 ? toChineseNumber(selectedQuestionIndex + 1) : null}
+      hasUnsavedChanges={hasUnsavedChanges}
     />
   );
   const workflowPanel = (
@@ -484,7 +501,7 @@ export default function QuestionResourceWorkbench() {
           <div className="mx-auto flex min-h-16 max-w-[1360px] items-center justify-between px-5 md:px-8">
             <div className="flex items-center gap-3">
               <Link
-                to="/material-resource-workbench"
+                to={materialWorkbenchReturnPath}
                 aria-label="返回素材资源录入平台"
                 className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
               >
@@ -681,6 +698,7 @@ function QuestionEditor({
   stemOptimizationAttempts,
   focusedReview,
   selectedQuestionNumber,
+  hasUnsavedChanges,
 }) {
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const objectiveQuestion = ['multiple_choice', 'true_false', 'fill_blank'].includes(form.questionType);
@@ -698,7 +716,7 @@ function QuestionEditor({
 
   return (
     <section className={`rounded-md bg-white ${focusedReview ? '[&_input:focus]:border-emerald-500 [&_select:focus]:border-emerald-500 [&_textarea:focus]:border-emerald-500' : 'border border-slate-200'}`}>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-5">
+      <div className="border-b border-slate-200 px-4 py-4 sm:px-5">
         <div>
           <h2 className="text-base font-semibold text-slate-950">
             {focusedReview
@@ -713,20 +731,12 @@ function QuestionEditor({
             </p>
           ) : null}
         </div>
-        <button
-          type="button"
-          disabled={busy || !editable}
-          onClick={onSave}
-          className={`flex min-h-10 items-center gap-2 rounded-md px-4 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400 ${focusedReview ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-950'}`}
-        >
-          <Save size={16} /> {focusedReview ? '保存修改' : '保存 Draft'}
-        </button>
       </div>
 
       <fieldset disabled={!editable || busy} className="space-y-6 p-4 disabled:opacity-70 sm:p-5">
         {focusedReview ? (
           <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-800">
-            “保存修改”只保存当前草稿，不会自动提交或发布；如已有正式版本，系统会保留原版本，不会直接覆盖。
+            “保存本次修改”只更新当前草稿，不会自动提交或发布；如已有正式版本，系统会保留原版本，不会直接覆盖。
           </p>
         ) : null}
         <p className="text-xs leading-5 text-slate-500"><span className="font-semibold text-rose-600">*</span> 带 * 的内容为必填项。编辑过程中可以先保存，提交审核前请补充完整。</p>
@@ -952,19 +962,43 @@ function QuestionEditor({
         </EditorGroup>
 
         <EditorGroup title="评分标准">
+          <div className="rounded-md bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
+            <p>把题目拆成 2 至 3 个可以分别判断的评分要求，每个评分项只判断一件事。</p>
+            <p className="mt-1 text-slate-500">例如：关键内容是否完整、顺序是否正确、是否有材料依据。</p>
+          </div>
           <div className="space-y-3">
             {form.rubric.map((item, index) => (
               <div key={item.localId} className="rounded-md border border-slate-200 p-3">
+                <div className="mb-3">
+                  <p className="text-sm font-semibold text-slate-950">{`评分项${toChineseNumber(index + 1)}`}</p>
+                  <p className="mt-1 text-xs text-slate-500">这一项只判断一个明确的作答要求。</p>
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label={`观察项 ${index + 1}`} required><input value={item.name} onChange={(event) => updateRubric(index, 'name', event.target.value)} className={inputClass} /></Field>
-                  <Field label="能力" required><SelectInput value={item.abilityId} onChange={(value) => updateRubric(index, 'abilityId', value)} options={abilityOptions} aligned={focusedReview} /></Field>
-                  <Field label="重要程度" required><SelectInput value={item.importance} onChange={(value) => updateRubric(index, 'importance', value)} options={rubricImportanceOptions} aligned={focusedReview} /></Field>
-                  <Field label="可接受信号（逗号分隔）"><AutoGrowTextarea value={item.acceptedSignalsText} onChange={(event) => updateRubric(index, 'acceptedSignalsText', event.target.value)} rows={2} /></Field>
+                  <Field label="评分内容（这一项判断什么）" required>
+                    <input
+                      value={item.name}
+                      onChange={(event) => updateRubric(index, 'name', event.target.value)}
+                      className={inputClass}
+                      placeholder="例如：关键步骤完整"
+                    />
+                  </Field>
+                  <Field label="对应能力" required><SelectInput value={item.abilityId} onChange={(value) => updateRubric(index, 'abilityId', value)} options={abilityOptions} aligned={focusedReview} /></Field>
+                  <Field label="判定作用" required>
+                    <SelectInput value={item.importance} onChange={(value) => updateRubric(index, 'importance', value)} options={rubricImportanceOptions} aligned={focusedReview} />
+                  </Field>
+                  <Field label="满足本项的答案要点（逗号分隔）">
+                    <AutoGrowTextarea
+                      value={item.acceptedSignalsText}
+                      onChange={(event) => updateRubric(index, 'acceptedSignalsText', event.target.value)}
+                      rows={2}
+                      placeholder="例如：先设骗局，再索要钱财，假装织布"
+                    />
+                  </Field>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-4">
-                  <Checkbox label="必需项" checked={item.required} onChange={(value) => updateRubric(index, 'required', value)} />
-                  <Checkbox label="需要文本依据" checked={item.requireTextEvidence} onChange={(value) => updateRubric(index, 'requireTextEvidence', value)} />
-                  <Checkbox label="需要解释" checked={item.requireExplanation} onChange={(value) => updateRubric(index, 'requireExplanation', value)} />
+                  <Checkbox label="完整回答必须满足本项" checked={item.required} onChange={(value) => updateRubric(index, 'required', value)} />
+                  <Checkbox label="需结合材料内容" checked={item.requireTextEvidence} onChange={(value) => updateRubric(index, 'requireTextEvidence', value)} />
+                  <Checkbox label="需说明原因或过程" checked={item.requireExplanation} onChange={(value) => updateRubric(index, 'requireExplanation', value)} />
                   {form.rubric.length > 1 ? <button type="button" onClick={() => setForm((current) => ({ ...current, rubric: current.rubric.filter((_, itemIndex) => itemIndex !== index) }))} className="ml-auto text-sm text-rose-700">删除</button> : null}
                 </div>
               </div>
@@ -988,6 +1022,15 @@ function QuestionEditor({
           <div className="flex flex-wrap gap-4"><Checkbox label="最低要求包含文本依据" checked={form.requireTextEvidence} onChange={(value) => update('requireTextEvidence', value)} /><Checkbox label="最低要求包含解释" checked={form.requireExplanation} onChange={(value) => update('requireExplanation', value)} /></div>
           <Field label="版权或使用说明" requirement="建议填写"><input value={form.copyrightNote} onChange={(event) => update('copyrightNote', event.target.value)} className={inputClass} /></Field>
         </EditorGroup>
+
+        <button
+          type="button"
+          disabled={busy || !editable || !hasUnsavedChanges}
+          onClick={onSave}
+          className={`flex min-h-11 w-full items-center justify-center rounded-md px-4 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400 ${focusedReview ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-950 hover:bg-slate-800'}`}
+        >
+          {hasUnsavedChanges ? (focusedReview ? '保存本次修改' : '保存草稿') : '当前内容已保存'}
+        </button>
       </fieldset>
     </section>
   );
@@ -1007,6 +1050,8 @@ function WorkflowPanel(props) {
         {activePanel === 'workflow' ? (
           <WorkflowActions
             context={context}
+            form={form}
+            material={material}
             reviewNotes={reviewNotes}
             setReviewNotes={setReviewNotes}
             busy={busy}
@@ -1025,7 +1070,7 @@ function WorkflowPanel(props) {
   );
 }
 
-function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, qualityResultStale }) {
+function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, qualityResultStale }) {
   if (!context) return <EmptyText>先保存 Draft，再执行正式校验与审核。</EmptyText>;
   const { draft, validation, qualityAssessment, versionHistory } = context;
   const isFrozen = versionHistory.some((version) => version.sourceDraftId === draft.draftId);
@@ -1074,7 +1119,8 @@ function WorkflowActions({ context, reviewNotes, setReviewNotes, busy, onValidat
       {hasCurrentPassedValidation ? (
         <QuestionQualitySummary
           assessment={qualityAssessment}
-          draftRevision={draft.revision}
+          form={form}
+          material={material}
           stale={qualityResultStale}
         />
       ) : null}
@@ -1174,8 +1220,8 @@ function ValidationResult({ validation, stale = false }) {
 
 const qualityCheckLabels = {
   materialGrounding: {
-    pass: '题目有明确的材料依据',
-    warning: '题目缺少明确的材料依据',
+    pass: '题目的材料证据边界清楚',
+    warning: '题目的材料证据边界不够清楚',
   },
   observationClarity: {
     pass: '题目考查的能力目标明确',
@@ -1204,20 +1250,41 @@ const qualityCheckLabels = {
 };
 
 const qualityCheckActions = {
-  materialGrounding: '在题干中补充具体段落、原句或关键词，例如“结合第 3 段……”。',
-  observationClarity: '在题干中明确学生需要完成的动作，例如“概括、分析并说明依据”。',
-  observationDistinctness: '调整题干或训练目标，使本题考查的学生动作与其他题目明显不同。',
-  discriminativePower: '在评分标准中补充分层要求，明确完整完成、部分完成和未完成的区别。',
-  difficultyCoherence: '调整任务步骤、提示量或材料范围，使题目要求符合当前难度设置。',
-  rubricAlignment: '让每个评分项逐一对应题干要求，删除题干未要求的评价内容。',
-  scopeClarity: '缩小材料范围或减少子任务，明确学生需要回答的内容边界。',
+  materialGrounding: [
+    '让学生能够判断应从材料的什么范围寻找和组织依据，不要求套用固定句式。',
+    '可按题目需要指向局部内容、明确结合全文，或允许学生自主选取指定数量和类型的证据。',
+  ],
+  observationClarity: [
+    '确认本题只考查一个主要学生动作。',
+    '在题干中使用“概括、分析、推断、说明依据”等明确动词，并写清最终需要输出什么。',
+  ],
+  observationDistinctness: [
+    '对照本批其他题目的训练能力和题干要求。',
+    '保留本题最有价值的一个训练动作，删除与其他题目相同的问法或换一个训练重点。',
+  ],
+  discriminativePower: [
+    '在“评分标准”中增加至 2 至 3 个评分项，每个评分项只判断一件事。',
+    '分别填写“评分内容”和“满足本项的答案要点”，再设置判定作用，并确认完整回答是否必须满足该项。',
+  ],
+  difficultyCoherence: [
+    '先确认“训练设置 → 难度”是否符合预期。',
+    '若题目偏难，缩小阅读范围、减少子任务或增加提示；若题目偏易，减少提示或增加解释要求。',
+  ],
+  rubricAlignment: [
+    '逐句拆分题干要求，确认每一项要求都有对应评分项。',
+    '补齐缺失的评分项，并删除题干没有要求学生完成的评价内容。',
+  ],
+  scopeClarity: [
+    '只保留一个核心问题，或将多个问题拆成独立题目。',
+    '在题干中写明阅读范围、回答对象和需要完成的动作。',
+  ],
 };
 
 const qualityCheckEditLocations = {
   materialGrounding: '基础内容 → 题干',
   observationClarity: '基础内容 → 题干；训练设置 → 主要能力',
   observationDistinctness: '基础内容 → 题干；训练设置 → 主要能力',
-  discriminativePower: '评分标准 → 评分项',
+  discriminativePower: '评分标准 → 评分项一（可继续增加评分项）',
   difficultyCoherence: '训练设置 → 难度；基础内容 → 题干',
   rubricAlignment: '基础内容 → 题干；评分标准 → 评分项',
   scopeClarity: '基础内容 → 题干',
@@ -1229,7 +1296,41 @@ function qualityCheckLabel(check, passed = true) {
   return passed ? labels.pass : labels.warning;
 }
 
-function QuestionQualitySummary({ assessment, compact = false, stale = false }) {
+function qualityWarningMessage(warning) {
+  if (warning.message === '当前 Rubric 较难区分完整、部分与不足回答。') {
+    return '当前评分标准还不能清楚区分完整回答、部分回答和未达到要求的回答。';
+  }
+  return warning.message;
+}
+
+function qualityCheckExample(check, form, material) {
+  const normalizedMaterialTitle = material?.title?.replace(/^《|》$/gu, '') || '';
+  const materialTitle = normalizedMaterialTitle ? `《${normalizedMaterialTitle}》` : '当前材料';
+  const currentStem = form?.questionStem?.trim() || '';
+  const rubricAbility = abilityOptions.find(([value]) => value === form?.abilityId)?.[1] || '目标能力';
+
+  const examples = {
+    materialGrounding: `局部依据可写明段落、场景、原句或关键词；全文依据可写为“结合${materialTitle}全文，${removeGenericMaterialLead(currentStem) || '回答原题要求'}”；开放取证可写为“从文中任选两处相关细节并说明依据”。请按实际考查目标选用，不必照搬句式。`,
+    observationClarity: `可改为：“结合指定内容，先概括【关键信息】，再说明【需要解释的原因或作用】。”`,
+    observationDistinctness: `示例：若其他题目已经要求“分析原因”，本题可只保留“按顺序概括关键步骤”，或改为考查“找出材料依据”。`,
+    discriminativePower: `可拆为：评分项一“关键内容完整”（核心要求，完整回答必须满足）；评分项二“顺序或逻辑正确”（重要要求）；评分项三“有材料依据”（重要要求）。在每项的“满足本项的答案要点”中填写可用于判断的具体内容。`,
+    difficultyCoherence: `示例：将“结合全文分析两个原因并评价作用”改为“结合第 3 段，分析一个主要原因”，可降低任务难度。`,
+    rubricAlignment: `示例：题干要求“概括并说明依据”，评分标准至少应包含“概括结果”和“材料依据”两个评分项。`,
+    scopeClarity: `可改为：“结合第【填写段落】段，概括【一个明确对象】的主要变化，并用一句话说明依据。”`,
+  };
+
+  return examples[check]?.replace('目标能力', rubricAbility) || '';
+}
+
+function removeGenericMaterialLead(stem) {
+  return stem
+    .replace(/^(请)?结合(全文|材料|文章|文本)[，,、：:\s]*/u, '')
+    .replace(/^(请)?根据(全文|材料|文章|文本)[，,、：:\s]*/u, '')
+    .replace(/[。！？!?；;]+$/u, '')
+    .trim();
+}
+
+function QuestionQualitySummary({ assessment, form, material, compact = false, stale = false }) {
   if (stale) {
     return (
       <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
@@ -1289,12 +1390,12 @@ function QuestionQualitySummary({ assessment, compact = false, stale = false }) 
           <p className="text-xs font-semibold text-slate-900">需要人工关注</p>
           <ul className="mt-2 space-y-2">
             {assessment.warnings.map((warning) => (
-              <li key={`${warning.code}-${warning.check}`} className="text-xs leading-5 text-slate-700">
+              <li key={`${warning.code}-${warning.check}`} className="rounded-md bg-white/70 px-3 py-3 text-xs leading-5 text-slate-700">
                 <p>
-                  <span className={warning.severity === 'strong_warning' ? 'text-amber-800' : 'text-blue-700'}>
+                  <span className="text-sm font-medium text-amber-800">
                     {qualityCheckLabel(warning.check, false)}
                   </span>
-                  {' · '}{warning.message}
+                  {' · '}{qualityWarningMessage(warning)}
                 </p>
                 {qualityCheckEditLocations[warning.check] ? (
                   <p className="mt-1 font-medium text-slate-700">
@@ -1302,8 +1403,19 @@ function QuestionQualitySummary({ assessment, compact = false, stale = false }) 
                   </p>
                 ) : null}
                 {qualityCheckActions[warning.check] ? (
-                  <p className="mt-1 text-slate-600">
-                    修改建议：{qualityCheckActions[warning.check]}
+                  <div className="mt-2">
+                    <p className="font-medium text-slate-700">修改原则：</p>
+                    <ol className="mt-1 list-decimal space-y-1 pl-5 text-slate-600">
+                      {qualityCheckActions[warning.check].map((action) => (
+                        <li key={action}>{action}</li>
+                      ))}
+                    </ol>
+                  </div>
+                ) : null}
+                {qualityCheckExample(warning.check, form, material) ? (
+                  <p className="mt-2 rounded-md bg-slate-50 px-3 py-2 text-slate-700">
+                    <span className="font-medium">参考写法（非固定格式）：</span>
+                    {qualityCheckExample(warning.check, form, material)}
                   </p>
                 ) : null}
               </li>
@@ -1360,7 +1472,8 @@ function ReviewPreview({ context, form, material, qualityResultStale = false }) 
       {draft ? (
         <QuestionQualitySummary
           assessment={context?.qualityAssessment}
-          draftRevision={draft.revision}
+          form={form}
+          material={material}
           compact
           stale={qualityResultStale}
         />
@@ -1599,6 +1712,10 @@ function toDraftInput(form) {
     source: { sourceType: form.sourceType, description: form.sourceDescription, copyrightNote: form.copyrightNote || undefined, externalReference: form.externalReference || undefined },
     tags: commaValues(form.tagsText),
   };
+}
+
+function draftInputSignature(form) {
+  return JSON.stringify(toDraftInput(form));
 }
 
 function toAnswerAcceptance(form) {

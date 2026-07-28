@@ -42,6 +42,9 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '12 schema guard rejects malformed assessment', run: caseSchemaGuard },
   { name: '13 valid paragraph reference is accepted as material grounding', run: caseValidParagraphReference },
   { name: '14 out-of-range paragraph reference is rejected', run: caseInvalidParagraphReference },
+  { name: '15 explicit whole-text scope is accepted as material grounding', run: caseWholeTextBoundary },
+  { name: '16 open evidence scope is accepted as material grounding', run: caseOpenEvidenceBoundary },
+  { name: '17 generic material reference remains a warning', run: caseGenericMaterialReference },
 ];
 
 async function main(): Promise<void> {
@@ -348,6 +351,46 @@ async function caseInvalidParagraphReference(): Promise<void> {
   assert(
     hasWarning(assessment, 'quality.material.paragraph_out_of_range'),
     'Out-of-range paragraph warning is missing.',
+  );
+}
+
+async function caseWholeTextBoundary(): Promise<void> {
+  const fixture = await validFixture('whole-text-boundary', {
+    questionStem: '结合全文，概括父亲发现树叶后的行为变化，并分析这些行为表现出的心理。',
+  });
+  const assessment = assessQuestionDraftQuality(fixture);
+
+  assert(
+    assessment.checks.materialGrounding === 'pass',
+    'Explicit whole-text evidence scope was not accepted.',
+  );
+}
+
+async function caseOpenEvidenceBoundary(): Promise<void> {
+  const fixture = await validFixture('open-evidence-boundary', {
+    questionStem: '从文中任选两处描写父亲动作的细节，分析这些动作表现出的心理。',
+  });
+  const assessment = assessQuestionDraftQuality(fixture);
+
+  assert(
+    assessment.checks.materialGrounding === 'pass',
+    'Open evidence scope with a specified evidence type was not accepted.',
+  );
+}
+
+async function caseGenericMaterialReference(): Promise<void> {
+  const fixture = await validFixture('generic-material-reference', {
+    questionStem: '结合材料，分析父亲当时的心理。',
+  });
+  const assessment = assessQuestionDraftQuality(fixture);
+
+  assert(
+    assessment.checks.materialGrounding === 'warning',
+    'Generic material reference should retain a boundary clarity warning.',
+  );
+  assert(
+    hasWarning(assessment, 'quality.material.anchor_weak'),
+    'Generic material reference did not produce a weak-boundary warning.',
   );
 }
 

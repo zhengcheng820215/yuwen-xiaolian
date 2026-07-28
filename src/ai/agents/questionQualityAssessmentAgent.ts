@@ -157,16 +157,24 @@ function checkMaterialGrounding(
   }
   const hasValidParagraphReference = paragraphReferences.length > 0;
   const refersToMaterial = /(结合(材料|全文|上下文)|根据(材料|全文|文中)|文中|文章|原文|这一(动作|细节|语句|段落))/.test(stem);
+  const hasWholeTextBoundary = /(结合|根据|依据)(全文|全篇|整篇|通篇|文章整体)|通读全文/.test(stem);
+  const hasOpenEvidenceBoundary = /(任选|选取|找出|列举|举出).{0,12}(一|二|两|三|\d+)?\s*(处|个|项|例).{0,12}(细节|语句|情节|证据|描写|内容)/.test(stem);
   const longestAnchorLength = longestCommonChineseRun(stem, content);
 
-  if (hasValidParagraphReference || hasQuotedAnchor || longestAnchorLength >= 4) return 'pass';
+  if (
+    hasValidParagraphReference ||
+    hasQuotedAnchor ||
+    longestAnchorLength >= 4 ||
+    hasWholeTextBoundary ||
+    hasOpenEvidenceBoundary
+  ) return 'pass';
   if (refersToMaterial) {
     addWarning(
       warnings,
       'quality.material.anchor_weak',
       'materialGrounding',
       'warning',
-      '题目提到了材料，但缺少可快速核对的具体材料锚点。',
+      '题目提到了材料，但证据范围仍较笼统，学生可能不清楚应从局部内容还是全文组织依据。',
       ['questionStem', 'materialVersionId'],
     );
     return 'warning';
@@ -271,7 +279,7 @@ function checkDiscriminativePower(
       'quality.discrimination.weak',
       'discriminativePower',
       'warning',
-      '当前 Rubric 较难区分完整、部分与不足回答。',
+      '当前评分标准还不能清楚区分完整回答、部分回答和未达到要求的回答。',
       ['rubric', 'minimumAnswerRequirement'],
     );
     return 'warning';
