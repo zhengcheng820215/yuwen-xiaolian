@@ -121,38 +121,44 @@ button {
   font-weight: 600;
 }
 
-.material-resource-workbench {
+:where(.material-resource-workbench, .question-resource-workbench) {
   --ai-action-color: #6713ee;
   --ai-action-hover: #5710c9;
   --ai-action-soft: #f3eaff;
   --ai-action-focus: rgba(103, 19, 238, 0.28);
 }
 
-.material-resource-workbench .ai-button-solid {
+:where(.material-resource-workbench, .question-resource-workbench) .ai-button-solid {
   border-color: var(--ai-action-color);
   background-color: var(--ai-action-color);
   color: #ffffff;
 }
 
-.material-resource-workbench .ai-button-solid:hover:not(:disabled) {
+:where(.material-resource-workbench, .question-resource-workbench) .ai-button-solid:hover:not(:disabled) {
   border-color: var(--ai-action-hover);
   background-color: var(--ai-action-hover);
 }
 
-.material-resource-workbench .ai-button-outline {
+:where(.material-resource-workbench, .question-resource-workbench) .ai-button-outline {
   border-color: var(--ai-action-color);
   background-color: #ffffff;
   color: var(--ai-action-color);
 }
 
-.material-resource-workbench .ai-button-outline:hover:not(:disabled) {
+:where(.material-resource-workbench, .question-resource-workbench) .ai-button-outline:hover:not(:disabled) {
   background-color: var(--ai-action-soft);
 }
 
-.material-resource-workbench .ai-button-solid:focus-visible,
-.material-resource-workbench .ai-button-outline:focus-visible {
+:where(.material-resource-workbench, .question-resource-workbench) .ai-button-solid:focus-visible,
+:where(.material-resource-workbench, .question-resource-workbench) .ai-button-outline:focus-visible {
   outline-color: var(--ai-action-color);
   box-shadow: 0 0 0 3px var(--ai-action-focus);
+}
+
+:where(.material-resource-workbench, .question-resource-workbench) :where(.ai-button-solid, .ai-button-outline):disabled {
+  border-color: #cbd5e1;
+  background-color: #f8fafc;
+  color: #94a3b8;
 }
 
 :where(.material-resource-workbench, .question-resource-workbench) button.bg-emerald-600 {
@@ -167,7 +173,7 @@ button {
 }
 
 :where(.material-resource-workbench, .question-resource-workbench) button.border-emerald-600:not(.bg-emerald-600) {
-  border-color: #0f172a;
+  border-color: #666666;
   color: #0f172a;
 }
 

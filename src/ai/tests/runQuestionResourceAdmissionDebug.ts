@@ -371,6 +371,22 @@ async function caseDuplicateFreeze(): Promise<void> {
   assert(first.inserted && !second.inserted, 'Duplicate freeze did not return idempotent result.');
   assert(first.version.resourceVersionId === second.version.resourceVersionId, 'Duplicate freeze changed identity.');
   assert((await repo.listVersions(first.version.resourceId)).length === 1, 'Duplicate freeze created another version.');
+
+  await repo.replaceRegistry([]);
+  const recovered = await freezeQuestionResourceDraft(repo, draft.draftId, LATER);
+  assert(!recovered.inserted, 'Registry recovery reported a new formal version.');
+  assert(
+    recovered.version.resourceVersionId === first.version.resourceVersionId,
+    'Registry recovery changed the formal version identity.',
+  );
+  assert(
+    recovered.registryEntry.currentFrozenVersionId === first.version.resourceVersionId,
+    'Registry recovery did not restore the formal version as registry head.',
+  );
+  assert(
+    (await repo.listVersions(first.version.resourceId)).length === 1,
+    'Registry recovery created a duplicate formal version.',
+  );
 }
 
 async function caseStaleValidation(): Promise<void> {

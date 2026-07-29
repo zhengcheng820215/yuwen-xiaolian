@@ -49,7 +49,7 @@ Debug / Acceptance Report
 | Phase 17.2 首批正式资源包 | 生产经过审核、能被正式学习系统使用的真实题目 | PASS | BATCH A CONTROLLED FORMALIZATION + ASSISTED DRAFT GENERATION 38 / 38 PASS | BATCH A OWNER REVIEW / FREEZE 8 / 8 PASS | THREE-ROUND PROVIDER QUALITY REVIEW PENDING |
 | Phase 17.3 正式资源运行集成 | 证明资源目标、来源、诊断、证据和下一任务在主链中不丢失 | PASS | WORK PACKAGE A 17 / 17 PASS / WORK PACKAGE B CONTROLLED LIVE 3 / 3 PASS | BATCH A `/learning` SINGLE-ROUND PASS | CONTROLLED DEEPSEEK LIVE PASS |
 | Phase 17.4 本机共享正式资源 | 让不同本机客户端读取同一份正式资源，并保护版本与冲突 | PASS | DEBUG 10 / 10 + BASELINE CUTOVER + FRESH INITIALIZATION PASS | CONTROLLED DUAL-CLIENT + INDEPENDENT BROWSER-KERNEL CHECK PASS | RESTART PERSISTENCE PASS |
-| Phase 17.5 题目生成质量评估 | 在发布前发现结构、语义和批次质量问题 | PASS | 17.5A / B / C1 / C2 / C3A / C3B RUNTIME PASS | LIGHTWEIGHT DEMO PASS | REAL TEN-MATERIAL CALIBRATION PENDING |
+| Phase 17.5 题目生成质量评估 | 在发布前发现结构、语义和批次质量问题 | PASS | 17.5A / B / C1 / C2 / C3A / C3B RUNTIME PASS + REVIEW / PUBLICATION WORKFLOW P0 PASS | LIGHTWEIGHT DEMO + UNSAVED NAVIGATION ACCEPTANCE PASS | REAL TEN-MATERIAL CALIBRATION PENDING |
 | `/learning` 正式学习入口 | 让单学生从一个入口开始、恢复、作答、反馈并继续 | PASS | MAIN PATH PASS / CONSOLIDATION IN PROGRESS | CONTROLLED DEMO PASS | `0 / 5` |
 | 多能力调度 | 根据表现和正式资源决定下一步练什么 | PASS | RUNTIME PASS | LIMITED BY RESOURCE PACK | PENDING |
 | Student Learning Narrative | 把系统已有判断转化为学生可理解、可执行的表达 | PASS | BASELINE PASS | REAL STUDENT CALIBRATION PENDING | PENDING |
@@ -66,7 +66,7 @@ Debug / Acceptance Report
 | 产品级 PASS | ① 24—28 道全部 Review / Freeze / Registry / Link；② 六项 Ability 均有正式资源；③ 两条 Retest、两条 Transfer、一条跨 Ability 路径可查询；④ 核心题 Rubric、Acceptance 与答案 Fixture 通过；⑤ 无明显低质量或错位题。 |
 | 演示路径 | 选择或保存 Batch A Material -> 核对当前素材的待审核资源与已发布练习，并确认两类明细沿用同一题号顺序 -> 校准训练任务 -> 在“提交题目审核”核对版本、能力覆盖、材料范围与结构检查 -> Question / Rubric / Acceptance -> Review -> Freeze -> Registry -> Link -> Runtime Query；另选一条已停用素材执行重新启用，确认历史关系保留并返回已有素材库存。未选择 Material 时不显示下游生产模块。 |
 | FAIL 先查 | 题目与 Rubric：内容；Freeze / Registry / Link：Runtime；录入审核困难：交互。 |
-| 证据 | [Phase 17.2](../education/phase/phase17_2.md) · [录入字段契约 v1](AUTHORING_FIELD_CONTRACT.md) · [单训练任务重新生成契约](SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) · [训练任务组 AI 规划契约](TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) · [生产蓝图](../education/phase/phase17_2_first_resource_pack_blueprint.md) · [辅助首稿生成验收](../education/phase/reports/phase17_2_assisted_draft_generation_engineering_2026-07-23.md) |
+| 证据 | [Phase 17.2](../education/phase/phase17_2.md) · [录入字段契约 v1](AUTHORING_FIELD_CONTRACT.md) · [题目审核与发布工作流契约](QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md) · [单训练任务重新生成契约](SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) · [训练任务组 AI 规划契约](TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) · [生产蓝图](../education/phase/phase17_2_first_resource_pack_blueprint.md) · [辅助首稿生成验收](../education/phase/reports/phase17_2_assisted_draft_generation_engineering_2026-07-23.md) |
 
 ## 五、Phase 17.3：正式资源运行集成
 

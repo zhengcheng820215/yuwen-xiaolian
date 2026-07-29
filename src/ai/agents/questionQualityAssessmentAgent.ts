@@ -26,6 +26,18 @@ export type AssessQuestionDraftQualityInput = {
   ruleVersion?: string;
 };
 
+export type CurrentQuestionQualityAssessmentState =
+  | 'missing'
+  | 'current'
+  | 'stale_by_revision'
+  | 'stale_by_rule_version'
+  | 'failed';
+
+export type ResolveCurrentQuestionQualityAssessmentOptions = {
+  comparisonContextHash?: string;
+  executionStatus?: 'completed' | 'provider_failed' | 'timeout' | 'invalid_output';
+};
+
 export function selectComparableQuestionDrafts(
   draft: StructuredQuestionDraft,
   peerDrafts: StructuredQuestionDraft[],
@@ -145,21 +157,41 @@ export function isCurrentQuestionQualityAssessment(
   assessment: QuestionQualityAssessment | null | undefined,
   comparisonContextHash?: string,
 ): assessment is QuestionQualityAssessment {
-  return Boolean(
-    assessment &&
+  return resolveCurrentQuestionQualityAssessmentState(
+    draft,
+    validation,
+    assessment,
+    { comparisonContextHash },
+  ) === 'current';
+}
+
+export function resolveCurrentQuestionQualityAssessmentState(
+  draft: StructuredQuestionDraft,
+  validation: ResourceValidationResult,
+  assessment: QuestionQualityAssessment | null | undefined,
+  options: ResolveCurrentQuestionQualityAssessmentOptions = {},
+): CurrentQuestionQualityAssessmentState {
+  if (options.executionStatus && options.executionStatus !== 'completed') {
+    return 'failed';
+  }
+  if (!assessment) return 'missing';
+  if (assessment.ruleVersion !== QUESTION_QUALITY_RULE_VERSION) {
+    return 'stale_by_rule_version';
+  }
+  const isCurrentRevision = (
     assessment.draftId === draft.draftId &&
     assessment.resourceId === draft.resourceId &&
     assessment.assessedDraftRevision === draft.revision &&
     assessment.validationId === validation.validationId &&
-    assessment.ruleVersion === QUESTION_QUALITY_RULE_VERSION &&
-    (
-      comparisonContextHash === undefined ||
-      assessment.comparisonContextHash === comparisonContextHash
-    ) &&
     validation.draftId === draft.draftId &&
     validation.validatedDraftRevision === draft.revision &&
-    validation.passed,
+    validation.passed &&
+    (
+      options.comparisonContextHash === undefined ||
+      assessment.comparisonContextHash === options.comparisonContextHash
+    )
   );
+  return isCurrentRevision ? 'current' : 'stale_by_revision';
 }
 
 export function requireCurrentQuestionQualityAssessment(

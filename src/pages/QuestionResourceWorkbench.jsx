@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   FilePlus2,
+  Plus,
   RefreshCw,
   Trash2,
 } from 'lucide-react';
@@ -14,6 +15,7 @@ import PageHeader from '../components/PageHeader.jsx';
 import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
 import { requestQuestionStemOptimization } from '../api/questionStemOptimization.ts';
 import { requestRubricItemOptimization } from '../api/rubricItemOptimization.ts';
+import { formatMaterialTitle } from '../ui/materialTitle.ts';
 import {
   assessAuthoringFieldResponsibilities,
   getQualityCheckEditLocation,
@@ -73,8 +75,6 @@ const responseFormatOptions = [
   ['short_text', '短文本'],
   ['long_text', '长文本'],
 ];
-
-const unsavedChangesMessage = '当前题目还有未保存的修改。离开后这些修改将丢失，确认继续吗？';
 
 const difficultyOptions = [
   ['basic', '基础'],
@@ -162,6 +162,7 @@ export default function QuestionResourceWorkbench() {
   const [rubricOptimizationAttempts, setRubricOptimizationAttempts] = useState({});
   const [qualityResultStale, setQualityResultStale] = useState(false);
   const [qualityRevisionProgress, setQualityRevisionProgress] = useState(null);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
   const stemOptimizationRequestRef = useRef(0);
   const rubricOptimizationRequestRef = useRef(0);
   const postNavigationNoticeRef = useRef(null);
@@ -253,14 +254,20 @@ export default function QuestionResourceWorkbench() {
     }
   }
 
-  function confirmUnsavedNavigation() {
-    return !hasUnsavedChanges || window.confirm(unsavedChangesMessage);
+  function requestNavigation(action, destinationLabel) {
+    if (!hasUnsavedChanges) {
+      void action();
+      return;
+    }
+    setPendingNavigation({ action, destinationLabel });
   }
 
-  async function selectDraftWithConfirmation(draftId) {
+  function selectDraftWithConfirmation(draftId) {
     if (draftId === selectedDraftId) return;
-    if (!confirmUnsavedNavigation()) return;
-    await selectDraft(draftId);
+    requestNavigation(
+      () => selectDraft(draftId),
+      '切换到其他题目',
+    );
   }
 
   function startNewDraft() {
@@ -285,18 +292,23 @@ export default function QuestionResourceWorkbench() {
   }
 
   function startNewDraftWithConfirmation() {
-    if (!confirmUnsavedNavigation()) return;
-    startNewDraft();
+    requestNavigation(startNewDraft, '新建题目');
   }
 
   function returnToMaterialWorkbench(event) {
-    if (confirmUnsavedNavigation()) return;
+    if (!hasUnsavedChanges) return;
     event.preventDefault();
+    requestNavigation(
+      () => navigate(materialWorkbenchReturnPath),
+      '返回素材资源录入平台',
+    );
   }
 
   function refreshWorkspaceWithConfirmation() {
-    if (!confirmUnsavedNavigation()) return;
-    refreshWorkspace().catch((error) => setNotice(errorNotice(error)));
+    requestNavigation(
+      () => refreshWorkspace().catch((error) => setNotice(errorNotice(error))),
+      '刷新当前审核数据',
+    );
   }
 
   function updateQualityRelevantForm(updater, affectedChecks = []) {
@@ -363,6 +375,23 @@ export default function QuestionResourceWorkbench() {
       (draft) => draft.draftId,
     );
     if (result) setSelectedDraftId(result.draftId);
+    return result;
+  }
+
+  async function saveAndContinueNavigation() {
+    const pending = pendingNavigation;
+    if (!pending) return;
+    const result = await saveDraft();
+    if (!result) return;
+    setPendingNavigation(null);
+    await pending.action();
+  }
+
+  async function discardAndContinueNavigation() {
+    const pending = pendingNavigation;
+    if (!pending) return;
+    setPendingNavigation(null);
+    await pending.action();
   }
 
   async function createMaterial() {
@@ -892,7 +921,7 @@ export default function QuestionResourceWorkbench() {
         setRubricOptimization(null);
       }}
       focusedReview={planReviewMode}
-      selectedQuestionNumber={selectedQuestionIndex >= 0 ? toChineseNumber(selectedQuestionIndex + 1) : null}
+      selectedQuestionNumber={selectedQuestionIndex >= 0 ? String(selectedQuestionIndex + 1) : null}
       hasUnsavedChanges={hasUnsavedChanges}
     />
   );
@@ -929,6 +958,49 @@ export default function QuestionResourceWorkbench() {
 
   return (
     <div className={`question-resource-workbench min-h-screen ${planReviewMode ? 'bg-[#f6f8fb] text-slate-950' : 'bg-[#f5f7fb]'}`}>
+      {pendingNavigation ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/35 px-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="unsaved-navigation-title"
+            className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl"
+          >
+            <h2 id="unsaved-navigation-title" className="text-lg font-semibold text-slate-950">
+              当前题目有未保存修改
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              你将{pendingNavigation.destinationLabel}。请选择如何处理当前修改。
+            </p>
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingNavigation(null)}
+                disabled={busy}
+                className="h-10 rounded-md border border-[#666666] px-4 text-sm font-medium text-slate-800 disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={discardAndContinueNavigation}
+                disabled={busy}
+                className="h-10 rounded-md border border-[#666666] px-4 text-sm font-medium text-slate-800 disabled:opacity-50"
+              >
+                放弃修改并继续
+              </button>
+              <button
+                type="button"
+                onClick={saveAndContinueNavigation}
+                disabled={busy}
+                className="h-10 rounded-md bg-slate-950 px-4 text-sm font-medium text-white disabled:opacity-50"
+              >
+                保存后继续
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       {planReviewMode ? (
         <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
           <div className="mx-auto flex min-h-16 max-w-[1360px] items-center justify-between px-5 md:px-8">
@@ -1058,7 +1130,7 @@ function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, o
             {focusedReview ? (
               <>
                 <span className="flex min-w-0 items-start justify-between gap-3">
-                  <span className="min-w-0 text-sm font-semibold text-slate-950">题目{toChineseNumber(index + 1)}</span>
+                  <span className="min-w-0 text-sm font-semibold text-slate-950">题目{index + 1}</span>
                   <span className="flex shrink-0 items-center gap-2">
                     <StatusBadge status={draftDisplayStatus(snapshot, draft)} />
                     {canDiscard ? (
@@ -1310,7 +1382,7 @@ function QuestionEditor({
                   !form.materialVersionId
                 }
                 onClick={() => onOptimizeStem()}
-                className="min-h-9 rounded-md border border-emerald-600 bg-white px-3 text-sm font-normal text-emerald-700 hover:bg-emerald-50 disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
+                className="ai-button-outline min-h-9 rounded-md border px-3 text-sm font-normal disabled:cursor-not-allowed"
               >
                 {stemOptimizationBusy ? '正在优化题干…' : 'AI 优化题干'}
               </button>
@@ -1658,7 +1730,7 @@ function QuestionEditor({
                         (rubricOptimizationAttempts[item.localId] || 0) >= 2
                       }
                       onClick={() => onOptimizeRubricItem(index)}
-                      className="min-h-9 rounded-md border border-emerald-600 bg-white px-4 text-sm font-normal text-emerald-700 hover:bg-emerald-50 disabled:border-slate-300 disabled:text-slate-400"
+                      className="ai-button-outline min-h-9 rounded-md border px-4 text-sm font-normal disabled:cursor-not-allowed"
                     >
                       {rubricOptimization?.itemId === item.localId && rubricOptimization.busy
                         ? '正在优化本项…'
@@ -1788,8 +1860,9 @@ function QuestionEditor({
               }),
               ['discriminativePower', 'rubricAlignment'],
             )}
-            className="flex min-h-10 w-full items-center justify-center rounded-md border border-emerald-600 bg-white px-4 text-sm font-normal text-emerald-700 hover:bg-emerald-50"
+            className="mx-auto flex h-10 w-[240px] items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-4 text-sm font-normal text-emerald-700 hover:bg-slate-50"
           >
+            <Plus size={18} aria-hidden="true" />
             添加评分项
           </button>
         </EditorGroup>
@@ -1816,7 +1889,7 @@ function QuestionEditor({
           type="button"
           disabled={busy || !editable || !hasUnsavedChanges}
           onClick={onSave}
-          className={`flex min-h-11 w-full items-center justify-center rounded-md px-4 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400 ${focusedReview ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-950 hover:bg-slate-800'}`}
+          className={`mx-auto flex min-h-11 w-[240px] items-center justify-center rounded-md px-4 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400 ${focusedReview ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-950 hover:bg-slate-800'}`}
         >
           {hasUnsavedChanges ? (focusedReview ? '保存本次修改' : '保存草稿') : '当前内容已保存'}
         </button>
@@ -2283,8 +2356,7 @@ function qualityWarningMessage(warning) {
 }
 
 function qualityCheckExample(check, form, material) {
-  const normalizedMaterialTitle = material?.title?.replace(/^《|》$/gu, '') || '';
-  const materialTitle = normalizedMaterialTitle ? `《${normalizedMaterialTitle}》` : '当前材料';
+  const materialTitle = material?.title ? formatMaterialTitle(material.title) : '当前材料';
   const currentStem = form?.questionStem?.trim() || '';
   const rubricAbility = abilityOptions.find(([value]) => value === form?.abilityId)?.[1] || '目标能力';
 

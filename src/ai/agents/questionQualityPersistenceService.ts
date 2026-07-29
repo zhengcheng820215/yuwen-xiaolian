@@ -1,4 +1,5 @@
 import {
+  ensureRegistryEntryForFrozenVersion,
   prepareQuestionResourceFreezeCommit,
   reviewQuestionResourceDraft,
 } from './questionResourceAdmissionAgent.ts';
@@ -165,12 +166,9 @@ export async function freezeQuestionResourceDraftWithPersistedQuality(
   const existing = await resourceRepository.getVersionByDraftId(draftId);
   if (existing) {
     const [registryEntry, trace] = await Promise.all([
-      resourceRepository.getRegistryEntry(existing.resourceId),
+      ensureRegistryEntryForFrozenVersion(resourceRepository, existing, now),
       qualityRepository.getTraceForResourceVersion(existing.resourceVersionId),
     ]);
-    if (!registryEntry) {
-      throw new Error('Frozen version exists without ResourceRegistry entry.');
-    }
     if (!trace) {
       throw new Error('legacy_quality_trace_absent');
     }

@@ -3,6 +3,7 @@ import {
   assessQuestionDraftQuality,
   buildQuestionQualityComparisonContextHash,
   isCurrentQuestionQualityAssessment,
+  resolveCurrentQuestionQualityAssessmentState,
   requireCurrentQuestionQualityAssessment,
 } from '../agents/questionQualityAssessmentAgent.ts';
 import {
@@ -51,6 +52,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '20 duplicate content is detected across ability labels', run: caseDifferentAbilityDuplicate },
   { name: '21 archived peers are ignored', run: caseArchivedPeerIgnored },
   { name: '22 peer changes invalidate comparison context', run: casePeerContextInvalidation },
+  { name: '23 current assessment state has one canonical resolver', run: caseCurrentAssessmentStateResolver },
 ];
 
 async function main(): Promise<void> {
@@ -98,6 +100,55 @@ async function caseValidAssessment(): Promise<void> {
       assessment,
     ).assessmentId === assessment.assessmentId,
     'Current-assessment guard returned the wrong assessment.',
+  );
+}
+
+async function caseCurrentAssessmentStateResolver(): Promise<void> {
+  const fixture = await validFixture('assessment-state');
+  const assessment = assessQuestionDraftQuality({
+    ...fixture,
+    assessedAt: NOW,
+  });
+  assert(
+    resolveCurrentQuestionQualityAssessmentState(
+      fixture.draft,
+      fixture.validation,
+      null,
+    ) === 'missing',
+    'Missing assessment state was not recognized.',
+  );
+  assert(
+    resolveCurrentQuestionQualityAssessmentState(
+      fixture.draft,
+      fixture.validation,
+      assessment,
+    ) === 'current',
+    'Current assessment state was not recognized.',
+  );
+  assert(
+    resolveCurrentQuestionQualityAssessmentState(
+      { ...fixture.draft, revision: fixture.draft.revision + 1 },
+      fixture.validation,
+      assessment,
+    ) === 'stale_by_revision',
+    'Revision-stale assessment state was not recognized.',
+  );
+  assert(
+    resolveCurrentQuestionQualityAssessmentState(
+      fixture.draft,
+      fixture.validation,
+      { ...assessment, ruleVersion: 'question-quality-rules:legacy' },
+    ) === 'stale_by_rule_version',
+    'Rule-stale assessment state was not recognized.',
+  );
+  assert(
+    resolveCurrentQuestionQualityAssessmentState(
+      fixture.draft,
+      fixture.validation,
+      assessment,
+      { executionStatus: 'provider_failed' },
+    ) === 'failed',
+    'Failed assessment execution state was not recognized.',
   );
 }
 

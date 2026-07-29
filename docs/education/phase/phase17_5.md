@@ -819,3 +819,61 @@ Demo 直接消费正式 `QuestionQualityAssessment` 规则，不使用固定结�
 
 跨对象原则与依赖范围见：
 [基于 Revision 的质量评估失效记录](./reports/revision_bound_assessment_invalidation_2026-07-27.md)
+
+## 2026-07-29 题目审核与发布工作流契约冻结
+
+本轮新增 [Phase 17 题目审核与发布工作流契约](../../product/QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md)，把既有录入字段、Revision、Validation、QuestionQualityAssessment、Human Review、Freeze 与 Formal Resource 规则翻译为统一审核工作流。
+
+正式主链冻结为：
+
+```text
+确认题目内容
+→ 处理质量问题
+→ 保存当前 Draft Revision
+→ 基于当前 Revision 重新检查
+→ 提交人工审核
+→ 形成审核决定
+→ 完成正式发布
+```
+
+本次文档补强明确：
+
+1. 页面采用“当前状态与下一步、题目核心内容、评分与判定规则、高级设置与追溯信息”四层结构；
+2. 保存草稿只在内容变化时创建新 Draft Revision，重新检查不创建内容 Revision；
+3. 系统检查、人工审核和正式发布保持三层独立判断；
+4. 质量问题分为阻断问题、人工关注和优化建议；
+5. 修改字段后问题进入“等待重新检查”，只有新 Assessment 才能关闭问题；
+6. 右侧列表只做批次导航，主编辑区负责内容修改，检查区负责问题处理，预览页保持只读；
+7. 已知发布阻断必须在发布按钮可用前进入发布准备区，不得延迟到点击发布后首次暴露；
+8. 定位修改必须切换正确题目、展开模块并聚焦准确字段；Plan 受控字段问题不得错误定位到题干；
+9. 重复保存、检查、提交和发布不得制造空 Revision、重复 Assessment、重复 Review 或重复正式版本；
+10. 页面、提交审核和发布必须消费同一个 `CurrentAssessmentState`，统一判断 Revision、Validation、规则版本、比较上下文和语义检查状态；
+11. `pending_review` 中正式内容只读，需要修改时必须先“退回修改”并返回 Draft；
+12. 切换题目、返回、刷新和进入预览统一执行未保存保护，明确区分“保存后切换、放弃修改并切换、取消”；
+13. 发布部分成功后必须可恢复，Registry 重试复用已经创建的 `FrozenQuestionResourceVersion`，不得增加正式版本号；
+14. 完整工作流允许由内容编辑者、审核者和发布者分工完成，但不得改变各阶段的 Revision 和状态边界。
+
+该契约不新增一条资源生产流程，不替代录入字段契约、单任务重新生成契约或任务组 AI 规划契约。它是 Phase 17.5 审核端的工作流解释层，后续工程校准按 P0 状态与问题闭环、P1 信息层级与页面职责、P2 批次效率与真实校准依次执行。
+
+## 2026-07-29 题目审核与发布工作流工程对齐
+
+本轮完成契约 P0 的关键工程闭环：
+
+1. 新增领域层唯一 Assessment 状态解析器，统一返回 `missing`、`current`、`stale_by_revision`、`stale_by_rule_version` 或 `failed`；
+2. 原有 `isCurrentQuestionQualityAssessment` 改为消费统一解析结果，提交审核与发布继续通过同一领域判断校验时效；
+3. `pending_review` 等非草稿状态继续保持正式字段只读，必须退回修改后才能创建新 Draft Revision；
+4. 切换题目、新建题目、返回素材平台和刷新审核数据统一接入未保存保护；
+5. 未保存保护提供“保存后继续”“放弃修改并继续”“取消”三个明确动作，保存后继续只保存当前题目，不自动提交审核；
+6. 发布已创建 Frozen Version、但 Registry 写入缺失时，重试会复用原 `resourceVersionId` 并补齐 Registry，不增加正式版本号。
+
+Debug 与构建结果：
+
+- Question Quality Assessment：`23 / 23 PASS`；
+- Question Resource Intake / Admission：`24 / 24 PASS`；
+- Material Resource Production Commands：`6 / 6 PASS`；
+- Phase 17.5C2：`17 / 17 PASS`；
+- Production Build：`PASS`；
+- 浏览器真实交互：取消切换保留当前编辑；放弃修改后切换成功且未保存内容不写入草稿；`PASS`；
+- `git diff --check`：`PASS`。
+
+本轮证明审核平台已具备一致的 Assessment 时效判断、审核中只读边界、明确的题目切换保护和发布部分失败恢复能力。真实十素材校准仍是 Phase 17.5 后续产品验收项，不因本次工程通过而自动完成。

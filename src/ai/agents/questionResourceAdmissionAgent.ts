@@ -407,8 +407,11 @@ export async function freezeQuestionResourceDraft(
 ): Promise<ResourceFreezeResult> {
   const existing = await repository.getVersionByDraftId(draftId);
   if (existing) {
-    const registryEntry = await repository.getRegistryEntry(existing.resourceId);
-    if (!registryEntry) throw new Error('Frozen version exists without ResourceRegistry entry.');
+    const registryEntry = await ensureRegistryEntryForFrozenVersion(
+      repository,
+      existing,
+      now,
+    );
     return { version: existing, registryEntry, inserted: false };
   }
 
@@ -418,6 +421,28 @@ export async function freezeQuestionResourceDraft(
     now,
   );
   return repository.commitFreeze(commit);
+}
+
+export async function ensureRegistryEntryForFrozenVersion(
+  repository: QuestionResourceAdmissionRepository,
+  version: FrozenQuestionResourceVersion,
+  now = new Date().toISOString(),
+): Promise<ResourceRegistryEntry> {
+  const existing = await repository.getRegistryEntry(version.resourceId);
+  if (existing) return existing;
+
+  const versions = await repository.listVersions(version.resourceId);
+  const current = versions
+    .filter((item) => item.status === 'frozen')
+    .sort((left, right) => right.versionNumber - left.versionNumber)[0];
+  if (!current) {
+    throw new Error('Frozen version exists without a recoverable current version.');
+  }
+  const recovered = buildRegistryEntry(current, null, now);
+  return repository.saveRegistryEntry({
+    ...recovered,
+    createdAt: current.frozenAt,
+  });
 }
 
 export async function prepareQuestionResourceFreezeCommit(

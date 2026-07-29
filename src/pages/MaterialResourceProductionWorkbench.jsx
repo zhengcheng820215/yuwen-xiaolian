@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronDown,
   LoaderCircle,
+  RotateCcw,
   Trash2,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -38,6 +39,7 @@ import {
 } from '../api/sharedFormalResourcePersistence.ts';
 import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
 import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
+import { formatMaterialTitle } from '../ui/materialTitle.ts';
 import {
   buildMaterialResourceWorkbenchDetails,
   isPlanFullyPublished,
@@ -438,7 +440,7 @@ export default function MaterialResourceProductionWorkbench() {
     if (material.status === 'retired') {
       setNotice({
         type: 'error',
-        message: `《${material.title}》已停用。请先核对历史记录，再决定是否录入修订版本。`,
+        message: `${formatMaterialTitle(material.title)}已停用。请先核对历史记录，再决定是否录入修订版本。`,
       });
       return;
     }
@@ -446,7 +448,7 @@ export default function MaterialResourceProductionWorkbench() {
     setSelectedMaterialId(material.materialVersionId);
     setSelectedPlanId('');
     setMaterialForm({ title: '', content: '', description: '人工录入素材', copyrightNote: '' });
-    setNotice({ type: 'success', message: `已切换到已有学习材料《${material.title}》。` });
+    setNotice({ type: 'success', message: `已切换到已有学习材料${formatMaterialTitle(material.title)}。` });
   }
 
   async function requestMaterialRemoval() {
@@ -479,8 +481,8 @@ export default function MaterialResourceProductionWorkbench() {
       setToast({
         id: Date.now(),
         message: action === 'delete'
-          ? `未使用的学习材料《${material.title}》已删除。`
-          : `学习材料《${material.title}》已停用，历史训练与题目记录保持不变。`,
+          ? `未使用的学习材料${formatMaterialTitle(material.title)}已删除。`
+          : `学习材料${formatMaterialTitle(material.title)}已停用，历史训练与题目记录保持不变。`,
       });
     } catch (error) {
       setMaterialAction(null);
@@ -503,7 +505,7 @@ export default function MaterialResourceProductionWorkbench() {
       }
       setToast({
         id: Date.now(),
-        message: `学习材料《${material.title}》已重新启用。`,
+        message: `学习材料${formatMaterialTitle(material.title)}已重新启用。`,
       });
     } catch (error) {
       setNotice(errorNotice(error));
@@ -1195,8 +1197,15 @@ export default function MaterialResourceProductionWorkbench() {
             <button type="button" onClick={requestLoadBatchA} disabled={busy} className={`hidden h-10 items-center rounded-md border px-3 text-sm font-semibold disabled:opacity-50 sm:flex ${activeLoadPreset === 'batch_a' ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
               使用 Batch A 资源包
             </button>
-            <button type="button" onClick={refreshWorkbench} disabled={busy} title="刷新工作台数据" className="flex h-10 items-center justify-center rounded-md border border-slate-200 px-4 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50">
-              {busy ? '刷新中' : '刷新'}
+            <button
+              type="button"
+              onClick={refreshWorkbench}
+              disabled={busy}
+              title={busy ? '正在刷新工作台数据' : '刷新工作台数据'}
+              aria-label={busy ? '正在刷新工作台数据' : '刷新工作台数据'}
+              className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <RotateCcw size={18} className={busy ? 'animate-spin' : ''} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -1867,7 +1876,7 @@ export default function MaterialResourceProductionWorkbench() {
                         <SubmissionSummaryItem label="训练任务数量" value={`${selectedPlan.taskPlans.length} 个`} />
                         <SubmissionSummaryItem label="能力覆盖" value={submissionSummary.abilities.join('、') || '尚未设置'} />
                         <SubmissionSummaryItem label="训练方向" value={submissionSummary.directions.join('、') || '尚未设置'} />
-                        <SubmissionSummaryItem label="学习材料" value={`《${selectedMaterial.title}》`} />
+                        <SubmissionSummaryItem label="学习材料" value={formatMaterialTitle(selectedMaterial.title)} />
                         <SubmissionSummaryItem label="材料范围" value={submissionSummary.materialRanges.join('、') || '尚未设置'} />
                       </dl>
                     </div>
@@ -1977,7 +1986,7 @@ function DuplicateMaterialDialog({ material, onCancel, onUseExisting }) {
       <section role="dialog" aria-modal="true" aria-labelledby="duplicate-material-title" className="w-full max-w-md rounded-md bg-white p-6 shadow-xl">
         <h2 id="duplicate-material-title" className="text-lg font-semibold">发现相同的学习材料</h2>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          当前正文与《{material.title}》相同。系统不会重复保存同一份内容。
+          当前正文与{formatMaterialTitle(material.title)}相同。系统不会重复保存同一份内容。
           {retired ? ' 这份素材目前已停用。' : ' 可以直接使用已有素材继续。'}
         </p>
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -2000,8 +2009,8 @@ function MaterialRemovalDialog({ action, dependencyCount, material, busy, onCanc
         </div>
         <p className="mt-3 text-sm leading-6 text-slate-600">
           {willDelete
-            ? `《${material.title}》尚未进入训练任务或题目链，可以安全删除。`
-            : `《${material.title}》已有 ${dependencyCount} 项下游记录，不能直接删除。停用后将不再用于新任务，但历史训练、题目和审核记录仍可追溯。`}
+            ? `${formatMaterialTitle(material.title)}尚未进入训练任务或题目链，可以安全删除。`
+            : `${formatMaterialTitle(material.title)}已有 ${dependencyCount} 项下游记录，不能直接删除。停用后将不再用于新任务，但历史训练、题目和审核记录仍可追溯。`}
         </p>
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" onClick={onCancel} disabled={busy} className="h-10 rounded-md border border-emerald-600 bg-white px-4 text-sm text-emerald-700 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40">取消</button>

@@ -7,6 +7,7 @@ import {
   type MaterialProductionDraftResult,
   type MaterialProductionTaskInput,
 } from '../ai/agents/materialObservationApplicationService.ts';
+import { formatMaterialTitle } from '../ui/materialTitle.ts';
 import {
   isPhase17BatchAMaterial,
   producePhase17BatchA,
@@ -105,7 +106,7 @@ export async function createProductionMaterial(input: {
     (material) => normalizeMaterialContent(material.content) === normalizeMaterialContent(input.content),
   );
   if (duplicate) {
-    throw new Error(`已存在内容相同的学习材料：《${duplicate.title}》。请直接使用已有素材。`);
+    throw new Error(`已存在内容相同的学习材料：${formatMaterialTitle(duplicate.title)}。请直接使用已有素材。`);
   }
   const suffix = createIdSuffix();
   return createQuestionMaterial(resourceRepository, {
