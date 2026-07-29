@@ -37,18 +37,30 @@ export class LocalApiMaterialObservationRepository implements MaterialObservatio
   async savePlan(value: MaterialObservationPlan) {
     const existing = await this.getPlan(value.materialObservationPlanId);
     if (existing && JSON.stringify(existing) !== JSON.stringify(value)) {
-      if (existing.status === 'reviewed') {
+      const workingDraftUpdate = ['draft', 'revision_required'].includes(existing.status)
+        && ['draft', 'revision_required'].includes(value.status)
+        && value.revision === existing.revision;
+      const lifecycleTransition = isAllowedLifecycleTransition(existing, value);
+      if (
+        !workingDraftUpdate
+        && !lifecycleTransition
+        && ['pending_review', 'reviewed', 'rejected', 'superseded'].includes(existing.status)
+      ) {
         throw createStructuredRuntimeError({
           code: 'FORMAL_RESOURCE_IMMUTABLE_CONFLICT',
-          message: '已审核训练任务不可覆盖，请创建新修订版本。',
+          message: '已提交或已审核训练任务不可覆盖，请创建工作草稿。',
           operation: 'material_observation_plan.save',
           objectId: value.materialObservationPlanId,
           recoverability: 'new_revision_required',
         });
       }
       if (
-        value.revision < existing.revision
-        || (value.revision === existing.revision && !samePlanContent(existing, value))
+        !workingDraftUpdate
+        && !lifecycleTransition
+        && (
+          value.revision < existing.revision
+          || (value.revision === existing.revision && !samePlanContent(existing, value))
+        )
       ) {
         throw createStructuredRuntimeError({
           code: 'FORMAL_RESOURCE_REVISION_CONFLICT',
@@ -185,4 +197,16 @@ function samePlanContent(left: MaterialObservationPlan, right: MaterialObservati
     return content;
   };
   return JSON.stringify(omitLifecycle(left)) === JSON.stringify(omitLifecycle(right));
+}
+
+function isAllowedLifecycleTransition(
+  existing: MaterialObservationPlan,
+  incoming: MaterialObservationPlan,
+): boolean {
+  if (existing.revision !== incoming.revision || !samePlanContent(existing, incoming)) return false;
+  return (
+    (['draft', 'revision_required'].includes(existing.status) && incoming.status === 'pending_review')
+    || (existing.status === 'pending_review' && ['reviewed', 'revision_required', 'rejected'].includes(incoming.status))
+    || (existing.status === 'reviewed' && incoming.status === 'superseded')
+  );
 }

@@ -1,6 +1,10 @@
 import type { QuestionResourceAdmissionRepository } from '../repositories/questionResourceAdmissionRepository.ts';
 import { createStructuredRuntimeError } from '../errors/structuredRuntimeError.ts';
 import {
+  getAuthoringValidationPath,
+  getPlanControlledValidationPath,
+} from '../contracts/authoringFieldContract.ts';
+import {
   PRIMARY_ABILITY_IDS,
   QUESTION_RESOURCE_ADMISSION_SCHEMA_VERSION,
   QUESTION_RESOURCE_ADMISSION_VERSION,
@@ -610,7 +614,14 @@ function validateIdentity(draft: StructuredQuestionDraft, issues: ResourceValida
 
 function validateContent(draft: StructuredQuestionDraft, issues: ResourceValidationIssue[]): void {
   if (!nonEmpty(draft.title)) error(issues, 'content.title', 'title', 'Title is required.');
-  if (!nonEmpty(draft.questionStem)) error(issues, 'content.question_stem', 'questionStem', 'Question stem is required.');
+  if (!nonEmpty(draft.questionStem)) {
+    error(
+      issues,
+      'content.question_stem',
+      getAuthoringValidationPath('questionStem'),
+      'Question stem is required.',
+    );
+  }
   if (!isStructuredQuestionType(draft.questionType)) {
     error(issues, 'content.question_type', 'questionType', 'Question type is not registered.');
   }
@@ -718,13 +729,28 @@ function validateRubric(draft: StructuredQuestionDraft, issues: ResourceValidati
 function validateAbilityAndRole(draft: StructuredQuestionDraft, issues: ResourceValidationIssue[]): void {
   const metadata = draft.abilityMetadata;
   if (!isPrimaryAbilityId(metadata?.abilityId)) {
-    error(issues, 'ability.main', 'abilityMetadata.abilityId', 'abilityId is not registered.');
+    error(
+      issues,
+      'ability.main',
+      getPlanControlledValidationPath('abilityId'),
+      'abilityId is not registered.',
+    );
   }
   if (!isQuestionResourceTaskRole(metadata?.taskRole)) {
-    error(issues, 'ability.task_role', 'abilityMetadata.taskRole', 'taskRole is not registered.');
+    error(
+      issues,
+      'ability.task_role',
+      getPlanControlledValidationPath('taskRole'),
+      'taskRole is not registered.',
+    );
   }
   if (!isQuestionResourceDifficulty(metadata?.difficulty)) {
-    error(issues, 'ability.difficulty', 'abilityMetadata.difficulty', 'difficulty is not registered.');
+    error(
+      issues,
+      'ability.difficulty',
+      getPlanControlledValidationPath('difficulty'),
+      'difficulty is not registered.',
+    );
   }
   for (const [field, values] of [
     ['supportingAbilityIds', metadata?.supportingAbilityIds],

@@ -7,7 +7,7 @@ import {
   STRUCTURED_QUESTION_TYPES,
 } from '../schemas/questionResourceAdmission.schema.ts';
 
-export const MATERIAL_OBSERVATION_DRAFT_PROMPT_VERSION = 'material_observation_draft_prompt_v1_4' as const;
+export const MATERIAL_OBSERVATION_DRAFT_PROMPT_VERSION = 'material_observation_draft_prompt_v1_5' as const;
 
 type MaterialObservationDraftRepairItem = {
   candidateIndex: number;
@@ -54,7 +54,11 @@ export function buildMaterialObservationDraftPrompt(
 19. 当前材料共有 ${paragraphs.length} 个自然段，materialAnchor 段落号只能引用 1—${paragraphs.length}。不得按照句子数、诗句数、标点或视觉换行重新计算段落。
 20. 每个 rubricDraft[*].abilityId 只能取自该候选的 primaryAbilityId 或 supportingAbilityIds；不得为了容纳 Rubric 而临时增加辅助能力。
 21. Rubric 必须描述可观察的作答步骤，不能只写“回答正确”。
-22. 输出前逐候选自检：枚举合法、Anchor 在范围内、Supporting Ability 不重复 Primary Ability、Rubric 引用已声明能力、五类校准答案齐全、Safety Boundary 固定。
+22. questionStem 只负责“问什么”，必须是学生实际看到的完整题干，不得展开完整评分标准。
+23. expectedStudentAction 只负责“怎么答”，必须说明认知动作、处理对象和必要的输出组织方式。
+24. observationFocus.displayName 是具体训练点，应比 primaryAbilityId 更具体；observationFocus.definition 只负责“看什么表现”，必须使用完整性、准确性、材料依据等可判断表述。
+25. questionStem、expectedStudentAction、observationFocus.displayName 和 observationFocus.definition 不得只是换词重复；若无法拆分职责，不要假装完成该候选。
+26. 输出前逐候选自检：枚举合法、Anchor 在范围内、Supporting Ability 不重复 Primary Ability、Rubric 引用已声明能力、五类校准答案齐全、Safety Boundary 固定，并确认题目、学生任务和观察目标职责分离。
 
 年级范围：${input.preferences?.gradeRange || '初中'}
 能力偏好：${preferredAbilities}

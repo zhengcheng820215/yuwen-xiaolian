@@ -11,6 +11,17 @@ import {
   type StructuredQuestionDraftPatch,
 } from '../ai/agents/questionResourceAdmissionAgent.ts';
 import {
+  alignQuestionDraftInputWithPlan,
+  assessAuthoringFieldResponsibilities,
+  findObservationTaskPlan,
+  getAuthoringFieldAdaptation,
+  getPlanControlledQuestionSettings,
+  readObservationTaskReference,
+  type AuthoringFieldProvenance,
+  type AuthoringFieldResponsibilityIssue,
+  type AuthoringFieldValues,
+} from '../ai/contracts/authoringFieldContract.ts';
+import {
   freezeQuestionResourceDraftWithQuality,
   getOrAssessCurrentQuestionDraftQuality,
   reviewQuestionResourceDraftWithQuality,
@@ -57,6 +68,9 @@ export type QuestionResourceWorkbenchSnapshotOptions = {
 
 export type QuestionResourceWorkbenchContext = {
   draft: StructuredQuestionDraft;
+  authoringFields: AuthoringFieldValues;
+  authoringFieldProvenance: Record<keyof AuthoringFieldValues, AuthoringFieldProvenance>;
+  authoringResponsibilityIssues: AuthoringFieldResponsibilityIssue[];
   material: QuestionMaterialVersion | null;
   validation: ResourceValidationResult | null;
   review: ResourceReviewDecision | null;
@@ -143,6 +157,8 @@ export async function getQuestionResourceWorkbenchContext(
 ): Promise<QuestionResourceWorkbenchContext> {
   const draft = await repository.getDraft(draftId);
   if (!draft) throw new Error(`Draft not found: ${draftId}`);
+  const observationTask = await getObservationTaskForDraft(draft);
+  const authoringFieldAdaptation = getAuthoringFieldAdaptation(draft, observationTask);
 
   const [material, validation, review, qualityAssessment, publicationPreflight, frozenVersion, registryEntry, versionHistory] = await Promise.all([
     draft.materialVersionId ? repository.getMaterial(draft.materialVersionId) : Promise.resolve(null),
@@ -157,6 +173,11 @@ export async function getQuestionResourceWorkbenchContext(
 
   return {
     draft,
+    authoringFields: authoringFieldAdaptation.values,
+    authoringFieldProvenance: authoringFieldAdaptation.provenance,
+    authoringResponsibilityIssues: assessAuthoringFieldResponsibilities(
+      authoringFieldAdaptation.values,
+    ),
     material,
     validation,
     review,
@@ -423,8 +444,7 @@ export async function getQuestionResourceWorkbenchPublicationPreflight(
     : draftOrId;
   if (!draft) throw new Error(`Draft not found: ${draftOrId}`);
 
-  const planId = readTagValue(draft.tags, 'observation_plan:');
-  const observationTaskPlanId = readTagValue(draft.tags, 'observation_task:');
+  const { planId, observationTaskPlanId } = readObservationTaskReference(draft.tags);
   if (!planId || !observationTaskPlanId) {
     return { scoped: false, passed: true, differences: [] };
   }
@@ -433,16 +453,12 @@ export async function getQuestionResourceWorkbenchPublicationPreflight(
   if (!plan) {
     return { scoped: true, passed: false, issue: 'plan_missing', differences: [] };
   }
-  const task = plan.taskPlans.find((item) => item.observationTaskPlanId === observationTaskPlanId);
+  const task = findObservationTaskPlan(plan, { planId, observationTaskPlanId });
   if (!task) {
     return { scoped: true, passed: false, issue: 'task_missing', differences: [] };
   }
 
-  const expectedSettings = {
-    abilityId: task.abilityId,
-    difficulty: task.difficulty,
-    taskRole: task.taskRole,
-  };
+  const expectedSettings = getPlanControlledQuestionSettings(task);
   const differences = ([
     ['abilityId', draft.abilityMetadata.abilityId, expectedSettings.abilityId],
     ['difficulty', draft.abilityMetadata.difficulty, expectedSettings.difficulty],
@@ -510,29 +526,23 @@ function readTagValue(tags: string[] | undefined, prefix: string): string | null
 async function alignDraftInputWithObservationPlan(
   draft: Omit<CreateStructuredQuestionDraftInput, 'draftId' | 'resourceId' | 'taskId'>,
 ): Promise<Omit<CreateStructuredQuestionDraftInput, 'draftId' | 'resourceId' | 'taskId'>> {
-  const planId = readTagValue(draft.tags, 'observation_plan:');
-  const observationTaskPlanId = readTagValue(draft.tags, 'observation_task:');
+  const { planId, observationTaskPlanId } = readObservationTaskReference(draft.tags);
   if (!planId || !observationTaskPlanId) return draft;
 
   const plan = await observationRepository.getPlan(planId);
-  const task = plan?.taskPlans.find((item) => item.observationTaskPlanId === observationTaskPlanId);
+  const task = findObservationTaskPlan(plan, { planId, observationTaskPlanId });
   if (!task) return draft;
 
-  const previousAbilityId = draft.abilityMetadata.abilityId;
-  return {
-    ...draft,
-    abilityMetadata: {
-      ...draft.abilityMetadata,
-      abilityId: task.abilityId,
-      difficulty: task.difficulty,
-      taskRole: task.taskRole,
-    },
-    rubric: draft.rubric.map((item) => (
-      item.abilityId === previousAbilityId
-        ? { ...item, abilityId: task.abilityId }
-        : item
-    )),
-  };
+  return alignQuestionDraftInputWithPlan(draft, task);
+}
+
+async function getObservationTaskForDraft(
+  draft: StructuredQuestionDraft,
+) {
+  const reference = readObservationTaskReference(draft.tags);
+  if (!reference.planId || !reference.observationTaskPlanId) return null;
+  const plan = await observationRepository.getPlan(reference.planId);
+  return findObservationTaskPlan(plan, reference);
 }
 
 async function assertPublicationRepairAligned(draft: StructuredQuestionDraft): Promise<void> {

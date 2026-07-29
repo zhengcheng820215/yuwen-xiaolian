@@ -171,6 +171,7 @@ export async function reactivateProductionMaterial(
 export async function createProductionObservationPlan(input: {
   materialVersionId: string;
   tasks: MaterialProductionTaskInput[];
+  sourcePlanId?: string;
 }) {
   return createMaterialProductionPlan(resourceRepository, observationRepository, input);
 }

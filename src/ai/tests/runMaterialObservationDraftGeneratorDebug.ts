@@ -178,7 +178,7 @@ await check('C19 Prompt 示例完整展开五类校准答案并预留足够输�
     && request?.maxOutputTokens === 8_000;
 });
 
-await check('C20 浏览器真实入口使用 Prompt v1.4 所需的输出与超时预算', async () => {
+await check('C20 浏览器真实入口使用字段职责分离 Prompt 所需的输出与超时预算', async () => {
   const config = createMaterialObservationDraftLiveConfig('deepseek_chat', 'deepseek-v4-flash');
   return config.maxOutputTokens === MATERIAL_OBSERVATION_DRAFT_LIVE_MAX_OUTPUT_TOKENS
     && config.maxOutputTokens === 8_000
@@ -450,6 +450,25 @@ await check('C38 能力错位仅修改 Rubric 后重新通过完整校验', asyn
     && result.provider.repair?.recoveredCandidateCount === 1
     && repaired?.supportingAbilityIds.length === 0
     && repaired.rubricDraft.every((rubric) => rubric.abilityId === 'summarization');
+});
+
+await check('C39 字段职责重复只产生人工确认提醒而不阻断候选', async () => {
+  const payload = validPayload();
+  payload.candidates[0] = {
+    ...payload.candidates[0],
+    observationFocus: {
+      ...payload.candidates[0].observationFocus,
+      displayName: '找出父亲在站台上的两个动作',
+      definition: '找出父亲在站台上的两个动作',
+    },
+    questionStem: '找出父亲在站台上的两个动作',
+    expectedStudentAction: '找出父亲在站台上的两个动作',
+  };
+  const result = await run(input, providerWith(payload));
+  return result.status === 'candidates_ready'
+    && result.candidates.length === 3
+    && result.validation.passed
+    && result.limitations.some((item) => item.includes('候选题目 1 字段职责需要人工确认'));
 });
 
 console.log('\nPhase 17.2 Material Observation Draft Generator Debug');

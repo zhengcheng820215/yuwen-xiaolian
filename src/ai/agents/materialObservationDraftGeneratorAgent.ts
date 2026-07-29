@@ -31,6 +31,10 @@ import {
   buildMaterialObservationDraftPrompt,
   buildMaterialObservationDraftRepairPrompt,
 } from '../prompts/materialObservationDraftPrompt.ts';
+import {
+  AUTHORING_FIELD_CONTRACT_VERSION,
+  validateAuthoringAiOutput,
+} from '../contracts/authoringFieldContract.ts';
 
 const ASSESSMENT_MODES: AssessmentMode[] = [
   'key_points',
@@ -475,8 +479,27 @@ function evaluateProviderCandidates(
     batchIssues.push('no_new_observation_candidate');
   }
   const status = batchIssues.length === 0 ? 'candidates_ready' : 'review_required';
+  const authoringContractLimitations = newObservationCandidates.flatMap((candidate, candidateIndex) => {
+    const validation = validateAuthoringAiOutput({
+      authoringContractVersion: AUTHORING_FIELD_CONTRACT_VERSION,
+      abilityId: candidate.primaryAbilityId,
+      specificTrainingPoint: candidate.observationFocus.displayName,
+      questionStem: candidate.questionStem,
+      studentTask: candidate.expectedStudentAction,
+      observationTarget: candidate.observationFocus.definition,
+    });
+    return [
+      ...validation.errors.map((error) => (
+        `候选题目 ${candidateIndex + 1} 未满足字段契约：${error}`
+      )),
+      ...validation.warnings.map((issue) => (
+        `候选题目 ${candidateIndex + 1} 字段职责需要人工确认：${issue.message}。${issue.suggestion}`
+      )),
+    ];
+  });
   const limitations = unique([
     ...materialLimitations,
+    ...authoringContractLimitations,
     ...(rejectedCandidates.length ? [`${rejectedCandidates.length} candidate(s) were rejected before import.`] : []),
     ...(withheldCandidates.length ? [`${withheldCandidates.length} candidate(s) matched existing or same-batch observations and were withheld from import.`] : []),
     'Candidates are AI-assisted drafts and require human educational review.',

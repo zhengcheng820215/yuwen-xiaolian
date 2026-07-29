@@ -109,6 +109,9 @@ export type ObservationTaskPlanStatus =
 
 export type ObservationTaskPlan = {
   observationTaskPlanId: string;
+  taskRevisionRootId?: string;
+  parentObservationTaskPlanId?: string;
+  regenerationAttemptId?: string;
   materialObservationPlanId: string;
   materialId: string;
   materialVersionId: string;
@@ -151,6 +154,12 @@ export type MaterialObservationPlan = {
   reviewNote?: string;
   reviewedAt?: string;
   parentPlanId?: string;
+  regenerationContext?: {
+    attemptId: string;
+    sourcePlanId: string;
+    sourceObservationTaskPlanId: string;
+    taskRevisionRootId: string;
+  };
   createdAt: string;
   updatedAt: string;
   schemaVersion: typeof MATERIAL_OBSERVATION_PLAN_SCHEMA_VERSION;

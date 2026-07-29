@@ -14,6 +14,10 @@ import {
   validateStructuredQuestionDraft,
   type CreateStructuredQuestionDraftInput,
 } from '../agents/questionResourceAdmissionAgent.ts';
+import {
+  getAuthoringValidationPath,
+  getPlanControlledValidationPath,
+} from '../contracts/authoringFieldContract.ts';
 import type {
   PrimaryAbilityId,
   QuestionResourceRubricItem,
@@ -184,6 +188,14 @@ async function caseMissingField(): Promise<void> {
   const result = await validateStructuredQuestionDraft(repo, draft.draftId, NOW);
   assert(!result.passed, 'Missing question stem must fail.');
   assert(hasCode(result, 'content.question_stem'), 'Expected question stem error.');
+  assert(
+    result.issues.some(
+      (issue) =>
+        issue.code === 'content.question_stem' &&
+        issue.field === getAuthoringValidationPath('questionStem'),
+    ),
+    'Question-stem validation did not use the authoring field contract.',
+  );
 }
 
 async function caseInvalidRegistryValues(): Promise<void> {
@@ -199,6 +211,22 @@ async function caseInvalidRegistryValues(): Promise<void> {
   assert(!result.passed, 'Unregistered ability and task role must fail.');
   assert(hasCode(result, 'ability.main'), 'Expected ability registry error.');
   assert(hasCode(result, 'ability.task_role'), 'Expected task role registry error.');
+  assert(
+    result.issues.some(
+      (issue) =>
+        issue.code === 'ability.main' &&
+        issue.field === getPlanControlledValidationPath('abilityId'),
+    ),
+    'Ability validation did not use the Plan-controlled field contract.',
+  );
+  assert(
+    result.issues.some(
+      (issue) =>
+        issue.code === 'ability.task_role' &&
+        issue.field === getPlanControlledValidationPath('taskRole'),
+    ),
+    'Task-role validation did not use the Plan-controlled field contract.',
+  );
 }
 
 async function caseMissingOptions(): Promise<void> {

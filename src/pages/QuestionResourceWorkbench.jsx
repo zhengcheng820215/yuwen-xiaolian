@@ -15,6 +15,12 @@ import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
 import { requestQuestionStemOptimization } from '../api/questionStemOptimization.ts';
 import { requestRubricItemOptimization } from '../api/rubricItemOptimization.ts';
 import {
+  assessAuthoringFieldResponsibilities,
+  getQualityCheckEditLocation,
+  getQualityChecksForUiField,
+  getQualityIssueEditorTargetIds,
+} from '../ai/contracts/authoringFieldContract.ts';
+import {
   buildQuestionQualityRepairQueue,
   markCurrentQuestionQualityIssueModified,
   parseQuestionQualityRevisionProgress,
@@ -96,25 +102,6 @@ const sourceTypeOptions = [
   ['ai_assisted', 'AI 辅助'],
   ['ocr_assisted', 'OCR 辅助'],
 ];
-
-const qualityChecksByFormField = {
-  materialVersionId: ['materialGrounding'],
-  title: ['observationClarity', 'observationDistinctness'],
-  questionStem: ['materialGrounding', 'observationClarity', 'observationDistinctness', 'rubricAlignment', 'scopeClarity'],
-  questionType: ['scopeClarity', 'rubricAlignment', 'discriminativePower'],
-  responseFormat: ['scopeClarity', 'rubricAlignment', 'discriminativePower'],
-  optionsText: ['scopeClarity', 'rubricAlignment'],
-  assessmentMode: ['rubricAlignment', 'discriminativePower'],
-  acceptedAnswersText: ['rubricAlignment', 'discriminativePower'],
-  acceptedKeywordsText: ['rubricAlignment', 'discriminativePower'],
-  semanticEquivalentAllowed: ['rubricAlignment'],
-  minLength: ['scopeClarity', 'difficultyCoherence'],
-  requireTextEvidence: ['materialGrounding', 'rubricAlignment'],
-  requireExplanation: ['rubricAlignment', 'discriminativePower'],
-  abilityId: ['observationClarity', 'observationDistinctness', 'rubricAlignment'],
-  taskRole: ['observationClarity'],
-  difficulty: ['difficultyCoherence'],
-};
 
 const statusLabels = {
   drafted: '草稿',
@@ -248,7 +235,7 @@ export default function QuestionResourceWorkbench() {
     const nextContext = await getQuestionResourceWorkbenchContext(draftId);
     setSelectedDraftId(draftId);
     setContext(nextContext);
-    const nextForm = toForm(nextContext.draft);
+    const nextForm = toForm(nextContext.draft, nextContext.authoringFields);
     setForm(nextForm);
     setSavedFormSignature(draftInputSignature(nextForm));
     setNotice(null);
@@ -638,24 +625,16 @@ export default function QuestionResourceWorkbench() {
   function updateQuestionStem(value) {
     updateQualityRelevantForm(
       (current) => ({ ...current, questionStem: value }),
-      ['materialGrounding', 'observationClarity', 'observationDistinctness', 'rubricAlignment', 'scopeClarity'],
+      getQualityChecksForUiField('questionStem'),
     );
   }
 
   function locateQualityIssue(check) {
     qualityRepairEditCheckRef.current = check;
-    const targetIdsByCheck = {
-      materialGrounding: ['question-stem-editor'],
-      observationClarity: ['question-stem-editor'],
-      observationDistinctness: ['question-stem-editor'],
-      difficultyCoherence: planReviewMode
-        ? ['question-stem-editor', 'question-training-targets']
-        : ['question-difficulty-editor', 'question-stem-editor'],
-      scopeClarity: ['question-stem-editor'],
-    };
-    const targetIds = ['discriminativePower', 'rubricAlignment'].includes(check)
-      ? [rubricIssueTargetId(form, check), 'question-rubric-editor']
-      : (targetIdsByCheck[check] || ['question-stem-editor']);
+    const targetIds = getQualityIssueEditorTargetIds(check, {
+      planReviewMode,
+      rubricTargetId: rubricIssueTargetId(form, check),
+    });
     window.dispatchEvent(new CustomEvent('question-quality-locate', { detail: { check } }));
     window.setTimeout(() => {
       const target = targetIds
@@ -949,7 +928,7 @@ export default function QuestionResourceWorkbench() {
   );
 
   return (
-    <div className={`min-h-screen ${planReviewMode ? 'bg-[#f6f8fb] text-slate-950' : 'bg-[#f5f7fb]'}`}>
+    <div className={`question-resource-workbench min-h-screen ${planReviewMode ? 'bg-[#f6f8fb] text-slate-950' : 'bg-[#f5f7fb]'}`}>
       {planReviewMode ? (
         <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
           <div className="mx-auto flex min-h-16 max-w-[1360px] items-center justify-between px-5 md:px-8">
@@ -1215,7 +1194,7 @@ function QuestionEditor({
 }) {
   const update = (key, value) => setForm(
     (current) => ({ ...current, [key]: value }),
-    qualityChecksByFormField[key] || [],
+    getQualityChecksForUiField(key),
   );
   const objectiveQuestion = ['multiple_choice', 'true_false', 'fill_blank'].includes(form.questionType);
   const readingQuestion = form.questionType === 'reading_comprehension';
@@ -1237,6 +1216,22 @@ function QuestionEditor({
     form.acceptedKeywordsText,
     form.semanticEquivalentAllowed ? 'configured' : '',
   ].filter((value) => String(value || '').trim()).length;
+  const authoringResponsibilityIssues = useMemo(
+    () => assessAuthoringFieldResponsibilities({
+      abilityTarget: form.abilityId,
+      specificTrainingPoint: form.specificTrainingPoint,
+      questionStem: form.questionStem,
+      studentTask: form.studentTask,
+      observationTarget: form.observationTarget,
+    }),
+    [
+      form.abilityId,
+      form.specificTrainingPoint,
+      form.questionStem,
+      form.studentTask,
+      form.observationTarget,
+    ],
+  );
   const updateRubric = (index, key, value) => setForm(
     (current) => ({
       ...current,
@@ -1498,6 +1493,46 @@ function QuestionEditor({
               <p className="mt-2 text-sm leading-6 text-slate-500">
                 训练能力、任务用途和难度以素材录入平台中的训练计划为准，审核平台不会重复修改。
               </p>
+              {authoringResponsibilityIssues.length ? (
+                <div className="mt-3 space-y-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  <div>
+                    <p className="font-semibold">字段职责需要人工确认</p>
+                    <p className="mt-1 leading-6">
+                      以下内容可能只是换词重复。该提醒不会阻止审核，但建议确认每个字段分别表达“训练落点、学生问题、作答动作和可观察表现”。
+                    </p>
+                  </div>
+                  {authoringResponsibilityIssues.map((issue) => {
+                    const questionStemTarget = issue.editorTargetIds.includes('question-stem-editor');
+                    return (
+                      <div key={issue.fields.join(':')} className="border-t border-amber-200 pt-3">
+                        <p className="font-semibold">{issue.message}</p>
+                        <p className="mt-1 leading-6">{issue.suggestion}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-3">
+                          {questionStemTarget ? (
+                            <button
+                              type="button"
+                              onClick={focusQuestionStem}
+                              className="min-h-8 rounded-md border border-amber-500 bg-white px-3 text-sm font-normal text-amber-800 hover:bg-amber-100"
+                            >
+                              定位题干
+                            </button>
+                          ) : null}
+                          <span className="text-xs leading-5 text-amber-800">
+                            具体训练点、学生任务或观察目标需返回素材录入平台调整。
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+              {Object.values(context?.authoringFieldProvenance || {}).some(
+                (item) => item.needsHumanReview,
+              ) ? (
+                <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-800">
+                  部分训练字段由旧数据自动适配，尚未找到对应训练计划，请在提交前返回素材录入平台确认。
+                </p>
+              ) : null}
             </div>
           ) : null}
           {!focusedReview ? (
@@ -2212,16 +2247,6 @@ const qualityCheckActions = {
   ],
 };
 
-const qualityCheckEditLocations = {
-  materialGrounding: '基础内容 → 题干',
-  observationClarity: '基础内容 → 题干；训练设置 → 主要能力',
-  observationDistinctness: '基础内容 → 题干；评分标准 → 评分项',
-  discriminativePower: '评分标准 → 评分项一（可继续增加评分项）',
-  difficultyCoherence: '训练设置 → 难度；基础内容 → 题干',
-  rubricAlignment: '基础内容 → 题干；评分标准 → 评分项',
-  scopeClarity: '基础内容 → 题干',
-};
-
 const qualityCheckAcceptance = {
   materialGrounding: '学生能从题干判断应依据全文、指定局部内容，还是自主选取明确数量和类型的证据。',
   observationClarity: '题干只有一个主要作答目标，并写清学生要完成的动作和最终输出。',
@@ -2540,10 +2565,10 @@ function QuestionQualitySummary({
                   <span className="font-semibold text-slate-900">当前问题：</span>
                   {qualityCurrentProblem(warning, form)}
                 </p>
-                {qualityCheckEditLocations[warning.check] ? (
+                {getQualityCheckEditLocation(warning.check) ? (
                   <p className="mt-2">
                     <span className="font-semibold text-slate-900">修改位置：</span>
-                    {qualityCheckEditLocations[warning.check]}
+                    {getQualityCheckEditLocation(warning.check)}
                   </p>
                 ) : null}
                 {qualityCheckActions[warning.check] ? (
@@ -2728,8 +2753,8 @@ function SelectInput({ value, onChange, options, aligned = false, disabled = fal
 
   const selectedLabel = options.find(([optionValue]) => optionValue === value)?.[1] || value || '请选择';
   return (
-    <span className={`relative flex min-h-11 w-full items-center rounded-md border border-slate-300 bg-white px-3 pr-10 transition focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-100 ${disabled ? 'bg-slate-50' : ''}`}>
-      <span className="pointer-events-none inline-flex max-w-full items-center truncate rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-sm font-normal text-emerald-700">
+    <span className={`relative flex min-h-11 w-full items-center rounded-md border border-slate-300 bg-white px-3 pr-10 transition focus-within:border-2 focus-within:border-blue-600 ${disabled ? 'bg-slate-50' : ''}`}>
+      <span className="pointer-events-none inline-flex max-w-full items-center truncate rounded-md border border-blue-300 bg-blue-50 px-2 py-1 text-sm font-normal text-blue-700">
         {selectedLabel}
       </span>
       <ChevronDown aria-hidden="true" size={18} className="pointer-events-none absolute right-3 text-slate-500" />
@@ -2949,10 +2974,10 @@ function createRubricItem(abilityId) {
   return { localId: `${Date.now()}-${Math.random()}`, name: abilityId === 'inference' ? '依据与结论关系' : '核心观察项', abilityId, importance: 'critical', required: true, acceptedSignalsText: '', requireTextEvidence: true, requireExplanation: true };
 }
 
-function toForm(draft) {
+function toForm(draft, authoringFields) {
   return {
     title: draft.title,
-    questionStem: draft.questionStem,
+    questionStem: authoringFields?.questionStem || draft.questionStem,
     questionType: draft.questionType,
     responseFormat: draft.responseFormat,
     optionsText: (draft.options || []).join('\n'),
@@ -2961,7 +2986,10 @@ function toForm(draft) {
     acceptedAnswersText: (draft.answerAcceptance?.acceptedAnswers || []).join('\n'),
     acceptedKeywordsText: (draft.answerAcceptance?.acceptedKeywords || []).join('\n'),
     semanticEquivalentAllowed: Boolean(draft.answerAcceptance?.semanticEquivalentAllowed),
-    abilityId: draft.abilityMetadata.abilityId,
+    abilityId: authoringFields?.abilityTarget || draft.abilityMetadata.abilityId,
+    specificTrainingPoint: authoringFields?.specificTrainingPoint || '',
+    studentTask: authoringFields?.studentTask || '',
+    observationTarget: authoringFields?.observationTarget || '',
     supportingAbilityIdsText: draft.abilityMetadata.supportingAbilityIds.join(', '),
     prerequisiteAbilityIdsText: draft.abilityMetadata.prerequisiteAbilityIds.join(', '),
     taskRole: draft.abilityMetadata.taskRole,
@@ -3037,14 +3065,14 @@ function handleQuestionType(questionType, setForm) {
   const formats = { multiple_choice: ['single_choice', 'exact_match'], true_false: ['boolean', 'exact_match'], fill_blank: ['short_text', 'exact_match'], open_short_answer: ['short_text', 'key_points'], reading_comprehension: ['long_text', 'reasoning_chain'] };
   setForm(
     (current) => ({ ...current, questionType, responseFormat: formats[questionType][0], assessmentMode: formats[questionType][1], optionsText: questionType === 'multiple_choice' ? current.optionsText : '' }),
-    qualityChecksByFormField.questionType,
+    getQualityChecksForUiField('questionType'),
   );
 }
 
 function updateAbility(abilityId, setForm) {
   setForm(
     (current) => ({ ...current, abilityId, rubric: current.rubric.map((item, index) => index === 0 ? { ...item, abilityId } : item) }),
-    qualityChecksByFormField.abilityId,
+    getQualityChecksForUiField('abilityId'),
   );
 }
 

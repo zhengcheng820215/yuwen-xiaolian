@@ -459,11 +459,17 @@ Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster �
 
 素材资源录入平台采用 Material-scoped Workspace：顶部以“已有素材 / 录入新素材 / 已停用素材”三个模式区分使用、创建与生命周期管理。用户明确选择或保存 active Material Version 后，系统才建立当前素材上下文，并只投影该素材的只读正文、待审核资源、发布未完成题目、已发布练习及后续生成、编辑、审核入口；未选择素材或进入停用素材管理模式时，下游生产模块保持隐藏。训练任务卡首层只保留来源、审核状态及固定顺序“能力目标、题目、学生任务、观察目标”，其中能力目标定义训练内容，学生任务定义作答动作，观察目标定义可验证表现；详细评分、答案示例和设计依据按需展开。“提交题目审核”只复核版本、任务数量、能力覆盖、训练方向、材料范围和结构检查，不重复渲染完整题目列表。只读正文默认提供有限段落预览，并通过唯一入口展开或收起全文，不与训练任务编辑区重复渲染。切换素材必须同时切换统计、正文预览与明细上下文。Material Version 支持 `active -> retired -> active` 的可逆状态流转，停用保留既有训练、题目和来源关系；只有完全无依赖的未使用素材可以删除。跨素材全局库存属于资源总览或 Coverage Dashboard，不属于单素材生产工作台。
 
+训练任务的覆盖范围与检查结果统一收敛到单一“训练任务检查”板块：首层只展示是否可进入审核、任务总数、可审核数、需调整数，以及能力和训练方向摘要；存在问题时再展开质量提醒与定位入口。覆盖摘要不再作为独立卡片重复占用页面层级，合并仅调整信息架构，不改变校验口径、问题定位或提交流程。
+
 同一 Material Observation Plan 内的题号绑定 Observation Task 的计划顺序，并通过 `observationTaskPlanId` 在 Question Draft、审核状态与 Frozen Resource 之间保持稳定。待审核与已发布明细只按状态过滤，并按统一题号升序展示，不建立各自独立的编号序列；状态迁移不得改变题号。因此单个状态列表可以出现“题目一、题目三”这类不连续编号，它表达的是同一素材完整题目序列中的真实位置。
 
 题目质量检查采用“证据边界清晰”规则，而不是固定句式或段落号规则。题干只要能让学生明确应从什么材料范围寻找、组织和引用依据即可：可以指向具体段落、场景、原句或关键词，可以明确要求综合全文，也可以允许自主选取指定数量和类型的文本证据。只有笼统写“结合材料”且未说明局部、全文或取证方式时才产生提醒；完全脱离材料时仍建议修订。界面中的参考写法只用于说明规则，不是必须照抄的模板。
 
-Material Observation Plan 是训练任务主要能力、任务用途和难度的唯一计划来源；题目审核平台沿用并核对计划值，不建立第二套可独立漂移的训练设置。发布未完成题目的修订以 Observation Task 和稳定修订根为身份边界，同一题目重复进入修复流程时复用当前有效修订稿，发布前必须重新通过计划一致性检查。质量提醒的“定位修改”只能指向当前模式中真实存在且可编辑的字段，并在目标缺失时显式反馈，不得静默失败。
+Material Observation Plan 是训练任务主要能力、任务用途和难度的唯一计划来源：能力目标使用 `taskPlans[].abilityId`，任务用途使用 `taskPlans[].taskRole`，难度使用 `taskPlans[].difficulty`；进入 Question Draft 后分别映射到 `abilityMetadata.abilityId`、`abilityMetadata.taskRole` 和 `abilityMetadata.difficulty`。题目审核平台只沿用并核对计划值，不建立第二套可独立漂移的训练设置。发布未完成题目的修订以 Observation Task 和稳定修订根为身份边界，同一题目重复进入修复流程时复用当前有效修订稿，发布前必须重新通过计划一致性检查。质量提醒的“定位修改”只能指向当前模式中真实存在且可编辑的字段，并在目标缺失时显式反馈，不得静默失败。
+
+Phase 17 录入端的能力目标、具体训练点、题目、学生任务与观察目标统一遵循 [Authoring Field Contract v1](../product/AUTHORING_FIELD_CONTRACT.md)。该契约是素材资源录入平台、题目审核发布平台、AI 输出、保存适配、质量检查和问题定位的共同解释源：题目只负责学生“回答什么”，学生任务负责“如何作答”，观察目标负责“检查什么表现”；评分标准再定义完成水平。字段注册表、往返保存、Assessment 失效、定位修改、AI 局部重写与旧数据适配的 P0 / P1 / P2 自动化回归已经通过；真实任务浏览器验收与十素材校准仍为 `PENDING`。
+
+训练任务规划遵循 [Single Training Task Regeneration Contract](../product/SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) 与 [Training Task Group AI Planning Contract](../product/TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md)。单任务重生成、补充候选与整组替代候选均先进入 Candidate Session，人工采用只更新编辑缓冲区；同一轮修改只维护一个可变工作草稿，反复保存或连续采用候选不堆叠 Revision。只有提交题目审核才冻结一个不可变 Plan Revision；从不可变版本开始下一轮实质修改时才创建新的工作草稿。自动化回归已覆盖三轮连续候选采用后仅保留一个 Revision，真实浏览器闭环仍待验收。
 
 详细文档入口：[Phase 17](../education/phase/phase17.md)、[Phase 17.1](../education/phase/phase17_1.md)、[Phase 17.2](../education/phase/phase17_2.md)、[Phase 17.2 First Formal Resource Pack Production Blueprint](../education/phase/phase17_2_first_resource_pack_blueprint.md)、[Phase 17.3](../education/phase/phase17_3.md)、[Phase 17.4](../education/phase/phase17_4.md)、[Phase 17.5](../education/phase/phase17_5.md)。
 

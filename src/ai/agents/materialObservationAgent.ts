@@ -43,6 +43,10 @@ import {
 } from '../schemas/materialObservation.schema.ts';
 
 export type ObservationTaskPlanInput = {
+  observationTaskPlanId?: string;
+  taskRevisionRootId?: string;
+  parentObservationTaskPlanId?: string;
+  regenerationAttemptId?: string;
   primaryDimension: ObservationDimension;
   observationFocus?: ObservationFocus;
   abilityId: PrimaryAbilityId;
@@ -118,39 +122,46 @@ export function createMaterialSourceAnchor(input: {
 }
 
 export function buildMaterialObservationPlan(input: {
+  materialObservationPlanId?: string;
   materialId: string;
   materialVersionId: string;
   materialStructureSnapshotId: string;
   revision?: number;
   parentPlanId?: string;
+  createdAt?: string;
+  regenerationContext?: MaterialObservationPlan['regenerationContext'];
   dimensionReviews: DimensionReview[];
   taskPlans: ObservationTaskPlanInput[];
   now?: string;
 }): MaterialObservationPlan {
   const revision = input.revision || 1;
   const now = input.now || new Date().toISOString();
-  const planId = buildStableId('material-observation-plan', [
+  const planId = input.materialObservationPlanId || buildStableId('material-observation-plan', [
     input.materialId,
     input.materialVersionId,
     String(revision),
     input.parentPlanId || 'root',
   ]);
-  const taskPlans = input.taskPlans.map((task, index): ObservationTaskPlan => ({
-    ...clone(task),
-    observationTaskPlanId: buildStableId('observation-task-plan', [
+  const taskPlans = input.taskPlans.map((task, index): ObservationTaskPlan => {
+    const observationTaskPlanId = task.observationTaskPlanId || buildStableId('observation-task-plan', [
       planId,
       String(index),
       stableStringify(task),
-    ]),
-    materialObservationPlanId: planId,
-    materialId: input.materialId,
-    materialVersionId: input.materialVersionId,
-    sourceAnchorIds: uniqueSorted(task.sourceAnchorIds),
-    observationGoal: task.observationGoal.trim(),
-    expectedStudentAction: task.expectedStudentAction.trim(),
-    designReason: task.designReason.trim(),
-    status: 'planned',
-  }));
+    ]);
+    return {
+      ...clone(task),
+      observationTaskPlanId,
+      taskRevisionRootId: task.taskRevisionRootId || observationTaskPlanId,
+      materialObservationPlanId: planId,
+      materialId: input.materialId,
+      materialVersionId: input.materialVersionId,
+      sourceAnchorIds: uniqueSorted(task.sourceAnchorIds),
+      observationGoal: task.observationGoal.trim(),
+      expectedStudentAction: task.expectedStudentAction.trim(),
+      designReason: task.designReason.trim(),
+      status: 'planned',
+    };
+  });
   return {
     materialObservationPlanId: planId,
     materialId: input.materialId,
@@ -165,7 +176,8 @@ export function buildMaterialObservationPlan(input: {
     })),
     taskPlans,
     parentPlanId: input.parentPlanId,
-    createdAt: now,
+    regenerationContext: input.regenerationContext,
+    createdAt: input.createdAt || now,
     updatedAt: now,
     schemaVersion: MATERIAL_OBSERVATION_PLAN_SCHEMA_VERSION,
   };
@@ -222,6 +234,11 @@ export function validateMaterialObservationPlan(input: {
     validationId: buildStableId('material-observation-validation', [
       plan.materialObservationPlanId,
       String(plan.revision),
+      stableStringify({
+        materialStructureSnapshotId: plan.materialStructureSnapshotId,
+        dimensionReviews: plan.dimensionReviews,
+        taskPlans: plan.taskPlans,
+      }),
       stableStringify(issues),
     ]),
     materialObservationPlanId: plan.materialObservationPlanId,

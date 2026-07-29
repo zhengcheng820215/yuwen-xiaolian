@@ -1500,3 +1500,68 @@ P2.1 继续修复异常题目链路中“刷新后丢失、一次编辑误推进
 - Material Resource Production Debug `15 / 15 PASS`；
 - Material Resource Workbench State Debug `11 / 11 PASS`；
 - Production Build `PASS`，保留既有非阻断 Bundle Warning。
+
+## 2026-07-29 录入字段契约 v1 文档冻结
+
+本轮先冻结 [Phase 17 录入字段契约](../../product/AUTHORING_FIELD_CONTRACT.md)，再进入工程校准。它不是新增流程，也不立即迁移既有 Schema，而是统一素材资源录入平台、题目审核发布平台、AI、保存、校验、质量 Assessment 和“定位修改”对核心字段的解释。
+
+冻结内容：
+
+1. 五个核心字段为能力目标、具体训练点、题目、学生任务和观察目标；
+2. 题目负责学生“回答什么”，学生任务负责“如何作答”，观察目标负责系统或审核者“检查什么表现”，评分标准负责定义完成水平；
+3. 具体训练点优先来自受控选项，必须比能力目标更具体，不得成为新的任意自由文本负担；
+4. 页面、保存、AI、校验与错误定位必须引用同一份字段注册表；
+5. `observationGoal` 当前继续兼容为题干来源，不在本轮文档阶段直接重命名 Schema；
+6. 旧字段只有在语义不确定时才标记人工确认，不把所有历史数据一律视为错误；
+7. 任何影响正式质量判断的核心编辑都会使相关 Assessment 失效，并要求基于新 Revision 重新检查；
+8. 高文本相似度默认属于黄色提醒，只有同时违反字段职责或其他正式约束时才升级为阻断；
+9. AI 必须按字段输出并执行职责自检，失败时只局部重写或明确交给人工处理；
+10. 验收必须覆盖字段往返保存、准确定位、局部 AI 重写、稳定修订根和真实十素材跨题型校准。
+11. 发布前能力目标、任务用途和难度分别以 `taskPlans[].abilityId`、`taskPlans[].taskRole` 和 `taskPlans[].difficulty` 为唯一来源，并映射到 Question Draft 的 `abilityMetadata` 对应字段；
+12. P0 只校准字段注册表、页面读写、保存恢复、Validator、问题提示、定位修改和 Assessment 失效，不扩展页面、不优化 Prompt、不新增字段级确认状态。
+
+当前状态：
+
+```text
+Design: FROZEN
+Engineering Calibration: P0 / P1 / P2 AUTOMATED PASS
+Real-task Browser Acceptance: PENDING
+Ten-material Calibration: PENDING
+Product Acceptance: PENDING
+```
+
+字段注册表、显示与检查同源、Assessment 失效及对应自动化回归已经完成。真实任务浏览器闭环与十素材校准仍须独立验收，不得用自动化结果替代 Product Acceptance。
+
+## 2026-07-29 训练任务候选规划与唯一工作草稿治理
+
+本轮完成 [单训练任务重新生成契约](../../product/SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) 与 [训练任务组 AI 规划契约](../../product/TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) 的工程落地，并收紧 Plan Revision 生命周期：
+
+1. 单任务使用“重新生成此任务”，只产生当前任务的替代候选；补充生成保留现有任务并逐项采用，重新规划生成整组替代候选并按整组采用；
+2. AI 候选只进入 Candidate Session。查看、生成、放弃或采用候选均不直接写入正式 Plan Revision；
+3. 候选采用只更新当前编辑缓冲区；“保存任务组并重新检查”创建或更新当前 Material Observation Plan 的唯一可变工作草稿；
+4. 同一轮未提交修改反复保存、连续采用多轮候选、删除后撤销或无变化保存，均不得堆叠新的历史 Revision；
+5. 只有“提交题目审核”才把工作草稿冻结为不可变 Plan Revision。已提交、已审核和已冻结版本不得原地修改；
+6. 从不可变版本开始下一轮实质修改时，才创建下一份工作草稿；审核退回继续复用同一修订稿；
+7. 版本选择器只显示最新工作草稿，历史遗留的重复可变草稿由展示适配层收敛，不伪装成多个有效 Revision；
+8. 任务身份在同一工作草稿内保持稳定；从不可变历史开始新一轮修订时保留修订根关系，不复用正式任务身份；
+9. 页面 Command 已拆分为单任务重生成、补充候选、整组替代、采用候选、保存 Revision、执行检查和提交审核，按钮门禁与处理函数使用同一状态来源；
+10. 任务组最低保留 3 项。工作草稿允许删除任务并撤销，删除不会影响已发布资源或历史 Revision。
+
+验证结果：
+
+- Material Resource Production Debug `16 / 16 PASS`；
+- Training Task Group Planning E2E：连续生成并采用 3 轮候选，最终持久化 Revision 数量为 `1`；
+- Training Task Editing State Debug `4 / 4 PASS`；
+- Single Training Task Regeneration Debug `5 / 5 PASS`；
+- Material Resource Production Command Debug `6 / 6 PASS`；
+- Production Build `PASS`，保留既有非阻断 Bundle Warning。
+
+当前边界：
+
+```text
+Engineering Implementation: PASS
+Automated Regression: PASS
+Real-task Browser Acceptance: PENDING
+Ten-material Calibration: PENDING
+Product Acceptance: PENDING
+```

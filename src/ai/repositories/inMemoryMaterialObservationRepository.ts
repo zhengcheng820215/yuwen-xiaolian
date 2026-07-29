@@ -28,8 +28,19 @@ export class InMemoryMaterialObservationRepository implements MaterialObservatio
 
   async savePlan(value: MaterialObservationPlan) {
     const existing = this.plans.get(value.materialObservationPlanId);
-    if (existing?.status === 'reviewed' && JSON.stringify(existing) !== JSON.stringify(value)) {
-      throw new Error('Reviewed MaterialObservationPlan is immutable. Create a new revision.');
+    const workingDraftUpdate = existing
+      && ['draft', 'revision_required'].includes(existing.status)
+      && ['draft', 'revision_required'].includes(value.status)
+      && value.revision === existing.revision;
+    const lifecycleTransition = existing && isAllowedLifecycleTransition(existing, value);
+    if (
+      existing
+      && !workingDraftUpdate
+      && !lifecycleTransition
+      && ['pending_review', 'reviewed', 'rejected', 'superseded'].includes(existing.status)
+      && JSON.stringify(existing) !== JSON.stringify(value)
+    ) {
+      throw new Error('Submitted MaterialObservationPlan is immutable. Create a working draft.');
     }
     return save(this.plans, value.materialObservationPlanId, value);
   }
@@ -82,4 +93,31 @@ function get<T>(store: Map<string, T>, key: string): T | null {
 
 function list<T>(store: Map<string, T>, predicate: (value: T) => boolean): T[] {
   return [...store.values()].filter(predicate).map(clone);
+}
+
+function isAllowedLifecycleTransition(
+  existing: MaterialObservationPlan,
+  incoming: MaterialObservationPlan,
+): boolean {
+  if (existing.revision !== incoming.revision || !samePlanContent(existing, incoming)) return false;
+  return (
+    (['draft', 'revision_required'].includes(existing.status) && incoming.status === 'pending_review')
+    || (existing.status === 'pending_review' && ['reviewed', 'revision_required', 'rejected'].includes(incoming.status))
+    || (existing.status === 'reviewed' && incoming.status === 'superseded')
+  );
+}
+
+function samePlanContent(left: MaterialObservationPlan, right: MaterialObservationPlan): boolean {
+  const omitLifecycle = (value: MaterialObservationPlan) => {
+    const {
+      status: _status,
+      reviewerId: _reviewerId,
+      reviewNote: _reviewNote,
+      reviewedAt: _reviewedAt,
+      updatedAt: _updatedAt,
+      ...content
+    } = value;
+    return content;
+  };
+  return JSON.stringify(omitLifecycle(left)) === JSON.stringify(omitLifecycle(right));
 }

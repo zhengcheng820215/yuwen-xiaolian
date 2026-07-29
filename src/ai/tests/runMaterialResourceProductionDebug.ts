@@ -29,10 +29,11 @@ const cases: DebugCase[] = [
   { name: '09 repeated batch does not mutate a pending-review Draft', run: caseNonEditableDraftProtected },
   { name: '10 one Draft failure does not erase successful siblings', run: casePartialFailureIsolation },
   { name: '11 batch creation never auto-freezes or updates Registry', run: caseNoAutomaticFormalization },
-  { name: '12 a revised Plan keeps explicit lineage', run: casePlanRevisionLineage },
+  { name: '12 a frozen Plan creates one explicit next working draft', run: casePlanRevisionLineage },
   { name: '13 Draft handoff preserves Rubric and Answer Acceptance', run: caseDraftHandoffContent },
   { name: '14 deleting a Draft also removes its temporary validation', run: caseDeleteDraftCleansTemporaryRecords },
   { name: '15 an archived Draft does not block a replacement Draft', run: caseArchivedDraftAllowsReplacement },
+  { name: '16 repeated saves update one working draft without stacking revisions', run: caseWorkingDraftDoesNotStack },
 ];
 
 async function main() {
@@ -159,12 +160,52 @@ async function caseNoAutomaticFormalization() {
 
 async function casePlanRevisionLineage() {
   const fixture = await createFixture();
+  await reviewPlan(fixture);
   const second = await createMaterialProductionPlan(fixture.resources, fixture.observations, {
     materialVersionId: fixture.material.materialVersionId,
+    sourcePlanId: fixture.plan.materialObservationPlanId,
     tasks: tasks().map((task, index) => ({ ...task, questionStem: `${task.questionStem}（修订 ${index + 1}）` })),
     now: '2026-07-22T11:00:00.000Z',
   });
   expect(second.plan.revision === 2 && second.plan.parentPlanId === fixture.plan.materialObservationPlanId, 'Plan revision lineage is incomplete.');
+}
+
+async function caseWorkingDraftDoesNotStack() {
+  const fixture = await createFixture();
+  const originalPlanId = fixture.plan.materialObservationPlanId;
+  const originalValidationId = fixture.validation.validationId;
+
+  let latest = fixture;
+  for (let index = 1; index <= 10; index += 1) {
+    latest = {
+      ...fixture,
+      ...await createMaterialProductionPlan(fixture.resources, fixture.observations, {
+        materialVersionId: fixture.material.materialVersionId,
+        sourcePlanId: originalPlanId,
+        tasks: tasks().map((task, taskIndex) => ({
+          ...task,
+          questionStem: `${task.questionStem}（工作草稿保存 ${index}-${taskIndex + 1}）`,
+        })),
+        now: `2026-07-22T12:${String(index).padStart(2, '0')}:00.000Z`,
+      }),
+    };
+  }
+
+  const plansBeforeSubmit = await fixture.observations.listPlans(fixture.material.materialVersionId);
+  expect(plansBeforeSubmit.length === 1, `Repeated saves created ${plansBeforeSubmit.length} Plan records.`);
+  expect(latest.plan.materialObservationPlanId === originalPlanId, 'Working draft identity changed during repeated saves.');
+  expect(latest.plan.revision === 1, 'Working draft revision changed before submission.');
+  expect(latest.validation.validationId !== originalValidationId, 'Changed content reused a stale validation identity.');
+
+  await submitMaterialObservationPlanForReview(
+    fixture.resources,
+    fixture.observations,
+    originalPlanId,
+    '2026-07-22T13:00:00.000Z',
+  );
+  const plansAfterSubmit = await fixture.observations.listPlans(fixture.material.materialVersionId);
+  expect(plansAfterSubmit.length === 1, 'Submitting the working draft created an extra Plan record.');
+  expect(plansAfterSubmit[0].status === 'pending_review', 'Submission did not freeze the working draft for review.');
 }
 
 async function caseDraftHandoffContent() {

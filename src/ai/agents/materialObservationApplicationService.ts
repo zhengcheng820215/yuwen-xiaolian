@@ -33,6 +33,9 @@ import {
 } from './materialObservationAgent.ts';
 
 export type MaterialProductionTaskInput = {
+  observationTaskPlanId?: string;
+  taskRevisionRootId?: string;
+  parentObservationTaskPlanId?: string;
   primaryDimension: ObservationDimension;
   observationFocus?: ObservationFocus;
   abilityId: PrimaryAbilityId;
@@ -56,6 +59,15 @@ export type MaterialProductionDraftResult = {
   status: 'created' | 'reused' | 'failed';
   validationPassed?: boolean;
   issues: string[];
+};
+
+export type SingleTaskRegenerationResult = {
+  plan: MaterialObservationPlan;
+  validation: MaterialObservationPlanValidation;
+  changed: boolean;
+  reused: boolean;
+  sourceObservationTaskPlanId: string;
+  observationTaskPlanId: string;
 };
 
 export async function createMaterialStructure(
@@ -101,6 +113,7 @@ export async function createMaterialProductionPlan(
   input: {
     materialVersionId: string;
     tasks: MaterialProductionTaskInput[];
+    sourcePlanId?: string;
     now?: string;
   },
 ): Promise<{ plan: MaterialObservationPlan; validation: MaterialObservationPlanValidation }> {
@@ -144,14 +157,33 @@ export async function createMaterialProductionPlan(
     }));
   const previousPlans = (await observationRepository.listPlans(input.materialVersionId))
     .sort((left, right) => right.revision - left.revision);
+  const requestedSourcePlan = input.sourcePlanId
+    ? previousPlans.find((item) => item.materialObservationPlanId === input.sourcePlanId)
+    : undefined;
+  if (input.sourcePlanId && !requestedSourcePlan) {
+    throw new Error(`Material Observation Plan not found: ${input.sourcePlanId}`);
+  }
+  const sourcePlan = requestedSourcePlan || previousPlans[0];
+  const mutableSourcePlan = (
+    sourcePlan && ['draft', 'revision_required'].includes(sourcePlan.status)
+      ? sourcePlan
+      : previousPlans.find((item) => ['draft', 'revision_required'].includes(item.status))
+  );
   const plan = buildMaterialObservationPlan({
+    materialObservationPlanId: mutableSourcePlan?.materialObservationPlanId,
     materialId: material.materialId,
     materialVersionId: material.materialVersionId,
     materialStructureSnapshotId: structure.materialStructureSnapshotId,
-    revision: (previousPlans[0]?.revision || 0) + 1,
-    parentPlanId: previousPlans[0]?.materialObservationPlanId,
+    revision: mutableSourcePlan?.revision || (previousPlans[0]?.revision || 0) + 1,
+    parentPlanId: mutableSourcePlan?.parentPlanId || sourcePlan?.materialObservationPlanId,
+    createdAt: mutableSourcePlan?.createdAt,
     dimensionReviews,
     taskPlans: input.tasks.map((task, index) => ({
+      observationTaskPlanId: mutableSourcePlan ? task.observationTaskPlanId : undefined,
+      taskRevisionRootId: task.taskRevisionRootId || task.observationTaskPlanId,
+      parentObservationTaskPlanId: mutableSourcePlan
+        ? task.parentObservationTaskPlanId
+        : task.observationTaskPlanId,
       primaryDimension: task.primaryDimension,
       observationFocus: task.observationFocus,
       abilityId: task.abilityId,
@@ -176,6 +208,125 @@ export async function createMaterialProductionPlan(
     now,
   );
   return { plan: (await observationRepository.getPlan(plan.materialObservationPlanId)) || plan, validation };
+}
+
+export async function createSingleTaskRegenerationRevision(
+  resourceRepository: QuestionResourceAdmissionRepository,
+  observationRepository: MaterialObservationRepository,
+  input: {
+    sourcePlanId: string;
+    sourceObservationTaskPlanId: string;
+    regenerationAttemptId: string;
+    replacement: MaterialProductionTaskInput;
+    now?: string;
+  },
+): Promise<SingleTaskRegenerationResult> {
+  const attemptId = input.regenerationAttemptId.trim();
+  if (!attemptId) throw new Error('Single-task regeneration requires a stable attempt id.');
+
+  const sourcePlan = await requirePlan(observationRepository, input.sourcePlanId);
+  const sourceTaskIndex = sourcePlan.taskPlans.findIndex(
+    (task) => task.observationTaskPlanId === input.sourceObservationTaskPlanId,
+  );
+  if (sourceTaskIndex < 0) {
+    throw new Error(`Observation Task Plan not found: ${input.sourceObservationTaskPlanId}`);
+  }
+  const sourceTask = sourcePlan.taskPlans[sourceTaskIndex];
+  const plans = await observationRepository.listPlans(sourcePlan.materialVersionId);
+  const existingAttempt = plans.find((plan) => (
+    plan.regenerationContext?.attemptId === attemptId
+    && plan.regenerationContext.sourcePlanId === sourcePlan.materialObservationPlanId
+    && plan.regenerationContext.sourceObservationTaskPlanId === sourceTask.observationTaskPlanId
+  ));
+  if (existingAttempt) {
+    const validation = await validateAndSaveMaterialObservationPlan(
+      resourceRepository,
+      observationRepository,
+      existingAttempt.materialObservationPlanId,
+      input.now,
+    );
+    const target = existingAttempt.taskPlans[sourceTaskIndex];
+    return {
+      plan: existingAttempt,
+      validation,
+      changed: true,
+      reused: true,
+      sourceObservationTaskPlanId: sourceTask.observationTaskPlanId,
+      observationTaskPlanId: target.observationTaskPlanId,
+    };
+  }
+
+  const sourceAnchor = await requireSingleTaskAnchor(observationRepository, sourceTask);
+  assertSingleTaskLockedFields(sourceTask, sourceAnchor, input.replacement);
+  const replacementTask = productionTaskInputToObservationTaskInput(input.replacement, sourceTask.sourceAnchorIds);
+  const sourceComparable = observationTaskComparable(sourceTask);
+  const replacementComparable = observationTaskComparable({
+    ...sourceTask,
+    ...replacementTask,
+  });
+  if (sourceComparable === replacementComparable) {
+    const validation = await validateAndSaveMaterialObservationPlan(
+      resourceRepository,
+      observationRepository,
+      sourcePlan.materialObservationPlanId,
+      input.now,
+    );
+    return {
+      plan: sourcePlan,
+      validation,
+      changed: false,
+      reused: true,
+      sourceObservationTaskPlanId: sourceTask.observationTaskPlanId,
+      observationTaskPlanId: sourceTask.observationTaskPlanId,
+    };
+  }
+
+  const material = await resourceRepository.getMaterial(sourcePlan.materialVersionId);
+  if (!material) throw new Error(`Material Version not found: ${sourcePlan.materialVersionId}`);
+  const now = input.now || new Date().toISOString();
+  const latestRevision = plans.reduce((maximum, plan) => Math.max(maximum, plan.revision), 0);
+  const taskRevisionRootId = sourceTask.taskRevisionRootId || sourceTask.observationTaskPlanId;
+  const taskPlans = sourcePlan.taskPlans.map((task, index) => {
+    if (index !== sourceTaskIndex) return observationTaskToInput(task, true);
+    return {
+      ...replacementTask,
+      taskRevisionRootId,
+      parentObservationTaskPlanId: sourceTask.observationTaskPlanId,
+      regenerationAttemptId: attemptId,
+    };
+  });
+  const plan = buildMaterialObservationPlan({
+    materialId: sourcePlan.materialId,
+    materialVersionId: sourcePlan.materialVersionId,
+    materialStructureSnapshotId: sourcePlan.materialStructureSnapshotId,
+    revision: latestRevision + 1,
+    parentPlanId: sourcePlan.materialObservationPlanId,
+    regenerationContext: {
+      attemptId,
+      sourcePlanId: sourcePlan.materialObservationPlanId,
+      sourceObservationTaskPlanId: sourceTask.observationTaskPlanId,
+      taskRevisionRootId,
+    },
+    dimensionReviews: sourcePlan.dimensionReviews,
+    taskPlans,
+    now,
+  });
+  await observationRepository.savePlan(plan);
+  const validation = await validateAndSaveMaterialObservationPlan(
+    resourceRepository,
+    observationRepository,
+    plan.materialObservationPlanId,
+    now,
+  );
+  const saved = (await observationRepository.getPlan(plan.materialObservationPlanId)) || plan;
+  return {
+    plan: saved,
+    validation,
+    changed: true,
+    reused: false,
+    sourceObservationTaskPlanId: sourceTask.observationTaskPlanId,
+    observationTaskPlanId: saved.taskPlans[sourceTaskIndex].observationTaskPlanId,
+  };
 }
 
 export async function createAndValidateQuestionDraftBatch(
@@ -330,14 +481,14 @@ export async function reviewMaterialObservationPlan(
   },
 ): Promise<MaterialObservationReviewDecision> {
   const plan = await requirePlan(observationRepository, input.planId);
-  const reviewId = `${plan.materialObservationPlanId}:review:r${plan.revision}`;
-  const existing = await observationRepository.getReview(reviewId);
-  if (existing) return existing;
   if (plan.status !== 'pending_review') throw new Error(`Material Observation Plan cannot be reviewed from status: ${plan.status}`);
   if (!input.reviewerId.trim() || !input.notes.trim()) throw new Error('Reviewer identity and notes are required.');
 
   const validation = await findCurrentValidation(observationRepository, plan);
   if (!validation?.passed) throw new Error('Current passed Material Observation Plan validation is required.');
+  const reviewId = `${plan.materialObservationPlanId}:review:r${plan.revision}:${validation.validationId}`;
+  const existing = await observationRepository.getReview(reviewId);
+  if (existing) return existing;
   const now = input.now || new Date().toISOString();
   const decision: MaterialObservationReviewDecision = {
     reviewId,
@@ -494,4 +645,96 @@ function abilityLabel(value: PrimaryAbilityId): string {
 }
 function dimensionLabel(value: ObservationDimension): string {
   return ({ fact: '事实', character: '人物', plot: '情节', causality: '因果', structure: '结构', language: '语言', theme: '主题' })[value];
+}
+
+function productionTaskInputToObservationTaskInput(
+  task: MaterialProductionTaskInput,
+  sourceAnchorIds: string[],
+) {
+  return {
+    primaryDimension: task.primaryDimension,
+    observationFocus: task.observationFocus,
+    abilityId: task.abilityId,
+    taskRole: task.taskRole,
+    difficulty: task.difficulty,
+    sourceAnchorIds,
+    observationGoal: task.questionStem,
+    expectedStudentAction: task.expectedStudentAction,
+    designReason: task.designReason,
+    intendedComparisonGroupId: task.intendedComparisonGroupId,
+    materialRelationIntent: task.materialRelationIntent,
+    resourceDraftSpecification: task.resourceDraftSpecification,
+    calibrationCases: task.calibrationCases,
+  };
+}
+
+function observationTaskToInput(task: ObservationTaskPlan, preserveIdentity: boolean) {
+  return {
+    observationTaskPlanId: preserveIdentity ? task.observationTaskPlanId : undefined,
+    taskRevisionRootId: task.taskRevisionRootId || task.observationTaskPlanId,
+    parentObservationTaskPlanId: task.parentObservationTaskPlanId,
+    regenerationAttemptId: task.regenerationAttemptId,
+    primaryDimension: task.primaryDimension,
+    observationFocus: task.observationFocus,
+    abilityId: task.abilityId,
+    taskRole: task.taskRole,
+    difficulty: task.difficulty,
+    sourceAnchorIds: task.sourceAnchorIds,
+    observationGoal: task.observationGoal,
+    expectedStudentAction: task.expectedStudentAction,
+    designReason: task.designReason,
+    intendedComparisonGroupId: task.intendedComparisonGroupId,
+    materialRelationIntent: task.materialRelationIntent,
+    resourceDraftSpecification: task.resourceDraftSpecification,
+    calibrationCases: task.calibrationCases,
+  };
+}
+
+async function requireSingleTaskAnchor(
+  repository: MaterialObservationRepository,
+  task: ObservationTaskPlan,
+): Promise<MaterialSourceAnchor> {
+  if (task.sourceAnchorIds.length !== 1) {
+    throw new Error('Single-task regeneration requires exactly one locked material anchor.');
+  }
+  const anchor = await repository.getAnchor(task.sourceAnchorIds[0]);
+  if (!anchor) throw new Error(`Material Source Anchor not found: ${task.sourceAnchorIds[0]}`);
+  return anchor;
+}
+
+function assertSingleTaskLockedFields(
+  sourceTask: ObservationTaskPlan,
+  sourceAnchor: MaterialSourceAnchor,
+  replacement: MaterialProductionTaskInput,
+): void {
+  const mismatches: string[] = [];
+  if (replacement.primaryDimension !== sourceTask.primaryDimension) mismatches.push('primaryDimension');
+  if (replacement.abilityId !== sourceTask.abilityId) mismatches.push('abilityId');
+  if (replacement.taskRole !== sourceTask.taskRole) mismatches.push('taskRole');
+  if (replacement.difficulty !== sourceTask.difficulty) mismatches.push('difficulty');
+  if (replacement.anchorType && replacement.anchorType !== sourceAnchor.anchorType) mismatches.push('anchorType');
+  if (sourceAnchor.anchorType !== 'full_text') {
+    if (replacement.startParagraph && replacement.startParagraph !== sourceAnchor.startParagraph) mismatches.push('startParagraph');
+    if (
+      sourceAnchor.anchorType === 'paragraph_range'
+      && replacement.endParagraph
+      && replacement.endParagraph !== sourceAnchor.endParagraph
+    ) mismatches.push('endParagraph');
+  }
+  if (mismatches.length) {
+    throw new Error(`Single-task regeneration cannot change locked fields: ${unique(mismatches).join(', ')}`);
+  }
+}
+
+function observationTaskComparable(task: Partial<ObservationTaskPlan>): string {
+  return JSON.stringify({
+    observationFocus: task.observationFocus || null,
+    observationGoal: normalize(task.observationGoal || ''),
+    expectedStudentAction: normalize(task.expectedStudentAction || ''),
+    designReason: normalize(task.designReason || ''),
+    intendedComparisonGroupId: task.intendedComparisonGroupId || '',
+    materialRelationIntent: task.materialRelationIntent || '',
+    resourceDraftSpecification: task.resourceDraftSpecification || null,
+    calibrationCases: task.calibrationCases || null,
+  });
 }

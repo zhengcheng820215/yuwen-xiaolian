@@ -146,8 +146,12 @@ async function caseEditInvalidatesAssessment(): Promise<void> {
   const updated = await updateStructuredQuestionDraft(
     fixture.resources,
     fixture.draft.draftId,
-    { title: '修改后的题目' },
+    { questionStem: `${fixture.draft.questionStem} 请补充具体材料依据。` },
     LATER,
+  );
+  assert(
+    !updated.latestValidationId && !updated.latestReviewId,
+    'Editing a core authoring field must invalidate prior validation and review.',
   );
 
   await assertRejectsCode(
