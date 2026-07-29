@@ -359,6 +359,7 @@ export async function reviewQuestionResourceDraft(
     action: ResourceReviewAction;
     reviewerId: string;
     notes: string;
+    warningDecisions?: ResourceReviewDecision['warningDecisions'];
     now?: string;
   },
 ): Promise<ResourceReviewDecision> {
@@ -384,6 +385,9 @@ export async function reviewQuestionResourceDraft(
     reviewerId: input.reviewerId,
     notes: input.notes.trim(),
     reviewedAt: now,
+    warningDecisions: input.warningDecisions
+      ? clone(input.warningDecisions)
+      : undefined,
   };
   await repository.saveReview(decision);
   await repository.saveDraft({

@@ -23,6 +23,7 @@ import {
 } from '../ai/contracts/authoringFieldContract.ts';
 import {
   freezeQuestionResourceDraftWithQuality,
+  getCurrentAssessmentState,
   getOrAssessCurrentQuestionDraftQuality,
   reviewQuestionResourceDraftWithQuality,
   submitQuestionResourceForQualityReview,
@@ -75,6 +76,7 @@ export type QuestionResourceWorkbenchContext = {
   validation: ResourceValidationResult | null;
   review: ResourceReviewDecision | null;
   qualityAssessment: QuestionQualityAssessment | null;
+  assessmentState: ReturnType<typeof getCurrentAssessmentState>;
   publicationPreflight: QuestionPublicationPreflight;
   frozenVersion: FrozenQuestionResourceVersion | null;
   registryEntry: ResourceRegistryEntry | null;
@@ -182,6 +184,7 @@ export async function getQuestionResourceWorkbenchContext(
     validation,
     review,
     qualityAssessment,
+    assessmentState: getCurrentAssessmentState(draft, qualityAssessment),
     publicationPreflight,
     frozenVersion,
     registryEntry,
@@ -278,6 +281,7 @@ export async function decideQuestionResourceWorkbenchReview(input: {
   action: ResourceReviewAction;
   reviewerId: string;
   notes: string;
+  acceptedWarningCodes?: string[];
 }) {
   return reviewQuestionResourceDraftWithQuality(
     repository,

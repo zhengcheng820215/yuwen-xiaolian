@@ -25,13 +25,16 @@
 本文不替代：
 
 1. [Phase 17 录入字段契约](./AUTHORING_FIELD_CONTRACT.md)；
-2. [Phase 17 单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md)；
-3. [Phase 17 训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md)；
-4. Question Draft、Revision、Validation、QuestionQualityAssessment、Human Review、Freeze 与 Formal Resource 的既有数据和运行规则。
+2. [Phase 17 录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md)；
+3. [Phase 17 单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md)；
+4. [Phase 17 训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md)；
+5. Question Draft、Revision、Validation、QuestionQualityAssessment、Human Review、Freeze 与 Formal Resource 的既有数据和运行规则。
 
 本文只负责把上述业务契约翻译为稳定、清晰、低负担的审核工作流。字段、保存、检查、审核、发布和问题定位不得在页面中形成第二套解释。
 
 本文描述的是完整平台工作流，不要求同一用户完成所有阶段。内容编辑者、审核者和发布者可以是同一用户，也可以由后续权限模型分离；无论角色如何分配，各阶段的数据、Revision 和状态边界不得改变。
+
+录入端、审核端与发布过程的职责划分以“录入、审核与发布职责边界契约”为准。本文中涉及内容修改、质量问题处理和“定位修改”的规则，默认属于提交人工审核前的录入阶段；进入 `pending_review` 后，审核端只读并只负责接受或退回，不再直接修改正式内容。
 
 ## 二、平台主任务与非目标
 
@@ -238,6 +241,8 @@ type CurrentAssessmentState =
 
 `approved`、`frozen` 和 `published` 状态下的正式内容同样不可原地修改。后续调整必须通过受控的新 Draft Revision 完成。
 
+`reviewed` / `approved` 状态下如在发布前发现内容问题，必须先撤销当前发布流程并退回修改。修改后创建新 Draft Revision，旧 Human Review Decision 继续绑定原 Revision，仅用于追溯；禁止修改已审核 Revision 后继续沿用原审核结论。
+
 ## 六、操作语义
 
 ### 6.1 唯一动作表
@@ -301,6 +306,25 @@ type HumanReviewBinding = {
 
 系统检查通过不得自动创建人工审核通过决定。
 
+录入人员对非阻断提醒的保留确认与审核人员的接受决定必须分别持久化。审核人员的决定至少绑定：
+
+```ts
+type ReviewWarningDecision = {
+  warningDecisionId: string;
+  draftId: string;
+  draftRevision: number;
+  assessmentId: string;
+  warningCode: string;
+  decision: 'accepted' | 'rejected';
+  reviewedBy: string;
+  reviewedAt: string;
+};
+```
+
+P0 以 `assessmentId + warningCode` 绑定当前 Warning；独立
+`warningAcknowledgementId` 在录入端确认理由持久化完成后作为附加追溯关系接入。
+所有必须确认事项必须逐项形成决定。存在未决事项时不得审核通过；任一事项被拒绝时，当前提交整体进入 `revision_required`，不得建立部分审核通过状态。
+
 ### 6.6 发布规则
 
 发布前必须在页面上提前展示发布准备状态。禁止用户点击发布后才首次看到系统已经知道的阻断项。
@@ -351,6 +375,8 @@ type PublicationProgress = {
 4. 页面应明确显示“发布未完成，可继续完成发布”，不得把部分成功伪装成完全失败；
 5. 发布完成前不得让 Runtime 把缺少有效 Registry 指向的版本视为可用正式资源；
 6. 历史正式版本不得因重试或补写 Registry 被覆盖。
+7. Human Review 已成功但 Publication 失败时，页面显示“审核已通过，发布未完成”并提供“重试发布”；
+8. 发布失败不得把审核状态回滚为待审核，也不得重复创建 Human Review Decision。
 
 ## 七、质量问题分级
 

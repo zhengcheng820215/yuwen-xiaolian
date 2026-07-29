@@ -66,7 +66,7 @@ Debug / Acceptance Report
 | 产品级 PASS | ① 24—28 道全部 Review / Freeze / Registry / Link；② 六项 Ability 均有正式资源；③ 两条 Retest、两条 Transfer、一条跨 Ability 路径可查询；④ 核心题 Rubric、Acceptance 与答案 Fixture 通过；⑤ 无明显低质量或错位题。 |
 | 演示路径 | 选择或保存 Batch A Material -> 核对当前素材的待审核资源与已发布练习，并确认两类明细沿用同一题号顺序 -> 校准训练任务 -> 在“提交题目审核”核对版本、能力覆盖、材料范围与结构检查 -> Question / Rubric / Acceptance -> Review -> Freeze -> Registry -> Link -> Runtime Query；另选一条已停用素材执行重新启用，确认历史关系保留并返回已有素材库存。未选择 Material 时不显示下游生产模块。 |
 | FAIL 先查 | 题目与 Rubric：内容；Freeze / Registry / Link：Runtime；录入审核困难：交互。 |
-| 证据 | [Phase 17.2](../education/phase/phase17_2.md) · [录入字段契约 v1](AUTHORING_FIELD_CONTRACT.md) · [题目审核与发布工作流契约](QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md) · [单训练任务重新生成契约](SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) · [训练任务组 AI 规划契约](TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) · [生产蓝图](../education/phase/phase17_2_first_resource_pack_blueprint.md) · [辅助首稿生成验收](../education/phase/reports/phase17_2_assisted_draft_generation_engineering_2026-07-23.md) |
+| 证据 | [Phase 17.2](../education/phase/phase17_2.md) · [录入字段契约 v1](AUTHORING_FIELD_CONTRACT.md) · [录入、审核与发布职责边界契约](AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md) · [题目审核与发布工作流契约](QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md) · [单训练任务重新生成契约](SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) · [训练任务组 AI 规划契约](TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) · [生产蓝图](../education/phase/phase17_2_first_resource_pack_blueprint.md) · [辅助首稿生成验收](../education/phase/reports/phase17_2_assisted_draft_generation_engineering_2026-07-23.md) |
 
 ## 五、Phase 17.3：正式资源运行集成
 

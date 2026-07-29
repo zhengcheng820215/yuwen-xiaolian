@@ -208,6 +208,17 @@ export type ResourceValidationResult = {
 
 export type ResourceReviewAction = 'approve' | 'revision_required' | 'reject';
 
+export type ReviewWarningDecision = {
+  warningDecisionId: string;
+  draftId: string;
+  draftRevision: number;
+  assessmentId: string;
+  warningCode: string;
+  decision: 'accepted' | 'rejected';
+  reviewedBy: string;
+  reviewedAt: string;
+};
+
 export type ResourceReviewDecision = {
   reviewId: string;
   draftId: string;
@@ -218,6 +229,7 @@ export type ResourceReviewDecision = {
   reviewerId: string;
   notes: string;
   reviewedAt: string;
+  warningDecisions?: ReviewWarningDecision[];
 };
 
 export type FrozenQuestionResourceStatus = 'frozen' | 'superseded' | 'retired';

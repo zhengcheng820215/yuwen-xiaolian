@@ -3,6 +3,7 @@ import {
 } from '../agents/questionQualityAssessmentAgent.ts';
 import {
   freezeQuestionResourceDraftWithQuality,
+  getCurrentAssessmentState,
   getOrAssessCurrentQuestionDraftQuality,
   reviewQuestionResourceDraftWithQuality,
   submitQuestionResourceForQualityReview,
@@ -39,6 +40,8 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '07 freeze requires current assessment', run: caseFreezeRequiresAssessment },
   { name: '08 full quality-aware review and freeze chain succeeds', run: caseFullChain },
   { name: '09 old rule assessment is replaced before consumption', run: caseRuleVersionRefresh },
+  { name: '10 assessment state is calculated from one shared contract', run: caseAssessmentState },
+  { name: '11 warning decisions are required and revision-bound', run: caseWarningDecisions },
 ];
 
 async function main(): Promise<void> {
@@ -257,13 +260,110 @@ async function caseRuleVersionRefresh(): Promise<void> {
   );
 }
 
+async function caseAssessmentState(): Promise<void> {
+  const fixture = await validatedFixture('assessment-state');
+  assert(
+    getCurrentAssessmentState(fixture.draft, null) === 'missing',
+    'Missing assessment state was not reported.',
+  );
+  const assessment = await getOrAssessCurrentQuestionDraftQuality(
+    fixture.resources,
+    fixture.quality,
+    fixture.draft.draftId,
+    NOW,
+  );
+  assert(assessment, 'Assessment state fixture did not receive an assessment.');
+  assert(
+    getCurrentAssessmentState(fixture.draft, assessment) === 'current',
+    'Current assessment state was not reported.',
+  );
+  assert(
+    getCurrentAssessmentState(
+      { ...fixture.draft, revision: fixture.draft.revision + 1 },
+      assessment,
+    ) === 'stale_by_revision',
+    'Revision-stale assessment state was not reported.',
+  );
+  assert(
+    getCurrentAssessmentState(
+      fixture.draft,
+      { ...assessment, ruleVersion: 'legacy_quality_rules' },
+    ) === 'stale_by_rule_version',
+    'Rule-stale assessment state was not reported.',
+  );
+}
+
+async function caseWarningDecisions(): Promise<void> {
+  const fixture = await validatedFixture('warning-decisions', {
+    questionStem: '请谈谈你对亲情的理解。',
+    rubric: validRubric(false),
+    minimumAnswerRequirement: {
+      minLength: 20,
+      requireTextEvidence: false,
+      requireExplanation: true,
+    },
+  });
+  const assessment = await getOrAssessCurrentQuestionDraftQuality(
+    fixture.resources,
+    fixture.quality,
+    fixture.draft.draftId,
+    NOW,
+  );
+  assert(assessment?.warnings.length, 'Warning decision fixture has no warnings.');
+  await submitQuestionResourceForQualityReview(
+    fixture.resources,
+    fixture.quality,
+    fixture.draft.draftId,
+    NOW,
+  );
+  await assertRejectsCode(
+    () => reviewQuestionResourceDraftWithQuality(
+      fixture.resources,
+      fixture.quality,
+      {
+        draftId: fixture.draft.draftId,
+        action: 'approve',
+        reviewerId: 'reviewer-1',
+        notes: '尚未逐项确认提醒。',
+        now: NOW,
+      },
+    ),
+    'REVIEW_WARNING_DECISION_REQUIRED',
+  );
+
+  const decision = await reviewQuestionResourceDraftWithQuality(
+    fixture.resources,
+    fixture.quality,
+    {
+      draftId: fixture.draft.draftId,
+      action: 'approve',
+      reviewerId: 'reviewer-1',
+      notes: '逐项确认录入端保留的提醒。',
+      acceptedWarningCodes: assessment.warnings.map((warning) => warning.code),
+      now: NOW,
+    },
+  );
+  assert(
+    decision.warningDecisions?.length === assessment.warnings.length,
+    'Review warning decisions were not persisted.',
+  );
+  assert(
+    decision.warningDecisions?.every((item) => (
+      item.draftRevision === fixture.draft.revision &&
+      item.assessmentId === assessment.assessmentId &&
+      item.decision === 'accepted'
+    )),
+    'Review warning decisions are not bound to the reviewed revision and assessment.',
+  );
+}
+
 async function reviewedFixture(suffix: string): Promise<{
   resources: ResourceRepository;
   quality: QualityRepository;
   draft: StructuredQuestionDraft;
 }> {
   const fixture = await validatedFixture(suffix);
-  await getOrAssessCurrentQuestionDraftQuality(
+  const assessment = await getOrAssessCurrentQuestionDraftQuality(
     fixture.resources,
     fixture.quality,
     fixture.draft.draftId,
@@ -283,6 +383,7 @@ async function reviewedFixture(suffix: string): Promise<{
       action: 'approve',
       reviewerId: 'reviewer-1',
       notes: '人工确认质量警告与题目内容。',
+      acceptedWarningCodes: assessment?.warnings.map((warning) => warning.code),
       now: NOW,
     },
   );

@@ -27,6 +27,25 @@ import type {
   StructuredQuestionDraft,
 } from '../schemas/questionResourceAdmission.schema.ts';
 
+export type CurrentAssessmentState =
+  | 'missing'
+  | 'current'
+  | 'stale_by_revision'
+  | 'stale_by_rule_version'
+  | 'failed';
+
+export function getCurrentAssessmentState(
+  draft: StructuredQuestionDraft,
+  assessment: QuestionQualityAssessment | null,
+): CurrentAssessmentState {
+  if (!assessment) return 'missing';
+  if (assessment.assessedDraftRevision !== draft.revision) return 'stale_by_revision';
+  if (assessment.ruleVersion !== QUESTION_QUALITY_RULE_VERSION) {
+    return 'stale_by_rule_version';
+  }
+  return assessment.checks.materialGrounding === 'fail' ? 'failed' : 'current';
+}
+
 export async function getOrAssessCurrentQuestionDraftQuality(
   resourceRepository: QuestionResourceAdmissionRepository,
   qualityRepository: QuestionQualityAssessmentRepository,
@@ -164,15 +183,45 @@ export async function reviewQuestionResourceDraftWithQuality(
     action: ResourceReviewAction;
     reviewerId: string;
     notes: string;
+    acceptedWarningCodes?: string[];
     now?: string;
   },
 ): Promise<ResourceReviewDecision> {
-  await requireCurrentQuestionDraftQuality(
+  const { draft, assessment } = await requireCurrentQuestionDraftQuality(
     resourceRepository,
     qualityRepository,
     input.draftId,
   );
-  return reviewQuestionResourceDraft(resourceRepository, input);
+  const acceptedWarningCodes = new Set(input.acceptedWarningCodes || []);
+  if (input.action === 'approve') {
+    const unresolvedWarnings = assessment.warnings.filter(
+      (warning) => !acceptedWarningCodes.has(warning.code),
+    );
+    if (unresolvedWarnings.length) {
+      throw createStructuredRuntimeError({
+        code: 'REVIEW_WARNING_DECISION_REQUIRED',
+        message: `仍有 ${unresolvedWarnings.length} 项待确认事项未形成审核决定，不能审核通过。`,
+        operation: 'question_quality_review_gate.review',
+        objectId: input.draftId,
+        recoverability: 'user_action_required',
+      });
+    }
+  }
+  const reviewedAt = input.now || new Date().toISOString();
+  return reviewQuestionResourceDraft(resourceRepository, {
+    ...input,
+    now: reviewedAt,
+    warningDecisions: assessment.warnings.map((warning) => ({
+      warningDecisionId: `${draft.draftId}:r${draft.revision}:${assessment.assessmentId}:${warning.code}`,
+      draftId: draft.draftId,
+      draftRevision: draft.revision,
+      assessmentId: assessment.assessmentId,
+      warningCode: warning.code,
+      decision: acceptedWarningCodes.has(warning.code) ? 'accepted' : 'rejected',
+      reviewedBy: input.reviewerId,
+      reviewedAt,
+    })),
+  });
 }
 
 export async function freezeQuestionResourceDraftWithQuality(

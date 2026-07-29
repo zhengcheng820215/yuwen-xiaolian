@@ -877,3 +877,60 @@ Debug 与构建结果：
 - `git diff --check`：`PASS`。
 
 本轮证明审核平台已具备一致的 Assessment 时效判断、审核中只读边界、明确的题目切换保护和发布部分失败恢复能力。真实十素材校准仍是 Phase 17.5 后续产品验收项，不因本次工程通过而自动完成。
+
+## 2026-07-29 录入、审核与发布职责边界冻结
+
+本轮新增 [Phase 17 录入、审核与发布职责边界契约](../../product/AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md)，用于解决录入端与审核发布端重复展示质量报告、重复指导修改和重复表达审核动作的问题。
+
+职责冻结为：
+
+```text
+录入端负责改
+→ 审核端负责判
+→ 发布过程负责正式化
+```
+
+本契约保留训练计划审核与最终题目审核，因为二者分别回答“训练计划能否进入题目生产”和“最终题目能否正式发布”；被移除的是审核端对录入端详细修改流程的重复承担。
+
+最小工程改造优先级：
+
+1. 录入端承接完整提交前检查、修改建议、定位修改和提醒处理；
+2. 审核端改为只读内容审核、学生预览、审核记录和待确认事项；
+3. `pending_review` 中禁止直接编辑，问题必须结构化退回录入端；
+4. 非阻断提醒的保留理由绑定 Draft Revision 与 Assessment；
+5. 发布过程只校验 Revision、Assessment、Review 和正式化写入的一致性；
+6. 审核端删除“提交人工审核”、详细修改教程和重复结构检查步骤。
+
+该项属于职责和交接契约，不新增第二套生命周期。页面继续使用现有 Draft、Validation、Assessment、Human Review 与 Freeze 状态，通过用户语言映射呈现“录入中、待人工审核、已退回修改、审核通过待发布、已发布”。
+
+本轮职责契约补强进一步冻结：
+
+1. `reviewed` / `approved` Revision 的正式字段继续只读，发布前发现内容问题必须退回并创建新 Revision；
+2. 录入人员的 Warning Acknowledgement 与审核人员的 Review Warning Decision 分别记录，不得共用状态字段；
+3. 所有必须确认事项必须逐项形成审核决定，存在未决事项时不得审核通过，任一事项被拒绝时整体进入 `revision_required`；
+4. Human Review 已成功但 Publication 失败时，审核结论不回滚，页面显示“审核已通过，发布未完成”并只允许重试发布；
+5. 页面与操作文案固定使用“训练计划审核”“题目人工审核”“发布准备检查”，明确三次判断的领域对象。
+
+## 2026-07-29 录入、审核与发布职责边界 P0 工程对齐
+
+本轮完成审核端职责边界的首轮工程落地：
+
+1. `CurrentAssessmentState` 成为页面、提交审核与发布共同使用的 Assessment 当前性判断；
+2. `pending_review` 题目进入只读“内容审核”，不再重复提供录入表单、AI 修改和详细修改教程；
+3. 审核工作台只保留“内容审核 / 学生预览 / 审核记录”、提交摘要、待确认事项与人工审核动作；
+4. 每个 Assessment Warning 都必须形成绑定当前 Revision 的审核决定，未全部确认时“审核通过”不可用；
+5. 审核通过后的 Revision 继续只读，发布未完成时复用既有审核决定与正式版本继续发布；
+6. 修复审核只读页最低字数读取错位，统一使用 Authoring Form 的 `minLength`。
+
+验证结果：
+
+- Question Quality Review Gate：`11 / 11 PASS`；
+- Question Resource Admission：`24 / 24 PASS`；
+- Authoring Field Contract：`PASS`；
+- Training Task Group Planning E2E：`PASS`；
+- Production Build：`PASS`；
+- 浏览器真实验收：只读审核、提醒确认门禁、学生预览、审核记录和 `20 字`最低要求均通过；
+- `git diff --check`：`PASS`。
+
+该结果关闭审核端重复编辑和重复质量报告的 P0 问题。录入端独立提醒理由、
+结构化退回原因及完整历史审核记录仍属于职责契约 P1，不因本轮通过而自动完成。

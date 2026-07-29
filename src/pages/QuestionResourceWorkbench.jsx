@@ -106,7 +106,7 @@ const sourceTypeOptions = [
 const statusLabels = {
   drafted: '草稿',
   validation_failed: '结构检查未通过',
-  pending_review: '待审核',
+  pending_review: '待人工审核',
   revision_required: '退回修改',
   reviewed: '审核通过',
   rejected: '不采用',
@@ -152,6 +152,7 @@ export default function QuestionResourceWorkbench() {
   const [selectedDraftId, setSelectedDraftId] = useState(null);
   const [activePanel, setActivePanel] = useState('workflow');
   const [reviewNotes, setReviewNotes] = useState('内容与元数据已人工核对。');
+  const [acceptedReviewWarningCodes, setAcceptedReviewWarningCodes] = useState([]);
   const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState(false);
   const [stemOptimization, setStemOptimization] = useState(null);
@@ -195,6 +196,11 @@ export default function QuestionResourceWorkbench() {
 
   useEffect(() => {
     qualityRepairEditCheckRef.current = null;
+    setAcceptedReviewWarningCodes(
+      context?.review?.warningDecisions
+        ?.filter((decision) => decision.decision === 'accepted')
+        .map((decision) => decision.warningCode) || [],
+    );
     if (!selectedDraftId) {
       setQualityRevisionProgress(null);
       return;
@@ -208,7 +214,12 @@ export default function QuestionResourceWorkbench() {
       context?.qualityAssessment,
     );
     setQualityRevisionProgress(next);
-  }, [selectedDraftId, context?.draft?.qualityRevisionProgress, context?.qualityAssessment?.assessmentId]);
+  }, [
+    selectedDraftId,
+    context?.draft?.qualityRevisionProgress,
+    context?.qualityAssessment?.assessmentId,
+    context?.review?.reviewId,
+  ]);
 
   async function refreshWorkspace(preferredDraftId = selectedDraftId) {
     const nextSnapshot = await getQuestionResourceWorkbenchSnapshot({
@@ -469,6 +480,7 @@ export default function QuestionResourceWorkbench() {
         action,
         reviewerId: 'local-reviewer',
         notes: reviewNotes,
+        acceptedWarningCodes: acceptedReviewWarningCodes,
       }),
       labels[action],
     );
@@ -874,6 +886,11 @@ export default function QuestionResourceWorkbench() {
   const selectedQuestionIndex = selectedDraftId
     ? snapshot.drafts.findIndex((draft) => draft.draftId === selectedDraftId)
     : -1;
+  const humanReviewStage = Boolean(
+    planReviewMode &&
+    context &&
+    ['pending_review', 'reviewed'].includes(context.draft.status),
+  );
   const resourceNavigator = (
     <ResourceNavigator
       snapshot={snapshot}
@@ -923,6 +940,7 @@ export default function QuestionResourceWorkbench() {
       focusedReview={planReviewMode}
       selectedQuestionNumber={selectedQuestionIndex >= 0 ? String(selectedQuestionIndex + 1) : null}
       hasUnsavedChanges={hasUnsavedChanges}
+      humanReviewStage={humanReviewStage}
     />
   );
   const workflowPanel = (
@@ -935,6 +953,8 @@ export default function QuestionResourceWorkbench() {
       previewResource={previewResource}
       reviewNotes={reviewNotes}
       setReviewNotes={setReviewNotes}
+      acceptedReviewWarningCodes={acceptedReviewWarningCodes}
+      setAcceptedReviewWarningCodes={setAcceptedReviewWarningCodes}
       busy={busy}
       onValidate={validateDraft}
       onSubmitReview={submitReview}
@@ -953,6 +973,7 @@ export default function QuestionResourceWorkbench() {
       publicationMismatch={context ? getPublicationMismatch(snapshot, context.draft) : null}
       publicationPreflightMismatch={context ? getPublicationPreflightMismatch(context) : null}
       publicationRepairDraft={context ? findPublicationRepairDraft(snapshot, context.draft) : null}
+      humanReviewStage={humanReviewStage}
     />
   );
 
@@ -1263,6 +1284,7 @@ function QuestionEditor({
   focusedReview,
   selectedQuestionNumber,
   hasUnsavedChanges,
+  humanReviewStage,
 }) {
   const update = (key, value) => setForm(
     (current) => ({ ...current, [key]: value }),
@@ -1318,6 +1340,17 @@ function QuestionEditor({
     setShowOptionalTrainingSettings(false);
     setShowOptionalAnswerSettings(false);
   }, [context?.draft?.draftId]);
+
+  if (humanReviewStage) {
+    return (
+      <QuestionReviewContent
+        context={context}
+        form={form}
+        material={reviewMaterial}
+        selectedQuestionNumber={selectedQuestionNumber}
+      />
+    );
+  }
 
   return (
     <section className={`rounded-md bg-white ${focusedReview ? '[&_input:focus]:border-emerald-500 [&_select:focus]:border-emerald-500 [&_textarea:focus]:border-emerald-500' : 'border border-slate-200'}`}>
@@ -1899,11 +1932,14 @@ function QuestionEditor({
 }
 
 function WorkflowPanel(props) {
-  const { activePanel, setActivePanel, context, form, material, previewResource, reviewNotes, setReviewNotes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onOptimizeStem, stemOptimizationBusy, focusedReview, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft } = props;
+  const { activePanel, setActivePanel, context, form, material, previewResource, reviewNotes, setReviewNotes, acceptedReviewWarningCodes, setAcceptedReviewWarningCodes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onOptimizeStem, stemOptimizationBusy, focusedReview, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft, humanReviewStage } = props;
+  const panelLabels = humanReviewStage
+    ? [['workflow', '内容审核'], ['student', '学生预览'], ['review', '审核记录']]
+    : [['workflow', '校验 / 审核'], ['student', '学生预览'], ['review', '审核预览']];
   return (
     <aside className={`overflow-hidden rounded-md bg-white ${focusedReview ? '' : 'border border-slate-200 lg:col-span-2 xl:col-span-1 xl:sticky xl:top-24'}`}>
       <div className="grid grid-cols-3 gap-2 p-2">
-        {[['workflow', '校验 / 审核'], ['student', '学生预览'], ['review', '审核预览']].map(([value, label]) => (
+        {panelLabels.map(([value, label]) => (
           <button key={value} type="button" onClick={() => setActivePanel(value)} className={`min-h-10 rounded text-sm font-normal ${activePanel === value ? (focusedReview ? 'bg-emerald-600 text-white' : 'bg-slate-950 text-white') : 'text-slate-600 hover:bg-slate-50'}`}>{label}</button>
         ))}
       </div>
@@ -1916,6 +1952,8 @@ function WorkflowPanel(props) {
             material={material}
             reviewNotes={reviewNotes}
             setReviewNotes={setReviewNotes}
+            acceptedReviewWarningCodes={acceptedReviewWarningCodes}
+            setAcceptedReviewWarningCodes={setAcceptedReviewWarningCodes}
             busy={busy}
             onValidate={onValidate}
             onSubmitReview={onSubmitReview}
@@ -1933,16 +1971,164 @@ function WorkflowPanel(props) {
             publicationMismatch={publicationMismatch}
             publicationPreflightMismatch={publicationPreflightMismatch}
             publicationRepairDraft={publicationRepairDraft}
+            focusedReview={focusedReview}
+            humanReviewStage={humanReviewStage}
           />
         ) : null}
         {activePanel === 'student' ? <StudentPreview resource={previewResource} material={material} isFrozen={Boolean(context?.frozenVersion)} /> : null}
-        {activePanel === 'review' ? <ReviewPreview context={context} form={form} material={material} qualityResultStale={qualityResultStale} qualityRevisionProgress={qualityRevisionProgress} /> : null}
+        {activePanel === 'review' ? <ReviewPreview context={context} form={form} material={material} qualityResultStale={qualityResultStale} qualityRevisionProgress={qualityRevisionProgress} humanReviewStage={humanReviewStage} /> : null}
       </div>
     </aside>
   );
 }
 
-function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onOptimizeStem, stemOptimizationBusy, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft }) {
+function QuestionReviewContent({ context, form, material, selectedQuestionNumber }) {
+  const draft = context?.draft;
+  return (
+    <section className="rounded-md bg-white">
+      <div className="border-b border-slate-200 px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-slate-950">
+              题目{selectedQuestionNumber || ''} · 内容审核
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              第 {draft?.revision || 1} 版 · 正式字段只读
+            </p>
+          </div>
+          <StatusBadge status={draft?.status || 'pending_review'} />
+        </div>
+      </div>
+      <div className="space-y-6 p-5">
+        <ReviewContentSection title="题目内容">
+          <p className="whitespace-pre-wrap text-sm leading-7 text-slate-900">
+            {form.questionStem || '尚未填写题目'}
+          </p>
+        </ReviewContentSection>
+        <div className="grid gap-5 md:grid-cols-2">
+          <ReviewContentSection title="训练目标">
+            <ReviewValue label="能力目标" value={optionLabel(abilityOptions, form.abilityId)} />
+            <ReviewValue label="具体训练点" value={form.specificTrainingPoint || '未填写'} />
+            <ReviewValue label="观察目标" value={form.observationTarget || '未填写'} />
+          </ReviewContentSection>
+          <ReviewContentSection title="作答要求">
+            <ReviewValue label="学生任务" value={form.studentTask || '未填写'} />
+            <ReviewValue label="难度" value={optionLabel(difficultyOptions, form.difficulty)} />
+            <ReviewValue label="最低字数" value={`${form.minLength || 0} 字`} />
+          </ReviewContentSection>
+        </div>
+        <ReviewContentSection title="评分规则">
+          <div className="space-y-3">
+            {form.rubric?.map((item, index) => (
+              <div key={item.localId || `${item.name}-${index}`} className="rounded-md bg-slate-50 px-3 py-3">
+                <p className="text-sm font-semibold text-slate-900">评分项{index + 1} · {item.name || '未命名'}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  {item.acceptedSignalsText || '尚未填写答案要点'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </ReviewContentSection>
+        {material ? (
+          <ReviewContentSection title="关联材料">
+            <p className="text-sm font-semibold text-slate-900">{formatMaterialTitle(material.title)}</p>
+            <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-7 text-slate-600">
+              {material.content}
+            </p>
+          </ReviewContentSection>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function ReviewContentSection({ title, children }) {
+  return (
+    <section>
+      <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
+      <div className="mt-2">{children}</div>
+    </section>
+  );
+}
+
+function ReviewValue({ label, value }) {
+  return (
+    <div className="mb-3 last:mb-0">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-800">{value}</p>
+    </div>
+  );
+}
+
+function ReviewSubmissionSummary({ context, acceptedWarningCodes, setAcceptedWarningCodes }) {
+  const assessment = context?.qualityAssessment;
+  const warnings = assessment?.warnings || [];
+  const locked = context?.draft?.status === 'reviewed';
+  const passedCount = assessment
+    ? Object.values(assessment.checks).filter((status) => status === 'pass').length
+    : 0;
+  const toggleWarning = (warningCode) => {
+    setAcceptedWarningCodes((current) => (
+      current.includes(warningCode)
+        ? current.filter((code) => code !== warningCode)
+        : [...current, warningCode]
+    ));
+  };
+  return (
+    <section className="rounded-md bg-slate-50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-950">提交信息</p>
+          <p className="mt-1 text-xs text-slate-500">
+            第 {context?.draft?.revision || 1} 版 · 录入检查已完成
+          </p>
+        </div>
+        <span className="text-xs text-slate-600">
+          {passedCount} 项通过 · {warnings.length} 项提醒 · 0 项阻断
+        </span>
+      </div>
+      {warnings.length ? (
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          <p className="text-sm font-semibold text-slate-950">待确认事项（{warnings.length}）</p>
+          <div className="mt-3 space-y-3">
+            {warnings.map((warning) => {
+              const accepted = acceptedWarningCodes.includes(warning.code);
+              return (
+                <div key={`${warning.code}-${warning.check}`} className="rounded-md bg-white p-3">
+                  <p className="text-sm font-semibold text-amber-800">
+                    {qualityCheckLabel(warning.check, false)}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">
+                    系统依据：{qualityWarningMessage(warning)}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={locked}
+                    onClick={() => toggleWarning(warning.code)}
+                    className={`mt-3 min-h-8 rounded-md px-3 text-xs font-normal ${
+                      accepted
+                        ? 'bg-blue-600 text-white'
+                        : 'border border-[#666666] text-slate-800'
+                    } disabled:cursor-default`}
+                  >
+                    {accepted ? '已接受该处理' : '接受该处理'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            所有待确认事项形成审核决定后，才可审核通过；如不接受，请退回修改。
+          </p>
+        </div>
+      ) : (
+        <p className="mt-3 text-xs text-emerald-700">录入检查没有需要审核人额外确认的提醒。</p>
+      )}
+    </section>
+  );
+}
+
+function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes, acceptedReviewWarningCodes, setAcceptedReviewWarningCodes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onOptimizeStem, stemOptimizationBusy, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft, focusedReview, humanReviewStage }) {
   if (!context) return <EmptyText>先保存 Draft，再执行正式校验与审核。</EmptyText>;
   const { draft, validation, qualityAssessment, versionHistory } = context;
   const hasFrozenVersion = versionHistory.some((version) => version.sourceDraftId === draft.draftId);
@@ -1989,6 +2175,16 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
       qualityAssessment?.assessedDraftRevision !== draft.revision
     ),
   );
+  const acceptedAllReviewWarnings = Boolean(
+    qualityAssessment?.warnings.every(
+      (warning) => acceptedReviewWarningCodes.includes(warning.code),
+    ),
+  );
+  const recoverablePublicationFailure = Boolean(
+    publicationIncomplete &&
+    hasFrozenVersion &&
+    !publicationMismatch?.differences.length,
+  );
   const publicationReadiness = [
     { label: '当前内容已保存', passed: !hasUnsavedChanges },
     {
@@ -2021,7 +2217,7 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
             </span>
           ) : publicationIncomplete ? (
             <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-sm font-normal text-amber-700">
-              发布未完成
+              审核已通过，发布未完成
             </span>
           ) : draft.status === 'drafted' && hasCurrentPassedValidation ? (
             <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-sm font-normal text-blue-700">
@@ -2035,7 +2231,7 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
         </div>
       </div>
 
-      {hasCurrentPassedValidation || awaitingIssueRecheck ? (
+      {!humanReviewStage && (hasCurrentPassedValidation || awaitingIssueRecheck) ? (
         <QuestionQualitySummary
           assessment={qualityAssessment}
           form={form}
@@ -2045,6 +2241,14 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
           onLocate={onLocateQualityIssue}
           onOptimizeStem={onOptimizeStem}
           optimizationBusy={stemOptimizationBusy}
+        />
+      ) : null}
+
+      {humanReviewStage ? (
+        <ReviewSubmissionSummary
+          context={context}
+          acceptedWarningCodes={acceptedReviewWarningCodes}
+          setAcceptedWarningCodes={setAcceptedReviewWarningCodes}
         />
       ) : null}
 
@@ -2085,44 +2289,63 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
 
       {publicationIncomplete ? (
         <div className="rounded-md bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-          <p className="font-semibold">该题尚未完成发布</p>
-          <p className="mt-1">
-            {publicationMismatch?.differences.length
-              ? '题目与当前训练计划存在以下设置差异，因此尚未进入已发布练习：'
-              : '题目与当前训练计划的设置不一致，因此尚未进入已发布练习。'}
-          </p>
-          {publicationMismatch?.differences.length ? (
-            <ul className="mt-1 list-disc space-y-1 pl-5">
-              {publicationMismatch.differences.map((difference) => (
-                <li key={difference.field}>
-                  {difference.label}：题目为“{difference.questionValue}”，训练计划为“{difference.planValue}”
+          {recoverablePublicationFailure ? (
+            <>
+              <p className="font-semibold">审核已通过，发布未完成</p>
+              <p className="mt-1">
+                正式题目版本已经生成，但资源登记尚未全部完成。重试会沿用现有正式版本，不会重复审核或创建新版本。
+              </p>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onFreeze}
+                className="mt-3 inline-flex min-h-9 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-normal text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400"
+              >
+                重试发布
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="font-semibold">该题尚未完成发布</p>
+              <p className="mt-1">
+                {publicationMismatch?.differences.length
+                  ? '题目与当前训练计划存在以下设置差异，因此尚未进入已发布练习：'
+                  : '题目与当前训练计划的设置不一致，因此尚未进入已发布练习。'}
+              </p>
+              {publicationMismatch?.differences.length ? (
+                <ul className="mt-1 list-disc space-y-1 pl-5">
+                  {publicationMismatch.differences.map((difference) => (
+                    <li key={difference.field}>
+                      {difference.label}：题目为“{difference.questionValue}”，训练计划为“{difference.planValue}”
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <p className="mt-3 font-semibold">解决方法</p>
+              <ol className="mt-1 list-decimal space-y-1 pl-5">
+                <li>
+                  点击下方“{publicationRepairDraft ? '继续处理修订稿' : '创建修订稿并同步训练设置'}”。
                 </li>
-              ))}
-            </ul>
-          ) : null}
-          <p className="mt-3 font-semibold">解决方法</p>
-          <ol className="mt-1 list-decimal space-y-1 pl-5">
-            <li>
-              点击下方“{publicationRepairDraft ? '继续处理修订稿' : '创建修订稿并同步训练设置'}”。
-            </li>
-            <li>
-              {publicationMismatch?.differences.length
-                ? `系统会把${publicationMismatch.differences.map((difference) => `${difference.label}从“${difference.questionValue}”调整为“${difference.planValue}”`).join('；')}。`
-                : '系统会把当前题的相关设置调整为训练计划中的设置。'}
-            </li>
-            <li>在新修订稿中确认内容，完成检查和人工审核后，再发布当前题。</li>
-          </ol>
-          <p className="mt-2 text-amber-800">
-            只处理当前题，不会重新生成其他题目；已有正式版本也会继续保留。
-          </p>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onRepairPublication}
-            className="mt-3 inline-flex min-h-9 items-center justify-center rounded-md bg-amber-600 px-4 text-sm font-normal text-white hover:bg-amber-700 disabled:bg-slate-200 disabled:text-slate-400"
-          >
-            {publicationRepairDraft ? '继续处理修订稿' : '创建修订稿并同步训练设置'}
-          </button>
+                <li>
+                  {publicationMismatch?.differences.length
+                    ? `系统会把${publicationMismatch.differences.map((difference) => `${difference.label}从“${difference.questionValue}”调整为“${difference.planValue}”`).join('；')}。`
+                    : '系统会把当前题的相关设置调整为训练计划中的设置。'}
+                </li>
+                <li>在新修订稿中确认内容，完成检查和人工审核后，再发布当前题。</li>
+              </ol>
+              <p className="mt-2 text-amber-800">
+                只处理当前题，不会重新生成其他题目；已有正式版本也会继续保留。
+              </p>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onRepairPublication}
+                className="mt-3 inline-flex min-h-9 items-center justify-center rounded-md bg-amber-600 px-4 text-sm font-normal text-white hover:bg-amber-700 disabled:bg-slate-200 disabled:text-slate-400"
+              >
+                {publicationRepairDraft ? '继续处理修订稿' : '创建修订稿并同步训练设置'}
+              </button>
+            </>
+          )}
         </div>
       ) : null}
 
@@ -2159,10 +2382,10 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
         </div>
       ) : null}
 
-      {completedStep >= 1 ? <CompletedActionStep index="1" title="自动结构检查" /> : null}
-      {completedStep >= 2 ? <CompletedActionStep index="2" title="提交人工审核" /> : null}
-      {completedStep >= 3 ? <CompletedActionStep index="3" title="逐题人工审核" /> : null}
-      {completedStep >= 4 ? <CompletedActionStep index="4" title="正式发布" /> : null}
+      {!focusedReview && completedStep >= 1 ? <CompletedActionStep index="1" title="自动结构检查" /> : null}
+      {!focusedReview && completedStep >= 2 ? <CompletedActionStep index="2" title="提交题目审核" /> : null}
+      {!focusedReview && completedStep >= 3 ? <CompletedActionStep index="3" title="题目人工审核" /> : null}
+      {!focusedReview && completedStep >= 4 ? <CompletedActionStep index="4" title="正式发布" /> : null}
 
       {draft.status === 'rejected' ? (
         <div className="rounded-md bg-rose-50 p-4">
@@ -2207,24 +2430,30 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
       ) : null}
 
       {currentStep === 3 ? (
-        <ActionStep index="3" title="逐题人工审核">
+        <ActionStep index="3" title="题目人工审核">
           <AutoGrowTextarea value={reviewNotes} onChange={(event) => setReviewNotes(event.target.value)} rows={3} placeholder="填写审核说明" />
-          <div className="mt-2 grid grid-cols-3 gap-2">
-            <button type="button" disabled={busy} onClick={() => onReview('approve')} className="min-h-10 rounded-md bg-emerald-600 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">该题审核通过</button>
-            <button type="button" disabled={busy} onClick={() => onReview('revision_required')} className="min-h-10 rounded-md bg-amber-500 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">该题需修改</button>
-            <button type="button" disabled={busy} onClick={() => onReview('reject')} className="min-h-10 rounded-md bg-rose-600 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">该题不采用</button>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button type="button" disabled={busy} onClick={() => onReview('revision_required')} className="min-h-10 rounded-md border border-[#666666] px-2 text-sm font-normal text-slate-800 disabled:border-slate-200 disabled:text-slate-400">退回修改</button>
+            <button
+              type="button"
+              disabled={busy || !acceptedAllReviewWarnings}
+              onClick={() => onReview('approve')}
+              className="min-h-10 rounded-md bg-slate-950 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400"
+            >
+              审核通过
+            </button>
           </div>
         </ActionStep>
       ) : null}
 
       {currentStep === 4 ? (
-        <ActionStep index="4" title="正式发布">
+        <ActionStep index="4" title="发布准备检查">
           {publicationBlocked ? (
             <p className="rounded-md bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-800">
               请先完成上方训练设置调整，重新检查并通过人工审核后再发布。
             </p>
           ) : (
-            <button type="button" disabled={busy || !canPublish} onClick={onFreeze} className="flex min-h-10 w-full items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">该题发布为正式题目</button>
+            <button type="button" disabled={busy || !canPublish} onClick={onFreeze} className="mx-auto flex min-h-10 w-[240px] items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">发布正式题目</button>
           )}
         </ActionStep>
       ) : null}
@@ -2739,7 +2968,7 @@ function StudentPreview({ resource, material, isFrozen }) {
   );
 }
 
-function ReviewPreview({ context, form, material, qualityResultStale = false, qualityRevisionProgress = null }) {
+function ReviewPreview({ context, form, material, qualityResultStale = false, qualityRevisionProgress = null, humanReviewStage = false }) {
   const draft = context?.draft;
   const awaitingIssueRecheck = Boolean(
     qualityResultStale ||
@@ -2748,6 +2977,35 @@ function ReviewPreview({ context, form, material, qualityResultStale = false, qu
       context?.qualityAssessment?.assessedDraftRevision !== draft?.revision
     ),
   );
+  if (humanReviewStage) {
+    const review = context?.review;
+    return (
+      <div className="space-y-5">
+        <div>
+          <h3 className="text-base font-semibold text-slate-950">审核记录</h3>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            记录与当前 Revision 绑定；审核阶段不会直接修改正式字段。
+          </p>
+        </div>
+        <ReviewBlock title="提交记录" rows={[
+          ['题目版本', `第 ${draft?.revision || 1} 版`],
+          ['当前状态', statusLabels[draft?.status] || draft?.status || '未知'],
+          ['检查状态', context?.assessmentState === 'current' ? '当前有效' : '需要重新检查'],
+        ]} />
+        {review ? (
+          <ReviewBlock title="人工审核决定" rows={[
+            ['审核结果', review.action === 'approve' ? '审核通过' : review.action === 'revision_required' ? '退回修改' : '不采用'],
+            ['审核说明', review.notes],
+            ['审核时间', review.reviewedAt],
+          ]} />
+        ) : (
+          <p className="rounded-md bg-slate-50 px-3 py-3 text-sm text-slate-600">
+            当前题目尚未形成题目人工审核决定。
+          </p>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="space-y-5">
       <div><h3 className="text-base font-semibold text-slate-950">审核视图</h3><p className="mt-1 text-xs leading-5 text-slate-500">显示审核者需要确认的完整结构，不生成教育结论。</p></div>
