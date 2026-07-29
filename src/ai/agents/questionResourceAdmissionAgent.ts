@@ -226,13 +226,31 @@ export async function updateStructuredQuestionDraft(
   draftId: string,
   patch: StructuredQuestionDraftPatch,
   now = new Date().toISOString(),
+  options: {
+    expectedRevision?: number;
+  } = {},
 ): Promise<StructuredQuestionDraft> {
   const draft = await requireDraft(repository, draftId);
+  if (
+    options.expectedRevision !== undefined &&
+    draft.revision !== options.expectedRevision
+  ) {
+    throw createStructuredRuntimeError({
+      code: 'QUESTION_DRAFT_REVISION_CONFLICT',
+      message: '当前题目已被其他操作更新，请刷新后再继续。',
+      operation: 'question_resource.update_draft',
+      objectId: draftId,
+      recoverability: 'reload_required',
+    });
+  }
   if (!['drafted', 'validation_failed', 'revision_required'].includes(draft.status)) {
     throw new Error(`Draft cannot be edited from status: ${draft.status}`);
   }
   if (await repository.getVersionByDraftId(draftId)) {
     throw new Error('Frozen resource drafts cannot be edited. Create a new version instead.');
+  }
+  if (isDraftPatchUnchanged(draft, patch)) {
+    return clone(draft);
   }
 
   const updated: StructuredQuestionDraft = {
@@ -260,8 +278,21 @@ export async function validateStructuredQuestionDraft(
   repository: QuestionResourceAdmissionRepository,
   draftId: string,
   now = new Date().toISOString(),
+  expectedRevision?: number,
 ): Promise<ResourceValidationResult> {
   const draft = await requireDraft(repository, draftId);
+  if (
+    expectedRevision !== undefined &&
+    draft.revision !== expectedRevision
+  ) {
+    throw createStructuredRuntimeError({
+      code: 'QUESTION_DRAFT_REVISION_CONFLICT',
+      message: '当前题目版本已变化，请刷新后重新检查。',
+      operation: 'question_resource.validate_draft',
+      objectId: draftId,
+      recoverability: 'reload_required',
+    });
+  }
   const issues: ResourceValidationIssue[] = [];
   const material = draft.materialVersionId
     ? await repository.getMaterial(draft.materialVersionId)
@@ -360,13 +391,26 @@ export async function reviewQuestionResourceDraft(
     reviewerId: string;
     notes: string;
     warningDecisions?: ResourceReviewDecision['warningDecisions'];
+    qualityAssessmentBundleId?: string;
+    deterministicAssessmentId?: string;
+    semanticAssessmentId?: string;
+    qualityMergeRuleVersion?: string;
     now?: string;
   },
 ): Promise<ResourceReviewDecision> {
   const draft = await requireDraft(repository, input.draftId);
   const reviewId = `${draft.draftId}:review:r${draft.revision}`;
   const existing = await repository.getReview(reviewId);
-  if (existing) return existing;
+  if (existing) {
+    if (reviewCommandMatchesExisting(existing, input)) return existing;
+    throw createStructuredRuntimeError({
+      code: 'QUESTION_REVIEW_IMMUTABLE_CONFLICT',
+      message: '当前修订版已经形成不同的人工审核决定，不能静默覆盖。',
+      operation: 'question_resource.review',
+      objectId: reviewId,
+      recoverability: 'new_revision_required',
+    });
+  }
 
   if (draft.status !== 'pending_review') {
     throw new Error(`Draft cannot be reviewed from status: ${draft.status}`);
@@ -381,6 +425,10 @@ export async function reviewQuestionResourceDraft(
     resourceId: draft.resourceId,
     reviewedDraftRevision: draft.revision,
     validationId: validation.validationId,
+    qualityAssessmentBundleId: input.qualityAssessmentBundleId,
+    deterministicAssessmentId: input.deterministicAssessmentId,
+    semanticAssessmentId: input.semanticAssessmentId,
+    qualityMergeRuleVersion: input.qualityMergeRuleVersion,
     action: input.action,
     reviewerId: input.reviewerId,
     notes: input.notes.trim(),
@@ -402,6 +450,46 @@ export async function reviewQuestionResourceDraft(
   });
 
   return clone(decision);
+}
+
+function reviewCommandMatchesExisting(
+  existing: ResourceReviewDecision,
+  input: {
+    action: ResourceReviewAction;
+    reviewerId: string;
+    notes: string;
+    warningDecisions?: ResourceReviewDecision['warningDecisions'];
+    qualityAssessmentBundleId?: string;
+    deterministicAssessmentId?: string;
+    semanticAssessmentId?: string;
+    qualityMergeRuleVersion?: string;
+  },
+): boolean {
+  return (
+    existing.action === input.action &&
+    existing.reviewerId === input.reviewerId.trim() &&
+    existing.notes === input.notes.trim() &&
+    existing.qualityAssessmentBundleId === input.qualityAssessmentBundleId &&
+    existing.deterministicAssessmentId === input.deterministicAssessmentId &&
+    existing.semanticAssessmentId === input.semanticAssessmentId &&
+    existing.qualityMergeRuleVersion === input.qualityMergeRuleVersion &&
+    JSON.stringify(comparableWarningDecisions(existing.warningDecisions)) ===
+      JSON.stringify(comparableWarningDecisions(input.warningDecisions))
+  );
+}
+
+function comparableWarningDecisions(
+  decisions: ResourceReviewDecision['warningDecisions'],
+) {
+  return (decisions || []).map((decision) => ({
+    warningDecisionId: decision.warningDecisionId,
+    draftId: decision.draftId,
+    draftRevision: decision.draftRevision,
+    assessmentId: decision.assessmentId,
+    warningCode: decision.warningCode,
+    decision: decision.decision,
+    reviewedBy: decision.reviewedBy,
+  }));
 }
 
 export async function freezeQuestionResourceDraft(
@@ -942,6 +1030,16 @@ function nonEmpty(value: unknown): value is string {
 
 function clone<T>(value: T): T {
   return cloneQuestionResourceValue(value);
+}
+
+function isDraftPatchUnchanged(
+  draft: StructuredQuestionDraft,
+  patch: StructuredQuestionDraftPatch,
+): boolean {
+  return Object.entries(patch).every(([key, value]) => (
+    JSON.stringify(draft[key as keyof StructuredQuestionDraft]) ===
+    JSON.stringify(value)
+  ));
 }
 
 export const QUESTION_RESOURCE_PRIMARY_ABILITY_IDS = PRIMARY_ABILITY_IDS;

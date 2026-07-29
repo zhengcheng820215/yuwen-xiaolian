@@ -45,6 +45,10 @@ export class LocalApiMaterialObservationRepository implements MaterialObservatio
         !workingDraftUpdate
         && !lifecycleTransition
         && ['pending_review', 'reviewed', 'rejected', 'superseded'].includes(existing.status)
+        && !(
+          value.revision < existing.revision
+          || (value.revision === existing.revision && !samePlanContent(existing, value))
+        )
       ) {
         throw createStructuredRuntimeError({
           code: 'FORMAL_RESOURCE_IMMUTABLE_CONFLICT',

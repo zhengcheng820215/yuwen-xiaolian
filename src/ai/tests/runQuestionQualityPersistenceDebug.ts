@@ -90,6 +90,11 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '15 legacy frozen resource is not assigned a fabricated trace', run: caseLegacyTraceAbsent },
   { name: '16 stale shared-store revision is rejected', run: caseStoreRevisionConflict },
   { name: '17 legacy quality rules cannot authorize current review', run: caseLegacyRuleBlocked },
+  { name: '18 review workbench quality interface uses the shared store', run: caseWorkbenchQualityInterfacePersists },
+  { name: '19 Human Review binds the current quality bundle', run: caseReviewBindsCurrentBundle },
+  { name: '20 unbound Human Review blocks traced Freeze', run: caseUnboundReviewBlocksFreeze },
+  { name: '21 identical Human Review retry is idempotent', run: caseReviewRetryIdempotent },
+  { name: '22 conflicting Human Review retry is blocked', run: caseReviewRetryConflict },
 ];
 
 async function main(): Promise<void> {
@@ -261,7 +266,23 @@ async function caseUnavailableBlocksApproval(): Promise<void> {
           now: NOW,
         },
       ),
-      'completed semantic assessment',
+      'blocks approval',
+    );
+    const revisionDecision = await reviewQuestionResourceDraftWithPersistedQuality(
+      runtime.resources,
+      runtime.quality,
+      {
+        draftId: fixture.draft.draftId,
+        action: 'revision_required',
+        reviewerId: 'reviewer',
+        notes: '语义服务不可用，退回后重新检查。',
+        now: NOW,
+      },
+    );
+    assert(
+      revisionDecision.action === 'revision_required' &&
+      revisionDecision.qualityAssessmentBundleId === fixture.bundle.bundleId,
+      'Unavailable semantic result did not preserve a revision decision trace.',
     );
   });
 }
@@ -447,6 +468,115 @@ async function caseLegacyRuleBlocked(): Promise<void> {
   });
 }
 
+async function caseWorkbenchQualityInterfacePersists(): Promise<void> {
+  await withRuntime(async (runtime) => {
+    const fixture = await createQualityFixture(runtime, 'workbench-interface');
+    await runtime.quality.saveAssessment(fixture.deterministic);
+
+    const restarted = qualityRepository(runtime.client);
+    const restored = await restarted.getAssessmentForRevision(
+      fixture.draft.draftId,
+      fixture.draft.revision,
+    );
+    const listed = await restarted.listAssessmentsForDraft(fixture.draft.draftId);
+
+    assert(
+      restored?.assessmentId === fixture.deterministic.assessmentId,
+      'Workbench assessment was not restored from the shared store.',
+    );
+    assert(
+      listed.length === 1 && listed[0]?.assessmentId === restored.assessmentId,
+      'Workbench assessment listing did not use the shared store.',
+    );
+  });
+}
+
+async function caseReviewBindsCurrentBundle(): Promise<void> {
+  await withRuntime(async (runtime) => {
+    const fixture = await reviewedFixture(runtime, 'review-bundle-binding');
+    const review = fixture.draft.latestReviewId
+      ? await runtime.resources.getReview(fixture.draft.latestReviewId)
+      : null;
+    assert(review, 'Human Review Decision is missing.');
+    assert(
+      review.qualityAssessmentBundleId === fixture.bundle.bundleId &&
+      review.deterministicAssessmentId === fixture.deterministic.assessmentId &&
+      review.semanticAssessmentId === fixture.semantic.semanticAssessmentId &&
+      review.qualityMergeRuleVersion === fixture.bundle.mergeRuleVersion,
+      'Human Review Decision is not bound to the current quality bundle.',
+    );
+  });
+}
+
+async function caseUnboundReviewBlocksFreeze(): Promise<void> {
+  await withRuntime(async (runtime) => {
+    const fixture = await createQualityFixture(runtime, 'unbound-review');
+    await persistQuestionQualityBundle(runtime.quality, fixture);
+    await submitQuestionResourceForReview(runtime.resources, fixture.draft.draftId, NOW);
+    await reviewQuestionResourceDraftWithPersistedQualityFallback(
+      runtime,
+      fixture.draft.draftId,
+    );
+    await assertRejects(
+      () => freezeQuestionResourceDraftWithPersistedQuality(
+        runtime.resources,
+        runtime.quality,
+        fixture.draft.draftId,
+        NOW,
+      ),
+      'not bound to the quality bundle',
+    );
+  });
+}
+
+async function caseReviewRetryIdempotent(): Promise<void> {
+  await withRuntime(async (runtime) => {
+    const fixture = await reviewedFixture(runtime, 'review-retry-idempotent');
+    const existing = fixture.draft.latestReviewId
+      ? await runtime.resources.getReview(fixture.draft.latestReviewId)
+      : null;
+    assert(existing, 'Existing Human Review is missing.');
+    const retry = await reviewQuestionResourceDraftWithPersistedQuality(
+      runtime.resources,
+      runtime.quality,
+      {
+        draftId: fixture.draft.draftId,
+        action: 'approve',
+        reviewerId: 'reviewer',
+        notes: existing.notes,
+        acceptedWarningCodes: fixture.deterministic.warnings.map(
+          (warning) => warning.code,
+        ),
+        now: LATER,
+      },
+    );
+    assert(
+      retry.reviewId === fixture.draft.latestReviewId,
+      'Identical Human Review retry created another decision.',
+    );
+  });
+}
+
+async function caseReviewRetryConflict(): Promise<void> {
+  await withRuntime(async (runtime) => {
+    const fixture = await reviewedFixture(runtime, 'review-retry-conflict');
+    await assertRejects(
+      () => reviewQuestionResourceDraftWithPersistedQuality(
+        runtime.resources,
+        runtime.quality,
+        {
+          draftId: fixture.draft.draftId,
+          action: 'reject',
+          reviewerId: 'another-reviewer',
+          notes: 'Conflicting decision.',
+          now: LATER,
+        },
+      ),
+      '不能静默覆盖',
+    );
+  });
+}
+
 async function reviewedFixture(
   runtime: Runtime,
   suffix: string,
@@ -461,6 +591,9 @@ async function reviewedFixture(
       draftId: fixture.draft.draftId,
       action: 'approve',
       reviewerId: 'reviewer',
+      acceptedWarningCodes: fixture.deterministic.warnings.map(
+        (warning) => warning.code,
+      ),
       notes: '人工确认质量评估与题目内容。',
       now: NOW,
     },

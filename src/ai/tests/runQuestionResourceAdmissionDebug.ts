@@ -53,6 +53,8 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '22 rejected draft can create an auditable revision draft', run: caseRejectedRevisionDraft },
   { name: '23 repeated validation reuses the immutable result', run: caseRepeatedValidationIsIdempotent },
   { name: '24 active publication revision is reused through review states', run: caseActivePublicationRevisionReuse },
+  { name: '25 unchanged save does not create an empty revision', run: caseUnchangedUpdateKeepsRevision },
+  { name: '26 stale expected revision is rejected', run: caseExpectedRevisionConflict },
 ];
 
 async function main(): Promise<void> {
@@ -180,6 +182,60 @@ async function caseActivePublicationRevisionReuse(): Promise<void> {
     now: LATER,
   });
   assert((await lookup())?.draftId === revision.draftId, 'Reviewed publication revision was not reused.');
+}
+
+async function caseUnchangedUpdateKeepsRevision(): Promise<void> {
+  const repo = await repositoryWithMaterial();
+  const draft = await createDraft(repo, 'unchanged-update');
+  const unchanged = await updateStructuredQuestionDraft(
+    repo,
+    draft.draftId,
+    { questionStem: draft.questionStem },
+    LATER,
+    { expectedRevision: draft.revision },
+  );
+
+  assert(
+    unchanged.revision === draft.revision,
+    'An unchanged save must not create a new draft revision.',
+  );
+  assert(
+    unchanged.updatedAt === draft.updatedAt,
+    'An unchanged save must preserve the existing update timestamp.',
+  );
+}
+
+async function caseExpectedRevisionConflict(): Promise<void> {
+  const repo = await repositoryWithMaterial();
+  const draft = await createDraft(repo, 'revision-conflict');
+  const updated = await updateStructuredQuestionDraft(
+    repo,
+    draft.draftId,
+    { questionStem: `${draft.questionStem} Updated.` },
+    LATER,
+    { expectedRevision: draft.revision },
+  );
+  assert(updated.revision === draft.revision + 1, 'The first update must create one revision.');
+
+  await assertRejectsCode(
+    () => updateStructuredQuestionDraft(
+      repo,
+      draft.draftId,
+      { title: 'Stale edit' },
+      LATER,
+      { expectedRevision: draft.revision },
+    ),
+    'QUESTION_DRAFT_REVISION_CONFLICT',
+  );
+  await assertRejectsCode(
+    () => validateStructuredQuestionDraft(
+      repo,
+      draft.draftId,
+      LATER,
+      draft.revision,
+    ),
+    'QUESTION_DRAFT_REVISION_CONFLICT',
+  );
 }
 
 async function caseMissingField(): Promise<void> {

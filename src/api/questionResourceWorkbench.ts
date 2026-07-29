@@ -4,6 +4,7 @@ import {
   createQuestionMaterial,
   createStructuredQuestionDraft,
   findActiveQuestionResourceRevisionDraft,
+  submitQuestionResourceForReview,
   updateStructuredQuestionDraft,
   validateResourceRegistryConsistency,
   validateStructuredQuestionDraft,
@@ -22,14 +23,25 @@ import {
   type AuthoringFieldValues,
 } from '../ai/contracts/authoringFieldContract.ts';
 import {
-  freezeQuestionResourceDraftWithQuality,
   getCurrentAssessmentState,
   getOrAssessCurrentQuestionDraftQuality,
-  reviewQuestionResourceDraftWithQuality,
-  submitQuestionResourceForQualityReview,
 } from '../ai/agents/questionQualityReviewGate.ts';
+import {
+  freezeQuestionResourceDraftWithPersistedQuality,
+  persistQuestionQualityBundle,
+  requireCurrentPersistedQualityContext,
+  reviewQuestionResourceDraftWithPersistedQuality,
+} from '../ai/agents/questionQualityPersistenceService.ts';
+import {
+  mergeQuestionQualityAssessments,
+} from '../ai/agents/questionSemanticQualityAssessmentAgent.ts';
+import {
+  getQuestionSemanticQualityBoundaryStatus,
+  requestQuestionSemanticQualityAssessment,
+} from './questionSemanticQualityAssessment.ts';
 import { linkFrozenResourceToObservationTask } from '../ai/agents/materialObservationApplicationService.ts';
-import { InMemoryQuestionQualityAssessmentRepository } from '../ai/repositories/inMemoryQuestionQualityAssessmentRepository.ts';
+import { LocalApiQuestionQualityPersistenceRepository } from '../ai/repositories/localApiQuestionQualityPersistenceRepository.ts';
+import { createStructuredRuntimeError } from '../ai/errors/structuredRuntimeError.ts';
 import {
   createBrowserMaterialObservationRepository,
   createBrowserQuestionResourceAdmissionRepository,
@@ -46,13 +58,22 @@ import type {
   ResourceValidationResult,
   StructuredQuestionDraft,
 } from '../ai/schemas/questionResourceAdmission.schema.ts';
-import type {
-  QuestionQualityAssessment,
+import {
+  QUESTION_QUALITY_RULE_VERSION,
+  type QuestionQualityAssessment,
 } from '../ai/schemas/questionQualityAssessment.schema.ts';
+import {
+  QUESTION_SEMANTIC_QUALITY_OUTPUT_SCHEMA_VERSION,
+  QUESTION_SEMANTIC_QUALITY_PROMPT_VERSION,
+  QUESTION_SEMANTIC_QUALITY_RULE_VERSION,
+  QUESTION_QUALITY_MERGE_RULE_VERSION,
+  type QuestionQualityAssessmentBundle,
+  type QuestionSemanticQualityAssessment,
+} from '../ai/schemas/questionSemanticQualityAssessment.schema.ts';
 
 const repository = createBrowserQuestionResourceAdmissionRepository();
 const observationRepository = createBrowserMaterialObservationRepository();
-const qualityRepository = new InMemoryQuestionQualityAssessmentRepository();
+const qualityRepository = new LocalApiQuestionQualityPersistenceRepository();
 
 export type QuestionResourceWorkbenchSnapshot = {
   drafts: StructuredQuestionDraft[];
@@ -76,6 +97,8 @@ export type QuestionResourceWorkbenchContext = {
   validation: ResourceValidationResult | null;
   review: ResourceReviewDecision | null;
   qualityAssessment: QuestionQualityAssessment | null;
+  semanticQualityAssessment: QuestionSemanticQualityAssessment | null;
+  qualityAssessmentBundle: QuestionQualityAssessmentBundle | null;
   assessmentState: ReturnType<typeof getCurrentAssessmentState>;
   publicationPreflight: QuestionPublicationPreflight;
   frozenVersion: FrozenQuestionResourceVersion | null;
@@ -172,6 +195,7 @@ export async function getQuestionResourceWorkbenchContext(
     repository.getRegistryEntry(draft.resourceId),
     repository.listVersions(draft.resourceId),
   ]);
+  const persistedQuality = await readPersistedQualityContext(draft.draftId);
 
   return {
     draft,
@@ -184,6 +208,8 @@ export async function getQuestionResourceWorkbenchContext(
     validation,
     review,
     qualityAssessment,
+    semanticQualityAssessment: persistedQuality?.semantic || null,
+    qualityAssessmentBundle: persistedQuality?.bundle || null,
     assessmentState: getCurrentAssessmentState(draft, qualityAssessment),
     publicationPreflight,
     frozenVersion,
@@ -218,6 +244,7 @@ export async function createWorkbenchMaterial(input: {
 
 export async function saveQuestionResourceWorkbenchDraft(input: {
   draftId?: string;
+  expectedDraftRevision?: number;
   resourceId?: string;
   taskId?: string;
   draft: Omit<CreateStructuredQuestionDraftInput, 'draftId' | 'resourceId' | 'taskId'>;
@@ -243,7 +270,13 @@ export async function saveQuestionResourceWorkbenchDraft(input: {
         tags: normalizedDraft.tags,
         qualityRevisionProgress: input.qualityRevisionProgress,
       };
-      return updateStructuredQuestionDraft(repository, input.draftId, patch);
+      return updateStructuredQuestionDraft(
+        repository,
+        input.draftId,
+        patch,
+        new Date().toISOString(),
+        { expectedRevision: input.expectedDraftRevision },
+      );
     }
   }
 
@@ -256,48 +289,69 @@ export async function saveQuestionResourceWorkbenchDraft(input: {
   });
 }
 
-export async function validateQuestionResourceWorkbenchDraft(draftId: string) {
-  const validation = await validateStructuredQuestionDraft(repository, draftId);
+export async function validateQuestionResourceWorkbenchDraft(
+  draftId: string,
+  expectedDraftRevision?: number,
+) {
+  const validation = await validateStructuredQuestionDraft(
+    repository,
+    draftId,
+    new Date().toISOString(),
+    expectedDraftRevision,
+  );
   if (validation.passed) {
-    await getOrAssessCurrentQuestionDraftQuality(
-      repository,
-      qualityRepository,
-      draftId,
-    );
+    await ensureCurrentPersistedQualityBundle(draftId);
   }
   return validation;
 }
 
-export async function submitQuestionResourceWorkbenchReview(draftId: string) {
-  return submitQuestionResourceForQualityReview(
-    repository,
-    qualityRepository,
-    draftId,
-  );
+export async function submitQuestionResourceWorkbenchReview(
+  draftId: string,
+  expectedDraftRevision?: number,
+) {
+  await requireExpectedDraftRevision(draftId, expectedDraftRevision, 'submit_review');
+  await requireCurrentPersistedQualityContext(repository, qualityRepository, draftId);
+  return submitQuestionResourceForReview(repository, draftId);
 }
 
 export async function decideQuestionResourceWorkbenchReview(input: {
   draftId: string;
+  expectedDraftRevision?: number;
   action: ResourceReviewAction;
   reviewerId: string;
   notes: string;
   acceptedWarningCodes?: string[];
 }) {
-  return reviewQuestionResourceDraftWithQuality(
+  await requireExpectedDraftRevision(
+    input.draftId,
+    input.expectedDraftRevision,
+    'record_review_decision',
+  );
+  return reviewQuestionResourceDraftWithPersistedQuality(
     repository,
     qualityRepository,
-    input,
+    {
+      draftId: input.draftId,
+      action: input.action,
+      reviewerId: input.reviewerId,
+      notes: input.notes,
+      acceptedWarningCodes: input.acceptedWarningCodes,
+    },
   );
 }
 
-export async function freezeQuestionResourceWorkbenchDraft(draftId: string) {
+export async function freezeQuestionResourceWorkbenchDraft(
+  draftId: string,
+  expectedDraftRevision?: number,
+) {
+  await requireExpectedDraftRevision(draftId, expectedDraftRevision, 'freeze');
   const publicationPreflight = await getQuestionResourceWorkbenchPublicationPreflight(draftId);
   if (!publicationPreflight.passed) {
     throw new Error(publicationPreflight.issue
       ? '发布前检查未通过：当前题目关联的训练计划信息不可用，请返回素材资源录入平台重新确认训练任务。'
       : '发布前检查未通过：题目设置与训练计划不一致，请先同步训练设置并重新完成检查与人工审核。');
   }
-  const result = await freezeQuestionResourceDraftWithQuality(
+  const result = await freezeQuestionResourceDraftWithPersistedQuality(
     repository,
     qualityRepository,
     draftId,
@@ -554,4 +608,119 @@ async function assertPublicationRepairAligned(draft: StructuredQuestionDraft): P
   if (!preflight.passed) {
     throw new Error('训练设置同步未完成，请重试；系统不会创建新的修订稿。');
   }
+}
+
+async function ensureCurrentPersistedQualityBundle(
+  draftId: string,
+): Promise<QuestionQualityAssessmentBundle> {
+  const draft = await repository.getDraft(draftId);
+  if (!draft?.latestValidationId || !draft.materialVersionId) {
+    throw new Error('Current validated Draft and Material are required.');
+  }
+  const [validation, material, deterministic, boundary] = await Promise.all([
+    repository.getValidation(draft.latestValidationId),
+    repository.getMaterial(draft.materialVersionId),
+    getOrAssessCurrentQuestionDraftQuality(
+      repository,
+      qualityRepository,
+      draftId,
+    ),
+    getQuestionSemanticQualityBoundaryStatus(),
+  ]);
+  if (
+    !validation?.passed ||
+    validation.validatedDraftRevision !== draft.revision ||
+    !material ||
+    !deterministic
+  ) {
+    throw new Error('Current quality assessment inputs are incomplete.');
+  }
+
+  const existingSemantic = await qualityRepository.getCurrentCompletedSemantic({
+    draftId: draft.draftId,
+    draftRevision: draft.revision,
+    validationId: validation.validationId,
+    deterministicAssessmentId: deterministic.assessmentId,
+    providerId: boundary.providerId,
+    modelId: boundary.modelId,
+    promptVersion: QUESTION_SEMANTIC_QUALITY_PROMPT_VERSION,
+    semanticRuleVersion: QUESTION_SEMANTIC_QUALITY_RULE_VERSION,
+    outputSchemaVersion: QUESTION_SEMANTIC_QUALITY_OUTPUT_SCHEMA_VERSION,
+  });
+  const semantic = existingSemantic || await requestQuestionSemanticQualityAssessment({
+    requestId: `question-quality-${draft.draftId}-r${draft.revision}-${Date.now()}`,
+    draft,
+    validation,
+    material,
+    deterministicAssessment: deterministic,
+  });
+  const bundle = mergeQuestionQualityAssessments({
+    deterministic,
+    semantic,
+  });
+  return (await persistQuestionQualityBundle(qualityRepository, {
+    deterministic,
+    semantic,
+    bundle,
+  })).bundle;
+}
+
+async function readPersistedQualityContext(draftId: string) {
+  const draft = await repository.getDraft(draftId);
+  if (!draft?.latestValidationId) return null;
+  const validation = await repository.getValidation(draft.latestValidationId);
+  if (
+    !validation?.passed ||
+    validation.validatedDraftRevision !== draft.revision
+  ) return null;
+  const deterministic = (
+    await qualityRepository.listDeterministicForDraft(draftId)
+  ).find((item) => (
+    item.assessedDraftRevision === draft.revision &&
+    item.validationId === validation.validationId &&
+    item.ruleVersion === QUESTION_QUALITY_RULE_VERSION
+  ));
+  if (!deterministic) return null;
+  const semantic = (
+    await qualityRepository.listSemanticForDraft(draftId)
+  ).find((item) => (
+    item.assessedDraftRevision === draft.revision &&
+    item.validationId === validation.validationId &&
+    item.deterministicAssessmentId === deterministic.assessmentId &&
+    item.promptVersion === QUESTION_SEMANTIC_QUALITY_PROMPT_VERSION &&
+    item.semanticRuleVersion === QUESTION_SEMANTIC_QUALITY_RULE_VERSION &&
+    item.outputSchemaVersion === QUESTION_SEMANTIC_QUALITY_OUTPUT_SCHEMA_VERSION
+  ));
+  if (!semantic) return null;
+  const bundle = await qualityRepository.getCurrentBundle({
+    draftId,
+    draftRevision: draft.revision,
+    validationId: validation.validationId,
+    deterministicAssessmentId: deterministic.assessmentId,
+    semanticAssessmentId: semantic.semanticAssessmentId,
+    mergeRuleVersion: QUESTION_QUALITY_MERGE_RULE_VERSION,
+  });
+  return bundle ? { draft, deterministic, semantic, bundle } : null;
+}
+
+async function requireExpectedDraftRevision(
+  draftId: string,
+  expectedDraftRevision: number | undefined,
+  operation: string,
+): Promise<StructuredQuestionDraft> {
+  const draft = await repository.getDraft(draftId);
+  if (!draft) throw new Error(`Draft not found: ${draftId}`);
+  if (
+    expectedDraftRevision !== undefined &&
+    draft.revision !== expectedDraftRevision
+  ) {
+    throw createStructuredRuntimeError({
+      code: 'QUESTION_DRAFT_REVISION_CONFLICT',
+      message: '当前题目版本已变化，请刷新后再继续。',
+      operation: `question_resource_workbench.${operation}`,
+      objectId: draftId,
+      recoverability: 'reload_required',
+    });
+  }
+  return draft;
 }

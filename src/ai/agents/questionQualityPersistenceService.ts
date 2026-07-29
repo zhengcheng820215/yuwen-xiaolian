@@ -95,7 +95,6 @@ export async function requireCurrentPersistedQualityContext(
   const semanticCandidates =
     await qualityRepository.listSemanticForDraft(draft.draftId);
   const semantic = semanticCandidates.find((item) => (
-    item.status === 'completed' &&
     item.assessedDraftRevision === draft.revision &&
     item.validationId === validation.validationId &&
     item.deterministicAssessmentId === deterministic.assessmentId &&
@@ -104,7 +103,7 @@ export async function requireCurrentPersistedQualityContext(
     item.outputSchemaVersion === QUESTION_SEMANTIC_QUALITY_OUTPUT_SCHEMA_VERSION
   ));
   if (!semantic) {
-    throw new Error('Current completed semantic assessment is required.');
+    throw new Error('Current semantic assessment result is required.');
   }
 
   const bundles = await Promise.all(
@@ -136,6 +135,7 @@ export async function reviewQuestionResourceDraftWithPersistedQuality(
     action: QuestionQualityReviewAction;
     reviewerId: string;
     notes: string;
+    acceptedWarningCodes?: string[];
     now?: string;
   },
 ): Promise<ResourceReviewDecision> {
@@ -154,7 +154,34 @@ export async function reviewQuestionResourceDraftWithPersistedQuality(
   ) {
     throw new Error('Approval with revision recommendation requires review notes.');
   }
-  return reviewQuestionResourceDraft(resourceRepository, input);
+  const acceptedWarningCodes = new Set(input.acceptedWarningCodes || []);
+  if (
+    input.action === 'approve' &&
+    context.deterministic.warnings.some(
+      (warning) => !acceptedWarningCodes.has(warning.code),
+    )
+  ) {
+    throw new Error('Current quality warnings require an explicit Human Review decision.');
+  }
+  const reviewedAt = input.now || new Date().toISOString();
+  return reviewQuestionResourceDraft(resourceRepository, {
+    ...input,
+    now: reviewedAt,
+    qualityAssessmentBundleId: context.bundle.bundleId,
+    deterministicAssessmentId: context.deterministic.assessmentId,
+    semanticAssessmentId: context.semantic.semanticAssessmentId,
+    qualityMergeRuleVersion: context.bundle.mergeRuleVersion,
+    warningDecisions: context.deterministic.warnings.map((warning) => ({
+      warningDecisionId: `${context.draft.draftId}:r${context.draft.revision}:${context.deterministic.assessmentId}:${warning.code}`,
+      draftId: context.draft.draftId,
+      draftRevision: context.draft.revision,
+      assessmentId: context.deterministic.assessmentId,
+      warningCode: warning.code,
+      decision: acceptedWarningCodes.has(warning.code) ? 'accepted' : 'rejected',
+      reviewedBy: input.reviewerId,
+      reviewedAt,
+    })),
+  });
 }
 
 export async function freezeQuestionResourceDraftWithPersistedQuality(
@@ -183,6 +210,20 @@ export async function freezeQuestionResourceDraftWithPersistedQuality(
   if (!canFreezeWithQualityBundle(context.bundle)) {
     throw new Error('Current quality bundle blocks Freeze.');
   }
+  const review = context.draft.latestReviewId
+    ? await resourceRepository.getReview(context.draft.latestReviewId)
+    : null;
+  if (
+    !review ||
+    review.reviewedDraftRevision !== context.draft.revision ||
+    review.validationId !== context.bundle.validationId ||
+    review.qualityAssessmentBundleId !== context.bundle.bundleId ||
+    review.deterministicAssessmentId !== context.deterministic.assessmentId ||
+    review.semanticAssessmentId !== context.semantic.semanticAssessmentId ||
+    review.qualityMergeRuleVersion !== context.bundle.mergeRuleVersion
+  ) {
+    throw new Error('Current Human Review is not bound to the quality bundle.');
+  }
   const resourceCommit = await prepareQuestionResourceFreezeCommit(
     resourceRepository,
     draftId,
@@ -191,7 +232,7 @@ export async function freezeQuestionResourceDraftWithPersistedQuality(
   const trace = buildFrozenQuestionQualityTrace(
     resourceCommit.version.resourceVersionId,
     context,
-    context.draft.latestReviewId || '',
+    review.reviewId,
     now,
   );
   return qualityRepository.commitFreezeWithQualityTrace({

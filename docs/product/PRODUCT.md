@@ -332,6 +332,7 @@ PRODUCT.md 只负责：
 | 整体流程如何编排 | `LEARNING_FLOW.md` |
 | Agent 如何协作 | `AGENT_PROTOCOL.md` |
 | PC / 平板学习工作台如何组织学生体验 | `PC_LEARNING_WORKSPACE_UX_CALIBRATION.md` |
+| 正式资源生产契约如何关联、按什么顺序阅读 | [Formal Resource Production Contract Map](./FORMAL_RESOURCE_PRODUCTION_CONTRACT_MAP.md) |
 | 产品颜色分别表达什么状态与操作 | [Product Color Semantics](./PRODUCT_COLOR_SEMANTICS.md) |
 | 产品负责人如何查看当前模块、产品验收与问题归类 | [Product Owner Control Table](./PRODUCT_CONTROL_TABLE.md) |
 

@@ -2,7 +2,7 @@
 
 英文名称：Authoring Field Contract
 
-状态：DESIGN FROZEN / ENGINEERING CALIBRATION PENDING  
+状态：DESIGN FROZEN / P0-P2 ENGINEERING COMPLETE / REAL-TASK ACCEPTANCE PENDING
 契约版本：`authoring_field_contract_v1`  
 更新日期：2026-07-29
 

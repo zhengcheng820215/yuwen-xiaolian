@@ -2,7 +2,7 @@
 
 英文名称：Question Review and Publication Workflow Contract
 
-状态：DESIGN FROZEN / ENGINEERING CALIBRATION PENDING  
+状态：DESIGN FROZEN / P0 ENGINEERING ALIGNED / P1-P2 CALIBRATION PENDING
 契约版本：`question_review_publication_workflow_v1.1`  
 更新日期：2026-07-29
 

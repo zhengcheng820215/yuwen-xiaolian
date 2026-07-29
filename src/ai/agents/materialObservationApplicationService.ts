@@ -481,14 +481,13 @@ export async function reviewMaterialObservationPlan(
   },
 ): Promise<MaterialObservationReviewDecision> {
   const plan = await requirePlan(observationRepository, input.planId);
-  if (plan.status !== 'pending_review') throw new Error(`Material Observation Plan cannot be reviewed from status: ${plan.status}`);
-  if (!input.reviewerId.trim() || !input.notes.trim()) throw new Error('Reviewer identity and notes are required.');
-
   const validation = await findCurrentValidation(observationRepository, plan);
   if (!validation?.passed) throw new Error('Current passed Material Observation Plan validation is required.');
   const reviewId = `${plan.materialObservationPlanId}:review:r${plan.revision}:${validation.validationId}`;
   const existing = await observationRepository.getReview(reviewId);
   if (existing) return existing;
+  if (plan.status !== 'pending_review') throw new Error(`Material Observation Plan cannot be reviewed from status: ${plan.status}`);
+  if (!input.reviewerId.trim() || !input.notes.trim()) throw new Error('Reviewer identity and notes are required.');
   const now = input.now || new Date().toISOString();
   const decision: MaterialObservationReviewDecision = {
     reviewId,

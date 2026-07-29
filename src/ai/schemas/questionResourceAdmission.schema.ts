@@ -225,6 +225,10 @@ export type ResourceReviewDecision = {
   resourceId: string;
   reviewedDraftRevision: number;
   validationId: string;
+  qualityAssessmentBundleId?: string;
+  deterministicAssessmentId?: string;
+  semanticAssessmentId?: string;
+  qualityMergeRuleVersion?: string;
   action: ResourceReviewAction;
   reviewerId: string;
   notes: string;

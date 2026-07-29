@@ -377,6 +377,7 @@ export default function QuestionResourceWorkbench() {
     const result = await run(
       () => saveQuestionResourceWorkbenchDraft({
         draftId: selectedDraftId || undefined,
+        expectedDraftRevision: context?.draft.revision,
         resourceId: context?.draft.resourceId,
         taskId: context?.draft.taskId,
         draft: toDraftInput(form),
@@ -422,13 +423,17 @@ export default function QuestionResourceWorkbench() {
         const draftToValidate = hasUnsavedChanges || !selectedDraftId
           ? await saveQuestionResourceWorkbenchDraft({
             draftId: selectedDraftId || undefined,
+            expectedDraftRevision: context?.draft.revision,
             resourceId: context?.draft.resourceId,
             taskId: context?.draft.taskId,
             draft: toDraftInput(form),
             qualityRevisionProgress,
           })
           : context.draft;
-        await validateQuestionResourceWorkbenchDraft(draftToValidate.draftId);
+        await validateQuestionResourceWorkbenchDraft(
+          draftToValidate.draftId,
+          draftToValidate.revision,
+        );
         return draftToValidate;
       },
       '题目结构检查已完成。',
@@ -443,12 +448,16 @@ export default function QuestionResourceWorkbench() {
       async () => {
         const savedDraft = await saveQuestionResourceWorkbenchDraft({
           draftId: selectedDraftId || undefined,
+          expectedDraftRevision: context?.draft.revision,
           resourceId: context?.draft.resourceId,
           taskId: context?.draft.taskId,
           draft: toDraftInput(nextForm),
           qualityRevisionProgress: nextProgress,
         });
-        await validateQuestionResourceWorkbenchDraft(savedDraft.draftId);
+        await validateQuestionResourceWorkbenchDraft(
+          savedDraft.draftId,
+          savedDraft.revision,
+        );
         return savedDraft;
       },
       successMessage,
@@ -463,7 +472,10 @@ export default function QuestionResourceWorkbench() {
 
   async function submitReview() {
     await run(
-      () => submitQuestionResourceWorkbenchReview(selectedDraftId),
+      () => submitQuestionResourceWorkbenchReview(
+        selectedDraftId,
+        context?.draft.revision,
+      ),
       '题目已提交人工审核。',
     );
   }
@@ -477,6 +489,7 @@ export default function QuestionResourceWorkbench() {
     await run(
       () => decideQuestionResourceWorkbenchReview({
         draftId: selectedDraftId,
+        expectedDraftRevision: context?.draft.revision,
         action,
         reviewerId: 'local-reviewer',
         notes: reviewNotes,
@@ -488,7 +501,10 @@ export default function QuestionResourceWorkbench() {
 
   async function freezeDraft() {
     await run(
-      () => freezeQuestionResourceWorkbenchDraft(selectedDraftId),
+      () => freezeQuestionResourceWorkbenchDraft(
+        selectedDraftId,
+        context?.draft.revision,
+      ),
       (result) => result.observationLinkIssues?.length
         ? '正式资源已冻结并更新 Registry；材料观测关联仍需在资源生产页处理。'
         : result.observationLink
@@ -2062,6 +2078,8 @@ function ReviewValue({ label, value }) {
 
 function ReviewSubmissionSummary({ context, acceptedWarningCodes, setAcceptedWarningCodes }) {
   const assessment = context?.qualityAssessment;
+  const semanticAssessment = context?.semanticQualityAssessment;
+  const qualityBundle = context?.qualityAssessmentBundle;
   const warnings = assessment?.warnings || [];
   const locked = context?.draft?.status === 'reviewed';
   const passedCount = assessment
@@ -2087,6 +2105,38 @@ function ReviewSubmissionSummary({ context, acceptedWarningCodes, setAcceptedWar
           {passedCount} 项通过 · {warnings.length} 项提醒 · 0 项阻断
         </span>
       </div>
+      {qualityBundle ? (
+        <div className="mt-4 grid gap-2 border-t border-slate-200 pt-4 text-xs sm:grid-cols-3">
+          <div>
+            <p className="text-slate-500">确定性检查</p>
+            <p className="mt-1 font-medium text-slate-800">
+              {qualityBundle.deterministicRuleVersion}
+            </p>
+          </div>
+          <div>
+            <p className="text-slate-500">独立语义评估</p>
+            <p className={`mt-1 font-medium ${
+              semanticAssessment?.status === 'completed'
+                ? 'text-emerald-700'
+                : 'text-red-700'
+            }`}>
+              {semanticAssessment?.status === 'completed'
+                ? '已完成'
+                : '服务不可用，不能审核通过'}
+            </p>
+          </div>
+          <div>
+            <p className="text-slate-500">质量包</p>
+            <p className="mt-1 font-medium text-slate-800">
+              {qualityBundle.decision}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-4 border-t border-slate-200 pt-4 text-xs text-amber-700">
+          尚未形成当前修订版的完整质量包，请重新执行检查。
+        </p>
+      )}
       {warnings.length ? (
         <div className="mt-4 border-t border-slate-200 pt-4">
           <p className="text-sm font-semibold text-slate-950">待确认事项（{warnings.length}）</p>
@@ -2130,7 +2180,14 @@ function ReviewSubmissionSummary({ context, acceptedWarningCodes, setAcceptedWar
 
 function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes, acceptedReviewWarningCodes, setAcceptedReviewWarningCodes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onOptimizeStem, stemOptimizationBusy, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft, focusedReview, humanReviewStage }) {
   if (!context) return <EmptyText>先保存 Draft，再执行正式校验与审核。</EmptyText>;
-  const { draft, validation, qualityAssessment, versionHistory } = context;
+  const {
+    draft,
+    validation,
+    qualityAssessment,
+    semanticQualityAssessment,
+    qualityAssessmentBundle,
+    versionHistory,
+  } = context;
   const hasFrozenVersion = versionHistory.some((version) => version.sourceDraftId === draft.draftId);
   const isPublished = publicationStatus === 'published';
   const publicationIncomplete = publicationStatus === 'publication_incomplete';
@@ -2178,6 +2235,13 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
   const acceptedAllReviewWarnings = Boolean(
     qualityAssessment?.warnings.every(
       (warning) => acceptedReviewWarningCodes.includes(warning.code),
+    ),
+  );
+  const semanticQualityUnavailable = Boolean(
+    qualityAssessmentBundle?.decision === 'semantic_unavailable' ||
+    (
+      semanticQualityAssessment &&
+      semanticQualityAssessment.status !== 'completed'
     ),
   );
   const recoverablePublicationFailure = Boolean(
@@ -2411,7 +2475,7 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
           ) : null}
           <button
             type="button"
-            disabled={busy || !qualityAssessment || qualityResultStale}
+            disabled={busy || !qualityAssessment || !qualityAssessmentBundle || qualityResultStale}
             onClick={onSubmitReview}
             className={activeWorkflowButtonClass}
           >
@@ -2419,11 +2483,11 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
               ? '仍提交人工审核'
               : '提交人工审核'}
           </button>
-          {!qualityAssessment || qualityResultStale ? (
+          {!qualityAssessment || !qualityAssessmentBundle || qualityResultStale ? (
             <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
               {qualityResultStale
                 ? '题目内容已经修改，请先保存并重新检查题目。'
-                : '当前题目尚无有效质量检查结果，请重新执行结构检查。'}
+                : '当前题目尚无完整质量检查结果，请重新执行结构检查。'}
             </p>
           ) : null}
         </ActionStep>
@@ -2436,13 +2500,18 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
             <button type="button" disabled={busy} onClick={() => onReview('revision_required')} className="min-h-10 rounded-md border border-[#666666] px-2 text-sm font-normal text-slate-800 disabled:border-slate-200 disabled:text-slate-400">退回修改</button>
             <button
               type="button"
-              disabled={busy || !acceptedAllReviewWarnings}
+              disabled={busy || !acceptedAllReviewWarnings || semanticQualityUnavailable}
               onClick={() => onReview('approve')}
               className="min-h-10 rounded-md bg-slate-950 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400"
             >
               审核通过
             </button>
           </div>
+          {semanticQualityUnavailable ? (
+            <p className="mt-2 rounded-md bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-700">
+              独立语义评估服务不可用，当前题目不能审核通过；仍可退回修改。
+            </p>
+          ) : null}
         </ActionStep>
       ) : null}
 

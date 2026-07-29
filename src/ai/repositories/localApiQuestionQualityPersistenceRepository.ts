@@ -8,6 +8,9 @@ import type {
   QuestionQualityPersistenceRepository,
   SemanticAssessmentCurrentIdentity,
 } from './questionQualityPersistenceRepository.ts';
+import type {
+  QuestionQualityAssessmentRepository,
+} from './questionQualityAssessmentRepository.ts';
 import {
   cloneQuestionQualityPersistenceValue,
   type FrozenQuestionQualityTrace,
@@ -29,7 +32,7 @@ import type {
 } from '../schemas/questionQualityCalibration.schema.ts';
 
 export class LocalApiQuestionQualityPersistenceRepository
-implements QuestionQualityPersistenceRepository {
+implements QuestionQualityPersistenceRepository, QuestionQualityAssessmentRepository {
   private readonly client: LocalApiFormalResourceClient;
 
   constructor(client = new LocalApiFormalResourceClient()) {
@@ -46,6 +49,12 @@ implements QuestionQualityPersistenceRepository {
     );
   }
 
+  saveAssessment(
+    value: QuestionQualityAssessment,
+  ): Promise<QuestionQualityAssessment> {
+    return this.saveDeterministicAssessment(value);
+  }
+
   async getDeterministicAssessment(
     assessmentId: string,
   ): Promise<QuestionQualityAssessment | null> {
@@ -55,6 +64,12 @@ implements QuestionQualityPersistenceRepository {
         (item) => item.assessmentId === assessmentId,
       ),
     );
+  }
+
+  getAssessment(
+    assessmentId: string,
+  ): Promise<QuestionQualityAssessment | null> {
+    return this.getDeterministicAssessment(assessmentId);
   }
 
   async listDeterministicForDraft(
@@ -68,6 +83,30 @@ implements QuestionQualityPersistenceRepository {
         right.assessedAt.localeCompare(left.assessedAt)
       ))
       .map(clone);
+  }
+
+  listAssessmentsForDraft(
+    draftId: string,
+  ): Promise<QuestionQualityAssessment[]> {
+    return this.listDeterministicForDraft(draftId);
+  }
+
+  async getAssessmentForRevision(
+    draftId: string,
+    draftRevision: number,
+  ): Promise<QuestionQualityAssessment | null> {
+    const assessments = await this.listDeterministicForDraft(draftId);
+    return cloneNullable(
+      assessments.find(
+        (assessment) => assessment.assessedDraftRevision === draftRevision,
+      ),
+    );
+  }
+
+  async clear(): Promise<void> {
+    throw new Error(
+      'Shared question quality history cannot be cleared from the review workbench.',
+    );
   }
 
   async getCurrentDeterministic(

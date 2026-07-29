@@ -27,7 +27,7 @@ export function getPhase175C2QualityPersistenceDemoData():
 Phase175C2QualityPersistenceDemoData {
   return {
     defaultCaseId: 'restart-recovery',
-    debugSummary: '17.5C2 自动化 Debug 17/17 通过',
+    debugSummary: '17.5C2 自动化 Debug 22/22 通过',
     storageBoundary: '受控验收快照，不写入真实题目录入工作台',
     cases: [
       {
