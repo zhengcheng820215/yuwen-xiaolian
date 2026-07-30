@@ -2479,6 +2479,7 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
     !semanticQualityUnavailable &&
     !awaitingIssueRecheck
   );
+  const qualityWarningCount = qualityAssessment?.warnings?.length || 0;
   const completedStep = isPublished
     ? 4
     : draft.status === 'reviewed'
@@ -2585,13 +2586,20 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
               <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-sm font-normal text-amber-700">
                 审核已通过，发布未完成
               </span>
-            ) : draft.status === 'drafted' && hasCurrentCompleteQualityCheck ? (
+            ) : draft.status === 'drafted' && hasCurrentCompleteQualityCheck && qualityWarningCount === 0 ? (
               <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-sm font-normal text-blue-700">
                 质量检查通过，待提交题目人工审核
               </span>
+            ) : draft.status === 'drafted' && hasCurrentCompleteQualityCheck && qualityWarningCount > 0 ? (
+              <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-sm font-normal text-amber-700">
+                完整质量检查完成，{qualityWarningCount} 项提醒待确认
+              </span>
             ) : draft.status === 'drafted' && hasCurrentPassedValidation ? (
               <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-sm font-normal text-amber-700">
-                结构检查通过，完整质量检查待完成
+                基础结构通过
+                {qualityWarningCount > 0
+                  ? `，${qualityWarningCount} 项质量提醒待处理`
+                  : '，完整质量检查待完成'}
               </span>
             ) : draft.status === 'drafted' ? (
               <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-sm font-normal text-amber-700">
@@ -2802,7 +2810,7 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
         <WorkflowStageProgress currentStep={isPublished ? null : currentStep} published={isPublished} />
       ) : null}
 
-      {!focusedReview && completedStep >= 1 ? <CompletedActionStep index="1" title="自动结构检查" /> : null}
+      {!focusedReview && completedStep >= 1 ? <CompletedActionStep index="1" title="基础结构检查" /> : null}
       {!focusedReview && completedStep >= 2 ? <CompletedActionStep index="2" title="提交题目审核" /> : null}
       {!focusedReview && completedStep >= 3 ? <CompletedActionStep index="3" title="题目人工审核" /> : null}
       {!focusedReview && completedStep >= 4 ? <CompletedActionStep index="4" title="正式发布" /> : null}
@@ -2816,7 +2824,7 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
       ) : null}
 
       {currentStep === 1 ? (
-        <ActionStep index="1" title="自动结构检查">
+        <ActionStep index="1" title="基础结构检查">
           <button type="button" disabled={busy || !['drafted', 'validation_failed', 'revision_required'].includes(draft.status)} onClick={onValidate} className={activeWorkflowButtonClass}>{validationActionLabel}</button>
           {validation ? <ValidationResult validation={validation} stale={draft.status === 'revision_required'} /> : <p className="mt-2 text-sm text-slate-500">当前修改尚未执行结构检查，请保存后检查。</p>}
         </ActionStep>
@@ -3028,7 +3036,7 @@ function ValidationResult({ validation, stale = false }) {
   return (
     <div className={`mt-3 rounded-md p-3 ${validation.passed ? 'bg-emerald-50' : 'bg-rose-50'}`}>
       <p className={`flex items-center gap-2 text-sm font-semibold ${validation.passed ? 'text-emerald-800' : 'text-rose-800'}`}>
-        {validation.passed ? <CheckCircle2 size={16} /> : null}{validation.passed ? '结构检查通过' : '结构检查未通过'}
+        {validation.passed ? <CheckCircle2 size={16} /> : null}{validation.passed ? '基础结构检查通过' : '基础结构检查未通过'}
       </p>
       {validation.issues.length ? <ul className="mt-2 space-y-2 text-xs leading-5 text-slate-700">{validation.issues.map((issue) => <li key={`${issue.code}-${issue.field}`}><span className={issue.severity === 'error' ? 'text-rose-700' : 'text-amber-700'}>{issue.severity === 'error' ? '阻断' : '提醒'}</span> · {validationMessage(issue)} <span className="text-slate-400">({issue.field})</span></li>)}</ul> : <p className="mt-2 text-xs text-emerald-800">没有阻断项。</p>}
     </div>
@@ -3293,6 +3301,8 @@ function QuestionQualitySummary({
 
   const needsRevision = assessment.decision === 'revision_recommended';
   const hasWarnings = assessment.warnings.length > 0;
+  const passedCheckCount = Object.values(assessment.checks).filter((status) => status === 'pass').length;
+  const warningCheckCount = assessment.warnings.length;
   const checkRecordPending = !recordComplete || semanticUnavailable;
   const resolvedThisRound = progressItems.filter(
     (item) => (
@@ -3309,7 +3319,7 @@ function QuestionQualitySummary({
     }`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-slate-950">题目质量检查</p>
+          <p className="text-sm font-semibold text-slate-950">完整质量检查</p>
         </div>
         <span className={`rounded-md px-2 py-1 text-xs font-normal ${
           checkRecordPending
@@ -3320,13 +3330,13 @@ function QuestionQualitySummary({
                 ? 'bg-yellow-100 text-yellow-800'
                 : 'bg-emerald-100 text-emerald-800'
         }`}>
-          {checkRecordPending
-            ? '完整检查待完成'
-            : needsRevision
-              ? '系统建议修改'
-              : hasWarnings
-                ? '系统检查有提醒'
-                : '系统检查通过'}
+          {warningCheckCount > 0
+            ? `${passedCheckCount} 项通过 · ${warningCheckCount} 项待处理`
+            : checkRecordPending
+              ? `${passedCheckCount} 项通过 · 检查记录待完成`
+              : needsRevision
+                ? '系统建议修改'
+                : '全部质量检查通过'}
         </span>
       </div>
 
