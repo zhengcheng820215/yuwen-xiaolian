@@ -1,11 +1,11 @@
 import type {
   QuestionQualityAssessmentRepository,
-} from './questionQualityAssessmentRepository.ts';
+} from '../../repositories/questionQualityAssessmentRepository.ts';
 import {
   cloneQuestionQualityValue,
   type QuestionQualityAssessment,
-} from '../schemas/questionQualityAssessment.schema.ts';
-import { createStructuredRuntimeError } from '../errors/structuredRuntimeError.ts';
+} from '../../schemas/questionQualityAssessment.schema.ts';
+import { createStructuredRuntimeError } from '../../errors/structuredRuntimeError.ts';
 
 export class InMemoryQuestionQualityAssessmentRepository
 implements QuestionQualityAssessmentRepository {

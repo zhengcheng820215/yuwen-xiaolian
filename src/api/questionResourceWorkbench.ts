@@ -666,10 +666,6 @@ export async function discardQuestionResourceWorkbenchDraft(draftId: string): Pr
   return { action: 'deleted' };
 }
 
-export async function clearQuestionResourceWorkbench(): Promise<void> {
-  await repository.clear();
-}
-
 function createIdSuffix(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID().slice(0, 12);

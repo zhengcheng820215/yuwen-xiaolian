@@ -13,7 +13,7 @@ import {
   validateStructuredQuestionDraft,
   type CreateStructuredQuestionDraftInput,
 } from '../agents/questionResourceAdmissionAgent.ts';
-import { InMemoryQuestionQualityAssessmentRepository } from '../repositories/inMemoryQuestionQualityAssessmentRepository.ts';
+import { InMemoryQuestionQualityAssessmentRepository } from './support/inMemoryQuestionQualityAssessmentRepository.ts';
 import { InMemoryQuestionResourceAdmissionRepository } from '../repositories/inMemoryQuestionResourceAdmissionRepository.ts';
 import {
   isQuestionQualityAssessment,

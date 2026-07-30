@@ -9,7 +9,6 @@ import {
   FilePlus2,
   Plus,
   RefreshCw,
-  Trash2,
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
 import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
@@ -29,7 +28,6 @@ import {
   reconcileQuestionQualityRevisionProgress,
 } from './questionQualityRevisionProgress.ts';
 import {
-  clearQuestionResourceWorkbench,
   createQuestionResourceWorkbenchNextVersion,
   createQuestionResourceWorkbenchPublicationRepair,
   createQuestionResourceWorkbenchRejectedRevision,
@@ -893,21 +891,6 @@ export default function QuestionResourceWorkbench() {
     );
   }
 
-  async function clearWorkspace() {
-    if (!window.confirm('确认清除本浏览器中的 Phase 16.1 工作台数据？')) return;
-    setBusy(true);
-    try {
-      await clearQuestionResourceWorkbench();
-      setSnapshot(emptySnapshot);
-      startNewDraft();
-      setNotice({ type: 'success', message: '工作台本地数据已清除。' });
-    } catch (error) {
-      setNotice(errorNotice(error));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const selectedQuestionIndex = selectedDraftId
     ? snapshot.drafts.findIndex((draft) => draft.draftId === selectedDraftId)
     : -1;
@@ -924,7 +907,6 @@ export default function QuestionResourceWorkbench() {
       onNew={startNewDraftWithConfirmation}
       onSelect={selectDraftWithConfirmation}
       onNextVersion={createNextVersion}
-      onClear={clearWorkspace}
       onDiscardDraft={discardDraft}
       focusedReview={planReviewMode}
     />
@@ -1143,7 +1125,7 @@ export default function QuestionResourceWorkbench() {
   );
 }
 
-function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, onNextVersion, onClear, onDiscardDraft, focusedReview }) {
+function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, onNextVersion, onDiscardDraft, focusedReview }) {
   return (
     <aside className={`overflow-hidden rounded-md bg-white ${focusedReview ? 'lg:sticky lg:top-24' : 'border border-slate-200 xl:sticky xl:top-24'}`}>
       {!focusedReview ? <div className="border-b border-slate-200 p-3">
@@ -1246,16 +1228,6 @@ function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, o
         )) : <EmptyText>尚无 Frozen Resource</EmptyText>}
       </div> : null}
 
-      {!focusedReview ? <div className="border-t border-slate-200 p-3">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onClear}
-          className="flex min-h-9 w-full items-center justify-center gap-2 rounded-md text-sm font-normal text-red-600 hover:bg-red-50 hover:text-red-700"
-        >
-          <Trash2 size={15} /> 清除本地 Demo 数据
-        </button>
-      </div> : null}
     </aside>
   );
 }

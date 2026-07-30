@@ -2,7 +2,7 @@
 
 首次审计日期：2026-07-29
 
-当前快照：P0 CLOSED / P1 COMMAND AND HIERARCHY BATCH CLOSED / P1 ATOMICITY AND P2 OPEN
+当前快照：P0 CLOSED / P1 COMMAND AND HIERARCHY BATCH CLOSED / P2 FIRST CLEANUP BATCH CLOSED / P1 ATOMICITY AND VISUAL ACCEPTANCE OPEN
 
 范围：题目编辑、保存、检查、提交人工审核、人工决定、冻结发布与失败恢复
 
@@ -575,9 +575,10 @@ Workbench 接入持久化 Quality Repository
 
 ### 12.2 P2
 
-1. 删除已无生产入口的内存 Quality Repository、重复 Freeze 路径和旧 Handler；
-2. 删除不再消费的旧布尔状态与重复提示；
-3. 以 Workbench 平台级集成测试替代仅依赖模块级 PASS 的验收表达。
+1. 已删除生产目录中的内存 Quality Repository，并将测试替身收口到测试支持目录；
+2. 已删除正式题目工作台无契约依据的全局清空入口和 Handler；
+3. 已完成正式调用链核对：低层 Freeze / Review / Submit 仍被材料生产、历史兼容与集成演示消费，不作为死代码删除；
+4. 仍需结合正式页面浏览器证据继续校准重复提示；不得删除仍被保存、检查和问题定位共同消费的质量修复进度状态。
 
 ### 12.3 升级为 `CONTRACT ALIGNED` 的条件
 
@@ -671,3 +672,47 @@ Workbench 接入持久化 Quality Repository
 因此本批次完成后的准确状态是：
 
 > 重复命令、双标签并发保护和审核页信息层级已经形成可执行、可回归的统一语义。当前不会因网络重试或重复点击制造额外 Revision、Validation、Review 或 Frozen Version；原子 Observation Link、视觉浏览器证据和 P2 清理仍保持开放。
+
+## 十五、P2 第一批旧路径清理记录
+
+完成日期：2026-07-30
+
+本批次完成：
+
+1. `InMemoryQuestionQualityAssessmentRepository` 从生产 Repository 目录迁入 `src/ai/tests/support`，正式运行时只保留 `LocalApiQuestionQualityPersistenceRepository`；
+2. 三条质量专项 Debug 改用测试目录中的内存替身，测试隔离能力不受影响；
+3. 删除题目工作台“清除本地 Demo 数据”入口、页面 Handler 与 API Handler，避免绕过单题删除、归档和审计保留规则；
+4. 对 Submit、Review、Freeze 的低层路径完成调用链审计：它们仍被材料生产服务、历史兼容链路和集成演示消费，当前保留；
+5. 对 `qualityRevisionProgress` 完成消费审计：该状态仍同时服务保存、修改后失效、逐项修复和定位修改，不属于废弃布尔状态。
+
+回归结果：
+
+| Debug | 结果 |
+|---|---|
+| `debug:question-workbench-command-e2e` | 6 / 6 PASS |
+| `debug:phase17-5b` | 11 / 11 PASS |
+| `debug:phase17-5c2` | 22 / 22 PASS |
+| `debug:question-publication-recovery` | 3 / 3 PASS |
+| `debug:question-resource-intake` | 26 / 26 PASS |
+| `debug:question-quality-revision-progress` | 18 / 18 PASS |
+| `debug:structured-runtime-errors` | 8 / 8 PASS |
+| `debug:material-observation` | 27 / 27 PASS |
+| `debug:phase17-4a` | 10 / 10 PASS |
+| Production Build | PASS |
+| `git diff --check` | PASS |
+
+边界说明：
+
+- 本批次只删除“无正式入口且无契约职责”的路径；
+- 不以文件名或历史命名为依据误删仍有生产调用方的兼容服务；
+- 重复提示的进一步收敛必须以正式页面视觉回归为证据，不能只凭静态搜索删除。
+
+仍未关闭：
+
+1. Observation Link 与 Frozen Version 尚未形成同一原子事务；
+2. 正式页面视觉回归仍缺少无旧缓存浏览器会话的截图证据；
+3. 真实十素材校准仍待执行。
+
+因此本批次完成后的准确状态是：
+
+> 生产质量仓库与测试替身的边界已经清楚，正式页面也不再提供绕过审计规则的全局清空操作。P2 第一批旧路径清理完成，但原子 Observation Link、正式页面视觉证据和真实素材校准仍保持开放。
