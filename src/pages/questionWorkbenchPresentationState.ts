@@ -76,7 +76,15 @@ export function getReturnIssueEditorTargetIds(
 export function resolveQuestionWorkbenchPageIdentity(input: {
   focusedReview: boolean;
   status: QuestionWorkbenchDisplayStatus;
+  loading?: boolean;
 }): QuestionWorkbenchPageIdentity {
+  if (input.loading) {
+    return {
+      title: '正在载入题目',
+      subtitle: '',
+    };
+  }
+
   if (!input.focusedReview) {
     return {
       title: '题目录入工作台',

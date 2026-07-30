@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   FilePlus2,
+  LoaderCircle,
   Plus,
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
@@ -170,6 +171,7 @@ export default function QuestionResourceWorkbench() {
   });
   const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [workspaceLoadState, setWorkspaceLoadState] = useState('loading');
   const [stemOptimization, setStemOptimization] = useState(null);
   const [stemOptimizationError, setStemOptimizationError] = useState('');
   const [stemOptimizationBusy, setStemOptimizationBusy] = useState(false);
@@ -197,7 +199,20 @@ export default function QuestionResourceWorkbench() {
   );
 
   useEffect(() => {
-    refreshWorkspace(routeContext.draftId).catch((error) => setNotice(errorNotice(error)));
+    let active = true;
+    setWorkspaceLoadState('loading');
+    refreshWorkspace(routeContext.draftId)
+      .then(() => {
+        if (active) setWorkspaceLoadState('ready');
+      })
+      .catch((error) => {
+        if (!active) return;
+        setNotice(errorNotice(error));
+        setWorkspaceLoadState('error');
+      });
+    return () => {
+      active = false;
+    };
   }, [routeContext.planId, routeContext.draftId]);
 
   useEffect(() => {
@@ -1015,6 +1030,7 @@ export default function QuestionResourceWorkbench() {
   const pageIdentity = resolveQuestionWorkbenchPageIdentity({
     focusedReview: planReviewMode,
     status: selectedPublicationStatus,
+    loading: workspaceLoadState === 'loading',
   });
   const humanReviewStage = Boolean(
     planReviewMode &&
@@ -1113,6 +1129,52 @@ export default function QuestionResourceWorkbench() {
       humanReviewStage={humanReviewStage}
     />
   );
+
+  if (workspaceLoadState !== 'ready') {
+    const loadFailed = workspaceLoadState === 'error';
+    return (
+      <div className={`question-resource-workbench min-h-screen ${planReviewMode ? 'bg-[#f6f8fb] text-slate-950' : 'bg-[#f5f7fb]'}`}>
+        {planReviewMode ? (
+          <header className="border-b border-slate-200 bg-white">
+            <div className="mx-auto flex min-h-16 max-w-[1360px] items-center px-5 md:px-8">
+              <div className="flex items-center gap-3">
+                <Link
+                  to={materialWorkbenchReturnPath}
+                  aria-label="返回素材资源录入平台"
+                  className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
+                >
+                  <ArrowLeft size={18} />
+                </Link>
+                <h1 className="text-lg font-semibold">
+                  {loadFailed ? '题目载入失败' : pageIdentity.title}
+                </h1>
+              </div>
+            </div>
+          </header>
+        ) : (
+          <PageHeader
+            title={loadFailed ? '题目载入失败' : pageIdentity.title}
+            subtitle=""
+            back
+          />
+        )}
+        <main className="mx-auto flex min-h-[360px] w-full max-w-[1200px] items-center justify-center px-5 md:px-8">
+          <div
+            role="status"
+            aria-live="polite"
+            className={`flex items-center gap-3 text-base ${loadFailed ? 'text-red-700' : 'text-slate-600'}`}
+          >
+            {loadFailed ? (
+              <AlertTriangle size={20} aria-hidden="true" />
+            ) : (
+              <LoaderCircle size={20} className="animate-spin text-blue-600" aria-hidden="true" />
+            )}
+            <span>{loadFailed ? '暂时无法读取题目状态，请返回后重试。' : '正在载入题目'}</span>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className={`question-resource-workbench min-h-screen ${planReviewMode ? 'bg-[#f6f8fb] text-slate-950' : 'bg-[#f5f7fb]'}`}>

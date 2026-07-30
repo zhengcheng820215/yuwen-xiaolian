@@ -1593,7 +1593,7 @@ export default function MaterialResourceProductionWorkbench() {
                         title={commandAvailability.planReplacementGroup.reason}
                         className="ai-button-outline inline-flex h-10 w-full items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        {generatorOperation === 'replace_group' ? '正在重新规划…' : '重新规划整组任务'}
+                        {generatorOperation === 'replace_group' ? '正在重新生成…' : '重新生成整组任务'}
                       </button>
                     </div>
                     <div className="flex w-52 flex-col items-center">
@@ -1604,7 +1604,7 @@ export default function MaterialResourceProductionWorkbench() {
                         title={commandAvailability.planSupplementCandidates.reason}
                         className="ai-button-solid inline-flex h-10 w-full items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        {generatorOperation === 'supplement_group' ? '正在补充任务…' : '补充生成任务'}
+                        {generatorOperation === 'supplement_group' ? '正在生成更多任务…' : '生成更多任务'}
                       </button>
                     </div>
                   </>

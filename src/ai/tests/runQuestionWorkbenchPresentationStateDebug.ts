@@ -25,6 +25,18 @@ for (const [focusedReview, status, expectedTitle] of cases) {
   );
 }
 
+assert.deepEqual(
+  resolveQuestionWorkbenchPageIdentity({
+    focusedReview: true,
+    status: null,
+    loading: true,
+  }),
+  {
+    title: '正在载入题目',
+    subtitle: '',
+  },
+);
+
 assert.equal(
   countPendingReviewDrafts([
     'drafted',
@@ -83,7 +95,7 @@ assert.deepEqual(
   [],
 );
 
-const additionalAssertions = 12;
+const additionalAssertions = 13;
 console.log(
   `Question workbench presentation state debug: ${cases.length + additionalAssertions}/${cases.length + additionalAssertions} passed.`,
 );
