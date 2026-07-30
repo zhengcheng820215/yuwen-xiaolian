@@ -235,7 +235,7 @@ const QUALITY_CHECK_EDIT_LOCATION: Record<QuestionQualityCheck, string> = {
   materialGrounding: '基础内容 → 题目',
   observationClarity: '基础内容 → 题目；训练设置 → 能力目标与具体训练点',
   observationDistinctness: '基础内容 → 题目；评分标准 → 评分项',
-  discriminativePower: '评分标准 → 评分项一（可继续增加评分项）',
+  discriminativePower: '评分标准 → 评分项1（可继续增加评分项）',
   difficultyCoherence: '训练设置 → 难度；基础内容 → 题目',
   rubricAlignment: '基础内容 → 题目；评分标准 → 评分项',
   scopeClarity: '基础内容 → 题目',

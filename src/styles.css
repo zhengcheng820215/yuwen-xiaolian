@@ -104,26 +104,67 @@ button {
   outline-offset: 2px;
 }
 
+:where(.material-resource-workbench, .question-resource-workbench)
+  :where(button:not(:disabled), a[href], summary, [role="button"]:not([aria-disabled="true"])) {
+  cursor: pointer;
+}
+
+:where(.material-resource-workbench, .question-resource-workbench)
+  :where(button:disabled, input:disabled, select:disabled, textarea:disabled, [aria-disabled="true"]) {
+  cursor: not-allowed;
+}
+
+:where(.material-resource-workbench, .question-resource-workbench)
+  :where(input:not([type="checkbox"]):not([type="radio"]):not(:disabled), textarea:not(:disabled)) {
+  cursor: text;
+}
+
+:where(.material-resource-workbench, .question-resource-workbench)
+  :where(select:not(:disabled), input[type="checkbox"]:not(:disabled), input[type="radio"]:not(:disabled)) {
+  cursor: pointer;
+}
+
 .material-resource-workbench :where(input, select, textarea):focus-visible,
 .question-resource-workbench :where(input, select, textarea):focus-visible {
   border-width: 1px;
   border-color: #2563eb;
   outline: none;
-  box-shadow: 0 0 0 1px rgb(37 99 235 / 30%);
+  box-shadow: 0 0 0 2px rgb(37 99 235 / 30%);
 }
 
-.material-resource-workbench .material-mode-switch {
+:where(.material-resource-workbench, .question-resource-workbench) .workbench-select-shell:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgb(37 99 235 / 30%);
+}
+
+@keyframes workbench-refresh-counterclockwise {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.workbench-refresh-icon-spinning {
+  animation: workbench-refresh-counterclockwise 550ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workbench-refresh-icon-spinning {
+    animation: none;
+  }
+}
+
+:where(.material-resource-workbench, .question-resource-workbench) .workbench-mode-switch {
   border-radius: 8px;
   background: #f1f1f1;
 }
 
-.material-resource-workbench .material-mode-button {
+:where(.material-resource-workbench, .question-resource-workbench) .workbench-mode-button {
   font-size: 14px;
   font-weight: 400;
   transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
 }
 
-.material-resource-workbench .material-mode-button.is-active {
+:where(.material-resource-workbench, .question-resource-workbench) .workbench-mode-button.is-active {
   font-weight: 600;
   background: #ffffff;
   color: #111827;

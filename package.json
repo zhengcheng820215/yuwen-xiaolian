@@ -75,6 +75,7 @@
     "debug:material-observation": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runMaterialObservationDebug.ts",
     "debug:material-resource-production": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runMaterialResourceProductionDebug.ts",
     "debug:material-resource-workbench-state": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runMaterialResourceWorkbenchStateDebug.ts",
+    "debug:material-resource-workbench-selection": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runMaterialResourceWorkbenchSelectionStateDebug.ts",
     "debug:phase17-batch-a": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase17BatchAResourcePackDebug.ts",
     "debug:phase17-3-batch-a-integration": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase173BatchAIntegrationDebug.ts",
     "debug:phase17-3-learning-entry": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase173LearningEntryIntegrationDebug.ts",

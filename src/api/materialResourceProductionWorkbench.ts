@@ -7,7 +7,7 @@ import {
   type MaterialProductionDraftResult,
   type MaterialProductionTaskInput,
 } from '../ai/agents/materialObservationApplicationService.ts';
-import { formatMaterialTitle } from '../ui/materialTitle.ts';
+import { formatMaterialTitle, normalizeMaterialTitle } from '../ui/materialTitle.ts';
 import {
   isPhase17BatchAMaterial,
   producePhase17BatchA,
@@ -18,6 +18,7 @@ import {
   createBrowserMaterialObservationRepository,
   createBrowserQuestionResourceAdmissionRepository,
 } from '../ai/repositories/formalResourceRepositoryRouter.ts';
+import { LocalApiFormalResourceClient } from '../ai/repositories/localApiFormalResourceClient.ts';
 import type {
   MaterialObservationPlan,
   MaterialObservationPlanValidation,
@@ -31,6 +32,9 @@ import type {
   ResourceValidationResult,
   StructuredQuestionDraft,
 } from '../ai/schemas/questionResourceAdmission.schema.ts';
+import type {
+  SharedFormalResourceStatus,
+} from '../ai/schemas/sharedFormalResourcePersistence.schema.ts';
 import {
   PHASE17_TONGGUAN_MATERIAL,
   PHASE17_TONGGUAN_TASKS,
@@ -38,8 +42,10 @@ import {
 
 const resourceRepository = createBrowserQuestionResourceAdmissionRepository();
 const observationRepository = createBrowserMaterialObservationRepository();
+const sharedResourceClient = new LocalApiFormalResourceClient();
 
 export type MaterialResourceProductionSnapshot = {
+  sharedStoreStatus: SharedFormalResourceStatus;
   materials: QuestionMaterialVersion[];
   anchors: MaterialSourceAnchor[];
   plans: MaterialObservationPlan[];
@@ -59,6 +65,22 @@ export type MaterialProductionDraftReadiness = {
 };
 
 export async function getMaterialResourceProductionSnapshot(): Promise<MaterialResourceProductionSnapshot> {
+  const sharedEnvelope = await sharedResourceClient.read();
+  if (sharedEnvelope.status.initialized) {
+    const { questionResources, materialObservations } = sharedEnvelope.snapshot.data;
+    return buildMaterialResourceProductionSnapshot({
+      materials: questionResources.materials,
+      anchors: materialObservations.anchors,
+      plans: materialObservations.plans,
+      validations: materialObservations.validations,
+      drafts: questionResources.drafts,
+      resourceValidations: questionResources.validations,
+      reviews: questionResources.reviews,
+      frozenVersions: questionResources.versions,
+      links: materialObservations.links,
+    }, sharedEnvelope.status);
+  }
+
   const [materials, anchors, plans, drafts, frozenVersions, links] = await Promise.all([
     resourceRepository.listMaterials(),
     observationRepository.listAnchors(),
@@ -84,7 +106,68 @@ export async function getMaterialResourceProductionSnapshot(): Promise<MaterialR
         : null,
     };
   }));
+  return buildMaterialResourceProductionSnapshot({
+    materials,
+    anchors,
+    plans,
+    validations,
+    drafts,
+    resourceValidations: draftReadiness
+      .map((item) => item.validation)
+      .filter((item): item is ResourceValidationResult => Boolean(item)),
+    reviews: draftReadiness
+      .map((item) => item.review)
+      .filter((item): item is ResourceReviewDecision => Boolean(item)),
+    frozenVersions,
+    links,
+  }, sharedEnvelope.status);
+}
+
+type SnapshotCollections = {
+  materials: QuestionMaterialVersion[];
+  anchors: MaterialSourceAnchor[];
+  plans: MaterialObservationPlan[];
+  validations: MaterialObservationPlanValidation[];
+  drafts: StructuredQuestionDraft[];
+  resourceValidations: ResourceValidationResult[];
+  reviews: ResourceReviewDecision[];
+  frozenVersions: FrozenQuestionResourceVersion[];
+  links: ResourceObservationLink[];
+};
+
+export function buildMaterialResourceProductionSnapshot(
+  collections: SnapshotCollections,
+  sharedStoreStatus: SharedFormalResourceStatus,
+): MaterialResourceProductionSnapshot {
+  const {
+    materials,
+    anchors,
+    plans,
+    validations,
+    drafts,
+    resourceValidations,
+    reviews,
+    frozenVersions,
+    links,
+  } = structuredClone(collections);
+  const draftReadiness = drafts.map((draft): MaterialProductionDraftReadiness => {
+    const frozenVersion = frozenVersions.find((version) => version.sourceDraftId === draft.draftId) || null;
+    return {
+      draftId: draft.draftId,
+      validation: draft.latestValidationId
+        ? resourceValidations.find((item) => item.validationId === draft.latestValidationId) || null
+        : null,
+      review: draft.latestReviewId
+        ? reviews.find((item) => item.reviewId === draft.latestReviewId) || null
+        : null,
+      frozenVersion,
+      observationLink: frozenVersion
+        ? links.find((link) => link.resourceVersionId === frozenVersion.resourceVersionId) || null
+        : null,
+    };
+  });
   return {
+    sharedStoreStatus,
     materials: materials.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     anchors: anchors.sort((a, b) => a.sourceAnchorId.localeCompare(b.sourceAnchorId)),
     plans: plans.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
@@ -113,7 +196,7 @@ export async function createProductionMaterial(input: {
     materialId: `material-${suffix}`,
     materialVersionId: `material-${suffix}:v1`,
     versionNumber: 1,
-    title: input.title,
+    title: normalizeMaterialTitle(input.title),
     content: input.content,
     source: {
       sourceType: 'manual',

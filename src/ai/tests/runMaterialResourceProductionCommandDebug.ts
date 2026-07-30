@@ -72,6 +72,18 @@ const cases: Array<{ name: string; run: () => void }> = [
     },
   },
   {
+    name: '仅保存素材不会把空白占位任务当成可保存任务组',
+    run: () => {
+      const result = availability('savePlanRevision', {
+        ...baseContext,
+        hasPlan: false,
+        taskCount: 0,
+      });
+      assert.equal(result.enabled, false);
+      assert.match(result.reason, /AI 规划并采用训练任务/);
+    },
+  },
+  {
     name: '提交审核只读取已保存且通过检查的版本',
     run: () => {
       assert.equal(availability('submitForQuestionReview', baseContext).enabled, true);

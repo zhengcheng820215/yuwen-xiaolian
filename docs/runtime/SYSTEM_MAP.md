@@ -248,6 +248,8 @@ Assessment N 只保留用于历史追溯
 
 草稿保存采用业务内容签名判断，不以按钮点击次数作为 Revision 依据。签名只包含会进入 `StructuredQuestionDraft` 的正式字段，不包含展开状态、焦点或提示条等界面状态。当前表单与最近一次成功保存的签名一致时，保存动作必须禁用；字段发生有效变化后才允许保存。保存期间必须阻止重复提交，保存成功后重新建立基线签名。该规则用于避免同一内容反复写入相同 Revision 语义，但不等于 Freeze；草稿仍可继续编辑，正式资源只在审核通过并发布时冻结。
 
+Shared Formal Resource Store 的 Revision 竞争与业务对象 Revision 冲突必须分开处理。服务返回 `SHARED_RESOURCE_REVISION_CONFLICT` 时，客户端基于最新共享快照使用指数退避和随机抖动重放同一受控 Mutation，最多 6 次；该恢复仅适用于 Shared Store 乐观并发写入，不得绕过 Draft、Assessment、Human Review、Freeze 或 Formal Resource 的 `expectedRevision` 校验。重试耗尽统一归一化为可安全重试的 `SHARED_STORE_REVISION_CONFLICT`，首层页面只显示中文恢复说明，技术码按需展开，并禁止从错误文本中生成虚假对象 ID。
+
 ### 9. Runtime 与学生展示
 
 学生页面只消费学生可读状态和反馈，不重新判断能力，也不直接展示 Prompt、Raw Output、Evidence、Profile、内部 ID 或 Schema 字段。
@@ -461,6 +463,8 @@ Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster �
 
 训练任务的覆盖范围与检查结果统一收敛到单一“训练任务检查”板块：首层只展示是否可进入审核、任务总数、可审核数、需调整数，以及能力和训练方向摘要；存在问题时再展开质量提醒与定位入口。覆盖摘要不再作为独立卡片重复占用页面层级，合并仅调整信息架构，不改变校验口径、问题定位或提交流程。
 
+Material 已保存但尚未生成 Material Observation Plan 是合法的生产空状态，不等于存在待修改训练任务。该状态下任务集合必须为 `0`，只提供 AI 规划入口；不得用表单占位项驱动任务统计、Validation、Assessment、问题定位或审核门禁。训练任务检查只消费 AI 生成并被采用的真实任务，或从有效 Plan 恢复的任务。空任务集合不能保存任务组、创建 Plan Revision 或进入题目审核。
+
 同一 Material Observation Plan 内的题号绑定 Observation Task 的计划顺序，并通过 `observationTaskPlanId` 在 Question Draft、审核状态与 Frozen Resource 之间保持稳定。待审核与已发布明细只按状态过滤，并按统一题号升序展示，不建立各自独立的编号序列；状态迁移不得改变题号。因此单个状态列表可以出现“题目一、题目三”这类不连续编号，它表达的是同一素材完整题目序列中的真实位置。
 
 题目质量检查采用“证据边界清晰”规则，而不是固定句式或段落号规则。题干只要能让学生明确应从什么材料范围寻找、组织和引用依据即可：可以指向具体段落、场景、原句或关键词，可以明确要求综合全文，也可以允许自主选取指定数量和类型的文本证据。只有笼统写“结合材料”且未说明局部、全文或取证方式时才产生提醒；完全脱离材料时仍建议修订。界面中的参考写法只用于说明规则，不是必须照抄的模板。
@@ -475,9 +479,13 @@ Phase 17 的录入、题目人工审核与发布正式化遵循 [Authoring, Revi
 
 退回后的恢复链路继续沿用同一题目的 `materialVersionId + planId + draftId`：确认退回后直接打开被退回题目的录入状态，按结构化 `issueType` 定位题目、训练目标、难度或评分标准，并显示“待修改 → 修改待保存 → 已保存待重新检查 → 可重新提交”的进度。退回本身不创建 Draft，实际保存才形成受控的新 Revision；重新提交只追加同一资源根的提交事件，不得批量生成兄弟题目。具体规则见职责边界契约第十九章与题目审核工作流契约第十八章。
 
-“提交题目人工审核”已经收敛为可恢复的阶段化命令：训练计划提交、训练计划确认和待审核题目创建分别返回完成结果；中途失败时页面说明已完成阶段，重试从持久化状态继续，不重复提交计划、确认计划或创建 Draft。素材录入页的创建操作同时完成交互规范收口：模式顺序为“素材录入 / 已有素材 / 停用素材”，保存与清空是同组的主次操作，输入聚焦统一使用不改变尺寸的 `1px` 蓝色边框与 `1px / 30%` 蓝色透明外投影。颜色和控件语义以 [Product Color Semantics](../product/PRODUCT_COLOR_SEMANTICS.md) 为准。
+“提交题目人工审核”已经收敛为可恢复的阶段化命令：训练计划提交、训练计划确认和待审核题目创建分别返回完成结果；中途失败时页面说明已完成阶段，重试从持久化状态继续，不重复提交计划、确认计划或创建 Draft。素材录入页的创建操作同时完成交互规范收口：无素材上下文时默认进入“素材录入”，带 `materialVersionId` 的返回或深链仍恢复对应“已有素材”；模式顺序为“素材录入 / 已有素材 / 停用素材”，保存与清空是同组的主次操作，输入聚焦统一使用不改变尺寸的 `1px` 蓝色边框与 `2px / 30%` 蓝色透明外投影。按钮、链接、可点击摘要、文本输入、选择控件和禁用控件分别使用与操作语义一致的指针反馈，纯展示区域不伪装成入口。颜色和控件语义以 [Product Color Semantics](../product/PRODUCT_COLOR_SEMANTICS.md) 为准。
+
+当前素材选择属于可恢复的页面导航状态，不属于 Material、Observation Plan 或其他正式资源事实。页面恢复优先级固定为 `URL materialVersionId / planId > 当前组件内选择 > sessionStorage 会话记忆 > 无选择`：审核页返回和显式深链始终以 URL 为准；同一浏览器标签页内切换“素材录入 / 已有素材 / 停用素材”只改变可见模式，不销毁最后选中的 active Material；离开工作台后再返回且 URL 未携带素材上下文时，可以恢复本次浏览器会话最后确认的素材与有效计划。恢复前必须用最新 active Material 与对应 Plan 清单校验记录；素材已删除、已停用、版本不存在或计划不再属于该素材时，清除失效部分并回到无选择状态或该素材的当前有效计划。`sessionStorage` 不保存素材正文、未保存表单、训练任务编辑缓冲、候选任务或正式审核状态，关闭浏览器会话后也不承担长期恢复职责。
 
 训练任务规划遵循 [Single Training Task Regeneration Contract](../product/SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) 与 [Training Task Group AI Planning Contract](../product/TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md)。单任务重生成、补充候选与整组替代候选均先进入 Candidate Session，人工采用只更新编辑缓冲区；同一轮修改只维护一个可变工作草稿，反复保存或连续采用候选不堆叠 Revision。只有提交题目审核才冻结一个不可变 Plan Revision；从不可变版本开始下一轮实质修改时才创建新的工作草稿。自动化回归已覆盖三轮连续候选采用后仅保留一个 Revision，真实浏览器闭环仍待验收。
+
+当前真实训练任务数为 `0` 时，整组 AI 生成在产品层属于首次规划，不属于整组替代：页面只展示首批候选的采用或放弃，不展示空任务组的保留、比较或替换动作。底层可以复用整组候选算法，但首次采用仍只更新编辑缓冲区；已有真实任务后才进入整组替代比较语义。
 
 详细文档入口：[Phase 17](../education/phase/phase17.md)、[Phase 17.1](../education/phase/phase17_1.md)、[Phase 17.2](../education/phase/phase17_2.md)、[Phase 17.2 First Formal Resource Pack Production Blueprint](../education/phase/phase17_2_first_resource_pack_blueprint.md)、[Phase 17.3](../education/phase/phase17_3.md)、[Phase 17.4](../education/phase/phase17_4.md)、[Phase 17.5](../education/phase/phase17_5.md)。
 

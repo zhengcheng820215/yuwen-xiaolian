@@ -14,6 +14,7 @@ export type StructuredRuntimeErrorCode =
   | 'REVIEW_WARNING_DECISION_REQUIRED'
   | 'PUBLICATION_PREFLIGHT_FAILED'
   | 'PUBLICATION_RECOVERY_REQUIRED'
+  | 'SHARED_STORE_REVISION_CONFLICT'
   | 'SHARED_STORE_UNAVAILABLE'
   | 'OPERATION_NOT_ALLOWED'
   | 'INPUT_INVALID'
@@ -111,6 +112,14 @@ function mapLegacyError(message: string): LegacyErrorMapping {
   const lower = message.toLowerCase();
   const objectId = extractObjectId(message);
 
+  if (lower.includes('shared resource revision conflict')) {
+    return {
+      code: 'SHARED_STORE_REVISION_CONFLICT',
+      message: '共享数据仍在同步，本次操作尚未完成，请稍后重试。',
+      operation: 'shared_store.replace',
+      recoverability: 'retry_safe',
+    };
+  }
   if (lower.includes('shared formal resource') || lower.includes('shared store')) {
     return {
       code: 'SHARED_STORE_UNAVAILABLE',
@@ -202,6 +211,8 @@ function mapLegacyError(message: string): LegacyErrorMapping {
 }
 
 function extractObjectId(message: string): string | undefined {
+  if (/shared resource revision conflict/i.test(message)) return undefined;
+
   const trailing = message.match(
     /(?:conflict|immutable|missing|not found):\s*([a-z0-9][a-z0-9:_-]+)/i,
   );

@@ -14,6 +14,7 @@ const cases: Array<{ name: string; run: () => void }> = [
   { name: '06 shared store failure blocks formal write', run: sharedStoreFailure },
   { name: '07 unknown error remains traceable', run: unknownError },
   { name: '08 workbench notice exposes recovery contract', run: workbenchNotice },
+  { name: '09 shared revision conflict is retryable and has no fake object id', run: sharedRevisionConflict },
 ];
 
 function main() {
@@ -111,6 +112,15 @@ function workbenchNotice() {
   assert(notice.operation === 'question.freeze', 'notice operation mismatch');
   assert(notice.objectId === 'draft-002', 'notice object mismatch');
   assert(notice.recoveryMessage.length > 0, 'notice should include recovery guidance');
+}
+
+function sharedRevisionConflict() {
+  const error = normalizeRuntimeError(
+    new Error('Shared resource revision conflict: expected 41, actual 42.'),
+  );
+  assert(error.code === 'SHARED_STORE_REVISION_CONFLICT', 'shared revision code mismatch');
+  assert(error.recoverability === 'retry_safe', 'shared revision recovery mismatch');
+  assert(error.objectId === undefined, 'expected must not be exposed as an object id');
 }
 
 function assert(condition: unknown, message: string): asserts condition {

@@ -67,6 +67,7 @@ export function getMaterialProductionCommandAvailability(
       return available();
 
     case MATERIAL_PRODUCTION_COMMANDS.savePlanRevision:
+      if (context.taskCount === 0) return unavailable('请先通过 AI 规划并采用训练任务。');
       if (context.editableIssueCount > 0) return unavailable('请先修正编辑区中的必填问题。');
       if (context.hasPlan && !context.taskEditorDirty) return unavailable('当前任务组没有需要保存的修改。');
       return available();

@@ -31,6 +31,20 @@ assert.deepEqual(
   replacements,
 );
 
+const initialGroupResult = adoptTrainingTaskGroupCandidate({
+  session: createTrainingTaskGroupCandidateSession({
+    candidateGroupId: 'group-initial',
+    operationType: 'replace_group',
+    basedOnPlanRevision: 0,
+    candidateTasks: replacements,
+  }),
+  currentTasks: [],
+  currentPlanRevision: 0,
+});
+assert.equal(initialGroupResult.changed, true);
+assert.deepEqual(initialGroupResult.tasks, replacements);
+assert.deepEqual(initialGroupResult.adoptedCandidateTaskIds, ['candidate-r1', 'candidate-r2']);
+
 const protectedReplacementResult = adoptTrainingTaskGroupCandidate({
   session: replacementSession,
   currentTasks,

@@ -935,6 +935,23 @@ materialVersionId
 7. 连续退回、修改和重新提交不增加兄弟 Draft；
 8. 重新提交只为同一资源根追加一个新 Revision 和一条提交事件。
 
+### 19.7 普通离开与返回的素材上下文
+
+结构化“退回录入修改”必须使用 `materialVersionId + planId + draftId + issueType` 精确恢复题目和修改字段；普通页卡切换或离开页面后返回只恢复素材工作上下文，不伪造退回任务。
+
+普通恢复优先级固定为：
+
+```text
+显式 URL materialVersionId / planId
+→ 当前页面选择
+→ 同一浏览器标签页的 sessionStorage 会话记忆
+→ 无选择
+```
+
+会话记忆只允许保存 `materialVersionId` 与可选 `planId`。恢复前必须重新确认素材仍为 active、Plan 仍属于该素材；无效记录立即清除。素材正文、未保存表单、任务编辑缓冲、AI Candidate、Assessment、Review Decision 与 Publication 状态均不得写入该会话记忆。
+
+该机制只减少用户返回后重复寻找素材的操作，不创建 Revision，不改变 Draft、Assessment、Review 或正式发布事实。
+
 ## 二十、2026-07-30 提交题目人工审核的阶段化结果
 
 “提交题目人工审核”在用户侧是一个动作，在工程侧必须保留可恢复的阶段结果：
