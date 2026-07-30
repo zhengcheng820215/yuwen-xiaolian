@@ -3,6 +3,9 @@ import type {
   ResourceFreezeResult,
 } from '../schemas/questionResourceAdmission.schema.ts';
 import type {
+  ResourceObservationLink,
+} from '../schemas/materialObservation.schema.ts';
+import type {
   QuestionQualityAssessment,
 } from '../schemas/questionQualityAssessment.schema.ts';
 import type {
@@ -49,6 +52,14 @@ export type QualityTracedFreezeCommit = {
 
 export type QualityTracedFreezeResult = ResourceFreezeResult & {
   trace: FrozenQuestionQualityTrace;
+};
+
+export type QualityTracedPublicationCommit = QualityTracedFreezeCommit & {
+  observationLink: ResourceObservationLink;
+};
+
+export type QualityTracedPublicationResult = QualityTracedFreezeResult & {
+  observationLink: ResourceObservationLink;
 };
 
 export type QuestionQualityPersistenceRepository = {
@@ -120,4 +131,7 @@ export type QuestionQualityPersistenceRepository = {
   commitFreezeWithQualityTrace(
     commit: QualityTracedFreezeCommit,
   ): Promise<QualityTracedFreezeResult>;
+  commitPublicationWithObservationLink(
+    commit: QualityTracedPublicationCommit,
+  ): Promise<QualityTracedPublicationResult>;
 };

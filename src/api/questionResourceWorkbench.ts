@@ -32,6 +32,7 @@ import {
 } from '../ai/agents/questionReviewBatchObservability.ts';
 import {
   freezeQuestionResourceDraftWithPersistedQuality,
+  prepareQuestionResourceFreezeWithPersistedQuality,
   persistQuestionQualityBundle,
   requireCurrentPersistedQualityContext,
   reviewQuestionResourceDraftWithPersistedQuality,
@@ -43,7 +44,9 @@ import {
   getQuestionSemanticQualityBoundaryStatus,
   requestQuestionSemanticQualityAssessment,
 } from './questionSemanticQualityAssessment.ts';
-import { linkFrozenResourceToObservationTask } from '../ai/agents/materialObservationApplicationService.ts';
+import {
+  prepareFrozenResourceObservationLink,
+} from '../ai/agents/materialObservationApplicationService.ts';
 import {
   recoverQuestionPublicationFromFrozenVersion,
 } from '../ai/agents/questionPublicationRecoveryService.ts';
@@ -396,46 +399,61 @@ export async function freezeQuestionResourceWorkbenchDraft(
 ) {
   await requireExpectedDraftRevision(draftId, expectedDraftRevision, 'freeze');
   await requireQuestionPublicationPreflight(draftId, 'question_publication.freeze');
-  const result = await freezeQuestionResourceDraftWithPersistedQuality(
-    repository,
-    qualityRepository,
-    draftId,
-  );
   const draft = await repository.getDraft(draftId);
   const planId = readTagValue(draft?.tags, 'observation_plan:');
   const observationTaskPlanId = readTagValue(draft?.tags, 'observation_task:');
   if (!planId || !observationTaskPlanId) {
+    const result = await freezeQuestionResourceDraftWithPersistedQuality(
+      repository,
+      qualityRepository,
+      draftId,
+    );
     return {
       ...result,
       publicationStatus: 'completed' as const,
       observationLinkIssues: [],
     };
   }
-  try {
-    const linked = await linkFrozenResourceToObservationTask(repository, observationRepository, {
+
+  const existingVersion = await repository.getVersionByDraftId(draftId);
+  if (existingVersion) {
+    return retryQuestionResourceWorkbenchPublication(draftId, expectedDraftRevision);
+  }
+
+  const commit = await prepareQuestionResourceFreezeWithPersistedQuality(
+    repository,
+    qualityRepository,
+    draftId,
+  );
+  const linked = await prepareFrozenResourceObservationLink(
+    repository,
+    observationRepository,
+    {
       planId,
       observationTaskPlanId,
-      resourceVersionId: result.version.resourceVersionId,
+      version: commit.resourceCommit.version,
+      registryEntry: commit.resourceCommit.registryEntry,
+    },
+  );
+  if (linked.issues.length > 0) {
+    throw createStructuredRuntimeError({
+      code: 'PUBLICATION_RECOVERY_REQUIRED',
+      message: `发布前一致性检查未通过：${linked.issues.join('、')}。尚未创建正式题目版本。`,
+      operation: 'question_publication.freeze',
+      objectId: draftId,
+      recoverability: 'user_action_required',
     });
-    return {
-      ...result,
-      publicationStatus: linked.issues.length === 0
-        ? 'completed' as const
-        : 'partially_completed' as const,
-      observationLink: linked.link,
-      observationLinkIssues: linked.issues,
-    };
-  } catch (error) {
-    return {
-      ...result,
-      publicationStatus: 'partially_completed' as const,
-      observationLinkIssues: [
-        `正式题目版本已生成，但材料观测关联尚未完成。可直接重试，不会创建新版本。（${
-          error instanceof Error ? error.message : String(error)
-        }）`,
-      ],
-    };
   }
+  const result = await qualityRepository.commitPublicationWithObservationLink({
+    ...commit,
+    observationLink: linked.link,
+  });
+  return {
+    ...result,
+    publicationStatus: 'completed' as const,
+    observationLink: result.observationLink,
+    observationLinkIssues: [],
+  };
 }
 
 export async function retryQuestionResourceWorkbenchPublication(

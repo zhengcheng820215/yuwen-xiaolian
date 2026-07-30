@@ -19,6 +19,7 @@ import {
 import {
   freezeQuestionResourceDraftWithPersistedQuality,
   persistQuestionQualityBundle,
+  prepareQuestionResourceFreezeWithPersistedQuality,
   requireCurrentPersistedQualityContext,
   reviewQuestionResourceDraftWithPersistedQuality,
 } from '../agents/questionQualityPersistenceService.ts';
@@ -46,6 +47,10 @@ import type {
   QuestionResourceRubricItem,
   StructuredQuestionDraft,
 } from '../schemas/questionResourceAdmission.schema.ts';
+import {
+  RESOURCE_OBSERVATION_LINK_SCHEMA_VERSION,
+  type ResourceObservationLink,
+} from '../schemas/materialObservation.schema.ts';
 import { createSharedFormalResourceBoundary } from '../../server/sharedFormalResourceBoundary.ts';
 import {
   SharedFormalResourceConflictError,
@@ -95,6 +100,8 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '20 unbound Human Review blocks traced Freeze', run: caseUnboundReviewBlocksFreeze },
   { name: '21 identical Human Review retry is idempotent', run: caseReviewRetryIdempotent },
   { name: '22 conflicting Human Review retry is blocked', run: caseReviewRetryConflict },
+  { name: '23 publication atomically writes version registry trace and link', run: caseAtomicPublication },
+  { name: '24 failed publication leaves no partial records and retry is idempotent', run: casePublicationRollbackAndRetry },
 ];
 
 async function main(): Promise<void> {
@@ -384,6 +391,72 @@ async function caseFreezeRollback(): Promise<void> {
     assert(state.questionResources.versions.length === 0, 'Failed Freeze left a version.');
     assert(state.questionResources.registryEntries.length === 0, 'Failed Freeze changed Registry.');
     assert(state.questionQuality.frozenQualityTraces.length === 0, 'Failed Freeze left a trace.');
+  }, () => failCommit);
+}
+
+async function caseAtomicPublication(): Promise<void> {
+  await withRuntime(async (runtime) => {
+    const fixture = await reviewedFixture(runtime, 'atomic-publication');
+    const commit = await prepareQuestionResourceFreezeWithPersistedQuality(
+      runtime.resources,
+      runtime.quality,
+      fixture.draft.draftId,
+      NOW,
+    );
+    const before = (await runtime.client.read()).snapshot.revision;
+    const result = await runtime.quality.commitPublicationWithObservationLink({
+      ...commit,
+      observationLink: observationLinkFixture(commit.resourceCommit.version),
+    });
+    const after = await runtime.client.read();
+
+    assert(result.inserted, 'Atomic publication was not inserted.');
+    assert(after.snapshot.revision === before + 1, 'Publication used more than one Store revision.');
+    assert(after.snapshot.data.questionResources.versions.length === 1, 'Version is missing.');
+    assert(after.snapshot.data.questionResources.registryEntries.length === 1, 'Registry is missing.');
+    assert(after.snapshot.data.questionQuality.frozenQualityTraces.length === 1, 'Trace is missing.');
+    assert(after.snapshot.data.materialObservations.links.length === 1, 'Observation Link is missing.');
+  });
+}
+
+async function casePublicationRollbackAndRetry(): Promise<void> {
+  let failCommit = false;
+  await withRuntime(async (runtime) => {
+    const fixture = await reviewedFixture(runtime, 'publication-rollback');
+    const commit = await prepareQuestionResourceFreezeWithPersistedQuality(
+      runtime.resources,
+      runtime.quality,
+      fixture.draft.draftId,
+      NOW,
+    );
+    const publication = {
+      ...commit,
+      observationLink: observationLinkFixture(commit.resourceCommit.version),
+    };
+
+    failCommit = true;
+    await assertRejects(
+      () => runtime.quality.commitPublicationWithObservationLink(publication),
+      'Simulated shared resource commit failure',
+    );
+    failCommit = false;
+    const failedState = (await runtime.client.read()).snapshot.data;
+    assert(failedState.questionResources.versions.length === 0, 'Failed publication left a version.');
+    assert(failedState.questionResources.registryEntries.length === 0, 'Failed publication changed Registry.');
+    assert(failedState.questionQuality.frozenQualityTraces.length === 0, 'Failed publication left a trace.');
+    assert(failedState.materialObservations.links.length === 0, 'Failed publication left an Observation Link.');
+
+    const first = await runtime.quality.commitPublicationWithObservationLink(publication);
+    const revisionAfterFirst = (await runtime.client.read()).snapshot.revision;
+    const repeated = await runtime.quality.commitPublicationWithObservationLink(publication);
+    const final = await runtime.client.read();
+    assert(first.inserted, 'Retry did not insert the publication.');
+    assert(!repeated.inserted, 'Repeated publication did not report reuse.');
+    assert(final.snapshot.revision === revisionAfterFirst, 'Idempotent retry wrote another Store revision.');
+    assert(final.snapshot.data.questionResources.versions.length === 1, 'Retry duplicated versions.');
+    assert(final.snapshot.data.questionResources.registryEntries.length === 1, 'Retry duplicated Registry entries.');
+    assert(final.snapshot.data.questionQuality.frozenQualityTraces.length === 1, 'Retry duplicated traces.');
+    assert(final.snapshot.data.materialObservations.links.length === 1, 'Retry duplicated Observation Links.');
   }, () => failCommit);
 }
 
@@ -737,6 +810,27 @@ function validRubric(): QuestionResourceRubricItem[] {
     },
     acceptedSignals: ['捏着树叶站了很久', '说明珍惜回忆'],
   }];
+}
+
+function observationLinkFixture(
+  version: Awaited<ReturnType<typeof prepareQuestionResourceFreezeWithPersistedQuality>>['resourceCommit']['version'],
+): ResourceObservationLink {
+  return {
+    resourceObservationLinkId: `link-${version.resourceVersionId}`,
+    materialObservationPlanId: 'plan-atomic-publication',
+    observationTaskPlanId: version.taskId,
+    resourceId: version.resourceId,
+    resourceVersionId: version.resourceVersionId,
+    materialId: version.materialId || 'c2-material',
+    materialVersionId: version.materialVersionId || 'c2-material:v1',
+    primaryDimension: 'character',
+    abilityId: version.abilityMetadata.abilityId,
+    taskRole: version.abilityMetadata.taskRole,
+    difficulty: version.abilityMetadata.difficulty,
+    status: 'active',
+    linkedAt: NOW,
+    schemaVersion: RESOURCE_OBSERVATION_LINK_SCHEMA_VERSION,
+  };
 }
 
 async function withRuntime(

@@ -2,7 +2,7 @@
 
 首次审计日期：2026-07-29
 
-当前快照：P0 CLOSED / P1 COMMAND AND HIERARCHY BATCH CLOSED / P2 BATCH OBSERVABILITY CLOSED / P1 ATOMICITY AND REAL-MATERIAL CALIBRATION OPEN
+当前快照：P0 CLOSED / P1 CLOSED / P2 OBSERVABILITY AND ATOMIC PUBLICATION CLOSED / REAL-MATERIAL CALIBRATION OPEN
 
 范围：题目编辑、保存、检查、提交人工审核、人工决定、冻结发布与失败恢复
 
@@ -31,7 +31,7 @@
 
 ## 二、当前快照
 
-当前审核平台的 P0 正式身份主链已经对齐，整体仍处于 `P1-P2 CALIBRATION PENDING`。
+当前审核平台的正式身份、命令、批次可观察性和原子发布主链已经对齐，整体处于 `REAL-MATERIAL CALIBRATION PENDING`。
 
 | 当前链路 | 最新判断 |
 |---|---|
@@ -41,10 +41,10 @@
 | 提交人工审核 | ALIGNED |
 | Human Review 与完整 Quality Bundle 绑定 | ALIGNED |
 | Frozen Version、Registry 与 Quality Trace | ALIGNED |
-| Observation Link 原子性与发布恢复 | RECOVERABLE PARTIAL |
+| Observation Link 原子性与发布恢复 | ALIGNED |
 | 重复命令与双标签并发回归 | ALIGNED |
 | 审核页信息层级 | ALIGNED |
-| 正式页面视觉回归与旧路径清理 | PENDING |
+| 正式页面视觉回归与旧路径清理 | ALIGNED |
 
 已经确认的能力：
 
@@ -55,16 +55,16 @@
 - `pending_review` 后内容进入只读审核；
 - 重复 Freeze、Registry 切换、共享存储冲突和 Human Review 不可变冲突已经具备专项 Debug。
 - 提交审核与冻结发布共享 Plan / Task / Material 预检，不一致时在正式化前返回结构化中文错误；
-- Observation Link 写入失败会明确进入 `partially_completed`，重试只补齐关联并复用既有 Frozen Version 与 Registry。
+- 新发布在同一共享存储事务中原子写入 Frozen Version、Registry、Quality Trace 与 Observation Link；
+- 历史部分成功状态仍可通过恢复命令补齐关联，并复用既有 Frozen Version 与 Registry。
 - 相同内容的保存重试会复用已提交 Revision，双标签页中的过期修改会返回 Revision Conflict；
 - 重复检查、提交人工审核、记录人工决定和正式发布均复用当前有效结果；
 - 审核页只突出当前状态、录入检查摘要和下一步动作，不再默认暴露内部规则版本与质量包枚举。
 
-当前不能宣告“审核平台契约完全对齐”，剩余原因已经收敛为：
+当前不能宣告真实素材校准完成，剩余原因已经收敛为：
 
-1. Observation Link 仍是 Freeze 后置写入，虽已具备明确部分成功状态与幂等恢复，但尚未进入同一原子提交；
-2. 正式页面视觉回归仍需在无旧 Vite 缓存的浏览器会话中补齐；
-3. P2 旧路径清理尚未全部关闭。
+1. 真实十素材尚未完成跨题型校准；
+2. 校准前不得以当前少量样本推断生成质量已经稳定。
 
 本文不再使用缺少计算口径的百分比表达对齐程度。后续状态只按 `ALIGNED / PARTIAL / PENDING` 和完成定义逐项更新。
 
@@ -814,3 +814,47 @@ Workbench 接入持久化 Quality Repository
 因此 P2 第二项完成后的准确状态是：
 
 > 批次审核已经具备统一的问题扫描、重复修改和时效指标，旧历史数据不会被伪造补齐；桌面与移动端均已形成真实页面证据。P2 批次效率与可观察性关闭，后续进入 Observation Link 原子性与真实十素材校准。
+
+## 十八、P2 第三项原子发布记录
+
+完成日期：2026-07-30
+
+本批次将 Observation Link 从 Freeze 后置动作纳入正式发布原子边界。新发布现在按以下顺序先准备、后一次提交：
+
+```text
+校验当前 Draft / Plan / Task / Material / Assessment / Human Review
+→ 准备 Frozen Version
+→ 准备 Registry
+→ 准备 Frozen Quality Trace
+→ 准备 Observation Link
+→ 通过共享存储 CAS 一次写入四个对象
+```
+
+工程规则：
+
+1. 任一准备检查失败时，不写入任何正式对象；
+2. CAS 持久化失败时，不留下 Version、Registry、Quality Trace 或 Observation Link；
+3. 同一发布命令重试复用同一组正式身份；
+4. 四个对象已经存在且一致时返回幂等成功，不增加共享存储 Revision；
+5. 旧系统遗留的部分成功状态继续由发布恢复命令兼容，但新主链不再创建此类状态；
+6. 生命周期时间戳和提交次数不再被误判为题目教育内容变化。
+
+自动化证据：
+
+| 验收项 | 结果 |
+|---|---|
+| `debug:phase17-5c2`：质量持久化、四对象原子提交与故障重试 | 24 / 24 PASS |
+| `debug:question-publication-recovery`：历史部分状态恢复 | 3 / 3 PASS |
+| `debug:question-workbench-command-e2e`：正式命令主链 | 6 / 6 PASS |
+| Production Build | PASS |
+
+故障注入确认：
+
+1. 发布失败后四类正式对象数量均为 `0`；
+2. 首次重试只生成一组 Version、Registry、Quality Trace 与 Observation Link；
+3. 完成后再次重试不增加共享存储 Revision；
+4. 既有历史恢复语义和 Workbench Command E2E 未回退。
+
+P2 第三项完成后的准确状态是：
+
+> 新发布不再存在“正式版本已生成但 Observation Link 尚未写入”的窗口；正式版本、注册指向、冻结质量证据和观察关系共享同一原子提交与幂等身份。P2 第三项关闭，下一步进入真实十素材校准。

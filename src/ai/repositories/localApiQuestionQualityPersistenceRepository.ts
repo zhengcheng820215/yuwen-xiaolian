@@ -5,6 +5,8 @@ import type {
   QualityBundleCurrentIdentity,
   QualityTracedFreezeCommit,
   QualityTracedFreezeResult,
+  QualityTracedPublicationCommit,
+  QualityTracedPublicationResult,
   QuestionQualityPersistenceRepository,
   SemanticAssessmentCurrentIdentity,
 } from './questionQualityPersistenceRepository.ts';
@@ -360,6 +362,77 @@ implements QuestionQualityPersistenceRepository, QuestionQualityAssessmentReposi
     });
   }
 
+  async commitPublicationWithObservationLink(
+    commit: QualityTracedPublicationCommit,
+  ): Promise<QualityTracedPublicationResult> {
+    const envelope = await this.client.read();
+    const existing = findPublicationRecords(envelope.snapshot.data, commit);
+    if (existing.complete) {
+      assertPublicationRecordsMatch(existing, commit);
+      return {
+        version: clone(existing.version!),
+        registryEntry: clone(existing.registryEntry!),
+        trace: clone(existing.trace!),
+        observationLink: clone(existing.observationLink!),
+        inserted: false,
+      };
+    }
+
+    return this.client.mutate((data) => {
+      assertTraceSourcesExist(data.questionQuality, commit.trace);
+      const records = findPublicationRecords(data, commit);
+      assertPublicationRecordsMatch(records, commit);
+      const resourceCommit = commit.resourceCommit;
+      const state = data.questionResources;
+
+      if (!records.version) {
+        const previousIndex = resourceCommit.previousVersionId
+          ? state.versions.findIndex(
+            (item) => item.resourceVersionId === resourceCommit.previousVersionId,
+          )
+          : -1;
+        if (resourceCommit.previousVersionId && previousIndex < 0) {
+          throw new Error(
+            `Previous frozen version not found: ${resourceCommit.previousVersionId}`,
+          );
+        }
+        state.versions.push(clone(resourceCommit.version));
+        if (previousIndex >= 0) {
+          state.versions[previousIndex] = {
+            ...state.versions[previousIndex],
+            status: 'superseded',
+            updatedAt: resourceCommit.version.frozenAt,
+          };
+        }
+      }
+
+      upsert(state.registryEntries, 'resourceId', resourceCommit.registryEntry);
+      if (!records.trace) {
+        data.questionQuality.frozenQualityTraces.push(clone(commit.trace));
+      }
+      if (!records.observationLink) {
+        if (commit.observationLink.status === 'active') {
+          data.materialObservations.links = data.materialObservations.links.map((link) => (
+            link.resourceId === commit.observationLink.resourceId
+            && link.status === 'active'
+            && link.resourceObservationLinkId !== commit.observationLink.resourceObservationLinkId
+              ? { ...link, status: 'superseded' as const }
+              : link
+          ));
+        }
+        data.materialObservations.links.push(clone(commit.observationLink));
+      }
+
+      return {
+        version: records.version || resourceCommit.version,
+        registryEntry: resourceCommit.registryEntry,
+        trace: records.trace || commit.trace,
+        observationLink: records.observationLink || commit.observationLink,
+        inserted: !records.version,
+      };
+    });
+  }
+
   private async saveImmutable<
     K extends
       | 'deterministicAssessments'
@@ -425,6 +498,61 @@ function assertTraceSourcesExist(
   ) {
     throw new Error('Quality trace source identity is invalid.');
   }
+}
+
+function findPublicationRecords(
+  data: Awaited<ReturnType<LocalApiFormalResourceClient['read']>>['snapshot']['data'],
+  commit: QualityTracedPublicationCommit,
+) {
+  const version = data.questionResources.versions.find(
+    (item) => item.resourceVersionId === commit.resourceCommit.version.resourceVersionId,
+  );
+  const registryEntry = data.questionResources.registryEntries.find(
+    (item) => item.resourceId === commit.resourceCommit.registryEntry.resourceId,
+  );
+  const trace = data.questionQuality.frozenQualityTraces.find(
+    (item) => item.traceId === commit.trace.traceId,
+  );
+  const observationLink = data.materialObservations.links.find(
+    (item) => item.resourceObservationLinkId === commit.observationLink.resourceObservationLinkId,
+  );
+  return {
+    version,
+    registryEntry,
+    trace,
+    observationLink,
+    complete: Boolean(version && registryEntry && trace && observationLink),
+  };
+}
+
+function assertPublicationRecordsMatch(
+  records: ReturnType<typeof findPublicationRecords>,
+  commit: QualityTracedPublicationCommit,
+): void {
+  if (records.version && !same(records.version, commit.resourceCommit.version)) {
+    throw new Error(`identity_content_conflict: ${commit.resourceCommit.version.resourceVersionId}`);
+  }
+  if (records.registryEntry && !same(records.registryEntry, commit.resourceCommit.registryEntry)) {
+    throw new Error(`identity_content_conflict: ${commit.resourceCommit.registryEntry.resourceId}`);
+  }
+  if (records.trace && !same(records.trace, commit.trace)) {
+    throw new Error(`identity_content_conflict: ${commit.trace.traceId}`);
+  }
+  if (
+    records.observationLink
+    && !sameObservationLink(records.observationLink, commit.observationLink)
+  ) {
+    throw new Error(`identity_content_conflict: ${commit.observationLink.resourceObservationLinkId}`);
+  }
+}
+
+function sameObservationLink(
+  left: QualityTracedPublicationCommit['observationLink'],
+  right: QualityTracedPublicationCommit['observationLink'],
+): boolean {
+  const { linkedAt: _leftLinkedAt, ...leftComparable } = left;
+  const { linkedAt: _rightLinkedAt, ...rightComparable } = right;
+  return same(leftComparable, rightComparable);
 }
 
 function upsert<T extends object, K extends keyof T>(

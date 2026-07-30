@@ -2,7 +2,7 @@
 
 英文名称：Question Review and Publication Workflow Contract
 
-状态：DESIGN FROZEN / P0 ENGINEERING ALIGNED / P1 ALIGNED / P2 BATCH OBSERVABILITY ALIGNED
+状态：DESIGN FROZEN / P0 ENGINEERING ALIGNED / P1 ALIGNED / P2 OBSERVABILITY AND ATOMIC PUBLICATION ALIGNED
 契约版本：`question_review_publication_workflow_v1.1`  
 更新日期：2026-07-29
 
@@ -348,9 +348,15 @@ P0 以 `assessmentId + warningCode` 绑定当前 Warning；独立
 Freeze 当前审核通过的 Revision
 → 写入 FrozenQuestionResourceVersion
 → 更新 ResourceRegistryEntry
+→ 写入 FrozenQuestionQualityTrace
+→ 写入 ResourceObservationLink
 ```
 
-在支持事务的 Repository 中，上述写入应通过既有 `ResourceFreezeCommit` 原子提交。对于无法保证跨存储事务的适配器，必须记录可恢复进度：
+正式主链必须先完成 Plan、Task、Material、当前 Assessment 和 Human Review 的一致性检查，再通过一个 Repository Command 原子写入 Version、Registry、Quality Trace 与 Observation Link。任一对象无法准备或持久化时，本次提交整体失败，不得留下新的部分正式状态。
+
+重复执行同一发布命令必须复用同一组正式身份；当四个对象均已存在且内容一致时，Repository 返回幂等成功，不得增加共享存储 Revision。
+
+旧版本曾允许 Observation Link 后置写入。为兼容这类历史部分状态，恢复命令仍可只补齐缺失对象，但不得把兼容恢复路径重新作为新发布的默认实现。对于无法保证跨存储事务的外部适配器，必须记录可恢复进度：
 
 ```ts
 type PublicationProgress = {
@@ -363,20 +369,21 @@ type PublicationProgress = {
     | 'formal_version_created'
     | 'completed'
     | 'partially_completed';
-  failedStep?: 'formal_version' | 'registry';
+  failedStep?: 'formal_version' | 'registry' | 'quality_trace' | 'observation_link';
 };
 ```
 
 恢复规则：
 
-1. 若 `FrozenQuestionResourceVersion` 已创建、Registry 写入失败，重试必须复用原 `resourceVersionId`；
-2. 重试只补齐缺失的 Registry 写入，不得再次 Freeze 或提高版本号；
-3. 同一 `draftId` 和同一审核通过 Revision 必须得到同一个正式版本；
-4. 页面应明确显示“发布未完成，可继续完成发布”，不得把部分成功伪装成完全失败；
-5. 发布完成前不得让 Runtime 把缺少有效 Registry 指向的版本视为可用正式资源；
-6. 历史正式版本不得因重试或补写 Registry 被覆盖。
-7. Human Review 已成功但 Publication 失败时，页面显示“审核已通过，发布未完成”并提供“重试发布”；
-8. 发布失败不得把审核状态回滚为待审核，也不得重复创建 Human Review Decision。
+1. 新发布不得产生只包含部分对象的正式状态；
+2. 若读取到历史部分状态，重试必须复用原 `resourceVersionId`；
+3. 历史恢复只补齐缺失的 Registry、Quality Trace 或 Observation Link，不得再次 Freeze 或提高版本号；
+4. 同一 `draftId` 和同一审核通过 Revision 必须得到同一个正式版本；
+5. 页面应明确显示“发布未完成，可继续完成发布”，不得把历史部分成功伪装成完全失败；
+6. 发布完成前不得让 Runtime 把缺少有效 Registry 或 Observation Link 的版本视为可用正式资源；
+7. 历史正式版本不得因重试或补写关联被覆盖；
+8. Human Review 已成功但 Publication 失败时，页面显示“审核已通过，发布未完成”并提供“重试发布”；
+9. 发布失败不得把审核状态回滚为待审核，也不得重复创建 Human Review Decision。
 
 ## 七、质量问题分级
 
@@ -833,4 +840,20 @@ P1 信息层级和页面职责已有既有实现基础，后续继续收敛时�
 → 页面无新增运行时错误
 ```
 
-P2 后续仍需完成 Observation Link 原子性与真实十素材校准。
+截至 2026-07-30，P2 第三项 Observation Link 原子性已经完成工程对齐：
+
+1. 新发布通过同一个共享存储 CAS 事务写入 Frozen Version、Registry、Quality Trace 与 Observation Link；
+2. Observation Link 的 Plan、Task、Material 和 Review 一致性问题在写入正式对象前返回；
+3. 事务失败不会留下新 Version、Registry、Trace 或 Link；
+4. 相同发布命令重试复用同一组对象，不增加共享存储 Revision；
+5. 历史部分成功状态继续由独立恢复命令兼容，不再由新发布主链产生。
+
+对应故障注入与回归覆盖：
+
+- 四对象原子写入；
+- 写入失败后四类对象均不存在；
+- 失败重试只产生一组正式对象；
+- 完成后重复重试不增加存储 Revision；
+- 既有发布恢复与 Workbench Command E2E 不回退。
+
+P2 后续仅剩真实十素材校准。

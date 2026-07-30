@@ -251,6 +251,10 @@ function sameDraftEducationalContent(
     status: _leftStatus,
     latestValidationId: _leftValidation,
     latestReviewId: _leftReview,
+    reviewSubmittedAt: _leftReviewSubmittedAt,
+    reviewSubmissionCount: _leftReviewSubmissionCount,
+    revisionRequestedAt: _leftRevisionRequestedAt,
+    revisionRequestCount: _leftRevisionRequestCount,
     updatedAt: _leftUpdatedAt,
     ...leftContent
   } = left;
@@ -258,6 +262,10 @@ function sameDraftEducationalContent(
     status: _rightStatus,
     latestValidationId: _rightValidation,
     latestReviewId: _rightReview,
+    reviewSubmittedAt: _rightReviewSubmittedAt,
+    reviewSubmissionCount: _rightReviewSubmissionCount,
+    revisionRequestedAt: _rightRevisionRequestedAt,
+    revisionRequestCount: _rightRevisionRequestCount,
     updatedAt: _rightUpdatedAt,
     ...rightContent
   } = right;

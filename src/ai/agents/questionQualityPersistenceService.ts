@@ -5,6 +5,7 @@ import {
 } from './questionResourceAdmissionAgent.ts';
 import type {
   QuestionQualityPersistenceRepository,
+  QualityTracedFreezeCommit,
   QualityTracedFreezeResult,
 } from '../repositories/questionQualityPersistenceRepository.ts';
 import type {
@@ -202,6 +203,21 @@ export async function freezeQuestionResourceDraftWithPersistedQuality(
     return { version: existing, registryEntry, trace, inserted: false };
   }
 
+  const commit = await prepareQuestionResourceFreezeWithPersistedQuality(
+    resourceRepository,
+    qualityRepository,
+    draftId,
+    now,
+  );
+  return qualityRepository.commitFreezeWithQualityTrace(commit);
+}
+
+export async function prepareQuestionResourceFreezeWithPersistedQuality(
+  resourceRepository: QuestionResourceAdmissionRepository,
+  qualityRepository: QuestionQualityPersistenceRepository,
+  draftId: string,
+  now = new Date().toISOString(),
+): Promise<QualityTracedFreezeCommit> {
   const context = await requireCurrentPersistedQualityContext(
     resourceRepository,
     qualityRepository,
@@ -235,10 +251,10 @@ export async function freezeQuestionResourceDraftWithPersistedQuality(
     review.reviewId,
     now,
   );
-  return qualityRepository.commitFreezeWithQualityTrace({
+  return {
     resourceCommit,
     trace,
-  });
+  };
 }
 
 function buildFrozenQuestionQualityTrace(

@@ -17,7 +17,11 @@ import type {
   ObservationTaskPlan,
   ResourceObservationLink,
 } from '../schemas/materialObservation.schema.ts';
-import type { PrimaryAbilityId } from '../schemas/questionResourceAdmission.schema.ts';
+import type {
+  FrozenQuestionResourceVersion,
+  PrimaryAbilityId,
+  ResourceRegistryEntry,
+} from '../schemas/questionResourceAdmission.schema.ts';
 import type { RecommendedTaskRole } from '../schemas/nextLearningStrategy.schema.ts';
 import type { CreateStructuredQuestionDraftInput } from './questionResourceAdmissionAgent.ts';
 import { createStructuredQuestionDraft, validateStructuredQuestionDraft } from './questionResourceAdmissionAgent.ts';
@@ -541,25 +545,21 @@ export async function linkFrozenResourceToObservationTask(
     linkedAt?: string;
   },
 ): Promise<{ link: ResourceObservationLink; issues: string[] }> {
-  const plan = await requirePlan(observationRepository, input.planId);
-  const task = plan.taskPlans.find((value) => value.observationTaskPlanId === input.observationTaskPlanId);
-  if (!task) throw new Error(`Observation Task Plan not found: ${input.observationTaskPlanId}`);
   const version = await resourceRepository.getVersion(input.resourceVersionId);
   if (!version) throw new Error(`Frozen Resource Version not found: ${input.resourceVersionId}`);
-  const [registryEntry, validation, review] = await Promise.all([
-    resourceRepository.getRegistryEntry(version.resourceId),
-    resourceRepository.getValidation(version.validationId),
-    resourceRepository.getReview(version.reviewId),
-  ]);
-  const result = deriveResourceObservationLink({
-    plan,
-    task,
-    version,
-    registryEntry,
-    validation,
-    review,
-    linkedAt: input.linkedAt,
-  });
+  const registryEntry = await resourceRepository.getRegistryEntry(version.resourceId);
+  if (!registryEntry) throw new Error(`Resource Registry Entry not found: ${version.resourceId}`);
+  const result = await prepareFrozenResourceObservationLink(
+    resourceRepository,
+    observationRepository,
+    {
+      planId: input.planId,
+      observationTaskPlanId: input.observationTaskPlanId,
+      version,
+      registryEntry,
+      linkedAt: input.linkedAt,
+    },
+  );
 
   if (result.link.status === 'active') {
     const previous = await observationRepository.listLinks(result.link.resourceId);
@@ -571,6 +571,35 @@ export async function linkFrozenResourceToObservationTask(
   }
   await observationRepository.saveLink(result.link);
   return result;
+}
+
+export async function prepareFrozenResourceObservationLink(
+  resourceRepository: QuestionResourceAdmissionRepository,
+  observationRepository: MaterialObservationRepository,
+  input: {
+    planId: string;
+    observationTaskPlanId: string;
+    version: FrozenQuestionResourceVersion;
+    registryEntry: ResourceRegistryEntry;
+    linkedAt?: string;
+  },
+): Promise<{ link: ResourceObservationLink; issues: string[] }> {
+  const plan = await requirePlan(observationRepository, input.planId);
+  const task = plan.taskPlans.find((value) => value.observationTaskPlanId === input.observationTaskPlanId);
+  if (!task) throw new Error(`Observation Task Plan not found: ${input.observationTaskPlanId}`);
+  const [validation, review] = await Promise.all([
+    resourceRepository.getValidation(input.version.validationId),
+    resourceRepository.getReview(input.version.reviewId),
+  ]);
+  return deriveResourceObservationLink({
+    plan,
+    task,
+    version: input.version,
+    registryEntry: input.registryEntry,
+    validation,
+    review,
+    linkedAt: input.linkedAt,
+  });
 }
 
 export async function createAndSaveFirstFrozenResourcePackManifest(
