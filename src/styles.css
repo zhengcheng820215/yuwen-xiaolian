@@ -137,22 +137,6 @@ button {
   box-shadow: 0 0 0 2px rgb(37 99 235 / 30%);
 }
 
-@keyframes workbench-refresh-counterclockwise {
-  to {
-    transform: rotate(-360deg);
-  }
-}
-
-.workbench-refresh-icon-spinning {
-  animation: workbench-refresh-counterclockwise 550ms linear infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .workbench-refresh-icon-spinning {
-    animation: none;
-  }
-}
-
 :where(.material-resource-workbench, .question-resource-workbench) .workbench-mode-switch {
   border-radius: 8px;
   background: #f1f1f1;

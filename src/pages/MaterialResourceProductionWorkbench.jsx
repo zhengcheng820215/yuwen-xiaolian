@@ -6,11 +6,11 @@ import {
   CheckCircle2,
   ChevronDown,
   LoaderCircle,
-  RotateCcw,
   Save,
   Trash2,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import RefreshIconButton from '../components/RefreshIconButton.jsx';
 import {
   approveProductionObservationPlan,
   createProductionMaterial,
@@ -344,20 +344,6 @@ export default function MaterialResourceProductionWorkbench() {
     }
     return [...protectedIds];
   }, [planDrafts, selectedMaterialResourceDetails.publishedResources, selectedPlan]);
-  const selectedPlanUsesAssistedDraft = Boolean(selectedPlan?.taskPlans.some(
-    (task) => task.resourceDraftSpecification?.tags?.includes('ai-assisted'),
-  ));
-  const assistedDraftStage = planFullyPublished
-    ? 'frozen'
-    : selectedPlanUsesAssistedDraft && planDrafts.length > 0
-      ? 'question_review'
-      : selectedPlanUsesAssistedDraft
-        ? 'observation_plan'
-        : taskEditorDirty && tasks.some((task) => task.sourceType === 'ai_assisted')
-          ? 'imported'
-          : generatorResult?.status === 'candidates_ready'
-            ? 'candidate'
-            : 'material';
   const generatorInventory = useMemo(
     () => buildGeneratorInventory({
       materialVersionId: selectedMaterialId,
@@ -1266,7 +1252,6 @@ export default function MaterialResourceProductionWorkbench() {
             <Link to="/internal" aria-label="返回内部入口" className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"><ArrowLeft size={18} /></Link>
             <div>
               <h1 className="text-lg font-semibold">素材资源录入平台</h1>
-              <p className="text-sm text-slate-500">学习材料与训练任务录入</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -1276,16 +1261,13 @@ export default function MaterialResourceProductionWorkbench() {
             <button type="button" onClick={requestLoadBatchA} disabled={busy} className={`hidden h-10 items-center rounded-md border px-3 text-sm font-semibold disabled:opacity-50 sm:flex ${activeLoadPreset === 'batch_a' ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
               使用 Batch A 资源包
             </button>
-            <button
-              type="button"
+            <RefreshIconButton
               onClick={refreshWorkbench}
+              busy={refreshing}
               disabled={busy}
-              title={refreshing ? '正在刷新工作台数据' : '刷新工作台数据'}
-              aria-label={refreshing ? '正在刷新工作台数据' : '刷新工作台数据'}
-              className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            >
-              <RotateCcw size={18} className={refreshing ? 'workbench-refresh-icon-spinning' : ''} aria-hidden="true" />
-            </button>
+              label="刷新工作台数据"
+              busyLabel="正在刷新工作台数据"
+            />
           </div>
         </div>
       </header>
@@ -1347,7 +1329,7 @@ export default function MaterialResourceProductionWorkbench() {
           </div>
         )}
 
-        <div className="mt-2 space-y-10">
+        <div className="mt-2 space-y-6">
           <section id="material-resource-editor" className="scroll-mt-28">
             <div className="flex justify-center">
               <div className="workbench-mode-switch inline-flex items-center p-1" aria-label="素材录入方式">
@@ -1370,39 +1352,17 @@ export default function MaterialResourceProductionWorkbench() {
                   </select>
                 </label>
                 {selectedMaterial && (
-                  <section className="mt-4 bg-transparent" aria-labelledby="selected-material-summary-title">
+                  <section className="mt-6 bg-transparent" aria-labelledby="selected-material-summary-title">
                     <div
-                      className="grid gap-2 sm:grid-cols-2 sm:items-stretch lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.55fr)_minmax(0,0.55fr)_minmax(0,0.55fr)_auto]"
-                      aria-label={`${selectedMaterial.title}的题目状态`}
+                      className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:grid-rows-[1.25rem_auto] sm:gap-y-1"
+                      aria-label={`${selectedMaterial.title}的素材信息`}
                     >
-                      <div className="flex min-h-20 flex-col items-start px-3 py-3 sm:px-4">
-                        <p className="text-sm leading-5 text-slate-500">当前素材</p>
-                        <h2 id="selected-material-summary-title" className="mt-1 flex min-h-7 flex-wrap items-baseline gap-x-2 text-base font-semibold leading-7 text-slate-950">
-                          <span>{selectedMaterial.title}</span>
-                          <span className="text-sm font-normal leading-7 text-slate-500">· 共 {paragraphs.length} 个自然段</span>
-                        </h2>
-                      </div>
-                      <Metric
-                        label="待人工审核题目"
-                        value={selectedMaterialResourceDetails.pendingReviews.length}
-                        active={activeSummaryKey === 'pendingReviews'}
-                        onClick={() => setActiveSummaryKey((current) => current === 'pendingReviews' ? null : 'pendingReviews')}
-                      />
-                      <Metric
-                        label="发布未完成"
-                        value={selectedMaterialResourceDetails.incompletePublications.length}
-                        active={activeSummaryKey === 'incompletePublications'}
-                        tone="warning"
-                        onClick={() => setActiveSummaryKey((current) => current === 'incompletePublications' ? null : 'incompletePublications')}
-                      />
-                      <Metric
-                        label="已发布练习"
-                        value={selectedMaterialResourceDetails.publishedResources.length}
-                        active={activeSummaryKey === 'publishedResources'}
-                        tone="success"
-                        onClick={() => setActiveSummaryKey((current) => current === 'publishedResources' ? null : 'publishedResources')}
-                      />
-                      <div className="flex min-h-20 flex-wrap items-center gap-2 px-3 py-3 sm:justify-end sm:px-4">
+                      <p className="px-3 text-sm leading-5 text-slate-500 sm:col-start-1 sm:row-start-1 sm:px-4">当前素材</p>
+                      <h2 id="selected-material-summary-title" className="flex min-h-10 flex-wrap items-center gap-x-2 px-3 text-base font-semibold leading-7 text-slate-950 sm:col-start-1 sm:row-start-2 sm:px-4">
+                        <span>{selectedMaterial.title}</span>
+                        <span className="text-sm font-normal leading-7 text-slate-500">· 共 {paragraphs.length} 个自然段</span>
+                      </h2>
+                      <div className="flex min-h-10 flex-wrap items-start gap-2 px-3 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:justify-end sm:px-4">
                         <button
                           type="button"
                           onClick={requestMaterialRemoval}
@@ -1427,13 +1387,6 @@ export default function MaterialResourceProductionWorkbench() {
                         </button>
                       </div>
                     </div>
-                    {activeSummaryKey && (
-                      <SummaryMetricDetails
-                        metricKey={activeSummaryKey}
-                        details={selectedMaterialResourceDetails}
-                        onOpenQuestion={openQuestionSummaryItem}
-                      />
-                    )}
                     <MaterialContentPreview
                       paragraphs={paragraphs}
                       expanded={materialPreviewExpanded}
@@ -1499,15 +1452,48 @@ export default function MaterialResourceProductionWorkbench() {
           </section>
 
           {materialMode === 'existing' && selectedMaterial && taskWorkspaceOpen && (
-            <section id="training-task-editor" className="scroll-mt-28 border-t border-slate-200 pt-8">
-            <div className="flex items-center justify-between gap-3">
+            <section id="training-task-editor" className="scroll-mt-28 border-t border-slate-200 pt-4">
+            <div className="flex flex-wrap items-start justify-between gap-3 sm:items-center">
               <div>
                 <h2 className="text-lg font-semibold">
                   {selectedPlan ? '修改训练任务' : tasks.length > 0 ? '确认训练任务' : '规划训练任务'}
                   <span className="ml-2 font-normal text-slate-950">（<span className="text-blue-700">{tasks.length}</span>/6）</span>
                 </h2>
               </div>
+              <div
+                className="grid w-full grid-cols-3 sm:w-auto"
+                aria-label={`${selectedMaterial.title}的题目状态`}
+              >
+                <Metric
+                  label="待人工审核题目"
+                  value={selectedMaterialResourceDetails.pendingReviews.length}
+                  active={activeSummaryKey === 'pendingReviews'}
+                  tone="info"
+                  onClick={() => setActiveSummaryKey((current) => current === 'pendingReviews' ? null : 'pendingReviews')}
+                />
+                <Metric
+                  label="发布未完成"
+                  value={selectedMaterialResourceDetails.incompletePublications.length}
+                  active={activeSummaryKey === 'incompletePublications'}
+                  tone="warning"
+                  onClick={() => setActiveSummaryKey((current) => current === 'incompletePublications' ? null : 'incompletePublications')}
+                />
+                <Metric
+                  label="已发布练习"
+                  value={selectedMaterialResourceDetails.publishedResources.length}
+                  active={activeSummaryKey === 'publishedResources'}
+                  tone="success"
+                  onClick={() => setActiveSummaryKey((current) => current === 'publishedResources' ? null : 'publishedResources')}
+                />
+              </div>
             </div>
+            {activeSummaryKey && (
+              <SummaryMetricDetails
+                metricKey={activeSummaryKey}
+                details={selectedMaterialResourceDetails}
+                onOpenQuestion={openQuestionSummaryItem}
+              />
+            )}
             {selectedPlan && (
               <div className={`mt-4 border-l-4 px-4 py-3 text-sm leading-6 ${taskEditorDirty ? 'border-amber-500 bg-amber-50 text-amber-950' : 'border-blue-500 bg-blue-50 text-blue-950'}`}>
                 {taskEditorDirty
@@ -1529,12 +1515,10 @@ export default function MaterialResourceProductionWorkbench() {
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-600">AI 根据学习材料生成可编辑的训练任务和评分标准。生成内容需人工确认后才能保存、送审或发布。</p>
               </div>
-              <AssistedDraftWorkflow stage={assistedDraftStage} />
               <div className="mt-4 space-y-4">
                 <div>
                   <p className="text-sm font-medium">适用学段（生成参考）</p>
                   <div className="mt-1 flex min-h-10 items-center rounded-md border border-slate-300 bg-slate-50 px-3 text-sm font-normal text-slate-700">初中</div>
-                  <p className="mt-1 text-xs font-normal leading-5 text-slate-500">仅用于 AI 生成参考，不代表正式年级或能力难度判断。</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium">生成任务数量</p>
@@ -1552,10 +1536,12 @@ export default function MaterialResourceProductionWorkbench() {
                       </button>
                     ))}
                   </div>
-                  <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">AI 将尝试生成该数量的待确认训练任务，实际任务数量可能更少。</span>
                 </div>
                 <div>
-                  <p className="text-sm font-medium">训练方向（可选）</p>
+                  <p className="text-sm font-medium">
+                    训练方向
+                    <span className="ml-2 font-normal text-slate-500">（可选 2 项，默认由 AI 判断）</span>
+                  </p>
                   <div className="mt-1 flex flex-wrap gap-2">
                     {trainingDirectionOptions.map(([focusId, label]) => {
                       const selected = generatorPreferences.requestedFocusIds.includes(focusId);
@@ -1574,11 +1560,13 @@ export default function MaterialResourceProductionWorkbench() {
                       );
                     })}
                   </div>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">最多能选择 2 项；当不选择时由 AI 根据材料判断。</p>
                 </div>
               </div>
               <div className="mt-4">
-                <p className="text-sm font-medium">训练能力（可选）</p>
+                <p className="text-sm font-medium">
+                  训练能力
+                  <span className="ml-2 font-normal text-slate-500">（可选 2 项，默认由 AI 判断）</span>
+                </p>
                 <div className="mt-1 flex flex-wrap gap-2">
                   {abilityOptions.map(([abilityId, label]) => {
                     const selected = generatorPreferences.preferredAbilityIds.includes(abilityId);
@@ -1586,14 +1574,13 @@ export default function MaterialResourceProductionWorkbench() {
                     return <button key={abilityId} type="button" aria-pressed={selected} disabled={generatorBusy || (!selected && selectionLimitReached)} onClick={() => togglePreferredAbility(abilityId)} className={`h-10 rounded-md border px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-35 ${selected ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-600'}`}>{label}</button>;
                   })}
                 </div>
-                <p className="mt-1 text-xs leading-5 text-slate-500">最多能选择 2 项；当不选择时由 AI 根据材料判断。</p>
               </div>
               <div className="mt-4 border-l-4 border-blue-500 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-950">
                 {!selectedMaterial
-                  ? '请先选择或保存素材。生成训练任务后，系统会自动过滤重复内容。'
+                  ? '请先选择或保存素材，再生成训练任务。'
                   : generatorInventory.observations.length === 0 && generatorInventory.questions.length === 0
-                    ? '当前素材尚未保存训练任务。再次生成时，系统会自动过滤重复内容，只保留新的训练方向。'
-                    : `当前素材已保存：训练方向（${generatorInventory.observations.length}）· 训练任务（${generatorInventory.questions.length}）。再次生成时，系统会自动过滤重复内容。`}
+                    ? '当前素材尚无已保存的训练任务，可以开始生成。'
+                    : '再次生成时，系统会参考当前素材已有的训练任务，优先生成不同的训练内容。'}
               </div>
               <div className={`mt-4 flex justify-center ${selectedPlan ? 'flex-col items-center gap-2 sm:flex-row sm:items-start' : ''}`}>
                 {selectedPlan ? (
@@ -1694,8 +1681,11 @@ export default function MaterialResourceProductionWorkbench() {
                   </summary>
                   {!taskEditable && (
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md bg-violet-50 px-4 py-3 text-sm text-violet-900">
-                      <span>当前为 AI 生成预览。点击“编辑并校准”后，人工调整字段会被记录。</span>
-                      <div className="flex flex-wrap items-center gap-4">
+                      <span>当前为 AI 生成预览。点击“人工编辑校准”后，人工调整字段会被记录。</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button type="button" onClick={() => enableTaskEditing(task)} className="ai-button-outline inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none">
+                          人工编辑校准
+                        </button>
                         {selectedPlan && task.observationTaskPlanId && (
                           <button
                             type="button"
@@ -1707,9 +1697,6 @@ export default function MaterialResourceProductionWorkbench() {
                             重新生成此任务
                           </button>
                         )}
-                        <button type="button" onClick={() => enableTaskEditing(task)} className="h-10 rounded-md border border-blue-600 bg-white px-4 text-sm font-normal text-blue-700 transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-                          编辑并校准
-                        </button>
                       </div>
                     </div>
                   )}
@@ -2182,11 +2169,17 @@ function TaskRemovalDialog({ title, onCancel, onConfirm }) {
 }
 
 function Metric({ label, value, active, onClick, tone = 'default' }) {
-  const activeTone = tone === 'warning' ? 'text-amber-700' : 'text-emerald-700';
+  const activeTone = tone === 'warning'
+    ? 'text-amber-700'
+    : tone === 'info'
+      ? 'text-blue-700'
+      : 'text-emerald-700';
   const valueTone = active
     ? activeTone
     : tone === 'warning' && value > 0
       ? 'text-amber-700'
+      : tone === 'info'
+        ? 'text-blue-700'
       : tone === 'success'
         ? 'text-emerald-700'
       : 'text-slate-950';
@@ -2196,7 +2189,7 @@ function Metric({ label, value, active, onClick, tone = 'default' }) {
       aria-expanded={active}
       aria-controls="workbench-summary-details"
       onClick={onClick}
-      className="flex min-h-20 flex-col items-start bg-transparent px-3 py-3 text-left transition hover:text-slate-950 sm:px-4"
+      className="flex min-h-[52px] min-w-0 flex-col items-start justify-center bg-transparent px-2 text-left transition hover:text-slate-950 sm:min-w-32 sm:items-center sm:px-4 sm:text-center"
     >
       <span className={`block text-sm leading-5 ${active ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>{label}</span>
       <span className={`mt-1 flex min-h-7 items-baseline gap-2 text-lg font-semibold leading-7 ${valueTone}`}>
@@ -2213,14 +2206,9 @@ function MaterialContentPreview({ paragraphs, expanded, onToggle }) {
   const canToggle = paragraphs.length > previewLimit;
 
   return (
-    <section className="mt-3 px-4 py-4 sm:px-5" aria-labelledby="material-content-preview-title">
-      <div className="flex min-h-7 items-center">
-        <h2 id="material-content-preview-title" className="text-[14px] font-semibold text-slate-950">
-          素材内容
-        </h2>
-      </div>
+    <section className="mt-6 px-4 pb-0 sm:px-5" aria-label="素材正文">
       {visibleParagraphs.length > 0 ? (
-        <ol className="mt-3 space-y-3">
+        <ol className="space-y-3">
           {visibleParagraphs.map((paragraph, index) => (
             <li key={`${index}-${paragraph.slice(0, 24)}`} className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2 text-[14px] leading-7 text-slate-700">
               <span className="text-right text-xs leading-7 text-slate-400">{index + 1}</span>
@@ -2229,7 +2217,7 @@ function MaterialContentPreview({ paragraphs, expanded, onToggle }) {
           ))}
         </ol>
       ) : (
-        <p className="mt-3 text-[14px] text-slate-500">当前素材暂无正文内容。</p>
+        <p className="text-[14px] text-slate-500">当前素材暂无正文内容。</p>
       )}
       {canToggle && (
         <button
@@ -2406,11 +2394,6 @@ function TaskReviewOverview({ groups, onAction }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 id="task-review-overview-title" className="text-base font-semibold">训练任务检查</h3>
-          <p className="mt-1 text-sm text-slate-600">
-            {needsAdjustment.length > 0
-              ? `当前有 ${needsAdjustment.length} 个任务需要调整，处理后可进入审核。`
-              : '当前训练任务均已通过检查。'}
-          </p>
         </div>
         <div className="flex flex-wrap gap-3 text-sm">
           <span className="text-slate-600">{groups.length} 个任务</span>
@@ -2489,48 +2472,11 @@ function AutoGrowingTextarea({ id, value, onChange, placeholder }) {
   );
 }
 
-function AssistedDraftWorkflow({ stage }) {
-  const stages = [
-    ['candidate', '生成训练任务'],
-    ['imported', '导入编辑区'],
-    ['observation_plan', '保存训练任务'],
-    ['question_review', '进入题目审核'],
-    ['frozen', '发布正式题目'],
-  ];
-  if (stage === 'material') return null;
-  const currentIndex = stages.findIndex(([value]) => value === stage);
-  return (
-    <div className="mt-4" aria-label="训练任务发布进度">
-      <p className="text-xs font-semibold text-slate-500">发布进度</p>
-      <ol className="mt-2 grid grid-cols-5 gap-1">
-        {stages.map(([value, actionLabel], index) => {
-          const reached = currentIndex >= 0 && index <= currentIndex;
-          const current = value === stage;
-          return (
-            <li
-              key={value}
-              className={`min-w-0 border-t-2 pt-2 text-center text-xs font-semibold leading-4 ${
-                current
-                  ? 'border-blue-600 bg-blue-50 text-blue-800'
-                  : reached
-                    ? 'border-blue-600 text-blue-700'
-                    : 'border-slate-200 text-slate-400'
-              }`}
-            >
-              {index + 1}. {actionLabel}
-            </li>
-          );
-        })}
-      </ol>
-    </div>
-  );
-}
-
 function SingleTaskRegenerationPreview({ state, onRetry, onDiscard, onApply }) {
   if (state.status === 'generating') {
     return (
       <div className="mt-4 flex items-center gap-3 rounded-md bg-slate-50 px-4 py-4 text-sm text-slate-700" role="status">
-        <LoaderCircle size={18} className="animate-spin text-emerald-600" />
+        <LoaderCircle size={18} className="animate-spin text-blue-600" />
         正在为当前训练任务生成候选，原内容不会被修改。
       </div>
     );
@@ -2541,7 +2487,7 @@ function SingleTaskRegenerationPreview({ state, onRetry, onDiscard, onApply }) {
         <p>{state.message}</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button type="button" onClick={onRetry} className="ai-button-outline h-10 rounded-md border px-4 text-sm transition">再次生成</button>
-          <button type="button" onClick={onDiscard} className="h-10 px-2 text-sm text-slate-600 hover:text-slate-900">保留原内容</button>
+          <button type="button" onClick={onDiscard} className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">保留原内容</button>
         </div>
       </div>
     );
@@ -2557,32 +2503,32 @@ function SingleTaskRegenerationPreview({ state, onRetry, onDiscard, onApply }) {
     ['评分要点', rubricSummary(state.sourceTask), rubricSummary(candidate)],
   ];
   return (
-    <section className="mt-4 rounded-md border border-emerald-200 bg-emerald-50/40 p-4" aria-label="单任务重新生成候选">
+    <section className="mt-4 rounded-md border border-blue-200 bg-blue-50/40 p-4" aria-label="单任务重新生成候选">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h4 className="text-sm font-semibold text-slate-950">重新生成候选</h4>
           <p className="mt-1 text-xs leading-5 text-slate-600">能力、难度、任务角色和材料范围保持不变。采用前不会创建新版本。</p>
         </div>
-        <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-normal text-emerald-800">待采用</span>
+        <span className="rounded bg-blue-100 px-2 py-1 text-xs font-normal text-blue-800">待采用</span>
       </div>
       <div className="mt-4 overflow-x-auto">
-        <div className="grid min-w-[720px] grid-cols-[8rem_minmax(0,1fr)_minmax(0,1fr)] border-y border-slate-200 text-sm">
+        <div className="grid min-w-[720px] grid-cols-[8rem_minmax(0,1fr)_minmax(0,1fr)] border-y border-blue-200 text-sm">
           <div className="px-3 py-2 font-semibold text-slate-500">内容</div>
-          <div className="border-l border-slate-200 px-3 py-2 font-semibold text-slate-700">原内容</div>
-          <div className="border-l border-slate-200 px-3 py-2 font-semibold text-emerald-800">新候选</div>
+          <div className="border-l border-blue-100 px-3 py-2 font-semibold text-slate-700">原内容</div>
+          <div className="border-l border-blue-100 px-3 py-2 font-semibold text-blue-800">新候选</div>
           {rows.map(([label, original, next]) => (
             <div key={label} className="contents">
-              <div className="border-t border-slate-200 px-3 py-3 font-semibold text-slate-600">{label}</div>
-              <div className="whitespace-pre-wrap border-l border-t border-slate-200 px-3 py-3 leading-6 text-slate-600">{original || '未填写'}</div>
-              <div className="whitespace-pre-wrap border-l border-t border-slate-200 px-3 py-3 leading-6 text-slate-900">{next || '未填写'}</div>
+              <div className="border-t border-blue-100 px-3 py-3 font-semibold text-slate-600">{label}</div>
+              <div className="whitespace-pre-wrap border-l border-t border-blue-100 px-3 py-3 leading-6 text-slate-600">{original || '未填写'}</div>
+              <div className="whitespace-pre-wrap border-l border-t border-blue-100 px-3 py-3 leading-6 text-slate-900">{next || '未填写'}</div>
             </div>
           ))}
         </div>
       </div>
       <div className="mt-4 flex flex-wrap justify-end gap-2">
-        <button type="button" disabled={applying} onClick={onDiscard} className="h-10 px-3 text-sm text-slate-600 hover:text-slate-900 disabled:opacity-40">保留原内容</button>
+        <button type="button" disabled={applying} onClick={onDiscard} className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40">保留原内容</button>
         <button type="button" disabled={applying} onClick={onRetry} className="ai-button-outline h-10 rounded-md border px-4 text-sm transition disabled:opacity-40">再次生成</button>
-        <button type="button" disabled={applying} onClick={onApply} className="inline-flex h-10 items-center justify-center rounded-md bg-emerald-600 px-5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+        <button type="button" disabled={applying} onClick={onApply} className="ai-button-solid inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-semibold transition disabled:opacity-50">
           {applying ? '正在采用' : '采用此候选'}
         </button>
       </div>

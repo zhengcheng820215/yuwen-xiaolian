@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, ArrowLeft, CheckCircle2, Circle, ExternalLink, RefreshCw, RotateCcw, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import RefreshIconButton from '../components/RefreshIconButton.jsx';
 import {
   clearPhase163ControlledAcceptanceData,
   clearPhase173ProductLearningAcceptanceData,
@@ -84,9 +85,12 @@ export default function InternalLearningReview() {
                 </button>
               </>
             ) : null}
-            <button type="button" onClick={loadQueue} disabled={busy} title="刷新复核队列" className="flex h-10 w-10 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 disabled:text-slate-300">
-              <RefreshCw size={18} className={busy ? 'animate-spin' : ''} />
-            </button>
+            <RefreshIconButton
+              onClick={loadQueue}
+              busy={busy}
+              label="刷新复核队列"
+              busyLabel="正在刷新复核队列"
+            />
           </div>
         </div>
       </header>

@@ -463,6 +463,8 @@ Phase 17 的目标不是扩充题目数量，而是建立以 Material Cluster �
 
 训练任务的覆盖范围与检查结果统一收敛到单一“训练任务检查”板块：首层只展示是否可进入审核、任务总数、可审核数、需调整数，以及能力和训练方向摘要；存在问题时再展开质量提醒与定位入口。覆盖摘要不再作为独立卡片重复占用页面层级，合并仅调整信息架构，不改变校验口径、问题定位或提交流程。
 
+素材资源录入平台的最新界面校准见 [素材资源录入平台 UX 校准记录](../product/MATERIAL_WORKBENCH_UX_CALIBRATION_2026-07-30.md)。当前素材信息、正文预览、训练任务标题、资源统计和任务检查按工作对象重新分组；平台顶栏、刷新入口、AI 操作、候选对照表、辅助文案与 `24px / 16px / 8px` 间距规则已经统一。该校准只调整页面呈现，不改变 Material、Plan、Draft、Assessment、Review、Freeze 或 Registry 的正式数据与状态边界。
+
 Material 已保存但尚未生成 Material Observation Plan 是合法的生产空状态，不等于存在待修改训练任务。该状态下任务集合必须为 `0`，只提供 AI 规划入口；不得用表单占位项驱动任务统计、Validation、Assessment、问题定位或审核门禁。训练任务检查只消费 AI 生成并被采用的真实任务，或从有效 Plan 恢复的任务。空任务集合不能保存任务组、创建 Plan Revision 或进入题目审核。
 
 同一 Material Observation Plan 内的题号绑定 Observation Task 的计划顺序，并通过 `observationTaskPlanId` 在 Question Draft、审核状态与 Frozen Resource 之间保持稳定。待审核与已发布明细只按状态过滤，并按统一题号升序展示，不建立各自独立的编号序列；状态迁移不得改变题号。因此单个状态列表可以出现“题目一、题目三”这类不连续编号，它表达的是同一素材完整题目序列中的真实位置。

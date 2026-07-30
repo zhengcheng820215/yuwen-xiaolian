@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { getResourceMatchingQualityDemoData } from '../api/resourceMatchingQualityDemo.ts';
 import { getPhase161To162IntegrationDemoData } from '../api/phase161To162IntegrationDemo.ts';
+import RefreshIconButton from '../components/RefreshIconButton.jsx';
 
 const demoData = getResourceMatchingQualityDemoData();
 
@@ -371,15 +372,11 @@ function ResourceIntegrationAcceptance() {
           </div>
           <div className="flex items-center gap-3">
             <StatusPill tone={data.summary.passed === data.summary.total ? 'success' : 'danger'} text={`${data.summary.passed} / ${data.summary.total} 联调 Case 通过`} />
-            <button
-              type="button"
-              aria-label="重新运行联调"
-              title="重新运行联调"
+            <RefreshIconButton
               onClick={() => setReloadToken((value) => value + 1)}
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-            >
-              <RefreshCw size={17} aria-hidden="true" />
-            </button>
+              label="重新运行联调"
+              busyLabel="正在重新运行联调"
+            />
           </div>
         </div>
       </section>

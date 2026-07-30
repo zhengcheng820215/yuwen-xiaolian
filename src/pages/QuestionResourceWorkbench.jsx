@@ -8,9 +8,9 @@ import {
   ChevronRight,
   FilePlus2,
   Plus,
-  RefreshCw,
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
+import RefreshIconButton from '../components/RefreshIconButton.jsx';
 import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
 import { requestQuestionStemOptimization } from '../api/questionStemOptimization.ts';
 import { requestRubricItemOptimization } from '../api/rubricItemOptimization.ts';
@@ -1173,19 +1173,17 @@ export default function QuestionResourceWorkbench() {
               </Link>
               <div>
                 <h1 className="text-lg font-semibold">{pageIdentity.title}</h1>
-                <p className="text-sm text-slate-500">{pageIdentity.subtitle}</p>
+                {pageIdentity.subtitle ? (
+                  <p className="text-sm text-slate-500">{pageIdentity.subtitle}</p>
+                ) : null}
               </div>
             </div>
-            <button
-              type="button"
+            <RefreshIconButton
               onClick={refreshWorkspaceWithConfirmation}
-              disabled={busy}
-              title="刷新审核数据"
-              aria-label="刷新审核数据"
-              className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-            >
-              <RefreshCw size={17} className={busy ? 'animate-spin' : ''} />
-            </button>
+              busy={busy}
+              label="刷新审核数据"
+              busyLabel="正在刷新审核数据"
+            />
           </div>
         </header>
       ) : (

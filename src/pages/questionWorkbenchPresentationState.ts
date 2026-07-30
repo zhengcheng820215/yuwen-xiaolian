@@ -117,7 +117,7 @@ export function resolveQuestionWorkbenchPageIdentity(input: {
     default:
       return {
         title: '题目修改与提交平台',
-        subtitle: '修改题目、重新检查并提交人工审核',
+        subtitle: '',
       };
   }
 }
