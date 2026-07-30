@@ -2,7 +2,7 @@
 
 首次审计日期：2026-07-29
 
-当前快照：P0 CLOSED / P1 COMMAND AND HIERARCHY BATCH CLOSED / P2 FIRST CLEANUP BATCH CLOSED / P1 ATOMICITY AND VISUAL ACCEPTANCE OPEN
+当前快照：P0 CLOSED / P1 COMMAND AND HIERARCHY BATCH CLOSED / P2 BATCH OBSERVABILITY CLOSED / P1 ATOMICITY AND REAL-MATERIAL CALIBRATION OPEN
 
 范围：题目编辑、保存、检查、提交人工审核、人工决定、冻结发布与失败恢复
 
@@ -760,3 +760,57 @@ Workbench 接入持久化 Quality Repository
 因此 P2 第一项完成后的准确状态是：
 
 > 正式页面已获得无旧缓存浏览器会话的视觉与交互证据，内容审核、学生预览、审核记录及返回素材定位均可用；审核摘要不会再把局部检查误报为完整录入检查。P2 第一项关闭，后续进入批量效率、Observation Link 原子性与真实十素材校准。
+
+## 十七、P2 第二项批次效率与可观察性记录
+
+完成日期：2026-07-30
+
+本批次不新增审核入口，只为既有审核链补齐统一统计口径和生产可观察性。
+
+工程实现：
+
+1. 新增批次可观察性领域汇总器，统一输出阻断、提醒、待复检、重复修改和各状态题目数量；
+2. 质量问题进度记录 `firstSeenAt`、`lastModifiedAt`、`lastRecheckedAt` 和 `resolvedAt`；
+3. 审核提交记录提交时间与次数，退回修改记录退回时间与次数；
+4. 统一计算阻断率、提醒人工接受率、平均审核耗时、平均发布耗时和平均问题关闭耗时；
+5. 审核页增加“批次处理概览”，页面不再自行拼装指标；
+6. 缺少明确历史时间戳时返回 `null` 并显示“暂无数据”，不使用通用更新时间推断业务耗时。
+
+指标口径：
+
+| 指标 | 口径 |
+|---|---|
+| 阻断率 | 当前存在阻断问题的 Draft 数 / 批次 Draft 总数 |
+| 提醒人工接受率 | 已接受提醒数 / 已形成决定的提醒总数 |
+| 重复修改 | 问题重新检查次数累计 |
+| 平均审核耗时 | `reviewSubmittedAt` 到 `review.reviewedAt` |
+| 平均发布耗时 | `review.reviewedAt` 到 `frozenVersion.frozenAt` |
+| 平均问题关闭耗时 | `firstSeenAt` 到 `resolvedAt` |
+
+自动化回归：
+
+| 验收项 | 结果 |
+|---|---|
+| `debug:question-review-batch-observability` | 11 / 11 PASS |
+| `debug:question-quality-revision-progress` | 18 / 18 PASS |
+| `debug:question-resource-intake` | 26 / 26 PASS |
+| `debug:question-workbench-command-e2e` | 6 / 6 PASS |
+| `debug:phase17-5b` | 11 / 11 PASS |
+| Production Build | PASS |
+
+浏览器验收：
+
+1. 真实三题批次正确显示 `3` 个题目、`1` 个待处理、`2` 个已发布；
+2. 批次处理概览正确展示四类问题计数和四项效率指标；
+3. 旧记录缺少时间戳时显示“暂无数据”，已有发布时间差显示 `0 分钟`；
+4. 桌面宽度和 `390px` 移动端均无横向溢出；
+5. 重启有效开发服务后，页面没有新增运行时错误。
+
+仍未关闭：
+
+1. Observation Link 与 Frozen Version 尚未形成同一原子事务；
+2. 真实十素材校准仍待执行。
+
+因此 P2 第二项完成后的准确状态是：
+
+> 批次审核已经具备统一的问题扫描、重复修改和时效指标，旧历史数据不会被伪造补齐；桌面与移动端均已形成真实页面证据。P2 批次效率与可观察性关闭，后续进入 Observation Link 原子性与真实十素材校准。

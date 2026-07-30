@@ -336,7 +336,9 @@ async function caseReviewBranches(): Promise<void> {
   for (const action of ['approve', 'revision_required', 'reject'] as const) {
     const draft = await createDraft(repo, `review-${action}`);
     await validateStructuredQuestionDraft(repo, draft.draftId, NOW);
-    await submitQuestionResourceForReview(repo, draft.draftId, NOW);
+    const submitted = await submitQuestionResourceForReview(repo, draft.draftId, NOW);
+    assert(submitted.reviewSubmittedAt === NOW, 'Review submission time was not recorded.');
+    assert(submitted.reviewSubmissionCount === 1, 'Review submission count was not recorded.');
     const review = await reviewQuestionResourceDraft(repo, {
       draftId: draft.draftId,
       action,
@@ -351,6 +353,10 @@ async function caseReviewBranches(): Promise<void> {
         ? 'rejected'
         : 'revision_required';
     assert(review.action === action && stored?.status === expectedStatus, `Review branch failed: ${action}`);
+    if (action === 'revision_required') {
+      assert(stored?.revisionRequestedAt === NOW, 'Revision request time was not recorded.');
+      assert(stored?.revisionRequestCount === 1, 'Revision request count was not recorded.');
+    }
   }
 }
 

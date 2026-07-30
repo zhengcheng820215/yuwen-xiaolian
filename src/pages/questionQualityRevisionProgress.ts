@@ -19,6 +19,10 @@ export type QuestionQualityIssueProgressItem = {
   recheckCount: number;
   firstSeenRevision: number;
   lastSeenRevision: number;
+  firstSeenAt?: string;
+  lastModifiedAt?: string;
+  lastRecheckedAt?: string;
+  resolvedAt?: string;
   resolvedAtAssessmentId?: string;
 };
 
@@ -70,6 +74,11 @@ export function reconcileQuestionQualityRevisionProgress(
         : 0,
       firstSeenRevision: prior?.firstSeenRevision || assessment.assessedDraftRevision,
       lastSeenRevision: assessment.assessedDraftRevision,
+      firstSeenAt: prior?.firstSeenAt || assessment.assessedAt,
+      lastModifiedAt: prior?.lastModifiedAt,
+      lastRecheckedAt: prior?.status === 'modified_pending_recheck'
+        ? assessment.assessedAt
+        : prior?.lastRecheckedAt,
     });
   }
 
@@ -79,6 +88,10 @@ export function reconcileQuestionQualityRevisionProgress(
       ...prior,
       status: 'resolved',
       lastSeenRevision: assessment.assessedDraftRevision,
+      lastRecheckedAt: prior.status === 'modified_pending_recheck'
+        ? assessment.assessedAt
+        : prior.lastRecheckedAt,
+      resolvedAt: assessment.assessedAt,
       resolvedAtAssessmentId: assessment.assessmentId,
     });
   }
@@ -95,6 +108,7 @@ export function markQuestionQualityIssuesModified(
   previous: QuestionQualityRevisionProgress | null,
   assessment: QuestionQualityAssessment | null | undefined,
   affectedChecks?: QuestionQualityCheck[],
+  now = new Date().toISOString(),
 ): QuestionQualityRevisionProgress | null {
   if (!previous && !assessment) return null;
   const base = reconcileQuestionQualityRevisionProgress(previous, assessment);
@@ -108,7 +122,7 @@ export function markQuestionQualityIssuesModified(
     ...base,
     items: base.items.map((item) => (
       item.status !== 'resolved' && targetChecks.has(item.check)
-        ? { ...item, status: 'modified_pending_recheck' }
+        ? { ...item, status: 'modified_pending_recheck', lastModifiedAt: now }
         : item
     )),
   };
@@ -119,6 +133,7 @@ export function markCurrentQuestionQualityIssueModified(
   assessment: QuestionQualityAssessment | null | undefined,
   affectedChecks: QuestionQualityCheck[],
   activeCheck?: QuestionQualityCheck | null,
+  now = new Date().toISOString(),
 ): QuestionQualityRevisionProgress | null {
   if (!previous && !assessment) return null;
   const base = reconcileQuestionQualityRevisionProgress(previous, assessment);
@@ -132,7 +147,7 @@ export function markCurrentQuestionQualityIssueModified(
     ...base,
     items: base.items.map((item) => (
       item.check === current.check && item.status === 'pending'
-        ? { ...item, status: 'modified_pending_recheck' }
+        ? { ...item, status: 'modified_pending_recheck', lastModifiedAt: now }
         : item
     )),
   };

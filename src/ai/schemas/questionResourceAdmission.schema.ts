@@ -141,6 +141,10 @@ export type QuestionQualityRevisionProgressSnapshot = {
     recheckCount: number;
     firstSeenRevision: number;
     lastSeenRevision: number;
+    firstSeenAt?: string;
+    lastModifiedAt?: string;
+    lastRecheckedAt?: string;
+    resolvedAt?: string;
     resolvedAtAssessmentId?: string;
   }>;
 };
@@ -169,6 +173,10 @@ export type StructuredQuestionDraft = {
   revision: number;
   latestValidationId?: string;
   latestReviewId?: string;
+  reviewSubmittedAt?: string;
+  reviewSubmissionCount?: number;
+  revisionRequestedAt?: string;
+  revisionRequestCount?: number;
   createdAt: string;
   updatedAt: string;
   version: typeof QUESTION_RESOURCE_ADMISSION_VERSION;
@@ -348,6 +356,10 @@ export function isStructuredQuestionDraft(value: unknown): value is StructuredQu
     Array.isArray(draft.tags) &&
     ['drafted', 'validation_failed', 'pending_review', 'revision_required', 'reviewed', 'rejected', 'archived'].includes(draft.status) &&
     isPositiveInteger(draft.revision) &&
+    (draft.reviewSubmittedAt === undefined || isNonEmptyString(draft.reviewSubmittedAt)) &&
+    (draft.reviewSubmissionCount === undefined || isNonNegativeInteger(draft.reviewSubmissionCount)) &&
+    (draft.revisionRequestedAt === undefined || isNonEmptyString(draft.revisionRequestedAt)) &&
+    (draft.revisionRequestCount === undefined || isNonNegativeInteger(draft.revisionRequestCount)) &&
     isNonEmptyString(draft.createdAt) &&
     isNonEmptyString(draft.updatedAt) &&
     draft.version === QUESTION_RESOURCE_ADMISSION_VERSION &&
@@ -365,4 +377,8 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isPositiveInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }

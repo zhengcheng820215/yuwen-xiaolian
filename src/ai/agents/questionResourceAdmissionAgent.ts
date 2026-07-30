@@ -383,6 +383,8 @@ export async function submitQuestionResourceForReview(
     status: 'pending_review',
     latestValidationId: validation.validationId,
     latestReviewId: undefined,
+    reviewSubmittedAt: now,
+    reviewSubmissionCount: (draft.reviewSubmissionCount || 0) + 1,
     updatedAt: now,
   });
 }
@@ -450,6 +452,12 @@ export async function reviewQuestionResourceDraft(
         ? 'revision_required'
         : 'rejected',
     latestReviewId: decision.reviewId,
+    revisionRequestedAt: input.action === 'revision_required'
+      ? now
+      : draft.revisionRequestedAt,
+    revisionRequestCount: input.action === 'revision_required'
+      ? (draft.revisionRequestCount || 0) + 1
+      : draft.revisionRequestCount,
     updatedAt: now,
   });
 

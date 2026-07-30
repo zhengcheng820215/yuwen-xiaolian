@@ -98,6 +98,7 @@
     "debug:question-stem-optimization": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionStemOptimizationDebug.ts",
     "debug:rubric-item-optimization": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runRubricItemOptimizationDebug.ts",
     "debug:question-quality-revision-progress": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionQualityRevisionProgressDebug.ts",
+    "debug:question-review-batch-observability": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionReviewBatchObservabilityDebug.ts",
     "debug:authoring-field-contract": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runAuthoringFieldContractDebug.ts",
     "debug:single-task-regeneration": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runSingleTaskRegenerationDebug.ts",
     "debug:training-task-group-planning": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runTrainingTaskGroupPlanningDebug.ts",

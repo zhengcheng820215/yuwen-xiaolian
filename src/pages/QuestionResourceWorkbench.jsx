@@ -1103,6 +1103,10 @@ export default function QuestionResourceWorkbench() {
           />
         </section>
 
+        {planReviewMode ? (
+          <BatchObservabilitySummary summary={snapshot.batchObservability} />
+        ) : null}
+
         {notice ? <Notice notice={notice} /> : null}
 
         {planReviewMode ? (
@@ -3192,6 +3196,78 @@ function SummaryItem({ label, value, tone, aligned = false }) {
   return <div><p className="text-xs font-semibold text-slate-500">{label}</p><p className={`mt-1 text-lg font-semibold ${tone === 'success' ? 'text-emerald-700' : tone === 'info' ? 'text-blue-700' : tone === 'warning' ? 'text-amber-700' : 'text-slate-950'}`}>{value}</p></div>;
 }
 
+function BatchObservabilitySummary({ summary }) {
+  if (!summary) return null;
+  const attentionCount = summary.blockedDraftCount + summary.warningDraftCount;
+  return (
+    <section className="mb-5 border-y border-slate-200 py-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-950">批次处理概览</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            {attentionCount
+              ? `当前 ${attentionCount} 道题需要关注`
+              : '当前没有待处理的质量问题'}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <ObservabilityMetric
+            label="阻断"
+            value={summary.blockedDraftCount}
+            tone={summary.blockedDraftCount ? 'danger' : 'neutral'}
+          />
+          <ObservabilityMetric
+            label="提醒"
+            value={summary.activeWarningCount}
+            tone={summary.activeWarningCount ? 'warning' : 'neutral'}
+          />
+          <ObservabilityMetric
+            label="待复检"
+            value={summary.awaitingRecheckDraftCount}
+            tone={summary.awaitingRecheckDraftCount ? 'warning' : 'neutral'}
+          />
+          <ObservabilityMetric
+            label="重复修改"
+            value={summary.repeatedModificationCount}
+            tone={summary.repeatedModificationCount ? 'warning' : 'neutral'}
+          />
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-xs text-slate-500">
+        <span>提醒接受率：{formatPercentMetric(summary.warningAcceptanceRate)}</span>
+        <span>平均审核耗时：{formatDurationMetric(summary.averageReviewDurationMinutes)}</span>
+        <span>平均发布耗时：{formatDurationMetric(summary.averagePublicationDurationMinutes)}</span>
+        <span>平均问题关闭耗时：{formatDurationMetric(summary.averageIssueResolutionMinutes)}</span>
+      </div>
+    </section>
+  );
+}
+
+function ObservabilityMetric({ label, value, tone }) {
+  const tones = {
+    danger: 'text-red-600',
+    warning: 'text-amber-700',
+    neutral: 'text-slate-950',
+  };
+  return (
+    <span className="whitespace-nowrap text-slate-500">
+      {label} <strong className={`font-semibold ${tones[tone] || tones.neutral}`}>{value}</strong>
+    </span>
+  );
+}
+
+function formatPercentMetric(value) {
+  return value === null || value === undefined
+    ? '暂无数据'
+    : `${Math.round(value * 100)}%`;
+}
+
+function formatDurationMetric(value) {
+  if (value === null || value === undefined) return '暂无数据';
+  if (value < 60) return `${value} 分钟`;
+  return `${Math.round((value / 60) * 10) / 10} 小时`;
+}
+
 function StatusText({ status, large = false }) {
   const tones = { validation_failed: 'text-rose-700', pending_review: 'text-blue-700', revision_required: 'text-amber-700', reviewed: 'text-blue-700', rejected: 'text-rose-700', drafted: 'text-slate-600', published: 'text-emerald-700' };
   return <span className={`${large ? 'text-sm font-semibold' : ''} ${tones[status] || 'text-slate-600'}`}>{statusLabels[status] || status}</span>;
@@ -3512,6 +3588,7 @@ const emptySnapshot = {
   versions: [],
   observationLinks: [],
   registryConsistency: { passed: true, issues: [] },
+  batchObservability: null,
 };
 const inputClass = 'min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none focus:border-blue-500 disabled:bg-slate-50';
 const textareaClass = 'w-full rounded-md border border-slate-200 bg-white p-3 text-sm leading-6 text-slate-950 outline-none focus:border-blue-500 disabled:bg-slate-50';

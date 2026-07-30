@@ -27,6 +27,10 @@ import {
   getOrAssessCurrentQuestionDraftQuality,
 } from '../ai/agents/questionQualityReviewGate.ts';
 import {
+  summarizeQuestionReviewBatchObservability,
+  type QuestionReviewBatchObservability,
+} from '../ai/agents/questionReviewBatchObservability.ts';
+import {
   freezeQuestionResourceDraftWithPersistedQuality,
   persistQuestionQualityBundle,
   requireCurrentPersistedQualityContext,
@@ -85,6 +89,7 @@ export type QuestionResourceWorkbenchSnapshot = {
   versions: FrozenQuestionResourceVersion[];
   observationLinks: ResourceObservationLink[];
   registryConsistency: Awaited<ReturnType<typeof validateResourceRegistryConsistency>>;
+  batchObservability: QuestionReviewBatchObservability;
 };
 
 export type QuestionResourceWorkbenchSnapshotOptions = {
@@ -160,30 +165,65 @@ export async function getQuestionResourceWorkbenchSnapshot(
     const materialVersionIds = new Set(scopedDrafts
       .map((draft) => draft.materialVersionId)
       .filter((value): value is string => Boolean(value)));
+    const scopedVersions = versions
+      .filter((version) => resourceIds.has(version.resourceId))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     return {
       drafts: scopedDrafts,
       materials: materials.filter((material) => materialVersionIds.has(material.materialVersionId)),
       registryEntries: registryEntries
         .filter((entry) => resourceIds.has(entry.resourceId))
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-      versions: versions
-        .filter((version) => resourceIds.has(version.resourceId))
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+      versions: scopedVersions,
       observationLinks: observationLinks
         .filter((link) => link.materialObservationPlanId === options.observationPlanId)
         .sort((a, b) => b.linkedAt.localeCompare(a.linkedAt)),
       registryConsistency,
+      batchObservability: await buildQuestionReviewBatchObservability(
+        scopedDrafts,
+        scopedVersions,
+      ),
     };
   }
 
+  const sortedDrafts = activeDrafts.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const sortedVersions = versions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   return {
-    drafts: activeDrafts.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    drafts: sortedDrafts,
     materials,
     registryEntries: registryEntries.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    versions: versions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    versions: sortedVersions,
     observationLinks: observationLinks.sort((a, b) => b.linkedAt.localeCompare(a.linkedAt)),
     registryConsistency,
+    batchObservability: await buildQuestionReviewBatchObservability(
+      sortedDrafts,
+      sortedVersions,
+    ),
   };
+}
+
+async function buildQuestionReviewBatchObservability(
+  drafts: StructuredQuestionDraft[],
+  versions: FrozenQuestionResourceVersion[],
+): Promise<QuestionReviewBatchObservability> {
+  const records = await Promise.all(drafts.map(async (draft) => {
+    const [validation, review] = await Promise.all([
+      draft.latestValidationId
+        ? repository.getValidation(draft.latestValidationId)
+        : Promise.resolve(null),
+      draft.latestReviewId
+        ? repository.getReview(draft.latestReviewId)
+        : Promise.resolve(null),
+    ]);
+    return {
+      draft,
+      validation,
+      review,
+      frozenVersion: versions.find((version) => version.sourceDraftId === draft.draftId) || null,
+    };
+  }));
+
+  return summarizeQuestionReviewBatchObservability(records);
 }
 
 export async function getQuestionResourceWorkbenchContext(
