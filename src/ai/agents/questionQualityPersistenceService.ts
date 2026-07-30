@@ -136,6 +136,7 @@ export async function reviewQuestionResourceDraftWithPersistedQuality(
     action: QuestionQualityReviewAction;
     reviewerId: string;
     notes: string;
+    returnRequest?: ResourceReviewDecision['returnRequest'];
     acceptedWarningCodes?: string[];
     now?: string;
   },
@@ -147,13 +148,6 @@ export async function reviewQuestionResourceDraftWithPersistedQuality(
   );
   if (!canApplyQualityReviewAction(context.bundle, input.action)) {
     throw new Error('Current quality bundle blocks approval.');
-  }
-  if (
-    input.action === 'approve' &&
-    context.bundle.decision === 'revision_recommended' &&
-    !input.notes.trim()
-  ) {
-    throw new Error('Approval with revision recommendation requires review notes.');
   }
   const acceptedWarningCodes = new Set(input.acceptedWarningCodes || []);
   if (

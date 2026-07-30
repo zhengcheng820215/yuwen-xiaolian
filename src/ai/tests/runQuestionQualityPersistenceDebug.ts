@@ -86,7 +86,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '06 multiple draft revisions are preserved and isolated', run: caseRevisionIsolation },
   { name: '07 missing persisted bundle blocks approval', run: caseMissingBundleBlocksApproval },
   { name: '08 unavailable semantic result blocks approval', run: caseUnavailableBlocksApproval },
-  { name: '09 revision recommendation approval requires notes', run: caseRevisionNotesRequired },
+  { name: '09 review notes are optional after warning decisions', run: caseRevisionNotesOptional },
   { name: '10 freeze atomically writes version registry and trace', run: caseAtomicFreeze },
   { name: '11 frozen trace survives runtime restart', run: caseTraceRestart },
   { name: '12 repeated freeze is idempotent with the same trace', run: caseFreezeIdempotency },
@@ -294,24 +294,28 @@ async function caseUnavailableBlocksApproval(): Promise<void> {
   });
 }
 
-async function caseRevisionNotesRequired(): Promise<void> {
+async function caseRevisionNotesOptional(): Promise<void> {
   await withRuntime(async (runtime) => {
     const fixture = await createQualityFixture(runtime, 'revision-notes', 'completed', 'strong_warning');
     await persistQuestionQualityBundle(runtime.quality, fixture);
     await submitQuestionResourceForReview(runtime.resources, fixture.draft.draftId, NOW);
-    await assertRejects(
-      () => reviewQuestionResourceDraftWithPersistedQuality(
-        runtime.resources,
-        runtime.quality,
-        {
-          draftId: fixture.draft.draftId,
-          action: 'approve',
-          reviewerId: 'reviewer',
-          notes: '',
-          now: NOW,
-        },
-      ),
-      'requires review notes',
+    const decision = await reviewQuestionResourceDraftWithPersistedQuality(
+      runtime.resources,
+      runtime.quality,
+      {
+        draftId: fixture.draft.draftId,
+        action: 'approve',
+        reviewerId: 'reviewer',
+        notes: '',
+        acceptedWarningCodes: fixture.deterministic.warnings.map(
+          (warning) => warning.code,
+        ),
+        now: NOW,
+      },
+    );
+    assert(
+      decision.action === 'approve' && decision.notes === '',
+      'Optional review notes were not preserved.',
     );
   });
 }

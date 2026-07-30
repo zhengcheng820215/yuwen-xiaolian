@@ -110,6 +110,13 @@ implements QuestionResourceAdmissionRepository {
     return cloneNullable(this.reviews.get(reviewId));
   }
 
+  async listReviews(resourceId?: string): Promise<ResourceReviewDecision[]> {
+    return [...this.reviews.values()]
+      .filter((review) => !resourceId || review.resourceId === resourceId)
+      .sort((left, right) => left.reviewedAt.localeCompare(right.reviewedAt))
+      .map(clone);
+  }
+
   async getVersion(resourceVersionId: string): Promise<FrozenQuestionResourceVersion | null> {
     return cloneNullable(this.versions.get(resourceVersionId));
   }

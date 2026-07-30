@@ -12,6 +12,7 @@ import {
   updateStructuredQuestionDraft,
   validateResourceRegistryConsistency,
   validateStructuredQuestionDraft,
+  withdrawQuestionResourceReviewSubmission,
   type CreateStructuredQuestionDraftInput,
 } from '../agents/questionResourceAdmissionAgent.ts';
 import {
@@ -55,6 +56,8 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '24 active publication revision is reused through review states', run: caseActivePublicationRevisionReuse },
   { name: '25 unchanged save does not create an empty revision', run: caseUnchangedUpdateKeepsRevision },
   { name: '26 stale expected revision is rejected', run: caseExpectedRevisionConflict },
+  { name: '27 author warning handling and structured return stay distinct', run: caseReviewResponsibilityBoundary },
+  { name: '28 review submission withdrawal and audit history stay consistent', run: caseReviewSubmissionAudit },
 ];
 
 async function main(): Promise<void> {
@@ -92,6 +95,112 @@ async function caseValidDraft(): Promise<void> {
   const result = await validateStructuredQuestionDraft(repo, draft.draftId, NOW);
   assert(result.passed, 'Expected valid draft to pass.');
   assert(result.issues.every((issue) => issue.severity !== 'error'), 'Expected no validation errors.');
+}
+
+async function caseReviewResponsibilityBoundary(): Promise<void> {
+  const repo = await repositoryWithMaterial();
+  const draft = await createDraft(repo, 'review-responsibility');
+  const validation = await validateStructuredQuestionDraft(repo, draft.draftId, NOW);
+  const acknowledgement = {
+    acknowledgementId: `${draft.draftId}:author-warning`,
+    draftId: draft.draftId,
+    draftRevision: draft.revision,
+    assessmentId: `${draft.draftId}:assessment`,
+    warningCode: 'difficulty_alignment',
+    action: 'accepted_current_design' as const,
+    rationale: '材料范围较小，作答只要求概括一个特点。',
+    acknowledgedBy: 'author-1',
+    acknowledgedAt: NOW,
+  };
+  const submitted = await submitQuestionResourceForReview(
+    repo,
+    draft.draftId,
+    NOW,
+    [acknowledgement],
+  );
+  assert(
+    submitted.warningAcknowledgements?.[0]?.rationale === acknowledgement.rationale,
+    'Author warning rationale was not persisted on submission.',
+  );
+
+  const review = await reviewQuestionResourceDraft(repo, {
+    draftId: draft.draftId,
+    action: 'revision_required',
+    reviewerId: 'reviewer-1',
+    notes: '',
+    returnRequest: {
+      issueType: 'difficulty',
+      problem: '当前难度与题目要求不一致。',
+      requirement: '重新校准难度后再次提交。',
+    },
+    warningDecisions: [{
+      warningDecisionId: `${draft.draftId}:review-warning`,
+      draftId: draft.draftId,
+      draftRevision: draft.revision,
+      assessmentId: acknowledgement.assessmentId,
+      warningCode: acknowledgement.warningCode,
+      decision: 'rejected',
+      reviewedBy: 'reviewer-1',
+      reviewedAt: LATER,
+    }],
+    now: LATER,
+  });
+  assert(validation.passed, 'Review responsibility fixture did not validate.');
+  assert(
+    review.returnRequest?.issueType === 'difficulty' &&
+    review.warningDecisions?.[0]?.decision === 'rejected',
+    'Structured return request or reviewer warning decision was not preserved.',
+  );
+}
+
+async function caseReviewSubmissionAudit(): Promise<void> {
+  const repo = await repositoryWithMaterial();
+  const draft = await createDraft(repo, 'review-submission-audit');
+  await validateStructuredQuestionDraft(repo, draft.draftId, NOW);
+
+  const submitted = await submitQuestionResourceForReview(
+    repo,
+    draft.draftId,
+    NOW,
+    [],
+    'author-1',
+  );
+  assert(submitted.revision === draft.revision, 'Submitting review created a content revision.');
+  assert(submitted.reviewSubmittedBy === 'author-1', 'Submitter identity was not preserved.');
+  assert(submitted.reviewSubmissionHistory?.length === 1, 'Submission history was not created.');
+
+  const withdrawn = await withdrawQuestionResourceReviewSubmission(repo, {
+    draftId: draft.draftId,
+    actorId: 'author-1',
+    now: LATER,
+  });
+  assert(withdrawn.status === 'drafted', 'Withdrawal did not restore the editable draft state.');
+  assert(withdrawn.revision === draft.revision, 'Withdrawal created a content revision.');
+  assert(!withdrawn.reviewSubmittedAt, 'Withdrawal retained the active submission time.');
+  assert(withdrawn.reviewSubmissionHistory?.length === 2, 'Withdrawal was not appended to audit history.');
+
+  const resubmittedAt = '2026-07-17T12:00:00.000Z';
+  const resubmitted = await submitQuestionResourceForReview(
+    repo,
+    draft.draftId,
+    resubmittedAt,
+    [],
+    'author-2',
+  );
+  assert(resubmitted.revision === draft.revision, 'Resubmission created a content revision.');
+  assert(resubmitted.reviewSubmissionCount === 2, 'Resubmission count was not incremented.');
+  assert(resubmitted.reviewSubmissionHistory?.length === 3, 'Resubmission audit history is incomplete.');
+
+  await reviewQuestionResourceDraft(repo, {
+    draftId: draft.draftId,
+    action: 'approve',
+    reviewerId: 'reviewer-1',
+    notes: 'Audit history verified.',
+    now: '2026-07-17T13:00:00.000Z',
+  });
+  const reviews = await repo.listReviews(draft.resourceId);
+  assert(reviews.length === 1, 'Review history query did not return the resource decision.');
+  assert(reviews[0]?.reviewerId === 'reviewer-1', 'Reviewer identity was not preserved.');
 }
 
 async function caseRepeatedValidationIsIdempotent(): Promise<void> {

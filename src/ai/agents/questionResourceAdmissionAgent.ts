@@ -16,6 +16,7 @@ import {
   isStructuredQuestionType,
   type FrozenQuestionResourceVersion,
   type QuestionAbilityMetadata,
+  type AuthorWarningAcknowledgement,
   type QuestionMaterialVersion,
   type QuestionResourceDifficulty,
   type QuestionResourceRubricItem,
@@ -367,6 +368,8 @@ export async function submitQuestionResourceForReview(
   repository: QuestionResourceAdmissionRepository,
   draftId: string,
   now = new Date().toISOString(),
+  warningAcknowledgements?: AuthorWarningAcknowledgement[],
+  submitterId = 'local-author',
 ): Promise<StructuredQuestionDraft> {
   const draft = await requireDraft(repository, draftId);
   if (draft.status === 'pending_review') {
@@ -384,7 +387,57 @@ export async function submitQuestionResourceForReview(
     latestValidationId: validation.validationId,
     latestReviewId: undefined,
     reviewSubmittedAt: now,
+    reviewSubmittedBy: submitterId,
     reviewSubmissionCount: (draft.reviewSubmissionCount || 0) + 1,
+    reviewSubmissionHistory: [
+      ...(draft.reviewSubmissionHistory || []),
+      {
+        eventId: `${draft.draftId}:r${draft.revision}:submitted:${(draft.reviewSubmissionCount || 0) + 1}`,
+        action: 'submitted',
+        draftRevision: draft.revision,
+        actorId: submitterId,
+        occurredAt: now,
+      },
+    ],
+    warningAcknowledgements: warningAcknowledgements
+      ? clone(warningAcknowledgements)
+      : draft.warningAcknowledgements,
+    updatedAt: now,
+  });
+}
+
+export async function withdrawQuestionResourceReviewSubmission(
+  repository: QuestionResourceAdmissionRepository,
+  input: {
+    draftId: string;
+    actorId: string;
+    now?: string;
+  },
+): Promise<StructuredQuestionDraft> {
+  const draft = await requireDraft(repository, input.draftId);
+  if (draft.status !== 'pending_review') {
+    throw new Error(`Draft cannot withdraw review submission from status: ${draft.status}`);
+  }
+  if (!nonEmpty(input.actorId)) throw new Error('actorId is required.');
+  const now = input.now || new Date().toISOString();
+  const withdrawalCount = (draft.reviewSubmissionHistory || [])
+    .filter((event) => event.action === 'withdrawn').length + 1;
+
+  return repository.saveDraft({
+    ...draft,
+    status: 'drafted',
+    reviewSubmittedAt: undefined,
+    reviewSubmittedBy: undefined,
+    reviewSubmissionHistory: [
+      ...(draft.reviewSubmissionHistory || []),
+      {
+        eventId: `${draft.draftId}:r${draft.revision}:withdrawn:${withdrawalCount}`,
+        action: 'withdrawn',
+        draftRevision: draft.revision,
+        actorId: input.actorId,
+        occurredAt: now,
+      },
+    ],
     updatedAt: now,
   });
 }
@@ -396,6 +449,7 @@ export async function reviewQuestionResourceDraft(
     action: ResourceReviewAction;
     reviewerId: string;
     notes: string;
+    returnRequest?: ResourceReviewDecision['returnRequest'];
     warningDecisions?: ResourceReviewDecision['warningDecisions'];
     qualityAssessmentBundleId?: string;
     deterministicAssessmentId?: string;
@@ -422,7 +476,9 @@ export async function reviewQuestionResourceDraft(
     throw new Error(`Draft cannot be reviewed from status: ${draft.status}`);
   }
   if (!nonEmpty(input.reviewerId)) throw new Error('reviewerId is required.');
-  if (!nonEmpty(input.notes)) throw new Error('Review notes are required.');
+  if (input.action === 'reject' && !nonEmpty(input.notes)) {
+    throw new Error('Review notes are required when rejecting a draft.');
+  }
   const validation = await requireCurrentPassedValidation(repository, draft);
   const now = input.now || new Date().toISOString();
   const decision: ResourceReviewDecision = {
@@ -438,6 +494,9 @@ export async function reviewQuestionResourceDraft(
     action: input.action,
     reviewerId: input.reviewerId,
     notes: input.notes.trim(),
+    returnRequest: input.returnRequest
+      ? clone(input.returnRequest)
+      : undefined,
     reviewedAt: now,
     warningDecisions: input.warningDecisions
       ? clone(input.warningDecisions)
@@ -470,6 +529,7 @@ function reviewCommandMatchesExisting(
     action: ResourceReviewAction;
     reviewerId: string;
     notes: string;
+    returnRequest?: ResourceReviewDecision['returnRequest'];
     warningDecisions?: ResourceReviewDecision['warningDecisions'];
     qualityAssessmentBundleId?: string;
     deterministicAssessmentId?: string;
@@ -481,6 +541,8 @@ function reviewCommandMatchesExisting(
     existing.action === input.action &&
     existing.reviewerId === input.reviewerId.trim() &&
     existing.notes === input.notes.trim() &&
+    JSON.stringify(existing.returnRequest || null) ===
+      JSON.stringify(input.returnRequest || null) &&
     existing.qualityAssessmentBundleId === input.qualityAssessmentBundleId &&
     existing.deterministicAssessmentId === input.deterministicAssessmentId &&
     existing.semanticAssessmentId === input.semanticAssessmentId &&

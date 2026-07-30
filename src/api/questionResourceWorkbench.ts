@@ -8,6 +8,7 @@ import {
   updateStructuredQuestionDraft,
   validateResourceRegistryConsistency,
   validateStructuredQuestionDraft,
+  withdrawQuestionResourceReviewSubmission,
   type CreateStructuredQuestionDraftInput,
   type StructuredQuestionDraftPatch,
 } from '../ai/agents/questionResourceAdmissionAgent.ts';
@@ -60,11 +61,13 @@ import type {
   ResourceObservationLink,
 } from '../ai/schemas/materialObservation.schema.ts';
 import type {
+  AuthorWarningAcknowledgement,
   FrozenQuestionResourceVersion,
   QuestionMaterialVersion,
   ResourceRegistryEntry,
   ResourceReviewAction,
   ResourceReviewDecision,
+  ResourceReviewReturnRequest,
   ResourceValidationResult,
   StructuredQuestionDraft,
 } from '../ai/schemas/questionResourceAdmission.schema.ts';
@@ -107,6 +110,7 @@ export type QuestionResourceWorkbenchContext = {
   material: QuestionMaterialVersion | null;
   validation: ResourceValidationResult | null;
   review: ResourceReviewDecision | null;
+  reviewHistory: ResourceReviewDecision[];
   qualityAssessment: QuestionQualityAssessment | null;
   semanticQualityAssessment: QuestionSemanticQualityAssessment | null;
   qualityAssessmentBundle: QuestionQualityAssessmentBundle | null;
@@ -237,10 +241,11 @@ export async function getQuestionResourceWorkbenchContext(
   const observationTask = await getObservationTaskForDraft(draft);
   const authoringFieldAdaptation = getAuthoringFieldAdaptation(draft, observationTask);
 
-  const [material, validation, review, qualityAssessment, publicationPreflight, frozenVersion, registryEntry, versionHistory] = await Promise.all([
+  const [material, validation, review, reviewHistory, qualityAssessment, publicationPreflight, frozenVersion, registryEntry, versionHistory] = await Promise.all([
     draft.materialVersionId ? repository.getMaterial(draft.materialVersionId) : Promise.resolve(null),
     draft.latestValidationId ? repository.getValidation(draft.latestValidationId) : Promise.resolve(null),
     draft.latestReviewId ? repository.getReview(draft.latestReviewId) : Promise.resolve(null),
+    repository.listReviews(draft.resourceId),
     getOrAssessCurrentQuestionDraftQuality(repository, qualityRepository, draft.draftId),
     getQuestionResourceWorkbenchPublicationPreflight(draft),
     repository.getVersionByDraftId(draft.draftId),
@@ -259,6 +264,7 @@ export async function getQuestionResourceWorkbenchContext(
     material,
     validation,
     review,
+    reviewHistory,
     qualityAssessment,
     semanticQualityAssessment: persistedQuality?.semantic || null,
     qualityAssessmentBundle: persistedQuality?.bundle || null,
@@ -360,11 +366,59 @@ export async function validateQuestionResourceWorkbenchDraft(
 export async function submitQuestionResourceWorkbenchReview(
   draftId: string,
   expectedDraftRevision?: number,
+  warningAcknowledgements: Array<{
+    warningCode: string;
+    rationale: string;
+  }> = [],
 ) {
   await requireExpectedDraftRevision(draftId, expectedDraftRevision, 'submit_review');
   await requireQuestionPublicationPreflight(draftId, 'question_review.submit');
-  await requireCurrentPersistedQualityContext(repository, qualityRepository, draftId);
-  return submitQuestionResourceForReview(repository, draftId);
+  const context = await requireCurrentPersistedQualityContext(
+    repository,
+    qualityRepository,
+    draftId,
+  );
+  const acknowledgementByCode = new Map(
+    warningAcknowledgements.map((item) => [item.warningCode, item.rationale.trim()]),
+  );
+  const missingAcknowledgement = context.deterministic.warnings.find(
+    (warning) => !acknowledgementByCode.get(warning.code),
+  );
+  if (missingAcknowledgement) {
+    throw new Error('提交审核前，请说明保留当前设置的理由。');
+  }
+  const acknowledgedAt = new Date().toISOString();
+  const records: AuthorWarningAcknowledgement[] = context.deterministic.warnings.map(
+    (warning) => ({
+      acknowledgementId: `${draftId}:r${context.draft.revision}:${context.deterministic.assessmentId}:${warning.code}:author`,
+      draftId,
+      draftRevision: context.draft.revision,
+      assessmentId: context.deterministic.assessmentId,
+      warningCode: warning.code,
+      action: 'accepted_current_design',
+      rationale: acknowledgementByCode.get(warning.code) || '',
+      acknowledgedBy: 'local-author',
+      acknowledgedAt,
+    }),
+  );
+  return submitQuestionResourceForReview(
+    repository,
+    draftId,
+    acknowledgedAt,
+    records,
+    'local-author',
+  );
+}
+
+export async function withdrawQuestionResourceWorkbenchReview(
+  draftId: string,
+  expectedDraftRevision?: number,
+) {
+  await requireExpectedDraftRevision(draftId, expectedDraftRevision, 'withdraw_review');
+  return withdrawQuestionResourceReviewSubmission(repository, {
+    draftId,
+    actorId: 'local-author',
+  });
 }
 
 export async function decideQuestionResourceWorkbenchReview(input: {
@@ -373,8 +427,18 @@ export async function decideQuestionResourceWorkbenchReview(input: {
   action: ResourceReviewAction;
   reviewerId: string;
   notes: string;
+  returnRequest?: ResourceReviewReturnRequest;
   acceptedWarningCodes?: string[];
 }) {
+  if (
+    input.action === 'revision_required' &&
+    (
+      !input.returnRequest?.problem.trim() ||
+      !input.returnRequest.requirement.trim()
+    )
+  ) {
+    throw new Error('退回修改时必须填写具体问题和修改要求。');
+  }
   await requireExpectedDraftRevision(
     input.draftId,
     input.expectedDraftRevision,
@@ -388,6 +452,7 @@ export async function decideQuestionResourceWorkbenchReview(input: {
       action: input.action,
       reviewerId: input.reviewerId,
       notes: input.notes,
+      returnRequest: input.returnRequest,
       acceptedWarningCodes: input.acceptedWarningCodes,
     },
   );

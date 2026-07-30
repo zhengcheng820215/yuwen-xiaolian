@@ -29,6 +29,7 @@ export type QuestionResourceAdmissionRepository = {
 
   saveReview(decision: ResourceReviewDecision): Promise<ResourceReviewDecision>;
   getReview(reviewId: string): Promise<ResourceReviewDecision | null>;
+  listReviews(resourceId?: string): Promise<ResourceReviewDecision[]>;
 
   getVersion(resourceVersionId: string): Promise<FrozenQuestionResourceVersion | null>;
   getVersionByDraftId(draftId: string): Promise<FrozenQuestionResourceVersion | null>;

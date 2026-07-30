@@ -163,6 +163,13 @@ implements QuestionResourceAdmissionRepository {
     return getRecord<ResourceReviewDecision>(REVIEW_STORE, reviewId);
   }
 
+  async listReviews(resourceId?: string): Promise<ResourceReviewDecision[]> {
+    const reviews = await getAllRecords<ResourceReviewDecision>(REVIEW_STORE);
+    return reviews
+      .filter((review) => !resourceId || review.resourceId === resourceId)
+      .sort((left, right) => left.reviewedAt.localeCompare(right.reviewedAt));
+  }
+
   async getVersion(resourceVersionId: string): Promise<FrozenQuestionResourceVersion | null> {
     return getRecord<FrozenQuestionResourceVersion>(VERSION_STORE, resourceVersionId);
   }

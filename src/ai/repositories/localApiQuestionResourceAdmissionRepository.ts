@@ -129,6 +129,13 @@ implements QuestionResourceAdmissionRepository {
     return cloneNullable(state.reviews.find((item) => item.reviewId === reviewId));
   }
 
+  async listReviews(resourceId?: string): Promise<ResourceReviewDecision[]> {
+    return (await this.client.read()).snapshot.data.questionResources.reviews
+      .filter((review) => !resourceId || review.resourceId === resourceId)
+      .sort((left, right) => left.reviewedAt.localeCompare(right.reviewedAt))
+      .map(clone);
+  }
+
   async getVersion(resourceVersionId: string): Promise<FrozenQuestionResourceVersion | null> {
     const state = (await this.client.read()).snapshot.data.questionResources;
     return cloneNullable(state.versions.find((item) => item.resourceVersionId === resourceVersionId));
@@ -252,7 +259,9 @@ function sameDraftEducationalContent(
     latestValidationId: _leftValidation,
     latestReviewId: _leftReview,
     reviewSubmittedAt: _leftReviewSubmittedAt,
+    reviewSubmittedBy: _leftReviewSubmittedBy,
     reviewSubmissionCount: _leftReviewSubmissionCount,
+    reviewSubmissionHistory: _leftReviewSubmissionHistory,
     revisionRequestedAt: _leftRevisionRequestedAt,
     revisionRequestCount: _leftRevisionRequestCount,
     updatedAt: _leftUpdatedAt,
@@ -263,7 +272,9 @@ function sameDraftEducationalContent(
     latestValidationId: _rightValidation,
     latestReviewId: _rightReview,
     reviewSubmittedAt: _rightReviewSubmittedAt,
+    reviewSubmittedBy: _rightReviewSubmittedBy,
     reviewSubmissionCount: _rightReviewSubmissionCount,
+    reviewSubmissionHistory: _rightReviewSubmissionHistory,
     revisionRequestedAt: _rightRevisionRequestedAt,
     revisionRequestCount: _rightRevisionRequestCount,
     updatedAt: _rightUpdatedAt,

@@ -41,6 +41,7 @@ import {
   submitQuestionResourceWorkbenchReview,
   retryQuestionResourceWorkbenchPublication,
   validateQuestionResourceWorkbenchDraft,
+  withdrawQuestionResourceWorkbenchReview,
 } from '../api/questionResourceWorkbench';
 
 const abilityOptions = [
@@ -150,8 +151,15 @@ export default function QuestionResourceWorkbench() {
   const [materialForm, setMaterialForm] = useState(initialMaterialForm);
   const [selectedDraftId, setSelectedDraftId] = useState(null);
   const [activePanel, setActivePanel] = useState('workflow');
-  const [reviewNotes, setReviewNotes] = useState('内容与元数据已人工核对。');
+  const [reviewNotes, setReviewNotes] = useState('');
   const [acceptedReviewWarningCodes, setAcceptedReviewWarningCodes] = useState([]);
+  const [authorWarningRationales, setAuthorWarningRationales] = useState({});
+  const [returnReviewOpen, setReturnReviewOpen] = useState(false);
+  const [returnReviewRequest, setReturnReviewRequest] = useState({
+    issueType: 'question_expression',
+    problem: '',
+    requirement: '',
+  });
   const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState(false);
   const [stemOptimization, setStemOptimization] = useState(null);
@@ -200,6 +208,14 @@ export default function QuestionResourceWorkbench() {
         ?.filter((decision) => decision.decision === 'accepted')
         .map((decision) => decision.warningCode) || [],
     );
+    setAuthorWarningRationales(Object.fromEntries(
+      (context?.draft?.warningAcknowledgements || []).map((item) => [
+        item.warningCode,
+        item.rationale,
+      ]),
+    ));
+    setReviewNotes(context?.review?.notes || '');
+    setReturnReviewOpen(false);
     if (!selectedDraftId) {
       setQualityRevisionProgress(null);
       return;
@@ -216,6 +232,7 @@ export default function QuestionResourceWorkbench() {
   }, [
     selectedDraftId,
     context?.draft?.qualityRevisionProgress,
+    context?.draft?.reviewSubmittedAt,
     context?.qualityAssessment?.assessmentId,
     context?.review?.reviewId,
   ]);
@@ -474,12 +491,29 @@ export default function QuestionResourceWorkbench() {
       () => submitQuestionResourceWorkbenchReview(
         selectedDraftId,
         context?.draft.revision,
+        (context?.qualityAssessment?.warnings || []).map((warning) => ({
+          warningCode: warning.code,
+          rationale: authorWarningRationales[warning.code] || '',
+        })),
       ),
       '题目已提交人工审核。',
     );
   }
 
-  async function review(action) {
+  async function withdrawReview() {
+    if (!window.confirm('撤回后该题将返回录入端继续编辑，当前检查记录会保留。确认撤回本次提交吗？')) {
+      return;
+    }
+    await run(
+      () => withdrawQuestionResourceWorkbenchReview(
+        selectedDraftId,
+        context?.draft.revision,
+      ),
+      '本次审核提交已撤回，可以继续修改题目。',
+    );
+  }
+
+  async function review(action, returnRequest) {
     const labels = {
       approve: '题目审核通过，可以进入正式发布。',
       revision_required: '题目已退回修改。修改后可重新检查并提交，现有正式版本不受影响。',
@@ -492,6 +526,7 @@ export default function QuestionResourceWorkbench() {
         action,
         reviewerId: 'local-reviewer',
         notes: reviewNotes,
+        returnRequest,
         acceptedWarningCodes: acceptedReviewWarningCodes,
       }),
       labels[action],
@@ -962,9 +997,16 @@ export default function QuestionResourceWorkbench() {
       setReviewNotes={setReviewNotes}
       acceptedReviewWarningCodes={acceptedReviewWarningCodes}
       setAcceptedReviewWarningCodes={setAcceptedReviewWarningCodes}
+      authorWarningRationales={authorWarningRationales}
+      setAuthorWarningRationales={setAuthorWarningRationales}
+      returnReviewOpen={returnReviewOpen}
+      setReturnReviewOpen={setReturnReviewOpen}
+      returnReviewRequest={returnReviewRequest}
+      setReturnReviewRequest={setReturnReviewRequest}
       busy={busy}
       onValidate={validateDraft}
       onSubmitReview={submitReview}
+      onWithdrawReview={withdrawReview}
       onReview={review}
       onFreeze={freezeDraft}
       onCreateRejectedRevision={createRejectedRevision}
@@ -1151,7 +1193,7 @@ function ResourceNavigator({ snapshot, selectedDraftId, busy, onNew, onSelect, o
         </p>
         {snapshot.drafts.length ? snapshot.drafts.map((draft, index) => {
           const hasFrozenVersion = snapshot.versions.some((version) => version.sourceDraftId === draft.draftId);
-          const canDiscard = !hasFrozenVersion && ['drafted', 'validation_failed', 'pending_review', 'revision_required', 'rejected'].includes(draft.status);
+          const canDiscard = !hasFrozenVersion && ['drafted', 'validation_failed', 'revision_required', 'rejected'].includes(draft.status);
           return (
           <div key={draft.draftId} className="relative mb-1">
             <button
@@ -1933,7 +1975,7 @@ function QuestionEditor({
 }
 
 function WorkflowPanel(props) {
-  const { activePanel, setActivePanel, context, form, material, previewResource, reviewNotes, setReviewNotes, acceptedReviewWarningCodes, setAcceptedReviewWarningCodes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onOptimizeStem, stemOptimizationBusy, focusedReview, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft, humanReviewStage } = props;
+  const { activePanel, setActivePanel, context, form, material, previewResource, reviewNotes, setReviewNotes, acceptedReviewWarningCodes, setAcceptedReviewWarningCodes, authorWarningRationales, setAuthorWarningRationales, returnReviewOpen, setReturnReviewOpen, returnReviewRequest, setReturnReviewRequest, busy, onValidate, onSubmitReview, onWithdrawReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onOptimizeStem, stemOptimizationBusy, focusedReview, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft, humanReviewStage } = props;
   const panelLabels = humanReviewStage
     ? [['workflow', '内容审核'], ['student', '学生预览'], ['review', '审核记录']]
     : [['workflow', '提交前检查'], ['student', '学生预览'], ['review', '检查记录']];
@@ -1955,9 +1997,16 @@ function WorkflowPanel(props) {
             setReviewNotes={setReviewNotes}
             acceptedReviewWarningCodes={acceptedReviewWarningCodes}
             setAcceptedReviewWarningCodes={setAcceptedReviewWarningCodes}
+            authorWarningRationales={authorWarningRationales}
+            setAuthorWarningRationales={setAuthorWarningRationales}
+            returnReviewOpen={returnReviewOpen}
+            setReturnReviewOpen={setReturnReviewOpen}
+            returnReviewRequest={returnReviewRequest}
+            setReturnReviewRequest={setReturnReviewRequest}
             busy={busy}
             onValidate={onValidate}
             onSubmitReview={onSubmitReview}
+            onWithdrawReview={onWithdrawReview}
             onReview={onReview}
             onFreeze={onFreeze}
             onCreateRejectedRevision={onCreateRejectedRevision}
@@ -1985,6 +2034,8 @@ function WorkflowPanel(props) {
 
 function QuestionReviewContent({ context, form, material, selectedQuestionNumber }) {
   const draft = context?.draft;
+  const [materialExpanded, setMaterialExpanded] = useState(false);
+  useEffect(() => setMaterialExpanded(false), [draft?.draftId]);
   return (
     <section className="rounded-md bg-white">
       <div className="border-b border-slate-200 px-5 py-4">
@@ -1994,7 +2045,13 @@ function QuestionReviewContent({ context, form, material, selectedQuestionNumber
               题目{selectedQuestionNumber || ''} · 内容审核
             </h2>
             <p className="mt-1 text-xs text-slate-500">
-              第 {draft?.revision || 1} 版 · 正式字段只读
+              Revision {draft?.revision || 1} · 审核期间只读
+              {draft?.reviewSubmittedAt
+                ? ` · 提交于 ${formatReviewTimestamp(draft.reviewSubmittedAt)}`
+                : ''}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              提交人：{formatActorName(draft?.reviewSubmittedBy)}
             </p>
           </div>
           <StatusBadge status={draft?.status || 'pending_review'} />
@@ -2033,9 +2090,19 @@ function QuestionReviewContent({ context, form, material, selectedQuestionNumber
         {material ? (
           <ReviewContentSection title="关联材料">
             <p className="text-sm font-semibold text-slate-900">{formatMaterialTitle(material.title)}</p>
-            <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-7 text-slate-600">
-              {material.content}
-            </p>
+            <p className="mt-1 text-xs text-slate-500">材料范围：{reviewMaterialRange(form)}</p>
+            {materialExpanded ? (
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-600">
+                {material.content}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setMaterialExpanded((value) => !value)}
+              className="mt-2 text-sm font-normal text-blue-700 hover:text-blue-800"
+            >
+              {materialExpanded ? '收起材料内容' : '查看材料内容'}
+            </button>
           </ReviewContentSection>
         ) : null}
       </div>
@@ -2070,6 +2137,12 @@ function ReviewSubmissionSummary({ context, acceptedWarningCodes, setAcceptedWar
     qualityBundle.assessedDraftRevision === context?.draft?.revision,
   );
   const warnings = assessment?.warnings || [];
+  const acknowledgementByCode = new Map(
+    (context?.draft?.warningAcknowledgements || []).map((item) => [
+      item.warningCode,
+      item,
+    ]),
+  );
   const locked = context?.draft?.status === 'reviewed';
   const passedCount = assessment
     ? Object.values(assessment.checks).filter((status) => status === 'pass').length
@@ -2126,6 +2199,7 @@ function ReviewSubmissionSummary({ context, acceptedWarningCodes, setAcceptedWar
           <div className="mt-3 space-y-3">
             {warnings.map((warning) => {
               const accepted = acceptedWarningCodes.includes(warning.code);
+              const acknowledgement = acknowledgementByCode.get(warning.code);
               return (
                 <div key={`${warning.code}-${warning.check}`} className="rounded-md bg-white p-3">
                   <p className="text-sm font-semibold text-amber-800">
@@ -2134,6 +2208,20 @@ function ReviewSubmissionSummary({ context, acceptedWarningCodes, setAcceptedWar
                   <p className="mt-1 text-xs leading-5 text-slate-600">
                     系统依据：{qualityWarningMessage(warning)}
                   </p>
+                  <dl className="mt-3 grid gap-2 rounded-md bg-slate-50 p-3 text-xs leading-5">
+                    <div>
+                      <dt className="font-semibold text-slate-700">录入人员处理</dt>
+                      <dd className="mt-0.5 text-slate-600">
+                        {acknowledgement ? '保留当前设置' : '历史提交未记录处理方式'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-slate-700">处理说明</dt>
+                      <dd className="mt-0.5 whitespace-pre-wrap text-slate-600">
+                        {acknowledgement?.rationale || '历史提交未记录处理说明，请结合题目内容人工确认。'}
+                      </dd>
+                    </div>
+                  </dl>
                   <button
                     type="button"
                     disabled={locked}
@@ -2161,7 +2249,7 @@ function ReviewSubmissionSummary({ context, acceptedWarningCodes, setAcceptedWar
   );
 }
 
-function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes, acceptedReviewWarningCodes, setAcceptedReviewWarningCodes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onOptimizeStem, stemOptimizationBusy, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft, focusedReview, humanReviewStage }) {
+function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes, acceptedReviewWarningCodes, setAcceptedReviewWarningCodes, authorWarningRationales, setAuthorWarningRationales, returnReviewOpen, setReturnReviewOpen, returnReviewRequest, setReturnReviewRequest, busy, onValidate, onSubmitReview, onWithdrawReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onOptimizeStem, stemOptimizationBusy, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft, focusedReview, humanReviewStage }) {
   if (!context) return <EmptyText>先保存 Draft，再执行正式校验与审核。</EmptyText>;
   const {
     draft,
@@ -2219,6 +2307,16 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
     qualityAssessment?.warnings.every(
       (warning) => acceptedReviewWarningCodes.includes(warning.code),
     ),
+  );
+  const unresolvedReviewWarningCount = (qualityAssessment?.warnings || []).filter(
+    (warning) => !acceptedReviewWarningCodes.includes(warning.code),
+  ).length;
+  const authorWarningsReady = (qualityAssessment?.warnings || []).every(
+    (warning) => Boolean(authorWarningRationales?.[warning.code]?.trim()),
+  );
+  const returnRequestReady = Boolean(
+    returnReviewRequest?.problem.trim() &&
+    returnReviewRequest?.requirement.trim(),
   );
   const semanticQualityUnavailable = Boolean(
     qualityAssessmentBundle?.decision === 'semantic_unavailable' ||
@@ -2468,13 +2566,37 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
       {currentStep === 2 ? (
         <ActionStep index="2" title="提交人工审核">
           {qualityAssessment?.decision === 'revision_recommended' ? (
-            <p className="mb-3 text-sm leading-6 text-amber-800">
-              质量检查建议先修改。你仍可提交人工审核，由审核者结合警告作最终决定。
-            </p>
+            <div className="mb-3 space-y-3">
+              <p className="text-sm leading-6 text-amber-800">
+                质量检查仍有提醒。若保留当前设置，请逐项填写理由，审核者会据此作出决定。
+              </p>
+              {(qualityAssessment.warnings || []).map((warning) => (
+                <div key={warning.code} className="rounded-md bg-amber-50 p-3">
+                  <p className="text-sm font-semibold text-amber-900">
+                    {qualityCheckLabel(warning.check, false)}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-amber-800">
+                    系统依据：{qualityWarningMessage(warning)}
+                  </p>
+                  <label className="mt-3 block text-xs font-semibold text-slate-700">
+                    保留当前设置的理由
+                  </label>
+                  <AutoGrowTextarea
+                    value={authorWarningRationales?.[warning.code] || ''}
+                    onChange={(event) => setAuthorWarningRationales((current) => ({
+                      ...current,
+                      [warning.code]: event.target.value,
+                    }))}
+                    rows={2}
+                    placeholder="说明为什么当前设计仍然合适"
+                  />
+                </div>
+              ))}
+            </div>
           ) : null}
           <button
             type="button"
-            disabled={busy || !qualityAssessment || !qualityAssessmentBundle || qualityResultStale}
+            disabled={busy || !qualityAssessment || !qualityAssessmentBundle || qualityResultStale || !authorWarningsReady}
             onClick={onSubmitReview}
             className={activeWorkflowButtonClass}
           >
@@ -2489,14 +2611,104 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
                 : '当前题目尚无完整质量检查结果，请重新执行结构检查。'}
             </p>
           ) : null}
+          {Boolean(qualityAssessment?.warnings.length) && !authorWarningsReady ? (
+            <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+              请先填写每项提醒的保留理由，再提交题目人工审核。
+            </p>
+          ) : null}
         </ActionStep>
       ) : null}
 
       {currentStep === 3 ? (
         <ActionStep index="3" title="题目人工审核">
-          <AutoGrowTextarea value={reviewNotes} onChange={(event) => setReviewNotes(event.target.value)} rows={3} placeholder="填写审核说明" />
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-2">
+            <p className="text-xs leading-5 text-slate-600">
+              提交人：{formatActorName(draft.reviewSubmittedBy)} ·
+              {draft.reviewSubmittedAt ? ` ${formatReviewTimestamp(draft.reviewSubmittedAt)}` : ' 提交时间未知'}
+            </p>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onWithdrawReview}
+              className="shrink-0 text-xs font-normal text-blue-700 hover:text-blue-800 disabled:text-slate-400"
+            >
+              撤回提交
+            </button>
+          </div>
+          {unresolvedReviewWarningCount > 0 ? (
+            <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+              还需确认 {unresolvedReviewWarningCount} 项提醒，完成后可以审核通过。
+            </p>
+          ) : (
+            <p className="mb-3 text-xs text-emerald-700">所有待确认事项已完成。</p>
+          )}
+          <label className="block text-sm font-semibold text-slate-900">审核说明（可选）</label>
+          <p className="mt-1 text-xs text-slate-500">记录本次审核的补充说明。</p>
+          <AutoGrowTextarea value={reviewNotes} onChange={(event) => setReviewNotes(event.target.value)} rows={3} placeholder="可填写审核说明" />
+          {returnReviewOpen ? (
+            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+              <p className="text-sm font-semibold text-amber-950">退回录入修改</p>
+              <p className="mt-1 text-xs leading-5 text-amber-800">
+                该题将退回录入端。修改后会形成新 Revision，并需要重新提交审核。
+              </p>
+              <label className="mt-3 block text-xs font-semibold text-slate-700">问题类型</label>
+              <select
+                value={returnReviewRequest.issueType}
+                onChange={(event) => setReturnReviewRequest((current) => ({
+                  ...current,
+                  issueType: event.target.value,
+                }))}
+                className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-blue-600 focus:outline-none"
+              >
+                <option value="question_expression">题目表达</option>
+                <option value="ability_target">能力目标</option>
+                <option value="difficulty">难度设置</option>
+                <option value="rubric">评分标准</option>
+                <option value="answer_scope">作答范围</option>
+                <option value="student_presentation">学生呈现</option>
+                <option value="other">其他</option>
+              </select>
+              <label className="mt-3 block text-xs font-semibold text-slate-700">具体问题</label>
+              <AutoGrowTextarea
+                value={returnReviewRequest.problem}
+                onChange={(event) => setReturnReviewRequest((current) => ({
+                  ...current,
+                  problem: event.target.value,
+                }))}
+                rows={2}
+                placeholder="说明当前内容存在的具体问题"
+              />
+              <label className="mt-3 block text-xs font-semibold text-slate-700">修改要求</label>
+              <AutoGrowTextarea
+                value={returnReviewRequest.requirement}
+                onChange={(event) => setReturnReviewRequest((current) => ({
+                  ...current,
+                  requirement: event.target.value,
+                }))}
+                rows={2}
+                placeholder="说明录入人员需要完成的修改"
+              />
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReturnReviewOpen(false)}
+                  className="min-h-9 rounded-md border border-[#666666] px-4 text-xs text-slate-800"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || !returnRequestReady}
+                  onClick={() => onReview('revision_required', returnReviewRequest)}
+                  className="min-h-9 rounded-md bg-red-600 px-4 text-xs text-white disabled:bg-slate-200 disabled:text-slate-400"
+                >
+                  确认退回
+                </button>
+              </div>
+            </div>
+          ) : null}
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <button type="button" disabled={busy} onClick={() => onReview('revision_required')} className="min-h-10 rounded-md border border-[#666666] px-2 text-sm font-normal text-slate-800 disabled:border-slate-200 disabled:text-slate-400">退回修改</button>
+            <button type="button" disabled={busy} onClick={() => setReturnReviewOpen(true)} className="min-h-10 rounded-md border border-[#666666] px-2 text-sm font-normal text-slate-800 disabled:border-slate-200 disabled:text-slate-400">退回录入修改</button>
             <button
               type="button"
               disabled={busy || !acceptedAllReviewWarnings || semanticQualityUnavailable}
@@ -3047,6 +3259,7 @@ function ReviewPreview({ context, form, material, qualityResultStale = false, qu
   );
   if (humanReviewStage) {
     const review = context?.review;
+    const reviewTimeline = buildReviewTimeline(context);
     return (
       <div className="space-y-5">
         <div>
@@ -3057,14 +3270,40 @@ function ReviewPreview({ context, form, material, qualityResultStale = false, qu
         </div>
         <ReviewBlock title="提交记录" rows={[
           ['题目版本', `第 ${draft?.revision || 1} 版`],
+          ['提交人', formatActorName(draft?.reviewSubmittedBy)],
+          ['提交时间', draft?.reviewSubmittedAt ? formatReviewTimestamp(draft.reviewSubmittedAt) : '未记录'],
           ['当前状态', statusLabels[draft?.status] || draft?.status || '未知'],
           ['检查状态', context?.assessmentState === 'current' ? '当前有效' : '需要重新检查'],
         ]} />
+        <section>
+          <h4 className="text-sm font-semibold text-slate-950">审核时间线</h4>
+          {reviewTimeline.length ? (
+            <ol className="mt-3 space-y-3">
+              {reviewTimeline.map((event) => (
+                <li key={event.id} className="border-l-2 border-blue-200 pl-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-900">{event.label}</p>
+                    <time className="text-xs text-slate-500">{formatReviewTimestamp(event.occurredAt)}</time>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {formatActorName(event.actorId)} · Revision {event.revision}
+                  </p>
+                  {event.detail ? (
+                    <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-slate-600">{event.detail}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="mt-2 rounded-md bg-slate-50 px-3 py-3 text-sm text-slate-600">尚无审核流程记录。</p>
+          )}
+        </section>
         {review ? (
           <ReviewBlock title="人工审核决定" rows={[
             ['审核结果', review.action === 'approve' ? '审核通过' : review.action === 'revision_required' ? '退回修改' : '不采用'],
+            ['审核人', formatActorName(review.reviewerId)],
             ['审核说明', review.notes],
-            ['审核时间', review.reviewedAt],
+            ['审核时间', formatReviewTimestamp(review.reviewedAt)],
           ]} />
         ) : (
           <p className="rounded-md bg-slate-50 px-3 py-3 text-sm text-slate-600">
@@ -3407,6 +3646,19 @@ function optionLabel(options, value) {
   return options.find(([optionValue]) => optionValue === value)?.[1] || value;
 }
 
+function formatReviewTimestamp(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+}
+
 function readTagValue(tags, prefix) {
   return tags?.find((tag) => tag.startsWith(prefix))?.slice(prefix.length) || null;
 }
@@ -3499,6 +3751,58 @@ function localizeLegacySourceText(value) {
     .replaceAll('Material Observation Plan', '材料观测计划')
     .replaceAll('Material', '学习材料')
     .replaceAll('资源 Draft', '资源草稿');
+}
+
+function formatActorName(actorId) {
+  const actorLabels = {
+    'local-author': '本机录入人员',
+    'local-reviewer': '本机审核人员',
+  };
+  return actorLabels[actorId] || actorId || '未记录';
+}
+
+function reviewMaterialRange(form) {
+  const scope = form?.readingScope;
+  if (scope === 'paragraph_range') {
+    const start = Number(form?.startParagraph);
+    const end = Number(form?.endParagraph);
+    if (Number.isFinite(start) && Number.isFinite(end)) return `第 ${start}—${end} 段`;
+  }
+  if (scope === 'single_paragraph') {
+    const paragraph = Number(form?.startParagraph);
+    if (Number.isFinite(paragraph)) return `第 ${paragraph} 段`;
+  }
+  return '全文';
+}
+
+function buildReviewTimeline(context) {
+  const submissionEvents = (context?.draft?.reviewSubmissionHistory || []).map((event) => ({
+    id: event.eventId,
+    label: event.action === 'withdrawn' ? '撤回审核提交' : '提交题目人工审核',
+    detail: event.action === 'withdrawn'
+      ? '题目退回录入状态，未创建新的内容 Revision。'
+      : '当前 Revision 进入人工审核。',
+    actorId: event.actorId,
+    occurredAt: event.occurredAt,
+    revision: event.draftRevision,
+  }));
+  const reviewEvents = (context?.reviewHistory || []).map((review) => ({
+    id: review.reviewId,
+    label: review.action === 'approve'
+      ? '题目人工审核通过'
+      : review.action === 'revision_required'
+        ? '退回录入修改'
+        : '题目不采用',
+    detail: review.returnRequest?.specificIssue
+      ? `${review.returnRequest.specificIssue}${review.returnRequest.modificationRequirement ? `\n修改要求：${review.returnRequest.modificationRequirement}` : ''}`
+      : review.notes,
+    actorId: review.reviewerId,
+    occurredAt: review.reviewedAt,
+    revision: review.reviewedDraftRevision,
+  }));
+  return [...submissionEvents, ...reviewEvents]
+    .filter((event) => event.occurredAt)
+    .sort((left, right) => left.occurredAt.localeCompare(right.occurredAt));
 }
 
 function toDraftInput(form) {

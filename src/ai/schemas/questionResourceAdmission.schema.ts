@@ -149,6 +149,14 @@ export type QuestionQualityRevisionProgressSnapshot = {
   }>;
 };
 
+export type QuestionReviewSubmissionEvent = {
+  eventId: string;
+  action: 'submitted' | 'withdrawn';
+  draftRevision: number;
+  actorId: string;
+  occurredAt: string;
+};
+
 export type StructuredQuestionDraft = {
   draftId: string;
   resourceId: string;
@@ -174,7 +182,10 @@ export type StructuredQuestionDraft = {
   latestValidationId?: string;
   latestReviewId?: string;
   reviewSubmittedAt?: string;
+  reviewSubmittedBy?: string;
   reviewSubmissionCount?: number;
+  reviewSubmissionHistory?: QuestionReviewSubmissionEvent[];
+  warningAcknowledgements?: AuthorWarningAcknowledgement[];
   revisionRequestedAt?: string;
   revisionRequestCount?: number;
   createdAt: string;
@@ -227,6 +238,31 @@ export type ReviewWarningDecision = {
   reviewedAt: string;
 };
 
+export type AuthorWarningAcknowledgement = {
+  acknowledgementId: string;
+  draftId: string;
+  draftRevision: number;
+  assessmentId: string;
+  warningCode: string;
+  action: 'accepted_current_design';
+  rationale: string;
+  acknowledgedBy: string;
+  acknowledgedAt: string;
+};
+
+export type ResourceReviewReturnRequest = {
+  issueType:
+    | 'question_expression'
+    | 'ability_target'
+    | 'difficulty'
+    | 'rubric'
+    | 'answer_scope'
+    | 'student_presentation'
+    | 'other';
+  problem: string;
+  requirement: string;
+};
+
 export type ResourceReviewDecision = {
   reviewId: string;
   draftId: string;
@@ -240,6 +276,7 @@ export type ResourceReviewDecision = {
   action: ResourceReviewAction;
   reviewerId: string;
   notes: string;
+  returnRequest?: ResourceReviewReturnRequest;
   reviewedAt: string;
   warningDecisions?: ReviewWarningDecision[];
 };
@@ -357,7 +394,22 @@ export function isStructuredQuestionDraft(value: unknown): value is StructuredQu
     ['drafted', 'validation_failed', 'pending_review', 'revision_required', 'reviewed', 'rejected', 'archived'].includes(draft.status) &&
     isPositiveInteger(draft.revision) &&
     (draft.reviewSubmittedAt === undefined || isNonEmptyString(draft.reviewSubmittedAt)) &&
+    (draft.reviewSubmittedBy === undefined || isNonEmptyString(draft.reviewSubmittedBy)) &&
     (draft.reviewSubmissionCount === undefined || isNonNegativeInteger(draft.reviewSubmissionCount)) &&
+    (
+      draft.reviewSubmissionHistory === undefined ||
+      (
+        Array.isArray(draft.reviewSubmissionHistory) &&
+        draft.reviewSubmissionHistory.every((event) => (
+          isNonEmptyString(event.eventId) &&
+          ['submitted', 'withdrawn'].includes(event.action) &&
+          isPositiveInteger(event.draftRevision) &&
+          isNonEmptyString(event.actorId) &&
+          isNonEmptyString(event.occurredAt)
+        ))
+      )
+    ) &&
+    (draft.warningAcknowledgements === undefined || Array.isArray(draft.warningAcknowledgements)) &&
     (draft.revisionRequestedAt === undefined || isNonEmptyString(draft.revisionRequestedAt)) &&
     (draft.revisionRequestCount === undefined || isNonNegativeInteger(draft.revisionRequestCount)) &&
     isNonEmptyString(draft.createdAt) &&

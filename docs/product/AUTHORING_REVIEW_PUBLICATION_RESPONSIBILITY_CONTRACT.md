@@ -724,5 +724,62 @@ type ReviewReadinessSummary = {
 5. 审核记录不外显内部 Draft ID；
 6. 最终页面加载与交互未产生新的运行错误。
 
-P1 仍保留独立 `WarningAcknowledgement` 理由持久化、结构化
-`ReviewChangeRequest` 和更完整历史审核记录，不得将本次 P0 通过解释为职责契约全部完成。
+## 十六、2026-07-30 P0 提醒处理与退回闭环补强
+
+本轮继续收口录入端与审核端的职责分离，完成以下 P0 工程项：
+
+1. 新增独立 `AuthorWarningAcknowledgement`，记录录入人员保留当前设计的理由；
+2. 审核端按“系统提醒 → 录入人员处理 → 处理说明 → 审核者决定”展示完整链条；
+3. `ReviewWarningDecision` 继续独立记录审核者接受或拒绝，不复用录入处理状态；
+4. 审核说明改为可选且默认空白，不再预填审核结论；
+5. 未决提醒数量直接显示在审核决策区，存在未决事项时禁用“审核通过”；
+6. 新增结构化 `ResourceReviewReturnRequest`，退回时分别记录问题类型、具体问题和修改要求；
+7. 待人工审核题目不再提供直接删除入口，避免资源管理操作与审核裁决混用；
+8. 正式工作台 API 强制结构化退回；底层旧调用保持兼容，避免破坏历史数据恢复。
+
+自动化验收：
+
+- Question Resource Admission：`27 / 27 PASS`；
+- Question Quality Persistence：`24 / 24 PASS`；
+- Question Workbench Command E2E：`6 / 6 PASS`；
+- Production Build：`PASS`；
+- `git diff --check`：`PASS`。
+
+P1 仍保留更完整的历史审核记录、提交人身份与审核侧“撤回提交”等资源治理入口，
+不得将本次 P0 通过解释为职责契约全部完成。
+
+## 十七、2026-07-30 P1 审核审计与安全撤回
+
+本轮 P1 不增加新的审核判断，只补齐审核流程的身份、时间和恢复能力：
+
+1. 每次提交或撤回审核均写入 `reviewSubmissionHistory`，记录 Revision、操作者与时间；
+2. 当前提交单独记录 `reviewSubmittedBy`，审核记录继续记录 `reviewerId`，两种身份不得混用；
+3. 审核记录页按时间顺序展示提交、撤回、重新提交、审核通过和退回修改；
+4. 审核决定可以按 `resourceId` 查询完整历史，不再只显示当前一条决定；
+5. “撤回提交”只允许在 `pending_review` 执行，恢复为录入状态，但不创建内容 Revision；
+6. 撤回后保留既有 Validation、Assessment 与完整审计记录；内容修改后仍按既有规则使旧检查失效；
+7. 重新提交增加提交次数并追加审计事件，不覆盖之前的提交与撤回记录；
+8. 审核内容页默认只显示关联材料标题和阅读范围，全文由审核者主动展开；
+9. 审核工作台不外显内部 Draft ID、Review ID 等工程标识；
+10. 已形成审核决定后不再允许通过撤回入口改写流程，必须使用既有退回或发布状态机。
+
+统一语义：
+
+```text
+提交审核 / 撤回提交
+→ 流程状态与审计事件变化
+→ 不创建内容 Revision
+
+修改题目 / 评分 / 训练设置
+→ 内容发生变化
+→ 保存时创建或更新受控 Revision
+→ 旧 Assessment 按规则失效
+```
+
+自动化验收：
+
+- Question Resource Admission：`28 / 28 PASS`；
+- Question Quality Persistence：`24 / 24 PASS`；
+- Question Workbench Command E2E：`6 / 6 PASS`；
+- Production Build：`PASS`；
+- `git diff --check`：`PASS`。
