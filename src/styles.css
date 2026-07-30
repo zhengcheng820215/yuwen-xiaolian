@@ -106,19 +106,28 @@ button {
 
 .material-resource-workbench :where(input, select, textarea):focus-visible,
 .question-resource-workbench :where(input, select, textarea):focus-visible {
-  border-width: 2px;
+  border-width: 1px;
   border-color: #2563eb;
   outline: none;
-  box-shadow: none;
+  box-shadow: 0 0 0 1px rgb(37 99 235 / 30%);
+}
+
+.material-resource-workbench .material-mode-switch {
+  border-radius: 8px;
+  background: #f1f1f1;
 }
 
 .material-resource-workbench .material-mode-button {
   font-size: 14px;
   font-weight: 400;
+  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
 }
 
 .material-resource-workbench .material-mode-button.is-active {
   font-weight: 600;
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 4px rgb(15 23 42 / 12%);
 }
 
 :where(.material-resource-workbench, .question-resource-workbench) {

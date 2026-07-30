@@ -51,14 +51,24 @@ export class LocalApiFormalResourceClient {
   async mutate<T>(
     mutation: (data: SharedFormalResourceData) => T,
   ): Promise<T> {
-    const envelope = await this.read();
-    if (!envelope.status.initialized) {
-      throw new Error('Shared formal resource store is not initialized.');
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const envelope = await this.read();
+      if (!envelope.status.initialized) {
+        throw new Error('Shared formal resource store is not initialized.');
+      }
+      const data = cloneSharedFormalResourceValue(envelope.snapshot.data);
+      const result = mutation(data);
+      try {
+        await this.replace(envelope.snapshot.revision, data);
+        return cloneSharedFormalResourceValue(result);
+      } catch (error) {
+        if (attempt === maxAttempts || !isSharedStoreRevisionConflict(error)) {
+          throw error;
+        }
+      }
     }
-    const data = cloneSharedFormalResourceValue(envelope.snapshot.data);
-    const result = mutation(data);
-    await this.replace(envelope.snapshot.revision, data);
-    return cloneSharedFormalResourceValue(result);
+    throw new Error('Shared resource mutation retry exhausted.');
   }
 
   private async request(url: string, init: RequestInit): Promise<SharedFormalResourceEnvelope> {
@@ -82,4 +92,9 @@ export class LocalApiFormalResourceClient {
       status: cloneSharedFormalResourceValue(payload.status),
     };
   }
+}
+
+function isSharedStoreRevisionConflict(error: unknown): boolean {
+  return error instanceof Error &&
+    error.message.startsWith('Shared resource revision conflict:');
 }

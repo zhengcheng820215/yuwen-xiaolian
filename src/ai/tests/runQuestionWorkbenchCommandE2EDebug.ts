@@ -16,6 +16,9 @@ import type {
   QuestionResourceRubricItem,
   StructuredQuestionDraft,
 } from '../schemas/questionResourceAdmission.schema.ts';
+import {
+  getReturnIssueEditorTargetIds,
+} from '../../pages/questionWorkbenchPresentationState.ts';
 
 const NOW = '2026-07-30T10:00:00.000Z';
 const LATER = '2026-07-30T10:10:00.000Z';
@@ -27,6 +30,7 @@ const cases = [
   ['04 repeated submit keeps one pending review transition', repeatedSubmitIsIdempotent],
   ['05 repeated review keeps one immutable decision', repeatedReviewIsIdempotent],
   ['06 repeated publish keeps one Frozen Version and Registry entry', repeatedPublishIsIdempotent],
+  ['07 returned Draft is located, revised, rechecked, and resubmitted in place', returnedDraftResubmitsInPlace],
 ] as const;
 
 async function main(): Promise<void> {
@@ -210,6 +214,87 @@ async function repeatedPublishIsIdempotent(): Promise<void> {
   expect(first.version.resourceVersionId === retry.version.resourceVersionId, 'Repeated publish created another Frozen Version.');
   expect((await fixture.resources.listVersions()).length === 1, 'Version repository contains duplicates.');
   expect((await fixture.resources.listRegistryEntries()).length === 1, 'Registry contains duplicate entries.');
+}
+
+async function returnedDraftResubmitsInPlace(): Promise<void> {
+  const fixture = await submittedFixture('returned');
+  const submitted = await fixture.resources.getDraft(fixture.draft.draftId);
+  expect(submitted?.status === 'pending_review', 'Fixture did not enter pending review.');
+  const originalDraftId = submitted.draftId;
+  const originalRevision = submitted.revision;
+  const returnRequest = {
+    issueType: 'question_expression' as const,
+    problem: '题干没有明确要求引用材料依据。',
+    requirement: '在题干中补充“结合材料中的具体动作”。',
+  };
+
+  const returnDecision = await reviewQuestionResourceDraftWithQuality(
+    fixture.resources,
+    fixture.quality,
+    {
+      draftId: originalDraftId,
+      action: 'revision_required',
+      reviewerId: 'reviewer-p1',
+      notes: '退回录入端补充材料依据。',
+      returnRequest,
+      now: NOW,
+    },
+  );
+  const returned = await fixture.resources.getDraft(originalDraftId);
+  expect(returnDecision.returnRequest?.issueType === 'question_expression', 'Return reason was not preserved.');
+  expect(returned?.status === 'revision_required', 'Returned Draft did not enter revision_required.');
+  expect(returned?.draftId === originalDraftId, 'Return flow replaced the Draft identity.');
+
+  const targetIds = getReturnIssueEditorTargetIds(returnRequest.issueType, {
+    planReviewMode: true,
+  });
+  expect(
+    targetIds[0] === 'question-stem-editor',
+    'Return flow did not locate the question stem editor.',
+  );
+
+  const revised = await updateStructuredQuestionDraft(
+    fixture.resources,
+    originalDraftId,
+    {
+      questionStem: `${returned.questionStem} 请结合材料中的具体动作说明。`,
+    },
+    LATER,
+    { expectedRevision: originalRevision },
+  );
+  expect(revised.draftId === originalDraftId, 'Revision created a different Draft.');
+  expect(revised.revision === originalRevision + 1, 'Revision did not advance exactly once.');
+  expect(revised.latestReviewId === undefined, 'Revised content retained the stale review decision.');
+
+  const validation = await validateStructuredQuestionDraft(
+    fixture.resources,
+    originalDraftId,
+    LATER,
+    revised.revision,
+  );
+  expect(validation.passed, 'Revised Draft did not pass structural validation.');
+  const assessment = await getOrAssessCurrentQuestionDraftQuality(
+    fixture.resources,
+    fixture.quality,
+    originalDraftId,
+    LATER,
+  );
+  expect(
+    assessment.assessedDraftRevision === revised.revision,
+    'Quality assessment did not bind to the revised content.',
+  );
+
+  const resubmitted = await submitQuestionResourceForQualityReview(
+    fixture.resources,
+    fixture.quality,
+    originalDraftId,
+    LATER,
+  );
+  expect(resubmitted.status === 'pending_review', 'Revised Draft was not resubmitted.');
+  expect(resubmitted.draftId === originalDraftId, 'Resubmit created a different Draft.');
+  expect(resubmitted.revision === revised.revision, 'Resubmit created an extra content Revision.');
+  expect((await fixture.resources.listDrafts()).length === 1, 'Return loop created duplicate Drafts.');
+  expect((await fixture.resources.listReviews()).length === 1, 'Return loop duplicated the prior review decision.');
 }
 
 async function submittedFixture(suffix: string) {

@@ -7,6 +7,7 @@ import {
   ChevronDown,
   LoaderCircle,
   RotateCcw,
+  Save,
   Trash2,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -58,6 +59,10 @@ import {
   MATERIAL_PRODUCTION_COMMANDS,
 } from './materialResourceProductionCommandState.ts';
 import {
+  executeQuestionReviewSubmission,
+  QuestionReviewSubmissionStageError,
+} from './materialQuestionReviewSubmission.ts';
+import {
   canRemoveTrainingTask,
   MIN_TRAINING_TASK_COUNT,
   removeTrainingTaskAt,
@@ -106,13 +111,13 @@ const responseFormatOptions = [
   ['boolean', '判断'],
 ];
 const statusLabels = {
-  draft: '未提交审核', pending_review: '等待审核', revision_required: '需要修订',
-  reviewed: '计划已审核', rejected: '已拒绝', superseded: '已被新版本替代',
+  draft: '未提交确认', pending_review: '等待训练计划确认', revision_required: '需要修订',
+  reviewed: '训练计划已确认', rejected: '已拒绝', superseded: '已被新版本替代',
 };
 const draftStatusLabels = {
   drafted: '草稿',
   validation_failed: '需重新检查',
-  pending_review: '待审核',
+  pending_review: '待题目人工审核',
   revision_required: '退回修改',
 };
 const abilityLabels = Object.fromEntries(abilityOptions);
@@ -156,7 +161,7 @@ export default function MaterialResourceProductionWorkbench() {
     preferredAbilityIds: [],
     requestedFocusIds: [],
   });
-  const [materialForm, setMaterialForm] = useState({ title: '', content: '', description: '人工录入素材', copyrightNote: '' });
+  const [materialForm, setMaterialForm] = useState(createEmptyMaterialForm);
   const [notice, setNotice] = useState(null);
   const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -170,6 +175,12 @@ export default function MaterialResourceProductionWorkbench() {
   const [activeSummaryKey, setActiveSummaryKey] = useState(null);
   const [materialPreviewExpanded, setMaterialPreviewExpanded] = useState(false);
   const pendingDiscardActionRef = useRef(null);
+  const materialFormHasInput = Boolean(
+    materialForm.title.trim()
+    || materialForm.content.trim()
+    || materialForm.copyrightNote.trim()
+    || materialForm.description.trim() !== '人工录入素材',
+  );
 
   useEffect(() => {
     refresh(routeSelection).catch((error) => setNotice(errorNotice(error)));
@@ -429,8 +440,17 @@ export default function MaterialResourceProductionWorkbench() {
     );
     if (material) {
       setMaterialMode('existing');
-      setMaterialForm({ title: '', content: '', description: '人工录入素材', copyrightNote: '' });
+      setMaterialForm(createEmptyMaterialForm());
     }
+  }
+
+  function clearMaterialForm() {
+    if (!materialFormHasInput) return;
+    const confirmed = window.confirm('确定清空当前未保存的素材内容吗？此操作无法撤销。');
+    if (!confirmed) return;
+    setMaterialForm(createEmptyMaterialForm());
+    setDuplicateMaterial(null);
+    setNotice(null);
   }
 
   function useDuplicateMaterial() {
@@ -447,7 +467,7 @@ export default function MaterialResourceProductionWorkbench() {
     setMaterialMode('existing');
     setSelectedMaterialId(material.materialVersionId);
     setSelectedPlanId('');
-    setMaterialForm({ title: '', content: '', description: '人工录入素材', copyrightNote: '' });
+    setMaterialForm(createEmptyMaterialForm());
     setNotice({ type: 'success', message: `已切换到已有学习材料${formatMaterialTitle(material.title)}。` });
   }
 
@@ -974,30 +994,28 @@ export default function MaterialResourceProductionWorkbench() {
     if (!requireAvailableCommand(MATERIAL_PRODUCTION_COMMANDS.submitForQuestionReview)) return;
     const planId = selectedPlan.materialObservationPlanId;
     const materialVersionId = selectedPlan.materialVersionId;
-    let status = selectedPlan.status;
 
     setBusy(true);
     setNotice(null);
     try {
-      if (['draft', 'revision_required'].includes(status)) {
-        await submitProductionObservationPlan(planId);
-        status = 'pending_review';
-      }
-      if (status === 'pending_review') {
-        await approveProductionObservationPlan(planId);
-        status = 'reviewed';
-      }
-      if (status === 'reviewed' && planDrafts.length < selectedPlan.taskPlans.length) {
-        await (isPhase17BatchAMaterial(materialVersionId)
+      await executeQuestionReviewSubmission({
+        initialPlanStatus: selectedPlan.status,
+        existingDraftCount: planDrafts.length,
+        taskPlanCount: selectedPlan.taskPlans.length,
+        submitPlan: () => submitProductionObservationPlan(planId),
+        approvePlan: () => approveProductionObservationPlan(planId),
+        createDrafts: () => (isPhase17BatchAMaterial(materialVersionId)
           ? createPhase17BatchADraftsForReview(materialVersionId)
-          : createProductionQuestionDrafts(planId));
-      }
+          : createProductionQuestionDrafts(planId)),
+      });
 
       await refresh({ materialVersionId, planId });
       navigate(`/question-resource-workbench?mode=plan-review&planId=${encodeURIComponent(planId)}&materialVersionId=${encodeURIComponent(materialVersionId)}`);
     } catch (error) {
       await refresh({ materialVersionId, planId });
-      setNotice(errorNotice(error));
+      setNotice(error instanceof QuestionReviewSubmissionStageError
+        ? { type: 'error', message: error.message }
+        : errorNotice(error));
     } finally {
       setBusy(false);
     }
@@ -1012,7 +1030,7 @@ export default function MaterialResourceProductionWorkbench() {
       setBaselinePreview(baseline);
       setToast({
         id: Date.now(),
-        message: `当前浏览器资源已导出：${baseline.counts.materials} 篇学习材料，${baseline.counts.drafts} 道待审核资源。`,
+        message: `当前浏览器资源已导出：${baseline.counts.materials} 篇学习材料，${baseline.counts.drafts} 道待人工审核题目。`,
       });
     } catch (error) {
       setNotice(errorNotice(error));
@@ -1187,7 +1205,7 @@ export default function MaterialResourceProductionWorkbench() {
             <Link to="/internal" aria-label="返回内部入口" className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"><ArrowLeft size={18} /></Link>
             <div>
               <h1 className="text-lg font-semibold">素材资源录入平台</h1>
-              <p className="text-sm text-slate-500">Phase 17.2 · 最小生产工具</p>
+              <p className="text-sm text-slate-500">学习材料与训练任务录入</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -1230,7 +1248,7 @@ export default function MaterialResourceProductionWorkbench() {
                 </p>
                 {baselinePreview && (
                   <p className="mt-2 text-sm font-medium text-amber-950">
-                    当前快照：{baselinePreview.counts.materials} 篇学习材料、{baselinePreview.counts.plans} 个训练计划、{baselinePreview.counts.drafts} 道待审核资源。
+                    当前快照：{baselinePreview.counts.materials} 篇学习材料、{baselinePreview.counts.plans} 个训练计划、{baselinePreview.counts.drafts} 道待人工审核题目。
                   </p>
                 )}
               </div>
@@ -1271,10 +1289,10 @@ export default function MaterialResourceProductionWorkbench() {
         <div className="mt-2 space-y-10">
           <section id="material-resource-editor" className="scroll-mt-28">
             <div className="flex justify-center">
-              <div className="inline-flex items-center gap-1" aria-label="素材录入方式">
-                <button type="button" onClick={showExistingMaterials} disabled={activeMaterials.length === 0} className={`material-mode-button h-10 whitespace-nowrap rounded px-3 ${materialMode === 'existing' ? 'is-active bg-emerald-600 text-white' : 'text-slate-600'} disabled:opacity-40`}>已有素材</button>
-                <button type="button" onClick={showNewMaterialForm} className={`material-mode-button h-10 whitespace-nowrap rounded px-3 ${materialMode === 'new' ? 'is-active bg-emerald-600 text-white' : 'text-slate-600'}`}>素材录入</button>
-                <button type="button" onClick={showRetiredMaterials} disabled={retiredMaterials.length === 0} className={`material-mode-button h-10 whitespace-nowrap rounded px-3 ${materialMode === 'retired' ? 'is-active bg-emerald-600 text-white' : 'text-slate-600'} disabled:opacity-40`}>停用素材（{retiredMaterials.length}）</button>
+              <div className="material-mode-switch inline-flex items-center p-1" aria-label="素材录入方式">
+                <button type="button" onClick={showNewMaterialForm} className={`material-mode-button h-10 w-[120px] whitespace-nowrap rounded-md ${materialMode === 'new' ? 'is-active' : 'text-slate-600'}`}>素材录入</button>
+                <button type="button" onClick={showExistingMaterials} disabled={activeMaterials.length === 0} className={`material-mode-button h-10 w-[120px] whitespace-nowrap rounded-md ${materialMode === 'existing' ? 'is-active' : 'text-slate-600'} disabled:opacity-40`}>已有素材</button>
+                <button type="button" onClick={showRetiredMaterials} disabled={retiredMaterials.length === 0} className={`material-mode-button h-10 w-[120px] whitespace-nowrap rounded-md ${materialMode === 'retired' ? 'is-active' : 'text-slate-600'} disabled:opacity-40`}>停用素材（{retiredMaterials.length}）</button>
               </div>
             </div>
 
@@ -1301,7 +1319,7 @@ export default function MaterialResourceProductionWorkbench() {
                         </h2>
                       </div>
                       <Metric
-                        label="待审核资源"
+                        label="待人工审核题目"
                         value={selectedMaterialResourceDetails.pendingReviews.length}
                         active={activeSummaryKey === 'pendingReviews'}
                         onClick={() => setActiveSummaryKey((current) => current === 'pendingReviews' ? null : 'pendingReviews')}
@@ -1361,7 +1379,7 @@ export default function MaterialResourceProductionWorkbench() {
                 )}
                 {!selectedMaterial && (
                   <div className="mt-4 border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-950">
-                    请先选择一篇学习材料，查看并处理对应的待审核资源和已发布练习。
+                    请先选择一篇学习材料，查看并处理对应的待人工审核题目和已发布练习。
                   </div>
                 )}
               </div>
@@ -1401,7 +1419,16 @@ export default function MaterialResourceProductionWorkbench() {
                   <label className="block text-sm font-semibold">来源说明<input value={materialForm.description} onChange={(event) => setMaterialForm((value) => ({ ...value, description: event.target.value }))} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
                   <label className="block text-sm font-semibold">版权备注<input value={materialForm.copyrightNote} onChange={(event) => setMaterialForm((value) => ({ ...value, copyrightNote: event.target.value }))} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
                 </div>
-                <button type="button" onClick={addMaterial} disabled={busy || !materialForm.title.trim() || !materialForm.content.trim()} className="mt-5 inline-flex h-10 w-full items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40">保存素材</button>
+                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                  <button type="button" onClick={clearMaterialForm} disabled={busy || !materialFormHasInput} className="flex h-10 w-[240px] items-center justify-center gap-2 rounded-md border border-[#666666] bg-white px-4 text-sm font-semibold text-slate-900 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40">
+                    <Trash2 aria-hidden="true" size={18} />
+                    清空内容
+                  </button>
+                  <button type="button" onClick={addMaterial} disabled={busy || !materialForm.title.trim() || !materialForm.content.trim()} className="flex h-10 w-[240px] items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40">
+                    <Save aria-hidden="true" size={18} />
+                    保存素材
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1843,7 +1870,7 @@ export default function MaterialResourceProductionWorkbench() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <h2 className="text-lg font-semibold">提交题目审核</h2>
-              <p className="mt-2 max-w-[720px] text-sm leading-6 text-slate-600">确认本次提交的版本、训练覆盖与校验状态。提交后将创建或恢复对应的待审核资源，不会覆盖当前训练任务版本。</p>
+              <p className="mt-2 max-w-[720px] text-sm leading-6 text-slate-600">确认本次提交的版本、训练覆盖与检查状态。提交后将创建或恢复对应的待人工审核题目，不会覆盖当前训练任务版本。</p>
             </div>
             {materialPlans.length > 1 && (
               <select value={selectedPlan?.materialObservationPlanId || ''} onChange={(event) => setSelectedPlanId(event.target.value)} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
@@ -1928,7 +1955,7 @@ export default function MaterialResourceProductionWorkbench() {
                     title={commandAvailability.submitForQuestionReview.reason}
                     className="flex h-10 w-52 items-center justify-center rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"
                   >
-                    {busy ? '正在准备待审核资源' : '提交题目审核'}
+                    {busy ? '正在准备待人工审核题目' : '提交题目人工审核'}
                   </button>
                 </div>
               )}
@@ -2134,8 +2161,8 @@ function MaterialContentPreview({ paragraphs, expanded, onToggle }) {
 function SummaryMetricDetails({ metricKey, details, onOpenQuestion }) {
   const configurations = {
     pendingReviews: {
-      title: '待审核资源明细',
-      empty: '目前没有待审核资源。',
+      title: '待人工审核题目明细',
+      empty: '目前没有待人工审核题目。',
       items: details.pendingReviews,
       onOpen: onOpenQuestion,
       renderTitle: (item) => item.title,
@@ -2272,8 +2299,8 @@ function TaskWorkflowBadge({ status }) {
     checking: ['待检查', 'bg-amber-50 text-amber-700'],
     automatic_pass: ['自动检查通过', 'bg-emerald-50 text-emerald-700'],
     editing: ['修改中', 'bg-blue-50 text-blue-700'],
-    pending_review: ['待审核', 'bg-violet-50 text-violet-700'],
-    reviewed: ['已审核通过', 'bg-emerald-50 text-emerald-700'],
+    pending_review: ['待题目人工审核', 'bg-violet-50 text-violet-700'],
+    reviewed: ['已纳入当前计划', 'bg-emerald-50 text-emerald-700'],
     frozen: ['已发布', 'bg-emerald-50 text-emerald-700'],
     revision_required: ['待修改', 'bg-amber-50 text-amber-700'],
     rejected: ['已拒绝', 'bg-rose-50 text-rose-700'],
@@ -2295,14 +2322,14 @@ function TaskReviewOverview({ groups, onAction }) {
           <p className="mt-1 text-sm text-slate-600">
             {needsAdjustment.length > 0
               ? `当前有 ${needsAdjustment.length} 个任务需要调整，处理后可进入审核。`
-              : '当前训练任务均可进入审核。'}
+              : '当前训练任务均已通过检查。'}
           </p>
         </div>
         <div className="flex flex-wrap gap-3 text-sm">
           <span className="text-slate-600">{groups.length} 个任务</span>
           <span className="inline-flex items-center gap-1.5 text-emerald-700">
             <CheckCircle2 aria-hidden="true" size={16} />
-            {readyCount} 个可进入审核
+            {readyCount} 个训练任务已通过检查
           </span>
           <span className={`inline-flex items-center gap-1.5 ${needsAdjustment.length ? 'text-amber-700' : 'text-slate-500'}`}>
             <AlertTriangle aria-hidden="true" size={16} />
@@ -3586,6 +3613,14 @@ function createSingleTaskRegenerationAttemptId(observationTaskPlanId) {
 }
 function taskEditorTitle(index) {
   return `训练任务${index + 1}`;
+}
+function createEmptyMaterialForm() {
+  return {
+    title: '',
+    content: '',
+    description: '人工录入素材',
+    copyrightNote: '',
+  };
 }
 function savedQuestionTitle(index) {
   const labels = ['一', '二', '三', '四', '五', '六'];

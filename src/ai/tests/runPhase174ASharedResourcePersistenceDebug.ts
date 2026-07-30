@@ -40,6 +40,8 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: 'A8 failed commit rolls back without partial state', run: caseFailedCommitRollback },
   { name: 'A9 split UTF-8 request chunks preserve Chinese content', run: caseSplitUtf8Request },
   { name: 'A10 Plan lifecycle transitions preserve the content revision', run: casePlanLifecycleTransition },
+  { name: 'A11 concurrent mutations retry without data loss', run: caseConcurrentMutationsRetryWithoutDataLoss },
+  { name: 'A12 warning acknowledgement submission preserves the content revision', run: caseWarningAcknowledgementSubmission },
 ];
 
 async function main(): Promise<void> {
@@ -200,6 +202,70 @@ async function caseStaleWriteBlocked(): Promise<void> {
         (material) => material.materialVersionId === 'material-stale-b:v1',
       ),
       'Stale write polluted shared state.',
+    );
+  });
+}
+
+async function caseConcurrentMutationsRetryWithoutDataLoss(): Promise<void> {
+  await withRuntime(async ({ clientA, clientB }) => {
+    await clientA.initialize(createEmptySharedFormalResourceData(), 'concurrent-mutation-baseline');
+
+    await Promise.all([
+      clientA.mutate((data) => {
+        data.questionResources.materials.push(materialFixture('material-concurrent-a:v1', 'A'));
+        return 'material-concurrent-a:v1';
+      }),
+      clientB.mutate((data) => {
+        data.questionResources.materials.push(materialFixture('material-concurrent-b:v1', 'B'));
+        return 'material-concurrent-b:v1';
+      }),
+    ]);
+
+    const latest = await clientA.read();
+    const materialIds = latest.snapshot.data.questionResources.materials.map(
+      (material) => material.materialVersionId,
+    );
+    assert(
+      materialIds.includes('material-concurrent-a:v1'),
+      'First concurrent mutation disappeared.',
+    );
+    assert(
+      materialIds.includes('material-concurrent-b:v1'),
+      'Retried concurrent mutation disappeared.',
+    );
+  });
+}
+
+async function caseWarningAcknowledgementSubmission(): Promise<void> {
+  await withRuntime(async ({ clientA }) => {
+    await clientA.initialize(createEmptySharedFormalResourceData(), 'warning-acknowledgement-baseline');
+    const repository = new LocalApiQuestionResourceAdmissionRepository(clientA);
+    await createMaterial(repository);
+    const draft = await createDraft(repository, 'warning-acknowledgement');
+    await validateStructuredQuestionDraft(repository, draft.draftId, NOW);
+
+    const submitted = await submitQuestionResourceForReview(
+      repository,
+      draft.draftId,
+      NOW,
+      [{
+        acknowledgementId: `${draft.draftId}:author-warning`,
+        draftId: draft.draftId,
+        draftRevision: draft.revision,
+        assessmentId: `${draft.draftId}:assessment`,
+        warningCode: 'quality.difficulty.incoherent',
+        action: 'accepted_current_design',
+        rationale: '材料范围较小，当前难度仍然合适。',
+        acknowledgedBy: 'author-1',
+        acknowledgedAt: NOW,
+      }],
+    );
+
+    assert(submitted.status === 'pending_review', 'Warning acknowledgement did not submit the draft.');
+    assert(submitted.revision === draft.revision, 'Workflow metadata changed the content revision.');
+    assert(
+      submitted.warningAcknowledgements?.[0]?.warningCode === 'quality.difficulty.incoherent',
+      'Warning acknowledgement was not persisted.',
     );
   });
 }

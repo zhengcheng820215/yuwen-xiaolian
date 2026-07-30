@@ -253,6 +253,27 @@ async function caseMissingBundleBlocksApproval(): Promise<void> {
       ),
       'persisted quality bundle',
     );
+    const revisionDecision = await reviewQuestionResourceDraftWithPersistedQuality(
+      runtime.resources,
+      runtime.quality,
+      {
+        draftId: fixture.draft.draftId,
+        action: 'revision_required',
+        reviewerId: 'reviewer',
+        notes: '检查记录不完整，退回录入端重新检查。',
+        returnRequest: {
+          issueType: 'rubric',
+          problem: '评分项缺少明确判定边界。',
+          requirement: '请补充评分项并重新检查。',
+        },
+        now: NOW,
+      },
+    );
+    assert(
+      revisionDecision.action === 'revision_required' &&
+      !revisionDecision.qualityAssessmentBundleId,
+      'Missing quality bundle incorrectly blocked a revision decision.',
+    );
   });
 }
 

@@ -471,6 +471,12 @@ Phase 17 录入端的能力目标、具体训练点、题目、学生任务与�
 
 Phase 17 的录入、题目人工审核与发布正式化遵循 [Authoring, Review and Publication Responsibility Contract](../product/AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md)：录入端负责发现问题、修改内容和提交前检查；审核端在 `pending_review` 后只读查看最终内容、学生预览与录入检查摘要，并对必须确认的 Warning 作出接受或退回决定；发布过程只验证当前 Revision、Assessment、Human Review 与正式化写入的一致性。`ReviewWarningDecision` 绑定 `draftId + draftRevision + assessmentId + warningCode`，未决提醒阻止审核通过。P1 已补齐提交人、审核人、提交时间、撤回与重提事件以及按资源聚合的审核时间线；`pending_review` 可以安全撤回为录入状态，但撤回只改变流程状态并追加审计事件，不创建内容 Revision。审核内容页默认只显示关联材料标题和范围，全文按需展开。审核通过后的 Revision 不可原地修改；发布部分失败只重试缺失写入，不回滚审核或增加正式版本。
 
+审核页的检查记录完整性现在也是统一硬门禁：当前 Revision 缺少有效 Validation、Assessment Bundle 或当前规则版本结果时，待确认事项不可接受、审核通过不可执行，只能退回录入端重新检查。`退回录入修改` 是审核者的质量裁决；`撤回至录入端` 是提交者在形成审核决定前的低频治理操作，位于“更多操作”，两者均不直接创建内容 Revision。状态投影按对象分层：组级显示“训练计划已确认”，任务卡显示“自动检查通过 / 待调整 / 已纳入当前计划”，题目显示“待人工审核 / 审核通过”，正式资源显示“已发布”。首层版本使用“第 N 版”，内部 Revision 与 ID 仅进入追溯视图。
+
+退回后的恢复链路继续沿用同一题目的 `materialVersionId + planId + draftId`：确认退回后直接打开被退回题目的录入状态，按结构化 `issueType` 定位题目、训练目标、难度或评分标准，并显示“待修改 → 修改待保存 → 已保存待重新检查 → 可重新提交”的进度。退回本身不创建 Draft，实际保存才形成受控的新 Revision；重新提交只追加同一资源根的提交事件，不得批量生成兄弟题目。具体规则见职责边界契约第十九章与题目审核工作流契约第十八章。
+
+“提交题目人工审核”已经收敛为可恢复的阶段化命令：训练计划提交、训练计划确认和待审核题目创建分别返回完成结果；中途失败时页面说明已完成阶段，重试从持久化状态继续，不重复提交计划、确认计划或创建 Draft。素材录入页的创建操作同时完成交互规范收口：模式顺序为“素材录入 / 已有素材 / 停用素材”，保存与清空是同组的主次操作，输入聚焦统一使用不改变尺寸的 `1px` 蓝色边框与 `1px / 30%` 蓝色透明外投影。颜色和控件语义以 [Product Color Semantics](../product/PRODUCT_COLOR_SEMANTICS.md) 为准。
+
 训练任务规划遵循 [Single Training Task Regeneration Contract](../product/SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) 与 [Training Task Group AI Planning Contract](../product/TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md)。单任务重生成、补充候选与整组替代候选均先进入 Candidate Session，人工采用只更新编辑缓冲区；同一轮修改只维护一个可变工作草稿，反复保存或连续采用候选不堆叠 Revision。只有提交题目审核才冻结一个不可变 Plan Revision；从不可变版本开始下一轮实质修改时才创建新的工作草稿。自动化回归已覆盖三轮连续候选采用后仅保留一个 Revision，真实浏览器闭环仍待验收。
 
 详细文档入口：[Phase 17](../education/phase/phase17.md)、[Phase 17.1](../education/phase/phase17_1.md)、[Phase 17.2](../education/phase/phase17_2.md)、[Phase 17.2 First Formal Resource Pack Production Blueprint](../education/phase/phase17_2_first_resource_pack_blueprint.md)、[Phase 17.3](../education/phase/phase17_3.md)、[Phase 17.4](../education/phase/phase17_4.md)、[Phase 17.5](../education/phase/phase17_5.md)。

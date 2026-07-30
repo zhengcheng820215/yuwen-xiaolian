@@ -183,6 +183,7 @@ export async function reviewQuestionResourceDraftWithQuality(
     action: ResourceReviewAction;
     reviewerId: string;
     notes: string;
+    returnRequest?: ResourceReviewDecision['returnRequest'];
     acceptedWarningCodes?: string[];
     now?: string;
   },

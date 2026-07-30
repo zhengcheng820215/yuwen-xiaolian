@@ -4,6 +4,9 @@ import type {
   ResourceValidationResult,
   StructuredQuestionDraft,
 } from '../schemas/questionResourceAdmission.schema.ts';
+import type {
+  QuestionQualityAssessment,
+} from '../schemas/questionQualityAssessment.schema.ts';
 
 export type QuestionReviewBatchItemState =
   | 'blocked'
@@ -48,6 +51,7 @@ export type QuestionReviewBatchObservabilityRecord = {
   draft: StructuredQuestionDraft;
   validation?: ResourceValidationResult | null;
   review?: ResourceReviewDecision | null;
+  qualityAssessment?: QuestionQualityAssessment | null;
   frozenVersion?: FrozenQuestionResourceVersion | null;
 };
 
@@ -100,7 +104,26 @@ function toItem(
   record: QuestionReviewBatchObservabilityRecord,
 ): QuestionReviewBatchObservabilityItem {
   const progressItems = record.draft.qualityRevisionProgress?.items || [];
-  const activeItems = progressItems.filter((item) => item.status !== 'resolved');
+  const decidedWarningCodes = new Set(
+    record.review?.reviewedDraftRevision === record.draft.revision
+      ? (record.review.warningDecisions || []).map((decision) => decision.warningCode)
+      : [],
+  );
+  const activeItems = record.frozenVersion
+    ? []
+    : progressItems.filter(
+      (item) => item.status !== 'resolved' && !decidedWarningCodes.has(item.code),
+    );
+  const assessmentWarnings = !record.frozenVersion &&
+    record.qualityAssessment?.assessedDraftRevision === record.draft.revision
+    ? record.qualityAssessment.warnings.filter(
+      (warning) => !decidedWarningCodes.has(warning.code),
+    )
+    : [];
+  const activeWarningCodes = new Set([
+    ...activeItems.map((item) => item.code),
+    ...assessmentWarnings.map((warning) => warning.code),
+  ]);
   const awaitingRecheck = activeItems.some(
     (item) => item.status === 'modified_pending_recheck',
   );
@@ -128,9 +151,9 @@ function toItem(
     draftId: record.draft.draftId,
     title: record.draft.title,
     revision: record.draft.revision,
-    state: resolveState(record, blockerCount, activeItems.length, awaitingRecheck),
+    state: resolveState(record, blockerCount, activeWarningCodes.size, awaitingRecheck),
     blockerCount,
-    activeWarningCount: activeItems.length,
+    activeWarningCount: activeWarningCodes.size,
     repeatedModificationCount: progressItems.reduce(
       (total, item) => total + item.recheckCount,
       0,

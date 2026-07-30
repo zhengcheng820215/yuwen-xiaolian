@@ -141,11 +141,21 @@ export async function reviewQuestionResourceDraftWithPersistedQuality(
     now?: string;
   },
 ): Promise<ResourceReviewDecision> {
-  const context = await requireCurrentPersistedQualityContext(
-    resourceRepository,
-    qualityRepository,
-    input.draftId,
-  );
+  let context: CurrentPersistedQualityContext | undefined;
+  try {
+    context = await requireCurrentPersistedQualityContext(
+      resourceRepository,
+      qualityRepository,
+      input.draftId,
+    );
+  } catch (error) {
+    if (input.action === 'approve' || !isMissingCurrentQualityError(error)) {
+      throw error;
+    }
+  }
+  if (!context) {
+    return reviewQuestionResourceDraft(resourceRepository, input);
+  }
   if (!canApplyQualityReviewAction(context.bundle, input.action)) {
     throw new Error('Current quality bundle blocks approval.');
   }
@@ -177,6 +187,14 @@ export async function reviewQuestionResourceDraftWithPersistedQuality(
       reviewedAt,
     })),
   });
+}
+
+function isMissingCurrentQualityError(error: unknown): boolean {
+  return error instanceof Error && (
+    error.message.startsWith('Current persisted quality bundle is required.') ||
+    error.message.startsWith('Current persisted deterministic assessment is required.') ||
+    error.message.startsWith('Current semantic assessment result is required.')
+  );
 }
 
 export async function freezeQuestionResourceDraftWithPersistedQuality(

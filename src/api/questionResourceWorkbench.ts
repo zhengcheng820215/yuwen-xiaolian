@@ -214,18 +214,24 @@ async function buildQuestionReviewBatchObservability(
   versions: FrozenQuestionResourceVersion[],
 ): Promise<QuestionReviewBatchObservability> {
   const records = await Promise.all(drafts.map(async (draft) => {
-    const [validation, review] = await Promise.all([
+    const [validation, review, qualityAssessment] = await Promise.all([
       draft.latestValidationId
         ? repository.getValidation(draft.latestValidationId)
         : Promise.resolve(null),
       draft.latestReviewId
         ? repository.getReview(draft.latestReviewId)
         : Promise.resolve(null),
+      getOrAssessCurrentQuestionDraftQuality(
+        repository,
+        qualityRepository,
+        draft.draftId,
+      ),
     ]);
     return {
       draft,
       validation,
       review,
+      qualityAssessment,
       frozenVersion: versions.find((version) => version.sourceDraftId === draft.draftId) || null,
     };
   }));
