@@ -1,7 +1,9 @@
 # 题目审核平台契约对齐检查报告
 
-日期：2026-07-29  
-状态：P0 BATCH 2 IMPLEMENTED / P1-P2 PENDING  
+首次审计日期：2026-07-29
+
+当前快照：P0 CLOSED / P1 FIRST BATCH CLOSED / P1-P2 OPEN
+
 范围：题目编辑、保存、检查、提交人工审核、人工决定、冻结发布与失败恢复
 
 ## 一、检查目标
@@ -17,37 +19,55 @@
 
 > 当前审核平台是否真实遵守“编辑缓冲、单次 Revision、当前 Assessment、独立人工审核、幂等发布和可恢复正式化”的契约。
 
-## 二、总体结论
+### 1.1 阅读约定
 
-当前审核平台约 **90% 对齐**。
+本文按时间分为三层：
 
-| 检查链路 | 当前判断 |
+1. “当前快照”只描述最新有效结论和仍未关闭事项；
+2. “原始审计基线”保留首次检查时发现的问题、链路判断与修复顺序，用于追溯，不代表当前实现；
+3. “修复记录”按批次记录已经落地的工程变化和验证证据。
+
+判断当前状态时，应优先阅读“当前快照”和最后一批修复记录。原始基线与修复记录冲突时，以更新日期更晚的修复记录为准。
+
+## 二、当前快照
+
+当前审核平台的 P0 正式身份主链已经对齐，整体仍处于 `P1-P2 CALIBRATION PENDING`。
+
+| 当前链路 | 最新判断 |
 |---|---|
-| 编辑与保存 | PARTIAL |
+| 编辑、保存与显式 Revision | ALIGNED |
 | 保存与检查 | ALIGNED |
-| Assessment 时效 | ALIGNED |
+| Assessment 持久化与时效 | ALIGNED |
 | 提交人工审核 | ALIGNED |
-| 人工审核与发布职责拆分 | ALIGNED |
-| 发布幂等与部分失败 | MOSTLY ALIGNED |
+| Human Review 与完整 Quality Bundle 绑定 | ALIGNED |
+| Frozen Version、Registry 与 Quality Trace | ALIGNED |
+| Observation Link 原子性与发布恢复 | RECOVERABLE PARTIAL |
+| 正式页面端到端回归与旧路径清理 | PENDING |
 
 已经确认的能力：
 
 - 页面具有独立编辑缓冲区、dirty 判断和离开保护；
 - 正式字段修改会使页面中的旧质量结论立即进入 stale；
-- Validation、QuestionQualityAssessment 和人工关注决定均具备 Revision 身份；
+- Validation、完整 Quality Bundle、Human Review 和 Frozen Trace 均具备明确 Revision 与规则身份；
 - 提交人工审核、记录人工决定和冻结发布已经拆成独立领域命令；
 - `pending_review` 后内容进入只读审核；
-- 基础 Freeze、Registry 切换、重复 Freeze 和共享存储冲突保护已经具备专项 Debug。
+- 重复 Freeze、Registry 切换、共享存储冲突和 Human Review 不可变冲突已经具备专项 Debug。
+- 提交审核与冻结发布共享 Plan / Task / Material 预检，不一致时在正式化前返回结构化中文错误；
+- Observation Link 写入失败会明确进入 `partially_completed`，重试只补齐关联并复用既有 Frozen Version 与 Registry。
 
 当前不能宣告“审核平台契约完全对齐”，剩余原因已经收敛为：
 
-1. Observation Link 仍是 Freeze 后置写入，尚未进入同一原子提交；
+1. Observation Link 仍是 Freeze 后置写入，虽已具备明确部分成功状态与幂等恢复，但尚未进入同一原子提交；
 2. 正式页面仍需补双标签页快速修改与重复命令的端到端回归；
 3. P1 页面信息层级与 P2 旧路径清理尚未全部关闭。
 
-## 三、P0 问题
+本文不再使用缺少计算口径的百分比表达对齐程度。后续状态只按 `ALIGNED / PARTIAL / PENDING` 和完成定义逐项更新。
 
-### P0-1 正式审核平台未接入持久化 Quality Repository
+## 三、原始审计基线：P0 问题
+
+> 本章记录首次审计时的 P0 问题，均已由第十章和第十一章记录的两批修复关闭。以下“当前实现”和风险描述属于 2026-07-29 修复前基线，不代表最新代码状态。
+
+### P0-1 正式审核平台未接入持久化 Quality Repository（已关闭）
 
 **契约要求**
 
@@ -99,7 +119,7 @@ new InMemoryQuestionQualityAssessmentRepository()
 - 删除内存状态不影响已保存审核事实；
 - 缺失持久化 Bundle 时审核和发布均被阻断。
 
-### P0-2 保存与检查没有绑定显式 Revision
+### P0-2 保存与检查没有绑定显式 Revision（已关闭）
 
 **契约要求**
 
@@ -141,7 +161,7 @@ API 和 Agent 再根据 `draftId` 读取当前最新 Draft：
 - 页面不得把 Revision 5 的结果展示成 Revision 4 保存动作的结果；
 - 重试同一检查命令应幂等复用同一结果。
 
-### P0-3 保存缺少领域层 no-op、幂等与乐观并发
+### P0-3 保存缺少领域层 no-op、幂等与乐观并发（已关闭）
 
 **契约要求**
 
@@ -195,7 +215,7 @@ API 和 Agent 再根据 `draftId` 读取当前最新 Draft：
 - 两个页面从 Revision 3 编辑，第二个保存必须得到冲突；
 - 网络超时后重试同一 idempotency key 不生成新 Revision。
 
-### P0-4 Human Review 主身份未直接绑定 Assessment
+### P0-4 Human Review 主身份未直接绑定 Assessment（已关闭）
 
 **契约要求**
 
@@ -254,7 +274,9 @@ Freeze 的基础 current review 检查也只比较 Revision 与 Validation：
 - 相同审核身份提交不同 action 必须冲突；
 - Formal Resource 可追溯到唯一 Assessment Bundle。
 
-## 四、P1 问题
+## 四、原始审计基线：P1 问题
+
+> 本章保留首次审计时的 P1 发现。部分问题已在后续修复中关闭；仍未关闭的当前事项仅以第二章“当前快照”和第十二章“当前待办”为准。
 
 ### P1-1 Plan / Material 身份一致性检查发生得过晚
 
@@ -279,7 +301,7 @@ Freeze 成功后才创建 Observation Link，失败被转换成 `observationLink
 
 这不会污染 Frozen / Registry，但会形成“正式版本已存在、观察链未完成”的部分成功状态。页面需要明确提供“发布未完成，重试关联”，并复用已有 Frozen Version，不能让用户误以为全部失败。
 
-### P1-3 共享存储冲突错误码回归失败
+### P1-3 共享存储冲突错误码回归失败（已关闭）
 
 `debug:phase17-4a` 的 A10 当前失败：
 
@@ -300,14 +322,16 @@ Received FORMAL_RESOURCE_IMMUTABLE_CONFLICT
 
 结构化错误码可以保留机器可追踪性，但学生或审核人员仍需要可读中文。应统一源文件编码并增加错误文案回归。
 
-## 五、P2 清理项
+## 五、原始审计基线：P2 清理项
 
 1. 正式平台接入 persisted-quality 主链后，清理内存 Quality Repository 的生产入口；
 2. 合并旧 `freezeQuestionResourceDraftWithQuality` 与 persisted-quality Freeze 的重复入口；
 3. 删除页面、API 和 Agent 中已经不再消费的旧布尔状态与旧 Handler；
 4. 增加审核平台级集成测试，避免继续用模块级 PASS 代替平台接入 PASS。
 
-## 六、六条链路详细判断
+## 六、原始审计基线：六条链路详细判断
+
+> 本章表格是首次审计快照。表中的 `FAIL` 和 `PARTIAL` 不应脱离第十章、第十一章的修复记录单独引用。
 
 ### 6.1 编辑与保存链路
 
@@ -375,7 +399,7 @@ Received FORMAL_RESOURCE_IMMUTABLE_CONFLICT
 | Observation Link 部分失败可识别 | PARTIAL |
 | 共享存储冲突错误码稳定 | FAIL |
 
-## 七、Debug 证据
+## 七、原始审计基线：Debug 证据
 
 本次实际执行：
 
@@ -395,7 +419,9 @@ Received FORMAL_RESOURCE_IMMUTABLE_CONFLICT
 - 它们不能证明正式 Workbench 已经接入 17.5C2；
 - A10 的结构化错误码回归已修复，共享存储专项恢复全绿。
 
-## 八、推荐修复顺序
+## 八、历史执行顺序
+
+> 第一批和第二批 P0 已完成；第三批 P1 与第四批 P2 仍作为后续收口顺序。
 
 ### 第一批 P0：统一正式身份
 
@@ -442,9 +468,11 @@ Workbench 接入持久化 Quality Repository
 7. 审核平台级专项 Debug 全部通过；
 8. 共享存储 A10 错误码回归恢复 PASS。
 
-当前准确状态应记录为：
+首次审计时的结论是：
 
 > 题目审核平台的页面职责和基础生命周期已经大体对齐，但正式 Revision、Assessment 与 Publication 身份仍未完全汇合。P0 修复完成前，不应宣告审核平台契约完全落地。
+
+该结论已被第十章和第十一章的 P0 修复记录更新。当前结论以第二章“当前快照”为准。
 
 ## 十、P0 第一批修复记录
 
@@ -530,3 +558,66 @@ Workbench 接入持久化 Quality Repository
 因此 P0 第二批完成后的准确状态是：
 
 > 审核平台的 Revision、完整质量 Bundle、Human Review 与 Frozen Trace 已形成同一条可持久化、可追溯的正式主链；P0 核心身份污染风险已经关闭，但发布附属关系原子性和真实并发页面回归仍待后续加固。
+
+## 十二、当前待办
+
+本节是完成 P0 第二批后的唯一当前待办列表。
+
+### 12.1 P1
+
+1. 增加双标签页快速修改、重复保存、重复检查、重复审核和重复发布的正式页面端到端回归；
+2. 收敛审核页信息层级，只展示当前状态、有效质量结论和下一步动作；
+3. 评估是否把 Observation Link 纳入同一原子提交；在此之前继续使用已冻结的部分成功与幂等恢复语义。
+
+### 12.2 P2
+
+1. 删除已无生产入口的内存 Quality Repository、重复 Freeze 路径和旧 Handler；
+2. 删除不再消费的旧布尔状态与重复提示；
+3. 以 Workbench 平台级集成测试替代仅依赖模块级 PASS 的验收表达。
+
+### 12.3 升级为 `CONTRACT ALIGNED` 的条件
+
+只有第九章完成定义全部满足、上述 P1/P2 待办关闭，并形成正式页面端到端证据后，本文状态才可由 `P1-P2 OPEN` 更新为 `CONTRACT ALIGNED`。
+
+## 十三、P1 第一批修复记录
+
+完成日期：2026-07-30
+
+本批次完成：
+
+1. 提交题目审核、首次冻结发布和发布恢复统一消费同一份发布预检，不再由三个入口分别判断；
+2. 发布预检显式确认训练计划存在且已审核、训练任务存在、题目绑定材料真实存在，并且 Plan、Task 与 Draft 的材料版本一致；
+3. 能力目标、难度和任务用途继续以当前训练任务为唯一受控来源，存在差异时在提交人工审核前阻断；
+4. 新增结构化错误码 `PUBLICATION_PREFLIGHT_FAILED` 与 `PUBLICATION_RECOVERY_REQUIRED`，并提供可执行的中文恢复说明；
+5. Observation Link 后置写入失败时返回 `partially_completed`，保留已经生成的 Frozen Version 与 Registry；
+6. 新增独立恢复命令，只补齐 Registry / Observation Link，不重新 Freeze，也不创建新的正式版本；
+7. 审核页面在已存在 Frozen Version 时将发布动作切换为“重试补齐发布关联”，避免用户误以为会再次发布题目。
+
+新增验证：
+
+| Debug | 结果 |
+|---|---|
+| `debug:question-publication-recovery`：既有 Frozen Version 补齐关联 | PASS |
+| `debug:question-publication-recovery`：关联写入失败形成部分成功 | PASS |
+| `debug:question-publication-recovery`：连续重试不重复 Version / Registry / Link | PASS |
+| `debug:structured-runtime-errors` | 8 / 8 PASS |
+| `debug:phase17-4a` | 10 / 10 PASS |
+| Production Build | PASS |
+| `git diff --check` | PASS |
+
+本批次关闭：
+
+- 提交人工审核前缺少 Plan / Task / Material 身份复核；
+- Observation Link 写入失败后页面无法区分“完全失败”与“正式版本已生成”；
+- 发布恢复可能让用户误触发新正式版本；
+- 发布预检与恢复错误缺少稳定错误码和可执行中文文案。
+
+仍未关闭：
+
+1. Observation Link 与 Frozen Version 尚未形成同一原子事务；
+2. 双标签页、快速重复命令和真实页面恢复操作仍需端到端浏览器回归；
+3. 审核页信息层级收敛与 P2 旧 Handler、旧状态清理。
+
+因此 P1 第一批完成后的准确状态是：
+
+> 发布前身份错位已经前置暴露，正式版本生成后的 Observation Link 失败也已可识别、可重试且不会产生重复版本。当前主链具备明确恢复语义，但在原子性和正式页面并发回归完成前，仍不能标记为 `CONTRACT ALIGNED`。

@@ -41,6 +41,7 @@ import {
   getQuestionResourceWorkbenchSnapshot,
   saveQuestionResourceWorkbenchDraft,
   submitQuestionResourceWorkbenchReview,
+  retryQuestionResourceWorkbenchPublication,
   validateQuestionResourceWorkbenchDraft,
 } from '../api/questionResourceWorkbench';
 
@@ -500,15 +501,23 @@ export default function QuestionResourceWorkbench() {
   }
 
   async function freezeDraft() {
+    const retryExistingPublication = Boolean(context?.frozenVersion);
     await run(
-      () => freezeQuestionResourceWorkbenchDraft(
-        selectedDraftId,
-        context?.draft.revision,
-      ),
+      () => retryExistingPublication
+        ? retryQuestionResourceWorkbenchPublication(
+          selectedDraftId,
+          context?.draft.revision,
+        )
+        : freezeQuestionResourceWorkbenchDraft(
+          selectedDraftId,
+          context?.draft.revision,
+        ),
       (result) => result.observationLinkIssues?.length
-        ? '正式资源已冻结并更新 Registry；材料观测关联仍需在资源生产页处理。'
+        ? '正式题目版本已保留，但材料观测关联仍未完成，可稍后继续重试。'
         : result.observationLink
-          ? '正式资源已冻结，Registry 与材料观测关联均已更新。'
+          ? retryExistingPublication
+            ? '已沿用现有正式题目版本并补齐材料观测关联。'
+            : '正式资源已冻结，Registry 与材料观测关联均已更新。'
           : '正式资源已冻结，ResourceRegistry 已更新。',
     );
   }
@@ -2365,7 +2374,7 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
                 onClick={onFreeze}
                 className="mt-3 inline-flex min-h-9 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-normal text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400"
               >
-                重试发布
+                重试补齐发布关联
               </button>
             </>
           ) : (

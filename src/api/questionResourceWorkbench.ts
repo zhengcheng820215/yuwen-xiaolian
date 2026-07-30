@@ -40,6 +40,9 @@ import {
   requestQuestionSemanticQualityAssessment,
 } from './questionSemanticQualityAssessment.ts';
 import { linkFrozenResourceToObservationTask } from '../ai/agents/materialObservationApplicationService.ts';
+import {
+  recoverQuestionPublicationFromFrozenVersion,
+} from '../ai/agents/questionPublicationRecoveryService.ts';
 import { LocalApiQuestionQualityPersistenceRepository } from '../ai/repositories/localApiQuestionQualityPersistenceRepository.ts';
 import { createStructuredRuntimeError } from '../ai/errors/structuredRuntimeError.ts';
 import {
@@ -109,7 +112,13 @@ export type QuestionResourceWorkbenchContext = {
 export type QuestionPublicationPreflight = {
   scoped: boolean;
   passed: boolean;
-  issue?: 'plan_missing' | 'task_missing';
+  issue?:
+    | 'plan_missing'
+    | 'plan_not_reviewed'
+    | 'task_missing'
+    | 'material_missing'
+    | 'material_not_found'
+    | 'material_mismatch';
   expectedSettings?: {
     abilityId: StructuredQuestionDraft['abilityMetadata']['abilityId'];
     difficulty: StructuredQuestionDraft['abilityMetadata']['difficulty'];
@@ -310,6 +319,7 @@ export async function submitQuestionResourceWorkbenchReview(
   expectedDraftRevision?: number,
 ) {
   await requireExpectedDraftRevision(draftId, expectedDraftRevision, 'submit_review');
+  await requireQuestionPublicationPreflight(draftId, 'question_review.submit');
   await requireCurrentPersistedQualityContext(repository, qualityRepository, draftId);
   return submitQuestionResourceForReview(repository, draftId);
 }
@@ -345,12 +355,7 @@ export async function freezeQuestionResourceWorkbenchDraft(
   expectedDraftRevision?: number,
 ) {
   await requireExpectedDraftRevision(draftId, expectedDraftRevision, 'freeze');
-  const publicationPreflight = await getQuestionResourceWorkbenchPublicationPreflight(draftId);
-  if (!publicationPreflight.passed) {
-    throw new Error(publicationPreflight.issue
-      ? '发布前检查未通过：当前题目关联的训练计划信息不可用，请返回素材资源录入平台重新确认训练任务。'
-      : '发布前检查未通过：题目设置与训练计划不一致，请先同步训练设置并重新完成检查与人工审核。');
-  }
+  await requireQuestionPublicationPreflight(draftId, 'question_publication.freeze');
   const result = await freezeQuestionResourceDraftWithPersistedQuality(
     repository,
     qualityRepository,
@@ -359,20 +364,64 @@ export async function freezeQuestionResourceWorkbenchDraft(
   const draft = await repository.getDraft(draftId);
   const planId = readTagValue(draft?.tags, 'observation_plan:');
   const observationTaskPlanId = readTagValue(draft?.tags, 'observation_task:');
-  if (!planId || !observationTaskPlanId) return result;
+  if (!planId || !observationTaskPlanId) {
+    return {
+      ...result,
+      publicationStatus: 'completed' as const,
+      observationLinkIssues: [],
+    };
+  }
   try {
     const linked = await linkFrozenResourceToObservationTask(repository, observationRepository, {
       planId,
       observationTaskPlanId,
       resourceVersionId: result.version.resourceVersionId,
     });
-    return { ...result, observationLink: linked.link, observationLinkIssues: linked.issues };
+    return {
+      ...result,
+      publicationStatus: linked.issues.length === 0
+        ? 'completed' as const
+        : 'partially_completed' as const,
+      observationLink: linked.link,
+      observationLinkIssues: linked.issues,
+    };
   } catch (error) {
     return {
       ...result,
-      observationLinkIssues: [error instanceof Error ? error.message : String(error)],
+      publicationStatus: 'partially_completed' as const,
+      observationLinkIssues: [
+        `正式题目版本已生成，但材料观测关联尚未完成。可直接重试，不会创建新版本。（${
+          error instanceof Error ? error.message : String(error)
+        }）`,
+      ],
     };
   }
+}
+
+export async function retryQuestionResourceWorkbenchPublication(
+  draftId: string,
+  expectedDraftRevision?: number,
+) {
+  await requireExpectedDraftRevision(draftId, expectedDraftRevision, 'retry_publication');
+  await requireQuestionPublicationPreflight(draftId, 'question_publication.retry');
+  const draft = await repository.getDraft(draftId);
+  if (!draft) throw new Error(`Draft not found: ${draftId}`);
+  const planId = readTagValue(draft.tags, 'observation_plan:');
+  const observationTaskPlanId = readTagValue(draft.tags, 'observation_task:');
+  if (!planId || !observationTaskPlanId) {
+    throw createStructuredRuntimeError({
+      code: 'PUBLICATION_RECOVERY_REQUIRED',
+      message: '当前题目没有可恢复的训练计划关联，请重新执行正式发布。',
+      operation: 'question_publication.retry',
+      objectId: draftId,
+      recoverability: 'user_action_required',
+    });
+  }
+  return recoverQuestionPublicationFromFrozenVersion(
+    repository,
+    observationRepository,
+    { draftId, planId, observationTaskPlanId },
+  );
 }
 
 export async function createQuestionResourceWorkbenchNextVersion(resourceId: string) {
@@ -511,9 +560,25 @@ export async function getQuestionResourceWorkbenchPublicationPreflight(
   if (!plan) {
     return { scoped: true, passed: false, issue: 'plan_missing', differences: [] };
   }
+  if (plan.status !== 'reviewed') {
+    return { scoped: true, passed: false, issue: 'plan_not_reviewed', differences: [] };
+  }
   const task = findObservationTaskPlan(plan, { planId, observationTaskPlanId });
   if (!task) {
     return { scoped: true, passed: false, issue: 'task_missing', differences: [] };
+  }
+  if (!draft.materialVersionId) {
+    return { scoped: true, passed: false, issue: 'material_missing', differences: [] };
+  }
+  const material = await repository.getMaterial(draft.materialVersionId);
+  if (!material) {
+    return { scoped: true, passed: false, issue: 'material_not_found', differences: [] };
+  }
+  if (
+    plan.materialVersionId !== draft.materialVersionId ||
+    task.materialVersionId !== draft.materialVersionId
+  ) {
+    return { scoped: true, passed: false, issue: 'material_mismatch', differences: [] };
   }
 
   const expectedSettings = getPlanControlledQuestionSettings(task);
@@ -531,6 +596,41 @@ export async function getQuestionResourceWorkbenchPublicationPreflight(
     expectedSettings,
     differences,
   };
+}
+
+async function requireQuestionPublicationPreflight(
+  draftId: string,
+  operation: string,
+): Promise<QuestionPublicationPreflight> {
+  const preflight = await getQuestionResourceWorkbenchPublicationPreflight(draftId);
+  if (preflight.passed) return preflight;
+
+  throw createStructuredRuntimeError({
+    code: 'PUBLICATION_PREFLIGHT_FAILED',
+    message: publicationPreflightMessage(preflight),
+    operation,
+    objectId: draftId,
+    recoverability: 'user_action_required',
+  });
+}
+
+function publicationPreflightMessage(preflight: QuestionPublicationPreflight): string {
+  switch (preflight.issue) {
+    case 'plan_missing':
+      return '无法找到题目关联的训练计划，请返回素材资源录入平台重新确认当前训练任务。';
+    case 'plan_not_reviewed':
+      return '题目关联的训练计划尚未完成审核，不能提交题目审核或发布。请先在素材资源录入平台完成训练计划审核。';
+    case 'task_missing':
+      return '训练计划中已找不到题目关联的任务，请返回素材资源录入平台重新选择或生成任务。';
+    case 'material_missing':
+      return '题目尚未绑定学习材料，不能提交审核或发布。请返回素材资源录入平台补充材料。';
+    case 'material_not_found':
+      return '题目绑定的学习材料已不存在或不可用，请返回素材资源录入平台重新选择学习材料。';
+    case 'material_mismatch':
+      return '题目绑定的学习材料与当前训练计划不一致，请返回素材资源录入平台重新同步当前任务。';
+    default:
+      return '题目的能力、难度或任务用途与当前训练计划不一致，请先同步训练设置并重新检查。';
+  }
 }
 
 export async function createQuestionResourceWorkbenchRejectedRevision(sourceDraftId: string) {
