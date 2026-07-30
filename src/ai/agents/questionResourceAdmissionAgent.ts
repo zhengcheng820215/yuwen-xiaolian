@@ -231,6 +231,9 @@ export async function updateStructuredQuestionDraft(
   } = {},
 ): Promise<StructuredQuestionDraft> {
   const draft = await requireDraft(repository, draftId);
+  if (isDraftPatchUnchanged(draft, patch)) {
+    return clone(draft);
+  }
   if (
     options.expectedRevision !== undefined &&
     draft.revision !== options.expectedRevision
@@ -248,9 +251,6 @@ export async function updateStructuredQuestionDraft(
   }
   if (await repository.getVersionByDraftId(draftId)) {
     throw new Error('Frozen resource drafts cannot be edited. Create a new version instead.');
-  }
-  if (isDraftPatchUnchanged(draft, patch)) {
-    return clone(draft);
   }
 
   const updated: StructuredQuestionDraft = {
@@ -369,6 +369,10 @@ export async function submitQuestionResourceForReview(
   now = new Date().toISOString(),
 ): Promise<StructuredQuestionDraft> {
   const draft = await requireDraft(repository, draftId);
+  if (draft.status === 'pending_review') {
+    await requireCurrentPassedValidation(repository, draft);
+    return clone(draft);
+  }
   if (!['drafted', 'validation_failed'].includes(draft.status)) {
     throw new Error(`Draft cannot be submitted for review from status: ${draft.status}`);
   }

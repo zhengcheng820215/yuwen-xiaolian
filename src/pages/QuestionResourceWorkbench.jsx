@@ -1960,7 +1960,7 @@ function WorkflowPanel(props) {
   const { activePanel, setActivePanel, context, form, material, previewResource, reviewNotes, setReviewNotes, acceptedReviewWarningCodes, setAcceptedReviewWarningCodes, busy, onValidate, onSubmitReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onOptimizeStem, stemOptimizationBusy, focusedReview, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft, humanReviewStage } = props;
   const panelLabels = humanReviewStage
     ? [['workflow', '内容审核'], ['student', '学生预览'], ['review', '审核记录']]
-    : [['workflow', '校验 / 审核'], ['student', '学生预览'], ['review', '审核预览']];
+    : [['workflow', '提交前检查'], ['student', '学生预览'], ['review', '检查记录']];
   return (
     <aside className={`overflow-hidden rounded-md bg-white ${focusedReview ? '' : 'border border-slate-200 lg:col-span-2 xl:col-span-1 xl:sticky xl:top-24'}`}>
       <div className="grid grid-cols-3 gap-2 p-2">
@@ -2105,7 +2105,7 @@ function ReviewSubmissionSummary({ context, acceptedWarningCodes, setAcceptedWar
     <section className="rounded-md bg-slate-50 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-slate-950">提交信息</p>
+          <p className="text-sm font-semibold text-slate-950">录入检查摘要</p>
           <p className="mt-1 text-xs text-slate-500">
             第 {context?.draft?.revision || 1} 版 · 录入检查已完成
           </p>
@@ -2115,15 +2115,13 @@ function ReviewSubmissionSummary({ context, acceptedWarningCodes, setAcceptedWar
         </span>
       </div>
       {qualityBundle ? (
-        <div className="mt-4 grid gap-2 border-t border-slate-200 pt-4 text-xs sm:grid-cols-3">
+        <div className="mt-4 grid gap-2 border-t border-slate-200 pt-4 text-xs sm:grid-cols-2">
           <div>
-            <p className="text-slate-500">确定性检查</p>
-            <p className="mt-1 font-medium text-slate-800">
-              {qualityBundle.deterministicRuleVersion}
-            </p>
+            <p className="text-slate-500">检查结论</p>
+            <p className="mt-1 font-medium text-emerald-700">当前版本检查有效</p>
           </div>
           <div>
-            <p className="text-slate-500">独立语义评估</p>
+            <p className="text-slate-500">语义复核</p>
             <p className={`mt-1 font-medium ${
               semanticAssessment?.status === 'completed'
                 ? 'text-emerald-700'
@@ -2132,12 +2130,6 @@ function ReviewSubmissionSummary({ context, acceptedWarningCodes, setAcceptedWar
               {semanticAssessment?.status === 'completed'
                 ? '已完成'
                 : '服务不可用，不能审核通过'}
-            </p>
-          </div>
-          <div>
-            <p className="text-slate-500">质量包</p>
-            <p className="mt-1 font-medium text-slate-800">
-              {qualityBundle.decision}
             </p>
           </div>
         </div>
@@ -2275,9 +2267,22 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
   ];
   const publicationReadyCount = publicationReadiness.filter((item) => item.passed).length;
   const canPublish = publicationReadiness.every((item) => item.passed);
+  const nextActionLabel = isPublished
+    ? '当前题目已完成正式发布'
+    : publicationIncomplete
+      ? '重试补齐发布关联'
+      : publicationBlocked
+        ? '先调整训练设置'
+        : currentStep === 4
+          ? '完成发布准备检查并发布'
+          : currentStep === 3
+            ? '形成题目人工审核决定'
+            : currentStep === 2
+              ? '提交题目人工审核'
+              : '保存并检查当前修改';
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-slate-950">当前状态：</span>
           {isPublished ? (
@@ -2302,6 +2307,9 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
             </span>
           ) : <StatusBadge status={draft.status} />}
         </div>
+        <p className="text-xs text-slate-500">
+          下一步：<span className="font-medium text-blue-700">{nextActionLabel}</span>
+        </p>
       </div>
 
       {!humanReviewStage && (hasCurrentPassedValidation || awaitingIssueRecheck) ? (

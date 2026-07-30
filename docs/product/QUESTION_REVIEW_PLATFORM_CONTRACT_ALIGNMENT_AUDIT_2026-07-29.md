@@ -2,7 +2,7 @@
 
 首次审计日期：2026-07-29
 
-当前快照：P0 CLOSED / P1 FIRST BATCH CLOSED / P1-P2 OPEN
+当前快照：P0 CLOSED / P1 COMMAND AND HIERARCHY BATCH CLOSED / P1 ATOMICITY AND P2 OPEN
 
 范围：题目编辑、保存、检查、提交人工审核、人工决定、冻结发布与失败恢复
 
@@ -42,7 +42,9 @@
 | Human Review 与完整 Quality Bundle 绑定 | ALIGNED |
 | Frozen Version、Registry 与 Quality Trace | ALIGNED |
 | Observation Link 原子性与发布恢复 | RECOVERABLE PARTIAL |
-| 正式页面端到端回归与旧路径清理 | PENDING |
+| 重复命令与双标签并发回归 | ALIGNED |
+| 审核页信息层级 | ALIGNED |
+| 正式页面视觉回归与旧路径清理 | PENDING |
 
 已经确认的能力：
 
@@ -54,12 +56,15 @@
 - 重复 Freeze、Registry 切换、共享存储冲突和 Human Review 不可变冲突已经具备专项 Debug。
 - 提交审核与冻结发布共享 Plan / Task / Material 预检，不一致时在正式化前返回结构化中文错误；
 - Observation Link 写入失败会明确进入 `partially_completed`，重试只补齐关联并复用既有 Frozen Version 与 Registry。
+- 相同内容的保存重试会复用已提交 Revision，双标签页中的过期修改会返回 Revision Conflict；
+- 重复检查、提交人工审核、记录人工决定和正式发布均复用当前有效结果；
+- 审核页只突出当前状态、录入检查摘要和下一步动作，不再默认暴露内部规则版本与质量包枚举。
 
 当前不能宣告“审核平台契约完全对齐”，剩余原因已经收敛为：
 
 1. Observation Link 仍是 Freeze 后置写入，虽已具备明确部分成功状态与幂等恢复，但尚未进入同一原子提交；
-2. 正式页面仍需补双标签页快速修改与重复命令的端到端回归；
-3. P1 页面信息层级与 P2 旧路径清理尚未全部关闭。
+2. 正式页面视觉回归仍需在无旧 Vite 缓存的浏览器会话中补齐；
+3. P2 旧路径清理尚未全部关闭。
 
 本文不再使用缺少计算口径的百分比表达对齐程度。后续状态只按 `ALIGNED / PARTIAL / PENDING` 和完成定义逐项更新。
 
@@ -561,13 +566,12 @@ Workbench 接入持久化 Quality Repository
 
 ## 十二、当前待办
 
-本节是完成 P0 第二批后的唯一当前待办列表。
+本节是完成 P1 命令与信息层级批次后的唯一当前待办列表。
 
 ### 12.1 P1
 
-1. 增加双标签页快速修改、重复保存、重复检查、重复审核和重复发布的正式页面端到端回归；
-2. 收敛审核页信息层级，只展示当前状态、有效质量结论和下一步动作；
-3. 评估是否把 Observation Link 纳入同一原子提交；在此之前继续使用已冻结的部分成功与幂等恢复语义。
+1. 在无旧 Vite 缓存的浏览器会话中补正式页面视觉回归，确认状态、录入检查摘要和下一步动作无布局回退；
+2. 评估是否把 Observation Link 纳入同一原子提交；在此之前继续使用已冻结的部分成功与幂等恢复语义。
 
 ### 12.2 P2
 
@@ -621,3 +625,49 @@ Workbench 接入持久化 Quality Repository
 因此 P1 第一批完成后的准确状态是：
 
 > 发布前身份错位已经前置暴露，正式版本生成后的 Observation Link 失败也已可识别、可重试且不会产生重复版本。当前主链具备明确恢复语义，但在原子性和正式页面并发回归完成前，仍不能标记为 `CONTRACT ALIGNED`。
+
+## 十四、P1 命令与信息层级批次修复记录
+
+完成日期：2026-07-30
+
+本批次完成：
+
+1. 相同内容的保存重试在 Revision Conflict 判断前执行幂等匹配，网络重试不会再次创建 Revision；
+2. 双标签页继续使用 `expectedRevision` 保护，过期标签的不同修改会被拒绝，不覆盖已经提交的内容；
+3. 当前 Draft 已处于 `pending_review` 且检查仍有效时，重复提交人工审核直接复用现有状态；
+4. 重复检查复用 Validation，重复人工决定复用 Review，重复发布复用 Frozen Version 与 Registry；
+5. 非审核阶段页签统一为“提交前检查 / 学生预览 / 检查记录”；
+6. 审核摘要隐藏内部规则版本和质量包枚举，只显示当前版本检查是否有效、语义复核状态；
+7. 当前状态旁固定展示唯一下一步动作，减少用户在保存、检查、审核和发布之间猜测。
+
+新增验证：
+
+| Debug | 结果 |
+|---|---|
+| `debug:question-workbench-command-e2e`：重复保存只产生一个 Revision | PASS |
+| `debug:question-workbench-command-e2e`：双标签过期修改被拒绝 | PASS |
+| `debug:question-workbench-command-e2e`：重复检查复用一个 Validation | PASS |
+| `debug:question-workbench-command-e2e`：重复提交不重复转换状态 | PASS |
+| `debug:question-workbench-command-e2e`：重复审核复用一个决定 | PASS |
+| `debug:question-workbench-command-e2e`：重复发布复用一个 Version / Registry | PASS |
+| `debug:phase17-5b` | 11 / 11 PASS |
+| `debug:question-publication-recovery` | 3 / 3 PASS |
+| Production Build | PASS |
+| `git diff --check` | PASS |
+
+浏览器证据说明：
+
+- 原 `5174` 会话仍缓存修复前的 Vite 页面，并出现 `__DEFINES__ is not defined`，页面根节点为空；
+- 已使用项目要求的 Node 运行时重启开发服务，服务入口响应与生产构建均正常；
+- 由于应用内浏览器会话没有成功丢弃旧页面缓存，本批次不把视觉浏览器验收标记为完成；
+- 下一批浏览器验收应从新标签或清空旧页面缓存后进入正式工作台，补充状态摘要、页签和下一步动作的截图证据。
+
+仍未关闭：
+
+1. Observation Link 与 Frozen Version 尚未形成同一原子事务；
+2. 正式页面视觉回归仍缺少无旧缓存会话的证据；
+3. P2 旧 Handler、旧状态与重复提示清理。
+
+因此本批次完成后的准确状态是：
+
+> 重复命令、双标签并发保护和审核页信息层级已经形成可执行、可回归的统一语义。当前不会因网络重试或重复点击制造额外 Revision、Validation、Review 或 Frozen Version；原子 Observation Link、视觉浏览器证据和 P2 清理仍保持开放。

@@ -83,6 +83,7 @@
     "debug:phase17-4a": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase174ASharedResourcePersistenceDebug.ts",
     "debug:structured-runtime-errors": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runStructuredRuntimeErrorDebug.ts",
     "debug:question-publication-recovery": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionPublicationRecoveryDebug.ts",
+    "debug:question-workbench-command-e2e": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionWorkbenchCommandE2EDebug.ts",
     "debug:phase17-5a": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionQualityAssessmentDebug.ts",
     "debug:phase17-5b": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionQualityReviewGateDebug.ts",
     "debug:phase17-5b-demo": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase175QuestionQualityDemoDebug.ts",
