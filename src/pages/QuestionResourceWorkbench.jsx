@@ -2061,6 +2061,10 @@ function ReviewSubmissionSummary({ context, acceptedWarningCodes, setAcceptedWar
   const assessment = context?.qualityAssessment;
   const semanticAssessment = context?.semanticQualityAssessment;
   const qualityBundle = context?.qualityAssessmentBundle;
+  const hasCurrentQualityBundle = Boolean(
+    qualityBundle &&
+    qualityBundle.assessedDraftRevision === context?.draft?.revision,
+  );
   const warnings = assessment?.warnings || [];
   const locked = context?.draft?.status === 'reviewed';
   const passedCount = assessment
@@ -2079,14 +2083,16 @@ function ReviewSubmissionSummary({ context, acceptedWarningCodes, setAcceptedWar
         <div>
           <p className="text-sm font-semibold text-slate-950">录入检查摘要</p>
           <p className="mt-1 text-xs text-slate-500">
-            第 {context?.draft?.revision || 1} 版 · 录入检查已完成
+            第 {context?.draft?.revision || 1} 版 · {
+              hasCurrentQualityBundle ? '录入检查已完成' : '录入检查待补全'
+            }
           </p>
         </div>
         <span className="text-xs text-slate-600">
-          {passedCount} 项通过 · {warnings.length} 项提醒 · 0 项阻断
+          自动检查：{passedCount} 项通过 · {warnings.length} 项提醒 · 0 项阻断
         </span>
       </div>
-      {qualityBundle ? (
+      {hasCurrentQualityBundle ? (
         <div className="mt-4 grid gap-2 border-t border-slate-200 pt-4 text-xs sm:grid-cols-2">
           <div>
             <p className="text-slate-500">检查结论</p>
