@@ -102,6 +102,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '22 conflicting Human Review retry is blocked', run: caseReviewRetryConflict },
   { name: '23 publication atomically writes version registry trace and link', run: caseAtomicPublication },
   { name: '24 failed publication leaves no partial records and retry is idempotent', run: casePublicationRollbackAndRetry },
+  { name: '25 current quality context skips incomplete retry records', run: caseIncompleteRetryDoesNotShadowCompleteContext },
 ];
 
 async function main(): Promise<void> {
@@ -230,6 +231,33 @@ async function caseRevisionIsolation(): Promise<void> {
     const all = await runtime.quality.listDeterministicForDraft(updated.draftId);
     assert(all.length === 2, 'Previous revision assessment was not preserved.');
     assert(all[0]?.assessedDraftRevision === 2, 'Current revision was not returned first.');
+  });
+}
+
+async function caseIncompleteRetryDoesNotShadowCompleteContext(): Promise<void> {
+  await withRuntime(async (runtime) => {
+    const fixture = await createQualityFixture(runtime, 'incomplete-retry-selection');
+    await persistQuestionQualityBundle(runtime.quality, fixture);
+    await runtime.quality.saveDeterministicAssessment({
+      ...fixture.deterministic,
+      assessmentId: `${fixture.deterministic.assessmentId}:retry`,
+      assessedAt: LATER,
+    });
+
+    const context = await requireCurrentPersistedQualityContext(
+      runtime.resources,
+      runtime.quality,
+      fixture.draft.draftId,
+    );
+
+    assert(
+      context.deterministic.assessmentId === fixture.deterministic.assessmentId,
+      'Incomplete retry record shadowed the complete quality context.',
+    );
+    assert(
+      context.semantic.semanticAssessmentId === fixture.semantic.semanticAssessmentId,
+      'Complete semantic assessment was not restored.',
+    );
   });
 }
 

@@ -82,3 +82,37 @@ Phase 17.5C2 已完成：
 下一工程阶段为：
 
 > Phase 17.5C3：Batch Quality Summary and Ten-material Calibration
+
+## 五、2026-07-31 当前完整检查上下文一致性补充验收
+
+### 问题
+
+同一 Draft Revision 下可能同时存在：
+
+- 一条较早的完整检查链；
+- 一条较新的孤立确定性重试记录。
+
+页面能够恢复完整链，但提交最终确认曾只读取最新确定性记录，继而错误报告
+`Current semantic assessment result is required.`。这属于消费端选择规则分叉，不是内容污染。
+
+### 修复
+
+1. 持久化服务统一扫描当前 Revision 的全部确定性检查、语义检查和 Bundle；
+2. 页面读取与提交最终确认共用首选完整链选择规则；
+3. 新孤立记录不得遮蔽旧完整链；
+4. 已进入审核生命周期的重复提交保持幂等；
+5. Command 成功与后续页面刷新失败分开反馈；
+6. 页面增加同步执行锁，防止快速重复触发。
+
+### 自动化结果
+
+- `debug:phase17-5c2`：`25 / 25 PASS`；
+- 新增用例：`current quality context skips incomplete retry records`；
+- `debug:question-workbench-command-e2e`：`7 / 7 PASS`；
+- Production Build：PASS；
+- `git diff --check`：PASS。
+
+### 冻结结论
+
+> 当前完整检查事实不再由“最新一条确定性记录”单独决定。页面、提交最终确认和后续发布门禁必须
+> 消费同一条完整持久化检查链；孤立重试记录不得造成页面显示通过而 Command 报缺少语义结果。

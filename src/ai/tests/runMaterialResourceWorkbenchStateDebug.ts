@@ -144,9 +144,9 @@ const snapshot = {
   anchors: [],
   validations: [],
   frozenVersions: [
-    frozenVersion('resource-a:v2', 'material:v1', '分析题'),
-    frozenVersion('resource-b:v1', 'material:v1', '理解题'),
-    frozenVersion('resource-c:v1', 'material:v1', '发布未完成题'),
+    frozenVersion('resource-a:v2', 'material:v1', '分析题', 'draft-a-v2'),
+    frozenVersion('resource-b:v1', 'material:v1', '理解题', 'draft-b-v1'),
+    frozenVersion('resource-c:v1', 'material:v1', '发布未完成题', 'draft-c-v1'),
   ],
   draftReadiness: [],
 };
@@ -200,6 +200,12 @@ check(
   scopedDetails.incompletePublications.length === 1
     && scopedDetails.incompletePublications[0]?.resourceId === 'resource-c',
   `incomplete=${scopedDetails.incompletePublications.map((item) => item.resourceId).join(',')}`,
+);
+check(
+  '12 正式版本来源草稿与当前修订草稿分别读取',
+  scopedDetails.publishedResources[0]?.sourceDraftId === 'draft-a-v2'
+    && scopedDetails.publishedResources[0]?.activeRepairDraftId === '',
+  `source=${scopedDetails.publishedResources[0]?.sourceDraftId}, repair=${scopedDetails.publishedResources[0]?.activeRepairDraftId}`,
 );
 
 console.log('Phase 17.2 Material Resource Workbench State Debug');
@@ -271,9 +277,15 @@ function link(
   };
 }
 
-function frozenVersion(resourceVersionId: string, materialVersionId: string, title: string) {
+function frozenVersion(
+  resourceVersionId: string,
+  materialVersionId: string,
+  title: string,
+  sourceDraftId: string,
+) {
   return {
     resourceVersionId,
+    sourceDraftId,
     materialVersionId,
     title,
     questionStem: title,

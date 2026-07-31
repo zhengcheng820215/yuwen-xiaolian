@@ -62,6 +62,8 @@ export type MaterialResourceWorkbenchDetails = {
   }>;
   incompletePublications: Array<{
     draftId: string;
+    sourceDraftId: string;
+    activeRepairDraftId: string;
     resourceId: string;
     resourceVersionId: string;
     observationTaskPlanId: string;
@@ -75,6 +77,8 @@ export type MaterialResourceWorkbenchDetails = {
   }>;
   publishedResources: Array<{
     draftId: string;
+    sourceDraftId: string;
+    activeRepairDraftId: string;
     resourceId: string;
     resourceVersionId: string;
     observationTaskPlanId: string;
@@ -196,6 +200,8 @@ export function buildMaterialResourceWorkbenchDetails(
     ));
     return {
       draftId: activeRepairDraft?.draftId || version?.sourceDraftId || '',
+      sourceDraftId: version?.sourceDraftId || '',
+      activeRepairDraftId: activeRepairDraft?.draftId || '',
       resourceId: link.resourceId,
       resourceVersionId: link.resourceVersionId,
       observationTaskPlanId: link.observationTaskPlanId,

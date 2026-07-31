@@ -16,6 +16,7 @@ const base = {
 const dirty = resolveQuestionWorkflowProjection({ ...base, isDirty: true });
 assert.equal(dirty.visibleStep, 'question_check');
 assert.equal(dirty.primaryAction, 'save_and_recheck');
+assert.equal(dirty.productionState, 'editing');
 
 const structureOnly = resolveQuestionWorkflowProjection({
   ...base,
@@ -40,6 +41,7 @@ const ready = resolveQuestionWorkflowProjection({
 assert.equal(ready.substate, 'ready_to_submit');
 assert.equal(ready.primaryAction, 'submit_final_confirmation');
 assert.equal(questionWorkflowStepIndex(ready), 2);
+assert.equal(ready.productionState, 'pending_confirmation');
 
 const pendingReview = resolveQuestionWorkflowProjection({
   ...base,
@@ -48,6 +50,7 @@ const pendingReview = resolveQuestionWorkflowProjection({
 assert.equal(pendingReview.substate, 'pending_review');
 assert.equal(pendingReview.primaryAction, 'record_review_decision');
 assert.equal(questionWorkflowStepIndex(pendingReview), 2);
+assert.equal(pendingReview.productionState, 'pending_confirmation');
 
 const approved = resolveQuestionWorkflowProjection({
   ...base,
@@ -56,6 +59,7 @@ const approved = resolveQuestionWorkflowProjection({
 assert.equal(approved.substate, 'approved');
 assert.equal(approved.primaryAction, 'publish');
 assert.equal(questionWorkflowStepIndex(approved), 3);
+assert.equal(approved.productionState, 'confirmed');
 
 const publicationIncomplete = resolveQuestionWorkflowProjection({
   ...base,
@@ -64,6 +68,7 @@ const publicationIncomplete = resolveQuestionWorkflowProjection({
 });
 assert.equal(publicationIncomplete.substate, 'publication_incomplete');
 assert.equal(publicationIncomplete.primaryAction, 'resume_publication');
+assert.equal(publicationIncomplete.productionState, 'publication_failed');
 
 const published = resolveQuestionWorkflowProjection({
   ...base,
@@ -73,5 +78,6 @@ const published = resolveQuestionWorkflowProjection({
 assert.equal(published.visibleStep, 'published');
 assert.equal(published.primaryAction, null);
 assert.equal(questionWorkflowStepIndex(published), 3);
+assert.equal(published.productionState, 'published');
 
 console.log('Question workflow projection debug passed.');

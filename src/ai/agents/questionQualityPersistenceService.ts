@@ -35,6 +35,9 @@ import {
   type QuestionQualityReviewAction,
   type QuestionSemanticQualityAssessment,
 } from '../schemas/questionSemanticQualityAssessment.schema.ts';
+import {
+  selectPreferredPersistedQuestionQualityContext,
+} from './questionQualityContextSelection.ts';
 import type {
   ResourceReviewDecision,
   StructuredQuestionDraft,
@@ -84,48 +87,58 @@ export async function requireCurrentPersistedQualityContext(
 
   const deterministicCandidates =
     await qualityRepository.listDeterministicForDraft(draft.draftId);
-  const deterministic = deterministicCandidates.find((item) => (
+  const currentDeterministicCandidates = deterministicCandidates.filter((item) => (
     item.assessedDraftRevision === draft.revision &&
     item.validationId === validation.validationId &&
     item.ruleVersion === QUESTION_QUALITY_RULE_VERSION
   ));
-  if (!deterministic) {
+  if (currentDeterministicCandidates.length === 0) {
     throw new Error('Current persisted deterministic assessment is required.');
   }
 
   const semanticCandidates =
     await qualityRepository.listSemanticForDraft(draft.draftId);
-  const semantic = semanticCandidates.find((item) => (
+  const currentSemanticCandidates = semanticCandidates.filter((item) => (
     item.assessedDraftRevision === draft.revision &&
     item.validationId === validation.validationId &&
-    item.deterministicAssessmentId === deterministic.assessmentId &&
     item.promptVersion === QUESTION_SEMANTIC_QUALITY_PROMPT_VERSION &&
     item.semanticRuleVersion === QUESTION_SEMANTIC_QUALITY_RULE_VERSION &&
     item.outputSchemaVersion === QUESTION_SEMANTIC_QUALITY_OUTPUT_SCHEMA_VERSION
   ));
-  if (!semantic) {
+  const matchingSemanticCandidates = currentSemanticCandidates.filter((semantic) => (
+    currentDeterministicCandidates.some(
+      (deterministic) =>
+        deterministic.assessmentId === semantic.deterministicAssessmentId,
+    )
+  ));
+  if (matchingSemanticCandidates.length === 0) {
     throw new Error('Current semantic assessment result is required.');
   }
 
-  const bundles = await Promise.all(
-    semanticCandidates
-      .filter((item) => item.semanticAssessmentId === semantic.semanticAssessmentId)
-      .map(() => qualityRepository.getCurrentBundle({
+  const contexts: CurrentPersistedQualityContext[] = [];
+  for (const deterministic of currentDeterministicCandidates) {
+    const matchingSemantics = matchingSemanticCandidates.filter(
+      (semantic) =>
+        semantic.deterministicAssessmentId === deterministic.assessmentId,
+    );
+    for (const semantic of matchingSemantics) {
+      const bundle = await qualityRepository.getCurrentBundle({
         draftId: draft.draftId,
         draftRevision: draft.revision,
         validationId: validation.validationId,
         deterministicAssessmentId: deterministic.assessmentId,
         semanticAssessmentId: semantic.semanticAssessmentId,
         mergeRuleVersion: QUESTION_QUALITY_MERGE_RULE_VERSION,
-      })),
-  );
-  const bundle = bundles.find(
-    (candidate): candidate is QuestionQualityAssessmentBundle => Boolean(candidate),
-  );
-  if (!bundle) {
+      });
+      if (bundle) contexts.push({ draft, deterministic, semantic, bundle });
+    }
+  }
+
+  const context = selectPreferredPersistedQuestionQualityContext(contexts);
+  if (!context) {
     throw new Error('Current persisted quality bundle is required.');
   }
-  return { draft, deterministic, semantic, bundle };
+  return context;
 }
 
 export async function reviewQuestionResourceDraftWithPersistedQuality(

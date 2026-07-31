@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
 import RefreshIconButton from '../components/RefreshIconButton.jsx';
+import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
 import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
 import { requestQuestionStemOptimization } from '../api/questionStemOptimization.ts';
 import { requestRubricItemOptimization } from '../api/rubricItemOptimization.ts';
@@ -175,7 +176,9 @@ export default function QuestionResourceWorkbench() {
     requirement: '',
   });
   const [notice, setNotice] = useState(null);
+  const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [activeCommand, setActiveCommand] = useState(null);
   const [validationBusy, setValidationBusy] = useState(false);
   const [workspaceLoadState, setWorkspaceLoadState] = useState('loading');
   const [workspaceLoadAttempt, setWorkspaceLoadAttempt] = useState(0);
@@ -193,6 +196,7 @@ export default function QuestionResourceWorkbench() {
   const postNavigationNoticeRef = useRef(null);
   const qualityRepairEditCheckRef = useRef(null);
   const returnRepairFocusRef = useRef(null);
+  const commandInFlightRef = useRef(false);
 
   const editable = !context || ['drafted', 'validation_failed', 'revision_required'].includes(context.draft.status);
   const selectedMaterial = useMemo(
@@ -451,19 +455,34 @@ export default function QuestionResourceWorkbench() {
     );
   }
 
-  async function run(action, successMessage, preferredDraftId) {
+  async function run(action, successMessage, preferredDraftId, command = 'generic') {
+    if (commandInFlightRef.current) return null;
+    commandInFlightRef.current = true;
+    setActiveCommand(command);
     setBusy(true);
     setNotice(null);
     try {
       const result = await action();
       const draftId = preferredDraftId?.(result) || selectedDraftId || result?.draftId;
-      await refreshWorkspace(draftId);
-      setNotice({ type: 'success', message: typeof successMessage === 'function' ? successMessage(result) : successMessage });
+      const message = typeof successMessage === 'function'
+        ? successMessage(result)
+        : successMessage;
+      try {
+        await refreshWorkspace(draftId);
+        setNotice({ type: 'success', message });
+      } catch {
+        setNotice({
+          type: 'warning',
+          message: `${message} 页面状态刷新失败，请点击右上角刷新查看最新状态。`,
+        });
+      }
       return result;
     } catch (error) {
       setNotice(errorNotice(error));
       return null;
     } finally {
+      commandInFlightRef.current = false;
+      setActiveCommand(null);
       setBusy(false);
     }
   }
@@ -480,6 +499,7 @@ export default function QuestionResourceWorkbench() {
       }),
       selectedDraftId ? '修改已保存，请重新检查题目。' : '题目草稿已创建。',
       (draft) => draft.draftId,
+      'save_draft',
     );
     if (result) setSelectedDraftId(result.draftId);
     return result;
@@ -505,6 +525,8 @@ export default function QuestionResourceWorkbench() {
     const material = await run(
       () => createWorkbenchMaterial(materialForm),
       'Material 已创建并可供题目引用。',
+      undefined,
+      'create_material',
     );
     if (material) {
       updateQualityRelevantForm((value) => ({ ...value, materialVersionId: material.materialVersionId }));
@@ -535,6 +557,7 @@ export default function QuestionResourceWorkbench() {
         },
         '题目结构检查已完成。',
         (draft) => draft.draftId,
+        'validate_draft',
       );
       if (result) setSelectedDraftId(result.draftId);
       setActivePanel('workflow');
@@ -562,6 +585,7 @@ export default function QuestionResourceWorkbench() {
       },
       successMessage,
       (draft) => draft.draftId,
+      'validate_draft',
     );
     if (result) {
       setSelectedDraftId(result.draftId);
@@ -581,6 +605,8 @@ export default function QuestionResourceWorkbench() {
         })),
       ),
       '题目已提交最终确认。',
+      undefined,
+      'submit_final_confirmation',
     );
   }
 
@@ -594,6 +620,8 @@ export default function QuestionResourceWorkbench() {
         context?.draft.revision,
       ),
       '本次审核提交已撤回，可以继续修改题目。',
+      undefined,
+      'withdraw_review',
     );
   }
 
@@ -614,6 +642,12 @@ export default function QuestionResourceWorkbench() {
         acceptedWarningCodes: acceptedReviewWarningCodes,
       }),
       labels[action],
+      undefined,
+      action === 'approve'
+        ? 'approve_review'
+        : action === 'revision_required'
+          ? 'return_for_revision'
+          : 'reject_review',
     );
     if (result && action === 'revision_required') {
       const params = new URLSearchParams(location.search);
@@ -630,7 +664,7 @@ export default function QuestionResourceWorkbench() {
 
   async function freezeDraft() {
     const retryExistingPublication = Boolean(context?.frozenVersion);
-    await run(
+    const result = await run(
       () => retryExistingPublication
         ? retryQuestionResourceWorkbenchPublication(
           selectedDraftId,
@@ -647,7 +681,16 @@ export default function QuestionResourceWorkbench() {
             ? '已沿用现有正式题目版本并补齐材料观测关联。'
             : '正式资源已冻结，Registry 与材料观测关联均已更新。'
           : '正式资源已冻结，ResourceRegistry 已更新。',
+      undefined,
+      retryExistingPublication ? 'retry_publication' : 'publish_question',
     );
+    if (result && !result.observationLinkIssues?.length) {
+      setNotice(null);
+      setToast({
+        id: `question-published-${Date.now()}`,
+        message: '题目已经发布成功！',
+      });
+    }
   }
 
   async function createNextVersion(resourceId) {
@@ -655,6 +698,7 @@ export default function QuestionResourceWorkbench() {
       () => createQuestionResourceWorkbenchNextVersion(resourceId),
       '新版本草稿已创建，现有正式版本继续生效。',
       (draft) => draft.draftId,
+      'create_next_version',
     );
   }
 
@@ -666,6 +710,7 @@ export default function QuestionResourceWorkbench() {
         ? '已打开当前题已有的发布修订稿，不会重复创建待审核题目。'
         : '已为当前题创建一份发布修订稿，并按训练计划同步设置。请检查后重新提交审核。',
       (draft) => draft.draftId,
+      'repair_publication',
     );
     if (!result) return;
     const params = new URLSearchParams(location.search);
@@ -684,6 +729,7 @@ export default function QuestionResourceWorkbench() {
         ? '已打开当前题已有的修订稿，不会重复创建草稿。'
         : '修订稿已创建，原有“不采用”记录继续保留。',
       (draft) => draft.draftId,
+      'create_revision',
     );
     if (!result) return;
     const params = new URLSearchParams(location.search);
@@ -1075,6 +1121,7 @@ export default function QuestionResourceWorkbench() {
       setForm={updateQualityRelevantForm}
       editable={editable}
       busy={busy}
+      activeCommand={activeCommand}
       context={context}
       materials={snapshot.materials}
       materialForm={materialForm}
@@ -1128,6 +1175,7 @@ export default function QuestionResourceWorkbench() {
       returnReviewRequest={returnReviewRequest}
       setReturnReviewRequest={setReturnReviewRequest}
       busy={busy}
+      activeCommand={activeCommand}
       validationBusy={validationBusy}
       onValidate={validateDraft}
       onSubmitReview={submitReview}
@@ -1149,6 +1197,7 @@ export default function QuestionResourceWorkbench() {
       publicationPreflightMismatch={context ? getPublicationPreflightMismatch(context) : null}
       publicationRepairDraft={context ? findPublicationRepairDraft(snapshot, context.draft) : null}
       humanReviewStage={humanReviewStage}
+      notice={notice}
     />
   );
 
@@ -1322,8 +1371,6 @@ export default function QuestionResourceWorkbench() {
           <BatchObservabilitySummary summary={snapshot.batchObservability} compact />
         ) : null}
 
-        {notice ? <Notice notice={notice} /> : null}
-
         {planReviewMode ? (
           <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
             <div className="min-w-0 space-y-5">
@@ -1340,6 +1387,14 @@ export default function QuestionResourceWorkbench() {
           </div>
         )}
       </main>
+      {toast ? (
+        <WorkspaceToast
+          key={toast.id}
+          message={toast.message}
+          duration={3000}
+          onDismiss={() => setToast((current) => current?.id === toast.id ? null : current)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1478,6 +1533,7 @@ function QuestionEditor({
   setForm,
   editable,
   busy,
+  activeCommand,
   context,
   materials,
   materialForm,
@@ -2142,16 +2198,23 @@ function QuestionEditor({
         <button
           type="button"
           disabled={busy || !editable || !hasUnsavedChanges}
+          aria-busy={activeCommand === 'save_draft'}
           onClick={onSave}
           className={`mx-auto flex min-h-11 w-[420px] max-w-full items-center justify-center rounded-md px-4 text-sm font-normal ${
-            busy || !editable || !hasUnsavedChanges
+            activeCommand === 'save_draft'
+              ? commandLoadingClass
+              : busy || !editable || !hasUnsavedChanges
               ? 'border border-slate-200 bg-slate-200 text-slate-400'
               : focusedReview
                 ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                 : 'bg-slate-950 text-white hover:bg-slate-800'
           }`}
         >
-          {hasUnsavedChanges ? (focusedReview ? '保存本次修改' : '保存草稿') : '当前内容已保存'}
+          {activeCommand === 'save_draft' ? (
+            <PendingCommandLabel label="正在保存…" />
+          ) : hasUnsavedChanges ? (
+            focusedReview ? '保存本次修改' : '保存草稿'
+          ) : '当前内容已保存'}
         </button>
       </fieldset>
     </section>
@@ -2159,7 +2222,15 @@ function QuestionEditor({
 }
 
 function WorkflowPanel(props) {
-  const { activePanel, setActivePanel, context, form, material, previewResource, reviewNotes, setReviewNotes, acceptedReviewWarningCodes, setAcceptedReviewWarningCodes, authorWarningRationales, setAuthorWarningRationales, returnReviewOpen, setReturnReviewOpen, returnReviewRequest, setReturnReviewRequest, busy, validationBusy, onValidate, onSubmitReview, onWithdrawReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onLocateReturnIssue, onOptimizeStem, stemOptimizationBusy, focusedReview, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft, humanReviewStage } = props;
+  const { activePanel, setActivePanel, context, form, material, previewResource, reviewNotes, setReviewNotes, acceptedReviewWarningCodes, setAcceptedReviewWarningCodes, authorWarningRationales, setAuthorWarningRationales, returnReviewOpen, setReturnReviewOpen, returnReviewRequest, setReturnReviewRequest, busy, activeCommand, validationBusy, onValidate, onSubmitReview, onWithdrawReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onLocateReturnIssue, onOptimizeStem, stemOptimizationBusy, focusedReview, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft, humanReviewStage, notice } = props;
+  const noticeRef = useRef(null);
+  useEffect(() => {
+    if (!notice) return;
+    const frameId = window.requestAnimationFrame(() => {
+      noticeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [notice?.message]);
   const panelLabels = humanReviewStage
     ? [['workflow', '内容审核'], ['student', '学生预览'], ['review', '审核记录']]
     : [['workflow', '提交前检查'], ['student', '学生预览'], ['review', '检查记录']];
@@ -2202,6 +2273,7 @@ function WorkflowPanel(props) {
             returnReviewRequest={returnReviewRequest}
             setReturnReviewRequest={setReturnReviewRequest}
             busy={busy}
+            activeCommand={activeCommand}
             validationBusy={validationBusy}
             onValidate={onValidate}
             onSubmitReview={onSubmitReview}
@@ -2227,6 +2299,11 @@ function WorkflowPanel(props) {
         ) : null}
         {activePanel === 'student' ? <StudentPreview resource={previewResource} material={material} isFrozen={Boolean(context?.frozenVersion)} /> : null}
         {activePanel === 'review' ? <ReviewPreview context={context} form={form} material={material} qualityResultStale={qualityResultStale} qualityRevisionProgress={qualityRevisionProgress} humanReviewStage={humanReviewStage} /> : null}
+        {notice ? (
+          <div ref={noticeRef} className="mt-4">
+            <Notice notice={notice} />
+          </div>
+        ) : null}
       </div>
     </aside>
   );
@@ -2283,9 +2360,6 @@ function QuestionReviewContent({
                 status: publicationStatus,
               })}
             </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              正式字段只读；如需调整，请退回录入端修改。
-            </p>
           </div>
         </div>
       </div>
@@ -2520,7 +2594,7 @@ function ReviewSubmissionSummary({ context, acceptedWarningCodes, setAcceptedWar
   );
 }
 
-function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes, acceptedReviewWarningCodes, setAcceptedReviewWarningCodes, authorWarningRationales, setAuthorWarningRationales, returnReviewOpen, setReturnReviewOpen, returnReviewRequest, setReturnReviewRequest, busy, validationBusy, onValidate, onSubmitReview, onWithdrawReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onLocateReturnIssue, onOptimizeStem, stemOptimizationBusy, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft, focusedReview, humanReviewStage }) {
+function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes, acceptedReviewWarningCodes, setAcceptedReviewWarningCodes, authorWarningRationales, setAuthorWarningRationales, returnReviewOpen, setReturnReviewOpen, returnReviewRequest, setReturnReviewRequest, busy, activeCommand, validationBusy, onValidate, onSubmitReview, onWithdrawReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onLocateReturnIssue, onOptimizeStem, stemOptimizationBusy, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft, focusedReview, humanReviewStage }) {
   const [warningSubmitAttempted, setWarningSubmitAttempted] = useState(false);
   useEffect(() => {
     setWarningSubmitAttempted(false);
@@ -2913,6 +2987,7 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
               <button
                 type="button"
                 disabled={busy || !hasCurrentCompleteQualityCheck}
+                aria-busy={activeCommand === 'submit_final_confirmation'}
                 onClick={() => {
                   if (!authorWarningsReady) {
                     setWarningSubmitAttempted(true);
@@ -2920,9 +2995,13 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
                   }
                   onSubmitReview();
                 }}
-                className={centeredWorkflowButtonClass}
+                className={`${centeredWorkflowButtonClass} ${
+                  activeCommand === 'submit_final_confirmation' ? commandLoadingClass : ''
+                }`}
               >
-                保留设置并提交最终确认
+                {activeCommand === 'submit_final_confirmation'
+                  ? <PendingCommandLabel label="正在提交最终确认…" />
+                  : '保留设置并提交最终确认'}
               </button>
               {warningSubmitAttempted && !authorWarningsReady ? (
                 <p className="text-center text-xs leading-5 text-amber-800">
@@ -2961,12 +3040,17 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
           <button
             type="button"
             disabled={busy || !hasCurrentCompleteQualityCheck || !authorWarningsReady}
+            aria-busy={activeCommand === 'submit_final_confirmation'}
             onClick={onSubmitReview}
-            className={centeredWorkflowButtonClass}
+            className={`${centeredWorkflowButtonClass} ${
+              activeCommand === 'submit_final_confirmation' ? commandLoadingClass : ''
+            }`}
           >
-            {qualityAssessment?.warnings.length
-              ? '保留提醒并提交最终确认'
-              : '提交最终确认'}
+            {activeCommand === 'submit_final_confirmation' ? (
+              <PendingCommandLabel label="正在提交最终确认…" />
+            ) : qualityAssessment?.warnings.length ? (
+              '保留提醒并提交最终确认'
+            ) : '提交最终确认'}
           </button>
           {!hasCurrentCompleteQualityCheck ? (
             <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
@@ -3049,10 +3133,15 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
                 <button
                   type="button"
                   disabled={busy || !returnRequestReady}
+                  aria-busy={activeCommand === 'return_for_revision'}
                   onClick={() => onReview('revision_required', returnReviewRequest)}
-                  className="min-h-9 rounded-md bg-red-600 px-4 text-xs text-white disabled:bg-slate-200 disabled:text-slate-400"
+                  className={`min-h-9 rounded-md bg-red-600 px-4 text-xs text-white disabled:bg-slate-200 disabled:text-slate-400 ${
+                    activeCommand === 'return_for_revision' ? commandLoadingClass : ''
+                  }`}
                 >
-                  确认退回
+                  {activeCommand === 'return_for_revision'
+                    ? <PendingCommandLabel label="正在退回…" size={16} />
+                    : '确认退回'}
                 </button>
               </div>
             </div>
@@ -3062,10 +3151,15 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
             <button
               type="button"
               disabled={busy || !checkRecordComplete || !acceptedAllReviewWarnings || semanticQualityUnavailable}
+              aria-busy={activeCommand === 'approve_review'}
               onClick={() => onReview('approve')}
-              className="min-h-10 rounded-md bg-slate-950 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400"
+              className={`min-h-10 rounded-md bg-slate-950 px-2 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400 ${
+                activeCommand === 'approve_review' ? commandLoadingClass : ''
+              }`}
             >
-              确认通过
+              {activeCommand === 'approve_review'
+                ? <PendingCommandLabel label="正在确认通过…" />
+                : '确认通过'}
             </button>
           </div>
           {semanticQualityUnavailable ? (
@@ -3084,10 +3178,15 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
               <button
                 type="button"
                 disabled={busy}
+                aria-busy={activeCommand === 'withdraw_review'}
                 onClick={onWithdrawReview}
-                className="mt-2 min-h-9 rounded-md border border-[#666666] px-4 text-xs font-normal text-slate-800 disabled:border-slate-200 disabled:text-slate-400"
+                className={`mt-2 min-h-9 rounded-md border border-[#666666] px-4 text-xs font-normal text-slate-800 disabled:border-slate-200 disabled:text-slate-400 ${
+                  activeCommand === 'withdraw_review' ? commandLoadingClass : ''
+                }`}
               >
-                撤回至录入端
+                {activeCommand === 'withdraw_review'
+                  ? <PendingCommandLabel label="正在撤回…" size={16} />
+                  : '撤回至录入端'}
               </button>
             </div>
           </details>
@@ -3101,7 +3200,21 @@ function WorkflowActions({ context, form, material, reviewNotes, setReviewNotes,
               请先完成上方训练设置调整，重新检查并通过人工审核后再发布。
             </p>
           ) : (
-            <button type="button" disabled={busy || !canPublish} onClick={onFreeze} className="mx-auto flex min-h-10 w-[420px] max-w-full items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400">发布正式题目</button>
+            <button
+              type="button"
+              disabled={busy || !canPublish}
+              aria-busy={['publish_question', 'retry_publication'].includes(activeCommand)}
+              onClick={onFreeze}
+              className={`mx-auto flex min-h-10 w-[420px] max-w-full items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-normal text-white disabled:bg-slate-200 disabled:text-slate-400 ${
+                ['publish_question', 'retry_publication'].includes(activeCommand) ? commandLoadingClass : ''
+              }`}
+            >
+              {activeCommand === 'retry_publication' ? (
+                <PendingCommandLabel label="正在重试发布…" />
+              ) : activeCommand === 'publish_question' ? (
+                <PendingCommandLabel label="正在发布…" />
+              ) : '发布正式题目'}
+            </button>
           )}
         </ActionStep>
       ) : null}
@@ -4041,8 +4154,17 @@ function readTagValue(tags, prefix) {
 }
 
 function Notice({ notice }) {
+  const toneClass = notice.type === 'success'
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+    : notice.type === 'warning'
+      ? 'border-amber-200 bg-amber-50 text-amber-800'
+      : 'border-rose-200 bg-rose-50 text-rose-800';
   return (
-    <div className={`mb-4 rounded-md border px-4 py-3 text-sm ${notice.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800'}`}>
+    <div
+      role={notice.type === 'error' ? 'alert' : 'status'}
+      aria-live={notice.type === 'error' ? 'assertive' : 'polite'}
+      className={`rounded-md border px-4 py-3 text-sm ${toneClass}`}
+    >
       <p>{notice.message}</p>
       {notice.errorCode && (
         <>
@@ -4300,4 +4422,14 @@ const inputClass = 'min-h-11 w-full rounded-md border border-slate-200 bg-white 
 const textareaClass = 'w-full rounded-md border border-slate-200 bg-white p-3 text-sm leading-6 text-slate-950 outline-none focus:border-blue-500 disabled:bg-slate-50';
 const activeWorkflowButtonClass = 'mx-auto flex min-h-10 w-[420px] max-w-full items-center justify-center rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-normal text-white hover:bg-emerald-700 disabled:border-slate-300 disabled:bg-slate-50 disabled:text-slate-400';
 const centeredWorkflowButtonClass = 'mx-auto flex min-h-10 w-[420px] max-w-full items-center justify-center rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-normal text-white hover:bg-emerald-700 disabled:border-slate-300 disabled:bg-slate-50 disabled:text-slate-400';
+const commandLoadingClass = 'cursor-wait border-blue-600 bg-blue-600 text-white disabled:border-blue-600 disabled:bg-blue-600 disabled:text-white';
+
+function PendingCommandLabel({ label, size = 18 }) {
+  return (
+    <span className="inline-flex items-center justify-center gap-2">
+      <LoaderCircle size={size} className="animate-spin" aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
 const preClass = 'mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-slate-950 p-3 text-xs leading-5 text-slate-100';

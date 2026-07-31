@@ -433,7 +433,14 @@ export async function submitQuestionResourceWorkbenchReview(
     rationale: string;
   }> = [],
 ) {
-  await requireExpectedDraftRevision(draftId, expectedDraftRevision, 'submit_review');
+  const currentDraft = await requireExpectedDraftRevision(
+    draftId,
+    expectedDraftRevision,
+    'submit_review',
+  );
+  if (['pending_review', 'reviewed'].includes(currentDraft.status)) {
+    return currentDraft;
+  }
   await requireQuestionPublicationPreflight(draftId, 'question_review.submit');
   const context = await requireCurrentPersistedQualityContext(
     repository,

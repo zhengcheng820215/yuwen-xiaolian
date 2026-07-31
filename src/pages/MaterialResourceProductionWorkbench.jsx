@@ -75,6 +75,10 @@ import {
   removeTrainingTaskAt,
   restoreRemovedTrainingTask,
 } from './trainingTaskEditingState.ts';
+import {
+  resolveTaskGroupSummary,
+  resolveTaskProductionState,
+} from './taskProductionState.ts';
 
 const dimensionOptions = [
   ['fact', '事实'], ['character', '人物'], ['plot', '情节'], ['causality', '因果'],
@@ -337,7 +341,13 @@ export default function MaterialResourceProductionWorkbench() {
   );
   const taskQuestionLifecycleSummary = useMemo(() => {
     const lifecycles = [...taskQuestionLifecycleById.values()];
-    return summarizeTaskQuestionLifecycles(lifecycles);
+    const summary = resolveTaskGroupSummary(lifecycles.map((item) => item.productionView));
+    return {
+      actionRequired: summary.actionRequired,
+      pendingReview: summary.pendingConfirmation,
+      approvedPendingPublication: summary.confirmedAwaitingPublication,
+      published: summary.published,
+    };
   }, [taskQuestionLifecycleById]);
   const protectedTaskIds = useMemo(() => {
     if (!selectedPlan) return [];
@@ -1452,12 +1462,12 @@ export default function MaterialResourceProductionWorkbench() {
                   value={taskQuestionLifecycleSummary.actionRequired}
                 />
                 <Metric
-                  label="待人工审核"
+                  label="待最终确认"
                   value={taskQuestionLifecycleSummary.pendingReview}
                   tone="warning"
                 />
                 <Metric
-                  label="审核通过（待发布）"
+                  label="已确认（待发布）"
                   value={taskQuestionLifecycleSummary.approvedPendingPublication}
                   tone="info"
                 />
@@ -1659,6 +1669,19 @@ export default function MaterialResourceProductionWorkbench() {
                               className="ml-1 text-[12px] font-medium text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                             >
                               {questionLifecycle.actionLabel}
+                            </button>
+                          )}
+                          {questionLifecycle?.secondaryActionLabel && (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                openQuestionSummaryItem(questionLifecycle.secondaryItem);
+                              }}
+                              className="ml-1 text-[12px] font-medium text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                            >
+                              {questionLifecycle.secondaryActionLabel}
                             </button>
                           )}
                         </span>
@@ -2186,92 +2209,92 @@ function Metric({ label, value, tone = 'default' }) {
 }
 
 function TaskQuestionLifecycleBadge({ lifecycle }) {
-  const status = lifecycle?.status || 'not_generated';
-  const configuration = {
-    not_generated: ['未生成题目', 'bg-slate-100 text-slate-600'],
-    drafted: ['题目草稿', 'bg-slate-100 text-slate-700'],
-    validation_failed: ['题目需重新检查', 'bg-amber-50 text-amber-700'],
-    pending_review: ['待题目人工审核', 'bg-amber-50 text-amber-700'],
-    revision_required: ['题目退回修改', 'bg-amber-50 text-amber-700'],
-    approved_pending_publication: ['审核通过（待发布）', 'bg-blue-50 text-blue-700'],
-    publication_incomplete: ['发布未完成', 'bg-red-50 text-red-700'],
-    published: ['已发布', 'bg-emerald-50 text-emerald-700'],
-  }[status];
+  const presentation = lifecycle?.productionView?.presentation || {
+    stateLabel: '未生成题目',
+    tone: 'neutral',
+  };
+  const toneClassName = {
+    neutral: 'bg-slate-100 text-slate-600',
+    action: 'bg-blue-50 text-blue-700',
+    warning: 'bg-amber-50 text-amber-700',
+    danger: 'bg-red-50 text-red-700',
+    success: 'bg-emerald-50 text-emerald-700',
+  }[presentation.tone];
   return (
-    <span className={`rounded px-2 py-1 text-xs font-normal ${configuration[1]}`}>
-      {configuration[0]}
+    <span className={`rounded px-2 py-1 text-xs font-normal ${toneClassName}`}>
+      {presentation.stateLabel}
     </span>
   );
-}
-
-function summarizeTaskQuestionLifecycles(lifecycles) {
-  return lifecycles.reduce((summary, lifecycle) => {
-    if (lifecycle.status === 'published') {
-      summary.published += 1;
-    } else if (lifecycle.status === 'pending_review') {
-      summary.pendingReview += 1;
-    } else if (lifecycle.status === 'approved_pending_publication') {
-      summary.approvedPendingPublication += 1;
-    } else {
-      summary.actionRequired += 1;
-    }
-    return summary;
-  }, {
-    actionRequired: 0,
-    pendingReview: 0,
-    approvedPendingPublication: 0,
-    published: 0,
-  });
 }
 
 function resolveTaskQuestionLifecycle({ task, plan, planDrafts, details }) {
   const observationTaskPlanId = task.observationTaskPlanId;
   if (!observationTaskPlanId) {
-    return { status: 'not_generated', actionLabel: '', item: null };
+    const productionView = resolveTaskProductionState({ trainingTaskId: task.localId });
+    return { status: productionView.state, actionLabel: '', item: null, productionView };
   }
 
   const published = details.publishedResources.find(
     (item) => item.observationTaskPlanId === observationTaskPlanId,
   );
-  if (published) {
-    return {
-      status: 'published',
-      actionLabel: '查看已发布题目',
-      item: published,
-    };
-  }
-
   const incomplete = details.incompletePublications.find(
     (item) => item.observationTaskPlanId === observationTaskPlanId,
   );
-  if (incomplete) {
-    return {
-      status: 'publication_incomplete',
-      actionLabel: '处理发布问题',
-      item: incomplete,
-    };
-  }
-
   const taskTag = `observation_task:${observationTaskPlanId}`;
   const draft = planDrafts.find((item) => item.tags.includes(taskTag));
-  if (!draft) {
-    return { status: 'not_generated', actionLabel: '', item: null };
-  }
-
-  const item = {
+  const draftItem = draft ? {
     draftId: draft.draftId,
     materialObservationPlanId: plan?.materialObservationPlanId || '',
     materialVersionId: plan?.materialVersionId || draft.materialVersionId || '',
+  } : null;
+  const publicationItem = incomplete || published || null;
+  const productionView = resolveTaskProductionState({
+    trainingTaskId: observationTaskPlanId,
+    questionLineageId: draft?.resourceId || published?.resourceId || incomplete?.resourceId,
+    draft: draft ? {
+      draftId: draft.draftId,
+      resourceId: draft.resourceId,
+      revision: draft.revision,
+      status: draft.status,
+    } : undefined,
+    publication: incomplete ? {
+      status: 'failed',
+      sourceDraftId: incomplete.sourceDraftId,
+      formalVersionId: incomplete.resourceVersionId,
+    } : published ? {
+      status: 'published',
+      sourceDraftId: published.sourceDraftId,
+      formalVersionId: published.resourceVersionId,
+    } : { status: 'none' },
+  });
+  const primaryActionTargets = {
+    edit: draftItem,
+    save: draftItem,
+    run_check: draftItem,
+    open_confirmation: draftItem,
+    confirm: draftItem,
+    return_for_revision: draftItem,
+    publish: draftItem,
+    retry_publication: publicationItem,
+    view_formal_resource: published,
   };
-  const configurations = {
-    drafted: ['drafted', '继续修改'],
-    validation_failed: ['validation_failed', '继续修改'],
-    pending_review: ['pending_review', '查看审核'],
-    revision_required: ['revision_required', '继续修改'],
-    reviewed: ['approved_pending_publication', '查看发布准备'],
+  const item = productionView.primaryAction
+    ? primaryActionTargets[productionView.primaryAction]
+    : null;
+  const actionLabel = item
+    ? productionView.presentation.primaryActionLabel || ''
+    : '';
+  const showPublishedAsSecondary = Boolean(
+    published && productionView.hasPublishedVersion && productionView.state !== 'published',
+  );
+  return {
+    status: productionView.state,
+    actionLabel,
+    item,
+    secondaryActionLabel: showPublishedAsSecondary ? '查看已发布题目' : '',
+    secondaryItem: showPublishedAsSecondary ? published : null,
+    productionView,
   };
-  const [status, actionLabel] = configurations[draft.status] || ['drafted', '继续修改'];
-  return { status, actionLabel, item };
 }
 
 function MaterialContentPreview({ paragraphs, expanded, onToggle }) {

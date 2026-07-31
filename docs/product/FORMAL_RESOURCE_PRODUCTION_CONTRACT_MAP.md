@@ -3,8 +3,8 @@
 英文名称：Formal Resource Production Contract Map
 
 状态：ACTIVE  
-文档版本：`formal_resource_production_contract_map_v1`  
-更新日期：2026-07-29
+文档版本：`formal_resource_production_contract_map_v2`
+更新日期：2026-07-31
 
 ## 一、目标与权威边界
 
@@ -14,12 +14,15 @@
 
 当本文摘要与正式契约不一致时，以对应职责范围内的正式契约为准，并同步修正本文。
 
+统一资源生产工作台处于目标架构迁移阶段。迁移期间，现有录入、审核和发布契约继续约束领域写入；统一工作台契约负责冻结新的前台入口、任务卡状态与迁移顺序。
+
 ## 二、正式资源生产主链
 
 ```text
 Material Version
 -> Observation Plan Revision
 -> Training Task
+-> Question Lineage
 -> Question Draft Revision
 -> Contract Validation / Quality Assessment
 -> Human Review
@@ -33,6 +36,7 @@ Material Version
 | Material Version | 保存可追溯的素材内容与来源版本 |
 | Observation Plan Revision | 冻结一次训练任务规划的提交版本 |
 | Training Task | 描述学生需要完成的学习动作与观察目标 |
+| Question Lineage | 维持一项训练任务对应题目从活动草稿到多个正式版本的稳定身份 |
 | Question Draft Revision | 承载可编辑、可校验、可送审的题目草稿 |
 | Contract Validation | 判断草稿结构是否合法，失败时阻断送审 |
 | Quality Assessment | 判断候选是否值得审核，输出可追溯的质量结论 |
@@ -63,6 +67,7 @@ AI Candidate Session
 | [录入字段契约](./AUTHORING_FIELD_CONTRACT.md) | 字段由谁生成、谁编辑、如何保存、何时失效，以及字段如何跨阶段适配 | AI 候选组操作和审核发布状态流 |
 | [单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) | 单个候选任务重新生成、采用、身份和版本边界 | 整组任务规划和正式题目发布 |
 | [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) | 补充候选、整组替代方案、工作草稿和批量采用边界 | 单题审核与 Frozen Resource 状态 |
+| [统一资源生产工作台契约](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md) | TrainingTask 与 QuestionLineage 关系、统一任务状态、任务卡主操作、部分发布和分阶段迁移 | 不替代字段、Assessment、Human Review、Freeze 与 Registry 的领域契约 |
 | [录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md) | 录入端负责改、审核端负责判、发布负责正式化的跨平台边界 | 每个页面字段和按钮的详细实现 |
 | [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md) | 审核、退回、通过、冻结、发布与恢复的具体工作流 | 上游 AI 候选生成与任务组规划 |
 | [产品颜色语义规范](./PRODUCT_COLOR_SEMANTICS.md) | 跨平台状态色、操作色和组件颜色语义 | 业务状态本身及其转换规则 |
@@ -72,22 +77,30 @@ AI Candidate Session
 ### 5.1 快速理解完整生产链
 
 1. 本文；
-2. [录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md)；
-3. [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md)。
+2. [统一资源生产工作台契约](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md)；
+3. [录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md)；
+4. [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md)。
 
-### 5.2 开发录入字段与保存能力
+### 5.2 开发统一工作台与任务卡状态
+
+1. [统一资源生产工作台契约](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md)；
+2. [录入字段契约](./AUTHORING_FIELD_CONTRACT.md)；
+3. [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md)；
+4. [产品颜色语义规范](./PRODUCT_COLOR_SEMANTICS.md)。
+
+### 5.3 开发录入字段与保存能力
 
 1. 本文；
 2. [录入字段契约](./AUTHORING_FIELD_CONTRACT.md)；
 3. 根据操作颗粒度继续阅读单任务或任务组 AI 契约。
 
-### 5.3 开发 AI 候选与重新生成能力
+### 5.4 开发 AI 候选与重新生成能力
 
 1. [单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md)；
 2. [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md)；
 3. [录入字段契约](./AUTHORING_FIELD_CONTRACT.md)。
 
-### 5.4 开发审核、冻结与发布能力
+### 5.5 开发审核、冻结与发布能力
 
 1. [录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md)；
 2. [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md)；
@@ -100,6 +113,7 @@ AI Candidate Session
 | 字段含义、来源、编辑权、保存和失效冲突 | [AUTHORING_FIELD_CONTRACT.md](./AUTHORING_FIELD_CONTRACT.md) |
 | 单个训练任务候选、身份或 Revision 冲突 | [SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) |
 | 补充候选、整组规划或工作草稿冲突 | [TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) |
+| 统一入口、任务卡主状态、任务组汇总、部分发布或迁移顺序冲突 | [UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md) |
 | 录入端、审核端与发布端职责冲突 | [AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md) |
 | 审核状态、退回、冻结、发布或恢复冲突 | [QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md) |
 | 颜色、标签和操作组件语义冲突 | [PRODUCT_COLOR_SEMANTICS.md](./PRODUCT_COLOR_SEMANTICS.md) |

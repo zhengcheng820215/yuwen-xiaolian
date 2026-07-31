@@ -1,0 +1,150 @@
+import assert from 'node:assert/strict';
+import {
+  resolveTaskGroupSummary,
+  resolveTaskProductionState,
+} from '../../pages/taskProductionState.ts';
+
+const empty = resolveTaskProductionState({ trainingTaskId: 'task-empty' });
+assert.equal(empty.state, 'draft_empty');
+assert.equal(empty.binding.questionLineageId, 'question-lineage:task-empty');
+assert.equal(empty.presentation.stateLabel, '未生成题目');
+assert.equal(empty.presentation.primaryActionLabel, '创建题目');
+
+const checkRequired = resolveTaskProductionState({
+  trainingTaskId: 'task-check',
+  draft: draft('draft-check', 'resource-check', 'drafted'),
+});
+assert.equal(checkRequired.state, 'check_required');
+assert.equal(checkRequired.primaryAction, 'run_check');
+assert.equal(checkRequired.presentation.primaryActionLabel, '检查题目');
+
+const editing = resolveTaskProductionState({
+  trainingTaskId: 'task-editing',
+  draft: { ...draft('draft-editing', 'resource-editing', 'drafted'), isDirty: true },
+});
+assert.equal(editing.state, 'editing');
+assert.equal(editing.primaryAction, 'save');
+
+const checking = resolveTaskProductionState({
+  trainingTaskId: 'task-checking',
+  draft: {
+    ...draft('draft-checking', 'resource-checking', 'drafted'),
+    assessmentStatus: 'running',
+  },
+});
+assert.equal(checking.state, 'checking');
+assert.equal(checking.presentation.busy, true);
+assert.equal(checking.presentation.primaryActionLabel, null);
+
+const revisionRequired = resolveTaskProductionState({
+  trainingTaskId: 'task-revision',
+  draft: draft('draft-revision', 'resource-revision', 'validation_failed'),
+});
+assert.equal(revisionRequired.state, 'revision_required');
+
+const confirmationReady = resolveTaskProductionState({
+  trainingTaskId: 'task-confirmation-ready',
+  draft: {
+    ...draft('draft-confirmation-ready', 'resource-confirmation-ready', 'drafted'),
+    assessmentStatus: 'current',
+  },
+});
+assert.equal(confirmationReady.state, 'pending_confirmation');
+
+const pendingConfirmation = resolveTaskProductionState({
+  trainingTaskId: 'task-confirmation',
+  draft: draft('draft-confirmation', 'resource-confirmation', 'pending_review'),
+});
+assert.equal(pendingConfirmation.state, 'pending_confirmation');
+
+const confirmed = resolveTaskProductionState({
+  trainingTaskId: 'task-confirmed',
+  draft: draft('draft-confirmed', 'resource-confirmed', 'reviewed'),
+});
+assert.equal(confirmed.state, 'confirmed');
+assert.equal(confirmed.binding.confirmedRevisionId, 'draft-confirmed:r2');
+
+const publicationFailed = resolveTaskProductionState({
+  trainingTaskId: 'task-publication-failed',
+  draft: draft('draft-publication-failed', 'resource-publication-failed', 'reviewed'),
+  publication: {
+    status: 'failed',
+    sourceDraftId: 'draft-publication-failed',
+  },
+});
+assert.equal(publicationFailed.state, 'publication_failed');
+assert.equal(publicationFailed.primaryAction, 'retry_publication');
+assert.equal(publicationFailed.presentation.tone, 'danger');
+
+const published = resolveTaskProductionState({
+  trainingTaskId: 'task-published',
+  draft: draft('draft-published', 'resource-published', 'reviewed'),
+  publication: {
+    status: 'published',
+    sourceDraftId: 'draft-published',
+    formalVersionId: 'resource-published:v1',
+  },
+});
+assert.equal(published.state, 'published');
+assert.equal(published.binding.latestFormalVersionId, 'resource-published:v1');
+assert.equal(published.presentation.stateLabel, '已发布');
+assert.equal(published.presentation.primaryActionLabel, '查看已发布题目');
+
+const publishedWithNewRevision = resolveTaskProductionState({
+  trainingTaskId: 'task-published-with-revision',
+  draft: draft('draft-revision-v2', 'resource-published-with-revision', 'drafted'),
+  publication: {
+    status: 'published',
+    sourceDraftId: 'draft-revision-v1',
+    formalVersionId: 'resource-published-with-revision:v1',
+  },
+});
+assert.equal(publishedWithNewRevision.state, 'check_required');
+assert.equal(publishedWithNewRevision.hasPublishedVersion, true);
+assert.equal(publishedWithNewRevision.availableActions.includes('view_formal_resource'), true);
+
+const summary = resolveTaskGroupSummary([
+  checkRequired,
+  pendingConfirmation,
+  confirmed,
+  published,
+]);
+assert.deepEqual(summary, {
+  total: 4,
+  actionRequired: 1,
+  pendingConfirmation: 1,
+  confirmedAwaitingPublication: 1,
+  published: 1,
+  aggregateState: 'partial',
+});
+assert.equal(
+  summary.actionRequired +
+    summary.pendingConfirmation +
+    summary.confirmedAwaitingPublication +
+    summary.published,
+  summary.total,
+);
+
+assert.equal(resolveTaskGroupSummary([]).aggregateState, 'empty');
+assert.equal(resolveTaskGroupSummary([confirmed]).aggregateState, 'ready');
+assert.equal(resolveTaskGroupSummary([published]).aggregateState, 'published');
+assert.equal(
+  resolveTaskGroupSummary([checkRequired, pendingConfirmation]).aggregateState,
+  'in_progress',
+);
+assert.equal(resolveTaskGroupSummary([publicationFailed]).aggregateState, 'in_progress');
+
+console.log('Task production state debug passed.');
+
+function draft(
+  draftId: string,
+  resourceId: string,
+  status: 'drafted' | 'validation_failed' | 'pending_review' | 'reviewed',
+) {
+  return {
+    draftId,
+    resourceId,
+    revision: 2,
+    status,
+  } as const;
+}
