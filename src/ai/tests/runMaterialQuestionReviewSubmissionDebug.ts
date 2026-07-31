@@ -16,13 +16,15 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
         submitPlan: async () => { calls.push('submit'); },
         approvePlan: async () => { calls.push('approve'); },
         createDrafts: async () => { calls.push('drafts'); },
+        completeDraftChecks: async () => { calls.push('checks'); },
       });
 
-      assert.deepEqual(calls, ['submit', 'approve', 'drafts']);
+      assert.deepEqual(calls, ['submit', 'approve', 'drafts', 'checks']);
       assert.deepEqual(result.completedStages, [
         'plan_submitted',
         'plan_approved',
         'drafts_created',
+        'quality_checks_completed',
       ]);
     },
   },
@@ -36,6 +38,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
         submitPlan: async () => undefined,
         approvePlan: async () => { throw new Error('approval unavailable'); },
         createDrafts: async () => undefined,
+        completeDraftChecks: async () => undefined,
       }));
 
       assert.equal(error.failedStage, 'approve_plan');
@@ -53,6 +56,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
         submitPlan: async () => assert.fail('不应重新提交计划'),
         approvePlan: async () => assert.fail('不应重新确认计划'),
         createDrafts: async () => { throw new Error('draft creation unavailable'); },
+        completeDraftChecks: async () => undefined,
       }));
 
       assert.equal(error.failedStage, 'create_drafts');
@@ -64,6 +68,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
     name: '已有足量待审核题目时不会重复创建',
     run: async () => {
       let createCount = 0;
+      let checkCount = 0;
       const result = await executeQuestionReviewSubmission({
         initialPlanStatus: 'reviewed',
         existingDraftCount: 3,
@@ -71,14 +76,47 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
         submitPlan: async () => assert.fail('不应重新提交计划'),
         approvePlan: async () => assert.fail('不应重新确认计划'),
         createDrafts: async () => { createCount += 1; },
+        completeDraftChecks: async () => { checkCount += 1; },
       });
 
       assert.equal(createCount, 0);
+      assert.equal(checkCount, 1);
       assert.deepEqual(result.completedStages, [
         'plan_submitted',
         'plan_approved',
         'drafts_created',
+        'quality_checks_completed',
       ]);
+    },
+  },
+  {
+    name: '完整质量检查失败时保留题目创建结果并允许单独重试',
+    run: async () => {
+      let checkCount = 0;
+      const error = await captureStageError(() => executeQuestionReviewSubmission({
+        initialPlanStatus: 'reviewed',
+        existingDraftCount: 3,
+        taskPlanCount: 3,
+        submitPlan: async () => assert.fail('不应重新提交计划'),
+        approvePlan: async () => assert.fail('不应重新确认计划'),
+        createDrafts: async () => assert.fail('不应重复创建题目'),
+        completeDraftChecks: async () => {
+          checkCount += 1;
+          throw new Error('quality provider unavailable');
+        },
+      }));
+
+      assert.equal(checkCount, 1);
+      assert.equal(error.failedStage, 'complete_quality_checks');
+      assert.deepEqual(error.completedStages, [
+        'plan_submitted',
+        'plan_approved',
+        'drafts_created',
+      ]);
+      assert.equal(
+        error.message,
+        '待审核题目已创建，但完整质量检查未完成，可重试；系统不会重复创建题目。',
+      );
     },
   },
   {
@@ -98,6 +136,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
           createCount += 1;
           throw new Error('temporary failure');
         },
+        completeDraftChecks: async () => undefined,
       }));
 
       await executeQuestionReviewSubmission({
@@ -107,6 +146,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
         submitPlan: async () => { submitCount += 1; },
         approvePlan: async () => { approveCount += 1; },
         createDrafts: async () => { createCount += 1; },
+        completeDraftChecks: async () => undefined,
       });
 
       assert.equal(submitCount, 1);

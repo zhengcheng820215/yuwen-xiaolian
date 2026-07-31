@@ -15,6 +15,14 @@ export type QuestionWorkbenchPageIdentity = {
   subtitle: string;
 };
 
+export type QuestionLifecycleBucketCounts = {
+  pendingAction: number;
+  pendingReview: number;
+  approvedForPublication: number;
+  published: number;
+  total: number;
+};
+
 export type QuestionReturnIssueType =
   | 'question_expression'
   | 'ability_target'
@@ -28,6 +36,30 @@ export function countPendingReviewDrafts(
   statuses: QuestionWorkbenchDisplayStatus[],
 ): number {
   return statuses.filter((status) => status === 'pending_review').length;
+}
+
+export function countQuestionLifecycleBuckets(
+  statuses: QuestionWorkbenchDisplayStatus[],
+): QuestionLifecycleBucketCounts {
+  return statuses.reduce<QuestionLifecycleBucketCounts>((counts, status) => {
+    counts.total += 1;
+    if (status === 'published') {
+      counts.published += 1;
+    } else if (status === 'reviewed' || status === 'publication_incomplete') {
+      counts.approvedForPublication += 1;
+    } else if (status === 'pending_review') {
+      counts.pendingReview += 1;
+    } else {
+      counts.pendingAction += 1;
+    }
+    return counts;
+  }, {
+    pendingAction: 0,
+    pendingReview: 0,
+    approvedForPublication: 0,
+    published: 0,
+    total: 0,
+  });
 }
 
 export function resolveQuestionBatchNavigationTitle(focusedReview: boolean): string {
@@ -92,40 +124,34 @@ export function resolveQuestionWorkbenchPageIdentity(input: {
     };
   }
 
+  return {
+    title: '题目资源工作台',
+    subtitle: '',
+  };
+}
+
+export function resolveQuestionLocalSectionTitle(input: {
+  questionNumber?: number | null;
+  status: QuestionWorkbenchDisplayStatus;
+}): string {
+  const prefix = input.questionNumber ? `题目${input.questionNumber}` : '当前题目';
+
   switch (input.status) {
     case 'pending_review':
-      return {
-        title: '题目人工审核平台',
-        subtitle: '只读确认题目内容并作出审核决定',
-      };
+      return `${prefix} · 人工审核`;
     case 'reviewed':
-      return {
-        title: '题目发布平台',
-        subtitle: '完成发布准备检查并正式发布',
-      };
+      return `${prefix} · 发布准备`;
     case 'publication_incomplete':
-      return {
-        title: '题目发布恢复平台',
-        subtitle: '补齐未完成的发布关联',
-      };
+      return `${prefix} · 发布恢复`;
     case 'published':
-      return {
-        title: '已发布题目',
-        subtitle: '查看正式题目与发布记录',
-      };
+      return `${prefix} · 已发布`;
     case 'rejected':
     case 'archived':
-      return {
-        title: '题目审核记录',
-        subtitle: '查看审核决定与历史记录',
-      };
+      return `${prefix} · 审核记录`;
     case 'drafted':
     case 'validation_failed':
     case 'revision_required':
     default:
-      return {
-        title: '题目修改与提交平台',
-        subtitle: '',
-      };
+      return `${prefix} · 修改与提交`;
   }
 }

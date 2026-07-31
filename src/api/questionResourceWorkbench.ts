@@ -28,6 +28,12 @@ import {
   getOrAssessCurrentQuestionDraftQuality,
 } from '../ai/agents/questionQualityReviewGate.ts';
 import {
+  isCompletedQuestionQualityContext,
+  resolvePersistedQuestionQualityCheckState,
+  selectPreferredPersistedQuestionQualityContext,
+  type PersistedQuestionQualityCheckState,
+} from '../ai/agents/questionQualityContextSelection.ts';
+import {
   summarizeQuestionReviewBatchObservability,
   type QuestionReviewBatchObservability,
 } from '../ai/agents/questionReviewBatchObservability.ts';
@@ -115,6 +121,7 @@ export type QuestionResourceWorkbenchContext = {
   semanticQualityAssessment: QuestionSemanticQualityAssessment | null;
   qualityAssessmentBundle: QuestionQualityAssessmentBundle | null;
   assessmentState: ReturnType<typeof getCurrentAssessmentState>;
+  qualityCheckState: PersistedQuestionQualityCheckState;
   publicationPreflight: QuestionPublicationPreflight;
   frozenVersion: FrozenQuestionResourceVersion | null;
   registryEntry: ResourceRegistryEntry | null;
@@ -214,6 +221,7 @@ async function buildQuestionReviewBatchObservability(
   versions: FrozenQuestionResourceVersion[],
 ): Promise<QuestionReviewBatchObservability> {
   const records = await Promise.all(drafts.map(async (draft) => {
+    const persistedQuality = await readPersistedQualityContext(draft.draftId);
     const [validation, review, qualityAssessment] = await Promise.all([
       draft.latestValidationId
         ? repository.getValidation(draft.latestValidationId)
@@ -221,11 +229,13 @@ async function buildQuestionReviewBatchObservability(
       draft.latestReviewId
         ? repository.getReview(draft.latestReviewId)
         : Promise.resolve(null),
-      getOrAssessCurrentQuestionDraftQuality(
-        repository,
-        qualityRepository,
-        draft.draftId,
-      ),
+      persistedQuality?.deterministic
+        ? Promise.resolve(persistedQuality.deterministic)
+        : getOrAssessCurrentQuestionDraftQuality(
+          repository,
+          qualityRepository,
+          draft.draftId,
+        ),
     ]);
     return {
       draft,
@@ -246,20 +256,25 @@ export async function getQuestionResourceWorkbenchContext(
   if (!draft) throw new Error(`Draft not found: ${draftId}`);
   const observationTask = await getObservationTaskForDraft(draft);
   const authoringFieldAdaptation = getAuthoringFieldAdaptation(draft, observationTask);
+  const persistedQuality = await readPersistedQualityContext(draft.draftId);
 
   const [material, validation, review, reviewHistory, qualityAssessment, publicationPreflight, frozenVersion, registryEntry, versionHistory] = await Promise.all([
     draft.materialVersionId ? repository.getMaterial(draft.materialVersionId) : Promise.resolve(null),
     draft.latestValidationId ? repository.getValidation(draft.latestValidationId) : Promise.resolve(null),
     draft.latestReviewId ? repository.getReview(draft.latestReviewId) : Promise.resolve(null),
     repository.listReviews(draft.resourceId),
-    getOrAssessCurrentQuestionDraftQuality(repository, qualityRepository, draft.draftId),
+    persistedQuality?.deterministic
+      ? Promise.resolve(persistedQuality.deterministic)
+      : getOrAssessCurrentQuestionDraftQuality(
+        repository,
+        qualityRepository,
+        draft.draftId,
+      ),
     getQuestionResourceWorkbenchPublicationPreflight(draft),
     repository.getVersionByDraftId(draft.draftId),
     repository.getRegistryEntry(draft.resourceId),
     repository.listVersions(draft.resourceId),
   ]);
-  const persistedQuality = await readPersistedQualityContext(draft.draftId);
-
   return {
     draft,
     authoringFields: authoringFieldAdaptation.values,
@@ -275,6 +290,7 @@ export async function getQuestionResourceWorkbenchContext(
     semanticQualityAssessment: persistedQuality?.semantic || null,
     qualityAssessmentBundle: persistedQuality?.bundle || null,
     assessmentState: getCurrentAssessmentState(draft, qualityAssessment),
+    qualityCheckState: resolvePersistedQuestionQualityCheckState(persistedQuality),
     publicationPreflight,
     frozenVersion,
     registryEntry,
@@ -364,9 +380,49 @@ export async function validateQuestionResourceWorkbenchDraft(
     expectedDraftRevision,
   );
   if (validation.passed) {
-    await ensureCurrentPersistedQualityBundle(draftId);
+    await completeQuestionResourceWorkbenchQualityCheck(
+      draftId,
+      expectedDraftRevision,
+    );
   }
   return validation;
+}
+
+export async function completeQuestionResourceWorkbenchQualityCheck(
+  draftId: string,
+  expectedDraftRevision?: number,
+): Promise<QuestionQualityAssessmentBundle> {
+  await requireExpectedDraftRevision(
+    draftId,
+    expectedDraftRevision,
+    'complete_quality_check',
+  );
+  const current = await readPersistedQualityContext(draftId);
+  if (isCompletedQuestionQualityContext(current)) return current.bundle;
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await ensureCurrentPersistedQualityBundle(draftId);
+      const persisted = await readPersistedQualityContext(draftId);
+      if (isCompletedQuestionQualityContext(persisted)) {
+        return persisted.bundle;
+      }
+      lastError = createStructuredRuntimeError({
+        code: 'RUNTIME_OPERATION_FAILED',
+        message: '完整质量检查尚未完成，请稍后重试。',
+        operation: 'question_quality.complete',
+        objectId: draftId,
+        recoverability: 'retry_safe',
+      });
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+  }
+  throw lastError;
 }
 
 export async function submitQuestionResourceWorkbenchReview(
@@ -898,34 +954,43 @@ async function readPersistedQualityContext(draftId: string) {
     !validation?.passed ||
     validation.validatedDraftRevision !== draft.revision
   ) return null;
-  const deterministic = (
+  const deterministicCandidates = (
     await qualityRepository.listDeterministicForDraft(draftId)
-  ).find((item) => (
+  ).filter((item) => (
     item.assessedDraftRevision === draft.revision &&
     item.validationId === validation.validationId &&
     item.ruleVersion === QUESTION_QUALITY_RULE_VERSION
   ));
-  if (!deterministic) return null;
-  const semantic = (
+  if (deterministicCandidates.length === 0) return null;
+  const semanticCandidates = (
     await qualityRepository.listSemanticForDraft(draftId)
-  ).find((item) => (
+  ).filter((item) => (
     item.assessedDraftRevision === draft.revision &&
     item.validationId === validation.validationId &&
-    item.deterministicAssessmentId === deterministic.assessmentId &&
     item.promptVersion === QUESTION_SEMANTIC_QUALITY_PROMPT_VERSION &&
     item.semanticRuleVersion === QUESTION_SEMANTIC_QUALITY_RULE_VERSION &&
     item.outputSchemaVersion === QUESTION_SEMANTIC_QUALITY_OUTPUT_SCHEMA_VERSION
   ));
-  if (!semantic) return null;
-  const bundle = await qualityRepository.getCurrentBundle({
-    draftId,
-    draftRevision: draft.revision,
-    validationId: validation.validationId,
-    deterministicAssessmentId: deterministic.assessmentId,
-    semanticAssessmentId: semantic.semanticAssessmentId,
-    mergeRuleVersion: QUESTION_QUALITY_MERGE_RULE_VERSION,
-  });
-  return bundle ? { draft, deterministic, semantic, bundle } : null;
+  const contexts = [];
+  for (const deterministic of deterministicCandidates) {
+    const matchingSemantics = semanticCandidates.filter(
+      (item) => item.deterministicAssessmentId === deterministic.assessmentId,
+    );
+    for (const semantic of matchingSemantics) {
+      const bundle = await qualityRepository.getCurrentBundle({
+        draftId,
+        draftRevision: draft.revision,
+        validationId: validation.validationId,
+        deterministicAssessmentId: deterministic.assessmentId,
+        semanticAssessmentId: semantic.semanticAssessmentId,
+        mergeRuleVersion: QUESTION_QUALITY_MERGE_RULE_VERSION,
+      });
+      if (bundle) {
+        contexts.push({ draft, deterministic, semantic, bundle });
+      }
+    }
+  }
+  return selectPreferredPersistedQuestionQualityContext(contexts);
 }
 
 async function requireExpectedDraftRevision(

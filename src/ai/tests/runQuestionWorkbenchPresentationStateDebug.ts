@@ -1,21 +1,23 @@
 import assert from 'node:assert/strict';
 import {
+  countQuestionLifecycleBuckets,
   countPendingReviewDrafts,
   getReturnIssueEditorTargetIds,
   resolveQuestionBatchNavigationTitle,
+  resolveQuestionLocalSectionTitle,
   resolveQuestionWorkbenchPageIdentity,
   resolveReviewWarningSection,
 } from '../../pages/questionWorkbenchPresentationState.ts';
 
 const cases = [
   [false, null, '题目录入工作台'],
-  [true, 'drafted', '题目修改与提交平台'],
-  [true, 'revision_required', '题目修改与提交平台'],
-  [true, 'pending_review', '题目人工审核平台'],
-  [true, 'reviewed', '题目发布平台'],
-  [true, 'publication_incomplete', '题目发布恢复平台'],
-  [true, 'published', '已发布题目'],
-  [true, 'rejected', '题目审核记录'],
+  [true, 'drafted', '题目资源工作台'],
+  [true, 'revision_required', '题目资源工作台'],
+  [true, 'pending_review', '题目资源工作台'],
+  [true, 'reviewed', '题目资源工作台'],
+  [true, 'publication_incomplete', '题目资源工作台'],
+  [true, 'published', '题目资源工作台'],
+  [true, 'rejected', '题目资源工作台'],
 ] as const;
 
 for (const [focusedReview, status, expectedTitle] of cases) {
@@ -48,8 +50,53 @@ assert.equal(
   ]),
   1,
 );
+assert.deepEqual(
+  countQuestionLifecycleBuckets([
+    'drafted',
+    'revision_required',
+    'pending_review',
+    'reviewed',
+    'publication_incomplete',
+    'published',
+  ]),
+  {
+    pendingAction: 2,
+    pendingReview: 1,
+    approvedForPublication: 2,
+    published: 1,
+    total: 6,
+  },
+);
+const lifecycleCounts = countQuestionLifecycleBuckets([
+  'drafted',
+  'pending_review',
+  'published',
+]);
+assert.equal(
+  lifecycleCounts.pendingAction +
+    lifecycleCounts.pendingReview +
+    lifecycleCounts.approvedForPublication +
+    lifecycleCounts.published,
+  lifecycleCounts.total,
+);
 assert.equal(resolveQuestionBatchNavigationTitle(true), '本批题目');
 assert.equal(resolveQuestionBatchNavigationTitle(false), 'DRAFT / REVIEW');
+assert.equal(
+  resolveQuestionLocalSectionTitle({ questionNumber: 3, status: 'drafted' }),
+  '题目3 · 修改与提交',
+);
+assert.equal(
+  resolveQuestionLocalSectionTitle({ questionNumber: 2, status: 'pending_review' }),
+  '题目2 · 人工审核',
+);
+assert.equal(
+  resolveQuestionLocalSectionTitle({ questionNumber: 1, status: 'reviewed' }),
+  '题目1 · 发布准备',
+);
+assert.equal(
+  resolveQuestionLocalSectionTitle({ questionNumber: 1, status: 'published' }),
+  '题目1 · 已发布',
+);
 assert.deepEqual(
   resolveReviewWarningSection({
     status: 'pending_review',
@@ -95,7 +142,7 @@ assert.deepEqual(
   [],
 );
 
-const additionalAssertions = 13;
+const additionalAssertions = 15;
 console.log(
   `Question workbench presentation state debug: ${cases.length + additionalAssertions}/${cases.length + additionalAssertions} passed.`,
 );

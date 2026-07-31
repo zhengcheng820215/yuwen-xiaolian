@@ -16,6 +16,7 @@ import {
   createProductionMaterial,
   createProductionObservationPlan,
   createProductionQuestionDrafts,
+  completeProductionQuestionDraftQualityChecks,
   createPhase17BatchADraftsForReview,
   deleteUnusedProductionMaterial,
   getProductionMaterialDisposition,
@@ -120,12 +121,6 @@ const statusLabels = {
   draft: '未提交确认', pending_review: '等待训练计划确认', revision_required: '需要修订',
   reviewed: '训练计划已确认', rejected: '已拒绝', superseded: '已被新版本替代',
 };
-const draftStatusLabels = {
-  drafted: '草稿',
-  validation_failed: '需重新检查',
-  pending_review: '待题目人工审核',
-  revision_required: '退回修改',
-};
 const abilityLabels = Object.fromEntries(abilityOptions);
 const dimensionLabels = Object.fromEntries(dimensionOptions);
 const trainingDirectionLabels = Object.fromEntries(trainingDirectionOptions);
@@ -152,7 +147,6 @@ export default function MaterialResourceProductionWorkbench() {
   const [activeLoadPreset, setActiveLoadPreset] = useState(null);
   const [selectedMaterialId, setSelectedMaterialId] = useState('');
   const [selectedPlanId, setSelectedPlanId] = useState('');
-  const [taskWorkspaceOpen, setTaskWorkspaceOpen] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [taskEditorDirty, setTaskEditorDirty] = useState(false);
   const [editableTaskIds, setEditableTaskIds] = useState(() => new Set());
@@ -180,7 +174,6 @@ export default function MaterialResourceProductionWorkbench() {
   const [materialAction, setMaterialAction] = useState(null);
   const [sharedStoreStatus, setSharedStoreStatus] = useState(null);
   const [baselinePreview, setBaselinePreview] = useState(null);
-  const [activeSummaryKey, setActiveSummaryKey] = useState(null);
   const [materialPreviewExpanded, setMaterialPreviewExpanded] = useState(false);
   const pendingDiscardActionRef = useRef(null);
   const initialSelectionResolutionRef = useRef(true);
@@ -330,6 +323,22 @@ export default function MaterialResourceProductionWorkbench() {
     () => scopeMaterialResourceWorkbenchDetails(workbenchDetails, selectedMaterialId),
     [workbenchDetails, selectedMaterialId],
   );
+  const taskQuestionLifecycleById = useMemo(
+    () => new Map(tasks.map((task) => [
+      task.observationTaskPlanId || task.localId,
+      resolveTaskQuestionLifecycle({
+        task,
+        plan: selectedPlan,
+        planDrafts,
+        details: selectedMaterialResourceDetails,
+      }),
+    ])),
+    [tasks, selectedPlan, planDrafts, selectedMaterialResourceDetails],
+  );
+  const taskQuestionLifecycleSummary = useMemo(() => {
+    const lifecycles = [...taskQuestionLifecycleById.values()];
+    return summarizeTaskQuestionLifecycles(lifecycles);
+  }, [taskQuestionLifecycleById]);
   const protectedTaskIds = useMemo(() => {
     if (!selectedPlan) return [];
     const protectedIds = new Set(
@@ -376,16 +385,18 @@ export default function MaterialResourceProductionWorkbench() {
     setGeneratorResult(null);
     setGroupCandidateSession(null);
     setTaskRegeneration(null);
-    setActiveSummaryKey(null);
     setMaterialPreviewExpanded(false);
   }, [selectedMaterialId]);
 
   useEffect(() => {
-    setTaskWorkspaceOpen(Boolean(
-      routeSelection.editTasks
-      && routeSelection.materialVersionId
-      && routeSelection.materialVersionId === selectedMaterialId
-    ));
+    if (
+      !routeSelection.editTasks
+      || !routeSelection.materialVersionId
+      || routeSelection.materialVersionId !== selectedMaterialId
+    ) return;
+    window.requestAnimationFrame(() => {
+      document.querySelector('#training-task-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }, [
     routeSelection.editTasks,
     routeSelection.materialVersionId,
@@ -573,7 +584,6 @@ export default function MaterialResourceProductionWorkbench() {
     setNotice(null);
     try {
       await refresh();
-      setToast({ id: Date.now(), message: '工作台数据已刷新。' });
     } catch (error) {
       setNotice(errorNotice(error));
     } finally {
@@ -639,22 +649,7 @@ export default function MaterialResourceProductionWorkbench() {
     withUnsavedChangesGuard(() => {
       setSelectedMaterialId(materialId);
       setSelectedPlanId('');
-      setTaskWorkspaceOpen(false);
       setActiveLoadPreset(null);
-    });
-  }
-
-  function openTaskWorkspace() {
-    setTaskWorkspaceOpen(true);
-    window.requestAnimationFrame(() => {
-      document.querySelector('#training-task-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  }
-
-  function closeTaskWorkspace() {
-    withUnsavedChangesGuard(() => {
-      setTaskWorkspaceOpen(false);
-      document.querySelector('#material-resource-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
 
@@ -1054,6 +1049,7 @@ export default function MaterialResourceProductionWorkbench() {
         createDrafts: () => (isPhase17BatchAMaterial(materialVersionId)
           ? createPhase17BatchADraftsForReview(materialVersionId)
           : createProductionQuestionDrafts(planId)),
+        completeDraftChecks: () => completeProductionQuestionDraftQualityChecks(planId),
       });
 
       await refresh({ materialVersionId, planId });
@@ -1251,7 +1247,7 @@ export default function MaterialResourceProductionWorkbench() {
           <div className="flex items-center gap-3">
             <Link to="/internal" aria-label="返回内部入口" className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"><ArrowLeft size={18} /></Link>
             <div>
-              <h1 className="text-lg font-semibold">素材资源录入平台</h1>
+              <h1 className="text-lg font-semibold">素材资源录入</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -1372,19 +1368,6 @@ export default function MaterialResourceProductionWorkbench() {
                           <Trash2 size={16} />
                           删除或停用该素材
                         </button>
-                        <button
-                          type="button"
-                          onClick={taskWorkspaceOpen ? closeTaskWorkspace : openTaskWorkspace}
-                          className={`inline-flex h-10 items-center rounded-md border border-emerald-600 px-3 text-sm transition ${
-                            taskWorkspaceOpen
-                              ? 'bg-transparent text-emerald-700 hover:bg-emerald-50'
-                              : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                          }`}
-                        >
-                          {taskWorkspaceOpen
-                            ? '收起训练任务编辑区'
-                            : '展开训练任务编辑区'}
-                        </button>
                       </div>
                     </div>
                     <MaterialContentPreview
@@ -1451,7 +1434,7 @@ export default function MaterialResourceProductionWorkbench() {
 
           </section>
 
-          {materialMode === 'existing' && selectedMaterial && taskWorkspaceOpen && (
+          {materialMode === 'existing' && selectedMaterial && (
             <section id="training-task-editor" className="scroll-mt-28 border-t border-slate-200 pt-4">
             <div className="flex flex-wrap items-start justify-between gap-3 sm:items-center">
               <div>
@@ -1461,39 +1444,30 @@ export default function MaterialResourceProductionWorkbench() {
                 </h2>
               </div>
               <div
-                className="grid w-full grid-cols-3 sm:w-auto"
+                className="grid w-full grid-cols-4 sm:w-auto"
                 aria-label={`${selectedMaterial.title}的题目状态`}
               >
                 <Metric
-                  label="待人工审核题目"
-                  value={selectedMaterialResourceDetails.pendingReviews.length}
-                  active={activeSummaryKey === 'pendingReviews'}
-                  tone="info"
-                  onClick={() => setActiveSummaryKey((current) => current === 'pendingReviews' ? null : 'pendingReviews')}
+                  label="待处理"
+                  value={taskQuestionLifecycleSummary.actionRequired}
                 />
                 <Metric
-                  label="发布未完成"
-                  value={selectedMaterialResourceDetails.incompletePublications.length}
-                  active={activeSummaryKey === 'incompletePublications'}
+                  label="待人工审核"
+                  value={taskQuestionLifecycleSummary.pendingReview}
                   tone="warning"
-                  onClick={() => setActiveSummaryKey((current) => current === 'incompletePublications' ? null : 'incompletePublications')}
                 />
                 <Metric
-                  label="已发布练习"
-                  value={selectedMaterialResourceDetails.publishedResources.length}
-                  active={activeSummaryKey === 'publishedResources'}
+                  label="审核通过（待发布）"
+                  value={taskQuestionLifecycleSummary.approvedPendingPublication}
+                  tone="info"
+                />
+                <Metric
+                  label="已发布"
+                  value={taskQuestionLifecycleSummary.published}
                   tone="success"
-                  onClick={() => setActiveSummaryKey((current) => current === 'publishedResources' ? null : 'publishedResources')}
                 />
               </div>
             </div>
-            {activeSummaryKey && (
-              <SummaryMetricDetails
-                metricKey={activeSummaryKey}
-                details={selectedMaterialResourceDetails}
-                onOpenQuestion={openQuestionSummaryItem}
-              />
-            )}
             {selectedPlan && (
               <div className={`mt-4 border-l-4 px-4 py-3 text-sm leading-6 ${taskEditorDirty ? 'border-amber-500 bg-amber-50 text-amber-950' : 'border-blue-500 bg-blue-50 text-blue-950'}`}>
                 {taskEditorDirty
@@ -1521,7 +1495,7 @@ export default function MaterialResourceProductionWorkbench() {
                   <div className="mt-1 flex min-h-10 items-center rounded-md border border-slate-300 bg-slate-50 px-3 text-sm font-normal text-slate-700">初中</div>
                 </div>
                 <div>
-                  <p className="text-sm font-medium">生成任务数量</p>
+                  <p className="text-sm font-medium">生成训练任务数量</p>
                   <div className="mt-1 flex flex-wrap gap-2">
                     {[3, 4, 5, 6].map((count) => (
                       <button
@@ -1649,6 +1623,9 @@ export default function MaterialResourceProductionWorkbench() {
                   planFullyPublished,
                   issues,
                 });
+                const questionLifecycle = taskQuestionLifecycleById.get(
+                  task.observationTaskPlanId || task.localId,
+                );
                 return (
                 <details
                   data-task-editor={task.localId}
@@ -1668,6 +1645,23 @@ export default function MaterialResourceProductionWorkbench() {
                           <span className="text-slate-500">状态：</span>
                           <TaskWorkflowBadge status={taskStatus} />
                         </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="text-slate-500">题目：</span>
+                          <TaskQuestionLifecycleBadge lifecycle={questionLifecycle} />
+                          {questionLifecycle?.actionLabel && (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                openQuestionSummaryItem(questionLifecycle.item);
+                              }}
+                              className="ml-1 text-[12px] font-medium text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                            >
+                              {questionLifecycle.actionLabel}
+                            </button>
+                          )}
+                        </span>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2" aria-label="训练任务属性摘要">
                         <TaskAttributeChip>{dimensionLabels[task.primaryDimension]}</TaskAttributeChip>
@@ -1677,7 +1671,15 @@ export default function MaterialResourceProductionWorkbench() {
                         <TaskAttributeChip>{roleLabels[task.taskRole]}</TaskAttributeChip>
                       </div>
                     </div>
-                    <ChevronDown aria-hidden="true" size={18} className="mt-1 shrink-0 text-slate-400 transition group-open:rotate-180" />
+                    <span className="mt-1 inline-flex shrink-0 items-center gap-2 text-xs font-normal text-slate-500">
+                      <span className="group-open:hidden">展开详情</span>
+                      <span className="hidden group-open:inline">收起详情</span>
+                      <ChevronDown
+                        aria-hidden="true"
+                        size={18}
+                        className="shrink-0 text-slate-400 transition group-open:rotate-180"
+                      />
+                    </span>
                   </summary>
                   {!taskEditable && (
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md bg-violet-50 px-4 py-3 text-sm text-violet-900">
@@ -1917,7 +1919,7 @@ export default function MaterialResourceProductionWorkbench() {
                 disabled={!commandAvailability.savePlanRevision.enabled}
                 title={commandAvailability.savePlanRevision.reason}
                 onClick={savePlanRevision}
-                className="inline-flex h-10 w-[420px] max-w-full items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"
+                className="inline-flex h-10 w-[420px] max-w-full items-center justify-center gap-2 rounded-md border border-slate-950 bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:border-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
               >
                 <Save aria-hidden="true" size={18} />
                 {selectedPlan ? '保存任务组并重新检查' : '保存训练任务'}
@@ -1927,12 +1929,11 @@ export default function MaterialResourceProductionWorkbench() {
           )}
         </div>
 
-        {materialMode === 'existing' && selectedMaterial && taskWorkspaceOpen && (
+        {materialMode === 'existing' && selectedMaterial && (
           <section className="mt-10 rounded-md bg-white p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <h2 className="text-lg font-semibold">提交题目审核</h2>
-              <p className="mt-2 max-w-[720px] text-sm leading-6 text-slate-600">确认本次提交的版本、训练覆盖与检查状态。提交后将创建或恢复对应的待人工审核题目，不会覆盖当前训练任务版本。</p>
             </div>
             {materialPlans.length > 1 && (
               <select value={selectedPlan?.materialObservationPlanId || ''} onChange={(event) => setSelectedPlanId(event.target.value)} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
@@ -2011,7 +2012,7 @@ export default function MaterialResourceProductionWorkbench() {
                     <button
                       type="button"
                       onClick={() => document.querySelector('#training-task-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                      className="flex h-10 w-52 items-center justify-center rounded-md border border-emerald-600 bg-white px-4 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                      className="flex h-10 w-52 items-center justify-center rounded-md border border-[#666666] bg-white px-4 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     >
                       返回任务调整
                     </button>
@@ -2021,7 +2022,7 @@ export default function MaterialResourceProductionWorkbench() {
                     onClick={planFullyPublished ? openSelectedPlanQuestionReview : submitForQuestionReview}
                     disabled={!planFullyPublished && !commandAvailability.submitForQuestionReview.enabled}
                     title={planFullyPublished ? '' : commandAvailability.submitForQuestionReview.reason}
-                    className="flex h-10 w-52 items-center justify-center rounded-md border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"
+                    className="flex h-10 w-52 items-center justify-center rounded-md border border-slate-950 bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:border-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
                   >
                     {planFullyPublished
                       ? '查看题目审核与发布记录'
@@ -2168,36 +2169,109 @@ function TaskRemovalDialog({ title, onCancel, onConfirm }) {
   );
 }
 
-function Metric({ label, value, active, onClick, tone = 'default' }) {
-  const activeTone = tone === 'warning'
+function Metric({ label, value, tone = 'default' }) {
+  const valueTone = tone === 'warning' && value > 0
     ? 'text-amber-700'
     : tone === 'info'
       ? 'text-blue-700'
-      : 'text-emerald-700';
-  const valueTone = active
-    ? activeTone
-    : tone === 'warning' && value > 0
-      ? 'text-amber-700'
-      : tone === 'info'
-        ? 'text-blue-700'
       : tone === 'success'
         ? 'text-emerald-700'
-      : 'text-slate-950';
+        : 'text-slate-950';
   return (
-    <button
-      type="button"
-      aria-expanded={active}
-      aria-controls="workbench-summary-details"
-      onClick={onClick}
-      className="flex min-h-[52px] min-w-0 flex-col items-start justify-center bg-transparent px-2 text-left transition hover:text-slate-950 sm:min-w-32 sm:items-center sm:px-4 sm:text-center"
-    >
-      <span className={`block text-sm leading-5 ${active ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>{label}</span>
-      <span className={`mt-1 flex min-h-7 items-baseline gap-2 text-lg font-semibold leading-7 ${valueTone}`}>
-        {value}
-        <span aria-hidden="true" className={`text-xs leading-7 ${active ? activeTone : 'text-slate-400'}`}>{active ? '▼' : '▶'}</span>
-      </span>
-    </button>
+    <div className="flex min-h-[52px] min-w-0 flex-col items-start justify-center bg-transparent px-2 text-left sm:min-w-32 sm:px-4">
+      <span className="block text-sm leading-5 text-slate-500">{label}</span>
+      <span className={`mt-1 min-h-7 text-lg font-semibold leading-7 ${valueTone}`}>{value}</span>
+    </div>
   );
+}
+
+function TaskQuestionLifecycleBadge({ lifecycle }) {
+  const status = lifecycle?.status || 'not_generated';
+  const configuration = {
+    not_generated: ['未生成题目', 'bg-slate-100 text-slate-600'],
+    drafted: ['题目草稿', 'bg-slate-100 text-slate-700'],
+    validation_failed: ['题目需重新检查', 'bg-amber-50 text-amber-700'],
+    pending_review: ['待题目人工审核', 'bg-amber-50 text-amber-700'],
+    revision_required: ['题目退回修改', 'bg-amber-50 text-amber-700'],
+    approved_pending_publication: ['审核通过（待发布）', 'bg-blue-50 text-blue-700'],
+    publication_incomplete: ['发布未完成', 'bg-red-50 text-red-700'],
+    published: ['已发布', 'bg-emerald-50 text-emerald-700'],
+  }[status];
+  return (
+    <span className={`rounded px-2 py-1 text-xs font-normal ${configuration[1]}`}>
+      {configuration[0]}
+    </span>
+  );
+}
+
+function summarizeTaskQuestionLifecycles(lifecycles) {
+  return lifecycles.reduce((summary, lifecycle) => {
+    if (lifecycle.status === 'published') {
+      summary.published += 1;
+    } else if (lifecycle.status === 'pending_review') {
+      summary.pendingReview += 1;
+    } else if (lifecycle.status === 'approved_pending_publication') {
+      summary.approvedPendingPublication += 1;
+    } else {
+      summary.actionRequired += 1;
+    }
+    return summary;
+  }, {
+    actionRequired: 0,
+    pendingReview: 0,
+    approvedPendingPublication: 0,
+    published: 0,
+  });
+}
+
+function resolveTaskQuestionLifecycle({ task, plan, planDrafts, details }) {
+  const observationTaskPlanId = task.observationTaskPlanId;
+  if (!observationTaskPlanId) {
+    return { status: 'not_generated', actionLabel: '', item: null };
+  }
+
+  const published = details.publishedResources.find(
+    (item) => item.observationTaskPlanId === observationTaskPlanId,
+  );
+  if (published) {
+    return {
+      status: 'published',
+      actionLabel: '查看已发布题目',
+      item: published,
+    };
+  }
+
+  const incomplete = details.incompletePublications.find(
+    (item) => item.observationTaskPlanId === observationTaskPlanId,
+  );
+  if (incomplete) {
+    return {
+      status: 'publication_incomplete',
+      actionLabel: '处理发布问题',
+      item: incomplete,
+    };
+  }
+
+  const taskTag = `observation_task:${observationTaskPlanId}`;
+  const draft = planDrafts.find((item) => item.tags.includes(taskTag));
+  if (!draft) {
+    return { status: 'not_generated', actionLabel: '', item: null };
+  }
+
+  const item = {
+    draftId: draft.draftId,
+    materialObservationPlanId: plan?.materialObservationPlanId || '',
+    materialVersionId: plan?.materialVersionId || draft.materialVersionId || '',
+  };
+  const configurations = {
+    drafted: ['drafted', '继续修改'],
+    validation_failed: ['validation_failed', '继续修改'],
+    pending_review: ['pending_review', '查看审核'],
+    revision_required: ['revision_required', '继续修改'],
+    reviewed: ['approved_pending_publication', '查看发布准备'],
+  };
+  const [status, actionLabel] = configurations[draft.status] || ['drafted', '继续修改'];
+  return { status, actionLabel, item };
 }
 
 function MaterialContentPreview({ paragraphs, expanded, onToggle }) {
@@ -2231,93 +2305,6 @@ function MaterialContentPreview({ paragraphs, expanded, onToggle }) {
       )}
     </section>
   );
-}
-
-function SummaryMetricDetails({ metricKey, details, onOpenQuestion }) {
-  const configurations = {
-    pendingReviews: {
-      title: '待人工审核题目明细',
-      empty: '目前没有待人工审核题目。',
-      items: details.pendingReviews,
-      onOpen: onOpenQuestion,
-      renderTitle: (item) => item.title,
-      renderMeta: (item) => [
-        item.materialTitle,
-        abilityLabels[item.abilityId],
-        draftStatusLabels[item.status],
-      ].filter(Boolean).join(' · '),
-    },
-    incompletePublications: {
-      title: '发布未完成题目明细',
-      empty: '目前没有发布未完成的题目。',
-      items: details.incompletePublications,
-      onOpen: onOpenQuestion,
-      renderTitle: (item) => item.title,
-      renderMeta: (item) => [
-        item.materialTitle,
-        abilityLabels[item.abilityId],
-        '发布未完成',
-      ].filter(Boolean).join(' · '),
-    },
-    publishedResources: {
-      title: '已发布练习明细',
-      empty: '目前还没有已发布练习。',
-      items: details.publishedResources,
-      onOpen: onOpenQuestion,
-      renderTitle: (item) => item.title,
-      renderMeta: (item) => [
-        item.materialTitle,
-        abilityLabels[item.abilityId],
-        roleLabels[item.taskRole],
-        '已发布',
-      ].filter(Boolean).join(' · '),
-    },
-  };
-  const configuration = configurations[metricKey];
-  const orderedItems = [...configuration.items].sort((left, right) => (
-    (left.questionNumber ?? Number.MAX_SAFE_INTEGER)
-    - (right.questionNumber ?? Number.MAX_SAFE_INTEGER)
-  ));
-
-  return (
-    <section id="workbench-summary-details" className="bg-transparent px-4 py-4 sm:px-5" aria-live="polite">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-slate-950">{configuration.title}</h2>
-        <span className="text-xs text-slate-500">共 {orderedItems.length} 项</span>
-      </div>
-      {orderedItems.length > 0 ? (
-        <ul className="mt-2 max-h-72 overflow-y-auto">
-          {orderedItems.map((item, index) => (
-            <li key={summaryItemKey(metricKey, item)}>
-              <button
-                type="button"
-                onClick={() => configuration.onOpen(item)}
-                className="flex min-h-14 w-full items-center justify-between gap-4 px-1 py-3 text-left hover:bg-slate-50"
-              >
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium leading-6 text-slate-900">
-                    <span className="font-semibold">
-                      {savedQuestionTitle((item.questionNumber || index + 1) - 1)}：
-                    </span>
-                    {configuration.renderTitle(item)}
-                  </span>
-                  <span className="mt-0.5 block text-xs leading-5 text-slate-500">{configuration.renderMeta(item)}</span>
-                </span>
-                <span className="shrink-0 text-xs font-medium text-blue-700">查看</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-3 text-sm text-slate-500">{configuration.empty}</p>
-      )}
-    </section>
-  );
-}
-
-function summaryItemKey(metricKey, item) {
-  if (metricKey === 'pendingReviews') return item.draftId;
-  return item.resourceVersionId;
 }
 
 function Select({ id, label, value, options, onChange }) {
@@ -3633,10 +3620,6 @@ function createEmptyMaterialForm() {
     description: '人工录入素材',
     copyrightNote: '',
   };
-}
-function savedQuestionTitle(index) {
-  const labels = ['一', '二', '三', '四', '五', '六'];
-  return `题目${labels[index] || index + 1}`;
 }
 function collapseWorkingDraftPlans(plans) {
   let workingDraftIncluded = false;

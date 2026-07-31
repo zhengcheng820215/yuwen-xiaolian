@@ -39,6 +39,9 @@ import {
   PHASE17_TONGGUAN_MATERIAL,
   PHASE17_TONGGUAN_TASKS,
 } from '../data/phase17TongguanCalibration.ts';
+import {
+  completeQuestionResourceWorkbenchQualityCheck,
+} from './questionResourceWorkbench.ts';
 
 const resourceRepository = createBrowserQuestionResourceAdmissionRepository();
 const observationRepository = createBrowserMaterialObservationRepository();
@@ -275,6 +278,47 @@ export async function approveProductionObservationPlan(planId: string) {
 
 export async function createProductionQuestionDrafts(planId: string): Promise<MaterialProductionDraftResult[]> {
   return createAndValidateQuestionDraftBatch(resourceRepository, observationRepository, { planId });
+}
+
+export async function completeProductionQuestionDraftQualityChecks(planId: string) {
+  const plan = await observationRepository.getPlan(planId);
+  if (!plan) throw new Error(`Material Observation Plan not found: ${planId}`);
+
+  const drafts = await resourceRepository.listDrafts();
+  const results = await Promise.allSettled(plan.taskPlans.map(async (task) => {
+    const draft = drafts.find((item) => (
+      item.status !== 'archived' &&
+      item.tags.includes(`observation_task:${task.observationTaskPlanId}`)
+    ));
+    if (!draft) {
+      throw new Error(`Question Draft not found for Observation Task: ${task.observationTaskPlanId}`);
+    }
+    const bundle = await completeQuestionResourceWorkbenchQualityCheck(
+      draft.draftId,
+      draft.revision,
+    );
+    return {
+      observationTaskPlanId: task.observationTaskPlanId,
+      draftId: draft.draftId,
+      bundleId: bundle.bundleId,
+    };
+  }));
+
+  const failures = results
+    .map((result, index) => ({ result, task: plan.taskPlans[index] }))
+    .filter((item) => item.result.status === 'rejected');
+  if (failures.length > 0) {
+    throw new Error(
+      `${failures.length} 道题目的完整质量检查未完成，请重试；系统不会重复创建题目。`,
+    );
+  }
+  return results
+    .filter((result): result is PromiseFulfilledResult<{
+      observationTaskPlanId: string;
+      draftId: string;
+      bundleId: string;
+    }> => result.status === 'fulfilled')
+    .map((result) => result.value);
 }
 
 export async function synchronizeProductionObservationLinks(planId: string) {

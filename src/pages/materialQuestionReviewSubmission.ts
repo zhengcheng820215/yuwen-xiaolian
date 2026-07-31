@@ -1,12 +1,14 @@
 export type QuestionReviewSubmissionStage =
   | 'plan_submitted'
   | 'plan_approved'
-  | 'drafts_created';
+  | 'drafts_created'
+  | 'quality_checks_completed';
 
 export type QuestionReviewSubmissionFailedStage =
   | 'submit_plan'
   | 'approve_plan'
-  | 'create_drafts';
+  | 'create_drafts'
+  | 'complete_quality_checks';
 
 export type QuestionReviewSubmissionResult = {
   status: 'completed';
@@ -20,6 +22,7 @@ export type QuestionReviewSubmissionInput = {
   submitPlan: () => Promise<unknown>;
   approvePlan: () => Promise<unknown>;
   createDrafts: () => Promise<unknown>;
+  completeDraftChecks: () => Promise<unknown>;
 };
 
 export class QuestionReviewSubmissionStageError extends Error {
@@ -89,6 +92,14 @@ export async function executeQuestionReviewSubmission(
   } else {
     pushUnique(completedStages, 'drafts_created');
   }
+
+  await runStage({
+    action: input.completeDraftChecks,
+    completedStages,
+    completedStage: 'quality_checks_completed',
+    failedStage: 'complete_quality_checks',
+    failureMessage: '待审核题目已创建，但完整质量检查未完成，可重试；系统不会重复创建题目。',
+  });
 
   return { status: 'completed', completedStages };
 }

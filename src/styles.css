@@ -92,9 +92,20 @@ button {
   }
 }
 
+.refresh-icon-rotate-once {
+  animation: refresh-icon-rotate-once 280ms ease-out both;
+}
+
+@keyframes refresh-icon-rotate-once {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .workspace-toast-enter,
-  .workspace-toast-exit {
+  .workspace-toast-exit,
+  .refresh-icon-rotate-once {
     animation-duration: 1ms;
   }
 }

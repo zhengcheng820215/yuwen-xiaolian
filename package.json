@@ -86,6 +86,8 @@
     "debug:question-publication-recovery": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionPublicationRecoveryDebug.ts",
     "debug:question-workbench-command-e2e": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionWorkbenchCommandE2EDebug.ts",
     "debug:question-workbench-presentation-state": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionWorkbenchPresentationStateDebug.ts",
+    "debug:question-workflow-projection": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionWorkflowProjectionDebug.ts",
+    "debug:product-color-semantics": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runProductColorSemanticsDebug.ts",
     "debug:phase17-5a": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionQualityAssessmentDebug.ts",
     "debug:phase17-5b": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionQualityReviewGateDebug.ts",
     "debug:phase17-5b-demo": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase175QuestionQualityDemoDebug.ts",
