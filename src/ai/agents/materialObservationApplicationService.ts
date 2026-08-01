@@ -344,97 +344,85 @@ export async function createAndValidateQuestionDraftBatch(
 ): Promise<MaterialProductionDraftResult[]> {
   const plan = await requirePlan(observationRepository, input.planId);
   if (plan.status !== 'reviewed') throw new Error('Only a reviewed Material Observation Plan can create a Draft batch.');
-  const existingDrafts = await resourceRepository.listDrafts();
   const results: MaterialProductionDraftResult[] = [];
   for (const task of plan.taskPlans) {
-    const baseDraftId = productionDraftId(task.observationTaskPlanId);
-    const observationTaskTag = `observation_task:${task.observationTaskPlanId}`;
-    const existing = existingDrafts
-      .filter((draft) => draft.status !== 'archived' && draft.tags.includes(observationTaskTag))
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]
-      || existingDrafts.find((draft) => draft.status !== 'archived' && draft.draftId === baseDraftId);
-    const draftId = existing
-      ? existing.draftId
-      : existingDrafts.some((draft) => draft.status === 'archived' && draft.draftId === baseDraftId)
-        ? archivedRevisionDraftId(baseDraftId)
-        : baseDraftId;
     try {
-      if (existing && !['drafted', 'validation_failed', 'revision_required'].includes(existing.status)) {
-        const validation = existing.latestValidationId
-          ? await resourceRepository.getValidation(existing.latestValidationId)
-          : null;
-        results.push({
+      results.push(await createAndValidateQuestionDraftForTask(
+        resourceRepository,
+        observationRepository,
+        {
+          planId: plan.materialObservationPlanId,
           observationTaskPlanId: task.observationTaskPlanId,
-          draftId: existing.draftId,
-          status: 'reused',
-          validationPassed: validation?.passed,
-          issues: validation?.issues.map((issue) => issue.code) || [],
-        });
-        continue;
-      }
-      const draft = existing || await createQuestionDraftFromObservationTask(resourceRepository, observationRepository, {
-        planId: plan.materialObservationPlanId,
-        observationTaskPlanId: task.observationTaskPlanId,
-        content: {
-          draftId,
-          resourceId: productionResourceId(task.observationTaskPlanId),
-          taskId: productionQuestionId(task.observationTaskPlanId),
-          title: task.resourceDraftSpecification?.title
-            || `${abilityLabel(task.abilityId)} · ${dimensionLabel(task.primaryDimension)}`,
-          questionStem: task.observationGoal,
-          questionType: task.resourceDraftSpecification?.questionType || 'reading_comprehension',
-          responseFormat: task.resourceDraftSpecification?.responseFormat || 'long_text',
-          assessmentMode: task.resourceDraftSpecification?.assessmentMode || 'reasoning_chain',
-          answerAcceptance: task.resourceDraftSpecification?.answerAcceptance
-            || { semanticEquivalentAllowed: true, normalizationRules: ['trim', 'ignore_punctuation'] },
-          rubric: task.resourceDraftSpecification?.rubric || [{
-            itemId: 'primary-observation',
-            name: '主要能力动作',
-            description: task.expectedStudentAction,
-            abilityId: task.abilityId,
-            importance: 'critical',
-            required: true,
-            evidenceRequirement: { requireTextEvidence: true, requireExplanation: task.abilityId !== 'extraction', requireConclusion: true },
-            acceptedSignals: [task.expectedStudentAction],
-          }],
-          minimumAnswerRequirement: task.resourceDraftSpecification?.minimumAnswerRequirement || {
-            minLength: task.abilityId === 'extraction' ? 6 : 12,
-            requireTextEvidence: true,
-            requireExplanation: task.abilityId !== 'extraction',
-          },
-          source: {
-            sourceType: task.resourceDraftSpecification?.tags.includes('ai-assisted') ? 'ai_assisted' : 'manual',
-            description: input.sourceDescription || (task.resourceDraftSpecification?.tags.includes('ai-assisted')
-              ? '由人工审核通过的材料观测计划生成。'
-              : '由已审核的材料观测计划生成。'),
-            copyrightNote: '沿用关联学习材料的来源与版权审核结果。',
-          },
-          tags: [
-            'phase17.2',
-            'material-observation',
-            ...(task.resourceDraftSpecification?.tags || []),
-          ],
+          sourceDescription: input.sourceDescription,
           now: input.now,
         },
-      });
-      const validation = await validateStructuredQuestionDraft(resourceRepository, draft.draftId, input.now);
-      results.push({
-        observationTaskPlanId: task.observationTaskPlanId,
-        draftId: draft.draftId,
-        status: existing ? 'reused' : 'created',
-        validationPassed: validation.passed,
-        issues: validation.issues.map((issue) => issue.code),
-      });
+      ));
     } catch (error) {
       results.push({
         observationTaskPlanId: task.observationTaskPlanId,
-        draftId,
+        draftId: productionDraftId(task.observationTaskPlanId),
         status: 'failed',
         issues: [error instanceof Error ? error.message : String(error)],
       });
     }
   }
   return results;
+}
+
+export async function createAndValidateQuestionDraftForTask(
+  resourceRepository: QuestionResourceAdmissionRepository,
+  observationRepository: MaterialObservationRepository,
+  input: {
+    planId: string;
+    observationTaskPlanId: string;
+    sourceDescription?: string;
+    now?: string;
+  },
+): Promise<MaterialProductionDraftResult> {
+  const plan = await requirePlan(observationRepository, input.planId);
+  if (plan.status !== 'reviewed') throw new Error('Only a reviewed Material Observation Plan can create a Draft.');
+  const task = plan.taskPlans.find((value) => value.observationTaskPlanId === input.observationTaskPlanId);
+  if (!task) throw new Error(`Observation Task Plan not found: ${input.observationTaskPlanId}`);
+
+  const existingDrafts = await resourceRepository.listDrafts();
+  const baseDraftId = productionDraftId(task.observationTaskPlanId);
+  const observationTaskTag = `observation_task:${task.observationTaskPlanId}`;
+  const existing = existingDrafts
+    .filter((draft) => draft.status !== 'archived' && draft.tags.includes(observationTaskTag))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]
+    || existingDrafts.find((draft) => draft.status !== 'archived' && draft.draftId === baseDraftId);
+  const draftId = existing
+    ? existing.draftId
+    : existingDrafts.some((draft) => draft.status === 'archived' && draft.draftId === baseDraftId)
+      ? archivedRevisionDraftId(baseDraftId)
+      : baseDraftId;
+
+  if (existing && !['drafted', 'validation_failed', 'revision_required'].includes(existing.status)) {
+    const validation = existing.latestValidationId
+      ? await resourceRepository.getValidation(existing.latestValidationId)
+      : null;
+    return {
+      observationTaskPlanId: task.observationTaskPlanId,
+      draftId: existing.draftId,
+      status: 'reused',
+      validationPassed: validation?.passed,
+      issues: validation?.issues.map((issue) => issue.code) || [],
+    };
+  }
+
+  const draft = existing || await createQuestionDraftFromObservationTask(resourceRepository, observationRepository, {
+    planId: plan.materialObservationPlanId,
+    observationTaskPlanId: task.observationTaskPlanId,
+    content: buildProductionQuestionDraftContent(task, draftId, input.sourceDescription, input.now),
+  });
+  const validation = await validateStructuredQuestionDraft(resourceRepository, draft.draftId, input.now);
+  return {
+    observationTaskPlanId: task.observationTaskPlanId,
+    draftId: draft.draftId,
+    status: existing ? 'reused' : 'created',
+    validationPassed: validation.passed,
+    issues: validation.issues.map((issue) => issue.code),
+  };
 }
 
 export async function validateAndSaveMaterialObservationPlan(
@@ -660,6 +648,59 @@ async function findCurrentValidation(
 function productionDraftId(taskId: string): string { return `draft-${taskId}`; }
 function productionResourceId(taskId: string): string { return `resource-${taskId}`; }
 function productionQuestionId(taskId: string): string { return `question-${taskId}`; }
+function buildProductionQuestionDraftContent(
+  task: ObservationTaskPlan,
+  draftId: string,
+  sourceDescription?: string,
+  now?: string,
+): Omit<CreateStructuredQuestionDraftInput, 'materialVersionId' | 'abilityMetadata' | 'tags'> & { tags?: string[] } {
+  const aiAssisted = Boolean(task.resourceDraftSpecification?.tags.includes('ai-assisted'));
+  return {
+    draftId,
+    resourceId: productionResourceId(task.observationTaskPlanId),
+    taskId: productionQuestionId(task.observationTaskPlanId),
+    title: task.resourceDraftSpecification?.title
+      || `${abilityLabel(task.abilityId)} · ${dimensionLabel(task.primaryDimension)}`,
+    questionStem: task.observationGoal,
+    questionType: task.resourceDraftSpecification?.questionType || 'reading_comprehension',
+    responseFormat: task.resourceDraftSpecification?.responseFormat || 'long_text',
+    assessmentMode: task.resourceDraftSpecification?.assessmentMode || 'reasoning_chain',
+    answerAcceptance: task.resourceDraftSpecification?.answerAcceptance
+      || { semanticEquivalentAllowed: true, normalizationRules: ['trim', 'ignore_punctuation'] },
+    rubric: task.resourceDraftSpecification?.rubric || [{
+      itemId: 'primary-observation',
+      name: '主要能力动作',
+      description: task.expectedStudentAction,
+      abilityId: task.abilityId,
+      importance: 'critical',
+      required: true,
+      evidenceRequirement: {
+        requireTextEvidence: true,
+        requireExplanation: task.abilityId !== 'extraction',
+        requireConclusion: true,
+      },
+      acceptedSignals: [task.expectedStudentAction],
+    }],
+    minimumAnswerRequirement: task.resourceDraftSpecification?.minimumAnswerRequirement || {
+      minLength: task.abilityId === 'extraction' ? 6 : 12,
+      requireTextEvidence: true,
+      requireExplanation: task.abilityId !== 'extraction',
+    },
+    source: {
+      sourceType: aiAssisted ? 'ai_assisted' : 'manual',
+      description: sourceDescription || (aiAssisted
+        ? '由人工审核通过的材料观测计划生成。'
+        : '由已审核的材料观测计划生成。'),
+      copyrightNote: '沿用关联学习材料的来源与版权审核结果。',
+    },
+    tags: [
+      'phase17.2',
+      'material-observation',
+      ...(task.resourceDraftSpecification?.tags || []),
+    ],
+    now,
+  };
+}
 function archivedRevisionDraftId(baseDraftId: string): string {
   const randomSuffix = typeof globalThis.crypto?.randomUUID === 'function'
     ? globalThis.crypto.randomUUID().slice(0, 8)

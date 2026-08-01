@@ -55,6 +55,13 @@ export type TaskProductionDraftSnapshot = {
   assessmentStatus?: 'missing' | 'current' | 'running' | 'stale' | 'failed';
 };
 
+export type TaskValidationSnapshot = {
+  validatedDraftRevision: number;
+  passed: boolean;
+};
+
+export type TaskQualityCheckState = 'missing' | 'incomplete' | 'complete';
+
 export type TaskProductionPublicationSnapshot = {
   status: 'none' | 'publishing' | 'failed' | 'published';
   sourceDraftId?: string;
@@ -133,6 +140,18 @@ export function getTaskProductionPresentation(
       ? getTaskProductionPrimaryActionLabel(state, primaryAction)
       : null,
   };
+}
+
+export function resolveTaskAssessmentStatus(
+  draftRevision: number | undefined,
+  validation?: TaskValidationSnapshot | null,
+  qualityCheckState: TaskQualityCheckState = 'missing',
+): TaskProductionDraftSnapshot['assessmentStatus'] {
+  if (draftRevision === undefined || !validation) return 'missing';
+  if (validation.validatedDraftRevision !== draftRevision) return 'stale';
+  if (!validation.passed) return 'failed';
+  if (qualityCheckState === 'incomplete') return 'failed';
+  return qualityCheckState === 'complete' ? 'current' : 'missing';
 }
 
 function getTaskProductionPrimaryActionLabel(
@@ -219,7 +238,7 @@ export function resolveTaskProductionState(input: TaskProductionInput): TaskProd
       binding,
       'pending_confirmation',
       ['open_confirmation', 'confirm', 'return_for_revision', ...publishedAuxiliaryAction],
-      'open_confirmation',
+      'confirm',
       '题目等待最终确认。',
       hasPublishedVersion,
     );

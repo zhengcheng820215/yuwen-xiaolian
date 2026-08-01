@@ -128,6 +128,23 @@ export type QuestionResourceWorkbenchContext = {
   versionHistory: FrozenQuestionResourceVersion[];
 };
 
+export type QuestionResourceWorkbenchQualityReadiness = Pick<
+  QuestionResourceWorkbenchContext,
+  'qualityAssessment' | 'semanticQualityAssessment' | 'qualityAssessmentBundle' | 'qualityCheckState'
+>;
+
+export async function getQuestionResourceWorkbenchQualityReadiness(
+  draftId: string,
+): Promise<QuestionResourceWorkbenchQualityReadiness> {
+  const persistedQuality = await readPersistedQualityContext(draftId);
+  return {
+    qualityAssessment: persistedQuality?.deterministic || null,
+    semanticQualityAssessment: persistedQuality?.semantic || null,
+    qualityAssessmentBundle: persistedQuality?.bundle || null,
+    qualityCheckState: resolvePersistedQuestionQualityCheckState(persistedQuality),
+  };
+}
+
 export type QuestionPublicationPreflight = {
   scoped: boolean;
   passed: boolean;

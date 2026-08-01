@@ -1,8 +1,32 @@
 import assert from 'node:assert/strict';
 import {
+  resolveTaskAssessmentStatus,
   resolveTaskGroupSummary,
   resolveTaskProductionState,
 } from '../../pages/taskProductionState.ts';
+
+assert.equal(resolveTaskAssessmentStatus(undefined, null), 'missing');
+assert.equal(resolveTaskAssessmentStatus(3, null), 'missing');
+assert.equal(resolveTaskAssessmentStatus(3, {
+  validatedDraftRevision: 2,
+  passed: true,
+}), 'stale');
+assert.equal(resolveTaskAssessmentStatus(3, {
+  validatedDraftRevision: 3,
+  passed: false,
+}), 'failed');
+assert.equal(resolveTaskAssessmentStatus(3, {
+  validatedDraftRevision: 3,
+  passed: true,
+}), 'missing');
+assert.equal(resolveTaskAssessmentStatus(3, {
+  validatedDraftRevision: 3,
+  passed: true,
+}, 'incomplete'), 'failed');
+assert.equal(resolveTaskAssessmentStatus(3, {
+  validatedDraftRevision: 3,
+  passed: true,
+}, 'complete'), 'current');
 
 const empty = resolveTaskProductionState({ trainingTaskId: 'task-empty' });
 assert.equal(empty.state, 'draft_empty');
@@ -56,6 +80,8 @@ const pendingConfirmation = resolveTaskProductionState({
   draft: draft('draft-confirmation', 'resource-confirmation', 'pending_review'),
 });
 assert.equal(pendingConfirmation.state, 'pending_confirmation');
+assert.equal(pendingConfirmation.primaryAction, 'confirm');
+assert.equal(pendingConfirmation.presentation.primaryActionLabel, '确认通过');
 
 const confirmed = resolveTaskProductionState({
   trainingTaskId: 'task-confirmed',
@@ -102,6 +128,22 @@ const publishedWithNewRevision = resolveTaskProductionState({
 assert.equal(publishedWithNewRevision.state, 'check_required');
 assert.equal(publishedWithNewRevision.hasPublishedVersion, true);
 assert.equal(publishedWithNewRevision.availableActions.includes('view_formal_resource'), true);
+
+const publishedWithUnsavedRevision = resolveTaskProductionState({
+  trainingTaskId: 'task-published-with-unsaved-revision',
+  draft: {
+    ...draft('draft-revision-v2-dirty', 'resource-published-with-unsaved-revision', 'drafted'),
+    isDirty: true,
+  },
+  publication: {
+    status: 'published',
+    sourceDraftId: 'draft-revision-v1',
+    formalVersionId: 'resource-published-with-unsaved-revision:v1',
+  },
+});
+assert.equal(publishedWithUnsavedRevision.state, 'editing');
+assert.equal(publishedWithUnsavedRevision.primaryAction, 'save');
+assert.equal(publishedWithUnsavedRevision.availableActions.includes('view_formal_resource'), true);
 
 const summary = resolveTaskGroupSummary([
   checkRequired,

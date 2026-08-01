@@ -1,5 +1,6 @@
 import {
   createAndValidateQuestionDraftBatch,
+  createAndValidateQuestionDraftForTask,
   createMaterialProductionPlan,
   linkFrozenResourceToObservationTask,
   reviewMaterialObservationPlan,
@@ -41,6 +42,8 @@ import {
 } from '../data/phase17TongguanCalibration.ts';
 import {
   completeQuestionResourceWorkbenchQualityCheck,
+  getQuestionResourceWorkbenchQualityReadiness,
+  type QuestionResourceWorkbenchQualityReadiness,
 } from './questionResourceWorkbench.ts';
 
 const resourceRepository = createBrowserQuestionResourceAdmissionRepository();
@@ -59,7 +62,7 @@ export type MaterialResourceProductionSnapshot = {
   draftReadiness: MaterialProductionDraftReadiness[];
 };
 
-export type MaterialProductionDraftReadiness = {
+export type MaterialProductionDraftReadiness = QuestionResourceWorkbenchQualityReadiness & {
   draftId: string;
   validation: ResourceValidationResult | null;
   review: ResourceReviewDecision | null;
@@ -71,7 +74,7 @@ export async function getMaterialResourceProductionSnapshot(): Promise<MaterialR
   const sharedEnvelope = await sharedResourceClient.read();
   if (sharedEnvelope.status.initialized) {
     const { questionResources, materialObservations } = sharedEnvelope.snapshot.data;
-    return buildMaterialResourceProductionSnapshot({
+    return hydrateDraftQualityReadiness(buildMaterialResourceProductionSnapshot({
       materials: questionResources.materials,
       anchors: materialObservations.anchors,
       plans: materialObservations.plans,
@@ -81,7 +84,7 @@ export async function getMaterialResourceProductionSnapshot(): Promise<MaterialR
       reviews: questionResources.reviews,
       frozenVersions: questionResources.versions,
       links: materialObservations.links,
-    }, sharedEnvelope.status);
+    }, sharedEnvelope.status));
   }
 
   const [materials, anchors, plans, drafts, frozenVersions, links] = await Promise.all([
@@ -107,9 +110,13 @@ export async function getMaterialResourceProductionSnapshot(): Promise<MaterialR
       observationLink: frozenVersion
         ? links.find((link) => link.resourceVersionId === frozenVersion.resourceVersionId) || null
         : null,
+      qualityAssessment: null,
+      semanticQualityAssessment: null,
+      qualityAssessmentBundle: null,
+      qualityCheckState: 'missing',
     };
   }));
-  return buildMaterialResourceProductionSnapshot({
+  return hydrateDraftQualityReadiness(buildMaterialResourceProductionSnapshot({
     materials,
     anchors,
     plans,
@@ -123,7 +130,7 @@ export async function getMaterialResourceProductionSnapshot(): Promise<MaterialR
       .filter((item): item is ResourceReviewDecision => Boolean(item)),
     frozenVersions,
     links,
-  }, sharedEnvelope.status);
+  }, sharedEnvelope.status));
 }
 
 type SnapshotCollections = {
@@ -167,6 +174,10 @@ export function buildMaterialResourceProductionSnapshot(
       observationLink: frozenVersion
         ? links.find((link) => link.resourceVersionId === frozenVersion.resourceVersionId) || null
         : null,
+      qualityAssessment: null,
+      semanticQualityAssessment: null,
+      qualityAssessmentBundle: null,
+      qualityCheckState: 'missing',
     };
   });
   return {
@@ -179,6 +190,25 @@ export function buildMaterialResourceProductionSnapshot(
     frozenVersions: frozenVersions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     links: links.sort((a, b) => b.linkedAt.localeCompare(a.linkedAt)),
     draftReadiness,
+  };
+}
+
+async function hydrateDraftQualityReadiness(
+  snapshot: MaterialResourceProductionSnapshot,
+): Promise<MaterialResourceProductionSnapshot> {
+  const qualityReadiness = await Promise.all(
+    snapshot.drafts.map(async (draft) => [
+      draft.draftId,
+      await getQuestionResourceWorkbenchQualityReadiness(draft.draftId),
+    ] as const),
+  );
+  const qualityByDraftId = new Map(qualityReadiness);
+  return {
+    ...snapshot,
+    draftReadiness: snapshot.draftReadiness.map((item) => ({
+      ...item,
+      ...(qualityByDraftId.get(item.draftId) || {}),
+    })),
   };
 }
 
@@ -278,6 +308,16 @@ export async function approveProductionObservationPlan(planId: string) {
 
 export async function createProductionQuestionDrafts(planId: string): Promise<MaterialProductionDraftResult[]> {
   return createAndValidateQuestionDraftBatch(resourceRepository, observationRepository, { planId });
+}
+
+export async function createProductionQuestionDraft(
+  planId: string,
+  observationTaskPlanId: string,
+): Promise<MaterialProductionDraftResult> {
+  return createAndValidateQuestionDraftForTask(resourceRepository, observationRepository, {
+    planId,
+    observationTaskPlanId,
+  });
 }
 
 export async function completeProductionQuestionDraftQualityChecks(planId: string) {

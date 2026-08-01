@@ -190,6 +190,7 @@ Assessment 必须绑定：
 
 ```ts
 type TaskProductionCommand =
+  | 'createTaskQuestionDraft'
   | 'editTaskQuestion'
   | 'saveTaskDraft'
   | 'runTaskCheck'
@@ -205,6 +206,7 @@ type TaskProductionCommand =
 
 | 命令 | 允许写入 | 禁止隐含行为 |
 | --- | --- | --- |
+| `createTaskQuestionDraft` | 为当前 Training Task 创建或复用唯一活动 Draft | 不创建平行 Draft、不检查、不确认、不发布 |
 | `editTaskQuestion` | 活动草稿 | 不保存、不检查、不确认、不发布 |
 | `saveTaskDraft` | 当前活动 Draft / Revision | 不自动检查、不自动确认 |
 | `runTaskCheck` | 当前 Revision 的 Assessment | 不修改正式字段 |
@@ -214,6 +216,99 @@ type TaskProductionCommand =
 | `publishConfirmedTask` | Freeze、Formal Version、Registry | 不重新审核、不覆盖旧正式版本 |
 | `retryTaskPublication` | 从已有发布结果继续 | 不重复创建已成功对象 |
 | `viewFormalQuestion` | 无 | 只读，不触发状态迁移 |
+
+### 6.1 P3 可执行命令契约
+
+页面按钮不得直接串联 Repository、API 或领域写入。页面只负责发出一个明确命令，应用层命令执行器负责阶段编排、幂等、并发保护和失败恢复。
+
+```ts
+type TaskProductionCommandStatus =
+  | 'completed'
+  | 'reused';
+
+type TaskProductionCommandResult<T = unknown> = {
+  command: TaskProductionCommand;
+  commandId: string;
+  idempotencyKey: string;
+  targetId: string;
+  expectedRevision?: number;
+  status: TaskProductionCommandStatus;
+  completedStages: string[];
+  value?: T;
+};
+
+type TaskProductionCommandStageError<T = unknown> = Error & {
+  status: 'partially_completed';
+  command: TaskProductionCommand;
+  commandId: string;
+  idempotencyKey: string;
+  targetId: string;
+  expectedRevision?: number;
+  completedStages: string[];
+  failedStage: string;
+  nextCommand?: TaskProductionCommand;
+  partialValue?: T;
+};
+```
+
+幂等键至少由以下事实组成：
+
+```ts
+`${command}:${targetId}:r${expectedRevision ?? 'none'}`
+```
+
+其中 `targetId` 必须稳定指向本次写入对象：优先使用 `draftId`，尚无 Draft 时使用 `questionLineageId` 或 `trainingTaskId`，计划级命令使用 `planId`。页面不得用展示序号或临时数组下标生成该值。
+
+同一目标、同一 Revision、同一命令在执行期间只能存在一个活动 Promise。重复点击必须复用当前执行结果，不得再次发起写入；与当前命令冲突的操作必须暂时禁用并显示正在执行的动作。
+
+### 6.2 Revision 与写入规则
+
+1. `saveTaskDraft` 只在正式字段发生变化时创建一个新 Revision；内容未变化时复用当前 Revision；
+2. `runTaskCheck` 只为当前 Draft Revision 和当前规则版本写入 Assessment，不创建 Revision；
+3. `submitTaskForFinalConfirmation` 只创建或恢复当前 Revision 的提交记录，不形成 Human Review Decision；
+4. `recordTaskConfirmationDecision` 只绑定当前 Revision 写入审核决定，不修改 Draft；
+5. `publishConfirmedTask` 只消费已确认且未变化的 Revision；同一 Revision 重试必须复用 Freeze、Formal Version 和 Registry 结果；
+6. `retryTaskPublication` 必须从已持久化的成功阶段继续，不得重新创建已存在的审核决定、Freeze 或 Formal Version；
+7. `returnTaskForRevision` 返回原 Draft Lineage，后续修改产生新 Revision，不创建平行 Draft。
+
+页面可提供“保存并重新检查”等组合动作，但组合只能存在于应用层命令执行器中。成功时返回 `TaskProductionCommandResult`；任一阶段失败时抛出 `TaskProductionCommandStageError`，由错误对象携带完整阶段结果。例如：
+
+```ts
+{
+  command: 'runTaskCheck',
+  completedStages: ['draft_saved'],
+  failedStage: 'assessment_completed',
+  nextCommand: 'runTaskCheck',
+  status: 'partially_completed'
+}
+```
+
+页面应据此显示“草稿已保存，检查未完成，可继续检查”，不得把部分成功伪装成完全失败，也不得要求用户重复保存。
+
+### 6.3 失败恢复与反馈
+
+命令失败必须保留并返回：
+
+1. 已完成阶段；
+2. 失败阶段；
+3. 当前持久化 Revision；
+4. 可重试的下一条命令；
+5. 面向用户的阶段化提示；
+6. 折叠展示的技术错误信息。
+
+所有异步命令点击后必须立即进入 Loading，按钮文案描述当前动作；完成后在操作附近显示结果并刷新统一生产状态。不得仅把按钮变灰后静默等待。
+
+### 6.4 P3 验收边界
+
+P3 至少验证：
+
+1. 连续点击同一命令只产生一次写入；
+2. 保存成功、检查失败后重试只执行检查；
+3. 提交成功、草稿创建失败后重试不重复提交训练计划；
+4. 审核决定成功、发布失败后保留审核结果并只重试发布；
+5. Registry 写入失败后复用已有 Freeze 和 Formal Version；
+6. 页面不再直接组合保存、检查、提交、确认和发布 API；
+7. 所有命令完成后，任务卡、总览和主操作读取同一个 Resolver 结果。
 
 ## 七、唯一生产状态解析
 
@@ -495,21 +590,23 @@ type BatchPublicationResult = {
 4. 让两个现有页面先读取同一个 Resolver；
 5. 暂不改变写入命令。
 
-### P2：统一命令与写入边界
-
-1. 盘点保存、检查、提交、确认、发布与重试 handler；
-2. 建立独立 Command；
-3. 清除按钮直接拼装领域写入的路径；
-4. 返回阶段化结果；
-5. 补齐 Loading、幂等和失败恢复。
-
-### P3：改造录入端训练任务卡
+### P2：改造录入端训练任务卡
 
 1. 每张任务卡展示主状态和主操作；
 2. 将来源与状态分层；
 3. 将题目状态和查看入口下沉到任务卡；
 4. 上部只保留互斥数据总览；
 5. 保持现有编辑能力不变。
+
+### P3：统一命令与写入边界
+
+1. 盘点保存、检查、提交、确认、发布与重试 handler；
+2. 建立带幂等键和单目标并发保护的应用层 Command Runner；
+3. 将页面中的保存并检查、提交最终确认、审核决定和发布链路迁入独立 Command；
+4. 清除按钮直接拼装领域写入的路径；
+5. 返回 `completedStages`、`failedStage` 和 `nextCommand` 等阶段化结果；
+6. 补齐 Loading、重复点击复用和部分成功恢复；
+7. 用真实 Revision 冲突、Assessment 失效和发布部分失败场景完成回归。
 
 ### P4：迁移检查与最终确认
 
@@ -518,6 +615,139 @@ type BatchPublicationResult = {
 3. 保留 Human Review 与 Revision 绑定；
 4. 将旧审核页改为只读详情；
 5. 验证退回后回到同一 Draft 和同一 TrainingTask。
+
+#### P4.1 页面职责
+
+1. 训练任务卡是日常生产主入口，负责展示当前主状态、下一步主操作、检查摘要、待确认事项和发布结果；
+2. 任务卡内可执行保存、题目检查、提交最终确认、记录确认决定、退回修改和查看正式资源；
+3. 旧题目审核页退化为 `Question Review Detail`，只用于历史链接、审计、调试和完整字段查看，不再作为正常生产链主入口；
+4. 旧页不得继续提供与任务卡重复的保存、检查、提交、确认或发布写入控件；
+5. 任务卡需要查看完整详情时可以进入只读详情，但返回后必须恢复原素材、原任务和原滚动上下文。
+
+#### P4.2 检查结果与当前性
+
+题目检查必须区分两个结果：
+
+1. `QuestionDraftValidation`：结构、必填字段和受控字段校验；
+2. `QuestionQualityAssessment`：语义质量、提醒、阻断项和人工确认项。
+
+只有以下条件同时成立，任务才可显示“题目检查完成”：
+
+```ts
+type CurrentTaskCheckState =
+  | 'missing'
+  | 'checking'
+  | 'current'
+  | 'stale_by_revision'
+  | 'stale_by_rule_version'
+  | 'failed';
+
+const isTaskCheckCurrent =
+  validation.passed === true &&
+  assessment.draftRevision === draft.revision &&
+  assessment.ruleVersion === currentRuleVersion &&
+  assessment.status === 'completed';
+```
+
+工程硬规则：
+
+1. 结构校验通过不得单独映射为完整检查通过；
+2. 任务卡、只读详情、提交最终确认和发布准备必须消费同一个当前性结果；
+3. 修改任一正式字段后，旧 Assessment 立即失效；
+4. 检查命令必须针对同一 `draftId + draftRevision` 依次形成结构校验和完整 Assessment；
+5. 结构校验成功但 Assessment 失败时，页面显示阶段化结果和可重试动作，不得伪装为检查完成。
+
+#### P4.3 状态与任务卡动作
+
+| 生产状态 | 任务卡主提示 | 主操作 | 辅助操作 |
+| --- | --- | --- | --- |
+| `editing` / `check_required` | 当前题目需要完成检查 | 保存并检查 / 检查题目 | 编辑并校准 |
+| `checking` | 正在检查当前题目 | Loading，不可重复触发 | 无 |
+| `revision_required` | 当前题目需要修改 | 定位修改 | 查看退回原因 |
+| `pending_confirmation` 且尚未提交 | 检查完成，等待最终确认 | 提交最终确认 | 查看检查记录 |
+| `pending_confirmation` 且已提交 | 当前 Revision 正在最终确认 | 确认通过 / 退回修改 | 查看提交信息 |
+| `confirmed` | 已确认，待发布 | 进入发布 | 查看确认记录 |
+| `publication_failed` | 审核已通过，发布未完成 | 重试发布 | 查看技术信息 |
+| `published` | 已发布 | 查看正式资源 | 查看历史 |
+
+任务卡只显示一个主操作。辅助操作不得复制主操作，也不得用状态标签伪装成按钮。
+
+#### P4.4 命令与写入边界
+
+任务卡只能调用 P3 已冻结的应用层命令：
+
+```ts
+createTaskQuestionDraft
+runTaskCheck
+submitTaskForFinalConfirmation
+recordTaskConfirmationDecision
+returnTaskForRevision
+```
+
+约束如下：
+
+1. 页面不得直接调用 Repository 或拼装 Human Review、Assessment、Revision 写入；
+2. 每个命令必须绑定 `trainingTaskId + questionLineageId + draftId + expectedRevision`；
+3. 每个命令必须返回 `completedStages`、`failedStage`、`nextCommand` 和用户可理解的阶段提示；
+4. 点击后立即进入 Loading，完成后原地显示结果；失败提示应出现在触发动作附近，技术信息默认折叠；
+5. 重复点击复用同一个执行，不得创建重复 Assessment、Human Review 或 Draft。
+6. 同一 `draftId + actionKind` 在命令完成前只能存在一个在途请求。前端必须在事件入口同步加锁，不能只依赖 React 禁用态；命令完成、失败或抛错后必须释放锁，并由统一 Resolver 重新计算任务卡状态。
+7. 尚无题目 Draft 的训练任务必须通过 `createTaskQuestionDraft` 创建首个活动 Draft；命令以 `observationTaskPlanId` 为稳定幂等目标，成功后路由必须携带返回的 `draftId`，不得先跳转到空白编辑表单。
+
+#### P4.5 提醒与最终确认
+
+1. 非阻断提醒必须在任务卡内展示简洁标题、当前设置、原因、建议和定位修改；
+2. 用户保留当前设置时，必须为每项提醒填写理由；
+3. 提交最终确认前，所有需要确认的提醒必须有录入处理记录；
+4. 最终确认展示系统提醒、录入处理方式和理由，确认人只作接受或退回决定；
+5. 任一提醒被退回时，当前提交整体进入 `revision_required`，并回到同一 TrainingTask 和同一 Draft；
+6. 退回后的第一次内容修改创建新 Revision，旧 Assessment 和 Human Review 保持只读。
+7. 任务存在待确认提醒时，点击“进入最终确认”必须先展开当前任务卡，并将理由输入区滚入当前操作上下文；不得把必填字段或校验反馈留在关闭的折叠区内。
+8. 缺少提醒处理理由时，提交命令保持原 Draft 不变，错误必须显示在该任务卡内；补充理由后可直接重试，不得要求重新创建题目或重新运行已有效的检查。
+
+#### P4.6 兼容页收口
+
+1. 历史 `/question-resource-workbench` 链接必须继续可打开；
+2. 当链接指向已提交、已确认或已发布 Revision 时，页面默认只读；
+3. 当链接指向仍可修改的活动 Draft 时，页面提示“请返回训练任务卡继续处理”，不得再提供第二套写入链路；
+4. 兼容页的刷新、预览、检查记录和审计信息可保留；
+5. 旧可写 handler 在 P4 完成后标记弃用，在 P6 删除。
+
+#### P4.7 Debug 验收
+
+P4 至少通过以下回归：
+
+1. 结构校验通过但缺少当前 Assessment 时，任务卡仍显示“需要完成检查”；
+2. 点击检查立即出现 Loading，并在同一 Revision 形成结构校验与完整 Assessment；
+3. 检查完成后任务卡原地进入“等待最终确认”，无需跳转旧审核页；
+4. 提交最终确认后不创建重复 Draft，重复点击不创建重复 Human Review；
+5. 最终确认退回后，任务卡定位同一 TrainingTask 和同一 Draft；
+6. 修改、保存并重新检查后 Revision 增加一次，旧 Assessment 失效且新 Assessment 绑定新 Revision；
+7. 旧审核链接仍可查看，但不能重复写入；
+8. 刷新和跨页返回后，原素材和原任务选择保持；
+9. 错误提示出现在当前操作附近，技术错误默认折叠；
+10. 构建、P0-P3 回归和 P4 端到端回归全部通过。
+11. 首次点击“创建题目”立即显示 Loading，成功后进入已预填的唯一活动 Draft；重复进入复用同一 `draftId`。
+12. 带 `materialVersionId` 返回素材工作台时直接恢复“已有素材”和原素材，不得先渲染素材录入表单再延迟切换。
+13. 带提醒的任务点击“进入最终确认”后，任务卡自动展开并立即展示提醒理由输入；缺少理由时错误在同一卡片内可见，填写后可完成提交。
+
+#### P4.8 工程落地与 Debug 记录（2026-08-02）
+
+本轮已完成训练任务卡主链路的界面与命令级验收：
+
+1. 真实页面已走通“恢复素材与计划 -> 创建题目 -> 复用唯一活动 Draft -> 检查题目 -> 等待最终确认”；
+2. 首个活动 Draft 由 `observationTaskPlanId` 保持幂等，重复进入不会创建第二个 Draft；
+3. 检查完成后任务卡直接消费统一生产状态，不再依赖旧审核页拼装下一步；
+4. 定位到带提醒任务点击“进入最终确认”无可见反馈的根因：提醒理由输入区位于关闭的任务卡折叠内容中，按钮阻止了 `summary` 默认展开行为；
+5. 修复后，该操作会先展开当前任务卡，再把提醒理由区滚入当前操作上下文；必填错误与命令反馈均在同一卡片内显示；
+6. 缺少理由时不写入 Draft、Revision 或 Human Review，填写后可直接重试；
+7. 独立命令运行时验证了在途请求复用、失败释放锁、不同 Revision 使用不同幂等键，以及阶段失败保留部分结果；
+8. 自动回归共执行 8 组、63 条断言，覆盖单任务生产状态、素材选择恢复、题目命令 E2E、最终确认提交恢复、工作流投影和生产命令边界，全部通过；
+9. `vite build` 与 `git diff --check` 通过；构建仅保留既有的大 Chunk 和动态导入提示，不影响本轮结论；
+10. 独立 SSR 命令环境缺少页面运行时共享资源服务，真实正式写入会被服务保护正确阻断，且未污染本地正式资源存储；该结果不得误判为页面命令失败；
+11. 修复后的最后一段自动视觉点击因应用内浏览器安全策略未能再次执行，命令级 E2E、状态回归和生产构建已覆盖逻辑正确性；后续恢复浏览器控制时仍需补一次视觉确认，检查折叠展开、滚动定位和 Loading 反馈。
+
+P4 当前结论：界面主链路、统一读取状态与独立命令边界已经对齐，可以进入后续部分发布或旧流程收口；不得重新引入隐藏必填项、组件自行判断状态或按钮直接写领域数据。
 
 ### P5：实现部分发布
 
@@ -755,3 +985,32 @@ type TaskProductionSummary = {
 2. 单任务状态、任务组数量、题目工作流和素材工作台之间未发现状态漂移；
 3. 重试、退回、发布失败恢复均未产生重复 Revision、重复审核决定或重复正式版本；
 4. P1 可以进入 P2 页面任务卡改造；P2 仍不得绕过统一投影或合并底层领域命令。
+
+### 20.9 P2 训练任务卡实施边界
+
+P2 只调整录入端任务卡的读取与操作呈现，不改变 Draft、Revision、Human Review、Freeze 或 Publication 的写入语义。
+
+任务卡首层固定为：
+
+1. `来源`：仅说明 AI 生成、人工调整或人工创建；
+2. `状态`：只展示 `resolveTaskProductionState()` 返回的单一主状态；
+3. `下一步`：只外显当前推荐主操作；
+4. 任务属性：继续展示训练方向、能力、难度、材料范围和任务用途；
+5. 历史正式版本：当新修改与已发布版本并存时，仅提供“查看已发布题目”辅助操作。
+
+禁止再次并列展示“训练计划状态”和“题目状态”，也禁止组件自行根据 `reviewStatus`、`publicationStatus` 或检查结果拼装第二套状态。
+
+任务卡的检查记录当前性统一按以下规则计算：
+
+1. 没有检查记录：`missing`；
+2. 检查记录 Revision 与当前 Draft Revision 不同：`stale`；
+3. 当前 Revision 检查未通过：`failed`；
+4. 当前 Revision 检查通过：`current`。
+
+P2 验收必须覆盖：
+
+1. 未生成题目、编辑中、待检查、需要修改、待最终确认、已确认待发布、发布未完成和已发布；
+2. 已发布任务发生新修改时，主状态切换为编辑或修改状态，旧正式版本仍可辅助查看；
+3. 顶部四项数量互斥且总和等于训练任务总数；
+4. 卡片只提供一个推荐主操作，不同时出现两个竞争性的主按钮；
+5. 保存计划、定位问题和进入题目流程继续调用现有独立 Command，不在卡片中直接写领域数据。

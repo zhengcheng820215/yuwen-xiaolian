@@ -17,6 +17,7 @@ import {
   type ObservationTaskPlanInput,
 } from '../agents/materialObservationAgent.ts';
 import {
+  createAndValidateQuestionDraftForTask,
   createMaterialAnchor,
   createMaterialStructure,
   createQuestionDraftFromObservationTask,
@@ -69,6 +70,7 @@ const cases: DebugCase[] = [
   { name: '25 planning and admission create no learner Evidence', run: caseNoLearnerEvidence },
   { name: '26 failed operations do not pollute formal resources', run: caseFailureNoPollution },
   { name: '27 submitting after preview validation reuses immutable Validation', run: caseSubmitAfterPreviewValidation },
+  { name: '28 repeated single-task creation reuses one active Draft', run: caseSingleTaskDraftCreationIdempotent },
 ];
 
 async function main(): Promise<void> {
@@ -232,6 +234,31 @@ async function caseDraftOnly() {
   const draft = await createDraftForTask(fixture, 'draft-only');
   expect(draft.status === 'drafted', 'Adapter did not create an ordinary Draft.');
   expect((await fixture.resources.listVersions()).length === 0 && (await fixture.resources.listRegistryEntries()).length === 0, 'Adapter auto-froze or changed Registry.');
+}
+
+async function caseSingleTaskDraftCreationIdempotent() {
+  const fixture = await reviewedFixture();
+  const input = {
+    planId: fixture.plan.materialObservationPlanId,
+    observationTaskPlanId: fixture.plan.taskPlans[0].observationTaskPlanId,
+    now: NOW,
+  };
+  const first = await createAndValidateQuestionDraftForTask(
+    fixture.resources,
+    fixture.observations,
+    input,
+  );
+  const second = await createAndValidateQuestionDraftForTask(
+    fixture.resources,
+    fixture.observations,
+    { ...input, now: LATER },
+  );
+  const activeDrafts = (await fixture.resources.listDrafts()).filter((draft) => draft.status !== 'archived');
+
+  expect(first.status === 'created', 'First single-task creation did not create a Draft.');
+  expect(second.status === 'reused', 'Repeated single-task creation did not reuse the Draft.');
+  expect(first.draftId === second.draftId, 'Repeated single-task creation changed Draft identity.');
+  expect(activeDrafts.length === 1, 'Repeated single-task creation produced duplicate active Drafts.');
 }
 
 async function caseRubricMismatch() {

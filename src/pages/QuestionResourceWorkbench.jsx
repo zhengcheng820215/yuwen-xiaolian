@@ -46,17 +46,19 @@ import {
   createQuestionResourceWorkbenchPublicationRepair,
   createQuestionResourceWorkbenchRejectedRevision,
   createWorkbenchMaterial,
-  decideQuestionResourceWorkbenchReview,
   discardQuestionResourceWorkbenchDraft,
-  freezeQuestionResourceWorkbenchDraft,
   getQuestionResourceWorkbenchContext,
   getQuestionResourceWorkbenchSnapshot,
-  saveQuestionResourceWorkbenchDraft,
-  submitQuestionResourceWorkbenchReview,
-  retryQuestionResourceWorkbenchPublication,
-  validateQuestionResourceWorkbenchDraft,
-  withdrawQuestionResourceWorkbenchReview,
 } from '../api/questionResourceWorkbench';
+import {
+  executePublishConfirmedTaskCommand,
+  executeQuestionCheckCommand,
+  executeRecordFinalConfirmationCommand,
+  executeSaveTaskDraftCommand,
+  executeSubmitFinalConfirmationCommand,
+  executeWithdrawFinalConfirmationCommand,
+} from './questionProductionCommands.ts';
+import { TaskProductionCommandStageError } from './taskProductionCommandRuntime.ts';
 
 const abilityOptions = [
   ['extraction', '信息提取'],
@@ -152,6 +154,8 @@ export default function QuestionResourceWorkbench() {
     };
   }, [location.search]);
   const planReviewMode = routeContext.mode === 'plan-review' && Boolean(routeContext.planId);
+  const taskDetailMode = routeContext.mode === 'task-detail' && Boolean(routeContext.planId);
+  const focusedWorkbenchMode = planReviewMode || taskDetailMode;
   const materialWorkbenchReturnPath = useMemo(() => {
     const params = new URLSearchParams();
     if (routeContext.materialVersionId) params.set('materialVersionId', routeContext.materialVersionId);
@@ -232,7 +236,7 @@ export default function QuestionResourceWorkbench() {
     return () => {
       active = false;
     };
-  }, [routeContext.planId, routeContext.draftId, workspaceLoadAttempt]);
+  }, [routeContext.mode, routeContext.planId, routeContext.draftId, workspaceLoadAttempt]);
 
   useEffect(() => {
     const preventUnsavedExit = (event) => {
@@ -310,7 +314,7 @@ export default function QuestionResourceWorkbench() {
 
   async function refreshWorkspace(preferredDraftId = selectedDraftId) {
     const nextSnapshot = await getQuestionResourceWorkbenchSnapshot({
-      observationPlanId: planReviewMode ? routeContext.planId : undefined,
+      observationPlanId: focusedWorkbenchMode ? routeContext.planId : undefined,
     });
     setSnapshot(nextSnapshot);
     const preferredDraftExists = Boolean(
@@ -478,7 +482,19 @@ export default function QuestionResourceWorkbench() {
       }
       return result;
     } catch (error) {
-      setNotice(errorNotice(error));
+      if (error instanceof TaskProductionCommandStageError) {
+        const partialDraftId = error.partialValue?.draftId;
+        if (partialDraftId) {
+          try {
+            await refreshWorkspace(partialDraftId);
+          } catch {
+            // Preserve the command result message even when the follow-up refresh fails.
+          }
+        }
+        setNotice({ type: 'error', message: error.message });
+      } else {
+        setNotice(errorNotice(error));
+      }
       return null;
     } finally {
       commandInFlightRef.current = false;
@@ -489,14 +505,14 @@ export default function QuestionResourceWorkbench() {
 
   async function saveDraft() {
     const result = await run(
-      () => saveQuestionResourceWorkbenchDraft({
+      async () => (await executeSaveTaskDraftCommand({
         draftId: selectedDraftId || undefined,
         expectedDraftRevision: context?.draft.revision,
         resourceId: context?.draft.resourceId,
         taskId: context?.draft.taskId,
         draft: toDraftInput(form),
         qualityRevisionProgress,
-      }),
+      })).value,
       selectedDraftId ? '修改已保存，请重新检查题目。' : '题目草稿已创建。',
       (draft) => draft.draftId,
       'save_draft',
@@ -538,23 +554,19 @@ export default function QuestionResourceWorkbench() {
     setValidationBusy(true);
     try {
       const result = await run(
-        async () => {
-          const draftToValidate = hasUnsavedChanges || !selectedDraftId
-            ? await saveQuestionResourceWorkbenchDraft({
+        async () => (await executeQuestionCheckCommand({
+          currentDraft: context?.draft,
+          draftToSave: hasUnsavedChanges || !selectedDraftId
+            ? {
               draftId: selectedDraftId || undefined,
               expectedDraftRevision: context?.draft.revision,
               resourceId: context?.draft.resourceId,
               taskId: context?.draft.taskId,
               draft: toDraftInput(form),
               qualityRevisionProgress,
-            })
-            : context.draft;
-          await validateQuestionResourceWorkbenchDraft(
-            draftToValidate.draftId,
-            draftToValidate.revision,
-          );
-          return draftToValidate;
-        },
+            }
+            : undefined,
+        })).value,
         '题目结构检查已完成。',
         (draft) => draft.draftId,
         'validate_draft',
@@ -568,21 +580,17 @@ export default function QuestionResourceWorkbench() {
 
   async function saveAndRecheckDraft(nextForm, nextProgress, successMessage) {
     const result = await run(
-      async () => {
-        const savedDraft = await saveQuestionResourceWorkbenchDraft({
+      async () => (await executeQuestionCheckCommand({
+        currentDraft: context?.draft,
+        draftToSave: {
           draftId: selectedDraftId || undefined,
           expectedDraftRevision: context?.draft.revision,
           resourceId: context?.draft.resourceId,
           taskId: context?.draft.taskId,
           draft: toDraftInput(nextForm),
           qualityRevisionProgress: nextProgress,
-        });
-        await validateQuestionResourceWorkbenchDraft(
-          savedDraft.draftId,
-          savedDraft.revision,
-        );
-        return savedDraft;
-      },
+        },
+      })).value,
       successMessage,
       (draft) => draft.draftId,
       'validate_draft',
@@ -596,14 +604,14 @@ export default function QuestionResourceWorkbench() {
 
   async function submitReview() {
     await run(
-      () => submitQuestionResourceWorkbenchReview(
-        selectedDraftId,
-        context?.draft.revision,
-        (context?.qualityAssessment?.warnings || []).map((warning) => ({
+      async () => (await executeSubmitFinalConfirmationCommand({
+        draftId: selectedDraftId,
+        expectedDraftRevision: context?.draft.revision,
+        warningAcknowledgements: (context?.qualityAssessment?.warnings || []).map((warning) => ({
           warningCode: warning.code,
           rationale: authorWarningRationales[warning.code] || '',
         })),
-      ),
+      })).value,
       '题目已提交最终确认。',
       undefined,
       'submit_final_confirmation',
@@ -615,10 +623,10 @@ export default function QuestionResourceWorkbench() {
       return;
     }
     await run(
-      () => withdrawQuestionResourceWorkbenchReview(
-        selectedDraftId,
-        context?.draft.revision,
-      ),
+      async () => (await executeWithdrawFinalConfirmationCommand({
+        draftId: selectedDraftId,
+        expectedDraftRevision: context?.draft.revision,
+      })).value,
       '本次审核提交已撤回，可以继续修改题目。',
       undefined,
       'withdraw_review',
@@ -632,7 +640,7 @@ export default function QuestionResourceWorkbench() {
       reject: '该题目已标记为不采用，不会进入正式学习系统。',
     };
     const result = await run(
-      () => decideQuestionResourceWorkbenchReview({
+      async () => (await executeRecordFinalConfirmationCommand({
         draftId: selectedDraftId,
         expectedDraftRevision: context?.draft.revision,
         action,
@@ -640,7 +648,7 @@ export default function QuestionResourceWorkbench() {
         notes: reviewNotes,
         returnRequest,
         acceptedWarningCodes: acceptedReviewWarningCodes,
-      }),
+      })).value,
       labels[action],
       undefined,
       action === 'approve'
@@ -665,15 +673,11 @@ export default function QuestionResourceWorkbench() {
   async function freezeDraft() {
     const retryExistingPublication = Boolean(context?.frozenVersion);
     const result = await run(
-      () => retryExistingPublication
-        ? retryQuestionResourceWorkbenchPublication(
-          selectedDraftId,
-          context?.draft.revision,
-        )
-        : freezeQuestionResourceWorkbenchDraft(
-          selectedDraftId,
-          context?.draft.revision,
-        ),
+      async () => (await executePublishConfirmedTaskCommand({
+        draftId: selectedDraftId,
+        expectedDraftRevision: context?.draft.revision,
+        retryExistingPublication,
+      })).value,
       (result) => result.observationLinkIssues?.length
         ? '正式题目版本已保留，但材料观测关联仍未完成，可稍后继续重试。'
         : result.observationLink
@@ -1093,11 +1097,13 @@ export default function QuestionResourceWorkbench() {
   const selectedPublicationStatus = context
     ? draftDisplayStatus(snapshot, context.draft)
     : null;
-  const pageIdentity = resolveQuestionWorkbenchPageIdentity({
-    focusedReview: planReviewMode,
-    status: selectedPublicationStatus,
-    loading: workspaceLoadState === 'loading',
-  });
+  const pageIdentity = taskDetailMode
+    ? { title: '题目生产详情', subtitle: '' }
+    : resolveQuestionWorkbenchPageIdentity({
+      focusedReview: planReviewMode,
+      status: selectedPublicationStatus,
+      loading: workspaceLoadState === 'loading',
+    });
   const humanReviewStage = Boolean(
     planReviewMode &&
     context &&
@@ -1112,14 +1118,14 @@ export default function QuestionResourceWorkbench() {
       onSelect={selectDraftWithConfirmation}
       onNextVersion={createNextVersion}
       onDiscardDraft={discardDraft}
-      focusedReview={planReviewMode}
+      focusedReview={focusedWorkbenchMode}
     />
   );
   const questionEditor = (
     <QuestionEditor
       form={form}
       setForm={updateQualityRelevantForm}
-      editable={editable}
+      editable={editable && !taskDetailMode}
       busy={busy}
       activeCommand={activeCommand}
       context={context}
@@ -1149,7 +1155,8 @@ export default function QuestionResourceWorkbench() {
         rubricOptimizationRequestRef.current += 1;
         setRubricOptimization(null);
       }}
-      focusedReview={planReviewMode}
+      focusedReview={focusedWorkbenchMode}
+      readOnlyDetailMode={taskDetailMode}
       selectedQuestionNumber={selectedQuestionIndex >= 0 ? String(selectedQuestionIndex + 1) : null}
       hasUnsavedChanges={hasUnsavedChanges}
       humanReviewStage={humanReviewStage}
@@ -1188,7 +1195,8 @@ export default function QuestionResourceWorkbench() {
       onLocateReturnIssue={locateReturnIssue}
       onOptimizeStem={optimizeStem}
       stemOptimizationBusy={stemOptimizationBusy}
-      focusedReview={planReviewMode}
+      focusedReview={focusedWorkbenchMode}
+      readOnlyDetailMode={taskDetailMode}
       qualityResultStale={qualityResultStale}
       qualityRevisionProgress={qualityRevisionProgress}
       hasUnsavedChanges={hasUnsavedChanges}
@@ -1204,8 +1212,8 @@ export default function QuestionResourceWorkbench() {
   if (workspaceLoadState !== 'ready') {
     const loadFailed = workspaceLoadState === 'error';
     return (
-      <div className={`question-resource-workbench min-h-screen ${planReviewMode ? 'bg-[#f6f8fb] text-slate-950' : 'bg-[#f5f7fb]'}`}>
-        {planReviewMode ? (
+      <div className={`question-resource-workbench min-h-screen ${focusedWorkbenchMode ? 'bg-[#f6f8fb] text-slate-950' : 'bg-[#f5f7fb]'}`}>
+        {focusedWorkbenchMode ? (
           <header className="border-b border-slate-200 bg-white">
             <div className="mx-auto flex min-h-16 max-w-[1360px] items-center px-5 md:px-8">
               <div className="flex items-center gap-3">
@@ -1259,7 +1267,7 @@ export default function QuestionResourceWorkbench() {
   }
 
   return (
-    <div className={`question-resource-workbench min-h-screen ${planReviewMode ? 'bg-[#f6f8fb] text-slate-950' : 'bg-[#f5f7fb]'}`}>
+    <div className={`question-resource-workbench min-h-screen ${focusedWorkbenchMode ? 'bg-[#f6f8fb] text-slate-950' : 'bg-[#f5f7fb]'}`}>
       {pendingNavigation ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/35 px-4">
           <section
@@ -1303,7 +1311,7 @@ export default function QuestionResourceWorkbench() {
           </section>
         </div>
       ) : null}
-      {planReviewMode ? (
+      {focusedWorkbenchMode ? (
         <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
           <div className="mx-auto flex min-h-16 max-w-[1360px] items-center justify-between px-5 md:px-8">
             <div className="flex items-center gap-3">
@@ -1338,11 +1346,11 @@ export default function QuestionResourceWorkbench() {
         />
       )}
 
-      <main className={planReviewMode
+      <main className={focusedWorkbenchMode
         ? 'mx-auto w-full max-w-[1200px] px-5 pb-7 md:px-8 md:pb-9'
         : 'mx-auto max-w-[1600px] px-4 pb-10 sm:px-6'}
       >
-        {planReviewMode ? (
+        {focusedWorkbenchMode ? (
           <div className="sticky top-16 z-40 -mx-5 border-b border-slate-200 bg-[#f6f8fb] px-5 md:-mx-8 md:px-8">
             <p className="pt-2 text-xs font-medium text-slate-600">
               本批题目（{batchLifecycleCounts.total}）
@@ -1367,11 +1375,11 @@ export default function QuestionResourceWorkbench() {
           </section>
         )}
 
-        {planReviewMode ? (
+        {focusedWorkbenchMode ? (
           <BatchObservabilitySummary summary={snapshot.batchObservability} compact />
         ) : null}
 
-        {planReviewMode ? (
+        {focusedWorkbenchMode ? (
           <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
             <div className="min-w-0 space-y-5">
               {questionEditor}
@@ -1554,6 +1562,7 @@ function QuestionEditor({
   onApplyOptimizedRubricItem,
   onDismissRubricOptimization,
   focusedReview,
+  readOnlyDetailMode,
   selectedQuestionNumber,
   hasUnsavedChanges,
   humanReviewStage,
@@ -1614,7 +1623,7 @@ function QuestionEditor({
     setShowOptionalAnswerSettings(false);
   }, [context?.draft?.draftId]);
 
-  if (humanReviewStage) {
+  if (humanReviewStage || readOnlyDetailMode) {
     return (
       <QuestionReviewContent
         context={context}
@@ -2222,7 +2231,7 @@ function QuestionEditor({
 }
 
 function WorkflowPanel(props) {
-  const { activePanel, setActivePanel, context, form, material, previewResource, reviewNotes, setReviewNotes, acceptedReviewWarningCodes, setAcceptedReviewWarningCodes, authorWarningRationales, setAuthorWarningRationales, returnReviewOpen, setReturnReviewOpen, returnReviewRequest, setReturnReviewRequest, busy, activeCommand, validationBusy, onValidate, onSubmitReview, onWithdrawReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onLocateReturnIssue, onOptimizeStem, stemOptimizationBusy, focusedReview, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft, humanReviewStage, notice } = props;
+  const { activePanel, setActivePanel, context, form, material, previewResource, reviewNotes, setReviewNotes, acceptedReviewWarningCodes, setAcceptedReviewWarningCodes, authorWarningRationales, setAuthorWarningRationales, returnReviewOpen, setReturnReviewOpen, returnReviewRequest, setReturnReviewRequest, busy, activeCommand, validationBusy, onValidate, onSubmitReview, onWithdrawReview, onReview, onFreeze, onCreateRejectedRevision, onRepairPublication, onLocateQualityIssue, onLocateReturnIssue, onOptimizeStem, stemOptimizationBusy, focusedReview, readOnlyDetailMode, qualityResultStale, qualityRevisionProgress, hasUnsavedChanges, publicationStatus, publicationMismatch, publicationPreflightMismatch, publicationRepairDraft, humanReviewStage, notice } = props;
   const noticeRef = useRef(null);
   useEffect(() => {
     if (!notice) return;
@@ -2231,9 +2240,11 @@ function WorkflowPanel(props) {
     });
     return () => window.cancelAnimationFrame(frameId);
   }, [notice?.message]);
-  const panelLabels = humanReviewStage
-    ? [['workflow', '内容审核'], ['student', '学生预览'], ['review', '审核记录']]
-    : [['workflow', '提交前检查'], ['student', '学生预览'], ['review', '检查记录']];
+  const panelLabels = readOnlyDetailMode
+    ? [['workflow', '生产详情'], ['student', '学生预览'], ['review', '生产记录']]
+    : humanReviewStage
+      ? [['workflow', '内容审核'], ['student', '学生预览'], ['review', '审核记录']]
+      : [['workflow', '提交前检查'], ['student', '学生预览'], ['review', '检查记录']];
   return (
     <aside className={`overflow-hidden rounded-md bg-white ${focusedReview ? '' : 'border border-slate-200 lg:col-span-2 xl:col-span-1 xl:sticky xl:top-24'}`}>
       {humanReviewStage ? (
@@ -2257,7 +2268,10 @@ function WorkflowPanel(props) {
       </div>
 
       <div className={focusedReview ? 'p-5' : 'max-h-[calc(100vh-155px)] overflow-auto p-4'}>
-        {activePanel === 'workflow' ? (
+        {activePanel === 'workflow' && readOnlyDetailMode ? (
+          <TaskProductionDetailSummary context={context} publicationStatus={publicationStatus} />
+        ) : null}
+        {activePanel === 'workflow' && !readOnlyDetailMode ? (
           <WorkflowActions
             context={context}
             form={form}
@@ -2306,6 +2320,41 @@ function WorkflowPanel(props) {
         ) : null}
       </div>
     </aside>
+  );
+}
+
+function TaskProductionDetailSummary({ context, publicationStatus }) {
+  if (!context) return <EmptyText>当前任务尚未生成题目。</EmptyText>;
+  const { draft, validation, qualityCheckState, assessmentState } = context;
+  const validationCurrent = Boolean(
+    validation?.validatedDraftRevision === draft.revision && validation.passed,
+  );
+  const qualityLabel = qualityCheckState === 'complete' && assessmentState === 'current'
+    ? '完整检查有效'
+    : qualityCheckState === 'incomplete'
+      ? '完整检查未完成'
+      : '尚无完整检查记录';
+  return (
+    <section aria-label="题目生产状态" className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ReadOnlySummaryItem label="当前状态" value={statusLabels[publicationStatus] || statusLabels[draft.status] || draft.status} />
+        <ReadOnlySummaryItem label="当前版本" value={`Revision ${draft.revision}`} />
+        <ReadOnlySummaryItem label="基础结构检查" value={validationCurrent ? '当前版本已通过' : '需要重新检查'} />
+        <ReadOnlySummaryItem label="完整质量检查" value={qualityLabel} />
+      </div>
+      <p className="border-t border-slate-200 pt-4 text-sm leading-6 text-slate-600">
+        此页面用于查看当前题目的生产记录。修改、检查、最终确认和发布操作请返回素材资源录入中的对应训练任务。
+      </p>
+    </section>
+  );
+}
+
+function ReadOnlySummaryItem({ label, value }) {
+  return (
+    <div className="rounded-md bg-slate-50 px-4 py-3">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-medium text-slate-900">{value}</p>
+    </div>
   );
 }
 
