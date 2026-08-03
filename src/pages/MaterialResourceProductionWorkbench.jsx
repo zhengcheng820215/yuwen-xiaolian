@@ -774,7 +774,20 @@ export default function MaterialResourceProductionWorkbench() {
     try {
       let result;
       if (actionKind === 'run_check') {
-        result = await executeQuestionCheckCommand({ currentDraft: draft });
+        result = await executeQuestionCheckCommand({
+          currentDraft: draft,
+          onStageStart: (stage) => {
+            const message = {
+              draft_saved: '正在保存题目修改…',
+              structure_checked: '正在检查题目结构…',
+              assessment_completed: '结构检查已完成，正在生成完整质量检查记录…',
+            }[stage] || '正在检查题目…';
+            setTaskWorkflowFeedback((current) => ({
+              ...current,
+              [draft.draftId]: { type: 'info', message },
+            }));
+          },
+        });
       } else if (actionKind === 'open_confirmation') {
         const warningAcknowledgements = warnings.map((warning) => ({
           warningCode: warning.code,
@@ -913,7 +926,7 @@ export default function MaterialResourceProductionWorkbench() {
       () => loadTongguanCalibrationPlanForReview(),
       (result) => result.reused
         ? '《潼关》校准案例已存在，六项真实观测任务已显示在当前工作区。'
-        : '《潼关》校准案例已载入，六项真实观测任务已显示并等待人工审核。',
+        : '《潼关》校准案例已载入，六项真实观测任务已显示并等待最终确认。',
       (result) => ({ materialVersionId: result.materialVersionId, planId: result.materialObservationPlanId }),
     );
     if (result) setActiveLoadPreset('tongguan');
@@ -1287,7 +1300,7 @@ export default function MaterialResourceProductionWorkbench() {
       setBaselinePreview(baseline);
       setToast({
         id: Date.now(),
-        message: `当前浏览器资源已导出：${baseline.counts.materials} 篇学习材料，${baseline.counts.drafts} 道待人工审核题目。`,
+        message: `当前浏览器资源已导出：${baseline.counts.materials} 篇学习材料，${baseline.counts.drafts} 道待最终确认题目。`,
       });
     } catch (error) {
       setNotice(errorNotice(error));
@@ -1501,7 +1514,7 @@ export default function MaterialResourceProductionWorkbench() {
                 </p>
                 {baselinePreview && (
                   <p className="mt-2 text-sm font-medium text-amber-950">
-                    当前快照：{baselinePreview.counts.materials} 篇学习材料、{baselinePreview.counts.plans} 个训练计划、{baselinePreview.counts.drafts} 道待人工审核题目。
+                    当前快照：{baselinePreview.counts.materials} 篇学习材料、{baselinePreview.counts.plans} 个训练计划、{baselinePreview.counts.drafts} 道待最终确认题目。
                   </p>
                 )}
               </div>
@@ -1593,7 +1606,7 @@ export default function MaterialResourceProductionWorkbench() {
                 )}
                 {!selectedMaterial && (
                   <div className="mt-4 border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-950">
-                    请先选择一篇学习材料，查看并处理对应的待人工审核题目和已发布练习。
+                    请先选择一篇学习材料，查看并处理对应的待最终确认题目和已发布练习。
                   </div>
                 )}
               </div>
@@ -1973,8 +1986,17 @@ export default function MaterialResourceProductionWorkbench() {
                         <TaskAttributeChip>{formatAnchorSummary(task)}</TaskAttributeChip>
                         <TaskAttributeChip>{roleLabels[task.taskRole]}</TaskAttributeChip>
                       </div>
-                      {workflowFeedback && !questionLifecycle?.draft && (
-                        <p role="alert" className="mt-2 text-xs leading-5 text-red-700">
+                      {workflowFeedback && (
+                        <p
+                          role={(workflowFeedback.type || workflowFeedback.tone) === 'error' ? 'alert' : 'status'}
+                          className={`mt-2 text-xs leading-5 ${
+                            (workflowFeedback.type || workflowFeedback.tone) === 'success'
+                              ? 'text-emerald-700'
+                              : (workflowFeedback.type || workflowFeedback.tone) === 'info'
+                                ? 'text-blue-700'
+                                : 'text-red-700'
+                          }`}
+                        >
                           {workflowFeedback.message}
                         </p>
                       )}
@@ -1992,7 +2014,6 @@ export default function MaterialResourceProductionWorkbench() {
                   {questionLifecycle?.draft && (
                     <TaskProductionWorkflowPanel
                       lifecycle={questionLifecycle}
-                      feedback={workflowFeedback}
                       rationales={taskWarningRationales[questionLifecycle.draft.draftId] || {}}
                       reviewNotes={taskReviewNotes[questionLifecycle.draft.draftId] || ''}
                       onRationaleChange={(warningCode, value) => setTaskWarningRationales((current) => ({
@@ -2260,7 +2281,7 @@ export default function MaterialResourceProductionWorkbench() {
           <section className="mt-10 rounded-md bg-white p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-semibold">提交题目审核</h2>
+              <h2 className="text-lg font-semibold">提交最终确认</h2>
             </div>
             {materialPlans.length > 1 && (
               <select value={selectedPlan?.materialObservationPlanId || ''} onChange={(event) => setSelectedPlanId(event.target.value)} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
@@ -2313,8 +2334,8 @@ export default function MaterialResourceProductionWorkbench() {
                       <p className={`mt-4 text-sm font-medium ${submissionSummary.ready ? 'text-emerald-700' : 'text-amber-800'}`}>
                         {submissionSummary.ready
                           ? (planFullyPublished
-                            ? '当前计划的题目已完成发布，可查看审核与发布记录。'
-                            : '可以进入题目审核。')
+                            ? '当前计划的题目已完成发布，可查看确认与发布记录。'
+                            : '可以进入最终确认。')
                           : '仍有检查项未完成，请先返回调整。'}
                       </p>
                     </div>
@@ -2323,14 +2344,14 @@ export default function MaterialResourceProductionWorkbench() {
               </div>
               {selectedValidation && !selectedValidation.passed && (
                 <IssueList
-                  title="当前任务无法进入审核"
+                  title="当前任务无法进入最终确认"
                   issues={selectedValidation.issues.map((issue) => attachValidationIssueTarget(issue, tasks))}
                   onAction={focusTaskIssue}
                 />
               )}
               {taskEditorDirty && (
                 <p className="mt-6 rounded-md bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-                  请先保存上方训练任务的修改，再进入题目审核。
+                  请先保存上方训练任务的修改，再进入最终确认。
                 </p>
               )}
               {['draft', 'revision_required', 'pending_review', 'reviewed'].includes(selectedPlan.status) && (
@@ -2352,12 +2373,12 @@ export default function MaterialResourceProductionWorkbench() {
                     className="flex h-10 w-52 items-center justify-center rounded-md border border-slate-950 bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:border-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
                   >
                     {planFullyPublished
-                      ? '查看题目审核与发布记录'
+                      ? '查看确认与发布记录'
                       : (busy
-                        ? '正在准备待人工审核题目'
+                        ? '正在提交最终确认'
                         : (planDrafts.length >= selectedPlan.taskPlans.length
-                          ? '进入题目审核'
-                          : '提交题目人工审核'))}
+                          ? '进入最终确认'
+                          : '提交最终确认'))}
                   </button>
                 </div>
               )}
@@ -2683,7 +2704,6 @@ function taskWorkflowLoadingLabel(actionKind) {
 
 function TaskProductionWorkflowPanel({
   lifecycle,
-  feedback,
   rationales,
   reviewNotes,
   onRationaleChange,
@@ -2691,7 +2711,7 @@ function TaskProductionWorkflowPanel({
 }) {
   const { draft, readiness, actionKind } = lifecycle;
   const warnings = readiness?.qualityAssessment?.warnings || [];
-  if (!draft || (!['open_confirmation', 'confirm'].includes(actionKind) && !feedback)) return null;
+  if (!draft || !['open_confirmation', 'confirm'].includes(actionKind)) return null;
   return (
     <div data-task-production-workflow className="mt-4 border-t border-slate-200 pt-4">
       {actionKind === 'open_confirmation' && warnings.length > 0 && (
@@ -2727,11 +2747,6 @@ function TaskProductionWorkflowPanel({
             className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-600 focus:outline-none focus:shadow-[0_0_0_2px_rgba(37,99,235,0.3)]"
           />
         </label>
-      )}
-      {feedback && (
-        <p className={`mt-3 text-sm ${feedback.type === 'success' ? 'text-emerald-700' : 'text-red-700'}`}>
-          {feedback.message}
-        </p>
       )}
     </div>
   );

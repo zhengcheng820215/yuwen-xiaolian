@@ -44,10 +44,10 @@ for (const [source, label, expectedClass] of aiActions) {
 const ordinaryActionLabels = [
   '保存任务组并重新检查',
   '返回任务调整',
-  '提交题目人工审核',
+  '提交最终确认',
   '保存本次修改',
   '退回录入修改',
-  '审核通过',
+  '确认通过',
   '发布正式题目',
 ] as const;
 
@@ -66,9 +66,9 @@ const savePlanButton = findButton(materialWorkbenchSource, '保存任务组并�
 assert.match(savePlanButton, /bg-slate-950/, '保存任务组并重新检查应使用深蓝主操作样式');
 assert.doesNotMatch(savePlanButton, /bg-emerald-|border-emerald-|text-emerald-/, '保存任务组并重新检查不得使用绿色操作样式');
 
-const submitReviewButton = findButton(materialWorkbenchSource, '提交题目人工审核');
-assert.match(submitReviewButton, /bg-slate-950/, '提交题目人工审核应使用深蓝主操作样式');
-assert.doesNotMatch(submitReviewButton, /bg-emerald-|border-emerald-|text-emerald-/, '提交题目人工审核不得使用绿色操作样式');
+const submitReviewButton = findButton(materialWorkbenchSource, '提交最终确认');
+assert.match(submitReviewButton, /bg-slate-950/, '提交最终确认应使用深蓝主操作样式');
+assert.doesNotMatch(submitReviewButton, /bg-emerald-|border-emerald-|text-emerald-/, '提交最终确认不得使用绿色操作样式');
 
 const returnAdjustmentButton = findButton(materialWorkbenchSource, '返回任务调整');
 assert.match(returnAdjustmentButton, /border-\[#666666\]/, '返回任务调整应使用中性描边次操作样式');

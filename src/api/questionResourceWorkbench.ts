@@ -390,10 +390,8 @@ export async function validateQuestionResourceWorkbenchDraft(
   draftId: string,
   expectedDraftRevision?: number,
 ) {
-  const validation = await validateStructuredQuestionDraft(
-    repository,
+  const validation = await validateQuestionResourceWorkbenchStructure(
     draftId,
-    new Date().toISOString(),
     expectedDraftRevision,
   );
   if (validation.passed) {
@@ -403,6 +401,18 @@ export async function validateQuestionResourceWorkbenchDraft(
     );
   }
   return validation;
+}
+
+export async function validateQuestionResourceWorkbenchStructure(
+  draftId: string,
+  expectedDraftRevision?: number,
+) {
+  return validateStructuredQuestionDraft(
+    repository,
+    draftId,
+    new Date().toISOString(),
+    expectedDraftRevision,
+  );
 }
 
 export async function completeQuestionResourceWorkbenchQualityCheck(

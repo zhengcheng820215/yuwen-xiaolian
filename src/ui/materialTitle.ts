@@ -5,7 +5,8 @@ export function normalizeMaterialTitle(value: string | null | undefined): string
     title = title.slice(1, -1).trim();
   }
 
-  return title ? `《${title}》` : '';
+  if (!title) return '';
+  return /《[^《》]+》/.test(title) ? title : `《${title}》`;
 }
 
 export function formatMaterialTitle(value: string | null | undefined): string {

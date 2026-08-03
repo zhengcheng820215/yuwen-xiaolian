@@ -108,7 +108,7 @@ export default function InternalLearningReview() {
           </div>
           <div className="mt-8 border-t border-slate-200 pt-5">
             <p className="text-xs font-semibold text-slate-500">资源工具</p>
-            <Link to="/question-resource-workbench" className="mt-3 flex items-center gap-2 text-sm text-blue-700">题目录入与审核 <ExternalLink size={14} /></Link>
+            <Link to="/material-resource-workbench" className="mt-3 flex items-center gap-2 text-sm text-blue-700">素材资源录入 <ExternalLink size={14} /></Link>
             <Link to="/resource-matching-quality-demo" className="mt-3 flex items-center gap-2 text-sm text-blue-700">资源匹配复核 <ExternalLink size={14} /></Link>
           </div>
         </aside>

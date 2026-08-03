@@ -106,6 +106,8 @@ export function executeTaskProductionCommand<TValue>(input: {
   stages: TaskProductionCommandStage[];
   nextCommandOnFailure?: TaskProductionCommand;
   failureMessage?: (failedStage: string, completedStages: string[]) => string;
+  onStageStart?: (stage: string, completedStages: string[]) => void;
+  onStageComplete?: (stage: string, completedStages: string[]) => void;
   resolveValue: () => TValue | undefined;
   reused?: boolean;
 }): Promise<TaskProductionCommandResult<TValue>> {
@@ -116,8 +118,10 @@ export function executeTaskProductionCommand<TValue>(input: {
 
     for (const stage of input.stages) {
       try {
+        input.onStageStart?.(stage.stage, [...completedStages]);
         await stage.execute();
         completedStages.push(stage.stage);
+        input.onStageComplete?.(stage.stage, [...completedStages]);
       } catch (error) {
         const message = input.failureMessage?.(stage.stage, completedStages)
           || (error instanceof Error ? error.message : '操作未完成，请重试。');

@@ -92,6 +92,7 @@ async function loadUnifiedLearningEntryData(): Promise<UnifiedLearningEntryState
     delayedRetestPlans,
     operationCheckpoint: operationCheckpoint || undefined,
     hasAvailableTask: completedRoundCount < MAX_ROUNDS && taskAvailability.available,
+    taskAvailabilityState: taskAvailability.state,
     taskAvailabilityMessage: taskAvailability.message,
     completedRoundCount,
   });

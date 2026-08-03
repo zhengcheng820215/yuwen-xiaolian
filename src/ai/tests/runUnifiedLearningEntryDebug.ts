@@ -101,6 +101,31 @@ async function main(): Promise<void> {
       nextAction: 'retry_persistence',
     }),
   }), 'recovering_submission', (state) => state.primaryAction === 'resume_processing');
+  checkState('B20 无正式资源时保留准确原因', baseInput({
+    hasAvailableTask: false,
+    taskAvailabilityState: 'no_formal_resource',
+    taskAvailabilityMessage: '当前还没有已发布的正式训练任务。',
+  }), 'no_task', (state) => (
+    state.taskAvailabilityState === 'no_formal_resource' &&
+    state.title === '当前还没有正式任务'
+  ));
+  checkState('B21 无符合本轮条件的资源时不误报读取失败', baseInput({
+    hasAvailableTask: false,
+    taskAvailabilityState: 'no_eligible_match',
+    taskAvailabilityMessage: '当前没有同时符合能力、任务角色且未重复使用的正式资源。',
+  }), 'no_task', (state) => (
+    state.taskAvailabilityState === 'no_eligible_match' &&
+    state.title === '当前没有符合本轮条件的新任务' &&
+    !state.message.includes('读取失败')
+  ));
+  checkState('B22 本轮资源已使用时返回可解释空状态', baseInput({
+    hasAvailableTask: false,
+    taskAvailabilityState: 'already_used',
+    taskAvailabilityMessage: '本轮可用的正式资源已经完成。',
+  }), 'no_task', (state) => (
+    state.taskAvailabilityState === 'already_used' &&
+    state.title === '本轮可用任务已经完成'
+  ));
   await checkRepositoryConflict();
   checkInternalSummary();
   checkStudentStateSurface();

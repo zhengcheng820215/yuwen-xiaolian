@@ -1,10 +1,11 @@
 import {
+  completeQuestionResourceWorkbenchQualityCheck,
   decideQuestionResourceWorkbenchReview,
   freezeQuestionResourceWorkbenchDraft,
   retryQuestionResourceWorkbenchPublication,
   saveQuestionResourceWorkbenchDraft,
   submitQuestionResourceWorkbenchReview,
-  validateQuestionResourceWorkbenchDraft,
+  validateQuestionResourceWorkbenchStructure,
   withdrawQuestionResourceWorkbenchReview,
 } from '../api/questionResourceWorkbench';
 import {
@@ -38,8 +39,11 @@ export function executeSaveTaskDraftCommand(
 export function executeQuestionCheckCommand(input: {
   currentDraft?: SavedDraft;
   draftToSave?: SaveDraftInput;
+  onStageStart?: (stage: string, completedStages: string[]) => void;
+  onStageComplete?: (stage: string, completedStages: string[]) => void;
 }): Promise<TaskProductionCommandResult<SavedDraft>> {
   let activeDraft = input.currentDraft;
+  let structurePassed = false;
   const stages: TaskProductionCommandStage[] = [];
   if (input.draftToSave) {
     stages.push({
@@ -51,12 +55,27 @@ export function executeQuestionCheckCommand(input: {
     });
   }
   stages.push({
-    stage: 'assessment_completed',
-    execute: () => {
+    stage: 'structure_checked',
+    execute: async () => {
       if (!activeDraft) {
         throw new Error('没有可检查的题目草稿。');
       }
-      return validateQuestionResourceWorkbenchDraft(
+      const validation = await validateQuestionResourceWorkbenchStructure(
+        activeDraft.draftId,
+        activeDraft.revision,
+      );
+      structurePassed = validation.passed;
+      return validation;
+    },
+  });
+  stages.push({
+    stage: 'assessment_completed',
+    execute: async () => {
+      if (!activeDraft) {
+        throw new Error('没有可检查的题目草稿。');
+      }
+      if (!structurePassed) return;
+      await completeQuestionResourceWorkbenchQualityCheck(
         activeDraft.draftId,
         activeDraft.revision,
       );
@@ -69,10 +88,14 @@ export function executeQuestionCheckCommand(input: {
     expectedRevision: input.draftToSave?.expectedDraftRevision ?? input.currentDraft?.revision,
     stages,
     nextCommandOnFailure: 'runTaskCheck',
+    onStageStart: input.onStageStart,
+    onStageComplete: input.onStageComplete,
     failureMessage: (failedStage, completedStages) => (
-      failedStage === 'assessment_completed' && completedStages.includes('draft_saved')
-        ? '题目修改已保存，但完整检查未完成。可直接继续检查，不需要重复保存。'
-        : '题目检查未完成，请重试。'
+      failedStage === 'assessment_completed'
+        ? completedStages.includes('draft_saved')
+          ? '题目修改和结构检查已完成，但完整质量检查记录未形成。可直接重试检查，不需要重复保存。'
+          : '题目结构检查已完成，但完整质量检查记录未形成。请重试检查。'
+        : '题目结构检查未完成，请重试。'
     ),
     resolveValue: () => activeDraft,
   });

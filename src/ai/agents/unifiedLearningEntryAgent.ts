@@ -70,6 +70,7 @@ export function buildUnifiedLearningEntryState(
     hasUnviewedFeedback: Boolean(record?.learningRoundResult && (record.studentLearningFeedback || record.studentRoundSummary)),
     currentRoundNumber: roundNumber(record?.learningRoundId),
     completedRoundCount: input.completedRoundCount,
+    taskAvailabilityState: input.taskAvailabilityState,
     focusText: record?.concreteTask?.targetAbilityName,
     learningPresentation,
     studentVisibleIssues: [] as string[],
@@ -199,10 +200,19 @@ export function buildUnifiedLearningEntryState(
   return finish({
     ...base,
     status: 'no_task', priority: 7,
-    title: '暂时没有可用任务',
+    title: noTaskTitle(input.taskAvailabilityState),
     message: input.taskAvailabilityMessage || '当前没有符合学习目标的正式任务，请稍后再来。',
     primaryAction: 'none', primaryActionText: '暂无任务', canEnterWorkspace: false,
   });
+}
+
+function noTaskTitle(state: UnifiedLearningEntryInput['taskAvailabilityState']): string {
+  return {
+    no_formal_resource: '当前还没有正式任务',
+    no_eligible_match: '当前没有符合本轮条件的新任务',
+    already_used: '本轮可用任务已经完成',
+    available: '暂时没有可用任务',
+  }[state || 'available'];
 }
 
 export function buildInternalLearningReviewSummary(

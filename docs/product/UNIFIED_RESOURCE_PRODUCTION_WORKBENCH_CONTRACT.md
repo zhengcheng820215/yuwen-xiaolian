@@ -2,7 +2,7 @@
 
 英文名称：Unified Resource Production Workbench Contract
 
-状态：DESIGN FROZEN / P5 IMPLEMENTED / DEBUG ACCEPTED
+状态：DESIGN FROZEN / P0-P7 FINAL INTEGRATION ACCEPTED
 文档版本：`unified_resource_production_workbench_v1`
 更新日期：2026-08-03
 
@@ -983,19 +983,385 @@ P5 完成不改变 Freeze、Formal Version、Registry 和学习入口的完整�
 
 ### P6：收口旧流程
 
-1. 删除重复审核入口；
-2. 删除无入口可达的旧 handler；
-3. 删除组件级重复状态计算；
-4. 删除旧按钮和重复测试；
-5. 保留只读历史详情和必要兼容跳转。
+P6 的目标不是继续增加功能，而是在 P0-P5 的统一对象、状态、命令、任务卡主链路和部分发布已经稳定后，关闭仍可能形成第二条写入路径的旧流程。
+
+P6 必须同时完成“删除”和“保留”两件事：删除重复写入口、重复 Handler 和重复状态解释；保留历史详情、审计、兼容跳转、正式资源读取和失败恢复。不得把“清理旧页面”理解为删除底层领域命令或历史记录。
+
+#### P6.1 唯一入口与页面职责
+
+1. `MaterialResourceProductionWorkbench` 是训练任务生产的唯一可写主入口；任务卡负责展示当前状态、唯一下一步动作和已发布资源入口；
+2. `QuestionResourceWorkbench` 不再作为与素材工作台并列的第二个生产平台；它只承担从任务卡进入的题目详情、检查、最终确认、发布准备，以及历史链接的只读兼容；
+3. `mode=plan-review` 仅允许处理当前任务卡明确打开的活动 Draft，不得从页面自行创建另一项 TrainingTask、QuestionLineage 或活动 Draft；
+4. `mode=task-detail` 默认只读，用于查看历史 Revision、检查记录、人工决定和正式版本；
+5. 首页、内部入口和旧深链不得继续把 `/question-resource-workbench` 暴露为独立录入或审核入口；需要修改时必须返回素材工作台并恢复同一素材、计划、训练任务和 Draft；
+6. 预览、审核记录、技术信息和已发布资源详情可以继续存在，但不得提供绕过任务卡状态和 Command Runtime 的写操作。
+
+#### P6.2 旧能力处置分类
+
+P6 开工前必须形成一份逐项处置清单。每个旧入口、组件、Handler、状态字段和测试只能归入以下三类之一：
+
+| 分类 | 适用对象 | 处理规则 |
+| --- | --- | --- |
+| `delete` | 重复按钮、不可达 Handler、直接新增正式任务的方法、组件内重复状态判断、已失效测试 | 删除实现、调用和测试，不保留隐藏入口 |
+| `read_only_adapter` | 历史审核详情、检查记录、预览、正式资源详情、旧提交链接 | 保留读取和展示，移除写操作；需要修改时跳回唯一主入口 |
+| `compatibility` | 旧 URL、查询参数、历史身份字段、发布恢复和正式资源读取适配 | 只做身份解析、只读投影或安全跳转，不产生新 Draft、Revision、Review 或 Formal Version |
+
+处置清单至少记录：
+
+```ts
+type LegacyFlowDisposition = {
+  source: string;
+  symbolOrRoute: string;
+  disposition: 'delete' | 'read_only_adapter' | 'compatibility';
+  replacement?: string;
+  evidence: string;
+};
+```
+
+不能证明用途的代码不得直接删除；确认无入口可达、无领域调用、无兼容职责后，才归入 `delete`。
+
+#### P6.3 路由和深链兼容
+
+| 进入条件 | 页面行为 | 禁止行为 |
+| --- | --- | --- |
+| 活动 Draft 且来源任务可定位 | 恢复同一素材、计划、训练任务和 Draft；允许执行 Resolver 给出的唯一动作 | 创建新 Draft、切换到同计划其他任务、绕过检查直接确认 |
+| `pending_review`、`reviewed`、已发布或历史 Revision | 打开只读详情，并展示返回任务卡、查看记录或查看正式资源 | 静默编辑、覆盖已确认 Revision、重复形成 Review Decision |
+| 已发布资源同时存在新活动 Revision | 正式版本只读；新 Revision 的生产状态仍由任务卡承担 | 用旧正式状态覆盖新 Revision 的主状态 |
+| 身份缺失、对象已删除或关系无法解析 | 显示可操作的安全回退并返回素材工作台 | 自动创建占位 Draft、猜测绑定或写入修复数据 |
+| 旧 `mode` 或历史查询参数 | 通过兼容适配解析到只读详情或唯一主入口 | 继续维护第二套页面状态机 |
+
+兼容跳转必须保留 `materialVersionId`、`planId`、`trainingTaskId`、`draftId` 或可恢复等价身份；跳转丢失身份视为 P6 阻断缺陷。
+
+#### P6.4 Handler 与 Command 收口
+
+1. 页面动作必须继续映射到 `taskProductionCommandRuntime.ts` 中的独立 Command，不得为了页面合并而合并保存、检查、最终确认、人工决定和发布；
+2. `createTaskQuestionDraft`、`saveTaskDraft`、`runTaskCheck`、`submitTaskForFinalConfirmation`、`recordTaskConfirmationDecision`、`returnTaskForRevision`、`publishConfirmedTask` 和 `retryTaskPublication` 仍是领域动作，不属于旧流程；
+3. 多个按钮共用同一含糊 Handler 时，先拆出明确 Command 映射，再删除旧 Handler；
+4. 无入口可达的旧 Handler 必须连同调用、局部状态、错误提示和测试一起删除，不能只隐藏按钮；
+5. 任何兼容页如需触发动作，必须调用同一 Command Runtime，不能直接写 Store、Draft、Review、Freeze、Formal Version 或 Registry；
+6. 删除前必须验证幂等键、Revision 冲突、部分成功恢复和 Loading 反馈仍由统一运行时承担。
+
+#### P6.5 状态计算收口
+
+1. 训练任务卡、任务组数量、主按钮和发布资格只能消费 `resolveTaskProductionState()`、`resolveTaskGroupSummary()` 与 `resolveTaskPublicationEligibility()`；
+2. 题目详情的步骤、标题和主操作只能消费 `resolveQuestionWorkflowProjection()`；
+3. 组件可以负责组装 Resolver 输入，但不得再次使用 `reviewStatus`、`publicationStatus`、Assessment 是否存在等字段拼装另一套生命周期；
+4. 只读兼容页必须消费统一投影，不得维护一套“旧页面专用状态”；
+5. 旧字段适配必须止于 Resolver 输入边界；适配结果不得回写并伪装成新契约数据；
+6. P6 完成后，同一 TrainingTask 在素材工作台、题目详情、刷新恢复和学习入口中的身份与状态必须一致。
+
+#### P6.6 必须保留的能力
+
+P6 不得删除或弱化以下能力：
+
+1. Draft Revision、Assessment、Human Review、Freeze、Formal Version、Registry 和 Trace 的历史记录；
+2. 正式资源发布幂等、部分失败恢复、Revision 冲突和重复提交保护；
+3. 已发布正式版本与新活动 Revision 并存的能力；
+4. 学习入口只读取完整正式资源的约束；
+5. 历史 URL、已保存书签和审核记录中的只读详情；
+6. 学生预览、检查记录、审核记录、技术信息和来源追溯；
+7. P0-P5 已验收的任务级部分发布、互斥计数和逐项重试能力。
+
+#### P6.7 实施顺序
+
+P6 必须按以下顺序执行，避免先删入口再发现兼容依赖：
+
+1. **建立基线清单**：扫描路由、页面按钮、Handler、状态字段、Command 调用和测试，填入处置分类；
+2. **补保护性回归**：先覆盖旧深链、历史只读、活动 Draft 返回、正式资源查看和学习入口；
+3. **降级旧页面**：把历史审核入口和旧 URL 收敛为只读详情或带身份的安全跳转；
+4. **移除重复入口**：删除首页、导航和页面中仍可形成第二条生产路径的按钮；
+5. **移除旧 Handler 与状态**：删除不可达写方法、重复局部状态和组件级生命周期判断；
+6. **合并重复测试**：保留领域 Command、Resolver 和端到端契约测试，删除只验证旧按钮或旧文案的测试；
+7. **执行全链路 Debug**：验证任务卡主链、历史链接、发布恢复、学习入口和生产构建；
+8. **更新契约地图与清单**：记录实际删除项、保留项、兼容项和遗留风险，再进入 P7。
+
+#### P6.8 Debug 验收
+
+P6 至少覆盖以下回归：
+
+1. 素材工作台是唯一可写生产入口，导航中不存在独立的旧题目录入或重复审核入口；
+2. 从任务卡进入检查、最终确认和发布时，始终定位同一 TrainingTask、QuestionLineage 与活动 Draft；
+3. 旧活动 Draft 链接能够回到唯一主入口，且不会创建第二个 Draft 或 Revision；
+4. `pending_review`、`reviewed`、已发布和历史 Revision 的旧链接只读，不出现编辑、再次提交或重复发布入口；
+5. 历史详情仍能查看检查记录、人工决定、正式版本、来源与技术信息；
+6. 已发布任务产生新 Revision 时，旧正式资源可查看，新 Revision 可独立继续生产；
+7. 任务卡、题目详情、刷新恢复和数量总览对同一任务给出一致状态与可用动作；
+8. 保存、检查、最终确认、人工决定和发布仍分别形成可追溯记录；
+9. 旧 URL 身份缺失时只提供安全回退，不自动生成或猜测绑定；
+10. 发布失败重试、Revision 冲突、部分发布和幂等回归通过；
+11. 学习入口仍只读取 Registry、Trace 和 Material Link 完整的正式资源；
+12. 源码扫描不再发现无入口可达的旧写 Handler、重复状态 Resolver 或已废弃按钮文案；
+13. P0-P5 自动化与浏览器端到端回归全部通过；
+14. `git diff --check` 与生产构建通过。
+
+#### P6.9 完成定义
+
+满足以下条件才可标记 P6 完成：
+
+1. 旧流程处置清单中的每一项均有明确结论和验证证据；
+2. 工程中只有一条可写生产路径，历史页和兼容路由不会形成第二条写链；
+3. 页面不再自行解释生命周期，统一 Resolver 与 Command Runtime 成为唯一运行时入口；
+4. 历史审计、正式资源、失败恢复和学习读取均未受清理影响；
+5. 所有删除项已清除调用、局部状态、提示和重复测试，不留下不可达残片；
+6. P6 Debug 验收通过并同步契约地图后，才进入 P7 最终端到端验收。
+
+#### P6.10 工程落地与 Debug 记录（2026-08-03）
+
+P6 已按“先识别入口 -> 再冻结访问模式 -> 降级旧地址 -> 收口导航 -> 保留有效深链 -> 自动化与浏览器验收”的顺序完成：
+
+1. 新增 `questionWorkbenchAccess.ts` 作为题目工作台访问模式的唯一解析入口，统一区分 `unified_edit`、`task_detail` 与 `legacy_adapter`；
+2. 只有同时具备 `mode=plan-review`、`planId` 和 `materialVersionId` 的任务卡深链可以进入聚焦生产流程；该模式继续使用现有 Resolver 与 Command Runtime，不新增第二套写入语义；
+3. `mode=task-detail` 且身份完整时保留只读生产详情，用于查看题目内容、检查记录、生产状态和正式资源；
+4. 缺少身份、未知模式和独立访问 `/question-resource-workbench` 时统一进入 `legacy_adapter`，只显示迁移说明和返回素材工作台入口，不载入工作区，也不创建 Draft、Revision、Review 或正式资源；
+5. 首页与内部学习审查页已移除独立题目工作台入口，统一指向 `/material-resource-workbench`；
+6. 素材工作台仍可携带完整身份打开 `plan-review` 和 `task-detail`，因此历史详情、任务级检查、最终确认与发布链没有被旧入口封口误伤；
+7. 保存、检查、提交、人工决定、发布和失败恢复仍由原有独立 Command 承担，未因页面入口收口而合并生命周期动作。
+
+自动化 Debug 结果：
+
+- `debug:question-workbench-legacy-closure`：通过；覆盖无参数、仅 Draft、身份不完整、有效聚焦编辑、有效只读详情和未知模式；
+- `debug:question-workbench-command-e2e`：`7 / 7 PASS`；
+- `debug:material-resource-production-commands`：`7 / 7 PASS`；
+- `debug:material-question-review-submission`：`6 / 6 PASS`；
+- `debug:task-publication-orchestration`：通过；
+- `debug:question-workflow-projection`、`debug:question-workbench-presentation-state`、`debug:task-production-state` 与 `debug:task-production-command-runtime`：通过；
+- `pnpm run build`：通过；
+- `git diff --check`：通过。
+
+浏览器端到端验收结果：
+
+1. 独立旧地址显示“题目生产入口已合并”，只提供返回素材资源录入的安全动作；
+2. `/material-resource-workbench` 正常载入素材录入、已有素材和停用素材入口；
+3. 有效 `plan-review` 深链正常恢复同一批题目及已发布状态；
+4. 有效 `task-detail` 深链显示只读“题目生产详情”，并明确生产动作应回到对应训练任务；
+5. 上述路径浏览器控制台均无错误日志。
+
+P6 的完成结论仅表示旧并列入口和第二写链已经收口。P7 仍需执行完整生产链、部分发布、失败恢复、学习入口及历史数据兼容的最终端到端验收。
 
 ### P7：端到端验收与文档同步
 
-1. 完成完整生产链回归；
-2. 完成部分发布和失败恢复回归；
-3. 更新契约地图、进度记录和 Debug 验收；
-4. 清理临时兼容标记；
-5. 再决定是否启用多人独立审核模式。
+P7 是统一资源生产工作台的最终放行审计，不是新的功能开发阶段。它必须证明 P0-P6 已冻结的对象关系、统一状态、独立命令、任务卡主链、按任务发布、学习读取和旧入口收口在同一条真实链路中同时成立。
+
+P7 期间只允许修复验收发现的契约偏差、状态错位、反馈缺失、恢复失败和兼容缺陷；不得借验收新增另一条写入链、合并领域命令、改变发布单位或提前引入多人权限系统。
+
+#### P7.1 验收权威来源与统一判定
+
+1. 训练任务主状态只读取 `resolveTaskProductionState()`；
+2. 任务组互斥数量只读取 `resolveTaskGroupSummary()`，并始终满足分类数量之和等于任务总数；
+3. 发布资格只读取 `resolveTaskPublicationEligibility()`；
+4. 题目详情步骤、标题、主提示和主操作只读取 `resolveQuestionWorkflowProjection()`；
+5. 所有写操作只通过 `taskProductionCommandRuntime.ts` 中已经冻结的独立 Command；
+6. 页面截图、Toast、按钮文案或局部组件状态不能替代 Store、Resolver、Review、Publication 和 Registry 记录作为验收事实；
+7. 自动化、浏览器页面和持久化记录对同一对象给出不同结论时，以领域记录和统一 Resolver 为调查起点，P7 不得用页面特判掩盖差异。
+
+#### P7.2 验收数据基线
+
+P7 必须使用可复现、可清理且身份完整的专用验收数据，不直接改写需要长期保留的真实资源。
+
+每轮验收至少记录：
+
+```ts
+type P7AcceptanceFixture = {
+  runId: string;
+  materialVersionId: string;
+  planId: string;
+  trainingTaskIds: string[];
+  questionLineageIds: string[];
+  draftIds: string[];
+  baselineRevisionIds: string[];
+  startedAt: string;
+};
+```
+
+验收开始前必须保存对象数量和身份快照，结束后再次核对。失败重试不得通过重新创建素材、计划、TrainingTask、QuestionLineage 或活动 Draft 来伪装成功。
+
+最小数据组应包含三项 TrainingTask，以便同时覆盖：
+
+1. 一项完整发布；
+2. 一项待最终确认或发布失败恢复；
+3. 一项退回修改或仍在编辑；
+4. 一个已发布任务产生新 Revision 的并存场景；
+5. 一个旧 URL 或历史 Revision 的只读兼容场景。
+
+#### P7.3 完整生产链回归
+
+必须在唯一可写入口中连续完成以下真实链路：
+
+```text
+保存素材
+-> AI 规划候选任务
+-> 人工采用
+-> 保存训练任务组
+-> 创建或恢复题目草稿
+-> 编辑并保存 Revision
+-> 执行题目检查
+-> 提交最终确认
+-> 形成确认决定
+-> 发布正式题目
+-> Registry 建立活动关联
+-> 学习入口读取正式资源
+```
+
+该链路必须同时满足：
+
+1. 从头到尾保持同一 `materialVersionId`、`planId`、`trainingTaskId` 和 `questionLineageId`；
+2. 同一 TrainingTask 同时最多只有一个活动 Draft；
+3. 预览、检查、提交、确认和发布不会隐式创建额外 TrainingTask 或 QuestionLineage；
+4. 保存只创建必要 Revision，重复点击、刷新恢复和再次进入不产生空 Revision；
+5. Assessment、Human Review 和 Formal Version 均绑定触发它们的准确 Revision；
+6. 发布完成后 Freeze、Formal Version、Registry、Trace 和 Material Link 身份闭合；
+7. 学习入口读取到的题目内容和来源版本与刚发布的正式资源一致。
+
+#### P7.4 退回修改与新 Revision 回归
+
+必须完成一次：
+
+```text
+待最终确认
+-> 退回修改
+-> 返回同一 TrainingTask 与活动 Draft
+-> 精确定位字段
+-> 修改并保存新 Revision
+-> 旧 Assessment 失效
+-> 重新检查
+-> 再次提交最终确认
+```
+
+验收要求：
+
+1. 退回不创建第二个活动 Draft；
+2. 原 Revision、Assessment、确认记录和退回原因保持只读可追溯；
+3. 新检查只对新 Revision 生效；
+4. 定位修改必须打开问题所指向的真实字段；
+5. 刷新、离开再返回后仍恢复同一素材、任务和 Draft；
+6. 退回链中不得覆盖已经发布的旧 Formal Version。
+
+#### P7.5 部分发布与数量守恒回归
+
+三项任务分别进入 `published`、`confirmed` 或 `publication_failed`、`revision_required` 等互斥状态时，必须验证：
+
+1. 每项任务只进入一个主状态分类；
+2. 所有主状态数量之和始终等于任务总数；
+3. 任务组显示派生的 `partial`，但不保存一个会与单项状态冲突的人工组状态；
+4. 发布已确认任务不会改变待修改任务；
+5. 批量发布只处理当时符合资格的任务；
+6. 单项查看、修改、继续确认和重试入口落在对应任务卡，不在总览区域形成重复动作；
+7. 已发布任务产生新活动 Revision 后，任务卡主状态反映新工作，新旧正式版本仍可追溯。
+
+#### P7.6 失败注入与恢复回归
+
+P7 至少注入并恢复以下失败：
+
+| 失败点 | 页面期望 | 数据期望 | 恢复动作 |
+| --- | --- | --- | --- |
+| 保存 Revision 冲突 | 当前任务显示明确冲突，不污染其他任务 | 不覆盖较新 Revision | 刷新同一 Draft 后重试 |
+| Assessment 缺失、失效或失败 | 停留在题目检查并说明原因 | 不沿用旧 Assessment | 重新检查当前 Revision |
+| 提交最终确认部分完成 | 显示已完成阶段和未完成阶段 | 不重复创建已成功记录 | 从未完成阶段继续 |
+| 人工决定写入失败 | 保留 `pending_review` | 不伪装为已确认 | 重试同一决定 |
+| Freeze 或 Formal Version 后续失败 | 显示“已确认，发布未完成” | 保留已成功阶段和幂等键 | 仅重试未完成发布阶段 |
+| Registry 或 Material Link 失败 | 正式资源不进入学习可用集合 | 不创建第二个 Formal Version | 从现有 Formal Version 继续 |
+| 页面刷新或请求超时 | 显示 Loading、成功或可恢复错误 | 在途锁最终释放 | 从统一 Resolver 恢复 |
+
+所有失败都必须靠近触发操作反馈；按钮在同一渲染帧进入 Loading。位于页面顶部且当前不可见的提示不能作为唯一反馈。
+
+#### P7.7 学习入口与正式资源完整性回归
+
+1. `/learning` 只读取 Registry、Trace 和 Material Link 完整的正式资源；
+2. 草稿、待确认、发布未完成和仅存在 Formal Version 但 Registry 不完整的题目不得进入学习入口；
+3. 已发布资源可以被学习入口稳定读取，刷新和重新进入不误报资源耗尽；
+4. 学习端读取失败必须给出可恢复状态，不得回写生产资源或生成占位题目；
+5. 同一正式题目的能力、任务角色、材料版本和题干不得在生产端与学习端发生漂移；
+6. 资源停用后不再进入新的学习匹配，但历史学习记录仍可追溯。
+
+#### P7.8 旧入口、历史数据与第二写链审计
+
+1. 独立访问旧题目工作台只进入安全适配页，不载入可写工作区；
+2. 完整的任务卡深链可以恢复同一生产对象；
+3. 历史 Revision、`pending_review`、已确认和已发布链接只读；
+4. 身份缺失或关系断裂时只提供安全回退，不猜测绑定、不创建占位对象；
+5. 首页、内部入口和历史导航中不存在独立旧录入或重复审核入口；
+6. 源码扫描不得发现可达的第二写 Handler、组件级生命周期拼装或直接写 Store 的兼容逻辑；
+7. P6 保留的兼容标记只有在历史链接、身份恢复和只读审计均有替代证据时才可删除。
+
+#### P7.9 验收层次与缺陷门禁
+
+P7 按以下顺序执行，上一层失败时不得用下一层成功抵消：
+
+1. **静态检查**：类型、Lint（如项目启用）、`git diff --check`、旧入口和重复 Handler 扫描；
+2. **纯函数与领域测试**：Resolver、数量守恒、资格判断、Command Runtime 和幂等；
+3. **存储集成测试**：Revision、Assessment、Review、Publication、Registry 和恢复记录；
+4. **浏览器端到端**：完整主链、退回、部分发布、失败重试、刷新恢复和历史深链；
+5. **学习入口验收**：正式资源可见，非正式或不完整资源不可见；
+6. **生产构建**：构建通过且无新增运行时错误。
+
+缺陷分级固定为：
+
+| 级别 | 定义 | P7 处理 |
+| --- | --- | --- |
+| P0 | 重复写入、身份错绑、覆盖正式版本、非正式资源进入学习入口、无法恢复的发布污染 | 阻断完成，必须修复并重跑全部受影响层 |
+| P1 | 主状态或按钮错误、退回不能闭环、失败无法重试、数量不守恒、旧入口仍可写 | 阻断完成，必须修复并重跑对应链及完整主链 |
+| P2 | Loading、就近反馈、恢复定位、文案或布局影响用户理解但不破坏数据 | 修复后重跑浏览器场景；未修复项必须明确记录且不得伪装完成 |
+| P3 | 不影响流程和数据的低风险视觉问题 | 可形成后续清单，不影响 P7 技术放行 |
+
+#### P7.10 结果记录与完成定义
+
+P7 必须输出一份带日期的 Debug 验收记录，至少包含：
+
+1. Git Commit、分支、运行环境和验收时间；
+2. 验收 Fixture 的 `runId` 与对象身份清单；
+3. 每个场景的操作、期望、实际结果和证据；
+4. 自动化命令与通过数量；
+5. 浏览器路径、刷新恢复结果和控制台错误检查；
+6. 故障注入点、部分成功记录和恢复结果；
+7. 数据前后快照、重复对象检查和数量守恒结果；
+8. 未解决问题、严重度、责任边界和后续处理。
+
+只有同时满足以下条件，才能把 P7 标记为完成：
+
+1. P7.3 至 P7.8 的场景全部有可复核证据；
+2. 无未解决 P0、P1 缺陷；
+3. P0-P6 关键自动化、浏览器端到端、学习入口和生产构建全部通过；
+4. 没有新增第二写链、重复 Draft、重复 Review、重复 Formal Version 或错误 Registry 关联；
+5. 契约地图、阶段进度、Debug 记录和实际工程状态一致；
+6. 临时兼容标记已逐项决定保留或删除，并记录证据；
+7. 多人独立审核模式仅作为 P7 完成后的产品决策，不属于 P7 放行条件。
+
+#### P7.11 工程落地与 Debug 验收记录（2026-08-03）
+
+P7 已完成最终放行审计，详细证据见：
+
+- [Phase 17 统一资源生产工作台 P7 Debug 验收记录](../education/phase/reports/phase17_unified_resource_production_p7_debug_acceptance_2026-08-03.md)
+
+验收结论：
+
+1. P7 聚合自动化 `13 / 13 PASS`；
+2. 完整生产链、退回修改、部分发布、失败恢复、学习入口和旧入口收口均有自动化或浏览器证据；
+3. 重复保存、检查、提交、确认和发布未产生重复 Draft、Review、Formal Version 或 Registry；
+4. 任务组互斥状态数量守恒，单任务发布与失败重试不污染其他任务；
+5. `git diff --check` 与生产构建通过；
+6. 未发现未解决 P0、P1 或 P2 缺陷；现有 Bundle 体积和动态导入提示作为 P3 构建优化事项保留；
+7. 多人独立审核模式继续作为 P7 完成后的产品决策，不影响本次放行。
+
+P7 至此完成。后续功能或性能开发不得重新引入第二写链、组件级生命周期拼装或不可恢复的合并命令。
+
+#### P7.12 P0-P7 最终串联验收（2026-08-03）
+
+P0-P7 已在同一工作树完成最终串联验收，统一执行入口为：
+
+```bash
+pnpm run debug:unified-resource-production-final
+```
+
+验收结论：
+
+1. `18 / 18` 个跨阶段自动化套件通过；
+2. 生产构建与 `git diff --check` 通过；
+3. 统一工作台、学习入口和旧只读深链均完成浏览器核对，未出现新增控制台错误；
+4. 保存、检查、最终确认、人工决定、部分发布和失败恢复保持独立、幂等且可追溯；
+5. 未发现重复 Draft、Review、Formal Version、错误 Registry 关联或非正式资源进入学习入口；
+6. 未发现未解决 P0、P1 或 P2 缺陷。
+
+完整证据见 [Phase 17 统一资源生产 P0-P7 最终串联验收报告](../education/phase/reports/phase17_unified_resource_production_p0_p7_final_integration_acceptance_2026-08-03.md)。
 
 ## 十五、P0 验收标准
 
@@ -1404,3 +1770,23 @@ Debug 与界面验收结果：
 - 浏览器真实入口 `/learning` 可稳定结束 Loading，并显示“本次学习已经结束”等正常业务状态，不再误报“暂时无法打开学习入口”。
 
 本记录作为后续学习入口读取性能、空状态语义和共享正式资源一致性的回归基线。
+
+### 21.10 单题检查可观察性、标题幂等与学习空状态
+
+统一工作台不得把长耗时检查、标题展示和学习入口空结果留给页面自行解释。以下规则作为生产链与消费链的共同契约：
+
+1. 单题检查必须按 `draft_saved -> structure_checked -> assessment_completed` 三个阶段执行；任务卡摘要区必须同步显示当前阶段，不能只在折叠详情内显示 Loading；
+2. 完整质量检查未形成时，必须保留已经完成的保存与结构检查结果，并显示可重试的结构化失败说明；不得静默恢复为“检查题目”，也不得要求用户重复保存；
+3. 页面不得仅凭七项结构检查图标推断完整质量检查已完成；只有当前 Draft Revision 的完整 Assessment 已成功写入，任务才可进入最终确认；
+4. 素材标题展示必须通过同一幂等格式化函数。纯标题可补书名号，已经包含规范书名号的标题不得再次包裹；`谭嗣同《潼关》` 必须保持原样；
+5. 学习入口必须把 `no_formal_resource`、`no_eligible_match`、`already_used` 等业务空状态传递到页面，不得只传一段不可追溯的通用文案；
+6. 空状态属于读取成功结果。只有 Deadline、Repository 或数据解析失败才允许显示读取失败和重试动作；
+7. 检查阶段、标题格式和学习空状态均必须有独立自动化回归，避免后续组件重构重新引入静默失败、重复书名号或错误归因。
+
+本轮 Debug 基线：
+
+- `pnpm debug:task-production-command-runtime`：`5 / 5 PASS`；
+- `pnpm debug:material-title`：`7 / 7 PASS`；
+- `pnpm debug:phase16-3-unified-entry`：`23 / 23 PASS`；
+- 浏览器中单题检查可见“正在生成完整质量检查记录”；远端评估未形成时显示明确失败说明；
+- 浏览器中 `谭嗣同《潼关》` 未被重复包裹；学习入口正常结束读取且无控制台错误。

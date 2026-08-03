@@ -2,7 +2,7 @@
 
 英文名称：Formal Resource Production Contract Map
 
-状态：ACTIVE / P5 PARTIAL PUBLICATION ALIGNED
+状态：ACTIVE / P0-P7 FINAL INTEGRATION ACCEPTED
 文档版本：`formal_resource_production_contract_map_v2`
 更新日期：2026-08-03
 
@@ -14,7 +14,7 @@
 
 当本文摘要与正式契约不一致时，以对应职责范围内的正式契约为准，并同步修正本文。
 
-统一资源生产工作台处于目标架构迁移阶段。P0-P5 已完成对象关系、统一状态、命令边界、任务卡主链路和按任务部分发布；P6-P7 继续负责旧流程收口和最终端到端验收。迁移期间，现有字段、Assessment、Human Review、Freeze 和 Registry 契约继续约束各自领域边界。
+统一资源生产工作台已完成 P0-P7：对象关系、统一状态、命令边界、任务卡主链路、按任务部分发布、旧入口收口和最终端到端 Debug 均已验收。素材资源录入是唯一可写生产入口，旧题目工作台只承担安全适配与只读审计；现有字段、Assessment、Human Review、Freeze 和 Registry 契约继续约束各自领域边界。
 
 ## 二、正式资源生产主链
 
@@ -106,6 +106,21 @@ AI Candidate Session
 2. [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md)；
 3. [产品颜色语义规范](./PRODUCT_COLOR_SEMANTICS.md)。
 
+### 5.6 执行 P7 最终端到端验收
+
+1. [统一资源生产工作台契约 P7](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md#p7端到端验收与文档同步)；
+2. [录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md)；
+3. [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md)；
+4. [学生产品界面收口文档](./STUDENT_PRODUCT_INTERFACE_CONSOLIDATION.md)。
+
+P7 的详细场景、故障注入、缺陷门禁和完成定义只在统一资源生产工作台契约中维护；本地图不复制第二份验收清单。
+
+P7 已于 2026-08-03 完成，验收证据见 [Phase 17 统一资源生产工作台 P7 Debug 验收记录](../education/phase/reports/phase17_unified_resource_production_p7_debug_acceptance_2026-08-03.md)。
+
+P0-P7 最终串联验收已于 2026-08-03 完成，统一命令为 `pnpm run debug:unified-resource-production-final`，完整证据见 [Phase 17 统一资源生产 P0-P7 最终串联验收报告](../education/phase/reports/phase17_unified_resource_production_p0_p7_final_integration_acceptance_2026-08-03.md)。
+
+人工 Demo 与后续问题复验证据见 [Phase 17 统一资源生产工作台人工 Demo 验收记录](../education/phase/reports/phase17_unified_resource_production_manual_demo_acceptance_2026-08-03.md)。单题检查过程可见性、素材标题格式幂等和学习入口空结果分型统一由 [统一资源生产工作台契约 21.10](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md#2110-单题检查可观察性标题幂等与学习空状态) 约束。
+
 ## 六、问题冲突路由
 
 | 问题类型 | 权威文档 |
@@ -151,6 +166,6 @@ AI Candidate Session
 
 ## 十、当前结论
 
-正式资源生产已经形成从素材版本、训练任务规划、题目草稿、质量检查、人工审核到冻结发布的可追溯主链。
+正式资源生产已经形成从素材版本、训练任务规划、题目草稿、质量检查、人工确认到冻结发布和学习读取的可追溯主链。P0-P7 已完成最终聚合自动化、浏览器、失败恢复、学习入口、静态检查和生产构建验收；当前没有未解决 P0、P1 或 P2 缺陷。多人独立审核模式与 Bundle 性能优化属于后续独立决策，不影响最终串联放行结论。
 
 本地图为产品、设计、开发和验收提供统一入口，使问题能够回到正确契约解决，而不是在页面实现或阶段文档中重复定义规则。

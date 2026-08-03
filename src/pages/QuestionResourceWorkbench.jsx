@@ -40,6 +40,7 @@ import {
   questionWorkflowStepIndex,
   resolveQuestionWorkflowProjection,
 } from './questionWorkflowProjection.ts';
+import { resolveQuestionWorkbenchAccess } from './questionWorkbenchAccess.ts';
 import { loadQuestionWorkbenchWithRetry } from './questionWorkbenchLoading.ts';
 import {
   createQuestionResourceWorkbenchNextVersion,
@@ -122,9 +123,9 @@ const sourceTypeOptions = [
 const statusLabels = {
   drafted: '草稿',
   validation_failed: '结构检查未通过',
-  pending_review: '待人工审核',
+  pending_review: '待最终确认',
   revision_required: '退回修改',
-  reviewed: '审核通过',
+  reviewed: '已确认（待发布）',
   rejected: '不采用',
   archived: '已归档',
   published: '已发布',
@@ -153,8 +154,13 @@ export default function QuestionResourceWorkbench() {
       repair: params.get('repair'),
     };
   }, [location.search]);
-  const planReviewMode = routeContext.mode === 'plan-review' && Boolean(routeContext.planId);
-  const taskDetailMode = routeContext.mode === 'task-detail' && Boolean(routeContext.planId);
+  const workbenchAccess = useMemo(
+    () => resolveQuestionWorkbenchAccess(routeContext),
+    [routeContext],
+  );
+  const planReviewMode = workbenchAccess.mode === 'unified_edit';
+  const taskDetailMode = workbenchAccess.mode === 'task_detail';
+  const legacyAdapterMode = workbenchAccess.mode === 'legacy_adapter';
   const focusedWorkbenchMode = planReviewMode || taskDetailMode;
   const materialWorkbenchReturnPath = useMemo(() => {
     const params = new URLSearchParams();
@@ -221,6 +227,12 @@ export default function QuestionResourceWorkbench() {
 
   useEffect(() => {
     let active = true;
+    if (!workbenchAccess.requiresWorkspaceLoad) {
+      setWorkspaceLoadState('ready');
+      return () => {
+        active = false;
+      };
+    }
     setWorkspaceLoadState('loading');
     loadQuestionWorkbenchWithRetry(
       () => refreshWorkspace(routeContext.draftId),
@@ -236,7 +248,14 @@ export default function QuestionResourceWorkbench() {
     return () => {
       active = false;
     };
-  }, [routeContext.mode, routeContext.planId, routeContext.draftId, workspaceLoadAttempt]);
+  }, [
+    routeContext.mode,
+    routeContext.planId,
+    routeContext.materialVersionId,
+    routeContext.draftId,
+    workbenchAccess.requiresWorkspaceLoad,
+    workspaceLoadAttempt,
+  ]);
 
   useEffect(() => {
     const preventUnsavedExit = (event) => {
@@ -1209,6 +1228,28 @@ export default function QuestionResourceWorkbench() {
     />
   );
 
+  if (legacyAdapterMode) {
+    return (
+      <div className="min-h-screen bg-[#f6f8fb] text-slate-950">
+        <PageHeader title="题目生产入口已合并" subtitle="" back />
+        <main className="mx-auto flex min-h-[520px] w-full max-w-[960px] items-center justify-center px-5 py-12 md:px-8">
+          <section className="w-full max-w-[680px] rounded-md border border-slate-200 bg-white px-6 py-8 text-center md:px-10 md:py-12">
+            <h2 className="text-xl font-semibold">请从训练任务进入题目生产流程</h2>
+            <p className="mx-auto mt-4 max-w-[560px] text-sm leading-7 text-slate-600">
+              题目修改、检查、最终确认和发布已统一到素材资源录入中的训练任务卡。旧地址仅保留迁移提示，不再创建题目、材料或新版本。
+            </p>
+            <Link
+              to="/material-resource-workbench"
+              className="mx-auto mt-8 flex h-12 w-full max-w-[320px] items-center justify-center rounded-md bg-blue-600 px-5 font-medium text-white transition hover:bg-blue-700"
+            >
+              返回素材资源录入
+            </Link>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   if (workspaceLoadState !== 'ready') {
     const loadFailed = workspaceLoadState === 'error';
     return (
@@ -1357,8 +1398,8 @@ export default function QuestionResourceWorkbench() {
             </p>
             <section className="grid grid-cols-2 gap-3 pb-2 pt-1 sm:grid-cols-4">
               <SummaryItem label="待处理" value={batchLifecycleCounts.pendingAction} aligned />
-              <SummaryItem label="待人工审核" value={batchLifecycleCounts.pendingReview} tone="warning" aligned />
-              <SummaryItem label="审核通过（待发布）" value={batchLifecycleCounts.approvedForPublication} tone="info" aligned />
+              <SummaryItem label="待最终确认" value={batchLifecycleCounts.pendingReview} tone="warning" aligned />
+              <SummaryItem label="已确认（待发布）" value={batchLifecycleCounts.approvedForPublication} tone="info" aligned />
               <SummaryItem label="已发布" value={batchLifecycleCounts.published} tone="success" aligned />
             </section>
           </div>

@@ -197,10 +197,10 @@ export default function Home() {
           action="准备题目"
         />
         <PrimaryAction
-          to="/question-resource-workbench"
-          title="题目录入工作台"
-          desc="录入 Material 和结构化题目，完成校验、人工审核、Freeze、版本管理与双预览。"
-          action="录入题目"
+          to="/material-resource-workbench"
+          title="素材资源录入"
+          desc="从素材录入和训练任务规划开始，完成题目修改、检查、最终确认与正式发布。"
+          action="进入工作台"
         />
         <PrimaryAction
           to="/resource-matching-quality-demo"

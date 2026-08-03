@@ -47,6 +47,12 @@ export type UnifiedLearningEntryAction =
   | 'start_new_session'
   | 'none';
 
+export type UnifiedLearningTaskAvailabilityState =
+  | 'available'
+  | 'no_formal_resource'
+  | 'no_eligible_match'
+  | 'already_used';
+
 export type UnifiedLearningEntryState = {
   schemaVersion: typeof UNIFIED_LEARNING_ENTRY_SCHEMA_VERSION;
   studentId: string;
@@ -62,6 +68,7 @@ export type UnifiedLearningEntryState = {
   hasUnviewedFeedback: boolean;
   currentRoundNumber?: number;
   completedRoundCount: number;
+  taskAvailabilityState?: UnifiedLearningTaskAvailabilityState;
   focusText?: string;
   learningPresentation?: StudentLearningPresentation;
   retest?: {
@@ -84,6 +91,7 @@ export type UnifiedLearningEntryInput = {
   delayedRetestPlans?: DelayedRetestPlan[];
   operationCheckpoint?: RealLearningOperationCheckpoint;
   hasAvailableTask: boolean;
+  taskAvailabilityState?: UnifiedLearningTaskAvailabilityState;
   taskAvailabilityMessage?: string;
   completedRoundCount: number;
 };
@@ -148,6 +156,7 @@ export function isUnifiedLearningEntryState(value: unknown): value is UnifiedLea
     typeof state.hasDraft === 'boolean' &&
     typeof state.hasUnviewedFeedback === 'boolean' &&
     Number.isInteger(state.completedRoundCount) &&
+    (state.taskAvailabilityState === undefined || ['available', 'no_formal_resource', 'no_eligible_match', 'already_used'].includes(state.taskAvailabilityState)) &&
     (state.learningPresentation === undefined || isStudentLearningPresentation(state.learningPresentation)) &&
     Array.isArray(state.studentVisibleIssues) &&
     Boolean(state.validation) &&

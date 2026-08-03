@@ -113,4 +113,30 @@ const baseIdentity = {
   console.log('PASS 不同 Revision 使用不同命令幂等键');
 }
 
-console.log('Task production command runtime debug: 4/4 passed.');
+{
+  const stageEvents: string[] = [];
+  await executeTaskProductionCommand({
+    ...baseIdentity,
+    targetId: 'draft-stage-events',
+    stages: [
+      { stage: 'structure_checked', execute: async () => undefined },
+      { stage: 'assessment_completed', execute: async () => undefined },
+    ],
+    onStageStart: (stage, completedStages) => {
+      stageEvents.push(`start:${stage}:${completedStages.join('|')}`);
+    },
+    onStageComplete: (stage, completedStages) => {
+      stageEvents.push(`complete:${stage}:${completedStages.join('|')}`);
+    },
+    resolveValue: () => undefined,
+  });
+  assert.deepEqual(stageEvents, [
+    'start:structure_checked:',
+    'complete:structure_checked:structure_checked',
+    'start:assessment_completed:structure_checked',
+    'complete:assessment_completed:structure_checked|assessment_completed',
+  ]);
+  console.log('PASS 长时检查会按阶段通知界面更新进度');
+}
+
+console.log('Task production command runtime debug: 5/5 passed.');
