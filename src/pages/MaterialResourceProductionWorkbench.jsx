@@ -50,6 +50,8 @@ import {
 import {
   adoptTrainingTaskGroupCandidate,
   createTrainingTaskGroupCandidateSession,
+  MAX_TRAINING_TASK_COUNT,
+  resolveTrainingTaskGenerationRequest,
   summarizeTrainingTaskGroupCoverage,
   toggleSupplementCandidateSelection,
 } from './trainingTaskGroupPlanningState.ts';
@@ -174,7 +176,6 @@ export default function MaterialResourceProductionWorkbench() {
   const [taskReviewNotes, setTaskReviewNotes] = useState({});
   const [generatorPreferences, setGeneratorPreferences] = useState({
     gradeRange: '初中',
-    candidateCount: 3,
     preferredAbilityIds: [],
     requestedFocusIds: [],
   });
@@ -294,7 +295,7 @@ export default function MaterialResourceProductionWorkbench() {
     commandBusy: busy,
     taskEditorDirty,
     taskCount: tasks.length,
-    taskLimit: 6,
+    taskLimit: MAX_TRAINING_TASK_COUNT,
     editableIssueCount: editableTaskIssues.length,
     candidateReady: Boolean(groupCandidateSession && generatorResult?.status === 'candidates_ready'),
     validationPassed: Boolean(selectedValidation?.passed),
@@ -524,7 +525,7 @@ export default function MaterialResourceProductionWorkbench() {
     }
     const material = await run(
       () => createProductionMaterial(materialForm),
-      () => '素材已保存，可以开始设计 3–6 个能力观测任务。',
+      () => '素材已保存，可以由 AI 根据材料推荐 2–3 个独立训练任务。',
       (result) => ({ materialVersionId: result.materialVersionId }),
     );
     if (material) {
@@ -977,6 +978,11 @@ export default function MaterialResourceProductionWorkbench() {
 
   async function requestTaskGroupCandidates(operationType) {
     if (!selectedMaterial) return;
+    const generationRequest = resolveTrainingTaskGenerationRequest(operationType, tasks.length);
+    if (generationRequest.candidateCount === 0) {
+      setNotice({ type: 'error', message: `当前任务组已达到 ${MAX_TRAINING_TASK_COUNT} 个任务，无需继续补充。` });
+      return;
+    }
     setGeneratorBusy(true);
     setGeneratorOperation(operationType);
     setGeneratorResult(null);
@@ -996,6 +1002,10 @@ export default function MaterialResourceProductionWorkbench() {
       const requestedFocus = generatorPreferences.requestedFocusIds
         .map((focusId) => trainingDirectionLabels[focusId])
         .join('；');
+      const currentCoverage = summarizeTrainingTaskGroupCoverage(tasks);
+      const currentCoverageContext = operationType === 'supplement_group'
+        ? `当前已覆盖能力：${currentCoverage.abilityIds.map((id) => abilityLabels[id] || id).join('、') || '无'}；当前已覆盖方向：${currentCoverage.dimensionIds.map((id) => dimensionLabels[id] || id).join('、') || '无'}`
+        : '';
       const result = await requestMaterialObservationDraftCandidates({
         requestId: createGeneratorRequestId(selectedMaterial.materialVersionId),
         generationMode: 'discover_new_observation',
@@ -1008,12 +1018,14 @@ export default function MaterialResourceProductionWorkbench() {
         },
         preferences: {
           gradeRange: generatorPreferences.gradeRange,
-          candidateCount: generatorPreferences.candidateCount,
+          candidateCount: generationRequest.candidateCount,
+          planningIntent: generationRequest.planningIntent,
           preferredAbilityIds: generatorPreferences.preferredAbilityIds,
           requestedFocus: [
             operationType === 'replace_group'
               ? '重新规划完整候选任务组，覆盖方向应形成互补'
               : '补充当前任务组缺少的训练方向，不重复已有任务',
+            currentCoverageContext,
             requestedFocus,
           ].filter(Boolean).join('；'),
         },
@@ -1163,13 +1175,13 @@ export default function MaterialResourceProductionWorkbench() {
         currentTasks: tasks,
         currentPlanRevision: selectedPlan?.revision || 0,
         protectedTaskIds,
-        maxTasks: 6,
+        maxTasks: MAX_TRAINING_TASK_COUNT,
       });
       if (!result.changed) {
         setNotice({
           type: 'error',
           message: groupCandidateSession.operationType === 'supplement_group'
-            ? '所选候选与当前任务重复，或任务组已达到 6 个任务，未加入编辑区。'
+            ? `所选候选与当前任务重复，或任务组已达到 ${MAX_TRAINING_TASK_COUNT} 个任务，未加入编辑区。`
             : '替代候选组与当前任务组没有实质差异。',
         });
         return;
@@ -1221,8 +1233,8 @@ export default function MaterialResourceProductionWorkbench() {
   function selectGeneratedCandidatesWithinLimit(candidateId) {
     if (!groupCandidateSession || groupCandidateSession.operationType !== 'supplement_group') return;
     const selected = groupCandidateSession.selectedCandidateTaskIds.includes(candidateId);
-    if (!selected && tasks.length + groupCandidateSession.selectedCandidateTaskIds.length >= 6) {
-      setNotice({ type: 'error', message: '每个任务组最多保留 6 个任务。请先取消一个候选或删除已有任务。' });
+    if (!selected && tasks.length + groupCandidateSession.selectedCandidateTaskIds.length >= MAX_TRAINING_TASK_COUNT) {
+      setNotice({ type: 'error', message: `每个任务组最多保留 ${MAX_TRAINING_TASK_COUNT} 个任务。请先取消一个候选或删除已有任务。` });
       return;
     }
     toggleGeneratedCandidate(candidateId);
@@ -1766,21 +1778,8 @@ export default function MaterialResourceProductionWorkbench() {
                   <div className="mt-1 flex min-h-10 items-center rounded-md border border-slate-300 bg-slate-50 px-3 text-sm font-normal text-slate-700">初中</div>
                 </div>
                 <div>
-                  <p className="text-sm font-medium">生成训练任务数量</p>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    {[3, 4, 5, 6].map((count) => (
-                      <button
-                        key={count}
-                        type="button"
-                        aria-pressed={generatorPreferences.candidateCount === count}
-                        disabled={generatorBusy}
-                        onClick={() => setGeneratorPreferences((current) => ({ ...current, candidateCount: count }))}
-                        className={`h-10 w-14 rounded-md border text-sm font-normal transition disabled:cursor-not-allowed disabled:opacity-40 ${generatorPreferences.candidateCount === count ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-600'}`}
-                      >
-                        {count}
-                      </button>
-                    ))}
-                  </div>
+                  <p className="text-sm font-medium">任务数量建议</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">AI 会根据材料推荐 2–3 个彼此独立的训练任务，不会为凑数量降低质量。</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium">
@@ -1849,7 +1848,7 @@ export default function MaterialResourceProductionWorkbench() {
                         title={commandAvailability.planSupplementCandidates.reason}
                         className="ai-button-solid inline-flex h-10 w-full items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        {generatorOperation === 'supplement_group' ? '正在生成更多任务…' : '生成更多任务'}
+                        {generatorOperation === 'supplement_group' ? '正在补充候选…' : '补充生成候选任务'}
                       </button>
                     </div>
                   </>
@@ -3013,7 +3012,7 @@ function GeneratorCandidatePreview({
       currentTasks,
       currentPlanRevision: session.basedOnPlanRevision,
       protectedTaskIds,
-      maxTasks: 6,
+      maxTasks: MAX_TRAINING_TASK_COUNT,
     }).tasks
     : currentTasks;
   const replacementCoverage = summarizeTrainingTaskGroupCoverage(replacementTasks);
@@ -3054,6 +3053,18 @@ function GeneratorCandidatePreview({
           ))}
         </div>
       </div>
+      {result.status === 'candidates_ready' && !supplementMode && (
+        <section className="mt-3 border-l-4 border-blue-500 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-950" aria-label="任务数量建议">
+          <p className="font-semibold">推荐训练任务：{result.candidates.length} 个</p>
+          <p>
+            当前材料支持 {result.coveragePreview.independentObservationCount} 个独立观察点
+            {result.coveragePreview.primaryAbilityIds.length > 0
+              ? `，覆盖${result.coveragePreview.primaryAbilityIds.map((id) => abilityLabels[id] || id).join('、')}`
+              : ''}
+            。数量由材料可支持的观察价值决定。
+          </p>
+        </section>
+      )}
       {result.status === 'candidates_ready' && session?.operationType === 'replace_group' && !initialPlanningMode && (
         <section className="mt-4 grid gap-3 rounded-md bg-slate-50 p-4 sm:grid-cols-2" aria-label="新旧任务组覆盖对比">
           <CoverageSummary title="当前任务组" coverage={currentCoverage} />
@@ -3078,8 +3089,8 @@ function GeneratorCandidatePreview({
               <ul className="mt-1 space-y-1">
                 {result.validation.issues.map((issue) => (
                   <li key={issue}>
-                    - {issue === 'fewer_than_3_valid_independent_candidates'
-                      ? `至少需要 3 个通过内容检查且训练方向不同的新任务。本次共生成 ${totalCandidateCount} 个：${admittedCandidateCount} 个通过内容检查，其中 ${result.coveragePreview.independentObservationCount} 个属于新的训练方向；${result.rejectedCandidates.length} 个未通过，因此暂不可导入。`
+                    - {issue === 'fewer_than_2_valid_independent_candidates'
+                      ? `至少需要 2 个通过内容检查且训练方向不同的新任务。本次共生成 ${totalCandidateCount} 个：${admittedCandidateCount} 个通过内容检查，其中 ${result.coveragePreview.independentObservationCount} 个属于新的训练方向；${result.rejectedCandidates.length} 个未通过，因此暂不可导入。`
                       : generatorIssueLabel(issue)}
                   </li>
                 ))}
@@ -3135,7 +3146,7 @@ function GeneratorCandidatePreview({
         <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
           {result.candidates.map((candidate, index) => {
             const selected = selectedCandidateIds.has(candidate.candidateId);
-            const selectionLimitReached = supplementMode && !selected && currentTaskCount + selectedCount >= 6;
+            const selectionLimitReached = supplementMode && !selected && currentTaskCount + selectedCount >= MAX_TRAINING_TASK_COUNT;
             return (
             <article key={candidate.candidateId} className="py-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -3969,6 +3980,8 @@ function generatorIssueLabel(issue) {
     provider_unknown: '模型服务拒绝了本次请求，需要检查服务配置或模型名称。',
     provider_failed: '模型服务本次调用失败，尚未产生任何候选。',
     provider_output_not_valid_json: '模型输出不是完整的结构化 JSON，无法进入候选校验。',
+    candidate_count_outside_planning_range: '模型返回的候选数量超出本次规划范围。',
+    fewer_than_2_valid_independent_candidates: '通过校验且彼此独立的候选不足 2 个。',
     candidate_count_must_be_3_to_6: '模型没有返回 3–6 个表面候选。',
     fewer_than_3_valid_independent_candidates: '通过校验且彼此独立的候选不足 3 个。',
     no_new_observation_candidate: '本轮候选均与已有 Observation 重合，没有发现可增加覆盖的新观测。',

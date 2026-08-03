@@ -471,6 +471,49 @@ await check('C39 字段职责重复只产生人工确认提醒而不阻断候选
     && result.limitations.some((item) => item.includes('候选题目 1 字段职责需要人工确认'));
 });
 
+await check('C40 新工作台首次规划允许两个高质量独立任务', async () => {
+  const payload = validPayload();
+  payload.candidates = payload.candidates.slice(0, 2);
+  const result = await run({
+    ...input,
+    preferences: {
+      ...input.preferences,
+      candidateCount: 3,
+      planningIntent: 'initial',
+    },
+  }, providerWith(payload));
+  return result.status === 'candidates_ready'
+    && result.candidates.length === 2
+    && result.validation.passed;
+});
+
+await check('C41 补充规划一次允许返回一个新增观察任务', async () => {
+  const payload = validPayload();
+  payload.candidates = [payload.candidates[2]];
+  const result = await run({
+    ...input,
+    preferences: {
+      ...input.preferences,
+      candidateCount: 1,
+      planningIntent: 'supplement',
+    },
+    existingInventory: {
+      observations: [{
+        observationId: 'existing-action',
+        primaryAbilityId: 'extraction',
+        observationDimension: 'fact',
+        focusDisplayName: '提取人物动作',
+        focusDefinition: '识别材料中的人物动作',
+        expectedStudentAction: '找出父亲的动作',
+      }],
+      questions: [],
+    },
+  }, providerWith(payload));
+  return result.status === 'candidates_ready'
+    && result.candidates.length === 1
+    && result.validation.passed;
+});
+
 console.log('\nPhase 17.2 Material Observation Draft Generator Debug');
 console.log('='.repeat(78));
 for (const report of reports) {

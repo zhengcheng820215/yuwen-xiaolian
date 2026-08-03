@@ -7,7 +7,7 @@ import {
   STRUCTURED_QUESTION_TYPES,
 } from '../schemas/questionResourceAdmission.schema.ts';
 
-export const MATERIAL_OBSERVATION_DRAFT_PROMPT_VERSION = 'material_observation_draft_prompt_v1_5' as const;
+export const MATERIAL_OBSERVATION_DRAFT_PROMPT_VERSION = 'material_observation_draft_prompt_v1_6' as const;
 
 type MaterialObservationDraftRepairItem = {
   candidateIndex: number;
@@ -20,7 +20,17 @@ type MaterialObservationDraftRepairItem = {
 export function buildMaterialObservationDraftPrompt(
   input: MaterialObservationDraftGeneratorInput,
 ): string {
-  const candidateCount = clamp(input.preferences?.candidateCount ?? 3, 3, 6);
+  const planningIntent = input.preferences?.planningIntent;
+  const candidateCount = clamp(
+    input.preferences?.candidateCount ?? 3,
+    planningIntent ? 1 : 3,
+    planningIntent === 'supplement' ? 2 : planningIntent ? 3 : 6,
+  );
+  const generationInstruction = planningIntent === 'supplement'
+    ? `当前规划意图为 supplement。最多生成 ${candidateCount} 个候选；只补足已有任务尚未覆盖的观察，不得用同义改写增加数量。没有新的独立观察时返回空 candidates。`
+    : planningIntent
+      ? `当前规划意图为 ${planningIntent}。推荐生成 3 个候选，允许只生成 2 个；数量是建议而不是硬性目标。材料只支持 2 个独立观察时必须停止，不得为了凑数降低质量。`
+      : `请先检查已有 Observation 与 Question Inventory，再基于材料生成 ${candidateCount} 个尚未覆盖、彼此具有独立观测价值的 Training Candidate。材料确实无法支持时可以少生成，但不得用改写题干凑数量。`;
   const preferredAbilities = input.preferences?.preferredAbilityIds?.length
     ? input.preferences.preferredAbilityIds.join(', ')
     : '无；请只选择材料真正支持的能力，不机械覆盖六项能力';
@@ -30,7 +40,7 @@ export function buildMaterialObservationDraftPrompt(
 
   return `你是初中语文材料观测任务设计助手。你的输出只是待人工审核的教学资源候选，不是正式题目，不得写入正式状态。
 
-当前生成模式固定为 discover_new_observation。请先检查已有 Observation 与 Question Inventory，再基于材料生成 ${candidateCount} 个尚未覆盖、彼此具有独立观测价值的 Training Candidate。材料确实无法支持时可以少生成，但不得用改写题干凑数量。
+当前生成模式固定为 discover_new_observation。${generationInstruction}
 
 硬规则：
 1. 只输出 JSON，不输出 Markdown、解释或代码围栏。
@@ -59,6 +69,7 @@ export function buildMaterialObservationDraftPrompt(
 24. observationFocus.displayName 是具体训练点，应比 primaryAbilityId 更具体；observationFocus.definition 只负责“看什么表现”，必须使用完整性、准确性、材料依据等可判断表述。
 25. questionStem、expectedStudentAction、observationFocus.displayName 和 observationFocus.definition 不得只是换词重复；若无法拆分职责，不要假装完成该候选。
 26. 输出前逐候选自检：枚举合法、Anchor 在范围内、Supporting Ability 不重复 Primary Ability、Rubric 引用已声明能力、五类校准答案齐全、Safety Boundary 固定，并确认题目、学生任务和观察目标职责分离。
+27. 决定数量时，优先级固定为：材料依据 > 观察差异与价值 > 能力覆盖 > 任务数量。
 
 年级范围：${input.preferences?.gradeRange || '初中'}
 能力偏好：${preferredAbilities}

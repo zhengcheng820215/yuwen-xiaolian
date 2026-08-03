@@ -471,9 +471,14 @@ function evaluateProviderCandidates(
     ? payload.materialLimitations.filter(isNonEmptyString).map((item) => item.trim()).slice(0, 8)
     : [];
   const batchIssues: string[] = [];
-  if (rawCandidates.length < 3 || rawCandidates.length > 6) batchIssues.push('candidate_count_must_be_3_to_6');
-  if (existingObservations.length === 0 && newObservationCandidates.length < 3) {
-    batchIssues.push('fewer_than_3_valid_independent_candidates');
+  const planningIntent = input.preferences?.planningIntent;
+  const minimumCandidateCount = planningIntent === 'supplement' ? 0 : planningIntent ? 2 : 3;
+  const maximumCandidateCount = planningIntent === 'supplement' ? 2 : planningIntent ? 3 : 6;
+  if (rawCandidates.length < minimumCandidateCount || rawCandidates.length > maximumCandidateCount) {
+    batchIssues.push(planningIntent ? 'candidate_count_outside_planning_range' : 'candidate_count_must_be_3_to_6');
+  }
+  if (existingObservations.length === 0 && newObservationCandidates.length < (planningIntent ? 2 : 3)) {
+    batchIssues.push(planningIntent ? 'fewer_than_2_valid_independent_candidates' : 'fewer_than_3_valid_independent_candidates');
   }
   if (existingObservations.length > 0 && newObservationCandidates.length === 0) {
     batchIssues.push('no_new_observation_candidate');
@@ -923,8 +928,14 @@ function validateInput(input: MaterialObservationDraftGeneratorInput): string[] 
   if (content.length < 20) issues.push('material_content_too_short');
   if (splitParagraphs(content).length === 0) issues.push('material_has_no_paragraph');
   const requestedCount = input.preferences?.candidateCount;
-  if (requestedCount !== undefined && (!Number.isInteger(requestedCount) || requestedCount < 3 || requestedCount > 6)) {
+  const planningIntent = input.preferences?.planningIntent;
+  const minimumCandidateCount = planningIntent ? 1 : 3;
+  const maximumCandidateCount = planningIntent === 'supplement' ? 2 : planningIntent ? 3 : 6;
+  if (requestedCount !== undefined && (!Number.isInteger(requestedCount) || requestedCount < minimumCandidateCount || requestedCount > maximumCandidateCount)) {
     issues.push('candidate_count_preference_invalid');
+  }
+  if (input.preferences?.planningIntent && !['initial', 'replacement', 'supplement'].includes(input.preferences.planningIntent)) {
+    issues.push('planning_intent_invalid');
   }
   if (input.preferences?.preferredAbilityIds?.some((ability) => !PRIMARY_ABILITY_IDS.includes(ability))) {
     issues.push('preferred_ability_invalid');

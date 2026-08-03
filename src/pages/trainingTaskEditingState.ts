@@ -1,4 +1,4 @@
-export const MIN_TRAINING_TASK_COUNT = 3;
+export const MIN_TRAINING_TASK_COUNT = 2;
 
 export type RemovedTrainingTask<T> = {
   index: number;

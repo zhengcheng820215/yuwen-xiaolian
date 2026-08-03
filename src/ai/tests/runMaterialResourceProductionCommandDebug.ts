@@ -13,7 +13,7 @@ const baseContext: MaterialProductionCommandContext = {
   commandBusy: false,
   taskEditorDirty: false,
   taskCount: 3,
-  taskLimit: 6,
+  taskLimit: 5,
   editableIssueCount: 0,
   candidateReady: false,
   validationPassed: true,
@@ -35,10 +35,10 @@ const cases: Array<{ name: string; run: () => void }> = [
     run: () => {
       const result = availability('planSupplementCandidates', {
         ...baseContext,
-        taskCount: 6,
+        taskCount: 5,
       });
       assert.equal(result.enabled, false);
-      assert.match(result.reason, /达到 6 个任务/);
+      assert.match(result.reason, /达到 5 个任务/);
     },
   },
   {

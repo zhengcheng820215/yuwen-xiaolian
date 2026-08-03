@@ -26,7 +26,7 @@ assert.deepEqual(restored, tasks);
 
 assert.throws(
   () => removeTrainingTaskAt(tasks.slice(0, MIN_TRAINING_TASK_COUNT), 0),
-  /至少保留 3 个任务/,
+  /至少保留 2 个任务/,
 );
 
 console.log('Training task editing state debug: 4/4 passed.');

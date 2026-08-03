@@ -1,5 +1,32 @@
 export type TrainingTaskGroupOperationType = 'replace_group' | 'supplement_group';
 
+export const INITIAL_TRAINING_TASK_RECOMMENDATION = 3;
+export const MIN_INITIAL_TRAINING_TASK_COUNT = 2;
+export const MAX_TRAINING_TASK_COUNT = 5;
+export const MAX_SUPPLEMENT_CANDIDATE_COUNT = 2;
+
+export function resolveTrainingTaskGenerationRequest(
+  operationType: TrainingTaskGroupOperationType,
+  currentTaskCount: number,
+): {
+  candidateCount: number;
+  planningIntent: 'initial' | 'replacement' | 'supplement';
+} {
+  if (operationType === 'supplement_group') {
+    return {
+      candidateCount: Math.min(
+        MAX_SUPPLEMENT_CANDIDATE_COUNT,
+        Math.max(0, MAX_TRAINING_TASK_COUNT - currentTaskCount),
+      ),
+      planningIntent: 'supplement',
+    };
+  }
+  return {
+    candidateCount: INITIAL_TRAINING_TASK_RECOMMENDATION,
+    planningIntent: currentTaskCount === 0 ? 'initial' : 'replacement',
+  };
+}
+
 export type TrainingTaskGroupCandidate = {
   localId?: string;
   candidateId?: string;
@@ -67,7 +94,7 @@ export function adoptTrainingTaskGroupCandidate<T extends TrainingTaskGroupCandi
   currentTasks,
   currentPlanRevision,
   protectedTaskIds = [],
-  maxTasks = 6,
+  maxTasks = MAX_TRAINING_TASK_COUNT,
 }: {
   session: TrainingTaskGroupCandidateSession<T>;
   currentTasks: T[];

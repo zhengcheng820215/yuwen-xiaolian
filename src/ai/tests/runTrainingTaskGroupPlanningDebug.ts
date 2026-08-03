@@ -2,9 +2,32 @@ import assert from 'node:assert/strict';
 import {
   adoptTrainingTaskGroupCandidate,
   createTrainingTaskGroupCandidateSession,
+  MAX_TRAINING_TASK_COUNT,
+  resolveTrainingTaskGenerationRequest,
   summarizeTrainingTaskGroupCoverage,
   toggleSupplementCandidateSelection,
 } from '../../pages/trainingTaskGroupPlanningState.ts';
+
+assert.deepEqual(resolveTrainingTaskGenerationRequest('replace_group', 0), {
+  candidateCount: 3,
+  planningIntent: 'initial',
+});
+assert.deepEqual(resolveTrainingTaskGenerationRequest('replace_group', 3), {
+  candidateCount: 3,
+  planningIntent: 'replacement',
+});
+assert.deepEqual(resolveTrainingTaskGenerationRequest('supplement_group', 3), {
+  candidateCount: 2,
+  planningIntent: 'supplement',
+});
+assert.deepEqual(resolveTrainingTaskGenerationRequest('supplement_group', 4), {
+  candidateCount: 1,
+  planningIntent: 'supplement',
+});
+assert.deepEqual(resolveTrainingTaskGenerationRequest('supplement_group', 5), {
+  candidateCount: 0,
+  planningIntent: 'supplement',
+});
 
 const currentTasks = [
   { localId: 'task-a', abilityId: 'analysis', primaryDimension: 'character', questionStem: '分析人物心理。' },
@@ -87,6 +110,22 @@ const supplementResult = adoptTrainingTaskGroupCandidate({
 });
 assert.equal(supplementResult.tasks.length, 3);
 assert.deepEqual(supplementResult.adoptedCandidateTaskIds, ['candidate-s1']);
+
+const capacityResult = adoptTrainingTaskGroupCandidate({
+  session: {
+    ...supplementSession,
+    selectedCandidateTaskIds: ['candidate-s1', 'candidate-s2'],
+  },
+  currentTasks: [
+    ...currentTasks,
+    { localId: 'task-c', abilityId: 'inference', primaryDimension: 'causality', questionStem: '解释原因。' },
+    { localId: 'task-d', abilityId: 'expression', primaryDimension: 'language', questionStem: '组织表达。' },
+  ],
+  currentPlanRevision: 2,
+  maxTasks: MAX_TRAINING_TASK_COUNT,
+});
+assert.equal(capacityResult.tasks.length, MAX_TRAINING_TASK_COUNT);
+assert.equal(capacityResult.adoptedCandidateTaskIds.length, 1);
 
 assert.throws(
   () => adoptTrainingTaskGroupCandidate({

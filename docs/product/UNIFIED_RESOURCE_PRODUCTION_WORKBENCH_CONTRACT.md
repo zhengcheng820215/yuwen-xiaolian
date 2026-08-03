@@ -2,8 +2,8 @@
 
 英文名称：Unified Resource Production Workbench Contract
 
-状态：DESIGN FROZEN / P0-P7 FINAL INTEGRATION ACCEPTED
-文档版本：`unified_resource_production_workbench_v1`
+状态：DESIGN FROZEN / P0-P7 FINAL INTEGRATION ACCEPTED / AI QUANTITY CALIBRATION ENGINEERING IMPLEMENTED / REAL MATERIAL ACCEPTANCE PENDING
+文档版本：`unified_resource_production_workbench_v1.1`
 更新日期：2026-08-03
 
 ## 一、文档目标
@@ -535,6 +535,22 @@ type BatchPublicationResult = {
 5. 历史与审计入口：查看 Revision、Assessment、Human Review 和正式版本。
 
 总览数据只负责导航和理解整体进度，具体状态原因与查看操作必须落到对应训练任务卡。
+
+### 11.1 AI 规划数量与上下文
+
+AI 规划区的产品行为统一为：
+
+1. 首次规划由 AI 在 `2—3` 条范围内推荐任务数量；`3` 条是常见建议，不是固定目标；
+2. 首次结果必须展示推荐数量、推荐理由、能力覆盖和观察方向，让用户理解“为什么适合这些任务”；
+3. 首次生成不提供“为了凑数量继续生成”的隐式重试；用户完成初步检查并发现覆盖缺口后，才通过“补充生成候选任务”补足缺失观察；
+4. “补充生成候选任务”根据覆盖缺口返回 `1—2` 条候选，采用后当前任务组最多 `5` 条；
+5. 已有 `5` 条任务时禁用补充入口，并明确提示先检查、删除或完成现有任务；
+6. 补充生成必须感知当前任务、未采用候选及同一 Material Version 下待审核或已发布兄弟任务，围绕覆盖缺口生成，不得退化为无上下文续写；
+7. 页面展示候选的新增观察价值及与已有任务的差异；没有有效增量时展示正常空结果，不创建候选或 Revision；
+8. 候选生成、放弃和采用到编辑缓冲区继续遵守既有版本边界，只有真实保存与提交审核才形成对应工作草稿或不可变 Revision；
+9. 页面不得使用“添加更多任务”“补充更多任务”或“再生成几个”等数量导向文案；补充数量不作为用户选择项。
+
+具体输入、去重集合、数量计算和质量优先级以 [训练任务组 AI 规划契约 v1.3](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) 为准。当前工程实现与自动化 Debug 已完成；真实材料浏览器验收完成前不得标记为最终验收通过。
 
 ## 十二、旧审核页兼容策略
 

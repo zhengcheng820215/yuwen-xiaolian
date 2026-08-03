@@ -45,6 +45,7 @@ export type MaterialObservationDraftGeneratorPreferences = {
   gradeRange?: string;
   preferredAbilityIds?: PrimaryAbilityId[];
   candidateCount?: number;
+  planningIntent?: 'initial' | 'replacement' | 'supplement';
   requestedFocus?: string;
 };
 
