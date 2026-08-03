@@ -2,9 +2,9 @@
 
 英文名称：Formal Resource Production Contract Map
 
-状态：ACTIVE  
+状态：ACTIVE / P5 PARTIAL PUBLICATION ALIGNED
 文档版本：`formal_resource_production_contract_map_v2`
-更新日期：2026-07-31
+更新日期：2026-08-03
 
 ## 一、目标与权威边界
 
@@ -14,7 +14,7 @@
 
 当本文摘要与正式契约不一致时，以对应职责范围内的正式契约为准，并同步修正本文。
 
-统一资源生产工作台处于目标架构迁移阶段。迁移期间，现有录入、审核和发布契约继续约束领域写入；统一工作台契约负责冻结新的前台入口、任务卡状态与迁移顺序。
+统一资源生产工作台处于目标架构迁移阶段。P0-P5 已完成对象关系、统一状态、命令边界、任务卡主链路和按任务部分发布；P6-P7 继续负责旧流程收口和最终端到端验收。迁移期间，现有字段、Assessment、Human Review、Freeze 和 Registry 契约继续约束各自领域边界。
 
 ## 二、正式资源生产主链
 

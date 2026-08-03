@@ -101,6 +101,22 @@ export type TaskProductionSummary = {
   aggregateState: TaskGroupAggregateState;
 };
 
+export type TaskPublicationEligibilityReason =
+  | 'ready'
+  | 'retryable_failure'
+  | 'already_published'
+  | 'publishing'
+  | 'not_confirmed'
+  | 'missing_draft';
+
+export type TaskPublicationEligibility = {
+  trainingTaskId: string;
+  eligible: boolean;
+  action: 'publish' | 'retry_publication' | null;
+  reason: TaskPublicationEligibilityReason;
+  message: string;
+};
+
 const STATE_PRESENTATIONS: Record<TaskProductionState, Omit<TaskProductionPresentation, 'primaryActionLabel'>> = {
   draft_empty: { stateLabel: '未生成题目', tone: 'neutral', busy: false },
   editing: { stateLabel: '编辑中', tone: 'action', busy: false },
@@ -302,6 +318,66 @@ export function resolveTaskGroupSummary(
 }
 
 export const summarizeTaskProductionViews = resolveTaskGroupSummary;
+
+export function resolveTaskPublicationEligibility(
+  productionView: TaskProductionView,
+): TaskPublicationEligibility {
+  const base = {
+    trainingTaskId: productionView.binding.trainingTaskId,
+  };
+  if (productionView.state === 'confirmed') {
+    return {
+      ...base,
+      eligible: true,
+      action: 'publish',
+      reason: 'ready',
+      message: '题目已完成最终确认，可以发布。',
+    };
+  }
+  if (productionView.state === 'publication_failed') {
+    return {
+      ...base,
+      eligible: true,
+      action: 'retry_publication',
+      reason: 'retryable_failure',
+      message: '题目发布未完成，可以从失败阶段继续。',
+    };
+  }
+  if (productionView.state === 'published') {
+    return {
+      ...base,
+      eligible: false,
+      action: null,
+      reason: 'already_published',
+      message: '题目已经发布，无需重复发布。',
+    };
+  }
+  if (productionView.state === 'publishing') {
+    return {
+      ...base,
+      eligible: false,
+      action: null,
+      reason: 'publishing',
+      message: '题目正在发布，请等待当前操作完成。',
+    };
+  }
+  if (productionView.state === 'draft_empty') {
+    return {
+      ...base,
+      eligible: false,
+      action: null,
+      reason: 'missing_draft',
+      message: '题目草稿尚未创建。',
+    };
+  }
+  return {
+    ...base,
+    eligible: false,
+    action: null,
+    reason: 'not_confirmed',
+    message: '题目尚未完成最终确认。',
+  };
+}
 
 function resolveTaskGroupAggregateState(
   views: TaskProductionView[],

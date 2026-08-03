@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   resolveTaskAssessmentStatus,
   resolveTaskGroupSummary,
+  resolveTaskPublicationEligibility,
   resolveTaskProductionState,
 } from '../../pages/taskProductionState.ts';
 
@@ -89,6 +90,13 @@ const confirmed = resolveTaskProductionState({
 });
 assert.equal(confirmed.state, 'confirmed');
 assert.equal(confirmed.binding.confirmedRevisionId, 'draft-confirmed:r2');
+assert.deepEqual(resolveTaskPublicationEligibility(confirmed), {
+  trainingTaskId: 'task-confirmed',
+  eligible: true,
+  action: 'publish',
+  reason: 'ready',
+  message: '题目已完成最终确认，可以发布。',
+});
 
 const publicationFailed = resolveTaskProductionState({
   trainingTaskId: 'task-publication-failed',
@@ -101,6 +109,8 @@ const publicationFailed = resolveTaskProductionState({
 assert.equal(publicationFailed.state, 'publication_failed');
 assert.equal(publicationFailed.primaryAction, 'retry_publication');
 assert.equal(publicationFailed.presentation.tone, 'danger');
+assert.equal(resolveTaskPublicationEligibility(publicationFailed).eligible, true);
+assert.equal(resolveTaskPublicationEligibility(publicationFailed).action, 'retry_publication');
 
 const published = resolveTaskProductionState({
   trainingTaskId: 'task-published',
@@ -115,6 +125,10 @@ assert.equal(published.state, 'published');
 assert.equal(published.binding.latestFormalVersionId, 'resource-published:v1');
 assert.equal(published.presentation.stateLabel, '已发布');
 assert.equal(published.presentation.primaryActionLabel, '查看已发布题目');
+assert.equal(resolveTaskPublicationEligibility(published).eligible, false);
+assert.equal(resolveTaskPublicationEligibility(published).reason, 'already_published');
+assert.equal(resolveTaskPublicationEligibility(pendingConfirmation).eligible, false);
+assert.equal(resolveTaskPublicationEligibility(pendingConfirmation).reason, 'not_confirmed');
 
 const publishedWithNewRevision = resolveTaskProductionState({
   trainingTaskId: 'task-published-with-revision',

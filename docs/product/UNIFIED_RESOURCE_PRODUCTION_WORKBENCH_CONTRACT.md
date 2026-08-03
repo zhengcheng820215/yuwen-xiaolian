@@ -2,9 +2,9 @@
 
 英文名称：Unified Resource Production Workbench Contract
 
-状态：DESIGN FROZEN / P0 CONTRACT
+状态：DESIGN FROZEN / P5 IMPLEMENTED / DEBUG ACCEPTED
 文档版本：`unified_resource_production_workbench_v1`
-更新日期：2026-07-31
+更新日期：2026-08-03
 
 ## 一、文档目标
 
@@ -751,11 +751,235 @@ P4 当前结论：界面主链路、统一读取状态与独立命令边界已�
 
 ### P5：实现部分发布
 
-1. 计算可发布任务集合；
-2. 支持单项发布；
-3. 支持批量发布已确认任务；
-4. 返回逐项结果并支持单项重试；
-5. 验证任务组 `partial` 状态。
+P5 在 P0-P4 已统一的对象关系、状态 Resolver、独立 Command 和任务卡主链路之上增加“按训练任务发布”。部分发布指同一任务组中的不同训练任务可以分别处于待处理、待最终确认、已确认待发布和已发布状态，不表示一次发布命令可以跳过 Revision、Assessment、Human Review、Freeze、Formal Version 或 Registry 边界。
+
+#### P5.1 发布资格唯一计算
+
+所有页面、任务卡、批量操作和刷新恢复必须消费同一个发布资格结果，不得在组件内分别判断 `review.status`、`publication.status` 或按钮可用性。
+
+```ts
+type TaskPublicationEligibilityState =
+  | 'eligible'
+  | 'already_published'
+  | 'publishing'
+  | 'retryable_failure'
+  | 'ineligible';
+
+type TaskPublicationEligibility = {
+  trainingTaskId: string;
+  questionLineageId: string;
+  draftId: string | null;
+  confirmedRevisionId: string | null;
+  state: TaskPublicationEligibilityState;
+  reasonCode: string | null;
+  nextCommand: 'publishConfirmedTask' | 'retryTaskPublication' | null;
+};
+
+function resolveTaskPublicationEligibility(
+  task: TrainingTask,
+  binding: TrainingTaskQuestionBinding,
+  productionState: TaskProductionView
+): TaskPublicationEligibility;
+```
+
+任务只有同时满足以下条件才是 `eligible`：
+
+1. `trainingTaskId`、`questionLineageId`、`draftId` 和已确认 Revision 身份完整且互相对应；
+2. 当前结构校验与完整 Assessment 均绑定该已确认 Revision 和当前规则版本；
+3. Human Review 已通过且绑定同一 Revision；
+4. 所有阻断项已关闭，所有需要确认的提醒已有录入处理和最终确认决定；
+5. Material Version、Observation Plan、Training Task、Question Lineage 和 Draft 来源链完整；
+6. 当前不存在同任务同 Revision 的发布中操作；
+7. 尚未存在同一幂等目标的完整正式资源；若已经存在，应返回 `already_published`，不得再次写入。
+
+缺失任一条件时必须返回稳定 `reasonCode`，页面将其翻译为可操作文案；不得直接把内部异常或英文技术信息作为主提示。
+
+#### P5.2 互斥数量与任务组状态
+
+任务组总览继续使用四个互斥主分类：
+
+```ts
+type TaskProductionSummary = {
+  total: number;
+  actionRequired: number;
+  pendingConfirmation: number;
+  confirmedAwaitingPublication: number;
+  published: number;
+  aggregateState: 'empty' | 'in_progress' | 'ready' | 'partial' | 'published';
+};
+```
+
+强制满足：
+
+```text
+actionRequired
++ pendingConfirmation
++ confirmedAwaitingPublication
++ published
+= total
+```
+
+其中：
+
+1. `publishing` 和 `publication_failed` 均归入 `confirmedAwaitingPublication`，避免同一任务被重复计数；
+2. 只有全部任务都已发布时，任务组才是 `published`；
+3. 至少一项已发布且仍有未发布任务时，任务组为 `partial`；
+4. `partial` 必须由单任务状态实时派生，不新增可漂移的持久化布尔字段；
+5. 顶部只显示任务组总览，具体状态、查看和重试动作落在对应任务卡上。
+
+#### P5.3 单项发布 Command
+
+单任务发布必须复用已有正式发布链，不新增绕过审核的写入入口：
+
+```ts
+type PublishConfirmedTaskCommand = {
+  trainingTaskId: string;
+  questionLineageId: string;
+  draftId: string;
+  confirmedRevisionId: string;
+  expectedDraftRevision: number;
+  reviewDecisionId: string;
+  idempotencyKey: string;
+};
+```
+
+正式命令名称冻结为：
+
+```text
+publishConfirmedTask
+retryTaskPublication
+```
+
+执行规则：
+
+1. Command 内部必须再次校验发布资格，不能信任前端按钮状态；
+2. 发布单位是一个已确认的 `QuestionRevision`，不是整个任务组；
+3. 同一任务、同一 Revision 和同一发布意图必须复用同一幂等目标；
+4. 双击、刷新后重试或网络重放不得生成重复 Freeze、Formal Version 或 Registry Entry；
+5. 已发布任务产生新活动 Revision 时，旧正式版本继续保留，新 Revision 按正常检查、确认和发布链处理；
+6. 单项失败只影响当前训练任务，不回滚其他已发布任务。
+
+#### P5.4 批量发布编排
+
+批量发布只是多个单项发布命令的编排器，不是跨任务大事务：
+
+```ts
+type PublishConfirmedTaskBatchCommand = {
+  operationId: string;
+  items: PublishConfirmedTaskCommand[];
+};
+```
+
+约束如下：
+
+1. 批量入口只收集 `eligible` 任务；待修改、待检查、待确认和已发布任务不得进入写入集合；
+2. 每项保留独立 Revision 校验、幂等键、结果和审计记录；
+3. 一项失败不得回滚其他成功项；
+4. 重试时默认只重试失败且仍满足资格的任务；
+5. 刷新恢复必须读取持久化发布记录，不依赖组件内存中的批次进度；
+6. 批量主按钮文案为“发布已确认题目（N）”；`N = 0` 时不显示可点击的批量发布入口；
+7. 单任务卡仍保留“发布正式题目”或“重试发布”，批量入口不得遮蔽具体任务的状态和恢复动作。
+
+#### P5.5 逐项结果与失败恢复
+
+每个任务必须返回结构化结果：
+
+```ts
+type TaskPublicationItemResult = {
+  trainingTaskId: string;
+  confirmedRevisionId: string;
+  status: 'published' | 'already_published' | 'failed' | 'skipped';
+  completedStages: Array<'eligibility' | 'freeze' | 'formal' | 'registry' | 'trace' | 'link'>;
+  failedStage: 'eligibility' | 'freeze' | 'formal' | 'registry' | 'trace' | 'link' | null;
+  formalResourceVersionId: string | null;
+  registryEntryId: string | null;
+  retryable: boolean;
+  nextCommand: 'retryTaskPublication' | null;
+  userMessage: string;
+  technicalCode: string | null;
+};
+```
+
+批量结果状态为：
+
+```ts
+type TaskPublicationBatchStatus =
+  | 'completed'
+  | 'partially_completed'
+  | 'failed'
+  | 'no_eligible_tasks';
+```
+
+失败恢复规则：
+
+1. 新发布仍遵守正式资源写入原子性；不得为了支持部分发布而允许不完整正式资源进入学习入口；
+2. 对历史遗留的“Formal Version 已存在但 Registry 未完成”等部分状态，重试必须复用已有 Freeze 和 Formal Version，从失败阶段继续；
+3. 发布失败不撤销已经形成的最终确认决定，任务进入 `publication_failed` 并显示“重试发布”；
+4. 技术错误默认折叠，主提示必须说明当前完成到哪一步、是否可重试以及下一步动作；
+5. 学习入口只能读取完整且可解析的正式资源，不得把批次成功误当成每项成功。
+
+#### P5.6 任务卡与任务组交互
+
+任务卡按统一状态展示唯一主动作：
+
+| 任务状态 | 主状态文案 | 主操作 |
+| --- | --- | --- |
+| `confirmed` | 已确认，待发布 | 发布正式题目 |
+| `publishing` | 正在发布 | Loading，不允许重复触发 |
+| `publication_failed` | 发布未完成 | 重试发布 |
+| `published` | 已发布 | 查看已发布题目 |
+
+任务组区域只承担：
+
+1. 互斥数量总览；
+2. `partial` 等聚合状态说明；
+3. “发布已确认题目（N）”批量动作；
+4. 批量结果摘要。
+
+不得在任务组顶部再次放置每项“查看”“继续修改”或“重试发布”入口，避免与任务卡重复。
+
+#### P5.7 反馈、并发与可感知响应
+
+1. 点击单项或批量发布后，触发按钮必须在同一渲染帧进入 Loading，不能只显示不可点击的普通禁用态；
+2. 批量发布期间每张任务卡独立显示进度，完成一项即更新一项，不等待整批结束后统一刷新；
+3. 成功可以使用短 Toast，但任务卡必须保留持久的“已发布”状态和“查看已发布题目”入口；
+4. 失败提示必须靠近对应任务动作；位于页面顶部且用户当前不可见的全局提示不能作为唯一反馈；
+5. 同一 `trainingTaskId + confirmedRevisionId` 同时只允许一个在途发布请求；完成、失败和抛错后都必须释放锁；
+6. Revision 冲突只使当前任务失败并提示刷新，不得阻断同批其他任务；
+7. 刷新后统一 Resolver 必须从正式记录恢复任务卡、数量总览和批量剩余集合。
+
+#### P5.8 Debug 验收
+
+P5 至少覆盖以下回归：
+
+1. 三个已确认任务只发布一个后，任务组显示 `partial`，数量满足 `0 + 0 + 2 + 1 = 3`；
+2. 批量发布两个符合条件的任务，一个成功、一个失败时返回 `partially_completed`，成功项保持已发布；
+3. 点击重试只处理失败项，不重复创建成功项的 Formal Version；
+4. 连续双击单项发布只形成一套正式记录；
+5. 发布前 Revision 已变化时，仅当前任务返回冲突，其他任务继续；
+6. 已发布任务再次进入批量集合时返回 `already_published`，不重复写入；
+7. 历史部分完成记录重试时从失败阶段继续，不创建第二个 Formal Version；
+8. 刷新页面后任务卡状态、`partial` 状态和剩余可发布数量保持一致；
+9. 任意状态组合下四个互斥分类之和都等于任务总数；
+10. 学习入口只读取 Registry、Trace 和 Material Link 完整的正式资源；
+11. 已发布任务产生新 Revision 后，旧正式版本仍可查看，新 Revision 可独立再次发布；
+12. 任务卡、批量按钮和 Command 对同一任务的发布资格结论一致；
+13. P0-P4 状态、命令、最终确认、素材恢复和学习入口回归全部通过；
+14. `git diff --check` 与生产构建通过。
+
+#### P5.9 实施与验收记录
+
+P5 已于 2026-08-03 按“唯一资格计算 -> 单项 Command -> 批量编排 -> 逐项恢复 -> 界面与端到端验收”的顺序完成工程落地：
+
+1. `resolveTaskPublicationEligibility()` 成为任务发布资格的唯一读取投影；只有 `confirmed` 可首次发布，`publication_failed` 可重试，其他状态不进入批量集合；
+2. 批量编排隔离在纯函数模块中，顺序调用已有单项发布 Command，不增加另一条正式资源写入链路；
+3. 每项结果独立记录，单项失败不中断后续任务；重试集合只包含发布未完成项，已发布项不重复写入；
+4. 任务卡在批量期间逐项显示“正在发布”或“等待发布”，批量结束后显示成功、部分完成或失败摘要；
+5. 当前真实素材不存在 `confirmed` 或 `publication_failed` 任务时，页面不显示批量发布按钮；这是发布资格计算的正常结果，不是入口缺失；
+6. 自动验收已覆盖资格分类、空集合、部分成功、失败隔离、仅重试失败项、回调异常隔离、命令运行时、发布恢复、工作台端到端、展示状态与生产构建；
+7. 浏览器验收已确认素材工作台正常加载、任务卡与互斥数量分类正常，页面刷新后无新的运行时错误。
+
+P5 完成不改变 Freeze、Formal Version、Registry 和学习入口的完整性约束，也不为任务组额外写入一个可与单项状态冲突的人工发布状态。
 
 ### P6：收口旧流程
 

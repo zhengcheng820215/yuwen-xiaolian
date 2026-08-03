@@ -70,6 +70,7 @@ import {
   executeRecordFinalConfirmationCommand,
   executeSubmitFinalConfirmationCommand,
 } from './questionProductionCommands.ts';
+import { executePublishConfirmedTaskBatchCommand } from './taskPublicationBatch.ts';
 import {
   canRemoveTrainingTask,
   MIN_TRAINING_TASK_COUNT,
@@ -79,6 +80,7 @@ import {
 import {
   resolveTaskAssessmentStatus,
   resolveTaskGroupSummary,
+  resolveTaskPublicationEligibility,
   resolveTaskProductionState,
 } from './taskProductionState.ts';
 
@@ -165,6 +167,8 @@ export default function MaterialResourceProductionWorkbench() {
   const [groupCandidateSession, setGroupCandidateSession] = useState(null);
   const [taskRegeneration, setTaskRegeneration] = useState(null);
   const [taskWorkflowOperation, setTaskWorkflowOperation] = useState(null);
+  const [taskBatchPublicationOperation, setTaskBatchPublicationOperation] = useState(null);
+  const [taskBatchPublicationResult, setTaskBatchPublicationResult] = useState(null);
   const [taskWorkflowFeedback, setTaskWorkflowFeedback] = useState({});
   const [taskWarningRationales, setTaskWarningRationales] = useState({});
   const [taskReviewNotes, setTaskReviewNotes] = useState({});
@@ -190,6 +194,7 @@ export default function MaterialResourceProductionWorkbench() {
   const pendingDiscardActionRef = useRef(null);
   const initialSelectionResolutionRef = useRef(true);
   const taskWorkflowInFlightRef = useRef(new Set());
+  const taskBatchPublicationInFlightRef = useRef(false);
   const materialFormHasInput = Boolean(
     materialForm.title.trim()
     || materialForm.content.trim()
@@ -360,6 +365,19 @@ export default function MaterialResourceProductionWorkbench() {
       published: summary.published,
     };
   }, [taskQuestionLifecycleById]);
+  const taskPublicationCandidates = useMemo(
+    () => [...taskQuestionLifecycleById.entries()].flatMap(([trainingTaskId, lifecycle]) => {
+      const eligibility = resolveTaskPublicationEligibility(lifecycle.productionView);
+      if (!eligibility.eligible || !eligibility.action || !lifecycle.draft) return [];
+      return [{
+        trainingTaskId,
+        draftId: lifecycle.draft.draftId,
+        expectedDraftRevision: lifecycle.draft.revision,
+        action: eligibility.action,
+      }];
+    }),
+    [taskQuestionLifecycleById],
+  );
   const protectedTaskIds = useMemo(() => {
     if (!selectedPlan) return [];
     const protectedIds = new Set(
@@ -401,6 +419,8 @@ export default function MaterialResourceProductionWorkbench() {
     setTaskRemovalCandidate(null);
     setRemovedTaskHistory([]);
     setTaskWorkflowOperation(null);
+    setTaskBatchPublicationOperation(null);
+    setTaskBatchPublicationResult(null);
     setTaskWorkflowFeedback({});
     setTaskWarningRationales({});
     setTaskReviewNotes({});
@@ -805,6 +825,57 @@ export default function MaterialResourceProductionWorkbench() {
     } finally {
       taskWorkflowInFlightRef.current.delete(operationKey);
       setTaskWorkflowOperation(null);
+    }
+  }
+
+  async function runTaskPublicationBatch(items = taskPublicationCandidates) {
+    if (taskBatchPublicationInFlightRef.current || items.length === 0) return;
+    taskBatchPublicationInFlightRef.current = true;
+    setTaskBatchPublicationOperation({
+      draftIds: items.map((item) => item.draftId),
+      activeDraftId: null,
+    });
+    setTaskBatchPublicationResult(null);
+    setTaskWorkflowFeedback((current) => {
+      const next = { ...current };
+      items.forEach((item) => { next[item.draftId] = null; });
+      return next;
+    });
+    try {
+      const result = await executePublishConfirmedTaskBatchCommand({
+        items,
+        publishItem: executePublishConfirmedTaskCommand,
+        onItemStart: (item) => {
+          setTaskBatchPublicationOperation((current) => current
+            ? { ...current, activeDraftId: item.draftId }
+            : current);
+          setTaskWorkflowFeedback((current) => ({
+            ...current,
+            [item.draftId]: { type: 'info', message: '正在发布当前题目…' },
+          }));
+        },
+        onItemComplete: (item) => {
+          setTaskWorkflowFeedback((current) => ({
+            ...current,
+            [item.draftId]: item.status === 'failed'
+              ? { type: 'error', message: item.message }
+              : { type: 'success', message: item.message },
+          }));
+        },
+      });
+      setTaskBatchPublicationResult(result);
+      await refresh({ materialVersionId: selectedMaterialId, planId: selectedPlanId });
+      const message = result.status === 'completed'
+        ? `已发布 ${result.completed} 道题目。`
+        : result.status === 'partially_completed'
+          ? `已发布 ${result.completed} 道，${result.failed} 道未完成，可单独重试。`
+          : `${result.failed} 道题目发布未完成，可重试。`;
+      setToast({ id: Date.now(), message });
+    } catch (error) {
+      setNotice(errorNotice(error));
+    } finally {
+      taskBatchPublicationInFlightRef.current = false;
+      setTaskBatchPublicationOperation(null);
     }
   }
 
@@ -1622,6 +1693,50 @@ export default function MaterialResourceProductionWorkbench() {
                     : `当前正在查看第 ${selectedPlan.revision} 版训练任务（${statusLabels[selectedPlan.status]}）。`}
               </div>
             )}
+            {(taskPublicationCandidates.length > 0 || taskBatchPublicationResult) && (
+              <section className="mt-4 border-t border-slate-200 pt-4" aria-labelledby="task-batch-publication-title">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 id="task-batch-publication-title" className="text-base font-semibold">正式发布</h3>
+                  {taskBatchPublicationResult && (
+                    <p
+                      role="status"
+                      className={`text-sm ${
+                        taskBatchPublicationResult.failed === 0
+                          ? 'text-emerald-700'
+                          : taskBatchPublicationResult.completed > 0
+                            ? 'text-amber-700'
+                            : 'text-red-700'
+                      }`}
+                    >
+                      已完成 {taskBatchPublicationResult.completed} 道
+                      {taskBatchPublicationResult.failed > 0
+                        ? `，${taskBatchPublicationResult.failed} 道未完成`
+                        : ''}
+                    </p>
+                  )}
+                </div>
+                {taskPublicationCandidates.length > 0 && (
+                  <div className="mt-3 flex justify-center">
+                    <button
+                      type="button"
+                      aria-busy={Boolean(taskBatchPublicationOperation)}
+                      disabled={Boolean(taskBatchPublicationOperation || taskWorkflowOperation || busy)}
+                      onClick={() => void runTaskPublicationBatch()}
+                      className="inline-flex h-10 w-[420px] max-w-full items-center justify-center gap-2 rounded-md bg-blue-700 px-5 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                    >
+                      {taskBatchPublicationOperation && (
+                        <LoaderCircle aria-hidden="true" size={18} className="animate-spin" />
+                      )}
+                      {taskBatchPublicationOperation
+                        ? `正在发布 ${taskPublicationCandidates.length} 道题目…`
+                        : taskPublicationCandidates.every((item) => item.action === 'retry_publication')
+                          ? `重试未完成题目（${taskPublicationCandidates.length}）`
+                          : `发布已确认题目（${taskPublicationCandidates.length}）`}
+                    </button>
+                  </div>
+                )}
+              </section>
+            )}
             <section className="mt-4 rounded-md bg-white px-4 py-5 sm:px-5" aria-labelledby="ai-observation-generator-title" aria-busy={generatorBusy}>
               <div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -1769,7 +1884,11 @@ export default function MaterialResourceProductionWorkbench() {
                 const workflowOperationKey = workflowTargetId
                   ? `${workflowTargetId}:${questionLifecycle.actionKind}`
                   : '';
-                const workflowBusy = taskWorkflowOperation === workflowOperationKey;
+                const batchWorkflowBusy = Boolean(
+                  questionLifecycle?.draft
+                  && taskBatchPublicationOperation?.draftIds.includes(questionLifecycle.draft.draftId),
+                );
+                const workflowBusy = taskWorkflowOperation === workflowOperationKey || batchWorkflowBusy;
                 const workflowFeedback = workflowTargetId
                   ? taskWorkflowFeedback[workflowTargetId]
                   : null;
@@ -1821,8 +1940,12 @@ export default function MaterialResourceProductionWorkbench() {
                               }}
                               className="text-[12px] font-medium text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-400 disabled:no-underline"
                             >
-                              {workflowBusy
-                                ? taskWorkflowLoadingLabel(questionLifecycle.actionKind)
+                              {batchWorkflowBusy
+                                ? taskBatchPublicationOperation?.activeDraftId === questionLifecycle?.draft?.draftId
+                                  ? '正在发布…'
+                                  : '等待发布…'
+                                : workflowBusy
+                                  ? taskWorkflowLoadingLabel(questionLifecycle.actionKind)
                                 : questionLifecycle.actionLabel}
                             </button>
                           </span>
