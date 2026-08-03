@@ -2,8 +2,8 @@
 
 英文名称：Formal Resource Production Contract Map
 
-状态：ACTIVE / P0-P7 FINAL INTEGRATION ACCEPTED
-文档版本：`formal_resource_production_contract_map_v2`
+状态：ACTIVE / SINGLE-PAGE PUBLICATION CONTRACTS ALIGNED / ENGINEERING PENDING
+文档版本：`formal_resource_production_contract_map_v3`
 更新日期：2026-08-03
 
 ## 一、目标与权威边界
@@ -14,7 +14,9 @@
 
 当本文摘要与正式契约不一致时，以对应职责范围内的正式契约为准，并同步修正本文。
 
-统一资源生产工作台已完成 P0-P7：对象关系、统一状态、命令边界、任务卡主链路、按任务部分发布、旧入口收口和最终端到端 Debug 均已验收。素材资源录入是唯一可写生产入口，旧题目工作台只承担安全适配与只读审计；现有字段、Assessment、Human Review、Freeze 和 Registry 契约继续约束各自领域边界。
+统一资源生产工作台是单人模式唯一可写生产与发布入口。素材录入、AI 规划、任务编辑、内联质量检查、人工发布决定和失败恢复在同一页面完成；旧题目工作台只承担安全适配与只读审计。页面只提供一次明确的“发布任务”，底层仍分别保存 Revision、Validation / Assessment、Human Review、Freeze、Formal Version 和 Registry 结果。
+
+P0-P7 既有对象关系、命令边界、任务卡主链路、按任务部分发布和端到端 Debug 已完成验收。本次单页发布收口属于现行契约升级，工程实现与回归状态以统一工作台契约和专项验收记录为准，不得用历史 P0-P7 结论提前宣称已完成。
 
 ## 二、正式资源生产主链
 
@@ -25,7 +27,7 @@ Material Version
 -> Question Lineage
 -> Question Draft Revision
 -> Contract Validation / Quality Assessment
--> Human Review
+-> Human Review Decision（由“发布任务”形成）
 -> Frozen Resource Version
 -> Registry / Active Link
 -> Formal Runtime
@@ -40,7 +42,7 @@ Material Version
 | Question Draft Revision | 承载可编辑、可校验、可送审的题目草稿 |
 | Contract Validation | 判断草稿结构是否合法，失败时阻断送审 |
 | Quality Assessment | 判断候选是否值得审核，输出可追溯的质量结论 |
-| Human Review | 由人工决定通过、退回修改或拒绝 |
+| Human Review Decision | 记录用户基于当前 Revision 与 Assessment Bundle 作出的发布决定，不要求独立审核页面 |
 | Frozen Resource Version | 形成不可静默修改的正式资源版本 |
 | Registry / Active Link | 指向当前可用的正式版本并管理启用关系 |
 | Formal Runtime | 消费正式资源，不回写或改写资源语义 |
@@ -68,8 +70,8 @@ AI Candidate Session
 | [单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) | 单个候选任务重新生成、采用、身份和版本边界 | 整组任务规划和正式题目发布 |
 | [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) | 补充候选、整组替代方案、工作草稿和批量采用边界 | 单题审核与 Frozen Resource 状态 |
 | [统一资源生产工作台契约](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md) | TrainingTask 与 QuestionLineage 关系、统一任务状态、任务卡主操作、部分发布和分阶段迁移 | 不替代字段、Assessment、Human Review、Freeze 与 Registry 的领域契约 |
-| [录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md) | 录入端负责改、审核端负责判、发布负责正式化的跨平台边界 | 每个页面字段和按钮的详细实现 |
-| [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md) | 审核、退回、通过、冻结、发布与恢复的具体工作流 | 上游 AI 候选生成与任务组规划 |
+| [录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md) | 编辑与检查、人工发布决定、正式化三类领域职责；这些职责不等于三个页面 | 每个页面字段和按钮的详细实现 |
+| [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md) | 任务卡内检查、人工发布决定、冻结、发布、部分失败与恢复的具体工作流 | 上游 AI 候选生成与任务组规划 |
 | [产品颜色语义规范](./PRODUCT_COLOR_SEMANTICS.md) | 跨平台状态色、操作色和组件颜色语义 | 业务状态本身及其转换规则 |
 
 ## 五、建议阅读顺序
@@ -100,7 +102,7 @@ AI Candidate Session
 2. [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md)；
 3. [录入字段契约](./AUTHORING_FIELD_CONTRACT.md)。
 
-### 5.5 开发审核、冻结与发布能力
+### 5.5 开发人工发布决定、冻结与恢复能力
 
 1. [录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md)；
 2. [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md)；
@@ -129,8 +131,8 @@ P0-P7 最终串联验收已于 2026-08-03 完成，统一命令为 `pnpm run deb
 | 单个训练任务候选、身份或 Revision 冲突 | [SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) |
 | 补充候选、整组规划或工作草稿冲突 | [TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) |
 | 统一入口、任务卡主状态、任务组汇总、部分发布或迁移顺序冲突 | [UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md) |
-| 录入端、审核端与发布端职责冲突 | [AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md) |
-| 审核状态、退回、冻结、发布或恢复冲突 | [QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md) |
+| 编辑与检查、人工发布决定、正式化职责冲突 | [AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md) |
+| Revision 绑定、内联检查、Human Review、冻结、发布或恢复冲突 | [QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md) |
 | 颜色、标签和操作组件语义冲突 | [PRODUCT_COLOR_SEMANTICS.md](./PRODUCT_COLOR_SEMANTICS.md) |
 
 ## 七、冲突裁决原则
@@ -166,6 +168,8 @@ P0-P7 最终串联验收已于 2026-08-03 完成，统一命令为 `pnpm run deb
 
 ## 十、当前结论
 
-正式资源生产已经形成从素材版本、训练任务规划、题目草稿、质量检查、人工确认到冻结发布和学习读取的可追溯主链。P0-P7 已完成最终聚合自动化、浏览器、失败恢复、学习入口、静态检查和生产构建验收；当前没有未解决 P0、P1 或 P2 缺陷。多人独立审核模式与 Bundle 性能优化属于后续独立决策，不影响最终串联放行结论。
+正式资源生产已经形成从素材版本、训练任务规划、题目草稿、内联质量检查、人工发布决定到冻结发布和学习读取的可追溯主链。单人模式的现行体验目标是一个页面、一次发布决定，不暴露常驻版本选择，也不重复进入审核或最终确认页面。Revision、Assessment、Human Review、Freeze 与 Registry 仍作为底层正式对象保留。
+
+历史 P0-P7 已完成最终聚合自动化、浏览器、失败恢复、学习入口、静态检查和生产构建验收；单页发布契约升级仍需完成对应工程实现和专项回归后才能更新为 Engineering Complete。多人独立审核模式与 Bundle 性能优化属于后续独立决策。
 
 本地图为产品、设计、开发和验收提供统一入口，使问题能够回到正确契约解决，而不是在页面实现或阶段文档中重复定义规则。

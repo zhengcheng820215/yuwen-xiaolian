@@ -2,13 +2,13 @@
 
 英文名称：Authoring Field Contract
 
-状态：DESIGN FROZEN / P0-P2 ENGINEERING COMPLETE / REAL-TASK ACCEPTANCE PENDING
-契约版本：`authoring_field_contract_v1`  
-更新日期：2026-07-29
+状态：DESIGN FROZEN / P0-P2 BASELINE COMPLETE / SINGLE-PAGE PUBLICATION ALIGNMENT DEFINED / ENGINEERING PENDING
+契约版本：`authoring_field_contract_v1.1`
+更新日期：2026-08-03
 
 ## 一、用途与权威边界
 
-本文冻结 Phase 17 素材资源录入平台与题目审核发布平台的核心录入字段职责，并作为以下能力的共同解释来源：
+本文冻结 Phase 17 统一资源生产工作台从素材录入、训练任务校准到正式发布所使用的核心字段职责，并作为以下能力的共同解释来源：
 
 1. 页面标签、说明、编辑入口与保存行为；
 2. Material Observation Plan 与 Question Draft 的字段适配；
@@ -117,7 +117,7 @@
 
 ### 4.1 Plan 管理的受控字段
 
-能力目标、任务用途和难度已经具备稳定的 Plan 与 Question Draft 路径。发布前必须以 Material Observation Plan 为唯一来源，题目审核发布平台只沿用和核对，不允许独立改写：
+能力目标、任务用途和难度已经具备稳定的 Plan 与 Question Draft 路径。发布前必须以 Material Observation Plan 为唯一来源，任务卡与发布编排只沿用和核对，不允许建立平行值：
 
 | 受控字段 | Material Observation Plan | Question Draft | 规则 |
 | --- | --- | --- | --- |
@@ -125,7 +125,7 @@
 | 任务用途 | `taskPlans[].taskRole` | `abilityMetadata.taskRole` | 必须沿用 Plan 的合法 `RecommendedTaskRole` |
 | 难度 | `taskPlans[].difficulty` | `abilityMetadata.difficulty` | 必须沿用 Plan 的合法 `QuestionResourceDifficulty` |
 
-页面可以展示三项受控字段，但不得在两个平台分别维护两套值。发现冲突时，应先按 Observation Task 重新同步当前 Plan 值；只有无法由适配规则解释或同步失败时才阻断发布。
+统一工作台可以展示三项受控字段，但不得在不同页面、卡片或兼容入口分别维护两套值。发现冲突时，应先按 Observation Task 重新同步当前 Plan 值；只有无法由适配规则解释或同步失败时才阻断发布。
 
 旧字段语义不确定时不得静默宣称映射正确。适配结果应记录来源：
 
@@ -212,13 +212,13 @@ AI 必须分别生成五项内容，不得先输出一段混合描述再由页�
 
 自检失败时只局部重写对应字段，不整题重生成。AI 局部重写只能修改本次操作明确授权的字段，不得修改其他字段。AI 仍无法可靠拆分时，必须返回明确的人工处理项和原因，不得伪装为已完成。
 
-## 七、检查、提醒与提交
+## 七、检查、提醒与发布
 
 ### 7.1 严重程度
 
 | 级别 | 行为 |
 | --- | --- |
-| 阻断错误 | 必填字段缺失、Schema 非法、题目绑定的能力、任务用途、材料范围等受控字段与当前 Plan 冲突且无法由适配规则解释、Assessment 已失效等；不得提交 |
+| 阻断错误 | 必填字段缺失、Schema 非法、题目绑定的能力、任务用途、材料范围等受控字段与当前 Plan 冲突且无法由适配规则解释、Assessment 已失效等；不得发布 |
 | 黄色提醒 | 高重复、职责边界不清、旧字段映射存疑、AI 无法可靠优化等；允许人工确认后提交 |
 | 信息提示 | 说明来源、版本或建议，不改变保存与提交权限 |
 
@@ -261,7 +261,7 @@ Draft ID
 
 ## 八、Assessment 失效原则
 
-任何影响正式质量判断的编辑操作，都必须使相关 Assessment 失效，并要求基于新 Revision 重新评估。
+任何影响正式质量判断的编辑操作，都必须使相关 Assessment 和尚未完成正式化的 Human Review Decision 失效，并要求基于新 Revision 重新评估。
 
 该规则适用于：
 
@@ -280,12 +280,15 @@ Draft ID
 请保存并重新检查
 ```
 
-提交规则：
+发布门禁规则：
 
-1. 存在阻断错误：不可提交；
+1. 存在阻断错误：不可发布；
 2. Assessment 已失效：必须重新检查；
-3. 仅存在黄色提醒：人工确认后可以提交；
+3. 仅存在黄色提醒：人工确认后可以发布；
 4. 不得继续使用旧 Revision 的 Assessment。
+5. 发布命令必须显式携带 `draftId`、`expectedRevisionId` 与当前 `assessmentBundleId`；
+6. Revision 或 Assessment 身份不一致时必须返回冲突，不得隐式读取“最新版本”；
+7. 已发布 Formal Resource 不因后续 Draft 修改而被覆盖。
 
 ## 九、页面信息层级
 
@@ -298,7 +301,7 @@ Draft ID
 
 评分标准、答案示例、作答判定、任务属性、设计依据和来源说明继续折叠。首层不再增加新的自由文本字段。
 
-素材资源录入平台负责形成和校准训练计划；题目审核发布平台沿用计划值，集中处理题目、评分标准、作答判定、质量检查、人工审核和发布。两个平台不得各自维护一套可独立漂移的能力、任务用途和难度。
+统一资源生产工作台在同一训练任务卡中形成并校准训练计划、题目、评分标准与作答判定，质量检查结果在卡内展示，用户通过“发布任务”形成最终人工决定。旧题目工作台和历史记录只读展示既有字段与审计链，不得维护一套可独立漂移的能力、任务用途和难度。
 
 ## 十、验收标准
 
@@ -316,6 +319,9 @@ Draft ID
 10. 旧数据适配后保存为新 Revision，不覆盖旧版本；
 11. 发布前能力目标沿用 `taskPlans[].abilityId`，任务用途沿用 `taskPlans[].taskRole`，难度沿用 `taskPlans[].difficulty`，三者在 Question Draft 中分别落到 `abilityMetadata.abilityId`、`abilityMetadata.taskRole` 和 `abilityMetadata.difficulty`；
 12. 真实十篇素材中，不同能力题型均能稳定生成职责分离的字段。
+13. 修改字段后任务卡不得继续显示旧 Assessment 为当前通过；
+14. “发布任务”必须绑定用户当前看到的 Revision 与 Assessment Bundle；
+15. 发布部分失败时不得回滚或覆盖已成功写入的正式对象，重试不得生成重复正式版本。
 
 ## 十一、实施顺序
 
@@ -361,7 +367,7 @@ P0 必须使用一条真实训练任务完成以下最小闭环：
 
 ## 十二、当前结论
 
-`authoring_field_contract_v1` 已完成产品与字段语义冻结，并已按本契约完成首轮工程校准：
+`authoring_field_contract_v1.1` 已完成产品与字段语义冻结，并已按 v1 范围完成首轮工程校准：
 
 1. 建立统一字段注册表，集中维护 UI 字段、Schema 路径、Validator 路径、AI 输出路径和编辑定位目标；
 2. 页面读取、保存恢复、Plan 受控字段同步、质量检查和定位修改已改为引用同一份字段契约；
@@ -369,6 +375,7 @@ P0 必须使用一条真实训练任务完成以下最小闭环：
 4. 核心字段修改后，旧 Assessment 与人工审核结果按当前 Revision 失效；
 5. AI 生成使用五字段结构化结果并校验稳定能力 ID；局部优化只能修改本次明确授权的字段；
 6. 旧数据映射会记录来源，对语义不确定的数据标记为需要人工确认。
+7. 单页发布对齐已冻结：字段继续由系统管理 Revision，用户不在生产主界面选择历史版本；点击“发布任务”必须消费当前 Revision 和 Assessment Bundle。
 
 当前状态为：
 
@@ -380,6 +387,7 @@ P1 Implementation: COMPLETE
 P1 Automated Regression: PASS
 P2 Implementation: COMPLETE
 P2 Automated Regression: PASS
+Single-page Publication Alignment: DESIGN DEFINED / ENGINEERING PENDING
 Legacy-draft Browser Load Smoke: PASS
 Real-task Browser Acceptance: PENDING
 Ten-material Calibration: PENDING

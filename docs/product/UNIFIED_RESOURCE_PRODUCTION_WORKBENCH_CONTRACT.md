@@ -2,22 +2,22 @@
 
 英文名称：Unified Resource Production Workbench Contract
 
-状态：DESIGN FROZEN / P0-P7 FINAL INTEGRATION ACCEPTED / AI QUANTITY CALIBRATION ENGINEERING IMPLEMENTED / REAL MATERIAL ACCEPTANCE PENDING
-文档版本：`unified_resource_production_workbench_v1.1`
+状态：DESIGN FROZEN / P0-P7 BASELINE ACCEPTED / SINGLE-PAGE PUBLICATION ALIGNMENT DEFINED / ENGINEERING PENDING
+文档版本：`unified_resource_production_workbench_v1.2`
 更新日期：2026-08-03
 
 ## 一、文档目标
 
-本文冻结素材录入、训练任务规划、题目修改、质量检查、最终确认与正式发布在统一工作台中的产品边界、对象关系、状态计算和迁移顺序。
+本文冻结素材录入、训练任务规划、题目修改、内联质量检查、一次人工发布确认与正式发布在统一工作台中的产品边界、对象关系、状态计算和迁移顺序。
 
 统一工作台的目标是让用户围绕同一组训练任务完成一条连续生产链：
 
 ```text
 素材录入
 -> AI 规划训练任务
--> 人工编辑与保存
--> 题目检查
--> 最终确认
+-> 人工编辑校准
+-> 自动检查并在任务卡内反馈
+-> 人工点击“发布任务”
 -> 正式发布
 ```
 
@@ -27,8 +27,8 @@
 
 1. 保存 Draft Revision；
 2. 运行 Contract Validation 与 Quality Assessment；
-3. 提交最终确认；
-4. 记录 Human Review Decision；
+3. 绑定当前 Revision 与 Assessment；
+4. 记录由“发布任务”动作形成的 Human Review Decision；
 5. Freeze 当前确认的 Revision；
 6. 创建 Formal Question Version；
 7. 更新 Registry 与材料观测关联。
@@ -71,7 +71,7 @@
 
 统一页面不得把保存、检查、确认和发布实现为一个不可追溯的写入操作。
 
-即使提供“确认通过并发布”快捷操作，内部也必须按顺序调用独立命令，并返回每一阶段的结果。
+前台只提供一次明确的“发布任务”主操作。该操作可以在应用层编排保存、检查、人工决定、Freeze 与 Registry 写入，但内部必须保持独立阶段、精确身份、幂等和失败恢复，不得实现为不可追溯的一次写入。
 
 ### 3.3 状态属于任务，不属于页面
 
@@ -146,13 +146,13 @@ type TrainingTaskQuestionBinding = {
 1. 只更新当前任务的活动草稿；
 2. 标记当前任务为 dirty；
 3. 使旧 Assessment 对当前活动内容失效；
-4. 使绑定旧 Revision 的最终确认失效；
+4. 使绑定旧 Revision 的人工发布确认失效；
 5. 不影响其他任务；
 6. 不覆盖已发布正式版本。
 
 ### 5.2 保存
 
-保存负责持久化当前任务内容，不等于检查、最终确认或发布。
+保存负责持久化当前任务内容，不等于检查、人工发布确认或正式发布。
 
 连续多次编辑在未形成正式检查或提交边界前，应优先复用当前活动 Revision，避免无意义堆积版本。
 
@@ -168,13 +168,13 @@ Assessment 必须绑定：
 4. 完整检查状态；
 5. 检查时间与执行结果。
 
-只有当前 Revision、当前规则版本且状态完成的 Assessment 才可用于最终确认。
+只有当前 Revision、当前规则版本且状态完成的 Assessment 才可用于人工发布确认。
 
-### 5.4 最终确认
+### 5.4 人工发布确认
 
-最终确认必须绑定精确的 `QuestionRevision` 和当前 Assessment。
+人工点击“发布任务”时形成的确认必须绑定精确的 `QuestionRevision` 和当前 Assessment Bundle。不得通过独立“提交最终确认”页面再次要求用户确认同一批内容。
 
-确认后正式字段只读。如需修改，必须退回当前任务进入修订状态，形成新 Revision 并重新检查。
+当前 Revision 被确认后进入正式化流程。正式版本形成后只读；如需修改，必须从同一 Lineage 创建新 Draft Revision 并重新检查。
 
 ### 5.5 发布
 
@@ -194,7 +194,6 @@ type TaskProductionCommand =
   | 'editTaskQuestion'
   | 'saveTaskDraft'
   | 'runTaskCheck'
-  | 'submitTaskForFinalConfirmation'
   | 'recordTaskConfirmationDecision'
   | 'returnTaskForRevision'
   | 'publishConfirmedTask'
@@ -210,12 +209,13 @@ type TaskProductionCommand =
 | `editTaskQuestion` | 活动草稿 | 不保存、不检查、不确认、不发布 |
 | `saveTaskDraft` | 当前活动 Draft / Revision | 不自动检查、不自动确认 |
 | `runTaskCheck` | 当前 Revision 的 Assessment | 不修改正式字段 |
-| `submitTaskForFinalConfirmation` | 提交记录 | 不形成通过决定、不发布 |
-| `recordTaskConfirmationDecision` | Human Review Decision | 不静默修改题目 |
+| `recordTaskConfirmationDecision` | 为当前 Revision 和 Assessment Bundle 写入 Human Review Decision | 不静默修改题目、不读取隐式最新 Revision |
 | `returnTaskForRevision` | 退回记录与任务状态 | 不创建第二个 Draft |
 | `publishConfirmedTask` | Freeze、Formal Version、Registry | 不重新审核、不覆盖旧正式版本 |
 | `retryTaskPublication` | 从已有发布结果继续 | 不重复创建已成功对象 |
 | `viewFormalQuestion` | 无 | 只读，不触发状态迁移 |
+
+前台“发布任务”是应用层编排动作，不是新的领域写入类型。它必须显式执行或恢复：`saveTaskDraft -> runTaskCheck -> recordTaskConfirmationDecision -> publishConfirmedTask`。任一阶段失败时停止后续阶段并返回可定位、可恢复的阶段结果。
 
 ### 6.1 P3 可执行命令契约
 
@@ -265,11 +265,10 @@ type TaskProductionCommandStageError<T = unknown> = Error & {
 
 1. `saveTaskDraft` 只在正式字段发生变化时创建一个新 Revision；内容未变化时复用当前 Revision；
 2. `runTaskCheck` 只为当前 Draft Revision 和当前规则版本写入 Assessment，不创建 Revision；
-3. `submitTaskForFinalConfirmation` 只创建或恢复当前 Revision 的提交记录，不形成 Human Review Decision；
-4. `recordTaskConfirmationDecision` 只绑定当前 Revision 写入审核决定，不修改 Draft；
-5. `publishConfirmedTask` 只消费已确认且未变化的 Revision；同一 Revision 重试必须复用 Freeze、Formal Version 和 Registry 结果；
-6. `retryTaskPublication` 必须从已持久化的成功阶段继续，不得重新创建已存在的审核决定、Freeze 或 Formal Version；
-7. `returnTaskForRevision` 返回原 Draft Lineage，后续修改产生新 Revision，不创建平行 Draft。
+3. `recordTaskConfirmationDecision` 只绑定显式传入的当前 Revision 与 Assessment Bundle 写入审核决定，不修改 Draft；
+4. `publishConfirmedTask` 只消费已确认且未变化的 Revision；同一 Revision 重试必须复用 Freeze、Formal Version 和 Registry 结果；
+5. `retryTaskPublication` 必须从已持久化的成功阶段继续，不得重新创建已存在的审核决定、Freeze 或 Formal Version；
+6. `returnTaskForRevision` 返回原 Draft Lineage，后续修改产生新 Revision，不创建平行 Draft。
 
 页面可提供“保存并重新检查”等组合动作，但组合只能存在于应用层命令执行器中。成功时返回 `TaskProductionCommandResult`；任一阶段失败时抛出 `TaskProductionCommandStageError`，由错误对象携带完整阶段结果。例如：
 
@@ -307,7 +306,7 @@ P3 至少验证：
 3. 提交成功、草稿创建失败后重试不重复提交训练计划；
 4. 审核决定成功、发布失败后保留审核结果并只重试发布；
 5. Registry 写入失败后复用已有 Freeze 和 Formal Version；
-6. 页面不再直接组合保存、检查、提交、确认和发布 API；
+6. 页面只调用应用层“发布任务”编排命令，不直接组合 Repository 或领域 API；
 7. 所有命令完成后，任务卡、总览和主操作读取同一个 Resolver 结果。
 
 ## 七、唯一生产状态解析
@@ -381,7 +380,7 @@ function resolveTaskProductionState(input: TaskProductionSource): TaskProduction
 }
 ```
 
-页面应显示“需要修改”，并提供“继续修改”；同时可提供次要链接“查看已发布题目”。不得因为存在旧正式版本而把当前任务误显示为“已发布完成”。
+页面应显示“需要修改”，并提供“继续修改”；同时可提供次要链接“查看正式资源”。不得因为存在旧正式版本而把当前任务误显示为“已发布完成”。
 
 ### 7.3 状态与主操作
 
@@ -392,13 +391,12 @@ function resolveTaskProductionState(input: TaskProductionSource): TaskProduction
 | `check_required` | 待检查 | 运行题目检查 |
 | `checking` | 正在检查 | 无，显示 Loading |
 | `revision_required` | 需要修改 | 继续修改 |
-| `pending_confirmation` | 待最终确认 | 进入最终确认 |
-| `confirmed` | 已确认，待发布 | 发布正式题目 |
+| `ready_to_publish` | 检查完成，可发布 | 发布任务 |
 | `publishing` | 正在发布 | 无，显示 Loading |
-| `publication_failed` | 发布未完成 | 重试发布 |
+| `publication_incomplete` | 已确认，发布未完成 | 重试发布 |
 | `published` | 已发布 | 查看正式题目 |
 
-`pending_confirmation` 可在内部继续区分“尚未提交确认”和“等待形成确认决定”，但任务卡仍只展示一个可理解的主状态。
+旧数据中的 `pending_confirmation` 与 `confirmed` 可以继续作为兼容读取状态，但不得在单人生产主界面形成两个独立操作步骤。当前 Revision 的有效 Assessment、人工提醒处理和发布前置条件共同决定是否投影为 `ready_to_publish`。
 
 ## 八、任务卡职责
 
@@ -408,9 +406,9 @@ function resolveTaskProductionState(input: TaskProductionSource): TaskProduction
 
 1. 训练任务编号或名称；
 2. 当前主状态；
-3. 唯一主操作；
+3. 当前质量状态；
 4. 来源、能力、难度、材料范围等少量辅助标签；
-5. 若存在正式版本，展示“查看已发布题目”次要入口。
+5. 题目正文首层外显，评分标准、答案示例和设计依据按需展开。
 
 来源信息和生命周期状态必须分开：
 
@@ -426,12 +424,11 @@ function resolveTaskProductionState(input: TaskProductionSource): TaskProduction
 卡片展开后根据 `primaryState` 呈现对应工作区：
 
 1. 编辑中：题目字段、评分规则与保存；
-2. 待检查：检查摘要与运行检查；
+2. 待检查：自动检查状态与 Loading；
 3. 需要修改：问题、原因、建议和定位修改；
-4. 待最终确认：只读内容、学生预览、待确认事项和确认决定；
-5. 已确认：发布准备和发布操作；
-6. 发布失败：阶段化失败结果和重试入口；
-7. 已发布：正式资源摘要和查看入口。
+4. 可发布：通过项摘要、人工关注和发布准备；
+5. 发布未完成：已完成阶段、失败原因和重试入口；
+6. 已发布：正式资源摘要。
 
 一个展开区不得同时展示多个阶段的主按钮。
 
@@ -445,8 +442,7 @@ function resolveTaskProductionState(input: TaskProductionSource): TaskProduction
 type TaskGroupProductionSummary = {
   total: number;
   editingOrCheckRequired: number;
-  pendingConfirmation: number;
-  confirmedNotPublished: number;
+  readyToPublish: number;
   published: number;
   aggregateState: 'empty' | 'in_progress' | 'ready' | 'partial' | 'published';
 };
@@ -462,8 +458,7 @@ function resolveTaskGroupSummary(
 
 ```text
 editingOrCheckRequired
-+ pendingConfirmation
-+ confirmedNotPublished
++ readyToPublish
 + published
 = total
 ```
@@ -475,8 +470,8 @@ editingOrCheckRequired
 | 派生状态 | 条件 |
 | --- | --- |
 | `empty` | 没有训练任务 |
-| `in_progress` | 至少一项任务仍在编辑、检查、确认或失败恢复 |
-| `ready` | 所有未发布任务均已确认，可执行发布 |
+| `in_progress` | 至少一项任务仍在编辑、检查或失败恢复 |
+| `ready` | 所有未发布任务均已通过当前检查并完成提醒处理，可执行发布 |
 | `partial` | 同时存在已发布任务和未完成任务 |
 | `published` | 所有任务均已发布 |
 
@@ -491,20 +486,20 @@ editingOrCheckRequired
 可发布任务必须同时满足：
 
 1. 当前活动 Revision 已形成有效 Assessment；
-2. 已形成绑定该 Revision 的最终确认决定；
-3. 确认后内容未变化；
+2. 非阻断人工关注已处理或显式接受；
+3. 发布命令将 Human Review Decision 绑定到该 Revision 与 Assessment Bundle；
 4. 该 Revision 尚未成功发布；
 5. 当前不存在不可恢复的发布冲突。
 
 ### 10.2 页面操作
 
-任务卡提供单项发布；任务组可提供：
+单人生产主界面提供：
 
 ```text
-发布已确认题目（N）
+发布任务（N）
 ```
 
-该操作只发布满足条件的任务。其他任务保留当前状态，不被自动删除、退回或重建。
+该操作只发布满足条件的当前任务。其他任务保留当前状态，不被自动删除、退回或重建。页面不得在该按钮之前再增加“提交最终确认”“进入审核”或版本选择步骤。
 
 ### 10.3 失败恢复
 
@@ -528,13 +523,37 @@ type BatchPublicationResult = {
 
 统一工作台建议固定为以下区域：
 
-1. 素材与任务组总览：只展示素材、版本和互斥状态数量；
+1. 素材区：录入或选择当前学习材料；
 2. AI 规划区：首次生成、补充生成、重新规划和候选采用；
-3. 训练任务列表：承载每项任务的状态、主操作和展开区；
-4. 任务组操作区：保存任务组、批量检查或发布已确认任务；
+3. 训练任务列表：承载题目正文、编辑、内联质量结果、提醒处理和展开区；
+4. 任务组操作区：重新生成、补充候选与“发布任务”；
 5. 历史与审计入口：查看 Revision、Assessment、Human Review 和正式版本。
 
 总览数据只负责导航和理解整体进度，具体状态原因与查看操作必须落到对应训练任务卡。
+
+### 11.2 单页发布与内联质量检查
+
+单人生产模式必须在同一工作台完成材料录入、任务生成、人工编辑、质量处理和正式发布，不得把当前任务再次导航到独立审核平台。
+
+任务卡内联展示质量结果：
+
+1. 通过项默认压缩为摘要；
+2. 黄色提醒显示原因、影响和“查看原因 / 修改 / 接受提醒”；
+3. 红色阻断直接定位对应字段，未解决前禁用发布；
+4. 任一正式字段修改后，旧 Assessment 与提醒接受记录立即失效并显示“需要重新检查”；
+5. 自动检查不形成 Human Review Decision；用户点击“发布任务”才形成绑定当前 Revision 的最终人工决定。
+
+“发布任务”必须携带 `draftId`、`expectedRevisionId` 与 `assessmentBundleId`。后台当前 Revision 不一致时返回 `QUESTION_DRAFT_REVISION_CONFLICT`，页面提示“版本已变化，请刷新后继续”，不得发布隐式最新版本。
+
+发布幂等键至少为：
+
+```text
+publish:{draftId}:{expectedRevisionId}
+```
+
+Freeze 成功而 Registry 或关联写入失败时，状态必须为“已确认，发布未完成”，并提供“重试发布”。重试复用已有 Human Review、Freeze、Formal Version 和正式身份，不得回退为“未发布”或重复创建版本。
+
+已发布 `FormalQuestionVersion` 永久只读。后续修改从同一 Question Lineage 创建新 Draft Revision，重新检查并生成后续正式版本，不得覆盖旧版本。
 
 ### 11.1 AI 规划数量与上下文
 
@@ -583,12 +602,14 @@ AI 规划区的产品行为统一为：
 ```text
 训练任务已保存
 题目检查已完成
-最终确认提交失败，可重试
+发布未完成，可重试
 ```
 
 不得只显示“操作失败”或长时间无响应。
 
-## 十四、实施顺序
+## 十四、历史实施顺序与验收记录
+
+本节及其后的 P0-P7 内容记录统一工作台形成过程中的历史迁移步骤和验收证据，其中出现的“提交最终确认”“进入最终确认”“待最终确认”及独立审核页操作均属于旧交互阶段，不再定义当前单人生产主界面。当前产品规则以第一至十三节，尤其是 5.4、7.3、11.2 和 12 节为准；历史领域身份、失败样例和验收证据继续保留用于追溯。
 
 ### P0：冻结契约与身份边界
 
@@ -943,7 +964,7 @@ type TaskPublicationBatchStatus =
 | `confirmed` | 已确认，待发布 | 发布正式题目 |
 | `publishing` | 正在发布 | Loading，不允许重复触发 |
 | `publication_failed` | 发布未完成 | 重试发布 |
-| `published` | 已发布 | 查看已发布题目 |
+| `published` | 已发布 | 查看正式资源 |
 
 任务组区域只承担：
 
@@ -958,7 +979,7 @@ type TaskPublicationBatchStatus =
 
 1. 点击单项或批量发布后，触发按钮必须在同一渲染帧进入 Loading，不能只显示不可点击的普通禁用态；
 2. 批量发布期间每张任务卡独立显示进度，完成一项即更新一项，不等待整批结束后统一刷新；
-3. 成功可以使用短 Toast，但任务卡必须保留持久的“已发布”状态和“查看已发布题目”入口；
+3. 成功可以使用短 Toast，但任务卡必须保留持久的“已发布”状态和“查看正式资源”入口；
 4. 失败提示必须靠近对应任务动作；位于页面顶部且用户当前不可见的全局提示不能作为唯一反馈；
 5. 同一 `trainingTaskId + confirmedRevisionId` 同时只允许一个在途发布请求；完成、失败和抛错后都必须释放锁；
 6. Revision 冲突只使当前任务失败并提示刷新，不得阻断同批其他任务；
@@ -1006,11 +1027,20 @@ P6 必须同时完成“删除”和“保留”两件事：删除重复写入�
 #### P6.1 唯一入口与页面职责
 
 1. `MaterialResourceProductionWorkbench` 是训练任务生产的唯一可写主入口；任务卡负责展示当前状态、唯一下一步动作和已发布资源入口；
-2. `QuestionResourceWorkbench` 不再作为与素材工作台并列的第二个生产平台；它只承担从任务卡进入的题目详情、检查、最终确认、发布准备，以及历史链接的只读兼容；
+2. `QuestionResourceWorkbench` 不再作为与素材工作台并列的第二个生产平台；它只承担历史链接的只读兼容，不再作为当前任务卡的默认详情入口；
 3. `mode=plan-review` 仅允许处理当前任务卡明确打开的活动 Draft，不得从页面自行创建另一项 TrainingTask、QuestionLineage 或活动 Draft；
 4. `mode=task-detail` 默认只读，用于查看历史 Revision、检查记录、人工决定和正式版本；
 5. 首页、内部入口和旧深链不得继续把 `/question-resource-workbench` 暴露为独立录入或审核入口；需要修改时必须返回素材工作台并恢复同一素材、计划、训练任务和 Draft；
-6. 预览、审核记录、技术信息和已发布资源详情可以继续存在，但不得提供绕过任务卡状态和 Command Runtime 的写操作。
+6. 预览、审核记录、技术信息和已发布资源详情可以继续存在，但当前生产主链必须在任务卡内展示，并且不得提供绕过任务卡状态和 Command Runtime 的写操作。
+
+#### P6.1A 任务内容与正式资源查看边界
+
+1. 任务卡是当前训练任务内容的唯一默认查看入口，直接展示能力目标、题目、学生任务和观察目标；评分标准、答案示例、设计依据和任务属性继续在卡片内按需展开；
+2. 当前主流程不再提供独立“题目详情”入口，也不得为了查看任务内容跳转到 `QuestionResourceWorkbench`；
+3. 已发布任务的动作统一命名为“查看正式资源”，并在当前任务卡内展开只读追溯信息，包括发布状态、正式资源身份、正式版本、来源 Draft 和 Material Version；
+4. 当已发布版本与新活动 Revision 并存时，新 Revision 仍是任务卡主状态，“查看正式资源”只作为辅助动作，不得遮蔽保存、检查或最终确认；
+5. `mode=task-detail` 仅保留给旧书签、历史审核记录和既有深链使用，不再由统一生产工作台生成；该兼容页面始终只读，不得创建 Draft、Revision、Review 或 Formal Resource；
+6. 计划级“查看确认与发布记录”不得重新引入独立详情页面；正式资源追溯按任务在任务卡内查看。
 
 #### P6.2 旧能力处置分类
 
@@ -1130,8 +1160,9 @@ P6 已按“先识别入口 -> 再冻结访问模式 -> 降级旧地址 -> 收�
 3. `mode=task-detail` 且身份完整时保留只读生产详情，用于查看题目内容、检查记录、生产状态和正式资源；
 4. 缺少身份、未知模式和独立访问 `/question-resource-workbench` 时统一进入 `legacy_adapter`，只显示迁移说明和返回素材工作台入口，不载入工作区，也不创建 Draft、Revision、Review 或正式资源；
 5. 首页与内部学习审查页已移除独立题目工作台入口，统一指向 `/material-resource-workbench`；
-6. 素材工作台仍可携带完整身份打开 `plan-review` 和 `task-detail`，因此历史详情、任务级检查、最终确认与发布链没有被旧入口封口误伤；
-7. 保存、检查、提交、人工决定、发布和失败恢复仍由原有独立 Command 承担，未因页面入口收口而合并生命周期动作。
+6. 素材工作台只携带完整身份打开 `plan-review`；它不再生成 `task-detail` 链接，旧 `task-detail` 地址仍可由兼容层只读解析；
+7. 保存、检查、提交、人工决定、发布和失败恢复仍由原有独立 Command 承担，未因页面入口收口而合并生命周期动作；
+8. 任务卡内新增“查看正式资源”追溯区，发布状态、正式资源身份、正式版本、来源 Draft 与 Material Version 均在当前上下文中只读展示；计划级重复详情按钮同步移除。
 
 自动化 Debug 结果：
 
@@ -1151,6 +1182,8 @@ P6 已按“先识别入口 -> 再冻结访问模式 -> 降级旧地址 -> 收�
 3. 有效 `plan-review` 深链正常恢复同一批题目及已发布状态；
 4. 有效 `task-detail` 深链显示只读“题目生产详情”，并明确生产动作应回到对应训练任务；
 5. 上述路径浏览器控制台均无错误日志。
+
+2026-08-03 补充验收：点击任务卡“查看正式资源”后，页面 URL 保持在素材工作台，卡片内追溯区自动展开，正式版本、资源 ID、来源 Draft 与 Material Version 可见；生产构建、任务状态 Debug 和旧深链兼容 Debug 通过。
 
 P6 的完成结论仅表示旧并列入口和第二写链已经收口。P7 仍需执行完整生产链、部分发布、失败恢复、学习入口及历史数据兼容的最终端到端验收。
 
@@ -1404,7 +1437,7 @@ P0 以契约冻结为主，同时允许落地不改变写入语义的纯读取�
 2. `resolveTaskGroupSummary()` 只对互斥主状态计数，且各分类之和必须等于任务总数；旧名 `summarizeTaskProductionViews()` 仅作过渡别名；
 3. `TrainingTaskQuestionBinding` 明确 `trainingTaskId`、`questionLineageId`、活动 Draft、当前 Revision、已确认 Revision 与最新 Formal Version 的身份；
 4. 正式版本来源草稿使用 `sourceDraftId`，当前返修草稿使用 `activeRepairDraftId`，两者不得继续复用同一个含糊字段；
-5. 当旧正式版本与新活动草稿并存时，新草稿状态是任务卡主状态，“查看已发布题目”仅作为辅助动作；
+5. 当旧正式版本与新活动草稿并存时，新草稿状态是任务卡主状态，“查看正式资源”仅作为辅助动作；
 6. 该护栏只统一读取结果，不修改保存、检查、最终确认、发布和失败重试命令。
 
 ## 十六、后续工程验收场景
@@ -1540,13 +1573,13 @@ type TaskProductionSummary = {
 | `confirmed` | 已确认，待发布 | 发布正式题目 |
 | `publishing` | 正在发布 | 无，显示 Loading |
 | `publication_failed` | 发布未完成 | 重试发布 |
-| `published` | 已发布 | 查看已发布题目 |
+| `published` | 已发布 | 查看正式资源 |
 
 ### 20.5 已发布版本与新 Revision 并存
 
 1. 当 `publication.sourceDraftId === activeDraft.draftId` 时，正式版本属于当前 Draft，主状态可为 `published`；
 2. 当两者不同时，正式版本属于历史 Revision，当前新 Revision 的状态必须成为主状态；
-3. 此时“查看已发布题目”仅作辅助操作，不得遮蔽新 Revision 的保存、检查或最终确认操作。
+3. 此时“查看正式资源”仅作辅助操作，不得遮蔽新 Revision 的保存、检查或最终确认操作。
 
 ### 20.6 P1 验收标准
 
@@ -1564,7 +1597,7 @@ type TaskProductionSummary = {
 1. 统一产出 `presentation`，集中管理状态文案、语义颜色、Loading 标记和主操作文案；
 2. 素材工作台任务卡与顶部互斥数量统计改为直接消费统一投影；
 3. 题目流程投影增加 `productionState`，保留页面子状态但不再独立解释主生命周期；
-4. 已发布版本与新 Revision 并存时，任务卡展示新 Revision 主操作，并额外提供“查看已发布题目”；
+4. 已发布版本与新 Revision 并存时，任务卡展示新 Revision 主操作，并额外提供“查看正式资源”；
 5. 扩展 Debug 用例，覆盖主状态、主操作、数量守恒、聚合状态与题目页投影一致性。
 
 ### 20.8 P1 Debug 验收记录（2026-07-31）
@@ -1602,7 +1635,7 @@ P2 只调整录入端任务卡的读取与操作呈现，不改变 Draft、Revis
 2. `状态`：只展示 `resolveTaskProductionState()` 返回的单一主状态；
 3. `下一步`：只外显当前推荐主操作；
 4. 任务属性：继续展示训练方向、能力、难度、材料范围和任务用途；
-5. 历史正式版本：当新修改与已发布版本并存时，仅提供“查看已发布题目”辅助操作。
+5. 历史正式版本：当新修改与已发布版本并存时，仅提供“查看正式资源”辅助操作。
 
 禁止再次并列展示“训练计划状态”和“题目状态”，也禁止组件自行根据 `reviewStatus`、`publicationStatus` 或检查结果拼装第二套状态。
 

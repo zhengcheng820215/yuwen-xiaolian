@@ -2,25 +2,23 @@
 
 英文名称：Question Review and Publication Workflow Contract
 
-状态：DESIGN FROZEN / P0 ENGINEERING ALIGNED / P1 ALIGNED / P2 OBSERVABILITY AND ATOMIC PUBLICATION ALIGNED
-契约版本：`question_review_publication_workflow_v1.3`
-更新日期：2026-07-31
+状态：DESIGN FROZEN / SINGLE-PAGE PUBLICATION ALIGNMENT DEFINED / ENGINEERING PENDING
+契约版本：`question_review_publication_workflow_v1.4`
+更新日期：2026-08-03
 
 ## 一、用途与权威边界
 
-本文冻结 Phase 17 题目审核与发布平台的工作流、信息层级、操作语义、质量问题分级和页面区域职责。
+本文冻结 Phase 17 题目检查、人工发布决定与正式发布的领域工作流、信息层级、操作语义和质量问题分级。单人生产模式由统一资源生产工作台承载，不再要求独立题目审核平台作为主入口。
 
-题目审核与发布平台的唯一主任务是：
+面向用户的主链收口为：
 
 ```text
-题目检查
-→ 最终确认
-→ 正式发布
+任务卡内编辑与检查
+→ 人工点击“发布任务”
+→ 正式发布或可恢复失败
 ```
 
-以上三步是面向用户的信息架构，不合并底层领域动作。系统内部仍依次保留提交人工审核、
-记录 Human Review Decision、Freeze 与正式发布，不得因为前台步骤收敛而合并为一个
-不可追溯接口。
+“发布任务”是一次用户动作，不是一次不可追溯的领域写入。系统内部仍依次保留保存 Revision、Validation / Assessment、记录 Human Review Decision、Freeze、Formal Version 与 Registry 写入，并持久化每一阶段结果。
 
 平台不要求用户一次性理解所有 Schema、来源、版本和内部质量字段，也不承担训练任务规划或 Material Observation Plan 的重新设计。
 
@@ -36,19 +34,19 @@
 
 本文描述的是完整平台工作流，不要求同一用户完成所有阶段。内容编辑者、审核者和发布者可以是同一用户，也可以由后续权限模型分离；无论角色如何分配，各阶段的数据、Revision 和状态边界不得改变。
 
-录入端、审核端与发布过程的职责划分以“录入、审核与发布职责边界契约”为准。本文中涉及内容修改、质量问题处理和“定位修改”的规则，默认属于提交人工审核前的录入阶段；进入 `pending_review` 后，审核端只读并只负责接受或退回，不再直接修改正式内容。
+内容编辑、人工裁决与正式化的职责划分以“录入、审核与发布职责边界契约”为准。职责边界不再等同于页面边界：在单人模式中，编辑、内联质量处理和人工发布决定可以在同一任务卡连续完成；多人模式才可恢复独立只读审核入口。
 
 ## 二、平台主任务与非目标
 
 ### 2.1 用户进入平台需要完成什么
 
-审核者进入平台后，只需要依次回答五个问题：
+用户在统一工作台中只需要依次回答五个问题：
 
 1. 当前正在处理哪一道题；
 2. 题目、学生任务和评分规则是否正确；
 3. 系统发现了哪些必须处理或需要关注的问题；
 4. 当前内容是否已经保存并基于最新 Revision 完成检查；
-5. 当前题目是否可以进入最终确认或正式发布。
+5. 当前题目是否可以发布；若不能，下一步具体修改什么。
 
 ### 2.2 平台不负责什么
 
@@ -112,9 +110,9 @@
 
 系统检查通过不等于人工审核通过，也不等于已经发布。
 
-### 3.3 右侧题目列表
+### 3.3 训练任务列表
 
-右侧列表只承担批次导航，不承担编辑：
+统一工作台的训练任务列表承担当前批次导航；题目正文外显，详细字段在任务卡内展开编辑：
 
 1. 使用稳定题号，不因筛选状态重新编号；
 2. 展示题目摘要、生命周期状态和未处理问题数量；
@@ -124,7 +122,9 @@
 
 题目内容应完整可读，空间不足时可以通过展开或主编辑区查看，不得以不可交互的省略号隐藏关键内容。
 
-## 四、页面区域职责
+## 四、单页工作区职责
+
+本节所称编辑区、预览区、质量问题区和发布操作区均属于统一资源生产工作台的内联区域，不代表独立审核页面。
 
 | 页面区域 | 唯一职责 | 禁止行为 |
 | --- | --- | --- |
@@ -260,6 +260,8 @@ type CurrentAssessmentState =
 | 拒绝采用 | 不修改题目内容 | 不创建 Revision | 保留追溯 | 为当前 Revision 记录拒绝决定 |
 | 发布正式题目 | 不修改 Draft 内容 | 不创建新的 Draft Revision | 只消费当前有效检查 | 对审核通过的当前 Revision Freeze，并幂等创建正式版本 |
 
+单人模式前台只提供“发布任务”。该应用层动作顺序执行或恢复“保存当前修改、检查当前 Revision、记录人工决定、发布正式题目”，但每个领域动作仍遵守上表，不得隐式读取最新 Revision 或跳过 Assessment 当前性校验。
+
 ### 6.2 保存规则
 
 保存草稿必须满足：
@@ -306,7 +308,7 @@ type HumanReviewBinding = {
 };
 ```
 
-系统检查通过不得自动创建人工审核通过决定。
+系统检查通过不得自动创建人工审核通过决定。单人模式中，用户点击“发布任务”即为明确的人工决定输入；系统必须把该决定绑定到点击时可见的当前 Revision 与 Assessment Bundle，而不是自动批准或隐式读取后台最新版本。
 
 录入人员对非阻断提醒的保留确认与审核人员的接受决定必须分别持久化。审核人员的决定至少绑定：
 
@@ -329,7 +331,7 @@ P0 以 `assessmentId + warningCode` 绑定当前 Warning；独立
 
 ### 6.6 发布规则
 
-发布前必须在页面上提前展示发布准备状态。禁止用户点击发布后才首次看到系统已经知道的阻断项。
+发布前必须在任务卡内提前展示发布准备状态。禁止用户点击发布后才首次看到系统已经知道的阻断项。
 
 发布前检查至少包括：
 
@@ -354,7 +356,7 @@ Freeze 当前审核通过的 Revision
 → 写入 ResourceObservationLink
 ```
 
-正式主链必须先完成 Plan、Task、Material、当前 Assessment 和 Human Review 的一致性检查，再通过一个 Repository Command 原子写入 Version、Registry、Quality Trace 与 Observation Link。任一对象无法准备或持久化时，本次提交整体失败，不得留下新的部分正式状态。
+正式主链必须先完成 Plan、Task、Material、当前 Assessment 和 Human Review 的一致性检查，再通过应用层发布命令依次持久化 Freeze、Version、Registry、Quality Trace 与 Observation Link。若底层存储无法提供跨阶段事务，必须保存可恢复进度；已经成功的 Human Review、Freeze 或 Formal Version 不得回滚、覆盖或重复创建。
 
 重复执行同一发布命令必须复用同一组正式身份；当四个对象均已存在且内容一致时，Repository 返回幂等成功，不得增加共享存储 Revision。
 
@@ -377,15 +379,45 @@ type PublicationProgress = {
 
 恢复规则：
 
-1. 新发布不得产生只包含部分对象的正式状态；
+1. 新发布若发生部分成功，必须进入 `publication_incomplete`，不得伪装成“未发布”或“已发布”；
 2. 若读取到历史部分状态，重试必须复用原 `resourceVersionId`；
 3. 历史恢复只补齐缺失的 Registry、Quality Trace 或 Observation Link，不得再次 Freeze 或提高版本号；
 4. 同一 `draftId` 和同一审核通过 Revision 必须得到同一个正式版本；
 5. 页面应明确显示“发布未完成，可继续完成发布”，不得把历史部分成功伪装成完全失败；
 6. 发布完成前不得让 Runtime 把缺少有效 Registry 或 Observation Link 的版本视为可用正式资源；
 7. 历史正式版本不得因重试或补写关联被覆盖；
-8. Human Review 已成功但 Publication 失败时，页面显示“审核已通过，发布未完成”并提供“重试发布”；
+8. Human Review 已成功但 Publication 失败时，页面显示“已确认，发布未完成”并提供“重试发布”；
 9. 发布失败不得把审核状态回滚为待审核，也不得重复创建 Human Review Decision。
+
+### 6.8 单页发布编排
+
+统一工作台不得再展示独立“提交最终确认”模块、版本选择器或跳转到另一生产页面的“进入审核”按钮。
+
+前台主操作固定为：
+
+```text
+发布任务
+```
+
+调用至少携带：
+
+```ts
+type PublishTaskRequest = {
+  draftId: string;
+  expectedRevisionId: string;
+  assessmentBundleId: string;
+};
+```
+
+处理规则：
+
+1. `expectedRevisionId` 与当前持久化 Revision 不一致时返回 `QUESTION_DRAFT_REVISION_CONFLICT`；
+2. Assessment 不属于该 Revision、规则版本已变化或检查未完成时阻断发布；
+3. 黄色提醒可以由用户在任务卡内接受，接受记录绑定当前 Revision 与 Assessment；
+4. 红色阻断必须定位修改，不能通过接受绕过；
+5. 幂等键使用 `publish:{draftId}:{expectedRevisionId}` 或等价稳定身份；
+6. 成功后状态为 `published`；部分成功为 `publication_incomplete` 并提供“重试发布”；
+7. 已发布正式版本不可覆盖，后续修改创建同一 Lineage 下的新 Draft Revision。
 
 ## 七、质量问题分级
 
@@ -869,7 +901,9 @@ acceptReviewAttention
 
 P2 后续仅剩真实十素材校准。
 
-## 十七、2026-07-30 检查记录门禁与操作层级
+## 十七、历史工程对齐与迁移记录
+
+本节及其后的 2026-07-30 工程记录保留旧审核平台形成过程、回归证据和兼容要求。其中“提交最终确认”“进入最终确认”、审核页签、右侧批次栏及独立页面跳转属于历史交互，不再定义当前单人生产主界面。当前交互以第一至十六节，尤其是 6.8 为准；其中 Revision、Assessment、Human Review、Freeze、幂等与失败恢复规则仍继续有效。
 
 ### 17.1 唯一门禁
 

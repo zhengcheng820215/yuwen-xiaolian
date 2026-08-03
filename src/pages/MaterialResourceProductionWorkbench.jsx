@@ -271,7 +271,7 @@ export default function MaterialResourceProductionWorkbench() {
         )),
       },
       {
-        label: '当前版本已通过结构校验',
+        label: '当前训练计划已通过结构校验',
         passed: Boolean(selectedValidation?.passed),
       },
     ];
@@ -699,14 +699,6 @@ export default function MaterialResourceProductionWorkbench() {
     });
   }
 
-  function openQuestionSummaryItem(item) {
-    const params = new URLSearchParams({ mode: 'task-detail' });
-    if (item.materialObservationPlanId) params.set('planId', item.materialObservationPlanId);
-    if (item.materialVersionId) params.set('materialVersionId', item.materialVersionId);
-    if (item.draftId) params.set('draftId', item.draftId);
-    navigate(`/question-resource-workbench?${params.toString()}`);
-  }
-
   function openQuestionRepairItem(item) {
     const params = new URLSearchParams({ mode: 'plan-review' });
     if (item.materialObservationPlanId) params.set('planId', item.materialObservationPlanId);
@@ -756,10 +748,7 @@ export default function MaterialResourceProductionWorkbench() {
       }
       return;
     }
-    if (actionKind === 'open_detail') {
-      openQuestionSummaryItem(item);
-      return;
-    }
+    if (actionKind === 'view_formal_resource') return;
     if (!draft) return;
 
     const operationKey = `${draft.draftId}:${actionKind}`;
@@ -816,10 +805,7 @@ export default function MaterialResourceProductionWorkbench() {
           expectedDraftRevision: draft.revision,
           retryExistingPublication: actionKind === 'retry_publication',
         });
-      } else {
-        openQuestionSummaryItem(item);
-        return;
-      }
+      } else return;
       await refresh({ materialVersionId: selectedMaterialId, planId: selectedPlanId });
       const successMessage = {
         run_check: '题目检查已完成。',
@@ -891,14 +877,6 @@ export default function MaterialResourceProductionWorkbench() {
       taskBatchPublicationInFlightRef.current = false;
       setTaskBatchPublicationOperation(null);
     }
-  }
-
-  function openSelectedPlanQuestionReview() {
-    if (!selectedPlan) return;
-    openQuestionSummaryItem({
-      materialObservationPlanId: selectedPlan.materialObservationPlanId,
-      materialVersionId: selectedPlan.materialVersionId,
-    });
   }
 
   function requestLoadBatchA() {
@@ -1154,7 +1132,7 @@ export default function MaterialResourceProductionWorkbench() {
       setNotice({
         type: 'success',
         message: result.changed
-          ? '候选已替换当前任务的编辑内容。保存任务组并重新检查前，不会创建新版本。'
+          ? '候选已替换当前任务的编辑内容。确认任务并保存前，不会创建新版本。'
           : '候选与当前任务没有实质差异，编辑内容未改变。',
       });
     } catch (error) {
@@ -1707,15 +1685,11 @@ export default function MaterialResourceProductionWorkbench() {
                 />
               </div>
             </div>
-            {selectedPlan && (
-              <div className={`mt-4 border-l-4 px-4 py-3 text-sm leading-6 ${taskEditorDirty ? 'border-amber-500 bg-amber-50 text-amber-950' : 'border-blue-500 bg-blue-50 text-blue-950'}`}>
-                {taskEditorDirty
-                  ? ['draft', 'revision_required'].includes(selectedPlan.status)
-                    ? '正在修改工作草稿。保存会更新当前草稿并重新检查，不会新增版本。'
-                    : `正在基于第 ${selectedPlan.revision} 版修改。首次保存会创建一份工作草稿。`
-                  : ['draft', 'revision_required'].includes(selectedPlan.status)
-                    ? '当前正在查看工作草稿。重复保存只更新当前草稿，提交审核时才冻结为正式版本。'
-                    : `当前正在查看第 ${selectedPlan.revision} 版训练任务（${statusLabels[selectedPlan.status]}）。`}
+            {selectedPlan && taskEditorDirty && (
+              <div className="mt-4 border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+                {['draft', 'revision_required'].includes(selectedPlan.status)
+                  ? '正在修改工作草稿。保存会更新当前草稿并重新检查，不会新增版本。'
+                  : `正在基于第 ${selectedPlan.revision} 版修改。首次保存会创建一份工作草稿。`}
               </div>
             )}
             {(taskPublicationCandidates.length > 0 || taskBatchPublicationResult) && (
@@ -1762,7 +1736,7 @@ export default function MaterialResourceProductionWorkbench() {
                 )}
               </section>
             )}
-            <section className="mt-4 rounded-md bg-white px-4 py-5 sm:px-5" aria-labelledby="ai-observation-generator-title" aria-busy={generatorBusy}>
+            <section className="mt-4 rounded-md bg-white p-4 sm:p-5" aria-labelledby="ai-observation-generator-title" aria-busy={generatorBusy}>
               <div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <h3 id="ai-observation-generator-title" className="text-base font-semibold">AI规划训练任务</h3>
@@ -1770,7 +1744,6 @@ export default function MaterialResourceProductionWorkbench() {
                     {generatorStatus?.status === 'ready' ? 'AI 服务可用' : 'AI 服务未配置'}
                   </span>
                 </div>
-                <p className="mt-2 text-sm leading-6 text-slate-600">AI 根据学习材料生成可编辑的训练任务和评分标准。生成内容需人工确认后才能保存、送审或发布。</p>
               </div>
               <div className="mt-4 space-y-4">
                 <div>
@@ -1778,11 +1751,7 @@ export default function MaterialResourceProductionWorkbench() {
                   <div className="mt-1 flex min-h-10 items-center rounded-md border border-slate-300 bg-slate-50 px-3 text-sm font-normal text-slate-700">初中</div>
                 </div>
                 <div>
-                  <p className="text-sm font-medium">任务数量建议</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">AI 会根据材料推荐 2–3 个彼此独立的训练任务，不会为凑数量降低质量。</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">
+                  <p className="text-sm font-semibold">
                     训练方向
                     <span className="ml-2 font-normal text-slate-500">（可选 2 项，默认由 AI 判断）</span>
                   </p>
@@ -1807,7 +1776,7 @@ export default function MaterialResourceProductionWorkbench() {
                 </div>
               </div>
               <div className="mt-4">
-                <p className="text-sm font-medium">
+                <p className="text-sm font-semibold">
                   训练能力
                   <span className="ml-2 font-normal text-slate-500">（可选 2 项，默认由 AI 判断）</span>
                 </p>
@@ -1826,33 +1795,8 @@ export default function MaterialResourceProductionWorkbench() {
                     ? '当前素材尚无已保存的训练任务，可以开始生成。'
                     : '再次生成时，系统会参考当前素材已有的训练任务，优先生成不同的训练内容。'}
               </div>
-              <div className={`mt-4 flex justify-center ${selectedPlan ? 'flex-col items-center gap-2 sm:flex-row sm:items-start' : ''}`}>
-                {selectedPlan ? (
-                  <>
-                    <div className="flex w-52 flex-col items-center">
-                      <button
-                        type="button"
-                        onClick={planReplacementGroup}
-                        disabled={!commandAvailability.planReplacementGroup.enabled}
-                        title={commandAvailability.planReplacementGroup.reason}
-                        className="ai-button-outline inline-flex h-10 w-full items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        {generatorOperation === 'replace_group' ? '正在重新生成…' : '重新生成整组任务'}
-                      </button>
-                    </div>
-                    <div className="flex w-52 flex-col items-center">
-                      <button
-                        type="button"
-                        onClick={planSupplementCandidates}
-                        disabled={!commandAvailability.planSupplementCandidates.enabled}
-                        title={commandAvailability.planSupplementCandidates.reason}
-                        className="ai-button-solid inline-flex h-10 w-full items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        {generatorOperation === 'supplement_group' ? '正在补充候选…' : '补充生成候选任务'}
-                      </button>
-                    </div>
-                  </>
-                ) : (
+              {!selectedPlan && (
+                <div className="mt-4 flex justify-center">
                   <button
                     type="button"
                     onClick={planReplacementGroup}
@@ -1862,8 +1806,8 @@ export default function MaterialResourceProductionWorkbench() {
                   >
                     {generatorBusy ? '正在分析素材并生成训练任务…' : 'AI根据素材生成训练任务'}
                   </button>
-                )}
-              </div>
+                </div>
+              )}
               {taskEditorDirty && selectedPlan && (
                 <p className="mt-2 text-xs leading-5 text-amber-700">请先保存当前任务组修改，再生成新的候选方案。</p>
               )}
@@ -1879,12 +1823,7 @@ export default function MaterialResourceProductionWorkbench() {
                   onDiscard={discardCandidates}
                 />
               )}
-            </section>
-            {taskReviewGroups.length > 0 && (
-              <TaskReviewOverview groups={taskReviewGroups} onAction={focusTaskIssue} />
-            )}
-
-            <div className="mt-5 space-y-3">
+            <div className="mt-6 space-y-3">
               {taskReviewGroups.map(({ task, index, issues }) => {
                 const taskEditable = task.sourceType !== 'ai_assisted' || editableTaskIds.has(task.localId);
                 const questionLifecycle = taskQuestionLifecycleById.get(
@@ -1909,21 +1848,19 @@ export default function MaterialResourceProductionWorkbench() {
                   data-task-editor={task.localId}
                   key={task.localId}
                   open={issues.length > 0 || task.editorDirty ? true : undefined}
-                  className="group rounded-md bg-white p-4 sm:p-5"
+                  className="group rounded-md border border-slate-200 bg-white p-4 transition-colors open:border-blue-300 sm:p-5"
                 >
                   <summary className="flex cursor-pointer list-none items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <h3 className="text-base font-semibold">{taskEditorTitle(index)}</h3>
-                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs" aria-label="训练任务来源与状态">
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="text-slate-500">来源：</span>
-                          <TaskSourceBadge task={task} />
-                        </span>
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="text-slate-500">状态：</span>
-                          <TaskQuestionLifecycleBadge lifecycle={questionLifecycle} />
-                        </span>
-                        {questionLifecycle?.actionLabel && (
+                      <div className="flex flex-wrap items-center gap-2" aria-label="训练任务标题、来源与状态">
+                        <h3 className="mr-1 text-sm font-bold">{taskEditorTitle(index)}</h3>
+                        <TaskSourceBadge task={task} />
+                        <TaskQuestionLifecycleBadge lifecycle={questionLifecycle} />
+                      </div>
+                      {questionLifecycle?.actionLabel
+                        && !['view_formal_resource', 'open_confirmation'].includes(questionLifecycle.actionKind)
+                        && (
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" aria-label="训练任务流程操作">
                           <span className="inline-flex items-center gap-1.5">
                             <button
                               type="button"
@@ -1961,23 +1898,8 @@ export default function MaterialResourceProductionWorkbench() {
                                 : questionLifecycle.actionLabel}
                             </button>
                           </span>
+                        </div>
                         )}
-                        {questionLifecycle?.secondaryActionLabel && (
-                          <span className="inline-flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.preventDefault();
-                                event.stopPropagation();
-                                openQuestionSummaryItem(questionLifecycle.secondaryItem);
-                              }}
-                              className="ml-1 text-[12px] font-medium text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                            >
-                              {questionLifecycle.secondaryActionLabel}
-                            </button>
-                          </span>
-                        )}
-                      </div>
                       <div className="mt-2 flex flex-wrap gap-2" aria-label="训练任务属性摘要">
                         <TaskAttributeChip>{dimensionLabels[task.primaryDimension]}</TaskAttributeChip>
                         <TaskAttributeChip>{abilityLabels[task.abilityId]}</TaskAttributeChip>
@@ -1985,6 +1907,14 @@ export default function MaterialResourceProductionWorkbench() {
                         <TaskAttributeChip>{formatAnchorSummary(task)}</TaskAttributeChip>
                         <TaskAttributeChip>{roleLabels[task.taskRole]}</TaskAttributeChip>
                       </div>
+                      <p
+                        className={`mt-2 line-clamp-2 text-sm leading-6 group-open:hidden ${
+                          task.questionStem?.trim() ? 'text-slate-700' : 'text-slate-400'
+                        }`}
+                        title={task.questionStem?.trim() || undefined}
+                      >
+                        {task.questionStem?.trim() || '题目尚未生成'}
+                      </p>
                       {workflowFeedback && (
                         <p
                           role={(workflowFeedback.type || workflowFeedback.tone) === 'error' ? 'alert' : 'status'}
@@ -2000,13 +1930,13 @@ export default function MaterialResourceProductionWorkbench() {
                         </p>
                       )}
                     </div>
-                    <span className="mt-1 inline-flex shrink-0 items-center gap-2 text-xs font-normal text-slate-500">
+                    <span className="mt-1 inline-flex shrink-0 items-center gap-2 text-xs font-normal text-blue-700">
                       <span className="group-open:hidden">展开详情</span>
                       <span className="hidden group-open:inline">收起详情</span>
                       <ChevronDown
                         aria-hidden="true"
                         size={18}
-                        className="shrink-0 text-slate-400 transition group-open:rotate-180"
+                        className="shrink-0 text-blue-600 transition group-open:rotate-180"
                       />
                     </span>
                   </summary>
@@ -2221,6 +2151,46 @@ export default function MaterialResourceProductionWorkbench() {
                     {['retest', 'transfer'].includes(task.taskRole) && <label className="mt-3 block text-sm font-medium">关联训练组 ID<input id={taskFieldId(task, 'comparisonGroupId')} value={task.comparisonGroupId} onChange={(event) => updateTask(index, { comparisonGroupId: event.target.value, taskAttributeAdjusted: true })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" placeholder="同一能力 Training / Retest / Transfer 共用" /></label>}
                   </details>
                   </fieldset>
+                  {questionLifecycle?.formalResource && (
+                    <details
+                      data-formal-resource-summary
+                      className="mt-5 rounded-md bg-slate-50 px-4 py-3"
+                    >
+                      <summary className="cursor-pointer text-sm font-medium text-blue-700">
+                        正式资源
+                      </summary>
+                      <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+                        <div>
+                          <dt className="text-slate-500">发布状态</dt>
+                          <dd className="mt-1 font-medium text-emerald-700">已发布</dd>
+                        </div>
+                        <div>
+                          <dt className="text-slate-500">正式版本</dt>
+                          <dd className="mt-1 break-all text-slate-800">
+                            {questionLifecycle.formalResource.resourceVersionId || '未记录'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-slate-500">正式资源 ID</dt>
+                          <dd className="mt-1 break-all text-slate-800">
+                            {questionLifecycle.formalResource.resourceId || '未记录'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-slate-500">来源 Draft</dt>
+                          <dd className="mt-1 break-all text-slate-800">
+                            {questionLifecycle.formalResource.sourceDraftId || '未记录'}
+                          </dd>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <dt className="text-slate-500">Material Version</dt>
+                          <dd className="mt-1 break-all text-slate-800">
+                            {questionLifecycle.formalResource.materialVersionId || '未记录'}
+                          </dd>
+                        </div>
+                      </dl>
+                    </details>
+                  )}
                   <div className="mt-4 flex items-center justify-end gap-3">
                     {!canRemoveTrainingTask(tasks.length) && (
                       <span className="text-xs text-slate-500">
@@ -2260,39 +2230,49 @@ export default function MaterialResourceProductionWorkbench() {
               </div>
             )}
 
-            <div className="mt-4 flex justify-center">
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              {selectedPlan && (
+                <>
+                  <button
+                    type="button"
+                    onClick={planReplacementGroup}
+                    disabled={!commandAvailability.planReplacementGroup.enabled}
+                    title={commandAvailability.planReplacementGroup.reason}
+                    className="ai-button-outline inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {generatorOperation === 'replace_group' ? '正在重新生成…' : '重新生成整组任务'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={planSupplementCandidates}
+                    disabled={!commandAvailability.planSupplementCandidates.enabled}
+                    title={commandAvailability.planSupplementCandidates.reason}
+                    className="ai-button-solid inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {generatorOperation === 'supplement_group' ? '正在补充候选…' : '补充生成候选任务'}
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 disabled={!commandAvailability.savePlanRevision.enabled}
                 title={commandAvailability.savePlanRevision.reason}
                 onClick={savePlanRevision}
-                className="inline-flex h-10 w-[420px] max-w-full items-center justify-center gap-2 rounded-md border border-slate-950 bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:border-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-blue-700 bg-blue-700 px-5 text-sm font-semibold text-white transition hover:border-blue-800 hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:border-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
               >
                 <Save aria-hidden="true" size={18} />
-                {selectedPlan ? '保存任务组并重新检查' : '保存训练任务'}
+                {selectedPlan ? '确认任务并保存' : '保存训练任务'}
               </button>
             </div>
+            </section>
             </section>
           )}
         </div>
 
         {materialMode === 'existing' && selectedMaterial && (
           <section className="mt-10 rounded-md bg-white p-4 sm:p-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-semibold">提交最终确认</h2>
-            </div>
-            {materialPlans.length > 1 && (
-              <select value={selectedPlan?.materialObservationPlanId || ''} onChange={(event) => setSelectedPlanId(event.target.value)} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
-                {materialPlans.map((plan) => (
-                  <option key={plan.materialObservationPlanId} value={plan.materialObservationPlanId}>
-                    {['draft', 'revision_required'].includes(plan.status)
-                      ? '工作草稿 · 未提交审核'
-                      : `第 ${plan.revision} 版 · ${statusLabels[plan.status]}`}
-                  </option>
-                ))}
-              </select>
-            )}
+          <div>
+            <h2 className="text-lg font-semibold">提交最终确认</h2>
           </div>
 
           {!selectedPlan ? (
@@ -2309,13 +2289,21 @@ export default function MaterialResourceProductionWorkbench() {
                     )}
                     <div className={`${taskEditorDirty ? 'mt-4' : ''} border-y border-slate-200 py-5`}>
                       <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-                        <SubmissionSummaryItem label="当前版本" value={`第 ${selectedPlan.revision} 版 · ${statusLabels[selectedPlan.status]}`} />
+                        <SubmissionSummaryItem
+                          label="当前提交对象"
+                          value={['draft', 'revision_required'].includes(selectedPlan.status)
+                            ? '工作草稿 · 未提交审核'
+                            : `训练计划第 ${selectedPlan.revision} 版 · ${statusLabels[selectedPlan.status]}`}
+                        />
                         <SubmissionSummaryItem label="训练任务数量" value={`${selectedPlan.taskPlans.length} 个`} />
                         <SubmissionSummaryItem label="能力覆盖" value={submissionSummary.abilities.join('、') || '尚未设置'} />
                         <SubmissionSummaryItem label="训练方向" value={submissionSummary.directions.join('、') || '尚未设置'} />
                         <SubmissionSummaryItem label="学习材料" value={formatMaterialTitle(selectedMaterial.title)} />
                         <SubmissionSummaryItem label="材料范围" value={submissionSummary.materialRanges.join('、') || '尚未设置'} />
                       </dl>
+                      {taskReviewGroups.length > 0 && (
+                        <TaskReviewStatusSummary groups={taskReviewGroups} onAction={focusTaskIssue} />
+                      )}
                     </div>
 
                     <div className="mt-6">
@@ -2341,43 +2329,32 @@ export default function MaterialResourceProductionWorkbench() {
                   </div>
                 </div>
               </div>
-              {selectedValidation && !selectedValidation.passed && (
-                <IssueList
-                  title="当前任务无法进入最终确认"
-                  issues={selectedValidation.issues.map((issue) => attachValidationIssueTarget(issue, tasks))}
-                  onAction={focusTaskIssue}
-                />
-              )}
               {taskEditorDirty && (
                 <p className="mt-6 rounded-md bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
                   请先保存上方训练任务的修改，再进入最终确认。
                 </p>
               )}
-              {['draft', 'revision_required', 'pending_review', 'reviewed'].includes(selectedPlan.status) && (
+              {['draft', 'revision_required', 'pending_review', 'reviewed'].includes(selectedPlan.status) && !planFullyPublished && (
                 <div className="mt-6 flex flex-col items-center justify-center gap-2 sm:flex-row">
-                  {!planFullyPublished && (
-                    <button
-                      type="button"
-                      onClick={() => document.querySelector('#training-task-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                      className="flex h-10 w-52 items-center justify-center rounded-md border border-[#666666] bg-white px-4 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                    >
-                      返回任务调整
-                    </button>
-                  )}
                   <button
                     type="button"
-                    onClick={planFullyPublished ? openSelectedPlanQuestionReview : submitForQuestionReview}
-                    disabled={!planFullyPublished && !commandAvailability.submitForQuestionReview.enabled}
-                    title={planFullyPublished ? '' : commandAvailability.submitForQuestionReview.reason}
+                    onClick={() => document.querySelector('#training-task-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                    className="flex h-10 w-52 items-center justify-center rounded-md border border-[#666666] bg-white px-4 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                  >
+                    返回任务调整
+                  </button>
+                  <button
+                    type="button"
+                    onClick={submitForQuestionReview}
+                    disabled={!commandAvailability.submitForQuestionReview.enabled}
+                    title={commandAvailability.submitForQuestionReview.reason}
                     className="flex h-10 w-52 items-center justify-center rounded-md border border-slate-950 bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:border-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
                   >
-                    {planFullyPublished
-                      ? '查看确认与发布记录'
-                      : (busy
-                        ? '正在提交最终确认'
-                        : (planDrafts.length >= selectedPlan.taskPlans.length
-                          ? '进入最终确认'
-                          : '提交最终确认'))}
+                    {busy
+                      ? '正在提交最终确认'
+                      : (planDrafts.length >= selectedPlan.taskPlans.length
+                        ? '进入最终确认'
+                        : '提交最终确认')}
                   </button>
                 </div>
               )}
@@ -2575,8 +2552,6 @@ function resolveTaskQuestionLifecycle({
       actionLabel: productionView.presentation.primaryActionLabel || '',
       actionKind: issues.length > 0 ? 'focus_issue' : 'save_plan',
       item: null,
-      secondaryActionLabel: '',
-      secondaryItem: null,
       productionView,
     };
   }
@@ -2668,9 +2643,6 @@ function resolveTaskQuestionLifecycle({
   const actionLabel = item || localActionKind
     ? localActionLabel || productionView.presentation.primaryActionLabel || ''
     : '';
-  const showPublishedAsSecondary = Boolean(
-    published && productionView.hasPublishedVersion && productionView.state !== 'published',
-  );
   return {
     status: productionView.state,
     actionLabel,
@@ -2678,12 +2650,11 @@ function resolveTaskQuestionLifecycle({
       ? productionView.primaryAction === 'edit'
         ? 'open_repair'
         : productionView.primaryAction === 'view_formal_resource'
-          ? 'open_detail'
+          ? 'view_formal_resource'
           : productionView.primaryAction
       : null),
     item,
-    secondaryActionLabel: showPublishedAsSecondary ? '查看已发布题目' : '',
-    secondaryItem: showPublishedAsSecondary ? published : null,
+    formalResource: published || null,
     draft,
     readiness,
     productionView,
@@ -2833,50 +2804,25 @@ function TaskSourceBadge({ task }) {
   );
 }
 
-function TaskReviewOverview({ groups, onAction }) {
+function TaskReviewStatusSummary({ groups, onAction }) {
   const needsAdjustment = groups.filter((group) => group.issues.length > 0);
   const readyCount = groups.length - needsAdjustment.length;
-  const abilities = abilityOptions.filter(([abilityId]) => groups.some(({ task }) => task.abilityId === abilityId));
-  const directions = dimensionOptions.filter(([dimensionId]) => groups.some(({ task }) => task.primaryDimension === dimensionId));
   return (
-    <section className="mt-5 rounded-md bg-white p-4 sm:p-5" aria-labelledby="task-review-overview-title">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 id="task-review-overview-title" className="text-base font-semibold">训练任务检查</h3>
-        </div>
-        <div className="flex flex-wrap gap-3 text-sm">
-          <span className="text-slate-600">{groups.length} 个任务</span>
-          <span className="inline-flex items-center gap-1.5 text-emerald-700">
-            <CheckCircle2 aria-hidden="true" size={16} />
-            {readyCount} 个训练任务已通过检查
-          </span>
-          <span className={`inline-flex items-center gap-1.5 ${needsAdjustment.length ? 'text-amber-700' : 'text-slate-500'}`}>
-            <AlertTriangle aria-hidden="true" size={16} />
-            {needsAdjustment.length} 个需要调整
-          </span>
-        </div>
-      </div>
-      <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4 sm:grid-cols-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-xs font-medium text-slate-500">能力覆盖</span>
-          {abilities.length > 0
-            ? abilities.map(([abilityId, label]) => (
-              <span key={abilityId} className="rounded bg-blue-50 px-2 py-1 text-xs font-normal text-blue-700">{label}</span>
-            ))
-            : <span className="text-xs text-slate-400">尚未设置</span>}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-xs font-medium text-slate-500">训练方向</span>
-          {directions.length > 0
-            ? directions.map(([dimensionId, label]) => (
-              <span key={dimensionId} className="rounded bg-blue-50 px-2 py-1 text-xs font-normal text-blue-700">{label}</span>
-            ))
-            : <span className="text-xs text-slate-400">尚未设置</span>}
-        </div>
+    <div className="mt-5 border-t border-slate-200 pt-5" aria-label="训练任务检查结果">
+      <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+        <span className="text-slate-600">{groups.length} 个任务</span>
+        <span className="inline-flex items-center gap-1.5 text-emerald-700">
+          <CheckCircle2 aria-hidden="true" size={16} />
+          {readyCount} 个已通过检查
+        </span>
+        <span className={`inline-flex items-center gap-1.5 ${needsAdjustment.length ? 'text-amber-700' : 'text-slate-500'}`}>
+          <AlertTriangle aria-hidden="true" size={16} />
+          {needsAdjustment.length} 个需要调整
+        </span>
       </div>
       {needsAdjustment.length > 0 && (
         <div className="mt-4 border-l-4 border-amber-400 bg-amber-50 px-4 py-3">
-          <p className="text-sm font-semibold text-amber-950">质量提醒（{needsAdjustment.length}）</p>
+          <p className="text-sm font-semibold text-amber-950">需要调整的任务</p>
           <div className="mt-3 space-y-3">
             {needsAdjustment.map(({ task, index, issues }) => (
               <div key={task.localId} className="text-sm text-amber-950">
@@ -2894,7 +2840,7 @@ function TaskReviewOverview({ groups, onAction }) {
           </div>
         </div>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -3255,26 +3201,6 @@ function CoverageSummary({ title, coverage }) {
       <p className="text-xs leading-5 text-slate-600">
         训练方向：{coverage.dimensionIds.map((id) => dimensionLabels[id] || id).join('、') || '未设置'}
       </p>
-    </div>
-  );
-}
-
-function IssueList({ title, issues, compact = false, onAction }) {
-  return (
-    <div className={`${compact ? 'mt-3' : 'mt-4'} border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-950`}>
-      <p className="font-semibold">{title}</p>
-      <ol className="mt-2 space-y-2">
-        {issues.map((issue, index) => (
-          <li key={`${issue.code || issue.field || 'issue'}-${index}`} className="flex flex-wrap items-start justify-between gap-2">
-            <span>{index + 1}. {(issue.displayField || issue.field) ? `${issue.displayField || issue.field}：` : ''}{issue.message || issue.code || String(issue)}</span>
-            {onAction && issue.targetId && (
-              <button type="button" onClick={() => onAction(issue)} className="inline-flex h-10 shrink-0 items-center text-sm font-normal text-emerald-700 underline underline-offset-4 hover:text-emerald-800">
-                去修改
-              </button>
-            )}
-          </li>
-        ))}
-      </ol>
     </div>
   );
 }

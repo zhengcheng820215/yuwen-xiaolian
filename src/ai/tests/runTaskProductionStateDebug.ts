@@ -124,7 +124,7 @@ const published = resolveTaskProductionState({
 assert.equal(published.state, 'published');
 assert.equal(published.binding.latestFormalVersionId, 'resource-published:v1');
 assert.equal(published.presentation.stateLabel, '已发布');
-assert.equal(published.presentation.primaryActionLabel, '查看已发布题目');
+assert.equal(published.presentation.primaryActionLabel, '查看正式资源');
 assert.equal(resolveTaskPublicationEligibility(published).eligible, false);
 assert.equal(resolveTaskPublicationEligibility(published).reason, 'already_published');
 assert.equal(resolveTaskPublicationEligibility(pendingConfirmation).eligible, false);

@@ -139,7 +139,7 @@ const ACTION_LABELS: Record<TaskProductionAction, string> = {
   return_for_revision: '退回修改',
   publish: '发布正式题目',
   retry_publication: '重试发布',
-  view_formal_resource: '查看已发布题目',
+  view_formal_resource: '查看正式资源',
 };
 
 export function getTaskProductionActionLabel(action: TaskProductionAction): string {

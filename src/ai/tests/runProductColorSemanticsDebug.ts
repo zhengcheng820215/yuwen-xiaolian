@@ -28,7 +28,7 @@ function assertButtonUsesAiStyle(source: string, label: string, expectedClass: s
 const aiActions = [
   [materialWorkbenchSource, 'AI根据素材生成训练任务', 'ai-button-solid'],
   [materialWorkbenchSource, '重新生成整组任务', 'ai-button-outline'],
-  [materialWorkbenchSource, '生成更多任务', 'ai-button-solid'],
+  [materialWorkbenchSource, '补充生成候选任务', 'ai-button-solid'],
   [materialWorkbenchSource, '人工编辑校准', 'ai-button-outline'],
   [materialWorkbenchSource, '重新生成此任务', 'ai-button-solid'],
   [materialWorkbenchSource, '采用此候选', 'ai-button-solid'],
@@ -42,7 +42,7 @@ for (const [source, label, expectedClass] of aiActions) {
 }
 
 const ordinaryActionLabels = [
-  '保存任务组并重新检查',
+  '确认任务并保存',
   '返回任务调整',
   '提交最终确认',
   '保存本次修改',
@@ -62,9 +62,9 @@ for (const label of ordinaryActionLabels) {
   }
 }
 
-const savePlanButton = findButton(materialWorkbenchSource, '保存任务组并重新检查');
-assert.match(savePlanButton, /bg-slate-950/, '保存任务组并重新检查应使用深蓝主操作样式');
-assert.doesNotMatch(savePlanButton, /bg-emerald-|border-emerald-|text-emerald-/, '保存任务组并重新检查不得使用绿色操作样式');
+const savePlanButton = findButton(materialWorkbenchSource, '确认任务并保存');
+assert.match(savePlanButton, /bg-blue-700/, '确认任务并保存应使用蓝色主操作样式');
+assert.doesNotMatch(savePlanButton, /bg-emerald-|border-emerald-|text-emerald-/, '确认任务并保存不得使用绿色操作样式');
 
 const submitReviewButton = findButton(materialWorkbenchSource, '提交最终确认');
 assert.match(submitReviewButton, /bg-slate-950/, '提交最终确认应使用深蓝主操作样式');
