@@ -42,8 +42,23 @@ export type Phase173FormalResourceMatchInput = {
   bootstrapMaterialId?: string;
 };
 
+type FormalResourceMatchScope = 'all_active' | 'phase173_batch_a';
+
+export async function matchCurrentFormalResource(
+  input: Phase173FormalResourceMatchInput,
+): Promise<NextFormalTaskResolution> {
+  return matchFormalResource(input, 'all_active');
+}
+
 export async function matchPhase173BatchAFormalResource(
   input: Phase173FormalResourceMatchInput,
+): Promise<NextFormalTaskResolution> {
+  return matchFormalResource(input, 'phase173_batch_a');
+}
+
+async function matchFormalResource(
+  input: Phase173FormalResourceMatchInput,
+  scope: FormalResourceMatchScope,
 ): Promise<NextFormalTaskResolution> {
   const evaluatedAt = input.evaluatedAt || new Date().toISOString();
   if (input.taskRequest.studentId !== input.studentId) {
@@ -64,17 +79,26 @@ export async function matchPhase173BatchAFormalResource(
     input.resourceRepository,
     evaluatedAt,
   );
-  const snapshot = batchASnapshot(completeSnapshot);
+  const snapshot = scope === 'phase173_batch_a'
+    ? batchASnapshot(completeSnapshot)
+    : completeSnapshot;
   if (snapshot.registryEntries.length === 0) {
-    return noMatch(input.taskRequest.taskRequestId, 'batch_a_registry_empty');
+    return noMatch(
+      input.taskRequest.taskRequestId,
+      scope === 'phase173_batch_a' ? 'batch_a_registry_empty' : 'active_registry_empty',
+    );
   }
 
   const recentMaterialIds = [...(input.recentHistory?.recentMaterialIds || [])];
+  const bootstrapMaterialId = input.bootstrapMaterialId || (
+    scope === 'phase173_batch_a' ? BATCH_A_BOOTSTRAP_MATERIAL_ID : undefined
+  );
   if (
     input.taskRequest.taskRole === 'training' &&
-    recentMaterialIds.length === 0
+    recentMaterialIds.length === 0 &&
+    bootstrapMaterialId
   ) {
-    recentMaterialIds.push(input.bootstrapMaterialId || BATCH_A_BOOTSTRAP_MATERIAL_ID);
+    recentMaterialIds.push(bootstrapMaterialId);
   }
   const recentHistory: ResourceMatchRecentHistory = {
     studentId: input.studentId,
@@ -174,13 +198,142 @@ export function createPhase173BatchABootstrapTaskRequest(
   };
 }
 
+export function createFormalResourceBootstrapTaskRequest(
+  studentId: string,
+  createdAt = new Date().toISOString(),
+  targetAbilityId = 'analysis',
+  taskRole: RecommendedTaskRole = 'training',
+): TaskRequest {
+  return {
+    taskRequestId: `formal-resource-bootstrap-task-request-${studentId}-${targetAbilityId}-${taskRole}`,
+    strategyId: `formal-resource-bootstrap-strategy-${studentId}-${targetAbilityId}-${taskRole}`,
+    studentId,
+    targetAbilityId,
+    taskRole,
+    action: 'continue_training',
+    validationGoal: `观察 ${targetAbilityId} 在正式 ${taskRole} 任务中的表现。`,
+    evidenceLinks: [`formal-resource-bootstrap-evidence-${studentId}`],
+    growthMemoryRecordIds: [`formal-resource-bootstrap-memory-${studentId}`],
+    constraints: [],
+    createdAt,
+  };
+}
+
+export function selectFormalResourceBootstrapVersion(
+  versions: FrozenQuestionResourceVersion[],
+  recentHistory: Pick<
+    ResourceMatchRecentHistory,
+    'recentResourceVersionIds' | 'recentMaterialIds'
+  >,
+): FrozenQuestionResourceVersion | undefined {
+  const recentVersionIds = new Set(recentHistory.recentResourceVersionIds);
+  const recentMaterialIds = new Set(recentHistory.recentMaterialIds);
+  const requiresKnownContext = recentMaterialIds.size > 0;
+  return [...versions]
+    .filter((version) => (
+      version.status === 'frozen' &&
+      version.abilityMetadata.taskRole === 'training' &&
+      !recentVersionIds.has(version.resourceVersionId) &&
+      Boolean(version.materialId) &&
+      (!requiresKnownContext || recentMaterialIds.has(version.materialId!))
+    ))
+    .sort((left, right) => (
+      left.abilityMetadata.abilityId.localeCompare(right.abilityMetadata.abilityId) ||
+      left.resourceVersionId.localeCompare(right.resourceVersionId)
+    ))[0];
+}
+
+export async function resolveFormalResourceBootstrapMatch(input: {
+  studentId: string;
+  versions: FrozenQuestionResourceVersion[];
+  resourceRepository: QuestionResourceAdmissionRepository;
+  observationRepository: MaterialObservationRepository;
+  recentHistory: ResourceMatchRecentHistory;
+  evaluatedAt?: string;
+}): Promise<{
+  taskRequest: TaskRequest;
+  matched: NextFormalTaskResolution;
+  bootstrapVersion?: FrozenQuestionResourceVersion;
+}> {
+  const evaluatedAt = input.evaluatedAt || new Date().toISOString();
+  const recentVersionIds = new Set(input.recentHistory.recentResourceVersionIds);
+  const recentMaterialIds = new Set(input.recentHistory.recentMaterialIds);
+  const candidates = [...input.versions]
+    .filter((version) => (
+      version.status === 'frozen' &&
+      version.abilityMetadata.taskRole === 'training' &&
+      !recentVersionIds.has(version.resourceVersionId) &&
+      Boolean(version.materialId) &&
+      (recentMaterialIds.size === 0 || recentMaterialIds.has(version.materialId!))
+    ))
+    .sort((left, right) => (
+      left.abilityMetadata.abilityId.localeCompare(right.abilityMetadata.abilityId) ||
+      left.resourceVersionId.localeCompare(right.resourceVersionId)
+    ));
+  let firstAttempt: {
+    taskRequest: TaskRequest;
+    matched: NextFormalTaskResolution;
+    bootstrapVersion?: FrozenQuestionResourceVersion;
+  } | undefined;
+
+  for (const candidate of candidates) {
+    const taskRequest = createFormalResourceBootstrapTaskRequest(
+      input.studentId,
+      evaluatedAt,
+      candidate.abilityMetadata.abilityId,
+      candidate.abilityMetadata.taskRole,
+    );
+    const matched = await matchCurrentFormalResource({
+      taskRequest,
+      studentId: input.studentId,
+      resourceRepository: input.resourceRepository,
+      observationRepository: input.observationRepository,
+      recentHistory: input.recentHistory,
+      bootstrapMaterialId: candidate.materialId,
+      evaluatedAt,
+    });
+    const attempt = { taskRequest, matched, bootstrapVersion: candidate };
+    firstAttempt ||= attempt;
+    if (matched.status === 'matched') return attempt;
+  }
+
+  if (firstAttempt) return firstAttempt;
+  const taskRequest = createFormalResourceBootstrapTaskRequest(input.studentId, evaluatedAt);
+  return {
+    taskRequest,
+    matched: await matchCurrentFormalResource({
+      taskRequest,
+      studentId: input.studentId,
+      resourceRepository: input.resourceRepository,
+      observationRepository: input.observationRepository,
+      recentHistory: input.recentHistory,
+      evaluatedAt,
+    }),
+  };
+}
+
 export async function loadPhase173BatchACurrentVersions(
   repository: QuestionResourceAdmissionRepository,
+): Promise<FrozenQuestionResourceVersion[]> {
+  return loadCurrentVersions(repository, (resourceId) => (
+    resourceId.startsWith(BATCH_A_RESOURCE_PREFIX)
+  ));
+}
+
+export async function loadCurrentFormalResourceVersions(
+  repository: QuestionResourceAdmissionRepository,
+): Promise<FrozenQuestionResourceVersion[]> {
+  return loadCurrentVersions(repository, () => true);
+}
+
+async function loadCurrentVersions(
+  repository: QuestionResourceAdmissionRepository,
+  acceptsResourceId: (resourceId: string) => boolean,
 ): Promise<FrozenQuestionResourceVersion[]> {
   const entries = (await repository.listRegistryEntries())
     .filter((entry) => (
       entry.status === 'active' &&
-      entry.resourceId.startsWith(BATCH_A_RESOURCE_PREFIX) &&
+      acceptsResourceId(entry.resourceId) &&
       entry.currentFrozenVersionId
     ));
   const versions = await Promise.all(entries.map((entry) => (

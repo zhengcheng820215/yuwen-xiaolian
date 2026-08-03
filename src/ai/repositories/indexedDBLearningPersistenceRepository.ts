@@ -4,18 +4,22 @@ import type { LearningPersistenceRepository } from './learningPersistenceReposit
 const DB_NAME = 'yuwen_xiaolian_learning_runtime';
 const STORE_NAME = 'learning_persistence_records';
 const DB_VERSION = 1;
+const INDEXED_DB_TIMEOUT_MS = 3_000;
 
 export class IndexedDBLearningPersistenceRepository implements LearningPersistenceRepository {
   async save(record: LearningPersistenceRecord): Promise<LearningPersistenceRecord> {
     const db = await openDatabase();
-    await requestToPromise(
-      db
-        .transaction(STORE_NAME, 'readwrite')
-        .objectStore(STORE_NAME)
-        .put(record),
-    );
-    db.close();
-    return record;
+    try {
+      await requestToPromise(
+        db
+          .transaction(STORE_NAME, 'readwrite')
+          .objectStore(STORE_NAME)
+          .put(record),
+      );
+      return record;
+    } finally {
+      db.close();
+    }
   }
 
   async loadLatest(studentId: string): Promise<LearningPersistenceRecord | null> {
@@ -25,37 +29,45 @@ export class IndexedDBLearningPersistenceRepository implements LearningPersisten
 
   async loadByRound(studentId: string, learningRoundId: string): Promise<LearningPersistenceRecord | null> {
     const db = await openDatabase();
-    const record = await requestToPromise<LearningPersistenceRecord | undefined>(
-      db
-        .transaction(STORE_NAME, 'readonly')
-        .objectStore(STORE_NAME)
-        .get(`${studentId}::${learningRoundId}`),
-    );
-    db.close();
-    return record || null;
+    try {
+      const record = await requestToPromise<LearningPersistenceRecord | undefined>(
+        db
+          .transaction(STORE_NAME, 'readonly')
+          .objectStore(STORE_NAME)
+          .get(`${studentId}::${learningRoundId}`),
+      );
+      return record || null;
+    } finally {
+      db.close();
+    }
   }
 
   async clear(studentId: string): Promise<void> {
     const records = await this.listByStudent(studentId);
     const db = await openDatabase();
-    const store = db
-      .transaction(STORE_NAME, 'readwrite')
-      .objectStore(STORE_NAME);
-    await Promise.all(records.map((record) => requestToPromise(store.delete(record.recordId))));
-    db.close();
+    try {
+      const store = db
+        .transaction(STORE_NAME, 'readwrite')
+        .objectStore(STORE_NAME);
+      await Promise.all(records.map((record) => requestToPromise(store.delete(record.recordId))));
+    } finally {
+      db.close();
+    }
   }
 
   async listByStudent(studentId: string): Promise<LearningPersistenceRecord[]> {
     const db = await openDatabase();
-    const records = await requestToPromise<LearningPersistenceRecord[]>(
-      db
-        .transaction(STORE_NAME, 'readonly')
-        .objectStore(STORE_NAME)
-        .index('studentId')
-        .getAll(studentId),
-    );
-    db.close();
-    return records;
+    try {
+      return await requestToPromise<LearningPersistenceRecord[]>(
+        db
+          .transaction(STORE_NAME, 'readonly')
+          .objectStore(STORE_NAME)
+          .index('studentId')
+          .getAll(studentId),
+      );
+    } finally {
+      db.close();
+    }
   }
 }
 
@@ -65,7 +77,12 @@ function openDatabase(): Promise<IDBDatabase> {
   }
 
   return new Promise((resolve, reject) => {
+    let settled = false;
     const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const timer = setTimeout(() => {
+      settled = true;
+      reject(new Error('Learning persistence database open timed out.'));
+    }, INDEXED_DB_TIMEOUT_MS);
 
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -75,14 +92,43 @@ function openDatabase(): Promise<IDBDatabase> {
         store.createIndex('learningRoundId', 'learningRoundId', { unique: false });
       }
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      if (settled) {
+        request.result.close();
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      request.result.onversionchange = () => request.result.close();
+      resolve(request.result);
+    };
+    request.onerror = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(request.error);
+    };
+    request.onblocked = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(new Error('Learning persistence database is blocked.'));
+    };
   });
 }
 
 function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    const timer = setTimeout(() => {
+      reject(new Error('Learning persistence database request timed out.'));
+    }, INDEXED_DB_TIMEOUT_MS);
+    request.onsuccess = () => {
+      clearTimeout(timer);
+      resolve(request.result);
+    };
+    request.onerror = () => {
+      clearTimeout(timer);
+      reject(request.error);
+    };
   });
 }

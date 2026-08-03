@@ -370,6 +370,7 @@ function openDatabase(): Promise<IDBDatabase> {
   }
 
   return new Promise((resolve, reject) => {
+    let blocked = false;
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -385,8 +386,19 @@ function openDatabase(): Promise<IDBDatabase> {
       }
       createStore(db, REGISTRY_STORE, 'resourceId');
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      if (blocked) {
+        request.result.close();
+        return;
+      }
+      request.result.onversionchange = () => request.result.close();
+      resolve(request.result);
+    };
     request.onerror = () => reject(request.error);
+    request.onblocked = () => {
+      blocked = true;
+      reject(new Error('Question resource database is blocked.'));
+    };
   });
 }
 

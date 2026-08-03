@@ -1,15 +1,22 @@
 import {
   createPhase173BatchABootstrapTaskRequest,
+  loadCurrentFormalResourceVersions,
+  loadPhase173BatchACurrentVersions,
+  matchCurrentFormalResource,
   matchPhase173BatchAFormalResource,
+  resolveFormalResourceBootstrapMatch,
 } from '../agents/phase173FormalResourceMatchingService.ts';
+import { buildScopedFormalResourceHistory } from '../agents/formalResourceHistoryScope.ts';
 import { preparePhase173BatchAPreflight } from '../agents/phase173BatchAPreflightService.ts';
 import { producePhase17BatchA } from '../agents/phase17BatchAProductionService.ts';
 import { InMemoryMaterialObservationRepository } from '../repositories/inMemoryMaterialObservationRepository.ts';
 import { InMemoryQuestionResourceAdmissionRepository } from '../repositories/inMemoryQuestionResourceAdmissionRepository.ts';
+import type { QuestionResourceAdmissionRepository } from '../repositories/questionResourceAdmissionRepository.ts';
 import type {
   RecommendedTaskRole,
   TaskRequest,
 } from '../schemas/nextLearningStrategy.schema.ts';
+import type { LearningPersistenceRecord } from '../schemas/learningPersistence.schema.ts';
 import type { PrimaryAbilityId } from '../schemas/questionResourceAdmission.schema.ts';
 import type { ResourceMatchRecentHistory } from '../schemas/resourceMatchQuality.schema.ts';
 
@@ -25,6 +32,11 @@ const reports: CaseResult[] = [];
 
 async function main(): Promise<void> {
   const environment = await createEnvironment();
+  await genericRegistryRead(environment);
+  await genericFormalMatch(environment);
+  await dynamicBootstrapAbility(environment);
+  await endedSessionDoesNotLeakMaterialContext(environment);
+  await activeSessionKeepsMaterialContext(environment);
   await bootstrapTraining(environment);
   await retestMatch(environment);
   await transferMatch(environment);
@@ -48,13 +60,127 @@ async function main(): Promise<void> {
   }
 }
 
+async function endedSessionDoesNotLeakMaterialContext(environment: Environment): Promise<void> {
+  const usedVersion = environment.versions.find((item) => (
+    item.status === 'frozen' &&
+    item.abilityMetadata.taskRole === 'training' &&
+    Boolean(item.materialId)
+  ));
+  expect(usedVersion, 'Ended-session history version is missing.');
+  const history = buildScopedFormalResourceHistory({
+    studentId: STUDENT_ID,
+    records: [persistenceRecord('ended-session', usedVersion.resourceVersionId)],
+    currentVersions: environment.versions,
+    historyWindowEndedAt: NOW,
+  });
+  record(
+    '04 已结束会话不向新学习泄漏素材上下文',
+    history.recentResourceVersionIds?.includes(usedVersion.resourceVersionId) === true &&
+      history.recentTaskIds?.length === 0 &&
+      history.recentResourceIds?.length === 0 &&
+      history.recentMaterialIds?.length === 0,
+    `versions=${history.recentResourceVersionIds?.length || 0}, tasks=${history.recentTaskIds?.length || 0}, resources=${history.recentResourceIds?.length || 0}, materials=${history.recentMaterialIds?.length || 0}`,
+  );
+}
+
+async function activeSessionKeepsMaterialContext(environment: Environment): Promise<void> {
+  const usedVersion = environment.versions.find((item) => (
+    item.status === 'frozen' &&
+    item.abilityMetadata.taskRole === 'training' &&
+    Boolean(item.materialId)
+  ));
+  expect(usedVersion, 'Active-session history version is missing.');
+  const history = buildScopedFormalResourceHistory({
+    studentId: STUDENT_ID,
+    records: [persistenceRecord('active-session', usedVersion.resourceVersionId)],
+    currentVersions: environment.versions,
+    activeLearningSessionId: 'active-session',
+    historyWindowEndedAt: NOW,
+  });
+  record(
+    '05 活动会话继续保留同素材训练上下文',
+    history.recentResourceVersionIds?.includes(usedVersion.resourceVersionId) === true &&
+      history.recentTaskIds?.includes(usedVersion.taskId) === true &&
+      history.recentResourceIds?.includes(usedVersion.resourceId) === true &&
+      history.recentMaterialIds?.includes(usedVersion.materialId!) === true,
+    `versions=${history.recentResourceVersionIds?.length || 0}, tasks=${history.recentTaskIds?.length || 0}, resources=${history.recentResourceIds?.length || 0}, materials=${history.recentMaterialIds?.join('|') || 'none'}`,
+  );
+}
+
+async function genericRegistryRead(environment: Environment): Promise<void> {
+  const repository = withoutBatchResourcePrefix(environment.resources);
+  const [allVersions, batchVersions] = await Promise.all([
+    loadCurrentFormalResourceVersions(repository),
+    loadPhase173BatchACurrentVersions(repository),
+  ]);
+  record(
+    '01 正式学习读取全部 active Registry，不依赖 Batch A 前缀',
+    allVersions.length === 8 && batchVersions.length === 0 && allVersions.every((item) => (
+      item.resourceId.startsWith('formal-runtime-resource-')
+    )),
+    `formal=${allVersions.length}, batch=${batchVersions.length}, first=${allVersions[0]?.resourceId || 'none'}`,
+  );
+}
+
+async function genericFormalMatch(environment: Environment): Promise<void> {
+  const request = createPhase173BatchABootstrapTaskRequest(STUDENT_ID, NOW);
+  const result = await matchCurrentFormalResource({
+    taskRequest: request,
+    studentId: STUDENT_ID,
+    resourceRepository: environment.resources,
+    observationRepository: environment.observations,
+    recentHistory: { recentMaterialIds: ['phase17-batch-a-material-station'] },
+    evaluatedAt: NOW,
+  });
+  record(
+    '02 正式学习通用匹配器可准备当前 Registry 资源',
+    result.status === 'matched' &&
+      result.resourceVersion?.abilityMetadata.abilityId === 'analysis' &&
+      result.resourceVersion.abilityMetadata.taskRole === 'training' &&
+      result.taskReadiness?.canExecute === true,
+    `status=${result.status}, resource=${result.resourceVersion?.resourceId || 'none'}, executable=${result.taskReadiness?.canExecute || false}`,
+  );
+}
+
+async function dynamicBootstrapAbility(environment: Environment): Promise<void> {
+  const usedVersion = environment.versions.find((item) => (
+    item.status === 'frozen' &&
+    item.abilityMetadata.abilityId === 'analysis' &&
+    item.abilityMetadata.taskRole === 'training' &&
+    item.materialId === 'phase17-batch-a-material-station'
+  ));
+  expect(usedVersion, 'Dynamic bootstrap analysis history version is missing.');
+  const recentHistory: ResourceMatchRecentHistory = {
+    studentId: STUDENT_ID,
+    recentTaskIds: [usedVersion.taskId],
+    recentResourceIds: [usedVersion.resourceId],
+    recentResourceVersionIds: [usedVersion.resourceVersionId],
+    recentMaterialIds: [usedVersion.materialId!],
+  };
+  const resolution = await resolveFormalResourceBootstrapMatch({
+    studentId: STUDENT_ID,
+    versions: environment.versions,
+    resourceRepository: environment.resources,
+    observationRepository: environment.observations,
+    recentHistory,
+    evaluatedAt: NOW,
+  });
+  record(
+    '03 首轮能力动态解析，同材料已用版本不耗尽其他能力任务',
+    resolution.taskRequest.targetAbilityId !== 'analysis' &&
+      resolution.matched.status === 'matched' &&
+      resolution.matched.resourceVersion?.materialId === usedVersion.materialId,
+    `selectedAbility=${resolution.taskRequest.targetAbilityId}, status=${resolution.matched.status}, resource=${resolution.matched.resourceVersion?.resourceId || 'none'}, material=${resolution.matched.resourceVersion?.materialId || 'none'}`,
+  );
+}
+
 async function bootstrapTraining(environment: Environment): Promise<void> {
   const request = createPhase173BatchABootstrapTaskRequest(STUDENT_ID, NOW);
   const result = await match(environment, request, {
     recentMaterialIds: ['phase17-batch-a-material-station'],
   });
   record(
-    '01 /learning 首轮从 Batch A 匹配 analysis Training',
+    '06 /learning 首轮从 Batch A 匹配 analysis Training',
     result.status === 'matched' &&
       result.resourceVersion?.resourceId === 'phase17-batch-a-resource-station-analysis-training' &&
       result.resourceVersion.abilityMetadata.abilityId === 'analysis' &&
@@ -70,7 +196,7 @@ async function retestMatch(environment: Environment): Promise<void> {
     historyFor('station-inference-training', environment),
   );
   record(
-    '02 Retest 保持 inference 并切换正式材料',
+    '07 Retest 保持 inference 并切换正式材料',
     result.status === 'matched' &&
       result.resourceVersion?.resourceId === 'phase17-batch-a-resource-riverbank-inference-retest' &&
       result.resourceVersion.materialId === 'phase17-batch-a-material-riverbank',
@@ -85,7 +211,7 @@ async function transferMatch(environment: Environment): Promise<void> {
     historyFor('station-analysis-training', environment),
   );
   record(
-    '03 Transfer 保持 analysis 并进入新材料',
+    '08 Transfer 保持 analysis 并进入新材料',
     result.status === 'matched' &&
       result.resourceVersion?.resourceId === 'phase17-batch-a-resource-riverbank-analysis-transfer' &&
       result.resourceVersion.materialId === 'phase17-batch-a-material-riverbank',
@@ -100,7 +226,7 @@ async function abilityMismatch(environment: Environment): Promise<void> {
     { recentMaterialIds: ['phase17-batch-a-material-station'] },
   );
   record(
-    '04 缺少 summarization 时不拿其他 Ability 凑匹配',
+    '09 缺少 summarization 时不拿其他 Ability 凑匹配',
     result.status === 'no_match' && !result.resourceVersion,
     `status=${result.status}, resource=${result.resourceVersion?.resourceId || 'none'}, issues=${result.issues.join('|') || 'none'}`,
   );
@@ -113,7 +239,7 @@ async function formalSourcePreparation(environment: Environment): Promise<void> 
     { recentMaterialIds: ['phase17-batch-a-material-station'] },
   );
   record(
-    '05 匹配结果携带可执行 Concrete Task 与正式 Observation 来源',
+    '10 匹配结果携带可执行 Concrete Task 与正式 Observation 来源',
     result.status === 'matched' &&
       Boolean(result.concreteTask) &&
       result.taskReadiness?.canExecute === true &&
@@ -130,6 +256,33 @@ async function formalSourcePreparation(environment: Environment): Promise<void> 
       result.concreteTask?.referenceAnswer?.includes('动作体现细心'),
     `status=${result.status}, executable=${result.taskReadiness?.canExecute || false}, question=${result.concreteTask?.questionMetadata.questionId || 'none'}, ability=${result.concreteTask?.targetAbilityId || 'none'}, role=${result.concreteTask?.taskRole || 'none'}, rubricSignals=${result.concreteTask?.rubric.some((item) => item.description?.includes('关注检票信息')) || false}, referenceSignals=${result.concreteTask?.referenceAnswer?.includes('动作体现细心') || false}`,
   );
+}
+
+function withoutBatchResourcePrefix(
+  repository: QuestionResourceAdmissionRepository,
+): QuestionResourceAdmissionRepository {
+  const rename = (resourceId: string) => resourceId.replace(
+    'phase17-batch-a-resource-',
+    'formal-runtime-resource-',
+  );
+  return new Proxy(repository, {
+    get(target, property) {
+      if (property === 'listRegistryEntries') {
+        return async () => (await target.listRegistryEntries()).map((entry) => ({
+          ...entry,
+          resourceId: rename(entry.resourceId),
+        }));
+      }
+      if (property === 'getVersion') {
+        return async (resourceVersionId: string) => {
+          const version = await target.getVersion(resourceVersionId);
+          return version ? { ...version, resourceId: rename(version.resourceId) } : null;
+        };
+      }
+      const value = target[property as keyof QuestionResourceAdmissionRepository];
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
 }
 
 async function createEnvironment() {
@@ -208,6 +361,26 @@ function historyFor(resourceKey: string, environment: Environment): Partial<Reso
     recentResourceIds: [version.resourceId],
     recentResourceVersionIds: [version.resourceVersionId],
     recentMaterialIds: version.materialId ? [version.materialId] : [],
+  };
+}
+
+function persistenceRecord(
+  learningSessionId: string,
+  resourceVersionId: string,
+): LearningPersistenceRecord {
+  return {
+    recordId: `${STUDENT_ID}::${learningSessionId}-round-1`,
+    studentId: STUDENT_ID,
+    learningRoundId: `${learningSessionId}-round-1`,
+    concreteTask: {
+      questionMetadata: { questionId: resourceVersionId },
+    } as LearningPersistenceRecord['concreteTask'],
+    status: 'saved',
+    issues: [],
+    savedAt: NOW,
+    updatedAt: NOW,
+    version: 'phase12_1_v1',
+    schemaVersion: 'learning_persistence_v1',
   };
 }
 

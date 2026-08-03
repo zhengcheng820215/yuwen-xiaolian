@@ -25,10 +25,11 @@ import { runTaskExecutionAgent } from '../ai/agents/taskExecutionAgent.ts';
 import { scheduleDelayedRetest } from '../ai/agents/delayedRetestSchedulingAgent.ts';
 import { createDiagnosisProviderConfigSnapshot } from '../ai/agents/realLLMRuntimeFoundationAgent.ts';
 import {
-  createPhase173BatchABootstrapTaskRequest,
-  loadPhase173BatchACurrentVersions,
-  matchPhase173BatchAFormalResource,
+  loadCurrentFormalResourceVersions,
+  matchCurrentFormalResource,
+  resolveFormalResourceBootstrapMatch,
 } from '../ai/agents/phase173FormalResourceMatchingService.ts';
+import { buildScopedFormalResourceHistory } from '../ai/agents/formalResourceHistoryScope.ts';
 import { REAL_AI_DIAGNOSIS_PROMPT_V4_VERSION } from '../ai/prompts/buildRealAIDiagnosisPromptV4.ts';
 import { InMemoryControlledFeedbackRepository } from '../ai/repositories/inMemoryControlledFeedbackRepository.ts';
 import { InMemoryFormalDiagnosisRepository } from '../ai/repositories/inMemoryFormalDiagnosisRepository.ts';
@@ -46,7 +47,10 @@ import type { DelayedRetestPlan } from '../ai/schemas/delayedRetestScheduling.sc
 import type { CurrentLearningContext, TaskRequest } from '../ai/schemas/nextLearningStrategy.schema.ts';
 import type { FrozenQuestionResourceVersion } from '../ai/schemas/questionResourceAdmission.schema.ts';
 import type { NextFormalTaskResolution } from '../ai/schemas/realLearningOperation.schema.ts';
-import type { QualityGatedExecutableTask } from '../ai/schemas/resourceMatchQuality.schema.ts';
+import type {
+  QualityGatedExecutableTask,
+  ResourceMatchRecentHistory,
+} from '../ai/schemas/resourceMatchQuality.schema.ts';
 import type { ControlledFeedbackExpressionInput } from '../ai/schemas/controlledFeedbackExpression.schema.ts';
 import type {
   StudentLearningFeedback,
@@ -105,6 +109,12 @@ export type Phase163LiveWorkspaceState = {
   pauseReason?: StudentRuntimePauseReason;
   studentTitle?: string;
   studentMessage?: string;
+};
+
+export type Phase163LearningTaskAvailability = {
+  state: 'available' | 'no_formal_resource' | 'no_eligible_match' | 'already_used' | 'read_failed';
+  available: boolean;
+  message: string;
 };
 
 export async function loadPhase163LiveWorkspace(): Promise<Phase163LiveWorkspaceState> {
@@ -225,52 +235,74 @@ export async function loadPhase163DueRetestPlans(): Promise<DelayedRetestPlan[]>
   return result.plan?.status === 'available' ? [result.plan] : [];
 }
 
+export async function resolveCurrentLearningTaskAvailability(): Promise<Phase163LearningTaskAvailability> {
+  try {
+    const selection = await resolveCurrentFormalTaskSelection(false);
+    if (selection.currentVersions.length === 0) {
+      return {
+        state: 'no_formal_resource',
+        available: false,
+        message: '当前还没有可用的正式任务。',
+      };
+    }
+    if (
+      selection.matched.status === 'matched' &&
+      selection.matched.resourceVersion &&
+      selection.matched.qualityGatedTask
+    ) {
+      return {
+        state: 'available',
+        available: true,
+        message: '任务已经准备好，可以开始本次学习。',
+      };
+    }
+    const identityCandidates = selection.currentVersions.filter((version) => (
+      version.abilityMetadata.abilityId === selection.taskRequest.targetAbilityId &&
+      version.abilityMetadata.taskRole === selection.taskRequest.taskRole
+    ));
+    const usedVersionIds = new Set(selection.recentHistory.recentResourceVersionIds);
+    const usedMaterialIds = new Set(selection.recentHistory.recentMaterialIds);
+    const exhausted = identityCandidates.length > 0 && identityCandidates.every((version) => (
+      usedVersionIds.has(version.resourceVersionId) ||
+      (
+        selection.taskRequest.taskRole === 'transfer' &&
+        Boolean(version.materialId && usedMaterialIds.has(version.materialId))
+      )
+    ));
+    return exhausted
+      ? {
+          state: 'already_used',
+          available: false,
+          message: '当前符合学习目标的正式任务已经使用过，请稍后再来。',
+        }
+      : {
+          state: 'no_eligible_match',
+          available: false,
+          message: '当前没有同时符合能力和任务要求的正式任务。',
+        };
+  } catch (error) {
+    return {
+      state: 'read_failed',
+      available: false,
+      message: error instanceof Error ? error.message : '正式任务读取失败。',
+    };
+  }
+}
+
 async function buildCurrentRoundDescriptor() {
-  const descriptorAt = new Date().toISOString();
-  const context = await requireActiveContext();
-  const roundId = context.currentLearningRoundId || `${context.learningSessionId}-round-1`;
-  const number = roundNumber(roundId);
-  const records = await persistenceRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID);
-  const latest = records.filter((item) => item.learningRoundResult?.status === 'completed').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-  const currentCheckpoint = await operationRepository.getByOperationId(`phase16-3-live-operation-${roundId}`);
-  const plans = await loadPhase163DueRetestPlans();
-  const retestPlan = plans[0];
-  const currentVersions = await loadPhase173BatchACurrentVersions(formalResourceRepository);
-  const previousResourceVersionId = latest?.concreteTask?.questionMetadata.questionId;
-  const previousRoundId = number > 1 ? replaceRoundNumber(roundId, number - 1) : undefined;
-  const previousCheckpoint = previousRoundId
-    ? await operationRepository.getByOperationId(`phase16-3-live-operation-${previousRoundId}`)
-    : undefined;
-  const plannedResolution = previousCheckpoint?.nextTaskResolution?.status === 'matched'
-    ? previousCheckpoint.nextTaskResolution
-    : undefined;
-  const currentVersion = currentCheckpoint?.sourceResourceVersionId
-    ? currentVersions.find((item) => (
-      item.resourceVersionId === currentCheckpoint.sourceResourceVersionId
-    ))
-    : undefined;
-  const taskRequest = retestPlan
-    ? taskRequestFromRetestPlan(retestPlan, descriptorAt)
-    : previousCheckpoint?.nextTaskRequest && plannedResolution
-      ? previousCheckpoint.nextTaskRequest
-      : currentVersion
-        ? taskRequestForExistingVersion(currentVersion, descriptorAt)
-        : createPhase173BatchABootstrapTaskRequest(
-          PHASE163_LEARNING_STUDENT_ID,
-          descriptorAt,
-        );
-  const recentHistory = await buildFormalResourceHistory(records, currentVersions);
-  const matched = await matchPhase173BatchAFormalResource({
+  const selection = await resolveCurrentFormalTaskSelection(true);
+  const {
+    context,
+    roundId,
+    number,
+    records,
+    latest,
+    currentCheckpoint,
+    retestPlan,
     taskRequest,
-    studentId: PHASE163_LEARNING_STUDENT_ID,
-    resourceRepository: formalResourceRepository,
-    observationRepository: materialObservationRepository,
-    recentHistory: currentVersion
-      ? withoutCurrentResource(recentHistory, currentVersion)
-      : recentHistory,
-    bootstrapMaterialId: currentVersion?.materialId,
-    evaluatedAt: descriptorAt,
-  });
+    matched,
+  } = selection;
+  if (!context || !roundId) throw new Error('请先从学习入口开始本次学习。');
   if (
     matched.status !== 'matched' ||
     !matched.resourceVersion ||
@@ -348,14 +380,114 @@ async function buildCurrentRoundDescriptor() {
   };
 }
 
+async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
+  const descriptorAt = new Date().toISOString();
+  const storedContext = await activityRepository.getByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const context = storedContext?.status !== 'ended' ? storedContext : undefined;
+  if (requireContext && !context) throw new Error('请先从学习入口开始本次学习。');
+  if (context) assertPhase163ProductRuntimeIdentity(context);
+  const roundId = context?.currentLearningRoundId || (
+    context ? `${context.learningSessionId}-round-1` : undefined
+  );
+  const number = roundId ? roundNumber(roundId) : 1;
+  const records = await persistenceRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const latest = records
+    .filter((item) => item.learningRoundResult?.status === 'completed')
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+  const currentCheckpoint = roundId
+    ? await operationRepository.getByOperationId(`phase16-3-live-operation-${roundId}`)
+    : undefined;
+  const plans = await loadPhase163DueRetestPlans();
+  const retestPlan = plans[0];
+  const currentVersions = await loadCurrentFormalResourceVersions(formalResourceRepository);
+  const previousRoundId = roundId && number > 1
+    ? replaceRoundNumber(roundId, number - 1)
+    : undefined;
+  const previousCheckpoint = previousRoundId
+    ? await operationRepository.getByOperationId(`phase16-3-live-operation-${previousRoundId}`)
+    : undefined;
+  const plannedResolution = previousCheckpoint?.nextTaskResolution?.status === 'matched'
+    ? previousCheckpoint.nextTaskResolution
+    : undefined;
+  const currentVersion = currentCheckpoint?.sourceResourceVersionId
+    ? currentVersions.find((item) => (
+      item.resourceVersionId === currentCheckpoint.sourceResourceVersionId
+    ))
+    : undefined;
+  const recentHistory = buildScopedFormalResourceHistory({
+    studentId: PHASE163_LEARNING_STUDENT_ID,
+    records,
+    currentVersions,
+    activeLearningSessionId: context?.learningSessionId,
+    historyWindowEndedAt: descriptorAt,
+  });
+  const effectiveHistory = currentVersion
+    ? withoutCurrentResource(recentHistory, currentVersion)
+    : recentHistory;
+  const bootstrapResolution = !retestPlan && !plannedResolution && !currentVersion
+    ? await resolveFormalResourceBootstrapMatch({
+        studentId: PHASE163_LEARNING_STUDENT_ID,
+        versions: currentVersions,
+        resourceRepository: formalResourceRepository,
+        observationRepository: materialObservationRepository,
+        recentHistory: effectiveHistory,
+        evaluatedAt: descriptorAt,
+      })
+    : undefined;
+  const taskRequest = retestPlan
+    ? taskRequestFromRetestPlan(retestPlan, descriptorAt)
+    : previousCheckpoint?.nextTaskRequest && plannedResolution
+      ? previousCheckpoint.nextTaskRequest
+      : currentVersion
+        ? taskRequestForExistingVersion(currentVersion, descriptorAt)
+        : bootstrapResolution!.taskRequest;
+  const matched = bootstrapResolution?.matched || await matchCurrentFormalResource({
+      taskRequest,
+      studentId: PHASE163_LEARNING_STUDENT_ID,
+      resourceRepository: formalResourceRepository,
+      observationRepository: materialObservationRepository,
+      recentHistory: effectiveHistory,
+      bootstrapMaterialId: currentVersion?.materialId || selectBootstrapMaterialId(
+        currentVersions,
+        taskRequest,
+        effectiveHistory.recentResourceVersionIds,
+      ),
+      evaluatedAt: descriptorAt,
+    });
+  return {
+    descriptorAt,
+    context,
+    roundId,
+    number,
+    records,
+    latest,
+    currentCheckpoint,
+    retestPlan,
+    currentVersions,
+    taskRequest,
+    recentHistory: effectiveHistory,
+    matched,
+  };
+}
+
 async function resolveNextFormalTask(
   taskRequest: TaskRequest,
   previousResourceVersion: FrozenQuestionResourceVersion,
 ): Promise<NextFormalTaskResolution> {
   const records = await persistenceRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID);
-  const versions = await loadPhase173BatchACurrentVersions(formalResourceRepository);
-  const history = await buildFormalResourceHistory(records, versions);
-  return matchPhase173BatchAFormalResource({
+  const versions = await loadCurrentFormalResourceVersions(formalResourceRepository);
+  const storedContext = await activityRepository.getByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const activeLearningSessionId = storedContext?.status !== 'ended'
+    ? storedContext?.learningSessionId
+    : undefined;
+  const history = buildScopedFormalResourceHistory({
+    studentId: PHASE163_LEARNING_STUDENT_ID,
+    records,
+    currentVersions: versions,
+    activeLearningSessionId,
+    historyWindowEndedAt: new Date().toISOString(),
+  });
+  return matchCurrentFormalResource({
     taskRequest,
     studentId: PHASE163_LEARNING_STUDENT_ID,
     resourceRepository: formalResourceRepository,
@@ -375,6 +507,20 @@ async function resolveNextFormalTask(
     },
     evaluatedAt: new Date().toISOString(),
   });
+}
+
+function selectBootstrapMaterialId(
+  versions: FrozenQuestionResourceVersion[],
+  taskRequest: TaskRequest,
+  recentResourceVersionIds: string[],
+): string | undefined {
+  const recentVersions = new Set(recentResourceVersionIds);
+  return versions.find((version) => (
+    version.abilityMetadata.abilityId === taskRequest.targetAbilityId &&
+    version.abilityMetadata.taskRole === taskRequest.taskRole &&
+    !recentVersions.has(version.resourceVersionId) &&
+    Boolean(version.materialId)
+  ))?.materialId;
 }
 
 async function appendRoundToCurrentSession(record: LearningPersistenceRecord): Promise<void> {
@@ -484,33 +630,6 @@ function taskRequestFromRetestPlan(
     growthMemoryRecordIds: [`phase17-3-retest-memory-${plan.planId}`],
     constraints: plan.constraints,
     createdAt,
-  };
-}
-
-async function buildFormalResourceHistory(
-  records: LearningPersistenceRecord[],
-  currentVersions: FrozenQuestionResourceVersion[],
-): Promise<ResourceMatchRecentHistory> {
-  const versionIds = uniqueStrings(records.flatMap((record) => {
-    const id = record.concreteTask?.questionMetadata.questionId;
-    return id ? [id] : [];
-  }));
-  const versions = versionIds
-    .map((id) => currentVersions.find((version) => version.resourceVersionId === id))
-    .filter((version): version is FrozenQuestionResourceVersion => Boolean(version));
-  return {
-    studentId: PHASE163_LEARNING_STUDENT_ID,
-    recentTaskIds: uniqueStrings(versions.map((version) => version.taskId)),
-    recentResourceIds: uniqueStrings(versions.map((version) => version.resourceId)),
-    recentResourceVersionIds: versionIds,
-    recentMaterialIds: uniqueStrings(versions.flatMap((version) => (
-      version.materialId ? [version.materialId] : []
-    ))),
-    recentExecutionSessionIds: uniqueStrings(records.flatMap((record) => {
-      const id = record.learningRoundResult?.taskExecutionResult?.executionSessionId;
-      return id ? [id] : [];
-    })),
-    historyWindowEndedAt: new Date().toISOString(),
   };
 }
 

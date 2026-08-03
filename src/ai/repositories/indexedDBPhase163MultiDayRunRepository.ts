@@ -4,6 +4,7 @@ import type { Phase163MultiDayRunRepository } from './phase163MultiDayRunReposit
 const DATABASE_NAME = 'yuwen_xiaolian_phase16_3_multiday';
 const DATABASE_VERSION = 1;
 const STORE_NAME = 'multiday_runs';
+const INDEXED_DB_TIMEOUT_MS = 3_000;
 
 export class IndexedDBPhase163MultiDayRunRepository implements Phase163MultiDayRunRepository {
   async getByStudent(studentId: string): Promise<Phase163MultiDayRunState | null> {
@@ -45,21 +46,55 @@ export class IndexedDBPhase163MultiDayRunRepository implements Phase163MultiDayR
 function openDatabase(): Promise<IDBDatabase> {
   if (typeof indexedDB === 'undefined') return Promise.reject(new Error('IndexedDB is unavailable.'));
   return new Promise((resolve, reject) => {
+    let settled = false;
     const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
+    const timer = setTimeout(() => {
+      settled = true;
+      reject(new Error('Multi-day learning database open timed out.'));
+    }, INDEXED_DB_TIMEOUT_MS);
     request.onupgradeneeded = () => {
       const database = request.result;
       if (!database.objectStoreNames.contains(STORE_NAME)) {
         database.createObjectStore(STORE_NAME, { keyPath: 'studentId' });
       }
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      if (settled) {
+        request.result.close();
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      request.result.onversionchange = () => request.result.close();
+      resolve(request.result);
+    };
+    request.onerror = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(request.error);
+    };
+    request.onblocked = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(new Error('Multi-day learning database is blocked.'));
+    };
   });
 }
 
 function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    const timer = setTimeout(() => {
+      reject(new Error('Multi-day learning database request timed out.'));
+    }, INDEXED_DB_TIMEOUT_MS);
+    request.onsuccess = () => {
+      clearTimeout(timer);
+      resolve(request.result);
+    };
+    request.onerror = () => {
+      clearTimeout(timer);
+      reject(request.error);
+    };
   });
 }

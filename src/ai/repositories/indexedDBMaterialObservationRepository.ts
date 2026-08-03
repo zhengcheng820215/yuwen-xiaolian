@@ -109,12 +109,24 @@ function samePlanContent(left: MaterialObservationPlan, right: MaterialObservati
 async function openDb(): Promise<IDBDatabase> {
   if (typeof indexedDB === 'undefined') throw new Error('IndexedDB is unavailable.');
   return new Promise((resolve, reject) => {
+    let blocked = false;
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => STORES.forEach(([name, keyPath]) => {
       if (!request.result.objectStoreNames.contains(name)) request.result.createObjectStore(name, { keyPath });
     });
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      if (blocked) {
+        request.result.close();
+        return;
+      }
+      request.result.onversionchange = () => request.result.close();
+      resolve(request.result);
+    };
     request.onerror = () => reject(request.error || new Error('Failed to open Material Observation DB.'));
+    request.onblocked = () => {
+      blocked = true;
+      reject(new Error('Material Observation database is blocked.'));
+    };
   });
 }
 

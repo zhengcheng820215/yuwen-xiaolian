@@ -10,6 +10,12 @@ import {
 } from '../schemas/unifiedLearningEntry.schema.ts';
 import type { LearningPersistenceRecord } from '../schemas/learningPersistence.schema.ts';
 import type { RealLearningOperationCheckpoint } from '../schemas/realLearningOperation.schema.ts';
+import { withUnifiedLearningEntryReadDeadline } from '../../api/unifiedLearningEntry.ts';
+import { LocalApiFormalResourceClient } from '../repositories/localApiFormalResourceClient.ts';
+import {
+  createEmptySharedFormalResourceData,
+  SHARED_FORMAL_RESOURCE_SCHEMA_VERSION,
+} from '../schemas/sharedFormalResourcePersistence.schema.ts';
 
 const NOW = '2026-07-21T12:00:00.000Z';
 const STUDENT_ID = 'student-phase16-3b-debug';
@@ -98,6 +104,9 @@ async function main(): Promise<void> {
   await checkRepositoryConflict();
   checkInternalSummary();
   checkStudentStateSurface();
+  await checkEntryReadDeadline();
+  await checkFormalResourceRequestDeadline();
+  await checkFormalResourceReadCoalescing();
 
   console.log('\nPhase 16.3B Unified Learning Entry Debug');
   console.log('='.repeat(76));
@@ -111,6 +120,94 @@ async function main(): Promise<void> {
   console.log('Provider mode: none (entry orchestration only)');
   console.log('Persistence mode: deterministic in-memory repository');
   if (passed !== reports.length) throw new Error('Phase 16.3B Unified Learning Entry Debug failed.');
+}
+
+async function checkFormalResourceRequestDeadline(): Promise<void> {
+  const client = new LocalApiFormalResourceClient(
+    '/debug/formal-resources',
+    (() => new Promise<Response>(() => {})) as typeof fetch,
+    15,
+  );
+  const startedAt = Date.now();
+  try {
+    await client.read();
+    reports.push({
+      name: 'B18 正式资源服务请求超时收敛',
+      passed: false,
+      detail: 'request deadline did not reject',
+    });
+  } catch (error) {
+    const elapsedMs = Date.now() - startedAt;
+    reports.push({
+      name: 'B18 正式资源服务请求超时收敛',
+      passed: /读取超时/.test(error instanceof Error ? error.message : String(error)) && elapsedMs < 250,
+      detail: `elapsedMs=${elapsedMs}, message=${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+async function checkFormalResourceReadCoalescing(): Promise<void> {
+  let requestCount = 0;
+  const fetcher = (async () => {
+    requestCount += 1;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return new Response(JSON.stringify({
+      snapshot: {
+        schemaVersion: SHARED_FORMAL_RESOURCE_SCHEMA_VERSION,
+        initialized: true,
+        revision: 1,
+        baselineSource: 'learning-entry-coalescing-debug',
+        createdAt: NOW,
+        updatedAt: NOW,
+        data: createEmptySharedFormalResourceData(),
+      },
+      status: {
+        initialized: true,
+        revision: 1,
+        baselineSource: 'learning-entry-coalescing-debug',
+        updatedAt: NOW,
+        backupAvailable: false,
+      },
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }) as typeof fetch;
+  const clientA = new LocalApiFormalResourceClient('/debug/coalesced-formal-resources', fetcher);
+  const clientB = new LocalApiFormalResourceClient('/debug/coalesced-formal-resources', fetcher);
+
+  const [first, second, third] = await Promise.all([
+    clientA.read(),
+    clientB.read(),
+    clientA.read(),
+  ]);
+  await clientB.read();
+  reports.push({
+    name: 'B19 正式资源共享快照合并读取',
+    passed: requestCount === 1 &&
+      first.snapshot.revision === second.snapshot.revision &&
+      second.snapshot.revision === third.snapshot.revision,
+    detail: `requestCount=${requestCount}, revision=${first.snapshot.revision}`,
+  });
+}
+
+async function checkEntryReadDeadline(): Promise<void> {
+  const startedAt = Date.now();
+  try {
+    await withUnifiedLearningEntryReadDeadline(new Promise<never>(() => {}), 15);
+    reports.push({
+      name: 'B17 学习入口读取超时结束 Loading',
+      passed: false,
+      detail: 'deadline did not reject',
+    });
+  } catch (error) {
+    const elapsedMs = Date.now() - startedAt;
+    reports.push({
+      name: 'B17 学习入口读取超时结束 Loading',
+      passed: /读取超时/.test(error instanceof Error ? error.message : String(error)) && elapsedMs < 250,
+      detail: `elapsedMs=${elapsedMs}, message=${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
 }
 
 function checkState(

@@ -42,7 +42,7 @@ implements QuestionResourceAdmissionRepository {
   }
 
   async listMaterials(): Promise<QuestionMaterialVersion[]> {
-    return (await this.client.read()).snapshot.data.questionResources.materials
+    return [...(await this.client.read()).snapshot.data.questionResources.materials]
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
       .map(clone);
   }

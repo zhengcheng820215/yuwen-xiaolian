@@ -1014,3 +1014,169 @@ P2 验收必须覆盖：
 3. 顶部四项数量互斥且总和等于训练任务总数；
 4. 卡片只提供一个推荐主操作，不同时出现两个竞争性的主按钮；
 5. 保存计划、定位问题和进入题目流程继续调用现有独立 Command，不在卡片中直接写领域数据。
+
+## 二十一、正式发布到学习入口的读取契约
+
+本节冻结正式题目发布完成后进入学习 Runtime 的唯一读取边界，避免资源已经发布、Registry 已更新，但学习入口仍被历史批次或 Demo 过滤器隔离。
+
+### 21.1 唯一读取链
+
+```text
+PublicationResult.completed
+-> FrozenQuestionResourceVersion
+-> active RegistryEntry.currentFrozenVersionId
+-> Formal Resource Runtime Snapshot
+-> Learning Match
+-> Concrete Learning Task
+```
+
+强制约束：
+
+1. 发布完成必须同时产生可读取的 Frozen Version 和活动 Registry 当前版本指针；
+2. 学习入口必须读取与发布端相同的共享正式资源 Repository；
+3. 正式学习 Runtime 不得使用批次前缀、页面来源、历史 Demo 名称或测试 Fixture ID 过滤活动 Registry；
+4. Batch、Demo 和验收专用过滤器只能保留在对应测试或兼容入口，不得成为 `/learning` 的正式资源边界；
+5. Registry 指向的版本不存在、不是 `frozen` 或身份不一致时，必须报告读取异常，不得降级为“暂无新任务”。
+
+### 21.2 统一读取结果
+
+```ts
+type LearningFormalResourceReadState =
+  | 'available'
+  | 'no_formal_resource'
+  | 'no_eligible_match'
+  | 'already_used'
+  | 'read_failed'
+  | 'invalid_registry'
+  | 'mapping_failed';
+```
+
+页面语义：
+
+1. `no_formal_resource`、`no_eligible_match`、`already_used` 是正常业务结果，可以显示当前没有新的正式任务；
+2. `read_failed`、`invalid_registry`、`mapping_failed` 是系统异常，必须显示读取失败与重试入口；
+3. 页面不得把所有未匹配结果合并成同一句“当前没有新的正式任务”；
+4. 匹配失败的内部原因应保留在技术信息或审计记录中，学生界面只显示安全、可行动的说明。
+
+### 21.3 匹配字段与身份
+
+正式匹配只使用稳定字段：
+
+1. `abilityMetadata.abilityId`；
+2. `abilityMetadata.taskRole`；
+3. Registry 当前 Frozen Version；
+4. 当前学生已使用的 `resourceId`、`resourceVersionId` 与 `materialId`；
+5. Runtime 要求的材料新颖度、提示策略、难度和能力约束。
+
+展示名称、中文标签、批次名称和资源 ID 前缀不得作为能力或任务角色的等值判断依据。
+
+### 21.4 读取兼容与历史批次
+
+1. 旧 `Phase 17.3 Batch A` 匹配器可以继续用于 Batch A Debug 与历史回归；
+2. 正式学习入口必须调用通用正式资源匹配器，默认消费所有活动 Registry 当前版本；
+3. 如需限制资源集合，必须显式传入产品范围策略，且策略不得由资源 ID 前缀隐式推断；
+4. 新发布资源不需要迁移到旧批次命名，也不得为了进入学习入口重写正式资源 ID。
+
+### 21.5 验收标准
+
+1. 发布一条 `analysis + training` 题目后，学习入口能从共享 Registry 读取并形成 Concrete Task；
+2. 正式资源 ID 不使用 Batch A 前缀时仍可进入匹配；
+3. 已使用资源被排除后，可继续匹配同能力、同任务角色的其他正式资源；
+4. 确实没有合格资源时显示正常空状态；
+5. Repository 读取失败、Registry 指针失效或版本映射失败时显示系统错误，不伪装为空状态；
+6. Batch A 历史 Debug 继续保持原有隔离和结果；
+7. 结束旧会话后开始新会话，旧会话材料不限制新首题，旧会话已经使用的具体 Frozen Version 仍不会被重复选择；
+8. 同一活动会话进入下一 Round 时，当前材料语境继续生效。
+
+### 21.6 入口与工作区可用性一致
+
+学习入口的“可以开始”和学习工作区的任务准备必须消费同一份正式资源匹配结果，不允许入口仅以“Registry 非空”“未达到轮次上限”或“存在任意正式资源”推断任务可用。
+
+强制约束：
+
+1. 入口与工作区统一调用 `resolveCurrentLearningTaskAvailability()`，使用相同的学生身份、能力、任务角色、复测计划、当前 Round、已使用资源和材料去重条件；
+2. `available` 才允许入口显示“任务已经准备好”并启用“开始学习”；
+3. `no_eligible_match` 或 `already_used` 必须在入口直接显示真实空状态，不得先进入工作区再暴露无任务；
+4. `read_failed`、`invalid_registry`、`mapping_failed` 必须在入口显示读取失败和重试动作；
+5. 入口状态探测不得创建 Session、Round、学习记录或其他领域写入；
+6. 从入口显示“可以开始”到点击进入工作区之间没有外部资源变化时，工作区必须成功形成同一条件下的 Concrete Learning Task。
+7. 首轮或无明确 Next Strategy 的普通训练不得把能力固定为某个历史 Demo 默认值；必须从当前材料语境下尚未使用的正式 Training 版本中确定 `abilityId`；
+8. 普通 Training 的 `same_context` 表示允许并要求复用当前材料语境，材料曾经使用过不能被判定为“资源耗尽”；只有具体 `resourceVersionId` 已使用才排除该版本；
+9. Transfer 的 `new_context` 继续排除已使用材料，Retest 继续遵守受控相似材料关系，两者不得复用 Training 的耗尽算法；
+10. 正常空状态应沿用统一可用性探测返回的具体说明，不得再次退化为固定的通用空文案。
+
+### 21.7 学习会话历史边界
+
+正式资源历史必须拆分为“跨会话版本去重”和“当前活动会话语境”两层，不得把全部历史记录直接投影成当前材料语境：
+
+1. `recentResourceVersionIds` 可以跨学习会话累计，用于避免同一 Frozen Version 被重复形成正式学习任务；
+2. `recentMaterialIds`、`recentTaskIds`、`recentResourceIds` 与 `recentExecutionSessionIds` 只允许来自当前活动 `learningSessionId` 对应的 Round；
+3. `ended` 会话或不存在活动会话时，新的首轮匹配必须清空材料、任务、资源与执行会话上下文，但继续保留已使用 Frozen Version 的去重记录；
+4. 普通 Training 的同材料连续性只在同一个活动会话内成立；开始新会话时可以从任意仍有未使用正式版本的合格材料重新建立语境；
+5. Round 归属统一通过 `learningRoundId = ${learningSessionId}-round-*` 判定，入口探测、工作区首题和下一题匹配必须消费同一个历史作用域函数；
+6. 页面不得因为已结束会话的 `materialId` 泄漏到新会话而显示“当前没有新的正式任务”。
+7. 入口读取必须按学习记录、学习会话、操作进度、复测计划与正式任务分阶段设置时限；任一阶段失败时，页面只显示安全的阶段名称，不暴露数据库名、接口路径或技术堆栈。
+
+该约束用于消除以下错误链路：
+
+```text
+入口发现任意正式资源 -> 显示可以开始
+-> 工作区按真实能力、角色与去重条件重新匹配
+-> 显示当前没有新的正式任务
+```
+
+正确链路为：
+
+```text
+统一可用性探测 -> 入口状态
+                 -> 工作区任务准备
+```
+
+### 21.8 入口读取时限与失败边界
+
+学习入口恢复属于一次完整读取事务，必须有统一时限，不允许页面无限停留在“正在恢复学习状态”：
+
+1. `loadUnifiedLearningEntry()` 必须为整条读取链设置统一 Deadline，默认不超过 5 秒；
+2. Deadline 覆盖学习记录、活动 Session、Operation Checkpoint、复测计划、正式资源 Registry 与 Frozen Version 匹配，不得由页面分别计时；
+3. IndexedDB 打开或升级出现 `blocked` 时必须立即返回可识别的读取错误，不得等待浏览器自行解除；
+4. 超时、数据库阻塞、Repository 异常统一归入 `read_failed`，页面结束 Loading，显示安全说明和“重新尝试”；
+5. `no_formal_resource`、`no_eligible_match`、`already_used` 仍是成功完成读取后的正常业务空状态，不得因加入超时保护而改写为系统异常；
+6. 入口按钮只允许处于可操作、Loading 或明确禁用三种状态；Loading 必须外显，读取完成后立即恢复；
+7. 同一次入口恢复只允许有一个统一结果源，页面标题、空状态、主按钮与工作区可用性不得分别发起并解释不同读取结果。
+8. 统一 Deadline 不是底层依赖无限等待的替代方案；共享正式资源服务探测和 IndexedDB 打开请求必须各自具备更短的失败边界；
+9. 共享正式资源服务请求超时必须终止网络请求并返回可识别错误，不得继续占用入口事务；
+10. IndexedDB 连接必须响应 `versionchange` 主动关闭，升级出现 `blocked` 时立即失败，避免其他页签长期持有旧连接。
+11. 同一次学习入口解析窗口内，共享正式资源快照只允许请求和解析一次；仓储路由、列表、版本、校验、审核与运行准备必须复用该只读快照，不得逐方法重复拉取完整存储；
+12. 正式资源写入前必须使共享读取缓存失效，写入成功后以返回的新 Revision 更新缓存；读取代码不得原地修改共享快照。
+
+验收要求：
+
+- 任一底层 Promise 永不返回时，入口在 Deadline 后退出 Loading 并提供重试；
+- IndexedDB `blocked` 时不出现无限 Loading；
+- 正式资源服务请求永不返回时，在入口统一 Deadline 之前返回读取超时；
+- 一次入口恢复即使经过多个正式资源仓储方法，也只产生一次共享快照 GET 请求；
+- 正式版本确已全部使用时，稳定显示 `already_used` 对应文案，不显示读取失败；
+- 尚有合格且未使用的 Frozen Version 时，入口按钮可用且进入工作区能形成同一任务。
+
+### 21.9 工程落地与 Debug 记录（2026-08-03）
+
+本轮学习入口读取故障的根因不是正式资源缺失，而是同一次入口恢复中，Repository Router、列表读取、版本读取、资格判断与 Runtime 准备分别请求并解析同一份本机正式资源快照。约 660 KB 的健康数据因此被重复读取十余次，最终超过入口统一 Deadline，并被错误展示为 `read_failed`。
+
+工程修复冻结如下：
+
+1. 本机正式资源客户端按 `fetcher + endpoint` 复用同一个进行中请求，并提供 1 秒只读快照窗口；
+2. 同一解析窗口内的并发读取合并为一次 GET 和一次 JSON 解析，Repository Router 必须复用同一个客户端实例；
+3. 正式资源写入前使共享快照失效，写入成功后用服务端返回的新 Revision 更新缓存；
+4. 正式资源服务请求和 IndexedDB 打开请求均设置短于入口统一 Deadline 的内部时限；IndexedDB 必须处理 `blocked` 与 `versionchange`，并在完成后关闭连接；
+5. `/learning` 按学习记录、学习会话、操作进度、复测计划与正式任务分阶段返回安全错误；业务空状态与系统读取失败继续严格分离。
+
+Debug 与界面验收结果：
+
+- `pnpm debug:phase16-3-unified-entry`：`20 / 20 PASS`，共享快照用例确认一次入口恢复只产生 1 次正式资源请求；
+- `pnpm debug:phase17-3-learning-entry`：`10 / 10 PASS`；
+- `pnpm debug:learning-entry`：`PASS`；
+- `pnpm debug:phase17-4a`：`12 / 12 PASS`；
+- `pnpm build`：`PASS`；
+- 浏览器真实入口 `/learning` 可稳定结束 Loading，并显示“本次学习已经结束”等正常业务状态，不再误报“暂时无法打开学习入口”。
+
+本记录作为后续学习入口读取性能、空状态语义和共享正式资源一致性的回归基线。

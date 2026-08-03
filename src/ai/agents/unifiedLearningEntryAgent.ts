@@ -200,7 +200,7 @@ export function buildUnifiedLearningEntryState(
     ...base,
     status: 'no_task', priority: 7,
     title: '暂时没有可用任务',
-    message: '当前没有符合学习目标的正式任务，请稍后再来。',
+    message: input.taskAvailabilityMessage || '当前没有符合学习目标的正式任务，请稍后再来。',
     primaryAction: 'none', primaryActionText: '暂无任务', canEnterWorkspace: false,
   });
 }

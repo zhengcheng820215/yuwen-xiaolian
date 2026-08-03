@@ -84,6 +84,7 @@ export type UnifiedLearningEntryInput = {
   delayedRetestPlans?: DelayedRetestPlan[];
   operationCheckpoint?: RealLearningOperationCheckpoint;
   hasAvailableTask: boolean;
+  taskAvailabilityMessage?: string;
   completedRoundCount: number;
 };
 

@@ -221,5 +221,7 @@ function toMessage(error) {
   const value = error instanceof Error ? error.message : String(error);
   if (import.meta.env.DEV) console.error(error);
   if (/当前已有学习正在进行/.test(value)) return value;
+  if (/^学习入口暂时无法读取“.+”，请重新尝试。$/.test(value)) return value;
+  if (/共享资源服务(读取超时|不可用)/.test(value)) return '正式任务暂时无法读取，请重新尝试。';
   return '学习状态暂时无法读取，已有记录不会丢失，请重新尝试。';
 }

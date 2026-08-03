@@ -494,6 +494,24 @@ Phase 16.3C 自然日验收必须以页面收敛、PC / 平板人工验收和关
 - 不重复调用 Provider；
 - `/internal` 能够识别并复核部分提交状态。
 
+### Case 14：正式发布资源可被学习入口读取
+
+题目发布完成后，`/learning` 必须通过共享正式资源 Repository 和活动 Registry 当前版本读取资源：
+
+- 不使用 Batch、Demo 或测试资源 ID 前缀限制正式候选池；
+- 能力与任务角色使用稳定 ID 匹配，不使用展示标签；
+- 正常无匹配、资源已使用与读取异常必须使用不同状态；
+- 读取异常不得显示为“当前没有新的正式任务”；
+- 读取异常必须指出失败的业务阶段（如“正式任务暂时无法读取”），但不得向学生暴露 IndexedDB、接口地址或内部错误码；
+- 入口“可以开始”和工作区任务准备必须使用同一可用性探测，入口不得仅凭 Registry 非空或轮次上限判断可用；
+- 无并发资源变化时，入口显示“可以开始”后点击必须形成 Concrete Learning Task，不得再次落入无任务空状态；
+- 新学习会话不得继承已结束会话的材料语境；只保留具体 Frozen Version 的跨会话去重，材料、任务、资源与执行会话历史仅作用于当前活动 Session；
+- 整条入口恢复必须使用统一读取 Deadline；超时或 IndexedDB `blocked` 时结束 Loading、显示读取失败与重试，不得无限停留在“正在恢复学习状态”；
+- 正式资源服务探测与 IndexedDB 打开必须各自设置失败边界，不能只依赖页面最外层超时掩盖底层悬挂；
+- 正式任务解析涉及多个仓储查询时，必须共享一次正式资源快照读取；禁止重复下载和解析同一存储并将健康数据误判为读取失败；
+- 读取成功后的资源耗尽继续显示正常空状态，不能把 `already_used` 伪装成读取异常；
+- 发布后学习入口端到端读取规则以《Unified Resource Production Workbench Contract》第二十一节为唯一契约。
+
 ## 十五、完成标准
 
 完成后必须满足：
@@ -560,6 +578,17 @@ Phase 16 Acceptance / Freeze
 - Product / Demo Scope Isolation Debug：`11 / 11 PASS`；统一入口 `17 / 17 PASS`；Phase 16.3A `16 / 16 PASS`；Day 0 串联 `11 / 11 PASS`；Phase 15 集成 `11 / 11 PASS`；受控反馈 `46 / 46 PASS`；Production Build `PASS`。
 
 详细验收记录见：[Phase 16.3 Product / Demo Scope Isolation Debug](../education/phase/reports/phase16_3_product_demo_scope_isolation_debug_2026-07-21.md)。
+
+### 18.1 学习入口正式资源读取补强
+
+- `/learning` 的首轮任务能力从当前可用正式 Training 版本中解析，不使用固定的 `analysis` Demo 默认值；
+- 普通训练沿用同一材料时，只排除已经完成的具体正式版本，不因材料进入历史记录而把同材料下的其他能力任务全部判为耗尽；
+- Transfer 仍要求新材料，Retest 仍要求受控相似材料，三类任务分别计算材料可用性；
+- 入口空状态直接展示统一可用性探测给出的“无正式资源 / 无合格匹配 / 当前版本已使用”等业务说明；
+- 入口显示可开始时，工作区必须能在同一快照下准备 Concrete Task，不得再次执行一套能力默认值或资源过滤逻辑；
+- 普通 Training 的同材料连续性以当前活动学习会话为边界；会话结束后再次进入 `/learning` 时，不得因旧材料历史误判正式资源耗尽。
+
+2026-08-03 已完成正式资源读取链路 Debug：入口恢复改为复用单次共享正式资源快照，底层读取增加超时、阻塞与连接关闭边界；统一入口 `20 / 20 PASS`，正式资源学习入口 `10 / 10 PASS`，Phase 17.4A `12 / 12 PASS`，Production Build `PASS`。真实浏览器入口已确认不再因重复读取健康快照而误报系统读取失败。
 
 ## 十九、Learning Narrative Calibration
 

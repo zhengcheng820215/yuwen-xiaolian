@@ -10,7 +10,10 @@ import { IndexedDBRealLearningOperationRepository } from '../ai/repositories/ind
 import { LocalStorageUnifiedLearningEntryRepository } from '../ai/repositories/localStorageUnifiedLearningEntryRepository.ts';
 import type { UnifiedLearningActivityContext, UnifiedLearningEntryState } from '../ai/schemas/unifiedLearningEntry.schema.ts';
 import type { ContinuousLearningDemoState } from './continuousLearningDemo.ts';
-import { loadPhase163DueRetestPlans } from './phase163LiveLearning.ts';
+import {
+  loadPhase163DueRetestPlans,
+  resolveCurrentLearningTaskAvailability,
+} from './phase163LiveLearning.ts';
 import {
   assertPhase163ProductRuntimeIdentity,
   PHASE163_LEARNING_STUDENT_ID,
@@ -18,6 +21,8 @@ import {
 } from './phase163LearningIdentity.ts';
 
 export const UNIFIED_ENTRY_STUDENT_ID = PHASE163_LEARNING_STUDENT_ID;
+export const UNIFIED_LEARNING_ENTRY_READ_TIMEOUT_MS = 5_000;
+export const UNIFIED_LEARNING_ENTRY_STAGE_TIMEOUT_MS = 4_000;
 
 const MAX_ROUNDS = 3;
 const persistenceRepository = new IndexedDBLearningPersistenceRepository();
@@ -26,22 +31,47 @@ const operationRepository = new IndexedDBRealLearningOperationRepository();
 const sessionRepository = new IndexedDBLearningSessionRepository();
 
 export async function loadUnifiedLearningEntry(): Promise<UnifiedLearningEntryState> {
-  const records = await persistenceRepository.listByStudent(UNIFIED_ENTRY_STUDENT_ID);
-  const context = await activityRepository.getByStudent(UNIFIED_ENTRY_STUDENT_ID);
+  return withUnifiedLearningEntryReadDeadline(loadUnifiedLearningEntryData());
+}
+
+async function loadUnifiedLearningEntryData(): Promise<UnifiedLearningEntryState> {
+  const [records, context] = await Promise.all([
+    readUnifiedLearningEntryStage(
+      '学习记录',
+      persistenceRepository.listByStudent(UNIFIED_ENTRY_STUDENT_ID),
+    ),
+    readUnifiedLearningEntryStage(
+      '学习活动',
+      activityRepository.getByStudent(UNIFIED_ENTRY_STUDENT_ID),
+    ),
+  ]);
   const activeContext = context?.status !== 'ended' ? context : undefined;
-  const currentRecord = activeContext?.currentLearningRoundId
-    ? await persistenceRepository.loadByRound(UNIFIED_ENTRY_STUDENT_ID, activeContext.currentLearningRoundId)
-    : undefined;
+  const [currentRecord, session, operationCheckpoint, delayedRetestPlans, taskAvailability] = await Promise.all([
+    activeContext?.currentLearningRoundId
+      ? readUnifiedLearningEntryStage(
+          '当前学习进度',
+          persistenceRepository.loadByRound(UNIFIED_ENTRY_STUDENT_ID, activeContext.currentLearningRoundId),
+        )
+      : Promise.resolve(undefined),
+    context
+      ? readUnifiedLearningEntryStage(
+          '学习会话',
+          sessionRepository.getById(UNIFIED_ENTRY_STUDENT_ID, context.learningSessionId),
+        )
+      : Promise.resolve(null),
+    activeContext?.currentLearningRoundId
+      ? readUnifiedLearningEntryStage(
+          '学习操作进度',
+          operationRepository.getByOperationId(`phase16-3-live-operation-${activeContext.currentLearningRoundId}`),
+        )
+      : Promise.resolve(undefined),
+    readUnifiedLearningEntryStage('复测计划', loadPhase163DueRetestPlans()),
+    readUnifiedLearningEntryStage('正式任务', resolveCurrentLearningTaskAvailability()),
+  ]);
   const latestRecord = activeContext?.currentLearningRoundId
     ? currentRecord
     : records.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-  const session = context
-    ? await sessionRepository.getById(UNIFIED_ENTRY_STUDENT_ID, context.learningSessionId)
-    : null;
   const completedRoundCount = session?.completedRoundCount || 0;
-  const operationCheckpoint = activeContext?.currentLearningRoundId
-    ? await operationRepository.getByOperationId(`phase16-3-live-operation-${activeContext.currentLearningRoundId}`)
-    : undefined;
   if (context) assertPhase163ProductRuntimeIdentity(context);
   if (latestRecord) {
     assertPhase163ProductRuntimeIdentity({
@@ -50,7 +80,9 @@ export async function loadUnifiedLearningEntry(): Promise<UnifiedLearningEntrySt
     });
   }
   if (operationCheckpoint) assertPhase163ProductRuntimeIdentity(operationCheckpoint);
-  const delayedRetestPlans = await loadPhase163DueRetestPlans();
+  if (taskAvailability.state === 'read_failed') {
+    throw new Error(taskAvailability.message);
+  }
 
   return buildUnifiedLearningEntryState({
     studentId: UNIFIED_ENTRY_STUDENT_ID,
@@ -59,8 +91,58 @@ export async function loadUnifiedLearningEntry(): Promise<UnifiedLearningEntrySt
     latestPersistenceRecord: latestRecord,
     delayedRetestPlans,
     operationCheckpoint: operationCheckpoint || undefined,
-    hasAvailableTask: !context || context.status === 'ended' || completedRoundCount < MAX_ROUNDS,
+    hasAvailableTask: completedRoundCount < MAX_ROUNDS && taskAvailability.available,
+    taskAvailabilityMessage: taskAvailability.message,
     completedRoundCount,
+  });
+}
+
+export function readUnifiedLearningEntryStage<T>(
+  label: string,
+  task: Promise<T>,
+  timeoutMs = UNIFIED_LEARNING_ENTRY_STAGE_TIMEOUT_MS,
+): Promise<T> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return Promise.reject(new Error(`学习入口“${label}”读取时限配置无效。`));
+  }
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`学习入口暂时无法读取“${label}”，请重新尝试。`));
+    }, timeoutMs);
+    task.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+export function withUnifiedLearningEntryReadDeadline<T>(
+  task: Promise<T>,
+  timeoutMs = UNIFIED_LEARNING_ENTRY_READ_TIMEOUT_MS,
+): Promise<T> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return Promise.reject(new Error('学习入口读取时限配置无效。'));
+  }
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('学习状态读取超时，请重新尝试。'));
+    }, timeoutMs);
+    task.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
   });
 }
 
