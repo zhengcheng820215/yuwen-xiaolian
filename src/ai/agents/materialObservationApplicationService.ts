@@ -21,10 +21,15 @@ import type {
   FrozenQuestionResourceVersion,
   PrimaryAbilityId,
   ResourceRegistryEntry,
+  StructuredQuestionDraft,
 } from '../schemas/questionResourceAdmission.schema.ts';
 import type { RecommendedTaskRole } from '../schemas/nextLearningStrategy.schema.ts';
 import type { CreateStructuredQuestionDraftInput } from './questionResourceAdmissionAgent.ts';
-import { createStructuredQuestionDraft, validateStructuredQuestionDraft } from './questionResourceAdmissionAgent.ts';
+import {
+  createStructuredQuestionDraft,
+  updateStructuredQuestionDraft,
+  validateStructuredQuestionDraft,
+} from './questionResourceAdmissionAgent.ts';
 import {
   adaptObservationTaskToQuestionDraft,
   buildMaterialObservationPlan,
@@ -72,6 +77,13 @@ export type SingleTaskRegenerationResult = {
   reused: boolean;
   sourceObservationTaskPlanId: string;
   observationTaskPlanId: string;
+};
+
+export type MaterialProductionDraftSynchronizationResult = {
+  observationTaskPlanId: string;
+  draftId: string;
+  changed: boolean;
+  revision: number;
 };
 
 export async function createMaterialStructure(
@@ -386,10 +398,7 @@ export async function createAndValidateQuestionDraftForTask(
 
   const existingDrafts = await resourceRepository.listDrafts();
   const baseDraftId = productionDraftId(task.observationTaskPlanId);
-  const observationTaskTag = `observation_task:${task.observationTaskPlanId}`;
-  const existing = existingDrafts
-    .filter((draft) => draft.status !== 'archived' && draft.tags.includes(observationTaskTag))
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]
+  const existing = findActiveDraftForObservationTask(existingDrafts, task)
     || existingDrafts.find((draft) => draft.status !== 'archived' && draft.draftId === baseDraftId);
   const draftId = existing
     ? existing.draftId
@@ -410,7 +419,9 @@ export async function createAndValidateQuestionDraftForTask(
     };
   }
 
-  const draft = existing || await createQuestionDraftFromObservationTask(resourceRepository, observationRepository, {
+  const draft = existing
+    ? await synchronizeEditableQuestionDraft(resourceRepository, plan, task, existing, input.sourceDescription, input.now)
+    : await createQuestionDraftFromObservationTask(resourceRepository, observationRepository, {
     planId: plan.materialObservationPlanId,
     observationTaskPlanId: task.observationTaskPlanId,
     content: buildProductionQuestionDraftContent(task, draftId, input.sourceDescription, input.now),
@@ -423,6 +434,39 @@ export async function createAndValidateQuestionDraftForTask(
     validationPassed: validation.passed,
     issues: validation.issues.map((issue) => issue.code),
   };
+}
+
+export async function synchronizeQuestionDraftsFromObservationPlan(
+  resourceRepository: QuestionResourceAdmissionRepository,
+  observationRepository: MaterialObservationRepository,
+  planId: string,
+  now = new Date().toISOString(),
+): Promise<MaterialProductionDraftSynchronizationResult[]> {
+  const plan = await requirePlan(observationRepository, planId);
+  const drafts = await resourceRepository.listDrafts();
+  const results: MaterialProductionDraftSynchronizationResult[] = [];
+
+  for (const task of plan.taskPlans) {
+    const existing = findActiveDraftForObservationTask(drafts, task);
+    if (!existing || !['drafted', 'validation_failed', 'revision_required'].includes(existing.status)) continue;
+
+    const synchronized = await synchronizeEditableQuestionDraft(
+      resourceRepository,
+      plan,
+      task,
+      existing,
+      undefined,
+      now,
+    );
+    results.push({
+      observationTaskPlanId: task.observationTaskPlanId,
+      draftId: synchronized.draftId,
+      changed: synchronized.revision !== existing.revision,
+      revision: synchronized.revision,
+    });
+  }
+
+  return results;
 }
 
 export async function validateAndSaveMaterialObservationPlan(
@@ -700,6 +744,83 @@ function buildProductionQuestionDraftContent(
     ],
     now,
   };
+}
+
+function buildProductionQuestionDraftInput(
+  plan: MaterialObservationPlan,
+  task: ObservationTaskPlan,
+  draftId: string,
+  sourceDescription?: string,
+  now?: string,
+): CreateStructuredQuestionDraftInput {
+  const content = buildProductionQuestionDraftContent(task, draftId, sourceDescription, now);
+  return {
+    ...content,
+    materialVersionId: plan.materialVersionId,
+    abilityMetadata: {
+      abilityId: task.abilityId,
+      supportingAbilityIds: task.resourceDraftSpecification?.supportingAbilityIds || [],
+      prerequisiteAbilityIds: task.resourceDraftSpecification?.prerequisiteAbilityIds || [],
+      taskRole: task.taskRole,
+      difficulty: task.difficulty,
+      gradeRange: task.resourceDraftSpecification?.gradeRange,
+    },
+    tags: unique([
+      ...(content.tags || []),
+      `observation_plan:${plan.materialObservationPlanId}`,
+      `observation_task:${task.observationTaskPlanId}`,
+      `observation_task_root:${task.taskRevisionRootId}`,
+      ...(task.parentObservationTaskPlanId
+        ? [`observation_task_parent:${task.parentObservationTaskPlanId}`]
+        : []),
+      `observation_dimension:${task.primaryDimension}`,
+      ...(task.observationFocus ? [`observation_focus:${task.observationFocus.focusCode}`] : []),
+      ...(task.intendedComparisonGroupId ? [`comparison_group:${task.intendedComparisonGroupId}`] : []),
+    ]),
+  };
+}
+
+async function synchronizeEditableQuestionDraft(
+  repository: QuestionResourceAdmissionRepository,
+  plan: MaterialObservationPlan,
+  task: ObservationTaskPlan,
+  draft: StructuredQuestionDraft,
+  sourceDescription?: string,
+  now?: string,
+) {
+  if (!draft) throw new Error('Question Draft not found while synchronizing the training task.');
+  const desired = buildProductionQuestionDraftInput(plan, task, draft.draftId, sourceDescription, now);
+  return updateStructuredQuestionDraft(repository, draft.draftId, {
+    materialVersionId: desired.materialVersionId,
+    title: desired.title,
+    questionStem: desired.questionStem,
+    questionType: desired.questionType,
+    responseFormat: desired.responseFormat,
+    options: desired.options,
+    assessmentMode: desired.assessmentMode,
+    answerAcceptance: desired.answerAcceptance,
+    rubric: desired.rubric,
+    minimumAnswerRequirement: desired.minimumAnswerRequirement,
+    abilityMetadata: desired.abilityMetadata,
+    source: desired.source,
+    tags: desired.tags,
+  }, now || new Date().toISOString(), { expectedRevision: draft.revision });
+}
+
+function findActiveDraftForObservationTask(
+  drafts: StructuredQuestionDraft[],
+  task: ObservationTaskPlan,
+): StructuredQuestionDraft | undefined {
+  const lineageTags = unique([
+    `observation_task:${task.observationTaskPlanId}`,
+    `observation_task_root:${task.taskRevisionRootId}`,
+    ...(task.parentObservationTaskPlanId
+      ? [`observation_task:${task.parentObservationTaskPlanId}`]
+      : []),
+  ]);
+  return drafts
+    .filter((draft) => draft.status !== 'archived' && lineageTags.some((tag) => draft.tags.includes(tag)))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
 }
 function archivedRevisionDraftId(baseDraftId: string): string {
   const randomSuffix = typeof globalThis.crypto?.randomUUID === 'function'

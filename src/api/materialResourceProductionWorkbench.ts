@@ -5,6 +5,7 @@ import {
   linkFrozenResourceToObservationTask,
   reviewMaterialObservationPlan,
   submitMaterialObservationPlanForReview,
+  synchronizeQuestionDraftsFromObservationPlan,
   type MaterialProductionDraftResult,
   type MaterialProductionTaskInput,
 } from '../ai/agents/materialObservationApplicationService.ts';
@@ -291,6 +292,14 @@ export async function createProductionObservationPlan(input: {
   sourcePlanId?: string;
 }) {
   return createMaterialProductionPlan(resourceRepository, observationRepository, input);
+}
+
+export async function synchronizeProductionQuestionDrafts(planId: string) {
+  return synchronizeQuestionDraftsFromObservationPlan(
+    resourceRepository,
+    observationRepository,
+    planId,
+  );
 }
 
 export async function submitProductionObservationPlan(planId: string) {

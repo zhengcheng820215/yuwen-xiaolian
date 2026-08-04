@@ -2,7 +2,7 @@
 
 英文名称：Single Training Task Regeneration Contract
 
-状态：ENGINEERING IMPLEMENTED / ACCEPTANCE IN PROGRESS  
+状态：ENGINEERING IMPLEMENTED / CANDIDATE BROWSER ACCEPTANCE PASSED / END-TO-END PRODUCT ACCEPTANCE PENDING
 契约版本：`single_training_task_regeneration_contract_v1`  
 更新日期：2026-07-29
 

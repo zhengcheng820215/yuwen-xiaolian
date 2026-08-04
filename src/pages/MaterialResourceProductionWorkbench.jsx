@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertTriangle,
   ArrowLeft,
   Archive,
-  CheckCircle2,
   ChevronDown,
   LoaderCircle,
   Save,
   Trash2,
 } from 'lucide-react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import RefreshIconButton from '../components/RefreshIconButton.jsx';
 import {
   createProductionMaterial,
@@ -36,7 +34,6 @@ import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
 import { formatMaterialTitle } from '../ui/materialTitle.ts';
 import {
   buildMaterialResourceWorkbenchDetails,
-  isPlanFullyPublished,
   scopeMaterialResourceWorkbenchDetails,
   selectCurrentPlanDrafts,
 } from './materialResourceWorkbenchState.ts';
@@ -60,10 +57,9 @@ import {
   getMaterialProductionCommandAvailability,
   MATERIAL_PRODUCTION_COMMANDS,
 } from './materialResourceProductionCommandState.ts';
-import { QuestionReviewSubmissionStageError } from './materialQuestionReviewSubmission.ts';
 import {
+  executeConfirmTrainingPlanForTaskProductionCommand,
   executeCreateTaskQuestionCommand,
-  executeMaterialFinalConfirmationSubmissionCommand,
   executeSavePlanRevisionCommand,
 } from './materialProductionCommands.ts';
 import {
@@ -82,6 +78,7 @@ import {
 import {
   resolveTaskAssessmentStatus,
   resolveTaskGroupSummary,
+  resolveTaskProductionCardPresentation,
   resolveTaskPublicationEligibility,
   resolveTaskProductionState,
 } from './taskProductionState.ts';
@@ -127,10 +124,6 @@ const responseFormatOptions = [
   ['single_choice', '单项选择'],
   ['boolean', '判断'],
 ];
-const statusLabels = {
-  draft: '未提交确认', pending_review: '等待训练计划确认', revision_required: '需要修订',
-  reviewed: '训练计划已确认', rejected: '已拒绝', superseded: '已被新版本替代',
-};
 const abilityLabels = Object.fromEntries(abilityOptions);
 const dimensionLabels = Object.fromEntries(dimensionOptions);
 const trainingDirectionLabels = Object.fromEntries(trainingDirectionOptions);
@@ -139,7 +132,6 @@ const difficultyLabels = Object.fromEntries(difficultyOptions);
 
 export default function MaterialResourceProductionWorkbench() {
   const location = useLocation();
-  const navigate = useNavigate();
   const routeSelection = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return {
@@ -329,11 +321,6 @@ export default function MaterialResourceProductionWorkbench() {
     () => selectCurrentPlanDrafts(selectedPlan, snapshot.drafts),
     [selectedPlan, snapshot.drafts],
   );
-  const planFullyPublished = isPlanFullyPublished({
-    plan: selectedPlan,
-    currentDrafts: planDrafts,
-    draftReadiness: snapshot.draftReadiness,
-  });
   const workbenchDetails = useMemo(
     () => buildMaterialResourceWorkbenchDetails(snapshot),
     [snapshot],
@@ -699,133 +686,162 @@ export default function MaterialResourceProductionWorkbench() {
     });
   }
 
-  function openQuestionRepairItem(item) {
-    const params = new URLSearchParams({ mode: 'plan-review' });
-    if (item.materialObservationPlanId) params.set('planId', item.materialObservationPlanId);
-    if (item.materialVersionId) params.set('materialVersionId', item.materialVersionId);
-    if (item.draftId) params.set('draftId', item.draftId);
-    navigate(`/question-resource-workbench?${params.toString()}`);
-  }
-
   async function runTaskWorkflowAction(lifecycle) {
     if (!lifecycle) return;
-    const { actionKind, draft, readiness, item } = lifecycle;
-    if (actionKind === 'save_plan') {
-      await savePlanRevision();
-      return;
-    }
-    if (actionKind === 'focus_issue') return;
-    if (actionKind === 'open_repair') {
-      if (item?.draftId) {
-        openQuestionRepairItem(item);
-        return;
-      }
-      const observationTaskPlanId = item?.observationTaskPlanId;
-      const planId = item?.materialObservationPlanId;
-      if (!observationTaskPlanId || !planId) return;
-      const operationKey = `${observationTaskPlanId}:${actionKind}`;
-      if (taskWorkflowInFlightRef.current.has(operationKey)) return;
-      taskWorkflowInFlightRef.current.add(operationKey);
-      setTaskWorkflowOperation(operationKey);
-      setTaskWorkflowFeedback((current) => ({ ...current, [observationTaskPlanId]: null }));
-      try {
-        const result = await executeCreateTaskQuestionCommand({ planId, observationTaskPlanId });
-        if (result.status === 'failed') {
-          throw new Error(result.issues[0] || '题目草稿创建失败，请重试。');
-        }
-        openQuestionRepairItem({ ...item, draftId: result.draftId });
-      } catch (error) {
-        setTaskWorkflowFeedback((current) => ({
-          ...current,
-          [observationTaskPlanId]: {
-            tone: 'error',
-            message: error instanceof Error ? error.message : '题目草稿创建失败，请重试。',
-          },
-        }));
-      } finally {
-        taskWorkflowInFlightRef.current.delete(operationKey);
-        setTaskWorkflowOperation((current) => (current === operationKey ? null : current));
-      }
-      return;
-    }
-    if (actionKind === 'view_formal_resource') return;
-    if (!draft) return;
+    const observationTaskPlanId = lifecycle.task?.observationTaskPlanId
+      || lifecycle.item?.observationTaskPlanId;
+    const planId = lifecycle.item?.materialObservationPlanId
+      || selectedPlan?.materialObservationPlanId;
+    if (!observationTaskPlanId || !planId) return;
+    if (lifecycle.actionKind === 'focus_issue') return;
+    if (lifecycle.actionKind === 'view_formal_resource') return;
 
-    const operationKey = `${draft.draftId}:${actionKind}`;
+    const operationKey = `${observationTaskPlanId}:publish_task`;
     if (taskWorkflowInFlightRef.current.has(operationKey)) return;
     taskWorkflowInFlightRef.current.add(operationKey);
-    const warnings = readiness?.qualityAssessment?.warnings || [];
-    const existingAcknowledgements = new Map(
-      (draft.warningAcknowledgements || []).map((record) => [record.warningCode, record.rationale]),
-    );
-    const rationales = taskWarningRationales[draft.draftId] || {};
     setTaskWorkflowOperation(operationKey);
-    setTaskWorkflowFeedback((current) => ({ ...current, [draft.draftId]: null }));
+    setTaskWorkflowFeedback((current) => ({ ...current, [observationTaskPlanId]: null }));
     try {
-      let result;
-      if (actionKind === 'run_check') {
-        result = await executeQuestionCheckCommand({
-          currentDraft: draft,
-          onStageStart: (stage) => {
-            const message = {
-              draft_saved: '正在保存题目修改…',
-              structure_checked: '正在检查题目结构…',
-              assessment_completed: '结构检查已完成，正在生成完整质量检查记录…',
-            }[stage] || '正在检查题目…';
+      let currentLifecycle = lifecycle;
+      let currentSnapshot = snapshot;
+
+      if (currentLifecycle.actionKind === 'save_plan') {
+        setTaskWorkflowFeedback((current) => ({
+          ...current,
+          [observationTaskPlanId]: { type: 'info', message: '正在保存任务修改…' },
+        }));
+        const saved = await savePlanRevision();
+        if (!saved) return;
+        currentSnapshot = await refresh({ materialVersionId: selectedMaterialId, planId });
+        currentLifecycle = resolveTaskLifecycleFromSnapshot(currentSnapshot, lifecycle, planId);
+      }
+
+      const currentPlan = currentSnapshot.plans.find(
+        (plan) => plan.materialObservationPlanId === planId,
+      );
+      if (currentPlan && currentPlan.status !== 'reviewed') {
+        setTaskWorkflowFeedback((current) => ({
+          ...current,
+          [observationTaskPlanId]: { type: 'info', message: '正在确认训练计划…' },
+        }));
+        await executeConfirmTrainingPlanForTaskProductionCommand({
+          planId,
+          currentStatus: currentPlan.status,
+        });
+        currentSnapshot = await refresh({ materialVersionId: selectedMaterialId, planId });
+        currentLifecycle = resolveTaskLifecycleFromSnapshot(currentSnapshot, lifecycle, planId);
+      }
+
+      for (let stageCount = 0; stageCount < 7; stageCount += 1) {
+        const { actionKind, draft, readiness } = currentLifecycle;
+        if (actionKind === 'view_formal_resource' || currentLifecycle.status === 'published') break;
+
+        if (actionKind === 'open_repair') {
+          setTaskWorkflowFeedback((current) => ({
+            ...current,
+            [observationTaskPlanId]: { type: 'info', message: '正在创建题目草稿…' },
+          }));
+          const created = await executeCreateTaskQuestionCommand({ planId, observationTaskPlanId });
+          if (created.status === 'failed') {
+            throw new Error(created.issues[0] || '题目草稿创建失败，请重试。');
+          }
+        } else if (actionKind === 'run_check' && draft) {
+          await executeQuestionCheckCommand({
+            currentDraft: draft,
+            onStageStart: (stage) => {
+              const message = {
+                draft_saved: '正在保存题目内容…',
+                structure_checked: '正在检查题目结构…',
+                assessment_completed: '正在生成完整质量检查记录…',
+              }[stage] || '正在检查题目…';
+              setTaskWorkflowFeedback((current) => ({
+                ...current,
+                [observationTaskPlanId]: { type: 'info', message },
+              }));
+            },
+          });
+        } else if (actionKind === 'open_confirmation' && draft) {
+          const warnings = readiness?.qualityAssessment?.warnings || [];
+          const existingAcknowledgements = new Map(
+            (draft.warningAcknowledgements || []).map((record) => [record.warningCode, record.rationale]),
+          );
+          const rationales = taskWarningRationales[draft.draftId] || {};
+          const warningAcknowledgements = warnings.map((warning) => ({
+            warningCode: warning.code,
+            rationale: (rationales[warning.code] || existingAcknowledgements.get(warning.code) || '').trim(),
+          }));
+          if (warningAcknowledgements.some((record) => !record.rationale)) {
             setTaskWorkflowFeedback((current) => ({
               ...current,
-              [draft.draftId]: { type: 'info', message },
+              [observationTaskPlanId]: { type: 'warning', message: '请填写质量提醒的保留理由，再继续发布。' },
             }));
-          },
-        });
-      } else if (actionKind === 'open_confirmation') {
-        const warningAcknowledgements = warnings.map((warning) => ({
-          warningCode: warning.code,
-          rationale: (rationales[warning.code] || existingAcknowledgements.get(warning.code) || '').trim(),
-        }));
-        const missingRationale = warningAcknowledgements.find((record) => !record.rationale);
-        if (missingRationale) throw new Error('请先填写质量提醒的保留理由。');
-        result = await executeSubmitFinalConfirmationCommand({
-          draftId: draft.draftId,
-          expectedDraftRevision: draft.revision,
-          warningAcknowledgements,
-        });
-      } else if (actionKind === 'confirm') {
-        result = await executeRecordFinalConfirmationCommand({
-          draftId: draft.draftId,
-          expectedDraftRevision: draft.revision,
-          action: 'approve',
-          reviewerId: 'local-reviewer',
-          notes: taskReviewNotes[draft.draftId] || '',
-          acceptedWarningCodes: (draft.warningAcknowledgements || []).map((record) => record.warningCode),
-        });
-      } else if (actionKind === 'publish' || actionKind === 'retry_publication') {
-        result = await executePublishConfirmedTaskCommand({
-          draftId: draft.draftId,
-          expectedDraftRevision: draft.revision,
-          retryExistingPublication: actionKind === 'retry_publication',
-        });
-      } else return;
-      await refresh({ materialVersionId: selectedMaterialId, planId: selectedPlanId });
-      const successMessage = {
-        run_check: '题目检查已完成。',
-        open_confirmation: '题目已提交最终确认。',
-        confirm: '题目已确认，等待正式发布。',
-        publish: '题目已经发布成功！',
-        retry_publication: '题目发布已恢复完成。',
-      }[actionKind];
+            window.requestAnimationFrame(() => {
+              const taskCard = document.querySelector(`[data-task-editor="${lifecycle.task?.localId || ''}"]`);
+              taskCard?.setAttribute('open', '');
+              taskCard?.querySelector('[data-task-production-workflow]')?.scrollIntoView({ block: 'nearest' });
+            });
+            return;
+          }
+          await executeSubmitFinalConfirmationCommand({
+            draftId: draft.draftId,
+            expectedDraftRevision: draft.revision,
+            warningAcknowledgements,
+          });
+        } else if (actionKind === 'confirm' && draft) {
+          await executeRecordFinalConfirmationCommand({
+            draftId: draft.draftId,
+            expectedDraftRevision: draft.revision,
+            action: 'approve',
+            reviewerId: 'local-reviewer',
+            notes: taskReviewNotes[draft.draftId] || '',
+            acceptedWarningCodes: (draft.warningAcknowledgements || []).map((record) => record.warningCode),
+          });
+        } else if (['publish', 'retry_publication'].includes(actionKind) && draft) {
+          setTaskWorkflowFeedback((current) => ({
+            ...current,
+            [observationTaskPlanId]: { type: 'info', message: '正在发布正式题目…' },
+          }));
+          await executePublishConfirmedTaskCommand({
+            draftId: draft.draftId,
+            expectedDraftRevision: draft.revision,
+            retryExistingPublication: actionKind === 'retry_publication',
+          });
+        } else {
+          throw new Error('当前任务状态无法继续发布，请刷新后重试。');
+        }
+
+        currentSnapshot = await refresh({ materialVersionId: selectedMaterialId, planId });
+        currentLifecycle = resolveTaskLifecycleFromSnapshot(currentSnapshot, lifecycle, planId);
+      }
+
+      if (currentLifecycle.status !== 'published') {
+        throw new Error('发布流程尚未完成，请根据当前任务提示继续处理。');
+      }
+      const successMessage = '题目已经发布成功！';
       setTaskWorkflowFeedback((current) => ({
         ...current,
-        [draft.draftId]: { type: 'success', message: successMessage || result?.message || '操作已完成。' },
+        [observationTaskPlanId]: { type: 'success', message: successMessage },
       }));
-      setToast({ id: Date.now(), message: successMessage || '操作已完成。' });
+      setToast({ id: Date.now(), message: successMessage });
     } catch (error) {
       const feedback = errorNotice(error);
-      setTaskWorkflowFeedback((current) => ({ ...current, [draft.draftId]: feedback }));
+      setTaskWorkflowFeedback((current) => ({ ...current, [observationTaskPlanId]: feedback }));
     } finally {
       taskWorkflowInFlightRef.current.delete(operationKey);
-      setTaskWorkflowOperation(null);
+      setTaskWorkflowOperation((current) => (current === operationKey ? null : current));
     }
+  }
+
+  function revealTaskFormalResource(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const taskCard = event.currentTarget.closest('details[data-task-editor]');
+    taskCard?.setAttribute('open', '');
+    window.requestAnimationFrame(() => {
+      const formalResource = taskCard?.querySelector('[data-formal-resource-summary]');
+      formalResource?.setAttribute('open', '');
+      formalResource?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
   }
 
   async function runTaskPublicationBatch(items = taskPublicationCandidates) {
@@ -919,7 +935,7 @@ export default function MaterialResourceProductionWorkbench() {
   }
 
   async function savePlanRevision() {
-    if (!requireAvailableCommand(MATERIAL_PRODUCTION_COMMANDS.savePlanRevision)) return;
+    if (!requireAvailableCommand(MATERIAL_PRODUCTION_COMMANDS.savePlanRevision)) return null;
     const isWorkingDraftUpdate = Boolean(selectedPlan)
       && ['draft', 'revision_required'].includes(selectedPlan.status);
     const result = await run(
@@ -942,6 +958,7 @@ export default function MaterialResourceProductionWorkbench() {
       setTaskRemovalCandidate(null);
       setTaskEditorDirty(false);
     }
+    return result;
   }
 
   function planSupplementCandidates() {
@@ -1251,34 +1268,6 @@ export default function MaterialResourceProductionWorkbench() {
       ? selectedIds.filter((item) => item !== abilityId)
       : [...selectedIds, abilityId];
     updateTask(taskIndex, { supportingAbilityIdsText: nextIds.join(', ') });
-  }
-
-  async function submitForQuestionReview() {
-    if (!requireAvailableCommand(MATERIAL_PRODUCTION_COMMANDS.submitForQuestionReview)) return;
-    const planId = selectedPlan.materialObservationPlanId;
-    const materialVersionId = selectedPlan.materialVersionId;
-
-    setBusy(true);
-    setNotice(null);
-    try {
-      await executeMaterialFinalConfirmationSubmissionCommand({
-        planId,
-        materialVersionId,
-        initialPlanStatus: selectedPlan.status,
-        existingDraftCount: planDrafts.length,
-        taskPlanCount: selectedPlan.taskPlans.length,
-      });
-
-      await refresh({ materialVersionId, planId });
-      navigate(`/question-resource-workbench?mode=plan-review&planId=${encodeURIComponent(planId)}&materialVersionId=${encodeURIComponent(materialVersionId)}`);
-    } catch (error) {
-      await refresh({ materialVersionId, planId });
-      setNotice(error instanceof QuestionReviewSubmissionStageError
-        ? { type: 'error', message: error.message }
-        : errorNotice(error));
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function exportBrowserBaseline() {
@@ -1829,11 +1818,9 @@ export default function MaterialResourceProductionWorkbench() {
                 const questionLifecycle = taskQuestionLifecycleById.get(
                   task.observationTaskPlanId || task.localId,
                 );
-                const workflowTargetId = questionLifecycle?.draft?.draftId
-                  || questionLifecycle?.item?.observationTaskPlanId
-                  || '';
+                const workflowTargetId = task.observationTaskPlanId || task.localId;
                 const workflowOperationKey = workflowTargetId
-                  ? `${workflowTargetId}:${questionLifecycle.actionKind}`
+                  ? `${workflowTargetId}:publish_task`
                   : '';
                 const batchWorkflowBusy = Boolean(
                   questionLifecycle?.draft
@@ -1842,6 +1829,9 @@ export default function MaterialResourceProductionWorkbench() {
                 const workflowBusy = taskWorkflowOperation === workflowOperationKey || batchWorkflowBusy;
                 const workflowFeedback = workflowTargetId
                   ? taskWorkflowFeedback[workflowTargetId]
+                    || (questionLifecycle?.draft
+                      ? taskWorkflowFeedback[questionLifecycle.draft.draftId]
+                      : null)
                   : null;
                 return (
                 <details
@@ -1854,14 +1844,17 @@ export default function MaterialResourceProductionWorkbench() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2" aria-label="训练任务标题、来源与状态">
                         <h3 className="mr-1 text-sm font-bold">{taskEditorTitle(index)}</h3>
+                        <span className="text-xs text-slate-500">来源：</span>
                         <TaskSourceBadge task={task} />
+                        <span className="text-xs text-slate-500">状态：</span>
                         <TaskQuestionLifecycleBadge lifecycle={questionLifecycle} />
                       </div>
-                      {questionLifecycle?.actionLabel
-                        && !['view_formal_resource', 'open_confirmation'].includes(questionLifecycle.actionKind)
-                        && (
+                      {(questionLifecycle?.actionLabel
+                        || questionLifecycle?.cardPresentation?.auxiliaryActions?.length > 0) && (
                         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" aria-label="训练任务流程操作">
+                          {questionLifecycle?.actionLabel && (
                           <span className="inline-flex items-center gap-1.5">
+                            <span className="text-slate-500">下一步：</span>
                             <button
                               type="button"
                               disabled={
@@ -1872,6 +1865,10 @@ export default function MaterialResourceProductionWorkbench() {
                               onClick={(event) => {
                                 event.preventDefault();
                                 event.stopPropagation();
+                                if (questionLifecycle.actionKind === 'view_formal_resource') {
+                                  revealTaskFormalResource(event);
+                                  return;
+                                }
                                 if (questionLifecycle.actionKind === 'open_confirmation') {
                                   const taskCard = event.currentTarget.closest('details');
                                   taskCard?.setAttribute('open', '');
@@ -1894,10 +1891,21 @@ export default function MaterialResourceProductionWorkbench() {
                                   ? '正在发布…'
                                   : '等待发布…'
                                 : workflowBusy
-                                  ? taskWorkflowLoadingLabel(questionLifecycle.actionKind)
+                                  ? questionLifecycle.busyLabel || '正在处理任务…'
                                 : questionLifecycle.actionLabel}
                             </button>
                           </span>
+                          )}
+                          {questionLifecycle?.cardPresentation?.auxiliaryActions?.map((action) => (
+                            <button
+                              key={action.kind}
+                              type="button"
+                              onClick={revealTaskFormalResource}
+                              className="text-[12px] font-medium text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                            >
+                              {action.label}
+                            </button>
+                          ))}
                         </div>
                         )}
                       <div className="mt-2 flex flex-wrap gap-2" aria-label="训练任务属性摘要">
@@ -1923,6 +1931,8 @@ export default function MaterialResourceProductionWorkbench() {
                               ? 'text-emerald-700'
                               : (workflowFeedback.type || workflowFeedback.tone) === 'info'
                                 ? 'text-blue-700'
+                                : (workflowFeedback.type || workflowFeedback.tone) === 'warning'
+                                  ? 'text-amber-700'
                                 : 'text-red-700'
                           }`}
                         >
@@ -2269,99 +2279,6 @@ export default function MaterialResourceProductionWorkbench() {
           )}
         </div>
 
-        {materialMode === 'existing' && selectedMaterial && (
-          <section className="mt-10 rounded-md bg-white p-4 sm:p-5">
-          <div>
-            <h2 className="text-lg font-semibold">提交最终确认</h2>
-          </div>
-
-          {!selectedPlan ? (
-            <p className="mt-5 text-sm text-slate-500">请先在上方保存训练任务。</p>
-          ) : (
-            <>
-              <div className="mt-5">
-                <div>
-                  <div>
-                    {taskEditorDirty && (
-                      <p className="border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-                        上方编辑区存在未保存修改，可能与这里的已保存版本不同。
-                      </p>
-                    )}
-                    <div className={`${taskEditorDirty ? 'mt-4' : ''} border-y border-slate-200 py-5`}>
-                      <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-                        <SubmissionSummaryItem
-                          label="当前提交对象"
-                          value={['draft', 'revision_required'].includes(selectedPlan.status)
-                            ? '工作草稿 · 未提交审核'
-                            : `训练计划第 ${selectedPlan.revision} 版 · ${statusLabels[selectedPlan.status]}`}
-                        />
-                        <SubmissionSummaryItem label="训练任务数量" value={`${selectedPlan.taskPlans.length} 个`} />
-                        <SubmissionSummaryItem label="能力覆盖" value={submissionSummary.abilities.join('、') || '尚未设置'} />
-                        <SubmissionSummaryItem label="训练方向" value={submissionSummary.directions.join('、') || '尚未设置'} />
-                        <SubmissionSummaryItem label="学习材料" value={formatMaterialTitle(selectedMaterial.title)} />
-                        <SubmissionSummaryItem label="材料范围" value={submissionSummary.materialRanges.join('、') || '尚未设置'} />
-                      </dl>
-                      {taskReviewGroups.length > 0 && (
-                        <TaskReviewStatusSummary groups={taskReviewGroups} onAction={focusTaskIssue} />
-                      )}
-                    </div>
-
-                    <div className="mt-6">
-                      <h3 className="text-sm font-semibold text-slate-900">进入下一阶段前检查</h3>
-                      <ul className="mt-3 space-y-2">
-                        {submissionSummary.checks.map((check) => (
-                          <li key={check.label} className={`flex items-start gap-2 text-sm leading-6 ${check.passed ? 'text-slate-700' : 'text-amber-800'}`}>
-                            {check.passed
-                              ? <CheckCircle2 size={17} className="mt-1 shrink-0 text-emerald-600" />
-                              : <AlertTriangle size={17} className="mt-1 shrink-0 text-amber-500" />}
-                            <span>{check.label}</span>
-                          </li>
-                        ))}
-                      </ul>
-                      <p className={`mt-4 text-sm font-medium ${submissionSummary.ready ? 'text-emerald-700' : 'text-amber-800'}`}>
-                        {submissionSummary.ready
-                          ? (planFullyPublished
-                            ? '当前计划的题目已完成发布，可查看确认与发布记录。'
-                            : '可以进入最终确认。')
-                          : '仍有检查项未完成，请先返回调整。'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {taskEditorDirty && (
-                <p className="mt-6 rounded-md bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-                  请先保存上方训练任务的修改，再进入最终确认。
-                </p>
-              )}
-              {['draft', 'revision_required', 'pending_review', 'reviewed'].includes(selectedPlan.status) && !planFullyPublished && (
-                <div className="mt-6 flex flex-col items-center justify-center gap-2 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => document.querySelector('#training-task-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                    className="flex h-10 w-52 items-center justify-center rounded-md border border-[#666666] bg-white px-4 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                  >
-                    返回任务调整
-                  </button>
-                  <button
-                    type="button"
-                    onClick={submitForQuestionReview}
-                    disabled={!commandAvailability.submitForQuestionReview.enabled}
-                    title={commandAvailability.submitForQuestionReview.reason}
-                    className="flex h-10 w-52 items-center justify-center rounded-md border border-slate-950 bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:border-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
-                  >
-                    {busy
-                      ? '正在提交最终确认'
-                      : (planDrafts.length >= selectedPlan.taskPlans.length
-                        ? '进入最终确认'
-                        : '提交最终确认')}
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-          </section>
-        )}
       </main>
       {toast && (
         <WorkspaceToast
@@ -2510,7 +2427,7 @@ function Metric({ label, value, tone = 'default' }) {
 }
 
 function TaskQuestionLifecycleBadge({ lifecycle }) {
-  const presentation = lifecycle?.productionView?.presentation || {
+  const presentation = lifecycle?.cardPresentation || {
     stateLabel: '未生成题目',
     tone: 'neutral',
   };
@@ -2547,12 +2464,20 @@ function resolveTaskQuestionLifecycle({
         isDirty: issues.length === 0,
       },
     });
+    const cardPresentation = resolveTaskProductionCardPresentation(productionView, {
+      hasIssues: issues.length > 0,
+    });
+    const cardAction = cardPresentation.primaryAction;
     return {
       status: productionView.state,
-      actionLabel: productionView.presentation.primaryActionLabel || '',
-      actionKind: issues.length > 0 ? 'focus_issue' : 'save_plan',
+      actionLabel: cardAction.label,
+      actionKind: cardAction.kind,
+      busyLabel: cardAction.busyLabel,
       item: null,
+      task,
+      issues,
       productionView,
+      cardPresentation,
     };
   }
 
@@ -2582,11 +2507,7 @@ function resolveTaskQuestionLifecycle({
     ...taskEntryItem,
   } : null;
   const publicationItem = incomplete || published || null;
-  const localActionKind = issues.length > 0
-    ? 'focus_issue'
-    : task.editorDirty
-      ? 'save_plan'
-      : null;
+  const hasLocalRevision = issues.length > 0 || task.editorDirty;
   const productionDraft = draft ? {
     draftId: draft.draftId,
     resourceId: draft.resourceId,
@@ -2594,17 +2515,17 @@ function resolveTaskQuestionLifecycle({
     status: issues.length > 0 ? 'validation_failed' : draft.status,
     isDirty: Boolean(task.editorDirty),
     assessmentStatus,
-  } : localActionKind ? {
+  } : hasLocalRevision ? {
     draftId: `task-plan:${observationTaskPlanId}`,
     revision: 0,
     status: issues.length > 0 ? 'validation_failed' : 'drafted',
     isDirty: Boolean(task.editorDirty),
     assessmentStatus: 'missing',
   } : undefined;
-  const publishedSourceDraftId = localActionKind
+  const publishedSourceDraftId = hasLocalRevision
     ? `previous:${published?.sourceDraftId || observationTaskPlanId}`
     : published?.sourceDraftId;
-  const incompleteSourceDraftId = localActionKind
+  const incompleteSourceDraftId = hasLocalRevision
     ? `previous:${incomplete?.sourceDraftId || observationTaskPlanId}`
     : incomplete?.sourceDraftId;
   const productionView = resolveTaskProductionState({
@@ -2621,55 +2542,65 @@ function resolveTaskQuestionLifecycle({
       formalVersionId: published.resourceVersionId,
     } : { status: 'none' },
   });
-  const primaryActionTargets = {
-    edit: draftItem || taskEntryItem,
-    save: draftItem,
+  const cardPresentation = resolveTaskProductionCardPresentation(productionView, {
+    hasIssues: issues.length > 0,
+  });
+  const cardAction = cardPresentation.primaryAction;
+  const actionTargets = {
+    focus_issue: draftItem || taskEntryItem,
+    save_plan: draftItem || taskEntryItem,
+    open_repair: draftItem || taskEntryItem,
     run_check: draftItem,
     open_confirmation: draftItem,
     confirm: draftItem,
-    return_for_revision: draftItem,
     publish: draftItem,
     retry_publication: draftItem,
     view_formal_resource: published,
   };
-  const item = productionView.primaryAction
-    ? primaryActionTargets[productionView.primaryAction]
+  const item = cardAction.kind
+    ? actionTargets[cardAction.kind]
     : null;
-  const localActionLabel = localActionKind === 'focus_issue'
-    ? '继续修改'
-    : localActionKind === 'save_plan'
-      ? '保存任务'
-      : '';
-  const actionLabel = item || localActionKind
-    ? localActionLabel || productionView.presentation.primaryActionLabel || ''
-    : '';
   return {
     status: productionView.state,
-    actionLabel,
-    actionKind: localActionKind || (item
-      ? productionView.primaryAction === 'edit'
-        ? 'open_repair'
-        : productionView.primaryAction === 'view_formal_resource'
-          ? 'view_formal_resource'
-          : productionView.primaryAction
-      : null),
+    actionLabel: cardAction.label,
+    actionKind: cardAction.kind,
+    busyLabel: cardAction.busyLabel,
     item,
+    task,
+    issues,
     formalResource: published || null,
     draft,
     readiness,
     productionView,
+    cardPresentation,
   };
 }
 
-function taskWorkflowLoadingLabel(actionKind) {
-  return {
-    open_repair: '正在创建题目…',
-    run_check: '正在检查…',
-    open_confirmation: '正在提交…',
-    confirm: '正在确认…',
-    publish: '正在发布…',
-    retry_publication: '正在重试…',
-  }[actionKind] || '正在处理…';
+function resolveTaskLifecycleFromSnapshot(nextSnapshot, sourceLifecycle, planId) {
+  const plan = nextSnapshot.plans.find(
+    (item) => item.materialObservationPlanId === planId,
+  ) || null;
+  const sourceTask = sourceLifecycle.task || {};
+  const synchronizedTask = plan?.taskPlans.find(
+    (item) => item.observationTaskPlanId === sourceTask.observationTaskPlanId,
+  );
+  const task = {
+    ...sourceTask,
+    ...(synchronizedTask || {}),
+    editorDirty: false,
+  };
+  const details = scopeMaterialResourceWorkbenchDetails(
+    buildMaterialResourceWorkbenchDetails(nextSnapshot),
+    plan?.materialVersionId || sourceLifecycle.item?.materialVersionId || '',
+  );
+  return resolveTaskQuestionLifecycle({
+    task,
+    issues: [],
+    plan,
+    planDrafts: selectCurrentPlanDrafts(plan, nextSnapshot.drafts),
+    draftReadiness: nextSnapshot.draftReadiness,
+    details,
+  });
 }
 
 function TaskProductionWorkflowPanel({
@@ -2801,46 +2732,6 @@ function TaskSourceBadge({ task }) {
     >
       {labels[source]}
     </span>
-  );
-}
-
-function TaskReviewStatusSummary({ groups, onAction }) {
-  const needsAdjustment = groups.filter((group) => group.issues.length > 0);
-  const readyCount = groups.length - needsAdjustment.length;
-  return (
-    <div className="mt-5 border-t border-slate-200 pt-5" aria-label="训练任务检查结果">
-      <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-        <span className="text-slate-600">{groups.length} 个任务</span>
-        <span className="inline-flex items-center gap-1.5 text-emerald-700">
-          <CheckCircle2 aria-hidden="true" size={16} />
-          {readyCount} 个已通过检查
-        </span>
-        <span className={`inline-flex items-center gap-1.5 ${needsAdjustment.length ? 'text-amber-700' : 'text-slate-500'}`}>
-          <AlertTriangle aria-hidden="true" size={16} />
-          {needsAdjustment.length} 个需要调整
-        </span>
-      </div>
-      {needsAdjustment.length > 0 && (
-        <div className="mt-4 border-l-4 border-amber-400 bg-amber-50 px-4 py-3">
-          <p className="text-sm font-semibold text-amber-950">需要调整的任务</p>
-          <div className="mt-3 space-y-3">
-            {needsAdjustment.map(({ task, index, issues }) => (
-              <div key={task.localId} className="text-sm text-amber-950">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold">{taskEditorTitle(index)} · {issues.length} 项</p>
-                  <button type="button" onClick={() => onAction(issues[0])} className="inline-flex h-10 items-center font-normal text-emerald-700 underline underline-offset-4 hover:text-emerald-800">
-                    去修改
-                  </button>
-                </div>
-                <ul className="mt-1 space-y-1 text-amber-900">
-                  {issues.map((issue) => <li key={`${issue.code}-${issue.targetId}`}>· {issue.message}</li>)}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -3207,15 +3098,6 @@ function CoverageSummary({ title, coverage }) {
 
 function PreviewField({ label, value }) {
   return <div><p className="font-semibold text-slate-800">{label}</p><p className="mt-1 whitespace-pre-line text-slate-600">{value}</p></div>;
-}
-
-function SubmissionSummaryItem({ label, value }) {
-  return (
-    <div>
-      <dt className="text-xs font-normal text-slate-500">{label}</dt>
-      <dd className="mt-1 text-sm font-medium leading-6 text-slate-900">{value}</dd>
-    </div>
-  );
 }
 
 function formatAnswerAcceptance(value) {

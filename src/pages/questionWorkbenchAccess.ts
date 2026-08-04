@@ -25,7 +25,7 @@ export function resolveQuestionWorkbenchAccess(
   if (route.mode === 'plan-review' && hasTaskContext) {
     return {
       mode: 'unified_edit',
-      writable: true,
+      writable: false,
       requiresWorkspaceLoad: true,
       reason: 'valid_plan_review',
     };

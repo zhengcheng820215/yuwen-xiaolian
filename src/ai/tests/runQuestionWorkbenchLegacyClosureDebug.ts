@@ -23,7 +23,7 @@ const planReview = resolveQuestionWorkbenchAccess({
   materialVersionId: 'material-1:v1',
 });
 assert.equal(planReview.mode, 'unified_edit');
-assert.equal(planReview.writable, true);
+assert.equal(planReview.writable, false);
 assert.equal(planReview.requiresWorkspaceLoad, true);
 
 const taskDetail = resolveQuestionWorkbenchAccess({

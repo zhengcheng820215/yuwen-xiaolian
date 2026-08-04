@@ -2,9 +2,9 @@
 
 英文名称：Authoring Field Contract
 
-状态：DESIGN FROZEN / P0-P2 BASELINE COMPLETE / SINGLE-PAGE PUBLICATION ALIGNMENT DEFINED / ENGINEERING PENDING
-契约版本：`authoring_field_contract_v1.1`
-更新日期：2026-08-03
+状态：DESIGN FROZEN / P0-P2 ENGINEERING COMPLETE / SINGLE-PAGE ALIGNMENT COMPLETE / PRODUCT CALIBRATION PENDING
+契约版本：`authoring_field_contract_v1.2`
+更新日期：2026-08-04
 
 ## 一、用途与权威边界
 
@@ -387,7 +387,7 @@ P1 Implementation: COMPLETE
 P1 Automated Regression: PASS
 P2 Implementation: COMPLETE
 P2 Automated Regression: PASS
-Single-page Publication Alignment: DESIGN DEFINED / ENGINEERING PENDING
+Single-page Publication Alignment: ENGINEERING COMPLETE / REGRESSION PASS
 Legacy-draft Browser Load Smoke: PASS
 Real-task Browser Acceptance: PENDING
 Ten-material Calibration: PENDING

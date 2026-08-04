@@ -2,9 +2,9 @@
 
 英文名称：Unified Resource Production Workbench Contract
 
-状态：DESIGN FROZEN / P0-P7 BASELINE ACCEPTED / SINGLE-PAGE PUBLICATION ALIGNMENT DEFINED / ENGINEERING PENDING
-文档版本：`unified_resource_production_workbench_v1.2`
-更新日期：2026-08-03
+状态：DESIGN FROZEN / P0-P7 BASELINE ACCEPTED / SINGLE-PAGE P0-P2 ENGINEERING COMPLETE / ACCEPTANCE RECORDED
+文档版本：`unified_resource_production_workbench_v1.3`
+更新日期：2026-08-04
 
 ## 一、文档目标
 
@@ -72,6 +72,12 @@
 统一页面不得把保存、检查、确认和发布实现为一个不可追溯的写入操作。
 
 前台只提供一次明确的“发布任务”主操作。该操作可以在应用层编排保存、检查、人工决定、Freeze 与 Registry 写入，但内部必须保持独立阶段、精确身份、幂等和失败恢复，不得实现为不可追溯的一次写入。
+
+页面按钮与领域命令必须分层命名：
+
+1. 当前单人模式页面按钮只表达用户意图，例如`确认任务并保存`和`发布任务`；
+2. `提交人工审核`、`审核通过`、`发布正式题目`等名称只用于兼容记录或内部领域命令，不得重新作为并列页面步骤或按钮；
+3. 领域命令可以由一次页面动作顺序编排，但每一步仍须独立记录成功、失败和重试位置。
 
 ### 3.3 状态属于任务，不属于页面
 
@@ -531,7 +537,7 @@ type BatchPublicationResult = {
 
 总览数据只负责导航和理解整体进度，具体状态原因与查看操作必须落到对应训练任务卡。
 
-### 11.2 单页发布与内联质量检查
+### 11.1 单页发布与内联质量检查
 
 单人生产模式必须在同一工作台完成材料录入、任务生成、人工编辑、质量处理和正式发布，不得把当前任务再次导航到独立审核平台。
 
@@ -555,7 +561,7 @@ Freeze 成功而 Registry 或关联写入失败时，状态必须为“已确认
 
 已发布 `FormalQuestionVersion` 永久只读。后续修改从同一 Question Lineage 创建新 Draft Revision，重新检查并生成后续正式版本，不得覆盖旧版本。
 
-### 11.1 AI 规划数量与上下文
+### 11.2 AI 规划数量与上下文
 
 AI 规划区的产品行为统一为：
 
@@ -566,10 +572,10 @@ AI 规划区的产品行为统一为：
 5. 已有 `5` 条任务时禁用补充入口，并明确提示先检查、删除或完成现有任务；
 6. 补充生成必须感知当前任务、未采用候选及同一 Material Version 下待审核或已发布兄弟任务，围绕覆盖缺口生成，不得退化为无上下文续写；
 7. 页面展示候选的新增观察价值及与已有任务的差异；没有有效增量时展示正常空结果，不创建候选或 Revision；
-8. 候选生成、放弃和采用到编辑缓冲区继续遵守既有版本边界，只有真实保存与提交审核才形成对应工作草稿或不可变 Revision；
+8. 候选生成、放弃和采用到编辑缓冲区继续遵守既有版本边界；`确认任务并保存`创建或更新任务组工作草稿并按规划契约冻结 Observation Plan Revision，后续单任务`发布任务`才消费题目 Draft Revision、Assessment、Human Review 与 Publication 链路；
 9. 页面不得使用“添加更多任务”“补充更多任务”或“再生成几个”等数量导向文案；补充数量不作为用户选择项。
 
-具体输入、去重集合、数量计算和质量优先级以 [训练任务组 AI 规划契约 v1.3](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) 为准。当前工程实现与自动化 Debug 已完成；真实材料浏览器验收完成前不得标记为最终验收通过。
+具体输入、去重集合、数量计算和质量优先级以 [训练任务组 AI 规划契约 v1.4](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) 为准。当前工程实现与自动化 Debug 已完成；真实材料浏览器验收完成前不得标记为最终验收通过。
 
 ## 十二、旧审核页兼容策略
 
@@ -609,7 +615,7 @@ AI 规划区的产品行为统一为：
 
 ## 十四、历史实施顺序与验收记录
 
-本节及其后的 P0-P7 内容记录统一工作台形成过程中的历史迁移步骤和验收证据，其中出现的“提交最终确认”“进入最终确认”“待最终确认”及独立审核页操作均属于旧交互阶段，不再定义当前单人生产主界面。当前产品规则以第一至十三节，尤其是 5.4、7.3、11.2 和 12 节为准；历史领域身份、失败样例和验收证据继续保留用于追溯。
+本节及其后的 P0-P7 内容记录统一工作台形成过程中的历史迁移步骤和验收证据，其中出现的“提交最终确认”“进入最终确认”“待最终确认”及独立审核页操作均属于旧交互阶段，不再定义当前单人生产主界面。当前产品规则以第一至十三节，尤其是 5.4、7.3、11.1 和 12 节为准；历史领域身份、失败样例和验收证据继续保留用于追溯。
 
 ### P0：冻结契约与身份边界
 
@@ -1654,6 +1660,38 @@ P2 验收必须覆盖：
 4. 卡片只提供一个推荐主操作，不同时出现两个竞争性的主按钮；
 5. 保存计划、定位问题和进入题目流程继续调用现有独立 Command，不在卡片中直接写领域数据。
 
+### 20.10 P2 训练任务卡工程落地记录（2026-08-04）
+
+P2 已按 20.9 的边界完成任务卡首层收口，不增加生产阶段，也不修改任何领域写入命令。
+
+工程实现冻结如下：
+
+1. `resolveTaskProductionCardPresentation()` 是任务卡首层的唯一展示投影，同时返回单一生产状态、推荐主操作和历史正式资源辅助操作；
+2. 任务卡明确外显“来源”“状态”“下一步”三个不同维度，来源徽标不得替代生产状态，任务属性继续保持只读摘要；
+3. 当前状态存在生产动作时只显示一个推荐主操作；已发布任务的主操作为“查看正式资源”，不存在竞争性的第二个主按钮；
+4. 已发布正式版本与新活动 Revision 并存时，新 Revision 决定主状态和主操作，旧正式版本仅作为“查看正式资源”辅助入口；
+5. “查看正式资源”必须展开当前任务卡内的正式资源追溯区，并定位到正式版本、资源 ID、来源 Draft 与 Material Version，不得渲染成无响应文字；
+6. 页面只绑定统一投影提供的动作，不再读取 `reviewStatus`、`publicationStatus` 或检查记录拼装另一套卡片状态；
+7. 顶部任务组统计继续消费 `resolveTaskGroupSummary()` 的互斥分桶，任务卡展示层不得反向参与统计。
+
+P2 Debug 验收基线：
+
+- `debug:task-production-state` 必须覆盖完整任务状态、已发布查看入口、已发布后新 Revision 的主状态优先级和历史正式资源辅助入口；
+- `debug:material-resource-workbench-state`、`debug:question-workflow-projection`、`debug:task-publication-orchestration` 与 `debug:task-production-command-runtime` 必须继续通过；
+- `debug:unified-resource-production-final` 必须保持 P0-P7 串联通过；
+- `pnpm build` 必须通过；
+- 浏览器验收必须确认任务卡来源、状态、下一步可读，“查看正式资源”可展开并定位，页面无控制台错误。
+
+本轮 P2 Debug 验收结果：
+
+- `debug:task-production-state`：`PASS`，覆盖已发布主动作及已发布后新 Revision 的辅助追溯入口；
+- `debug:material-resource-workbench-state`：`12 / 12 PASS`；
+- `debug:question-workflow-projection`、`debug:task-publication-orchestration`：`PASS`；
+- `debug:task-production-command-runtime`：`5 / 5 PASS`；
+- `debug:unified-resource-production-final`：`18 / 18 PASS`；
+- `pnpm build`：`PASS`；
+- 浏览器真实数据验收：3 张任务卡均只显示一套“来源 / 状态 / 下一步”，点击“查看正式资源”后准确展开正式版本、资源 ID、来源 Draft 与 Material Version；控制台 `0` 条 warning、`0` 条 error。
+
 ## 二十一、正式发布到学习入口的读取契约
 
 本节冻结正式题目发布完成后进入学习 Runtime 的唯一读取边界，避免资源已经发布、Registry 已更新，但学习入口仍被历史批次或 Demo 过滤器隔离。
@@ -1839,3 +1877,58 @@ Debug 与界面验收结果：
 - `pnpm debug:phase16-3-unified-entry`：`23 / 23 PASS`；
 - 浏览器中单题检查可见“正在生成完整质量检查记录”；远端评估未形成时显示明确失败说明；
 - 浏览器中 `谭嗣同《潼关》` 未被重复包裹；学习入口正常结束读取且无控制台错误。
+
+### 21.11 P0 统一生产入口与 Draft 同步收口（2026-08-04）
+
+资源生产的可写入口统一归属素材资源工作台。训练任务的编辑、检查、最终确认和正式发布必须从同一张任务卡继续推进，页面不得再把用户导航到另一个可写工作台完成相同生命周期。
+
+工程边界冻结如下：
+
+1. 任务卡只外显一个与当前状态匹配的生产动作：`继续修改` 或 `发布任务`；`发布任务` 可以编排多个阶段，但后台仍保留保存 Plan、确认 Plan、创建或恢复 Draft、完整检查、提交最终确认、记录审核决定和正式发布等独立命令；
+2. 编排过程必须逐阶段外显 Loading 和结果。中途失败时保留已经完成的阶段，允许从失败点重试，不得重复创建 Draft、Review Decision、Formal Version 或 Registry Entry；
+3. 素材工作台不得再渲染第二套“提交最终确认”区域；题目工作台的 `plan-review` 模式降级为只读历史详情与兼容入口，不再承担生产写入；
+4. 保存可变的 Material Observation Plan Revision 后，必须立即同步关联的活动 Question Draft。页面保存值、Draft 保存值、Validator 读取值和问题定位值必须来自同一字段契约；
+5. Draft 关联不能只依赖当前 `observationTaskPlanId`。系统必须同时识别当前 Task ID、`parentObservationTaskPlanId` 与稳定的 `taskRevisionRootId`，从而在 Plan Revision 更换 Task ID 后继续更新同一个 Draft；
+6. 同步已有 Draft 时只能新增一个 Draft Revision，不得创建第二个活动 Draft；同步后必须补齐当前 Task 与稳定 Root 标签；
+7. 任何正式字段变化都会使旧 `latestValidationId` 与 `latestReviewId` 失效。旧 Assessment、Review 或 Publication 不得被静默复用于新 Revision；
+8. 只有当前 Revision 的完整 Assessment 有效时，任务才能继续最终确认。七项结构检查图标全部通过不能替代完整 Assessment 记录。
+
+本轮验收基线：
+
+- Material Observation Debug：`29 / 29 PASS`，覆盖 Plan Revision 更换 Task ID 后仍同步同一 Draft、只增加一个 Revision、旧检查立即失效；
+- Unified Resource Production P0-P7 Final Integration Debug：`18 / 18 PASS`；
+- `pnpm build`：`PASS`；
+- 旧 `plan-review` 入口只读，素材工作台不再包含重复的最终确认区。
+
+### 21.12 P1 统一任务卡动作投影收口（2026-08-04）
+
+P1 在 21.11 的单入口编排基础上继续收口读取语义，不增加写入 Command，也不把“发布任务”改回多组竞争按钮。
+
+工程约束如下：
+
+1. `resolveTaskProductionState()` 继续作为任务生产主状态、可用动作与推荐动作的唯一事实入口；
+2. `resolveTaskProductionCardAction()` 是任务卡对推荐动作的唯一编排投影，统一返回 `kind`、外层 `label` 和当前阶段 `busyLabel`；
+3. 任务卡外层只显示“继续修改”或“发布任务”，但 Loading 必须准确说明正在保存任务、创建草稿、检查题目、提交最终确认、形成确认决定、发布或重试发布；
+4. 材料工作台不得再根据 Draft、Review、Publication 或检查结果自行拼装动作文案；页面只负责把统一动作绑定到对应 Command 目标；
+5. 质量问题存在时，`revision_required` 统一投影为“继续修改 / 定位问题”；没有质量问题但需要建立或恢复草稿时，统一投影为“继续修改 / 打开修订”；
+6. 已发布正式版本与当前新 Revision 并存时，当前 Revision 决定主状态和主动作，旧正式版本只保留“查看正式资源”辅助动作；
+7. 任务组汇总继续直接消费 `resolveTaskGroupSummary()`，不得从任务卡展示标签反向统计。
+
+P1 Debug 至少覆盖：
+
+- 空草稿、编辑中、待检查、检查中、需要修改、待最终确认、已确认、发布未完成与已发布；
+- 每个可执行状态的动作类型、外层文案和阶段 Loading 文案；
+- 旧正式版本与新草稿并存时的主状态优先级；
+- 互斥汇总数量守恒；
+- 材料工作台、题目工作流投影与正式构建。
+
+本轮 P1 Debug 验收结果：
+
+- Task Production State Debug：`PASS`，覆盖任务状态与卡片动作投影；
+- Task Publication Orchestration Debug：`PASS`；
+- Task Production Command Runtime Debug：`5 / 5 PASS`；
+- Question Workflow Projection Debug：`PASS`；
+- Material Resource Workbench State Debug：`12 / 12 PASS`；
+- Unified Resource Production Final Integration Debug：`18 / 18 PASS`；
+- `pnpm build`：`PASS`；
+- 浏览器只读验收：实际任务卡的状态、动作入口和已发布只读状态与统一 Resolver 一致，页面无空白或遮挡，控制台 `0` 条 warning、`0` 条 error。

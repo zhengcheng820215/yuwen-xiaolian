@@ -7,6 +7,7 @@ import {
   createProductionQuestionDrafts,
   isPhase17BatchAMaterial,
   submitProductionObservationPlan,
+  synchronizeProductionQuestionDrafts,
 } from '../api/materialResourceProductionWorkbench.ts';
 import {
   executeQuestionReviewSubmission,
@@ -23,7 +24,13 @@ export function executeSavePlanRevisionCommand(
   const targetId = input.sourcePlanId || input.materialVersionId;
   return executeTaskProductionOnce(
     buildTaskProductionCommandKey({ command: 'saveTaskDraft', targetId }),
-    () => createProductionObservationPlan(input),
+    async () => {
+      const result = await createProductionObservationPlan(input);
+      const synchronizedDrafts = await synchronizeProductionQuestionDrafts(
+        result.plan.materialObservationPlanId,
+      );
+      return { ...result, synchronizedDrafts };
+    },
   );
 }
 
@@ -37,6 +44,30 @@ export function executeCreateTaskQuestionCommand(input: {
       targetId: input.observationTaskPlanId,
     }),
     () => createProductionQuestionDraft(input.planId, input.observationTaskPlanId),
+  );
+}
+
+export function executeConfirmTrainingPlanForTaskProductionCommand(input: {
+  planId: string;
+  currentStatus: string;
+}) {
+  return executeTaskProductionOnce(
+    buildTaskProductionCommandKey({
+      command: 'confirmTrainingPlanForTaskProduction',
+      targetId: input.planId,
+    }),
+    async () => {
+      let status = input.currentStatus;
+      if (['draft', 'revision_required'].includes(status)) {
+        const submitted = await submitProductionObservationPlan(input.planId);
+        status = submitted.plan.status;
+      }
+      if (status === 'pending_review') {
+        const approved = await approveProductionObservationPlan(input.planId);
+        status = approved.plan.status;
+      }
+      return { planId: input.planId, status };
+    },
   );
 }
 

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import {
   resolveTaskAssessmentStatus,
   resolveTaskGroupSummary,
+  resolveTaskProductionCardAction,
+  resolveTaskProductionCardPresentation,
   resolveTaskPublicationEligibility,
   resolveTaskProductionState,
 } from '../../pages/taskProductionState.ts';
@@ -34,6 +36,11 @@ assert.equal(empty.state, 'draft_empty');
 assert.equal(empty.binding.questionLineageId, 'question-lineage:task-empty');
 assert.equal(empty.presentation.stateLabel, '未生成题目');
 assert.equal(empty.presentation.primaryActionLabel, '创建题目');
+assert.deepEqual(resolveTaskProductionCardAction(empty), {
+  kind: 'open_repair',
+  label: '发布任务',
+  busyLabel: '正在创建题目草稿…',
+});
 
 const checkRequired = resolveTaskProductionState({
   trainingTaskId: 'task-check',
@@ -42,6 +49,11 @@ const checkRequired = resolveTaskProductionState({
 assert.equal(checkRequired.state, 'check_required');
 assert.equal(checkRequired.primaryAction, 'run_check');
 assert.equal(checkRequired.presentation.primaryActionLabel, '检查题目');
+assert.deepEqual(resolveTaskProductionCardAction(checkRequired), {
+  kind: 'run_check',
+  label: '发布任务',
+  busyLabel: '正在检查题目…',
+});
 
 const editing = resolveTaskProductionState({
   trainingTaskId: 'task-editing',
@@ -49,6 +61,11 @@ const editing = resolveTaskProductionState({
 });
 assert.equal(editing.state, 'editing');
 assert.equal(editing.primaryAction, 'save');
+assert.deepEqual(resolveTaskProductionCardAction(editing), {
+  kind: 'save_plan',
+  label: '发布任务',
+  busyLabel: '正在保存任务修改…',
+});
 
 const checking = resolveTaskProductionState({
   trainingTaskId: 'task-checking',
@@ -60,12 +77,22 @@ const checking = resolveTaskProductionState({
 assert.equal(checking.state, 'checking');
 assert.equal(checking.presentation.busy, true);
 assert.equal(checking.presentation.primaryActionLabel, null);
+assert.deepEqual(resolveTaskProductionCardAction(checking), {
+  kind: null,
+  label: null,
+  busyLabel: null,
+});
 
 const revisionRequired = resolveTaskProductionState({
   trainingTaskId: 'task-revision',
   draft: draft('draft-revision', 'resource-revision', 'validation_failed'),
 });
 assert.equal(revisionRequired.state, 'revision_required');
+assert.deepEqual(resolveTaskProductionCardAction(revisionRequired, { hasIssues: true }), {
+  kind: 'focus_issue',
+  label: '继续修改',
+  busyLabel: null,
+});
 
 const confirmationReady = resolveTaskProductionState({
   trainingTaskId: 'task-confirmation-ready',
@@ -75,6 +102,11 @@ const confirmationReady = resolveTaskProductionState({
   },
 });
 assert.equal(confirmationReady.state, 'pending_confirmation');
+assert.deepEqual(resolveTaskProductionCardAction(confirmationReady), {
+  kind: 'open_confirmation',
+  label: '发布任务',
+  busyLabel: '正在提交最终确认…',
+});
 
 const pendingConfirmation = resolveTaskProductionState({
   trainingTaskId: 'task-confirmation',
@@ -83,6 +115,11 @@ const pendingConfirmation = resolveTaskProductionState({
 assert.equal(pendingConfirmation.state, 'pending_confirmation');
 assert.equal(pendingConfirmation.primaryAction, 'confirm');
 assert.equal(pendingConfirmation.presentation.primaryActionLabel, '确认通过');
+assert.deepEqual(resolveTaskProductionCardAction(pendingConfirmation), {
+  kind: 'confirm',
+  label: '发布任务',
+  busyLabel: '正在完成最终确认…',
+});
 
 const confirmed = resolveTaskProductionState({
   trainingTaskId: 'task-confirmed',
@@ -96,6 +133,11 @@ assert.deepEqual(resolveTaskPublicationEligibility(confirmed), {
   action: 'publish',
   reason: 'ready',
   message: '题目已完成最终确认，可以发布。',
+});
+assert.deepEqual(resolveTaskProductionCardAction(confirmed), {
+  kind: 'publish',
+  label: '发布任务',
+  busyLabel: '正在发布正式题目…',
 });
 
 const publicationFailed = resolveTaskProductionState({
@@ -111,6 +153,11 @@ assert.equal(publicationFailed.primaryAction, 'retry_publication');
 assert.equal(publicationFailed.presentation.tone, 'danger');
 assert.equal(resolveTaskPublicationEligibility(publicationFailed).eligible, true);
 assert.equal(resolveTaskPublicationEligibility(publicationFailed).action, 'retry_publication');
+assert.deepEqual(resolveTaskProductionCardAction(publicationFailed), {
+  kind: 'retry_publication',
+  label: '发布任务',
+  busyLabel: '正在重试发布…',
+});
 
 const published = resolveTaskProductionState({
   trainingTaskId: 'task-published',
@@ -127,6 +174,21 @@ assert.equal(published.presentation.stateLabel, '已发布');
 assert.equal(published.presentation.primaryActionLabel, '查看正式资源');
 assert.equal(resolveTaskPublicationEligibility(published).eligible, false);
 assert.equal(resolveTaskPublicationEligibility(published).reason, 'already_published');
+assert.deepEqual(resolveTaskProductionCardAction(published), {
+  kind: 'view_formal_resource',
+  label: '查看正式资源',
+  busyLabel: null,
+});
+assert.deepEqual(resolveTaskProductionCardPresentation(published), {
+  stateLabel: '已发布',
+  tone: 'success',
+  primaryAction: {
+    kind: 'view_formal_resource',
+    label: '查看正式资源',
+    busyLabel: null,
+  },
+  auxiliaryActions: [],
+});
 assert.equal(resolveTaskPublicationEligibility(pendingConfirmation).eligible, false);
 assert.equal(resolveTaskPublicationEligibility(pendingConfirmation).reason, 'not_confirmed');
 
@@ -142,6 +204,20 @@ const publishedWithNewRevision = resolveTaskProductionState({
 assert.equal(publishedWithNewRevision.state, 'check_required');
 assert.equal(publishedWithNewRevision.hasPublishedVersion, true);
 assert.equal(publishedWithNewRevision.availableActions.includes('view_formal_resource'), true);
+assert.deepEqual(resolveTaskProductionCardPresentation(publishedWithNewRevision), {
+  stateLabel: '待检查',
+  tone: 'warning',
+  primaryAction: {
+    kind: 'run_check',
+    label: '发布任务',
+    busyLabel: '正在检查题目…',
+  },
+  auxiliaryActions: [{
+    kind: 'view_formal_resource',
+    label: '查看正式资源',
+    busyLabel: null,
+  }],
+});
 
 const publishedWithUnsavedRevision = resolveTaskProductionState({
   trainingTaskId: 'task-published-with-unsaved-revision',

@@ -160,6 +160,7 @@ export default function QuestionResourceWorkbench() {
   );
   const planReviewMode = workbenchAccess.mode === 'unified_edit';
   const taskDetailMode = workbenchAccess.mode === 'task_detail';
+  const readOnlyWorkbenchMode = !workbenchAccess.writable;
   const legacyAdapterMode = workbenchAccess.mode === 'legacy_adapter';
   const focusedWorkbenchMode = planReviewMode || taskDetailMode;
   const materialWorkbenchReturnPath = useMemo(() => {
@@ -1144,7 +1145,7 @@ export default function QuestionResourceWorkbench() {
     <QuestionEditor
       form={form}
       setForm={updateQualityRelevantForm}
-      editable={editable && !taskDetailMode}
+      editable={editable && workbenchAccess.writable}
       busy={busy}
       activeCommand={activeCommand}
       context={context}
@@ -1175,7 +1176,7 @@ export default function QuestionResourceWorkbench() {
         setRubricOptimization(null);
       }}
       focusedReview={focusedWorkbenchMode}
-      readOnlyDetailMode={taskDetailMode}
+      readOnlyDetailMode={readOnlyWorkbenchMode}
       selectedQuestionNumber={selectedQuestionIndex >= 0 ? String(selectedQuestionIndex + 1) : null}
       hasUnsavedChanges={hasUnsavedChanges}
       humanReviewStage={humanReviewStage}
@@ -1215,7 +1216,7 @@ export default function QuestionResourceWorkbench() {
       onOptimizeStem={optimizeStem}
       stemOptimizationBusy={stemOptimizationBusy}
       focusedReview={focusedWorkbenchMode}
-      readOnlyDetailMode={taskDetailMode}
+      readOnlyDetailMode={readOnlyWorkbenchMode}
       qualityResultStale={qualityResultStale}
       qualityRevisionProgress={qualityRevisionProgress}
       hasUnsavedChanges={hasUnsavedChanges}

@@ -43,7 +43,6 @@ for (const [source, label, expectedClass] of aiActions) {
 
 const ordinaryActionLabels = [
   '确认任务并保存',
-  '返回任务调整',
   '提交最终确认',
   '保存本次修改',
   '退回录入修改',
@@ -66,12 +65,10 @@ const savePlanButton = findButton(materialWorkbenchSource, '确认任务并保�
 assert.match(savePlanButton, /bg-blue-700/, '确认任务并保存应使用蓝色主操作样式');
 assert.doesNotMatch(savePlanButton, /bg-emerald-|border-emerald-|text-emerald-/, '确认任务并保存不得使用绿色操作样式');
 
-const submitReviewButton = findButton(materialWorkbenchSource, '提交最终确认');
-assert.match(submitReviewButton, /bg-slate-950/, '提交最终确认应使用深蓝主操作样式');
-assert.doesNotMatch(submitReviewButton, /bg-emerald-|border-emerald-|text-emerald-/, '提交最终确认不得使用绿色操作样式');
+const taskWorkflowButton = buttonBlocks(materialWorkbenchSource)
+  .find((candidate) => candidate.includes('questionLifecycle.actionLabel'));
+assert.ok(taskWorkflowButton, '未找到任务卡统一生产动作按钮');
+assert.match(taskWorkflowButton, /text-blue-700/, '任务卡统一生产动作应使用蓝色动作样式');
+assert.doesNotMatch(taskWorkflowButton, /ai-button-(?:solid|outline)/, '任务卡统一生产动作不得使用 AI 紫色样式');
 
-const returnAdjustmentButton = findButton(materialWorkbenchSource, '返回任务调整');
-assert.match(returnAdjustmentButton, /border-\[#666666\]/, '返回任务调整应使用中性描边次操作样式');
-assert.doesNotMatch(returnAdjustmentButton, /bg-emerald-|border-emerald-|text-emerald-/, '返回任务调整不得使用绿色操作样式');
-
-console.log(`Product color semantics debug: ${aiActions.length + ordinaryActionLabels.length + 6} assertions passed.`);
+console.log(`Product color semantics debug: ${aiActions.length + ordinaryActionLabels.length + 5} assertions passed.`);

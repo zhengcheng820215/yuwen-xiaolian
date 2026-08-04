@@ -2,9 +2,9 @@
 
 英文名称：Authoring, Review and Publication Responsibility Contract
 
-状态：DESIGN FROZEN / SINGLE-PAGE RESPONSIBILITY ALIGNMENT DEFINED / ENGINEERING PENDING
-契约版本：`authoring_review_publication_responsibility_v3`
-更新日期：2026-08-03
+状态：DESIGN FROZEN / SINGLE-PAGE P0-P2 ENGINEERING COMPLETE / ACCEPTANCE RECORDED
+契约版本：`authoring_review_publication_responsibility_v3.1`
+更新日期：2026-08-04
 
 ## 一、目的
 
@@ -637,7 +637,7 @@ type ReviewReadinessSummary = {
 
 ### 14.1 历史记录解释
 
-第十五节及以后保留的是旧双平台模型的工程落地与迁移证据。其中出现的“录入端”“审核端”“提交审核”与“撤回至录入端”等术语只用于解释历史实现，不再定义当前单人生产主链。当前规则以第一至十四节为准；后续工程调整应逐步清理旧入口，但不得删除已有 Revision、Assessment、Human Review 和发布审计记录。
+第十五节及以后保留的是旧双平台模型的工程落地与迁移证据。其中出现的“录入端”“审核端”“提交审核”与“撤回至录入端”等术语只用于解释历史实现，不再定义当前单人生产主链。当前规则以第一至十四节为准；旧并列入口已按 P5 完成主链收口，后续只能维护必要的只读兼容与审计能力，不得恢复重复写入口，也不得删除已有 Revision、Assessment、Human Review 和发布审计记录。
 
 ## 十五、2026-07-29 P0 工程落地记录
 

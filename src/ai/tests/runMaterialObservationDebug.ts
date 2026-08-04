@@ -24,6 +24,7 @@ import {
   linkFrozenResourceToObservationTask,
   reviewMaterialObservationPlan,
   submitMaterialObservationPlanForReview,
+  synchronizeQuestionDraftsFromObservationPlan,
   validateAndSaveMaterialObservationPlan,
 } from '../agents/materialObservationApplicationService.ts';
 import { InMemoryMaterialObservationRepository } from '../repositories/inMemoryMaterialObservationRepository.ts';
@@ -71,6 +72,7 @@ const cases: DebugCase[] = [
   { name: '26 failed operations do not pollute formal resources', run: caseFailureNoPollution },
   { name: '27 submitting after preview validation reuses immutable Validation', run: caseSubmitAfterPreviewValidation },
   { name: '28 repeated single-task creation reuses one active Draft', run: caseSingleTaskDraftCreationIdempotent },
+  { name: '29 Plan changes synchronize the same Draft and invalidate stale checks', run: casePlanSynchronizesExistingDraft },
 ];
 
 async function main(): Promise<void> {
@@ -259,6 +261,52 @@ async function caseSingleTaskDraftCreationIdempotent() {
   expect(second.status === 'reused', 'Repeated single-task creation did not reuse the Draft.');
   expect(first.draftId === second.draftId, 'Repeated single-task creation changed Draft identity.');
   expect(activeDrafts.length === 1, 'Repeated single-task creation produced duplicate active Drafts.');
+}
+
+async function casePlanSynchronizesExistingDraft() {
+  const fixture = await reviewedFixture();
+  const sourceTask = fixture.plan.taskPlans[0];
+  const draft = await createDraftForTask(fixture, 'plan-sync');
+  const validation = await validateStructuredQuestionDraft(fixture.resources, draft.draftId, NOW);
+  const validatedDraft = (await fixture.resources.getDraft(draft.draftId))!;
+  expect(validatedDraft.latestValidationId === validation.validationId, 'Draft validation was not recorded before synchronization.');
+
+  const updatedPlan = buildMaterialObservationPlan({
+    materialId: fixture.plan.materialId,
+    materialVersionId: fixture.plan.materialVersionId,
+    materialStructureSnapshotId: fixture.plan.materialStructureSnapshotId,
+    revision: fixture.plan.revision + 1,
+    parentPlanId: fixture.plan.materialObservationPlanId,
+    dimensionReviews: fixture.plan.dimensionReviews,
+    taskPlans: fixture.plan.taskPlans.map((taskPlan) => ({
+      ...taskPlan,
+      observationTaskPlanId: undefined,
+      taskRevisionRootId: taskPlan.taskRevisionRootId,
+      parentObservationTaskPlanId: taskPlan.observationTaskPlanId,
+    })),
+    now: LATER,
+  });
+  updatedPlan.taskPlans[0].observationGoal = '结合母亲推伞的动作，分析她对孩子的关爱。';
+  updatedPlan.taskPlans[0].expectedStudentAction = '引用动作细节并解释动作体现的关爱。';
+  await fixture.observations.savePlan(updatedPlan);
+
+  const synchronized = await synchronizeQuestionDraftsFromObservationPlan(
+    fixture.resources,
+    fixture.observations,
+    updatedPlan.materialObservationPlanId,
+    LATER,
+  );
+  const currentDraft = (await fixture.resources.getDraft(draft.draftId))!;
+  const activeDrafts = (await fixture.resources.listDrafts()).filter((item) => item.status !== 'archived');
+
+  expect(synchronized.length === 1 && synchronized[0].draftId === draft.draftId, 'Plan synchronization did not reuse the existing Draft.');
+  expect(synchronized[0].observationTaskPlanId === updatedPlan.taskPlans[0].observationTaskPlanId, 'Plan synchronization did not follow the current task revision.');
+  expect(currentDraft.tags.includes(`observation_task:${updatedPlan.taskPlans[0].observationTaskPlanId}`), 'Draft did not adopt the current task identity tag.');
+  expect(currentDraft.tags.includes(`observation_task_root:${sourceTask.taskRevisionRootId}`), 'Draft lost the stable task revision root.');
+  expect(currentDraft.questionStem === updatedPlan.taskPlans[0].observationGoal, 'Plan question changes did not reach the existing Draft.');
+  expect(currentDraft.revision === validatedDraft.revision + 1, 'Draft revision was not advanced exactly once.');
+  expect(currentDraft.latestValidationId === undefined, 'Plan changes did not invalidate the stale Draft validation.');
+  expect(activeDrafts.length === 1, 'Plan synchronization created a duplicate active Draft.');
 }
 
 async function caseRubricMismatch() {

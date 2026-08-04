@@ -37,6 +37,30 @@ export type TaskProductionPresentation = {
   busy: boolean;
 };
 
+export type TaskProductionCardActionKind =
+  | 'focus_issue'
+  | 'save_plan'
+  | 'open_repair'
+  | 'run_check'
+  | 'open_confirmation'
+  | 'confirm'
+  | 'publish'
+  | 'retry_publication'
+  | 'view_formal_resource';
+
+export type TaskProductionCardAction = {
+  kind: TaskProductionCardActionKind | null;
+  label: '继续修改' | '发布任务' | '查看正式资源' | null;
+  busyLabel: string | null;
+};
+
+export type TaskProductionCardPresentation = {
+  stateLabel: string;
+  tone: TaskProductionTone;
+  primaryAction: TaskProductionCardAction;
+  auxiliaryActions: TaskProductionCardAction[];
+};
+
 export type TrainingTaskQuestionBinding = {
   trainingTaskId: string;
   questionLineageId: string;
@@ -155,6 +179,93 @@ export function getTaskProductionPresentation(
     primaryActionLabel: primaryAction
       ? getTaskProductionPrimaryActionLabel(state, primaryAction)
       : null,
+  };
+}
+
+/**
+ * Maps the domain action to the single orchestration entry exposed by a task card.
+ * The card keeps P0's compact CTA while the current stage remains observable.
+ */
+export function resolveTaskProductionCardAction(
+  productionView: TaskProductionView,
+  options: { hasIssues?: boolean } = {},
+): TaskProductionCardAction {
+  const action = productionView.primaryAction;
+  if (!action) return { kind: null, label: null, busyLabel: null };
+
+  if (action === 'view_formal_resource') {
+    return {
+      kind: 'view_formal_resource',
+      label: '查看正式资源',
+      busyLabel: null,
+    };
+  }
+
+  if (action === 'edit') {
+    if (productionView.state === 'draft_empty') {
+      return {
+        kind: 'open_repair',
+        label: '发布任务',
+        busyLabel: '正在创建题目草稿…',
+      };
+    }
+    return {
+      kind: options.hasIssues ? 'focus_issue' : 'open_repair',
+      label: '继续修改',
+      busyLabel: null,
+    };
+  }
+
+  const orchestrationActions: Record<
+    Exclude<TaskProductionAction, 'edit' | 'return_for_revision' | 'view_formal_resource'>,
+    Pick<TaskProductionCardAction, 'kind' | 'busyLabel'>
+  > = {
+    save: { kind: 'save_plan', busyLabel: '正在保存任务修改…' },
+    run_check: { kind: 'run_check', busyLabel: '正在检查题目…' },
+    open_confirmation: { kind: 'open_confirmation', busyLabel: '正在提交最终确认…' },
+    confirm: { kind: 'confirm', busyLabel: '正在完成最终确认…' },
+    publish: { kind: 'publish', busyLabel: '正在发布正式题目…' },
+    retry_publication: { kind: 'retry_publication', busyLabel: '正在重试发布…' },
+  };
+
+  if (action === 'return_for_revision') {
+    return {
+      kind: 'open_repair',
+      label: '继续修改',
+      busyLabel: null,
+    };
+  }
+
+  return {
+    ...orchestrationActions[action],
+    label: '发布任务',
+  };
+}
+
+/**
+ * Single read model for the task-card header. It keeps the lifecycle state,
+ * recommended next action and historical formal-resource entry consistent.
+ */
+export function resolveTaskProductionCardPresentation(
+  productionView: TaskProductionView,
+  options: { hasIssues?: boolean } = {},
+): TaskProductionCardPresentation {
+  const primaryAction = resolveTaskProductionCardAction(productionView, options);
+  const canViewHistoricalFormalResource = productionView.hasPublishedVersion
+    && primaryAction.kind !== 'view_formal_resource'
+    && productionView.availableActions.includes('view_formal_resource');
+
+  return {
+    stateLabel: productionView.presentation.stateLabel,
+    tone: productionView.presentation.tone,
+    primaryAction,
+    auxiliaryActions: canViewHistoricalFormalResource
+      ? [{
+          kind: 'view_formal_resource',
+          label: '查看正式资源',
+          busyLabel: null,
+        }]
+      : [],
   };
 }
 
