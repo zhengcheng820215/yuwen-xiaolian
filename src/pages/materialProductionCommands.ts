@@ -56,19 +56,36 @@ export function executeConfirmTrainingPlanForTaskProductionCommand(input: {
       command: 'confirmTrainingPlanForTaskProduction',
       targetId: input.planId,
     }),
-    async () => {
-      let status = input.currentStatus;
-      if (['draft', 'revision_required'].includes(status)) {
-        const submitted = await submitProductionObservationPlan(input.planId);
-        status = submitted.plan.status;
-      }
-      if (status === 'pending_review') {
-        const approved = await approveProductionObservationPlan(input.planId);
-        status = approved.plan.status;
-      }
-      return { planId: input.planId, status };
-    },
+    () => confirmTrainingPlanForTaskProduction(input, {
+      submitPlan: submitProductionObservationPlan,
+      approvePlan: approveProductionObservationPlan,
+    }),
   );
+}
+
+export async function confirmTrainingPlanForTaskProduction(
+  input: {
+    planId: string;
+    currentStatus: string;
+  },
+  dependencies: {
+    submitPlan: (planId: string) => Promise<{ status?: string }>;
+    approvePlan: (planId: string) => Promise<unknown>;
+  },
+) {
+  let status = input.currentStatus;
+  if (['draft', 'revision_required'].includes(status)) {
+    const submittedPlan = await dependencies.submitPlan(input.planId);
+    if (!submittedPlan?.status) {
+      throw new Error('训练计划提交成功，但未返回有效状态。');
+    }
+    status = submittedPlan.status;
+  }
+  if (status === 'pending_review') {
+    await dependencies.approvePlan(input.planId);
+    status = 'reviewed';
+  }
+  return { planId: input.planId, status };
 }
 
 export function executeMaterialFinalConfirmationSubmissionCommand(input: {

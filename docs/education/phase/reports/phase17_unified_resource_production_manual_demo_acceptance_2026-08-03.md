@@ -109,3 +109,87 @@
 - 单题检查在远端 Assessment 成功时可继续进入最终确认；远端失败时会明确停止并允许重试，不再造成无响应感；
 - 标题格式与学习空状态已形成统一契约和专项测试；
 - 学习入口当前为空属于正常业务结果，不是错读 Draft 或不完整正式资源；完整消费型 Demo 仍需另备一条符合当前学习条件的新正式任务。
+
+## 七、2026-08-04 P0 单入口真实发布复验
+
+本轮使用新建素材《P0验收短文·山路灯火·20260804》执行隔离验收，共生成并采用 3 个训练任务。首次复验仅对任务 1 修改题目并完成发布，任务 2、任务 3 保持未处理状态；后续人工 Demo 补充验收见第十节。
+
+复验中发现“发布任务”在确认训练计划阶段报错。根因是编排命令错误地把两个不同的服务返回值都当作 `{ plan }`：计划提交实际直接返回 `MaterialObservationPlan`，计划批准实际返回 `MaterialObservationReviewDecision`。批准决定已持久化后，页面继续读取不存在的 `approved.plan.status`，因而出现前台报错和状态错觉。
+
+修复后，命令按服务契约分别处理：提交阶段读取 Plan 的 `status`，批准阶段成功后显式进入 `reviewed`，已处于 `pending_review` 的计划不再重复提交。专项自动化覆盖草稿提交批准和待审核直接批准两条路径。
+
+真实浏览器复验结果：
+
+- 任务 1 显示“题目已经发布成功”；
+- 批次状态为 `待处理 2 / 待最终确认 0 / 已确认待发布 0 / 已发布 1`，总数守恒为 3；
+- 任务 2、任务 3 未被连带确认或发布；
+- 持久层存在当前 Plan 的 `reviewed` 状态，以及任务 1 唯一的 Reviewed Draft、Frozen Formal Version 和 Active Registry Entry；
+- 学习入口读取正常，因当前学习筛选与去重条件无可消费新任务而显示正常业务空状态。
+
+该问题的防回归规则为：跨服务编排只能消费各服务公开返回契约，不得根据相邻接口形状推测包装字段；阶段成功后必须保存阶段结果，并从失败点继续。
+
+## 八、2026-08-04 P1 任务卡动作投影收口
+
+本轮继续收口任务卡的读取与交互语义，不增加新的生产命令。材料工作台已删除 `actionLabel`、`actionKind`、`busyLabel` 等页面影子字段，任务卡的文案、点击分发、禁用态与 Loading 均直接消费 `cardPresentation.primaryAction`。页面不再根据 Draft、Review、Publication 或检查结果重新拼装主操作。
+
+自动化与构建结果：
+
+- Task Production State Debug：`PASS`；
+- Task Publication Orchestration Debug：`PASS`；
+- Task Production Command Runtime Debug：`5 / 5 PASS`；
+- Question Workflow Projection Debug：`PASS`；
+- Material Resource Workbench State Debug：`12 / 12 PASS`；
+- Product Color Semantics Debug：`24 / 24 PASS`；
+- Unified Resource Production Final Integration Debug：`18 / 18 PASS`；
+- `pnpm build`：`PASS`。
+
+真实页面只读验收使用隔离素材《P0验收短文·山路灯火·20260804》。页面汇总为 `待处理 2 / 待最终确认 0 / 已确认待发布 0 / 已发布 1`，总数守恒为 3；任务 1 显示“查看正式资源”，任务 2、任务 3 均显示“发布任务”。三个任务均有唯一、可理解的下一步操作，没有空白动作、重复入口或由页面局部状态造成的文案漂移。
+
+## 九、2026-08-04 P2 训练任务卡投影复验
+
+P2 继续验证任务卡的首层信息职责，没有新增生产状态或写入命令。任务卡状态徽标、主操作和正式资源辅助入口统一读取 `taskCardPresentation`；页面增加只读验收属性，用于核对统一 Resolver 输出，不参与业务持久化。
+
+自动化与构建结果：
+
+- Task Production State Debug：`PASS`；
+- Product Color Semantics Debug：`28 / 28 PASS`；
+- Material Resource Workbench State Debug：`12 / 12 PASS`；
+- Question Workflow Projection Debug：`PASS`；
+- Task Publication Orchestration Debug：`PASS`；
+- Task Production Command Runtime Debug：`5 / 5 PASS`；
+- Unified Resource Production Final Integration Debug：`18 / 18 PASS`；
+- `pnpm build`：`PASS`。
+
+浏览器验收使用素材《狼》的第 1 版已确认计划。3 张训练任务卡的 `data-task-production-state` 均为 `published`，`data-task-production-action` 均为 `view_formal_resource`；每张卡首层仅显示一个“查看正式资源”主操作，来源、状态、任务属性与下一步信息一致，控制台无错误。
+
+本轮确认 P2 达到“任务卡说明当前状态并给出唯一下一步”的目标，同时保持 Draft、Revision、Assessment、Human Review 和 Publication 写入边界不变。
+
+## 十、2026-08-04 人工 Demo 补充验收
+
+本轮继续使用隔离素材《P0验收短文·山路灯火·20260804》，从统一素材资源工作台逐项完成剩余任务的正式发布，并验证正式资源查看、刷新恢复和学习入口边界。
+
+验收对象：
+
+```text
+Material Version: material-1340faad-d20:v1
+Observation Plan: material-observation-plan-1fh9n7n
+训练任务数量: 3
+```
+
+人工操作结果：
+
+| 场景 | 结果 | 说明 |
+| --- | --- | --- |
+| 素材选择恢复 | 通过 | 在“素材录入”和“已有素材”之间切换后，仍保持当前验收素材，不要求重新选择 |
+| 标题格式 | 通过 | 素材标题没有出现重复书名号 |
+| 任务 2 正式发布 | 通过 | 从任务卡执行“发布任务”，完成后仅任务 2 进入已发布 |
+| 任务 3 正式发布 | 通过 | 发布耗时约 266 ms，成功状态即时可见 |
+| 状态数量守恒 | 通过 | 从 `2 / 0 / 0 / 1` 依次变为 `1 / 0 / 0 / 2`，最终为 `0 / 0 / 0 / 3`，总数始终等于 3 |
+| 已发布详情 | 通过 | “查看正式资源”在统一页面内展开正式版本、资源 ID、来源 Draft 与 Material Version |
+| 刷新恢复 | 通过 | 刷新后仍选中同一素材，最终状态保持 `0 / 0 / 0 / 3` |
+| 浏览器控制台 | 通过 | warning 和 error 均为 0 |
+| 学习入口读取 | 边界通过 | `/learning` 正常结束读取并显示“本次学习已经结束”；当前没有符合本轮筛选与去重条件的新任务，不属于读取失败 |
+
+最终结果：3 个训练任务均已形成正式发布结果，任务卡状态、互斥汇总和正式资源详情一致。逐任务发布没有覆盖其他任务，没有生成重复 Draft、重复审核决定或重复正式版本。
+
+本次 Demo 没有执行新的学生作答消费。学习入口已证明能够稳定读取共享正式资源并返回可解释的业务空状态；完整消费型 Demo 仍需准备一条符合当前学习条件且未被使用的新正式任务。

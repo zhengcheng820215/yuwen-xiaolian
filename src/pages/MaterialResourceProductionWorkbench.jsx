@@ -688,13 +688,14 @@ export default function MaterialResourceProductionWorkbench() {
 
   async function runTaskWorkflowAction(lifecycle) {
     if (!lifecycle) return;
+    const initialActionKind = lifecycle.cardPresentation?.primaryAction?.kind;
     const observationTaskPlanId = lifecycle.task?.observationTaskPlanId
       || lifecycle.item?.observationTaskPlanId;
     const planId = lifecycle.item?.materialObservationPlanId
       || selectedPlan?.materialObservationPlanId;
     if (!observationTaskPlanId || !planId) return;
-    if (lifecycle.actionKind === 'focus_issue') return;
-    if (lifecycle.actionKind === 'view_formal_resource') return;
+    if (initialActionKind === 'focus_issue') return;
+    if (initialActionKind === 'view_formal_resource') return;
 
     const operationKey = `${observationTaskPlanId}:publish_task`;
     if (taskWorkflowInFlightRef.current.has(operationKey)) return;
@@ -705,7 +706,7 @@ export default function MaterialResourceProductionWorkbench() {
       let currentLifecycle = lifecycle;
       let currentSnapshot = snapshot;
 
-      if (currentLifecycle.actionKind === 'save_plan') {
+      if (currentLifecycle.cardPresentation?.primaryAction?.kind === 'save_plan') {
         setTaskWorkflowFeedback((current) => ({
           ...current,
           [observationTaskPlanId]: { type: 'info', message: '正在保存任务修改…' },
@@ -733,7 +734,8 @@ export default function MaterialResourceProductionWorkbench() {
       }
 
       for (let stageCount = 0; stageCount < 7; stageCount += 1) {
-        const { actionKind, draft, readiness } = currentLifecycle;
+        const { draft, readiness } = currentLifecycle;
+        const actionKind = currentLifecycle.cardPresentation?.primaryAction?.kind;
         if (actionKind === 'view_formal_resource' || currentLifecycle.status === 'published') break;
 
         if (actionKind === 'open_repair') {
@@ -1818,6 +1820,8 @@ export default function MaterialResourceProductionWorkbench() {
                 const questionLifecycle = taskQuestionLifecycleById.get(
                   task.observationTaskPlanId || task.localId,
                 );
+                const taskCardPresentation = questionLifecycle?.cardPresentation;
+                const taskProductionAction = taskCardPresentation?.primaryAction;
                 const workflowTargetId = task.observationTaskPlanId || task.localId;
                 const workflowOperationKey = workflowTargetId
                   ? `${workflowTargetId}:publish_task`
@@ -1836,6 +1840,8 @@ export default function MaterialResourceProductionWorkbench() {
                 return (
                 <details
                   data-task-editor={task.localId}
+                  data-task-production-state={questionLifecycle?.productionView?.state || 'unknown'}
+                  data-task-production-action={taskProductionAction?.kind || 'none'}
                   key={task.localId}
                   open={issues.length > 0 || task.editorDirty ? true : undefined}
                   className="group rounded-md border border-slate-200 bg-white p-4 transition-colors open:border-blue-300 sm:p-5"
@@ -1847,29 +1853,29 @@ export default function MaterialResourceProductionWorkbench() {
                         <span className="text-xs text-slate-500">来源：</span>
                         <TaskSourceBadge task={task} />
                         <span className="text-xs text-slate-500">状态：</span>
-                        <TaskQuestionLifecycleBadge lifecycle={questionLifecycle} />
+                        <TaskQuestionLifecycleBadge presentation={taskCardPresentation} />
                       </div>
-                      {(questionLifecycle?.actionLabel
-                        || questionLifecycle?.cardPresentation?.auxiliaryActions?.length > 0) && (
+                      {(taskProductionAction?.label
+                        || taskCardPresentation?.auxiliaryActions?.length > 0) && (
                         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" aria-label="训练任务流程操作">
-                          {questionLifecycle?.actionLabel && (
+                          {taskProductionAction?.label && (
                           <span className="inline-flex items-center gap-1.5">
                             <span className="text-slate-500">下一步：</span>
                             <button
                               type="button"
                               disabled={
                                 workflowBusy ||
-                                (questionLifecycle.actionKind === 'save_plan' && !commandAvailability.savePlanRevision.enabled)
+                                (taskProductionAction.kind === 'save_plan' && !commandAvailability.savePlanRevision.enabled)
                               }
-                              title={questionLifecycle.actionKind === 'save_plan' ? commandAvailability.savePlanRevision.reason : ''}
+                              title={taskProductionAction.kind === 'save_plan' ? commandAvailability.savePlanRevision.reason : ''}
                               onClick={(event) => {
                                 event.preventDefault();
                                 event.stopPropagation();
-                                if (questionLifecycle.actionKind === 'view_formal_resource') {
+                                if (taskProductionAction.kind === 'view_formal_resource') {
                                   revealTaskFormalResource(event);
                                   return;
                                 }
-                                if (questionLifecycle.actionKind === 'open_confirmation') {
+                                if (taskProductionAction.kind === 'open_confirmation') {
                                   const taskCard = event.currentTarget.closest('details');
                                   taskCard?.setAttribute('open', '');
                                   window.requestAnimationFrame(() => {
@@ -1878,7 +1884,7 @@ export default function MaterialResourceProductionWorkbench() {
                                       ?.scrollIntoView({ block: 'nearest' });
                                   });
                                 }
-                                if (questionLifecycle.actionKind === 'focus_issue') {
+                                if (taskProductionAction.kind === 'focus_issue') {
                                   if (issues[0]) focusTaskIssue(issues[0]);
                                   return;
                                 }
@@ -1891,12 +1897,12 @@ export default function MaterialResourceProductionWorkbench() {
                                   ? '正在发布…'
                                   : '等待发布…'
                                 : workflowBusy
-                                  ? questionLifecycle.busyLabel || '正在处理任务…'
-                                : questionLifecycle.actionLabel}
+                                  ? taskProductionAction.busyLabel || '正在处理任务…'
+                                : taskProductionAction.label}
                             </button>
                           </span>
                           )}
-                          {questionLifecycle?.cardPresentation?.auxiliaryActions?.map((action) => (
+                          {taskCardPresentation?.auxiliaryActions?.map((action) => (
                             <button
                               key={action.kind}
                               type="button"
@@ -2426,8 +2432,8 @@ function Metric({ label, value, tone = 'default' }) {
   );
 }
 
-function TaskQuestionLifecycleBadge({ lifecycle }) {
-  const presentation = lifecycle?.cardPresentation || {
+function TaskQuestionLifecycleBadge({ presentation }) {
+  const resolvedPresentation = presentation || {
     stateLabel: '未生成题目',
     tone: 'neutral',
   };
@@ -2437,10 +2443,10 @@ function TaskQuestionLifecycleBadge({ lifecycle }) {
     warning: 'bg-amber-50 text-amber-700',
     danger: 'bg-red-50 text-red-700',
     success: 'bg-emerald-50 text-emerald-700',
-  }[presentation.tone];
+  }[resolvedPresentation.tone];
   return (
     <span className={`rounded px-2 py-1 text-xs font-normal ${toneClassName}`}>
-      {presentation.stateLabel}
+      {resolvedPresentation.stateLabel}
     </span>
   );
 }
@@ -2467,12 +2473,8 @@ function resolveTaskQuestionLifecycle({
     const cardPresentation = resolveTaskProductionCardPresentation(productionView, {
       hasIssues: issues.length > 0,
     });
-    const cardAction = cardPresentation.primaryAction;
     return {
       status: productionView.state,
-      actionLabel: cardAction.label,
-      actionKind: cardAction.kind,
-      busyLabel: cardAction.busyLabel,
       item: null,
       task,
       issues,
@@ -2562,9 +2564,6 @@ function resolveTaskQuestionLifecycle({
     : null;
   return {
     status: productionView.state,
-    actionLabel: cardAction.label,
-    actionKind: cardAction.kind,
-    busyLabel: cardAction.busyLabel,
     item,
     task,
     issues,
@@ -2610,7 +2609,8 @@ function TaskProductionWorkflowPanel({
   onRationaleChange,
   onReviewNotesChange,
 }) {
-  const { draft, readiness, actionKind } = lifecycle;
+  const { draft, readiness } = lifecycle;
+  const actionKind = lifecycle.cardPresentation?.primaryAction?.kind;
   const warnings = readiness?.qualityAssessment?.warnings || [];
   if (!draft || !['open_confirmation', 'confirm'].includes(actionKind)) return null;
   return (

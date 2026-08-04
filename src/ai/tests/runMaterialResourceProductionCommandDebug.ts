@@ -4,6 +4,7 @@ import {
   MATERIAL_PRODUCTION_COMMANDS,
   type MaterialProductionCommandContext,
 } from '../../pages/materialResourceProductionCommandState.ts';
+import { confirmTrainingPlanForTaskProduction } from '../../pages/materialProductionCommands.ts';
 
 const baseContext: MaterialProductionCommandContext = {
   hasMaterial: true,
@@ -20,7 +21,7 @@ const baseContext: MaterialProductionCommandContext = {
   submissionReady: true,
 };
 
-const cases: Array<{ name: string; run: () => void }> = [
+const cases: Array<{ name: string; run: () => void | Promise<void> }> = [
   {
     name: '未保存修改会阻止三类 AI 规划命令',
     run: () => {
@@ -110,11 +111,52 @@ const cases: Array<{ name: string; run: () => void }> = [
       assert.equal(availability('submitForQuestionReview', context).enabled, false);
     },
   },
+  {
+    name: '草稿计划按直接返回的 Plan 状态完成提交和批准',
+    run: async () => {
+      const calls: string[] = [];
+      const result = await confirmTrainingPlanForTaskProduction({
+        planId: 'plan-draft',
+        currentStatus: 'draft',
+      }, {
+        submitPlan: async (planId) => {
+          calls.push(`submit:${planId}`);
+          return { status: 'pending_review' };
+        },
+        approvePlan: async (planId) => {
+          calls.push(`approve:${planId}`);
+          return { action: 'approve' };
+        },
+      });
+
+      assert.deepEqual(calls, ['submit:plan-draft', 'approve:plan-draft']);
+      assert.deepEqual(result, { planId: 'plan-draft', status: 'reviewed' });
+    },
+  },
+  {
+    name: '待审核计划批准后显式进入 reviewed，不读取审核决定中不存在的 plan',
+    run: async () => {
+      let submitCalled = false;
+      const result = await confirmTrainingPlanForTaskProduction({
+        planId: 'plan-pending',
+        currentStatus: 'pending_review',
+      }, {
+        submitPlan: async () => {
+          submitCalled = true;
+          return { status: 'pending_review' };
+        },
+        approvePlan: async () => ({ action: 'approve' }),
+      });
+
+      assert.equal(submitCalled, false);
+      assert.deepEqual(result, { planId: 'plan-pending', status: 'reviewed' });
+    },
+  },
 ];
 
 let passed = 0;
 for (const testCase of cases) {
-  testCase.run();
+  await testCase.run();
   passed += 1;
   console.log(`PASS ${testCase.name}`);
 }

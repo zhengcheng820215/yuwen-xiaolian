@@ -1900,6 +1900,15 @@ Debug 与界面验收结果：
 - `pnpm build`：`PASS`；
 - 旧 `plan-review` 入口只读，素材工作台不再包含重复的最终确认区。
 
+P0 真实链路补充验收（2026-08-04）：
+
+- 训练计划提交接口直接返回 `MaterialObservationPlan`，批准接口返回 `MaterialObservationReviewDecision`；编排命令不得假设二者都含有 `plan` 包装字段；
+- 计划处于 `draft` 或 `revision_required` 时，命令必须读取提交结果的 `status`，随后形成批准决定并显式投影为 `reviewed`；计划已处于 `pending_review` 时应跳过重复提交；
+- 真实素材《P0验收短文·山路灯火·20260804》完成单题人工修改、保留提醒说明、最终确认和正式发布；其余两题状态保持不变；
+- 发布后互斥汇总为 `待处理 2 + 待最终确认 0 + 已确认待发布 0 + 已发布 1 = 3`；
+- 持久层仅为当前任务形成一个 Reviewed Draft、一个 Frozen Formal Version 和一个 Active Registry Entry，没有重复 Draft、Review、正式版本或 Registry；
+- 学习入口能够正常读取并显示业务空状态；当前没有满足学习筛选与去重条件的新任务，不应将其解释为生产链发布失败。
+
 ### 21.12 P1 统一任务卡动作投影收口（2026-08-04）
 
 P1 在 21.11 的单入口编排基础上继续收口读取语义，不增加写入 Command，也不把“发布任务”改回多组竞争按钮。
@@ -1924,11 +1933,71 @@ P1 Debug 至少覆盖：
 
 本轮 P1 Debug 验收结果：
 
+- 材料工作台的任务卡展示、点击分发、禁用态与 Loading 统一直接消费 `cardPresentation.primaryAction`；页面不再复制 `actionLabel`、`actionKind`、`busyLabel` 等影子字段；
 - Task Production State Debug：`PASS`，覆盖任务状态与卡片动作投影；
 - Task Publication Orchestration Debug：`PASS`；
 - Task Production Command Runtime Debug：`5 / 5 PASS`；
 - Question Workflow Projection Debug：`PASS`；
 - Material Resource Workbench State Debug：`12 / 12 PASS`；
+- Product Color Semantics Debug：`24 / 24 PASS`，包含任务卡单一动作来源的静态防回归断言；
 - Unified Resource Production Final Integration Debug：`18 / 18 PASS`；
 - `pnpm build`：`PASS`；
-- 浏览器只读验收：实际任务卡的状态、动作入口和已发布只读状态与统一 Resolver 一致，页面无空白或遮挡，控制台 `0` 条 warning、`0` 条 error。
+- 浏览器只读验收：隔离素材的互斥汇总为 `待处理 2 + 待最终确认 0 + 已确认待发布 0 + 已发布 1 = 3`；已发布任务显示“查看正式资源”，两个未生成题目的任务均显示“发布任务”，状态、动作与统一 Resolver 一致，页面无空白或重复入口。
+
+### 21.13 P2 训练任务卡投影复验与防回退收口（2026-08-04）
+
+P2 在 20.9—20.10 已冻结边界上完成当前分支复验，不新增状态、不增加操作，也不改写 Draft、Revision、Human Review 或 Publication。
+
+本轮工程收口如下：
+
+1. 每张训练任务卡只读取一次 `taskCardPresentation`，状态徽标、唯一主操作和历史正式资源辅助入口均消费同一对象；
+2. 状态徽标不再接收完整生命周期对象，避免展示组件绕过投影自行读取 Draft、Review 或 Publication；
+3. 任务卡增加 `data-task-production-state` 与 `data-task-production-action`，用于浏览器端到端验收当前主状态与唯一主操作，不参与业务写入；
+4. 来源继续由任务创作元数据判定，生产状态继续唯一来自 `resolveTaskProductionState()`，二者不得互相替代；
+5. `resolveTaskGroupSummary()` 仍是顶部互斥统计的唯一来源，卡片展示字段不得参与反向统计。
+
+P2 防回退要求：
+
+- 页面不得恢复 `actionLabel`、`actionKind`、`busyLabel` 等影子字段；
+- 页面不得把 `questionLifecycle.status`、Review 状态或 Publication 状态直接渲染为第二套卡片状态；
+- 任一任务卡同一时刻至多存在一个 `primaryAction`；历史正式版本只能进入 `auxiliaryActions`；
+- 已发布任务出现新 Revision 时，新 Revision 决定主状态，旧正式资源入口仍可追溯。
+
+本轮 P2 Debug 与界面验收结果：
+
+- Task Production State Debug：`PASS`；
+- Product Color Semantics Debug：`28 / 28 PASS`，包含任务卡单次投影读取、状态徽标投影消费、端到端属性和影子字段禁回退断言；
+- Material Resource Workbench State Debug：`12 / 12 PASS`；
+- Question Workflow Projection Debug：`PASS`；
+- Task Publication Orchestration Debug：`PASS`；
+- Task Production Command Runtime Debug：`5 / 5 PASS`；
+- Unified Resource Production Final Integration Debug：`18 / 18 PASS`；
+- `pnpm build`：`PASS`；
+- 浏览器只读验收：3 张任务卡均投影为 `published / view_formal_resource`，卡片首层各自只有一个“查看正式资源”主操作，来源、状态、下一步和任务属性表达一致；页面控制台错误数为 0。
+
+P2 只收口任务卡读取与展示，不修改 Draft、Revision、Assessment、Human Review、Formal Version 或 Registry 的写入语义。
+
+### 21.14 统一工作台人工 Demo 增量发布基线（2026-08-04）
+
+统一工作台必须支持从同一素材、同一训练计划和同一任务卡继续完成剩余任务，不要求用户切换到第二个可写平台，也不因为单题已发布而批量推进其他任务。
+
+人工 Demo 使用《P0验收短文·山路灯火·20260804》的 3 个训练任务完成增量发布。任务 1 已发布后，任务 2、任务 3 分别从各自任务卡进入正式发布，互斥汇总依次为：
+
+```text
+待处理 2 / 待最终确认 0 / 已确认待发布 0 / 已发布 1
+待处理 1 / 待最终确认 0 / 已确认待发布 0 / 已发布 2
+待处理 0 / 待最终确认 0 / 已确认待发布 0 / 已发布 3
+```
+
+以下行为冻结为回归基线：
+
+1. 四项互斥状态之和必须始终等于当前训练任务数量；
+2. 单任务发布只能改变当前任务的生产状态，不得连带确认或发布其他任务；
+3. 发布成功后必须在当前操作区域即时显示成功结果，并允许在统一页面内查看正式资源；
+4. 正式资源详情至少包含正式版本、资源 ID、来源 Draft 和 Material Version；
+5. 刷新或页签往返后必须恢复当前素材选择和已持久化任务状态；
+6. 素材标题格式化必须幂等，不得产生重复书名号；
+7. 学习入口没有符合能力、任务角色与去重条件的新任务时，应返回可解释的业务空状态，不得误报读取失败或生产失败；
+8. 学习入口读取通过不等于完成学生消费验收，完整消费仍需使用满足条件且未被使用的新正式任务。
+
+本轮真实浏览器结果为：3 个任务全部发布，刷新后状态保持 `0 + 0 + 0 + 3 = 3`，“查看正式资源”可读取正式身份信息，浏览器控制台 warning 与 error 均为 0；`/learning` 正常显示学习结束业务状态。
