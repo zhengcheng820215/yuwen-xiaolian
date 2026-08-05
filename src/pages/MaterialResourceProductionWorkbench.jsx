@@ -52,7 +52,6 @@ import {
   summarizeTrainingTaskGroupCoverage,
   toggleSupplementCandidateSelection,
 } from './trainingTaskGroupPlanningState.ts';
-import { adoptSingleTrainingTaskCandidate } from './singleTrainingTaskRegenerationState.ts';
 import {
   getMaterialProductionCommandAvailability,
   MATERIAL_PRODUCTION_COMMANDS,
@@ -83,19 +82,34 @@ import {
   resolveTaskProductionState,
 } from './taskProductionState.ts';
 import {
-  enterTaskCardCalibration,
-  exitTaskCardCalibration,
   isTaskCardDisclosureOpen,
   setTaskCardDisclosureOpen,
 } from './taskCardDisclosureState.ts';
 import {
   discardQuestionTaskWorkingContent,
   getQuestionTaskWorkingContentState,
-  rebaseQuestionTaskWorkingContent,
-  saveQuestionTaskWorkingContent,
 } from '../api/workingTaskContent.ts';
-import { commitQuestionTaskWorkingChanges } from '../api/taskGroupSubmission.ts';
-import { extractQuestionEditableFields } from '../ai/schemas/workingTaskContent.schema.ts';
+import {
+  calculateQuestionEditableFieldsHash,
+  extractQuestionEditableFields,
+} from '../ai/schemas/workingTaskContent.schema.ts';
+import {
+  adoptQuestionTaskCandidate,
+  correctQuestionTaskCandidate,
+  executeCandidateWorkbenchCommand,
+  listQuestionTaskCandidates,
+  migrateQuestionTaskWorkingContent,
+} from '../api/questionCandidateWorkbench.ts';
+import {
+  CANDIDATE_OPTIMIZATION_GOALS,
+  resolveCandidatePanelProjection,
+} from './questionCandidateWorkbenchState.ts';
+import {
+  CANDIDATE_FIELD_KEYS,
+  candidateFieldChanged,
+} from '../ai/schemas/questionCandidate.schema.ts';
+import { resolveCandidateOptimizationFieldPolicy } from
+  '../ai/schemas/questionCandidateOptimization.schema.ts';
 
 const dimensionOptions = [
   ['fact', '事实'], ['character', '人物'], ['plot', '情节'], ['causality', '因果'],
@@ -167,16 +181,16 @@ export default function MaterialResourceProductionWorkbench() {
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [tasks, setTasks] = useState([]);
   const [taskEditorDirty, setTaskEditorDirty] = useState(false);
-  const [editableTaskIds, setEditableTaskIds] = useState(() => new Set());
   const [taskCardDisclosures, setTaskCardDisclosures] = useState({});
   const [taskWorkingStates, setTaskWorkingStates] = useState({});
-  const [taskCommitOperation, setTaskCommitOperation] = useState(null);
+  const [taskCandidatesById, setTaskCandidatesById] = useState({});
+  const [taskCandidatePanels, setTaskCandidatePanels] = useState({});
+  const [taskCandidateOptimizationGoals, setTaskCandidateOptimizationGoals] = useState({});
   const [generatorStatus, setGeneratorStatus] = useState(null);
   const [generatorResult, setGeneratorResult] = useState(null);
   const [generatorBusy, setGeneratorBusy] = useState(false);
   const [generatorOperation, setGeneratorOperation] = useState(null);
   const [groupCandidateSession, setGroupCandidateSession] = useState(null);
-  const [taskRegeneration, setTaskRegeneration] = useState(null);
   const [taskWorkflowOperation, setTaskWorkflowOperation] = useState(null);
   const [taskBatchPublicationOperation, setTaskBatchPublicationOperation] = useState(null);
   const [taskBatchPublicationResult, setTaskBatchPublicationResult] = useState(null);
@@ -206,8 +220,6 @@ export default function MaterialResourceProductionWorkbench() {
   const initialSelectionResolutionRef = useRef(true);
   const taskWorkflowInFlightRef = useRef(new Set());
   const taskBatchPublicationInFlightRef = useRef(false);
-  const taskCommitInFlightRef = useRef(false);
-  const taskCommitIdempotencyKeysRef = useRef(new Map());
   const materialFormHasInput = Boolean(
     materialForm.title.trim()
     || materialForm.content.trim()
@@ -383,12 +395,6 @@ export default function MaterialResourceProductionWorkbench() {
   const taskWorkingRecoveryKey = tasks
     .map(taskWorkingIdentity)
     .join('|');
-  const savedWorkingTaskIds = useMemo(
-    () => tasks
-      .map(taskWorkingIdentity)
-      .filter((trainingTaskId) => taskWorkingStates[trainingTaskId]?.status === 'saved'),
-    [tasks, taskWorkingStates],
-  );
   const taskPublicationCandidates = useMemo(
     () => [...taskQuestionLifecycleById.entries()].flatMap(([trainingTaskId, lifecycle]) => {
       const eligibility = resolveTaskPublicationEligibility(lifecycle.productionView);
@@ -433,14 +439,12 @@ export default function MaterialResourceProductionWorkbench() {
       ? selectedPlan.taskPlans.map((task, index) => planTaskToEditableTask(task, index, snapshot.anchors))
       : [];
     setTasks(nextTasks);
-    setEditableTaskIds(new Set(nextTasks
-      .filter((task) => task.sourceType !== 'ai_assisted')
-      .map((task) => task.localId)));
     setTaskCardDisclosures({});
     setTaskWorkingStates({});
-    setTaskCommitOperation(null);
+    setTaskCandidatesById({});
+    setTaskCandidatePanels({});
+    setTaskCandidateOptimizationGoals({});
     setTaskEditorDirty(false);
-    setTaskRegeneration(null);
     setGeneratorResult(null);
     setGroupCandidateSession(null);
     setTaskRemovalCandidate(null);
@@ -470,19 +474,12 @@ export default function MaterialResourceProductionWorkbench() {
         state.status === 'missing'
           ? { status: 'clean', workingContent: null }
           : {
-            status: state.status === 'current' ? 'saved' : 'base_revision_conflict',
+            status: state.status === 'current' ? 'migration_required' : 'base_revision_conflict',
             workingContent: state.workingContent,
             conflictReason: state.status === 'base_revision_conflict' ? state.reason : null,
           },
       ]));
       setTaskWorkingStates(stateById);
-      setTasks((current) => current.map((task) => {
-        const recoveredState = stateById[taskWorkingIdentity(task)];
-        return recoveredState?.workingContent
-          ? mergeWorkingContentIntoEditableTask(task, recoveredState.workingContent)
-          : task;
-      }));
-      if (recovered.some(({ state }) => state.status !== 'missing')) setTaskEditorDirty(true);
     }).catch((error) => {
       if (!cancelled) setNotice(errorNotice(error));
     });
@@ -490,9 +487,51 @@ export default function MaterialResourceProductionWorkbench() {
   }, [selectedPlan?.materialObservationPlanId, planDrafts, taskWorkingRecoveryKey]);
 
   useEffect(() => {
+    if (!selectedPlan || tasks.length === 0) return undefined;
+    let cancelled = false;
+    const trainingTaskIds = tasks.map(taskWorkingIdentity).filter(Boolean);
+    setTaskCandidatePanels((current) => Object.fromEntries(trainingTaskIds.map((trainingTaskId) => [
+      trainingTaskId,
+      {
+        ...(current[trainingTaskId] || {}),
+        operation: 'loading_candidates',
+        error: null,
+      },
+    ])));
+    void Promise.all(trainingTaskIds.map(async (trainingTaskId) => ({
+      trainingTaskId,
+      candidates: await listQuestionTaskCandidates(trainingTaskId),
+    }))).then((results) => {
+      if (cancelled) return;
+      setTaskCandidatesById(Object.fromEntries(results.map(({ trainingTaskId, candidates }) => [
+        trainingTaskId,
+        candidates,
+      ])));
+      setTaskCandidatePanels((current) => Object.fromEntries(trainingTaskIds.map((trainingTaskId) => [
+        trainingTaskId,
+        {
+          ...(current[trainingTaskId] || {}),
+          operation: 'idle',
+          error: null,
+        },
+      ])));
+    }).catch((error) => {
+      if (cancelled) return;
+      setTaskCandidatePanels((current) => Object.fromEntries(trainingTaskIds.map((trainingTaskId) => [
+        trainingTaskId,
+        {
+          ...(current[trainingTaskId] || {}),
+          operation: 'failed',
+          error: createWorkbenchErrorNotice(error).message,
+        },
+      ])));
+    });
+    return () => { cancelled = true; };
+  }, [selectedPlan?.materialObservationPlanId, taskWorkingRecoveryKey]);
+
+  useEffect(() => {
     setGeneratorResult(null);
     setGroupCandidateSession(null);
-    setTaskRegeneration(null);
     setMaterialPreviewExpanded(false);
   }, [selectedMaterialId]);
 
@@ -723,26 +762,14 @@ export default function MaterialResourceProductionWorkbench() {
   }
 
   async function saveChangesBeforeSwitch() {
-    const dirtyTasks = tasks
-      .map((task, index) => ({ task, index }))
-      .filter(({ task }) => task.editorDirty && task.observationTaskPlanId);
-    if (
-      dirtyTasks.length === 0
-      || tasks.some((task) => !task.observationTaskPlanId)
-      || removedTaskHistory.length > 0
-    ) return;
-
     setDiscardDialogSaving(true);
     setNotice(null);
     try {
-      for (const { task, index } of dirtyTasks) {
-        const saved = await saveCurrentTaskWorkingContent(task, index, { silent: true });
-        if (!saved) return;
-      }
+      const saved = await savePlanRevision();
+      if (!saved) return;
       const action = pendingDiscardActionRef.current;
       pendingDiscardActionRef.current = null;
       setDiscardDialogOpen(false);
-      setToast({ id: Date.now(), message: '工作进度已保存。' });
       action?.();
     } finally {
       setDiscardDialogSaving(false);
@@ -755,20 +782,12 @@ export default function MaterialResourceProductionWorkbench() {
       setTaskEditorDirty(false);
       return;
     }
-    const restoredTasks = selectedPlan.taskPlans.map((planTask, index) => {
-      const restored = planTaskToEditableTask(planTask, index, snapshot.anchors);
-      const workingState = taskWorkingStates[taskWorkingIdentity(planTask)];
-      return workingState?.workingContent
-        ? mergeWorkingContentIntoEditableTask(restored, workingState.workingContent)
-        : restored;
-    });
+    const restoredTasks = selectedPlan.taskPlans.map((planTask, index) => (
+      planTaskToEditableTask(planTask, index, snapshot.anchors)
+    ));
     setTasks(restoredTasks);
     setRemovedTaskHistory([]);
-    setTaskEditorDirty(
-      Object.values(taskWorkingStates).some((state) => (
-        state.status === 'saved' || state.status === 'base_revision_conflict'
-      )),
-    );
+    setTaskEditorDirty(false);
   }
 
   function showExistingMaterials() {
@@ -1184,18 +1203,72 @@ export default function MaterialResourceProductionWorkbench() {
     }
   }
 
-  async function regenerateSingleTask(task, index) {
-    if (!requireAvailableCommand(MATERIAL_PRODUCTION_COMMANDS.regenerateSingleTask)) return;
-    const attemptId = createSingleTaskRegenerationAttemptId(task.observationTaskPlanId);
-    setTaskRegeneration({
-      status: 'generating',
-      sourcePlanId: selectedPlan.materialObservationPlanId,
-      sourceTaskId: task.observationTaskPlanId,
-      sourceTask: task,
-      taskIndex: index,
-      attemptId,
+  function updateTaskCandidatePanel(trainingTaskId, patch) {
+    setTaskCandidatePanels((current) => ({
+      ...current,
+      [trainingTaskId]: {
+        ...(current[trainingTaskId] || {}),
+        ...patch,
+      },
+    }));
+  }
+
+  function toggleTaskCandidateOptimizationGoal(trainingTaskId, goal) {
+    setTaskCandidateOptimizationGoals((current) => {
+      const selected = new Set(current[trainingTaskId] || []);
+      if (selected.has(goal)) selected.delete(goal);
+      else selected.add(goal);
+      return { ...current, [trainingTaskId]: [...selected] };
     });
-    setNotice(null);
+  }
+
+  async function runTaskCandidateOperation(task, index, operation) {
+    if (!selectedMaterial || !selectedPlan) return;
+    const trainingTaskId = taskWorkingIdentity(task);
+    const lifecycle = taskQuestionLifecycleById.get(task.observationTaskPlanId || task.localId);
+    const draft = lifecycle?.draft || null;
+    const context = buildTaskCandidateRuntimeContext({
+      selectedMaterial,
+      selectedPlan,
+      task,
+      draft,
+    });
+    const panel = taskCandidatePanels[trainingTaskId] || {};
+    const candidates = taskCandidatesById[trainingTaskId] || [];
+    const projection = resolveCandidatePanelProjection({
+      candidates,
+      context,
+      operation: panel.operation,
+      selectedCandidateId: panel.selectedCandidateId,
+      comparisonCandidateIds: panel.comparisonCandidateIds,
+      workingStatus: taskWorkingStates[trainingTaskId]?.status,
+    });
+    const baseCandidate = projection.readyCandidates.find(
+      (candidate) => candidate.candidateId === projection.selectedCandidateId,
+    );
+    const goals = taskCandidateOptimizationGoals[trainingTaskId] || [];
+    if (operation !== 'generate' && !baseCandidate) {
+      updateTaskCandidatePanel(trainingTaskId, {
+        operation: 'failed',
+        error: '请先选择一个当前有效的候选方案。',
+      });
+      return;
+    }
+    if (operation === 'optimize' && goals.length === 0) {
+      updateTaskCandidatePanel(trainingTaskId, {
+        optimizationOpen: true,
+        operation: 'failed',
+        error: '请至少选择一个优化目标。',
+      });
+      return;
+    }
+
+    updateTaskCandidatePanel(trainingTaskId, {
+      operation: operation === 'optimize' ? 'optimizing' : operation === 'regenerate'
+        ? 'regenerating'
+        : 'loading_candidates',
+      error: null,
+    });
     try {
       const result = await requestMaterialObservationDraftCandidates({
         requestId: createGeneratorRequestId(selectedMaterial.materialVersionId),
@@ -1209,82 +1282,277 @@ export default function MaterialResourceProductionWorkbench() {
         },
         preferences: {
           gradeRange: '初中',
-          candidateCount: 3,
+          candidateCount: operation === 'optimize' ? 1 : 3,
           preferredAbilityIds: [task.abilityId],
-          requestedFocus: singleTaskRegenerationFocus(task),
+          requestedFocus: buildTaskCandidateRequestedFocus(task, operation, goals),
         },
         existingInventory: buildSingleTaskRegenerationInventory(selectedPlan, task),
       });
-      const candidate = [...result.candidates, ...result.withheldCandidates]
-        .find((item) => (
-          item.primaryAbilityId === task.abilityId
-          && item.observationDimension === task.primaryDimension
-        ));
-      if (!candidate) {
-        setTaskRegeneration({
-          status: 'error',
-          sourcePlanId: selectedPlan.materialObservationPlanId,
-          sourceTaskId: task.observationTaskPlanId,
-          sourceTask: task,
-          taskIndex: index,
-          attemptId,
-          message: '本轮没有生成符合当前能力与训练方向的候选。原任务未改变，请再次生成或保留原内容。',
-        });
-        return;
+      const generatedSource = [...result.candidates, ...result.withheldCandidates]
+        .filter((item) => item.primaryAbilityId === task.abilityId)
+        .slice(0, operation === 'optimize' ? 1 : 3);
+      if (generatedSource.length === 0) {
+        throw new Error('本轮没有生成符合当前训练能力的候选方案。');
       }
-      setTaskRegeneration({
-        status: 'ready',
-        sourcePlanId: selectedPlan.materialObservationPlanId,
-        sourceTaskId: task.observationTaskPlanId,
-        sourceTask: task,
-        taskIndex: index,
-        attemptId,
-        candidateTask: createLockedRegenerationCandidate(candidate, task, index),
+      const baseContent = baseCandidate?.content
+        || buildQuestionCandidateContent(task, draft, selectedMaterial);
+      const policy = operation === 'optimize'
+        ? resolveCandidateOptimizationFieldPolicy(goals)
+        : { allowedFields: CANDIDATE_FIELD_KEYS, lockedFields: [] };
+      const generatedCandidates = generatedSource.map((item, candidateIndex) => {
+        const generatedTask = createLockedRegenerationCandidate(item, task, index);
+        const rawContent = buildQuestionCandidateContent(generatedTask, draft, selectedMaterial);
+        const content = operation === 'optimize'
+          ? mergeCandidateContentByPolicy(baseContent, rawContent, policy.allowedFields)
+          : rawContent;
+        return {
+          content,
+          generationReason: operation === 'optimize'
+            ? `根据“${goals.map(candidateOptimizationGoalLabel).join('、')}”优化候选。`
+            : operation === 'regenerate'
+              ? '根据当前训练意图重新生成替代候选。'
+              : `根据当前训练意图生成候选方案 ${candidateIndex + 1}。`,
+          changedFields: CANDIDATE_FIELD_KEYS.filter((field) => (
+            candidateFieldChanged(baseContent, content, field)
+          )),
+          generationContext: {
+            modelId: generatorStatus?.model || generatorStatus?.provider || 'material-observation-generator',
+            promptVersion: 'material-observation-candidate-p3',
+            promptHash: result.requestId || `candidate-${Date.now()}`,
+            ruleVersion: 'question-candidate-p3-v1',
+            materialVersionId: context.materialVersionId,
+            observationPlanVersion: context.observationPlanVersion,
+            trainingTaskVersion: context.trainingTaskVersion,
+            generatedAt: new Date().toISOString(),
+          },
+        };
+      });
+      const created = await executeCandidateWorkbenchCommand({
+        operation,
+        trainingTaskId,
+        baseCandidateId: baseCandidate?.candidateId,
+        goals,
+        reasonCodes: operation === 'optimize' ? goals : [operation],
+        expectedContext: context,
+        generatedCandidates,
+        idempotencyKey: createCandidateCommandIdempotencyKey(trainingTaskId, operation),
+      });
+      const allCandidates = await listQuestionTaskCandidates(trainingTaskId);
+      const selectedCandidateId = created[0]?.candidateId || null;
+      setTaskCandidatesById((current) => ({ ...current, [trainingTaskId]: allCandidates }));
+      updateTaskCandidatePanel(trainingTaskId, {
+        operation: 'idle',
+        selectedCandidateId,
+        comparisonCandidateIds: selectedCandidateId ? [selectedCandidateId] : [],
+        optimizationOpen: false,
+        error: null,
       });
     } catch (error) {
-      setTaskRegeneration({
-        status: 'error',
-        sourcePlanId: selectedPlan.materialObservationPlanId,
-        sourceTaskId: task.observationTaskPlanId,
-        sourceTask: task,
-        taskIndex: index,
-        attemptId,
-        message: createWorkbenchErrorNotice(error).message,
+      updateTaskCandidatePanel(trainingTaskId, {
+        operation: 'failed',
+        error: createWorkbenchErrorNotice(error).message,
       });
     }
   }
 
-  function adoptSingleTaskCandidate() {
-    if (taskRegeneration?.status !== 'ready') return;
-    const current = taskRegeneration;
+  async function adoptTaskCandidate(task) {
+    if (!selectedMaterial || !selectedPlan) return;
+    const trainingTaskId = taskWorkingIdentity(task);
+    const lifecycle = taskQuestionLifecycleById.get(task.observationTaskPlanId || task.localId);
+    const draft = lifecycle?.draft || null;
+    const context = buildTaskCandidateRuntimeContext({
+      selectedMaterial,
+      selectedPlan,
+      task,
+      draft,
+    });
+    const panel = taskCandidatePanels[trainingTaskId] || {};
+    const projection = resolveCandidatePanelProjection({
+      candidates: taskCandidatesById[trainingTaskId] || [],
+      context,
+      operation: panel.operation,
+      selectedCandidateId: panel.selectedCandidateId,
+      comparisonCandidateIds: panel.comparisonCandidateIds,
+      adoption: { enabled: true },
+      workingStatus: taskWorkingStates[trainingTaskId]?.status,
+    });
+    const candidate = projection.readyCandidates.find(
+      (item) => item.candidateId === projection.selectedCandidateId,
+    );
+    if (!candidate) {
+      updateTaskCandidatePanel(trainingTaskId, {
+        operation: 'failed',
+        error: '请先选择一个当前有效的候选方案。',
+      });
+      return;
+    }
+
+    updateTaskCandidatePanel(trainingTaskId, {
+      operation: 'adopting',
+      error: null,
+      adoptionResult: null,
+    });
     try {
-      if (!selectedPlan || current.sourcePlanId !== selectedPlan.materialObservationPlanId) {
-        throw new Error('single_task_candidate_stale');
-      }
-      const result = adoptSingleTrainingTaskCandidate({
-        currentTasks: tasks,
-        sourceTaskId: current.sourceTaskId,
-        candidateTask: current.candidateTask,
+      const adoptionResult = await adoptQuestionTaskCandidate({
+        trainingTaskId,
+        candidateId: candidate.candidateId,
+        expectedContentHash: candidate.contentHash,
+        expectedContext: context,
+        idempotencyKey: `candidate:adopt:${candidate.candidateId}`,
+        adoptedBy: 'local-entry-operator',
       });
-      setTasks(result.tasks);
-      setEditableTaskIds((currentIds) => {
-        const next = new Set(currentIds);
-        if (result.adoptedTask.localId) next.add(result.adoptedTask.localId);
-        return next;
+      const allCandidates = await listQuestionTaskCandidates(trainingTaskId);
+      setTaskCandidatesById((current) => ({ ...current, [trainingTaskId]: allCandidates }));
+      updateTaskCandidatePanel(trainingTaskId, {
+        operation: 'idle',
+        selectedCandidateId: null,
+        comparisonCandidateIds: [],
+        optimizationOpen: false,
+        adoptionResult,
+        error: null,
       });
-      setTaskEditorDirty(true);
-      setTaskRegeneration(null);
-      setNotice({
-        type: 'success',
-        message: result.changed
-          ? '候选已替换当前任务的编辑内容。确认任务并保存前，不会创建新版本。'
-          : '候选与当前任务没有实质差异，编辑内容未改变。',
+      await refresh({
+        materialVersionId: selectedMaterial.materialVersionId,
+        planId: selectedPlan.materialObservationPlanId,
       });
     } catch (error) {
-      setTaskRegeneration({
-        ...current,
-        status: 'error',
-        message: createWorkbenchErrorNotice(error).message,
+      updateTaskCandidatePanel(trainingTaskId, {
+        operation: 'failed',
+        error: createWorkbenchErrorNotice(error).message,
+      });
+    }
+  }
+
+  async function correctTaskCandidate(task) {
+    if (!selectedMaterial || !selectedPlan) return;
+    const trainingTaskId = taskWorkingIdentity(task);
+    const lifecycle = taskQuestionLifecycleById.get(task.observationTaskPlanId || task.localId);
+    const context = buildTaskCandidateRuntimeContext({
+      selectedMaterial,
+      selectedPlan,
+      task,
+      draft: lifecycle?.draft || null,
+    });
+    const panel = taskCandidatePanels[trainingTaskId] || {};
+    const candidate = (taskCandidatesById[trainingTaskId] || []).find(
+      (item) => item.candidateId === panel.selectedCandidateId,
+    );
+    if (!candidate) {
+      updateTaskCandidatePanel(trainingTaskId, {
+        operation: 'failed',
+        error: '请先选择一个当前有效的候选方案。',
+      });
+      return;
+    }
+    const correctedStem = panel.correctionQuestionStem?.trim() || '';
+    if (!correctedStem || correctedStem === candidate.content.questionStem.trim()) {
+      updateTaskCandidatePanel(trainingTaskId, {
+        operation: 'failed',
+        error: '请填写与当前候选不同的纠错内容。',
+      });
+      return;
+    }
+
+    updateTaskCandidatePanel(trainingTaskId, { operation: 'correcting', error: null });
+    try {
+      const result = await correctQuestionTaskCandidate({
+        trainingTaskId,
+        targetType: 'candidate',
+        targetId: candidate.candidateId,
+        correctedContent: {
+          ...candidate.content,
+          questionStem: correctedStem,
+        },
+        reasonCode: panel.correctionReasonCode || 'typo',
+        note: panel.correctionNote || undefined,
+        correctedBy: 'local-quality-reviewer',
+        permissionRole: 'quality_reviewer',
+        expectedContext: context,
+        idempotencyKey: `candidate:correct:${candidate.candidateId}:${calculateQuestionEditableFieldsHash({
+          ...candidate.content,
+          questionStem: correctedStem,
+        })}`,
+      });
+      const allCandidates = await listQuestionTaskCandidates(trainingTaskId);
+      setTaskCandidatesById((current) => ({ ...current, [trainingTaskId]: allCandidates }));
+      updateTaskCandidatePanel(trainingTaskId, {
+        operation: 'idle',
+        selectedCandidateId: result.candidate.candidateId,
+        comparisonCandidateIds: [result.candidate.candidateId],
+        correctionOpen: false,
+        correctionQuestionStem: '',
+        correctionNote: '',
+        correctionResult: '纠错候选已生成，原候选和正式版本均未改变。',
+        error: null,
+      });
+    } catch (error) {
+      updateTaskCandidatePanel(trainingTaskId, {
+        operation: 'failed',
+        error: createWorkbenchErrorNotice(error).message,
+      });
+    }
+  }
+
+  async function migrateTaskWorkingContent(task) {
+    if (!selectedMaterial || !selectedPlan) return;
+    const trainingTaskId = taskWorkingIdentity(task);
+    const lifecycle = taskQuestionLifecycleById.get(task.observationTaskPlanId || task.localId);
+    const context = buildTaskCandidateRuntimeContext({
+      selectedMaterial,
+      selectedPlan,
+      task,
+      draft: lifecycle?.draft || null,
+    });
+    const working = taskWorkingStates[trainingTaskId]?.workingContent;
+    updateTaskCandidatePanel(trainingTaskId, { operation: 'migrating', error: null });
+    try {
+      const result = await migrateQuestionTaskWorkingContent({
+        trainingTaskId,
+        correctedBy: 'local-quality-reviewer',
+        permissionRole: 'quality_reviewer',
+        expectedContext: context,
+        idempotencyKey: `candidate:migrate:${trainingTaskId}:${working?.workingContentHash || 'missing'}`,
+      });
+      if (result.status === 'migrated') {
+        const allCandidates = await listQuestionTaskCandidates(trainingTaskId);
+        setTaskCandidatesById((current) => ({ ...current, [trainingTaskId]: allCandidates }));
+        setTaskWorkingStates((current) => ({
+          ...current,
+          [trainingTaskId]: { status: 'clean', workingContent: null },
+        }));
+        updateTaskCandidatePanel(trainingTaskId, {
+          operation: 'idle',
+          selectedCandidateId: result.candidateId,
+          comparisonCandidateIds: result.candidateId ? [result.candidateId] : [],
+          migrationResult: '旧工作修改已迁移为纠错候选，请确认后采用。',
+          error: null,
+        });
+        return;
+      }
+      if (result.status === 'no_changes' || result.status === 'missing') {
+        setTaskWorkingStates((current) => ({
+          ...current,
+          [trainingTaskId]: { status: 'clean', workingContent: null },
+        }));
+        updateTaskCandidatePanel(trainingTaskId, {
+          operation: 'idle',
+          migrationResult: result.status === 'no_changes'
+            ? '旧工作内容与当前版本一致，无需迁移。'
+            : '没有可迁移的旧工作内容。',
+          error: null,
+        });
+        return;
+      }
+      updateTaskCandidatePanel(trainingTaskId, {
+        operation: 'failed',
+        error: result.status === 'base_revision_conflict'
+          ? '基础版本已经变化，旧工作内容已受保护保留。可放弃旧修改，或由维护人员离线处理。'
+          : '旧工作内容包含训练任务级修改，不能自动迁移；原内容已受保护保留。',
+      });
+    } catch (error) {
+      updateTaskCandidatePanel(trainingTaskId, {
+        operation: 'failed',
+        error: createWorkbenchErrorNotice(error).message,
       });
     }
   }
@@ -1310,7 +1578,6 @@ export default function MaterialResourceProductionWorkbench() {
         return;
       }
       setTasks(result.tasks);
-      setEditableTaskIds(new Set());
       setTaskEditorDirty(true);
       setGeneratorResult(null);
       setGroupCandidateSession(null);
@@ -1466,7 +1733,7 @@ export default function MaterialResourceProductionWorkbench() {
     }));
   }
 
-  function requestTaskRemoval(task, index, taskEditable) {
+  function requestTaskRemoval(task, index) {
     if (!canRemoveTrainingTask(tasks.length)) {
       setNotice({
         type: 'error',
@@ -1478,7 +1745,7 @@ export default function MaterialResourceProductionWorkbench() {
       index,
       task,
       title: taskEditorTitle(index),
-      wasEditable: taskEditable,
+      wasEditable: false,
     });
   }
 
@@ -1507,20 +1774,12 @@ export default function MaterialResourceProductionWorkbench() {
     ]);
     setTaskRemovalCandidate(null);
     setTaskEditorDirty(true);
-    setEditableTaskIds((current) => {
-      const next = new Set(current);
-      next.delete(taskRemovalCandidate.task.localId);
-      return next;
-    });
   }
 
   function undoLastTaskRemoval() {
     const removed = removedTaskHistory.at(-1);
     if (!removed) return;
     setTasks((current) => restoreRemovedTrainingTask(current, removed));
-    if (removed.wasEditable) {
-      setEditableTaskIds((current) => new Set([...current, removed.task.localId]));
-    }
     setRemovedTaskHistory((current) => current.slice(0, -1));
     setTaskEditorDirty(true);
     setToast({
@@ -1529,140 +1788,10 @@ export default function MaterialResourceProductionWorkbench() {
     });
   }
 
-  function enableTaskEditing(task) {
-    setEditableTaskIds((current) => new Set([...current, task.localId]));
-    setTaskCardDisclosures((current) => enterTaskCardCalibration(current, task.localId));
-  }
-
-  async function saveCurrentTaskWorkingContent(task, index, options = {}) {
-    const trainingTaskId = taskWorkingIdentity(task);
-    const lifecycle = task.observationTaskPlanId
-      ? taskQuestionLifecycleById.get(task.observationTaskPlanId)
-      : null;
-    const draft = lifecycle?.draft;
-    if (!trainingTaskId || !draft) {
-      if (!options.silent) {
-        setNotice({
-          type: 'error',
-          message: '当前任务尚未建立活动题目草稿，暂时不能单独保存工作进度。请先保存训练任务。',
-        });
-      }
-      return false;
-    }
-
-    setTaskWorkingStates((current) => ({
-      ...current,
-      [trainingTaskId]: {
-        ...(current[trainingTaskId] || {}),
-        status: 'saving',
-      },
-    }));
-    try {
-      const workingContent = await saveQuestionTaskWorkingContent({
-        trainingTaskId,
-        questionLineageId: draft.resourceId,
-        baseDraftId: draft.draftId,
-        baseRevision: draft.revision,
-        content: buildWorkingQuestionEditableFields(task, draft),
-        taskContent: buildTrainingTaskEditableFields(task),
-      });
-      setTaskWorkingStates((current) => ({
-        ...current,
-        [trainingTaskId]: {
-          status: 'saved',
-          workingContent,
-          conflictReason: null,
-        },
-      }));
-      setTasks((current) => current.map((item, taskIndex) => (
-        taskIndex === index ? { ...item, editorDirty: false } : item
-      )));
-      setTaskEditorDirty(true);
-      if (!options.silent) {
-        setToast({
-          id: Date.now(),
-          message: '工作进度已保存，尚未提交检查。',
-        });
-      }
-      return true;
-    } catch (error) {
-      if (error?.code === 'WORKING_TASK_CONTENT_BASE_CONFLICT') {
-        const conflictState = await getQuestionTaskWorkingContentState(trainingTaskId);
-        setTaskWorkingStates((current) => ({
-          ...current,
-          [trainingTaskId]: {
-            status: 'base_revision_conflict',
-            workingContent: conflictState.workingContent || current[trainingTaskId]?.workingContent,
-            conflictReason: conflictState.reason || 'revision_changed',
-          },
-        }));
-      } else {
-        setTaskWorkingStates((current) => ({
-          ...current,
-          [trainingTaskId]: {
-            ...(current[trainingTaskId] || {}),
-            status: 'save_failed',
-          },
-        }));
-      }
-      if (!options.silent) setNotice(errorNotice(error));
-      return false;
-    }
-  }
-
-  async function reapplyCurrentTaskWorkingContent(task, index) {
-    const trainingTaskId = taskWorkingIdentity(task);
-    const lifecycle = task.observationTaskPlanId
-      ? taskQuestionLifecycleById.get(task.observationTaskPlanId)
-      : null;
-    const draft = lifecycle?.draft;
-    if (!trainingTaskId || !draft) return;
-    setTaskWorkingStates((current) => ({
-      ...current,
-      [trainingTaskId]: {
-        ...(current[trainingTaskId] || {}),
-        status: 'saving',
-      },
-    }));
-    try {
-      const workingContent = await rebaseQuestionTaskWorkingContent({
-        trainingTaskId,
-        questionLineageId: draft.resourceId,
-        content: buildWorkingQuestionEditableFields(task, draft),
-        taskContent: buildTrainingTaskEditableFields(task),
-      });
-      setTaskWorkingStates((current) => ({
-        ...current,
-        [trainingTaskId]: { status: 'saved', workingContent, conflictReason: null },
-      }));
-      setTasks((current) => current.map((item, taskIndex) => (
-        taskIndex === index ? { ...item, editorDirty: false } : item
-      )));
-      setTaskEditorDirty(true);
-      setToast({ id: Date.now(), message: '工作修改已基于当前正式内容重新保存。' });
-    } catch (error) {
-      setTaskWorkingStates((current) => ({
-        ...current,
-        [trainingTaskId]: { ...(current[trainingTaskId] || {}), status: 'save_failed' },
-      }));
-      setNotice(errorNotice(error));
-    }
-  }
-
-  async function discardCurrentTaskWorkingContent(task, index) {
+  async function discardCurrentTaskWorkingContent(task) {
     const trainingTaskId = taskWorkingIdentity(task);
     if (!trainingTaskId) return;
     await discardQuestionTaskWorkingContent(trainingTaskId);
-    const savedTask = selectedPlan?.taskPlans.find(
-      (item) => taskWorkingIdentity(item) === trainingTaskId,
-    );
-    if (savedTask) {
-      setTasks((current) => current.map((item, taskIndex) => (
-        taskIndex === index
-          ? planTaskToEditableTask(savedTask, index, snapshot.anchors)
-          : item
-      )));
-    }
     setTaskWorkingStates((current) => ({
       ...current,
       [trainingTaskId]: { status: 'clean', workingContent: null },
@@ -1670,106 +1799,8 @@ export default function MaterialResourceProductionWorkbench() {
     setToast({ id: Date.now(), message: '已放弃该任务的工作修改。' });
   }
 
-  function exitTaskEditing(task, index) {
-    const savedTask = selectedPlan?.taskPlans.find(
-      (item) => item.observationTaskPlanId === task.observationTaskPlanId,
-    );
-    if (!savedTask) return;
-    if (task.editorDirty && !window.confirm('退出人工校准将放弃当前任务尚未保存的修改，是否继续？')) return;
-
-    setTasks((current) => {
-      const workingState = taskWorkingStates[taskWorkingIdentity(task)];
-      const restoredTask = workingState?.workingContent
-        ? mergeWorkingContentIntoEditableTask(
-          planTaskToEditableTask(savedTask, index, snapshot.anchors),
-          workingState.workingContent,
-        )
-        : planTaskToEditableTask(savedTask, index, snapshot.anchors);
-      const nextTasks = current.map((item, taskIndex) => (
-        taskIndex === index ? restoredTask : item
-      ));
-      const savedTaskIds = new Set(
-        (selectedPlan?.taskPlans || []).map((item) => item.observationTaskPlanId),
-      );
-      const hasStructuralChanges = nextTasks.length !== (selectedPlan?.taskPlans.length || 0)
-        || nextTasks.some((item) => (
-          !item.observationTaskPlanId || !savedTaskIds.has(item.observationTaskPlanId)
-        ));
-      setTaskEditorDirty(
-        hasStructuralChanges || nextTasks.some((item) => item.editorDirty),
-      );
-      return nextTasks;
-    });
-    setEditableTaskIds((current) => {
-      const next = new Set(current);
-      next.delete(task.localId);
-      return next;
-    });
-    setTaskCardDisclosures((current) => exitTaskCardCalibration(current, task.localId));
-    setTaskRegeneration((current) => (
-      current?.sourceTaskId === task.observationTaskPlanId ? null : current
-    ));
-  }
-
-  async function submitWorkingTaskChanges(requestedTaskIds) {
-    if (!selectedPlan || !selectedMaterialId || taskCommitInFlightRef.current) return;
-    const currentTaskIds = [...new Set(requestedTaskIds)]
-      .filter((trainingTaskId) => taskWorkingStates[trainingTaskId]?.status === 'saved');
-    if (currentTaskIds.length === 0) {
-      setNotice({ type: 'error', message: '当前没有已保存且等待提交检查的任务修改。' });
-      return;
-    }
-
-    const signature = `${selectedMaterialId}:${[...currentTaskIds].sort().join('|')}`;
-    const idempotencyKey = taskCommitIdempotencyKeysRef.current.get(signature)
-      || createTaskCommitIdempotencyKey(signature);
-    taskCommitIdempotencyKeysRef.current.set(signature, idempotencyKey);
-    taskCommitInFlightRef.current = true;
-    setTaskCommitOperation({ taskIds: currentTaskIds, signature });
-    setNotice(null);
-    try {
-      const result = await commitQuestionTaskWorkingChanges({
-        planId: selectedPlan.materialObservationPlanId,
-        materialVersionId: selectedMaterialId,
-        requestedTaskIds: currentTaskIds,
-        idempotencyKey,
-      });
-      const failedTasks = result.taskResults.filter((item) => Boolean(item.failedStage));
-      if (result.status === 'completed' || result.status === 'no_changes') {
-        taskCommitIdempotencyKeysRef.current.delete(signature);
-      }
-      await refresh({
-        materialVersionId: selectedMaterialId,
-        planId: result.committedPlanId || selectedPlan.materialObservationPlanId,
-      });
-      if (failedTasks.length > 0 || result.groupAssessmentStatus === 'failed') {
-        setNotice({
-          type: 'error',
-          message: failedTasks.length > 0
-            ? `${failedTasks.length} 个任务尚未完成提交或检查，已完成阶段不会重复执行，可以直接重试。`
-            : '单题修改已提交，但任务组覆盖检查未完成，可以直接重试检查。',
-        });
-      } else {
-        setToast({
-          id: Date.now(),
-          message: currentTaskIds.length === 1
-            ? '当前任务已提交并完成检查。'
-            : `${currentTaskIds.length} 个任务已提交并完成检查。`,
-        });
-      }
-    } catch (error) {
-      setNotice(errorNotice(error));
-    } finally {
-      taskCommitInFlightRef.current = false;
-      setTaskCommitOperation(null);
-    }
-  }
-
   function focusTaskIssue(issue) {
     if (!issue.targetId) return;
-    if (issue.taskId) {
-      setEditableTaskIds((current) => new Set([...current, issue.taskId]));
-    }
     const target = document.getElementById(issue.targetId);
     if (!target) return;
     let details = target.closest('details');
@@ -2151,7 +2182,6 @@ export default function MaterialResourceProductionWorkbench() {
               )}
             <div className="mt-6 space-y-3">
               {taskReviewGroups.map(({ task, index, issues }) => {
-                const taskEditable = task.sourceType !== 'ai_assisted' || editableTaskIds.has(task.localId);
                 const taskDisclosureOpen = (key) => (
                   isTaskCardDisclosureOpen(taskCardDisclosures, task.localId, key)
                 );
@@ -2189,17 +2219,22 @@ export default function MaterialResourceProductionWorkbench() {
                   status: task.editorDirty ? 'dirty' : 'clean',
                   workingContent: null,
                 };
-                const taskCommitBusy = Boolean(
-                  taskCommitOperation?.taskIds.includes(workingTaskId),
-                );
-                const workingStatusLabel = ({
-                  clean: '尚无工作修改',
-                  dirty: '有未保存修改',
-                  saving: '正在保存…',
-                  saved: '工作进度已保存，尚未提交检查',
-                  save_failed: '保存失败，可重新保存',
-                  base_revision_conflict: '基础版本已变化，需要处理冲突',
-                })[workingState.status] || '';
+                const taskCandidateContext = buildTaskCandidateRuntimeContext({
+                  selectedMaterial,
+                  selectedPlan,
+                  task,
+                  draft: questionLifecycle?.draft || null,
+                });
+                const taskCandidatePanel = taskCandidatePanels[workingTaskId] || {};
+                const taskCandidateProjection = resolveCandidatePanelProjection({
+                  candidates: taskCandidatesById[workingTaskId] || [],
+                  context: taskCandidateContext,
+                  operation: taskCandidatePanel.operation,
+                  selectedCandidateId: taskCandidatePanel.selectedCandidateId,
+                  comparisonCandidateIds: taskCandidatePanel.comparisonCandidateIds,
+                  adoption: { enabled: true },
+                  workingStatus: workingState.status,
+                });
                 return (
                 <details
                   data-task-editor={task.localId}
@@ -2337,136 +2372,82 @@ export default function MaterialResourceProductionWorkbench() {
                       }))}
                     />
                   )}
-                  <div
-                    aria-label="训练任务校准操作"
-                    className="mt-4 grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md bg-violet-50 px-4 py-3 text-sm text-violet-900"
-                  >
-                    <span>
-                      {taskEditable ? workingStatusLabel : '当前为 AI 生成预览。'}
-                    </span>
-                    <div className="grid grid-cols-[12rem_9rem_11rem] items-center gap-2">
-                      {taskEditable && task.observationTaskPlanId ? (
-                        <button
-                          type="button"
-                          aria-busy={workingState.status === 'saving' || taskCommitBusy}
-                          disabled={
-                            workingState.status === 'saving'
-                            || taskCommitBusy
-                            || workingState.status === 'base_revision_conflict'
-                            || !questionLifecycle?.draft
-                          }
-                          onClick={() => {
-                            if (workingState.status === 'saved') {
-                              void submitWorkingTaskChanges([workingTaskId]);
-                              return;
-                            }
-                            void saveCurrentTaskWorkingContent(task, index);
-                          }}
-                          className="inline-flex h-10 w-48 items-center justify-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
-                        >
-                          {workingState.status === 'saving' || taskCommitBusy ? (
-                            <LoaderCircle aria-hidden="true" size={16} className="animate-spin" />
-                          ) : (
-                            <Save aria-hidden="true" size={16} />
-                          )}
-                          {taskCommitBusy
-                            ? '正在提交并检查…'
-                            : workingState.status === 'saving'
-                            ? '正在保存…'
-                            : workingState.status === 'save_failed'
-                              ? '重新保存'
-                              : workingState.status === 'saved'
-                                ? '提交当前任务并检查'
-                                : '保存当前任务'}
-                        </button>
-                      ) : <span aria-hidden="true" />}
-                      {taskEditable ? (
-                        task.sourceType === 'ai_assisted' ? (
-                          <button
-                            type="button"
-                            onClick={() => exitTaskEditing(task, index)}
-                            className="ai-button-outline inline-flex h-10 w-36 items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none"
-                          >
-                            退出人工校准
-                          </button>
-                        ) : <span aria-hidden="true" />
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => enableTaskEditing(task)}
-                          className="ai-button-outline inline-flex h-10 w-36 items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none"
-                        >
-                          人工编辑校准
-                        </button>
-                      )}
-                      {selectedPlan && task.observationTaskPlanId && (
-                        <button
-                          type="button"
-                          disabled={!commandAvailability.regenerateSingleTask.enabled}
-                          title={commandAvailability.regenerateSingleTask.reason}
-                          onClick={() => regenerateSingleTask(task, index)}
-                          className="ai-button-solid inline-flex h-10 w-44 items-center justify-center rounded-md border px-4 text-sm font-normal transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          重新生成此任务
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {workingState.status === 'base_revision_conflict' && (
-                    <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-                      <p className="font-semibold">当前正式内容已更新，工作修改不能直接覆盖。</p>
-                      <p className="mt-1 leading-6">请重新应用工作修改，或放弃工作修改并恢复当前正式内容。</p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void reapplyCurrentTaskWorkingContent(task, index)}
-                          className="h-10 rounded-md bg-blue-700 px-4 font-semibold text-white hover:bg-blue-800"
-                        >
-                          重新应用工作修改
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void discardCurrentTaskWorkingContent(task, index)}
-                          className="h-10 rounded-md border border-[#666666] bg-white px-4 font-semibold text-slate-800 hover:bg-slate-50"
-                        >
-                          放弃工作修改
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {taskRegeneration
-                    && task.observationTaskPlanId
-                    && taskRegeneration.sourceTaskId === task.observationTaskPlanId && (
-                    <SingleTaskRegenerationPreview
-                      state={taskRegeneration}
-                      onRetry={() => regenerateSingleTask(task, index)}
-                      onDiscard={() => setTaskRegeneration(null)}
-                      onApply={adoptSingleTaskCandidate}
+                  <TaskCandidateDecisionPanel
+                      projection={taskCandidateProjection}
+                      selectedCandidateId={taskCandidateProjection.selectedCandidateId}
+                      optimizationGoals={taskCandidateOptimizationGoals[workingTaskId] || []}
+                      optimizationOpen={Boolean(taskCandidatePanel.optimizationOpen)}
+                      correctionOpen={Boolean(taskCandidatePanel.correctionOpen)}
+                      correctionReasonCode={taskCandidatePanel.correctionReasonCode || 'typo'}
+                      correctionQuestionStem={taskCandidatePanel.correctionQuestionStem || ''}
+                      correctionNote={taskCandidatePanel.correctionNote || ''}
+                      error={taskCandidatePanel.error}
+                      adoptionResult={taskCandidatePanel.adoptionResult}
+                      correctionResult={taskCandidatePanel.correctionResult}
+                      migrationResult={taskCandidatePanel.migrationResult}
+                      onSelectCandidate={(candidateId) => updateTaskCandidatePanel(workingTaskId, {
+                        selectedCandidateId: candidateId,
+                        comparisonCandidateIds: [candidateId],
+                        error: null,
+                      })}
+                      onToggleComparison={(candidateId) => updateTaskCandidatePanel(workingTaskId, {
+                        comparisonCandidateIds: toggleCandidateComparison(
+                          taskCandidateProjection.comparisonCandidateIds,
+                          candidateId,
+                        ),
+                      })}
+                      onToggleOptimization={() => updateTaskCandidatePanel(workingTaskId, {
+                        optimizationOpen: !taskCandidatePanel.optimizationOpen,
+                        error: null,
+                      })}
+                      onToggleCorrection={() => {
+                        const selected = taskCandidateProjection.readyCandidates.find(
+                          (candidate) => candidate.candidateId === taskCandidateProjection.selectedCandidateId,
+                        );
+                        updateTaskCandidatePanel(workingTaskId, {
+                          correctionOpen: !taskCandidatePanel.correctionOpen,
+                          correctionQuestionStem: taskCandidatePanel.correctionOpen
+                            ? taskCandidatePanel.correctionQuestionStem
+                            : selected?.content.questionStem || '',
+                          correctionResult: null,
+                          error: null,
+                        });
+                      }}
+                      onCorrectionReasonChange={(value) => updateTaskCandidatePanel(workingTaskId, {
+                        correctionReasonCode: value,
+                        error: null,
+                      })}
+                      onCorrectionQuestionStemChange={(value) => updateTaskCandidatePanel(workingTaskId, {
+                        correctionQuestionStem: value,
+                        error: null,
+                      })}
+                      onCorrectionNoteChange={(value) => updateTaskCandidatePanel(workingTaskId, {
+                        correctionNote: value,
+                        error: null,
+                      })}
+                      onToggleGoal={(goal) => toggleTaskCandidateOptimizationGoal(workingTaskId, goal)}
+                      onGenerate={() => void runTaskCandidateOperation(task, index, 'generate')}
+                      onRegenerate={() => void runTaskCandidateOperation(task, index, 'regenerate')}
+                      onOptimize={() => void runTaskCandidateOperation(task, index, 'optimize')}
+                      onCorrect={() => void correctTaskCandidate(task)}
+                      onMigrateWorkingContent={() => void migrateTaskWorkingContent(task)}
+                      onDiscardWorkingContent={() => void discardCurrentTaskWorkingContent(task)}
+                      onAdopt={() => void adoptTaskCandidate(task)}
                     />
-                  )}
-                  <fieldset disabled={!taskEditable} className="min-w-0 border-0 p-0">
+                  <fieldset disabled className="min-w-0 border-0 p-0">
                   <div className="mt-5 space-y-5">
                     <section>
                       <p className="text-sm font-semibold text-slate-900">能力目标</p>
                       <p className="mt-2 text-sm leading-6 text-slate-700">{task.focusDisplayName || '尚未填写能力目标'}</p>
                     </section>
-                    {taskEditable ? (
-                      <>
-                        <label className="block text-sm font-semibold">题目<AutoGrowingTextarea id={taskFieldId(task, 'questionStem')} value={task.questionStem} onChange={(value) => updateTask(index, { questionStem: value })} placeholder="写出学生实际看到的题目" /></label>
-                        <label className="block text-sm font-semibold">学生任务<AutoGrowingTextarea id={taskFieldId(task, 'expectedStudentAction')} value={task.expectedStudentAction} onChange={(value) => updateTask(index, { expectedStudentAction: value })} placeholder="例如：找出人物的一个具体动作，并说明它表现了怎样的心理。" /></label>
-                      </>
-                    ) : (
-                      <>
-                        <section>
-                          <p className="text-sm font-semibold text-slate-900">题目</p>
-                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{task.questionStem}</p>
-                        </section>
-                        <section>
-                          <p className="text-sm font-semibold text-slate-900">学生任务</p>
-                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{task.expectedStudentAction}</p>
-                        </section>
-                      </>
-                    )}
+                    <section>
+                      <p className="text-sm font-semibold text-slate-900">题目</p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{task.questionStem}</p>
+                    </section>
+                    <section>
+                      <p className="text-sm font-semibold text-slate-900">学生任务</p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{task.expectedStudentAction}</p>
+                    </section>
                     <section>
                       <p className="text-sm font-semibold text-slate-900">观察目标</p>
                       <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{task.focusDefinition || '尚未填写观察目标'}</p>
@@ -2588,11 +2569,7 @@ export default function MaterialResourceProductionWorkbench() {
                   >
                     <summary className="cursor-pointer text-sm font-medium text-blue-700">设计依据</summary>
                     <div className="mt-3">
-                      {taskEditable ? (
-                        <AutoGrowingTextarea id={taskFieldId(task, 'designReason')} value={task.designReason} onChange={(value) => updateTask(index, { designReason: value })} placeholder="例如：检查学生能否建立“人物动作—心理判断”的关系。" />
-                      ) : (
-                        <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{task.designReason}</p>
-                      )}
+                      <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{task.designReason}</p>
                     </div>
                   </details>
                   </fieldset>
@@ -2655,7 +2632,7 @@ export default function MaterialResourceProductionWorkbench() {
                       title={canRemoveTrainingTask(tasks.length)
                         ? `从当前编辑区删除${taskEditorTitle(index)}`
                         : `每个训练任务组至少保留 ${MIN_TRAINING_TASK_COUNT} 个任务`}
-                      onClick={() => requestTaskRemoval(task, index, taskEditable)}
+                      onClick={() => requestTaskRemoval(task, index)}
                       className="inline-flex h-10 items-center gap-2 rounded-md border border-red-600 bg-transparent px-3 text-sm font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-red-200 disabled:bg-transparent disabled:text-red-300"
                     >
                       <Trash2 size={16} />
@@ -2704,22 +2681,6 @@ export default function MaterialResourceProductionWorkbench() {
                     {generatorOperation === 'supplement_group' ? '正在补充候选…' : '补充生成候选任务'}
                   </button>
                 </>
-              )}
-              {selectedPlan && savedWorkingTaskIds.length > 0 && (
-                <button
-                  type="button"
-                  aria-busy={Boolean(taskCommitOperation)}
-                  disabled={Boolean(taskCommitOperation)}
-                  onClick={() => void submitWorkingTaskChanges(savedWorkingTaskIds)}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-blue-700 bg-white px-5 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
-                >
-                  {taskCommitOperation && (
-                    <LoaderCircle aria-hidden="true" size={16} className="animate-spin" />
-                  )}
-                  {taskCommitOperation
-                    ? '正在提交并检查…'
-                    : `提交全部已保存修改（${savedWorkingTaskIds.length}）`}
-                </button>
               )}
               <button
                 type="button"
@@ -3067,6 +3028,362 @@ function resolveTaskLifecycleFromSnapshot(nextSnapshot, sourceLifecycle, planId)
   });
 }
 
+function TaskCandidateDecisionPanel({
+  projection,
+  selectedCandidateId,
+  optimizationGoals,
+  optimizationOpen,
+  correctionOpen,
+  correctionReasonCode,
+  correctionQuestionStem,
+  correctionNote,
+  error,
+  adoptionResult,
+  correctionResult,
+  migrationResult,
+  onSelectCandidate,
+  onToggleComparison,
+  onToggleOptimization,
+  onToggleCorrection,
+  onCorrectionReasonChange,
+  onCorrectionQuestionStemChange,
+  onCorrectionNoteChange,
+  onToggleGoal,
+  onGenerate,
+  onRegenerate,
+  onOptimize,
+  onCorrect,
+  onMigrateWorkingContent,
+  onAdopt,
+  onDiscardWorkingContent,
+}) {
+  const selectedCandidate = projection.readyCandidates.find(
+    (candidate) => candidate.candidateId === selectedCandidateId,
+  ) || null;
+  const comparisonCandidates = projection.comparisonCandidateIds
+    .map((candidateId) => projection.readyCandidates.find(
+      (candidate) => candidate.candidateId === candidateId,
+    ))
+    .filter(Boolean);
+  const stateLabel = candidatePanelStateLabel(projection.candidateState.state);
+
+  return (
+    <section
+      aria-label="AI 任务候选决策"
+      className="mt-4 rounded-md border border-violet-200 bg-violet-50 px-4 py-4"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h4 className="text-sm font-semibold text-slate-950">AI 候选方案</h4>
+          <p className="mt-1 text-xs text-slate-600">候选不会写入正式版本，采用后才进入检查流程。</p>
+        </div>
+        <span className="rounded bg-white px-2 py-1 text-xs font-medium text-violet-700">
+          {stateLabel}
+        </span>
+      </div>
+
+      {projection.showsLegacyRecovery && (
+        <div className="mt-3 border-l-2 border-amber-400 bg-amber-50 px-3 py-3 text-xs text-amber-950">
+          <p>检测到旧版工作修改。它不会进入当前表单或正式链，可迁移为纠错候选或明确放弃。</p>
+          <div className="mt-2 flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={projection.busy}
+              onClick={onMigrateWorkingContent}
+              className="font-medium text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              迁移为纠错候选
+            </button>
+            <button
+              type="button"
+              disabled={projection.busy}
+              onClick={onDiscardWorkingContent}
+              className="font-medium text-red-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              放弃旧修改
+            </button>
+          </div>
+        </div>
+      )}
+
+      {projection.busy && (
+        <div className="mt-4 flex min-h-24 items-center justify-center gap-2 text-sm text-violet-800" role="status">
+          <LoaderCircle aria-hidden="true" size={18} className="animate-spin" />
+          {projection.operation === 'optimizing'
+            ? '正在优化候选…'
+            : projection.operation === 'regenerating'
+              ? '正在重新生成候选…'
+              : projection.operation === 'correcting'
+                ? '正在生成纠错候选…'
+                : projection.operation === 'migrating'
+                  ? '正在迁移旧工作内容…'
+              : projection.operation === 'adopting'
+                ? '正在采用候选并检查…'
+                : '正在读取候选…'}
+        </div>
+      )}
+
+      {!projection.busy && adoptionResult && (
+        <CandidateAdoptionResultNotice result={adoptionResult} />
+      )}
+
+      {!projection.busy && (correctionResult || migrationResult) && (
+        <p role="status" className="mt-3 border-l-2 border-blue-500 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+          {correctionResult || migrationResult}
+        </p>
+      )}
+
+      {!projection.busy && !adoptionResult && projection.readyCandidates.length === 0 && (
+        <div className="mt-4 flex min-h-24 flex-col items-center justify-center gap-3 border-t border-violet-200 pt-4">
+          <p className="text-sm text-slate-600">
+            {projection.candidateState.state === 'candidate_expired'
+              ? '已有候选与当前素材或任务版本不一致，请重新生成。'
+              : '当前任务还没有可供判断的 AI 候选。'}
+          </p>
+          <button
+            type="button"
+            onClick={onGenerate}
+            className="ai-button-solid inline-flex h-10 min-w-48 items-center justify-center rounded-md border px-4 text-sm font-semibold"
+          >
+            生成候选方案
+          </button>
+        </div>
+      )}
+
+      {!projection.busy && projection.readyCandidates.length > 0 && (
+        <>
+          <div className="mt-4 flex flex-wrap gap-2" aria-label="选择候选方案">
+            {projection.readyCandidates.map((candidate, index) => (
+              <button
+                key={candidate.candidateId}
+                type="button"
+                aria-pressed={candidate.candidateId === selectedCandidateId}
+                onClick={() => onSelectCandidate(candidate.candidateId)}
+                className={`h-9 rounded-md border px-3 text-xs font-medium ${
+                  candidate.candidateId === selectedCandidateId
+                    ? 'border-blue-600 bg-blue-50 text-blue-700'
+                    : 'border-[#666666] bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                候选{index + 1}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-600">
+            <span>对比候选（最多 2 项）：</span>
+            {projection.readyCandidates.map((candidate, index) => (
+              <label key={candidate.candidateId} className="inline-flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={projection.comparisonCandidateIds.includes(candidate.candidateId)}
+                  onChange={() => onToggleComparison(candidate.candidateId)}
+                  className="h-4 w-4 accent-blue-600"
+                />
+                候选{index + 1}
+              </label>
+            ))}
+          </div>
+
+          <div className={`mt-4 grid gap-3 ${comparisonCandidates.length > 1 ? 'lg:grid-cols-2' : ''}`}>
+            {(comparisonCandidates.length > 0 ? comparisonCandidates : [selectedCandidate]).filter(Boolean)
+              .map((candidate) => (
+                <CandidateContentPreview key={candidate.candidateId} candidate={candidate} />
+              ))}
+          </div>
+
+          {optimizationOpen && (
+            <div className="mt-4 border-t border-violet-200 pt-4">
+              <p className="text-sm font-semibold text-slate-900">选择优化目标</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {CANDIDATE_OPTIMIZATION_GOALS.map((goal) => (
+                  <label
+                    key={goal.value}
+                    className={`inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs ${
+                      optimizationGoals.includes(goal.value)
+                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        : 'border-slate-300 bg-white text-slate-700'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={optimizationGoals.includes(goal.value)}
+                      onChange={() => onToggleGoal(goal.value)}
+                      className="h-4 w-4 accent-blue-600"
+                    />
+                    {goal.label}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-slate-500">能力目标与材料范围等受控字段会保持锁定。</p>
+            </div>
+          )}
+
+          {correctionOpen && selectedCandidate && (
+            <div className="mt-4 border-t border-violet-200 pt-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">异常纠错</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    仅用于错别字、专有名词、版权或指定表达纠正；提交后生成新候选。
+                  </p>
+                </div>
+                <span className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">权限受控</span>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
+                <label className="text-xs font-medium text-slate-700">
+                  纠错原因
+                  <select
+                    value={correctionReasonCode}
+                    onChange={(event) => onCorrectionReasonChange(event.target.value)}
+                    className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+                  >
+                    <option value="typo">错别字</option>
+                    <option value="proper_noun">专有名词</option>
+                    <option value="copyright">版权信息</option>
+                    <option value="required_wording">指定表达</option>
+                    <option value="other">其他</option>
+                  </select>
+                </label>
+                <label className="text-xs font-medium text-slate-700">
+                  纠错说明{correctionReasonCode === 'other' ? '（必填）' : '（可选）'}
+                  <input
+                    value={correctionNote}
+                    onChange={(event) => onCorrectionNoteChange(event.target.value)}
+                    className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+                    placeholder="说明错误与纠正依据"
+                  />
+                </label>
+              </div>
+              <label className="mt-3 block text-xs font-medium text-slate-700">
+                纠正后的题目
+                <textarea
+                  value={correctionQuestionStem}
+                  onChange={(event) => onCorrectionQuestionStemChange(event.target.value)}
+                  rows={4}
+                  className="mt-1 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+                />
+              </label>
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  disabled={!correctionQuestionStem.trim() || (
+                    correctionReasonCode === 'other' && !correctionNote.trim()
+                  )}
+                  onClick={onCorrect}
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                >
+                  生成纠错候选
+                </button>
+              </div>
+            </div>
+          )}
+
+          {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
+
+          <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-violet-200 pt-4">
+            <button
+              type="button"
+              onClick={onToggleCorrection}
+              className="inline-flex h-10 items-center justify-center rounded-md border border-[#666666] bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+            >
+              {correctionOpen ? '收起异常纠错' : '更多操作'}
+            </button>
+            <button
+              type="button"
+              onClick={onToggleOptimization}
+              className="ai-button-outline inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm font-semibold"
+            >
+              {optimizationOpen ? '收起优化目标' : 'AI 优化'}
+            </button>
+            {optimizationOpen && (
+              <button
+                type="button"
+                disabled={!projection.canOptimize || optimizationGoals.length === 0}
+                onClick={onOptimize}
+                className="ai-button-solid inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                生成优化候选
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={!projection.canRegenerate}
+              onClick={onRegenerate}
+              className="ai-button-outline inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              重新生成候选
+            </button>
+            <button
+              type="button"
+              disabled={!projection.adoption.enabled}
+              title={projection.adoption.reason}
+              onClick={onAdopt}
+              className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+            >
+              采用候选
+            </button>
+          </div>
+          {!projection.adoption.enabled && projection.adoption.reason && (
+            <p className="mt-2 text-right text-xs text-slate-500">{projection.adoption.reason}</p>
+          )}
+        </>
+      )}
+
+      {!projection.busy && error && projection.readyCandidates.length === 0 && (
+        <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>
+      )}
+    </section>
+  );
+}
+
+function CandidateAdoptionResultNotice({ result }) {
+  const presentation = ({
+    ready_for_confirmation: {
+      tone: 'border-emerald-300 bg-emerald-50 text-emerald-800',
+      title: '候选已采用并完成检查',
+      detail: '当前题目版本可以进入最终确认。',
+    },
+    resolve_validation: {
+      tone: 'border-amber-300 bg-amber-50 text-amber-900',
+      title: '候选已采用，结构检查需要处理',
+      detail: result.validation?.message || '新版本已经保留，请处理问题后重新检查。',
+    },
+    retry_assessment: {
+      tone: 'border-amber-300 bg-amber-50 text-amber-900',
+      title: '候选已采用，完整检查尚未完成',
+      detail: result.assessment?.message || '新版本已经保留，可以单独重试完整检查。',
+    },
+  })[result.nextAction];
+  if (!presentation) return null;
+  return (
+    <div role="status" className={`mt-4 border-l-2 px-4 py-3 text-sm ${presentation.tone}`}>
+      <p className="font-semibold">{presentation.title}</p>
+      <p className="mt-1 text-xs leading-5">{presentation.detail}</p>
+    </div>
+  );
+}
+
+function CandidateContentPreview({ candidate }) {
+  const content = candidate.content;
+  return (
+    <article className="min-w-0 border-l-2 border-violet-500 bg-white px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-slate-950">{content.title || '未命名候选'}</p>
+        <span className="text-xs text-violet-700">{candidateTypeLabel(candidate.candidateType)}</span>
+      </div>
+      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-800">{content.questionStem}</p>
+      <dl className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+        <div><dt className="inline font-medium text-slate-800">能力：</dt><dd className="inline">{content.abilityMetadata?.abilityId || '未设置'}</dd></div>
+        <div><dt className="inline font-medium text-slate-800">最低字数：</dt><dd className="inline">{content.minimumAnswerRequirement?.minLength || 0} 字</dd></div>
+        <div><dt className="inline font-medium text-slate-800">评分项：</dt><dd className="inline">{content.rubric?.length || 0} 项</dd></div>
+        <div><dt className="inline font-medium text-slate-800">变化：</dt><dd className="inline">{candidate.changedFields.length || 0} 个字段</dd></div>
+      </dl>
+      <p className="mt-3 text-xs leading-5 text-slate-500">{candidate.generationReason}</p>
+    </article>
+  );
+}
+
 function TaskProductionWorkflowPanel({
   lifecycle,
   rationales,
@@ -3220,70 +3537,6 @@ function AutoGrowingTextarea({ id, value, onChange, placeholder }) {
       className="mt-1 min-h-10 w-full resize-none overflow-hidden rounded-md border border-slate-300 bg-white px-3 py-2 font-normal leading-6"
       placeholder={placeholder}
     />
-  );
-}
-
-function SingleTaskRegenerationPreview({ state, onRetry, onDiscard, onApply }) {
-  if (state.status === 'generating') {
-    return (
-      <div className="mt-4 flex items-center gap-3 rounded-md bg-slate-50 px-4 py-4 text-sm text-slate-700" role="status">
-        <LoaderCircle size={18} className="animate-spin text-blue-600" />
-        正在为当前训练任务生成候选，原内容不会被修改。
-      </div>
-    );
-  }
-  if (state.status === 'error') {
-    return (
-      <div className="mt-4 rounded-md bg-amber-50 px-4 py-4 text-sm leading-6 text-amber-900" role="alert">
-        <p>{state.message}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" onClick={onRetry} className="ai-button-outline h-10 rounded-md border px-4 text-sm transition">再次生成</button>
-          <button type="button" onClick={onDiscard} className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">保留原内容</button>
-        </div>
-      </div>
-    );
-  }
-  const candidate = state.candidateTask;
-  if (!candidate) return null;
-  const applying = state.status === 'applying';
-  const rows = [
-    ['具体训练点', state.sourceTask.focusDisplayName, candidate.focusDisplayName],
-    ['题目', state.sourceTask.questionStem, candidate.questionStem],
-    ['学生任务', state.sourceTask.expectedStudentAction, candidate.expectedStudentAction],
-    ['观察目标', state.sourceTask.focusDefinition, candidate.focusDefinition],
-    ['评分要点', rubricSummary(state.sourceTask), rubricSummary(candidate)],
-  ];
-  return (
-    <section className="mt-4 rounded-md border border-blue-200 bg-blue-50/40 p-4" aria-label="单任务重新生成候选">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h4 className="text-sm font-semibold text-slate-950">重新生成候选</h4>
-          <p className="mt-1 text-xs leading-5 text-slate-600">能力、难度、任务角色和材料范围保持不变。采用前不会创建新版本。</p>
-        </div>
-        <span className="rounded bg-blue-100 px-2 py-1 text-xs font-normal text-blue-800">待采用</span>
-      </div>
-      <div className="mt-4 overflow-x-auto">
-        <div className="grid min-w-[720px] grid-cols-[8rem_minmax(0,1fr)_minmax(0,1fr)] border-y border-blue-200 text-sm">
-          <div className="px-3 py-2 font-semibold text-slate-500">内容</div>
-          <div className="border-l border-blue-100 px-3 py-2 font-semibold text-slate-700">原内容</div>
-          <div className="border-l border-blue-100 px-3 py-2 font-semibold text-blue-800">新候选</div>
-          {rows.map(([label, original, next]) => (
-            <div key={label} className="contents">
-              <div className="border-t border-blue-100 px-3 py-3 font-semibold text-slate-600">{label}</div>
-              <div className="whitespace-pre-wrap border-l border-t border-blue-100 px-3 py-3 leading-6 text-slate-600">{original || '未填写'}</div>
-              <div className="whitespace-pre-wrap border-l border-t border-blue-100 px-3 py-3 leading-6 text-slate-900">{next || '未填写'}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="mt-4 flex flex-wrap justify-end gap-2">
-        <button type="button" disabled={applying} onClick={onDiscard} className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40">保留原内容</button>
-        <button type="button" disabled={applying} onClick={onRetry} className="ai-button-outline h-10 rounded-md border px-4 text-sm transition disabled:opacity-40">再次生成</button>
-        <button type="button" disabled={applying} onClick={onApply} className="ai-button-solid inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-semibold transition disabled:opacity-50">
-          {applying ? '正在采用' : '采用此候选'}
-        </button>
-      </div>
-    </section>
   );
 }
 
@@ -3609,13 +3862,6 @@ function taskWorkingIdentity(task) {
   return task?.taskRevisionRootId || task?.observationTaskPlanId || task?.localId || '';
 }
 
-function createTaskCommitIdempotencyKey(signature) {
-  const suffix = typeof globalThis.crypto?.randomUUID === 'function'
-    ? globalThis.crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  return `task-working-commit:${signature}:${suffix}`;
-}
-
 function planTaskToEditableTask(task, index, anchors) {
   const specification = task.resourceDraftSpecification;
   const tags = specification?.tags || [];
@@ -3678,33 +3924,6 @@ function planTaskToEditableTask(task, index, anchors) {
   };
 }
 
-function buildTrainingTaskEditableFields(task) {
-  return {
-    primaryDimension: task.primaryDimension,
-    abilityId: task.abilityId,
-    focusDisplayName: task.focusDisplayName,
-    focusDefinition: task.focusDefinition,
-    questionStem: task.questionStem,
-    expectedStudentAction: task.expectedStudentAction,
-    designReason: task.designReason,
-    taskRole: task.taskRole,
-    difficulty: task.difficulty,
-    anchorType: task.anchorType,
-    startParagraph: task.startParagraph,
-    endParagraph: task.endParagraph,
-    supportingAbilityIdsText: task.supportingAbilityIdsText,
-    comparisonGroupId: task.comparisonGroupId,
-    assessmentMode: task.assessmentMode,
-    questionType: task.questionType,
-    responseFormat: task.responseFormat,
-    acceptedKeywordsText: task.acceptedKeywordsText,
-    semanticEquivalentAllowed: task.semanticEquivalentAllowed,
-    minLength: Number(task.minLength || 0),
-    rubric: (task.rubric || []).map((item) => ({ ...item })),
-    calibrationCases: (task.calibrationCases || []).map((item) => ({ ...item })),
-  };
-}
-
 function buildWorkingQuestionEditableFields(task, draft) {
   const taskInput = toTaskInput(task);
   const specification = taskInput.resourceDraftSpecification;
@@ -3727,35 +3946,6 @@ function buildWorkingQuestionEditableFields(task, draft) {
       difficulty: task.difficulty,
       gradeRange: specification.gradeRange || baseContent.abilityMetadata.gradeRange,
     },
-  };
-}
-
-function mergeWorkingContentIntoEditableTask(task, workingContent) {
-  const taskContent = workingContent.taskContent;
-  if (taskContent) {
-    return {
-      ...task,
-      ...taskContent,
-      rubric: taskContent.rubric.map((item) => ({ ...item })),
-      calibrationCases: taskContent.calibrationCases.map((item) => ({ ...item })),
-      editorDirty: false,
-    };
-  }
-
-  return {
-    ...task,
-    questionStem: workingContent.content.questionStem,
-    questionType: workingContent.content.questionType,
-    responseFormat: workingContent.content.responseFormat,
-    assessmentMode: workingContent.content.assessmentMode,
-    semanticEquivalentAllowed:
-      workingContent.content.answerAcceptance.semanticEquivalentAllowed,
-    acceptedKeywordsText: [
-      ...(workingContent.content.answerAcceptance.acceptedKeywords || []),
-      ...(workingContent.content.answerAcceptance.acceptedAnswers || []),
-    ].join('\n'),
-    minLength: workingContent.content.minimumAnswerRequirement.minLength,
-    editorDirty: false,
   };
 }
 
@@ -3859,19 +4049,6 @@ function singleTaskRegenerationFocus(task) {
     .filter(Boolean)
     .join('；');
   return focus.slice(0, 160);
-}
-
-function rubricSummary(task) {
-  const items = task?.rubric || [];
-  if (items.length === 0) return '未填写';
-  return items
-    .map((item, index) => {
-      const name = item.name?.trim() || `评分项${index + 1}`;
-      const description = item.description?.trim();
-      const signals = item.acceptedSignalsText?.trim();
-      return [name, description, signals && `要点：${signals}`].filter(Boolean).join('；');
-    })
-    .join('\n');
 }
 
 function buildGeneratorInventory({
@@ -4080,6 +4257,124 @@ function toTaskInput(task) {
     },
     calibrationCases,
   };
+}
+
+function buildQuestionCandidateContent(task, draft, selectedMaterial) {
+  if (draft) return buildWorkingQuestionEditableFields(task, draft);
+
+  const specification = toTaskInput(task).resourceDraftSpecification;
+  return {
+    materialVersionId: selectedMaterial?.materialVersionId,
+    title: specification.title,
+    questionStem: task.questionStem,
+    questionType: specification.questionType,
+    responseFormat: specification.responseFormat,
+    options: specification.options || [],
+    assessmentMode: specification.assessmentMode,
+    answerAcceptance: specification.answerAcceptance,
+    rubric: specification.rubric,
+    minimumAnswerRequirement: specification.minimumAnswerRequirement,
+    abilityMetadata: {
+      abilityId: task.abilityId,
+      supportingAbilityIds: specification.supportingAbilityIds,
+      prerequisiteAbilityIds: specification.prerequisiteAbilityIds || [],
+      taskRole: task.taskRole,
+      difficulty: task.difficulty,
+      gradeRange: specification.gradeRange,
+    },
+    source: selectedMaterial?.source || {
+      sourceType: 'ai_assisted',
+      description: '由学习材料与训练计划生成的候选题目。',
+    },
+    tags: specification.tags || [],
+  };
+}
+
+function mergeCandidateContentByPolicy(baseContent, generatedContent, allowedFields) {
+  const merged = JSON.parse(JSON.stringify(baseContent));
+  const allowed = new Set(allowedFields);
+  if (allowed.has('abilityTarget')) merged.abilityMetadata = generatedContent.abilityMetadata;
+  if (allowed.has('specificTrainingPoint')) merged.title = generatedContent.title;
+  if (allowed.has('questionStem')) merged.questionStem = generatedContent.questionStem;
+  if (allowed.has('studentTask')) {
+    merged.questionStem = generatedContent.questionStem;
+    merged.responseFormat = generatedContent.responseFormat;
+    merged.options = generatedContent.options;
+    merged.minimumAnswerRequirement = generatedContent.minimumAnswerRequirement;
+  }
+  if (allowed.has('observationTarget')) merged.rubric = generatedContent.rubric;
+  if (allowed.has('answerAcceptance')) merged.answerAcceptance = generatedContent.answerAcceptance;
+  if (allowed.has('rubric')) merged.rubric = generatedContent.rubric;
+  if (allowed.has('materialScope')) {
+    merged.materialVersionId = generatedContent.materialVersionId;
+    merged.tags = generatedContent.tags;
+  }
+  return merged;
+}
+
+function buildTaskCandidateRuntimeContext({ selectedMaterial, selectedPlan, task, draft }) {
+  return {
+    materialVersionId: selectedMaterial?.materialVersionId || selectedPlan?.materialVersionId || '',
+    observationPlanVersion: Number(
+      selectedPlan?.revision || selectedPlan?.versionNumber || selectedPlan?.planRevision || 1,
+    ),
+    trainingTaskVersion: Number(
+      task?.revision || task?.versionNumber || task?.taskRevision || 1,
+    ),
+    ...(draft
+      ? {
+        activeDraftId: draft.draftId,
+        activeDraftRevision: draft.revision,
+        activeDraftContentHash: calculateQuestionEditableFieldsHash(
+          extractQuestionEditableFields(draft),
+        ),
+      }
+      : {}),
+  };
+}
+
+function buildTaskCandidateRequestedFocus(task, operation, goals) {
+  const baseFocus = singleTaskRegenerationFocus(task);
+  if (operation !== 'optimize') return baseFocus;
+  return `${baseFocus}\n优化目标：${goals.map(candidateOptimizationGoalLabel).join('、')}。`;
+}
+
+function candidateOptimizationGoalLabel(goal) {
+  return CANDIDATE_OPTIMIZATION_GOALS.find((item) => item.value === goal)?.label || goal;
+}
+
+function createCandidateCommandIdempotencyKey(trainingTaskId, operation) {
+  const nonce = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return `candidate:${trainingTaskId}:${operation}:${nonce}`;
+}
+
+function toggleCandidateComparison(candidateIds, candidateId) {
+  if (candidateIds.includes(candidateId)) {
+    return candidateIds.filter((value) => value !== candidateId);
+  }
+  return [...candidateIds.slice(-1), candidateId];
+}
+
+function candidatePanelStateLabel(state) {
+  return ({
+    no_candidate: '暂无候选',
+    candidate_ready: '候选待判断',
+    candidate_optimizing: '正在优化',
+    candidate_regenerating: '正在重新生成',
+    candidate_expired: '候选已过期',
+    candidate_failed: '候选生成失败',
+  })[state] || '候选处理中';
+}
+
+function candidateTypeLabel(type) {
+  return ({
+    initial: 'AI 生成',
+    regenerated: '重新生成',
+    optimized: 'AI 优化',
+    exception_corrected: '异常纠错',
+  })[type] || 'AI 候选';
 }
 
 function isTaskReady(task) {

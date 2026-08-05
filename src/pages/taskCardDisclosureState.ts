@@ -39,27 +39,3 @@ export function setTaskCardDisclosureOpen(
     },
   };
 }
-
-export function enterTaskCardCalibration(
-  state: TaskCardDisclosureState,
-  taskId: string,
-): TaskCardDisclosureState {
-  return {
-    ...state,
-    [taskId]: {
-      ...CLOSED_DISCLOSURES,
-      task_attributes: true,
-      scoring: true,
-    },
-  };
-}
-
-export function exitTaskCardCalibration(
-  state: TaskCardDisclosureState,
-  taskId: string,
-): TaskCardDisclosureState {
-  return {
-    ...state,
-    [taskId]: { ...CLOSED_DISCLOSURES },
-  };
-}

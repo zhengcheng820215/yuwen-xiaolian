@@ -37,6 +37,7 @@ const workingRepository = new IndexedDBWorkingTaskContentRepository();
 const questionRepository = createBrowserQuestionResourceAdmissionRepository();
 const observationRepository = createBrowserMaterialObservationRepository();
 
+/** @deprecated P6 compatibility only. Candidate adoption owns new Question Revisions. */
 export async function commitQuestionTaskWorkingChanges(input: {
   planId: string;
   materialVersionId: string;

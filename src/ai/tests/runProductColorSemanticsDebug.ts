@@ -1,8 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  enterTaskCardCalibration,
-  exitTaskCardCalibration,
   isTaskCardDisclosureOpen,
   setTaskCardDisclosureOpen,
 } from '../../pages/taskCardDisclosureState.ts';
@@ -35,10 +33,9 @@ const aiActions = [
   [materialWorkbenchSource, 'AI根据素材生成训练任务', 'ai-button-solid'],
   [materialWorkbenchSource, '重新生成整组任务', 'ai-button-outline'],
   [materialWorkbenchSource, '补充生成候选任务', 'ai-button-solid'],
-  [materialWorkbenchSource, '人工编辑校准', 'ai-button-outline'],
-  [materialWorkbenchSource, '退出人工校准', 'ai-button-outline'],
-  [materialWorkbenchSource, '重新生成此任务', 'ai-button-solid'],
-  [materialWorkbenchSource, '采用此候选', 'ai-button-solid'],
+  [materialWorkbenchSource, 'AI 优化', 'ai-button-outline'],
+  [materialWorkbenchSource, '生成优化候选', 'ai-button-solid'],
+  [materialWorkbenchSource, '重新生成候选', 'ai-button-outline'],
   [materialWorkbenchSource, '采用所选候选', 'ai-button-solid'],
   [questionWorkbenchSource, 'AI 优化题干', 'ai-button-outline'],
   [questionWorkbenchSource, 'AI 优化本项', 'ai-button-outline'],
@@ -180,16 +177,6 @@ assert.match(
   /open=\{taskDisclosureOpen\('formal_resource'\)\}/,
   '正式资源必须消费当前任务的受控展开状态',
 );
-assert.equal(
-  materialWorkbenchSource.match(/aria-label="训练任务校准操作"/g)?.length,
-  1,
-  '人工校准进入与退出必须复用同一个稳定操作栏，避免切换时布局抖动',
-);
-assert.match(
-  materialWorkbenchSource,
-  /className="ai-button-outline inline-flex h-10 w-36[^\"]*"[\s\S]*?退出人工校准/,
-  '退出人工校准必须使用与进入校准相同的固定按钮宽度',
-);
 assert.doesNotMatch(
   materialWorkbenchSource,
   /actionLabel:\s*cardAction\.label/,
@@ -214,29 +201,17 @@ for (const key of ['task_attributes', 'scoring', 'design_rationale', 'formal_res
     `${key} 初始必须收起`,
   );
 }
-disclosureState = enterTaskCardCalibration(disclosureState, 'task-1');
+disclosureState = setTaskCardDisclosureOpen(disclosureState, 'task-1', 'task_attributes', true);
 assert.equal(isTaskCardDisclosureOpen(disclosureState, 'task-1', 'task_attributes'), true);
-assert.equal(isTaskCardDisclosureOpen(disclosureState, 'task-1', 'scoring'), true);
-assert.equal(isTaskCardDisclosureOpen(disclosureState, 'task-1', 'design_rationale'), false);
-assert.equal(isTaskCardDisclosureOpen(disclosureState, 'task-1', 'formal_resource'), false);
 disclosureState = setTaskCardDisclosureOpen(disclosureState, 'task-1', 'scoring', false);
 assert.equal(
   isTaskCardDisclosureOpen(disclosureState, 'task-1', 'scoring'),
   false,
-  '人工校准中手动收起评分标准后必须保持收起',
+  '任务卡手动收起评分标准后必须保持收起',
 );
 assert.equal(
   isTaskCardDisclosureOpen(disclosureState, 'task-2', 'task_attributes'),
   false,
   '任务间不得串用展开状态',
 );
-disclosureState = exitTaskCardCalibration(disclosureState, 'task-1');
-for (const key of ['task_attributes', 'scoring', 'design_rationale', 'formal_resource'] as const) {
-  assert.equal(
-    isTaskCardDisclosureOpen(disclosureState, 'task-1', key),
-    false,
-    `退出人工校准后 ${key} 必须收起`,
-  );
-}
-
 console.log('Product color semantics debug: all assertions passed.');
