@@ -19,7 +19,7 @@ type DebugCase = { name: string; run: () => void | Promise<void> };
 
 const cases: DebugCase[] = [
   { name: '01 one Material creates a valid 3-task production Plan', run: caseCreatesPlan },
-  { name: '02 production batch enforces the 3-to-6 task boundary', run: caseTaskCountBoundary },
+  { name: '02 production batch accepts 2 tasks and enforces the 2-to-6 boundary', run: caseTaskCountBoundary },
   { name: '03 duplicate question stems are blocked', run: caseDuplicateStem },
   { name: '04 invalid paragraph anchor creates no formal Plan', run: caseInvalidParagraph },
   { name: '05 metadata is inherited from reviewed Observation Task', run: caseMetadataInheritance },
@@ -71,14 +71,19 @@ async function caseCreatesPlan() {
 
 async function caseTaskCountBoundary() {
   const fixture = await createRepositories();
-  await rejects(() => createMaterialProductionPlan(fixture.resources, fixture.observations, {
+  const twoTaskResult = await createMaterialProductionPlan(fixture.resources, fixture.observations, {
     materialVersionId: fixture.material.materialVersionId,
     tasks: tasks().slice(0, 2), now: NOW,
-  }), '3 to 6');
+  });
+  expect(twoTaskResult.plan.taskPlans.length === 2, 'A valid two-task initial plan was rejected.');
+  await rejects(() => createMaterialProductionPlan(fixture.resources, fixture.observations, {
+    materialVersionId: fixture.material.materialVersionId,
+    tasks: tasks().slice(0, 1), now: NOW,
+  }), '2 to 6');
   await rejects(() => createMaterialProductionPlan(fixture.resources, fixture.observations, {
     materialVersionId: fixture.material.materialVersionId,
     tasks: [...tasks(), ...tasks().map((task, index) => ({ ...task, questionStem: `${task.questionStem}${index + 1}` })), tasks()[0]], now: NOW,
-  }), '3 to 6');
+  }), '2 to 6');
 }
 
 async function caseDuplicateStem() {
@@ -108,6 +113,10 @@ async function caseMetadataInheritance() {
   expect(draft.materialVersionId === fixture.material.materialVersionId, 'Material identity was not inherited.');
   expect(draft.abilityMetadata.abilityId === task.abilityId && draft.abilityMetadata.taskRole === task.taskRole && draft.abilityMetadata.difficulty === task.difficulty, 'Ability, role or difficulty drifted during adaptation.');
   expect(draft.tags.includes(`observation_task:${task.observationTaskPlanId}`), 'Observation Task trace tag is missing.');
+  expect(
+    draft.tags.includes(task.taskRole === 'retest' ? 'hint_policy:no_hint' : 'hint_policy:limited_hint'),
+    'Runtime hint policy was not declared by the production Draft.',
+  );
 }
 
 async function caseReviewGate() {

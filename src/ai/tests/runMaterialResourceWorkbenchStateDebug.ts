@@ -208,6 +208,28 @@ check(
   `source=${scopedDetails.publishedResources[0]?.sourceDraftId}, repair=${scopedDetails.publishedResources[0]?.activeRepairDraftId}`,
 );
 
+const successorTaskA = {
+  ...taskA,
+  observationTaskPlanId: 'task-a-successor',
+  taskRevisionRootId: 'task-a',
+  parentObservationTaskPlanId: 'task-a',
+};
+const lineagePlan = {
+  ...planV2,
+  materialObservationPlanId: 'plan-v3',
+  revision: 3,
+  taskPlans: [successorTaskA],
+};
+const lineageDrafts = selectCurrentPlanDrafts(
+  lineagePlan as never,
+  [currentDraftA] as never,
+);
+check(
+  '13 计划继承任务按血缘恢复原有 Draft',
+  lineageDrafts.length === 1 && lineageDrafts[0]?.draftId === currentDraftA.draftId,
+  `selected=${lineageDrafts.map((item) => item.draftId).join(',')}`,
+);
+
 console.log('Phase 17.2 Material Resource Workbench State Debug');
 console.log('='.repeat(76));
 for (const result of cases) {

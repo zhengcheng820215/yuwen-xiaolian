@@ -34,6 +34,8 @@ import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
 import { formatMaterialTitle } from '../ui/materialTitle.ts';
 import {
   buildMaterialResourceWorkbenchDetails,
+  matchesDraftToObservationTask,
+  observationTaskIdentityIds,
   scopeMaterialResourceWorkbenchDetails,
   selectCurrentPlanDrafts,
 } from './materialResourceWorkbenchState.ts';
@@ -2909,14 +2911,14 @@ function resolveTaskQuestionLifecycle({
     };
   }
 
+  const taskIdentityIds = observationTaskIdentityIds(task);
   const published = details.publishedResources.find(
-    (item) => item.observationTaskPlanId === observationTaskPlanId,
+    (item) => taskIdentityIds.includes(item.observationTaskPlanId),
   );
   const incomplete = details.incompletePublications.find(
-    (item) => item.observationTaskPlanId === observationTaskPlanId,
+    (item) => taskIdentityIds.includes(item.observationTaskPlanId),
   );
-  const taskTag = `observation_task:${observationTaskPlanId}`;
-  const draft = planDrafts.find((item) => item.tags.includes(taskTag));
+  const draft = planDrafts.find((item) => matchesDraftToObservationTask(item, task));
   const readiness = draft
     ? draftReadiness.find((item) => item.draftId === draft.draftId)
     : null;

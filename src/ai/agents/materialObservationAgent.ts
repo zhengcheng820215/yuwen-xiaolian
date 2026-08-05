@@ -268,6 +268,7 @@ export function adaptObservationTaskToQuestionDraft(
     },
     tags: uniqueSorted([
       ...(content.tags || []),
+      task.taskRole === 'retest' ? 'hint_policy:no_hint' : 'hint_policy:limited_hint',
       `observation_plan:${plan.materialObservationPlanId}`,
       `observation_task:${task.observationTaskPlanId}`,
       `observation_dimension:${task.primaryDimension}`,

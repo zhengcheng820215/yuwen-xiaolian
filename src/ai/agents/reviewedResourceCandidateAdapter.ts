@@ -129,11 +129,20 @@ function deriveCapabilities(version: FrozenQuestionResourceVersion): string[] {
   if (version.abilityMetadata.taskRole === 'retest') capabilities.push('independent_answer');
   if (version.abilityMetadata.taskRole === 'transfer') capabilities.push('new_context_transfer');
   if (version.abilityMetadata.taskRole === 'diagnosis') capabilities.push('root_cause_probe');
+  if (!version.tags.some((tag) => tag.startsWith('hint_policy:'))) {
+    capabilities.push(defaultHintPolicyForRole(version.abilityMetadata.taskRole));
+  }
   for (const tag of version.tags) {
     if (tag.startsWith('capability:')) capabilities.push(tag.slice('capability:'.length));
     if (tag.startsWith('hint_policy:')) capabilities.push(tag);
   }
   return uniqueSorted(capabilities);
+}
+
+function defaultHintPolicyForRole(
+  role: FrozenQuestionResourceVersion['abilityMetadata']['taskRole'],
+): string {
+  return role === 'retest' ? 'hint_policy:no_hint' : 'hint_policy:limited_hint';
 }
 
 function mapRuntimeQuestionType(

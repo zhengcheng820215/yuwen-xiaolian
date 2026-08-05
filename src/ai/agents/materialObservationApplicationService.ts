@@ -133,8 +133,8 @@ export async function createMaterialProductionPlan(
     now?: string;
   },
 ): Promise<{ plan: MaterialObservationPlan; validation: MaterialObservationPlanValidation }> {
-  if (input.tasks.length < 3 || input.tasks.length > 6) {
-    throw new Error('One Material production batch requires 3 to 6 Observation Tasks.');
+  if (input.tasks.length < 2 || input.tasks.length > 6) {
+    throw new Error('One Material production batch requires 2 to 6 Observation Tasks.');
   }
   if (new Set(input.tasks.map((task) => normalize(task.questionStem))).size !== input.tasks.length) {
     throw new Error('Observation Tasks in one batch require distinct question stems.');
@@ -767,6 +767,7 @@ function buildProductionQuestionDraftInput(
     },
     tags: unique([
       ...(content.tags || []),
+      task.taskRole === 'retest' ? 'hint_policy:no_hint' : 'hint_policy:limited_hint',
       `observation_plan:${plan.materialObservationPlanId}`,
       `observation_task:${task.observationTaskPlanId}`,
       `observation_task_root:${task.taskRevisionRootId}`,

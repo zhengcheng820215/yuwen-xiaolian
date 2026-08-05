@@ -101,15 +101,39 @@ export function selectCurrentPlanDrafts(
   drafts: StructuredQuestionDraft[],
 ): StructuredQuestionDraft[] {
   if (!plan) return [];
-  const planTag = `observation_plan:${plan.materialObservationPlanId}`;
   return plan.taskPlans
     .map((task) => {
-      const taskTag = `observation_task:${task.observationTaskPlanId}`;
       return drafts
-        .filter((draft) => draft.tags.includes(planTag) && draft.tags.includes(taskTag))
+        .filter((draft) => (
+          draft.status !== 'archived' && matchesDraftToObservationTask(draft, task)
+        ))
         .sort(compareMostRecent)[0] || null;
     })
     .filter((draft): draft is StructuredQuestionDraft => Boolean(draft));
+}
+
+export function observationTaskIdentityIds(
+  task: MaterialObservationPlan['taskPlans'][number],
+): string[] {
+  return [...new Set([
+    task.observationTaskPlanId,
+    task.taskRevisionRootId,
+    task.parentObservationTaskPlanId,
+  ].filter((value): value is string => Boolean(value)))];
+}
+
+export function matchesDraftToObservationTask(
+  draft: StructuredQuestionDraft,
+  task: MaterialObservationPlan['taskPlans'][number],
+): boolean {
+  const identityIds = observationTaskIdentityIds(task);
+  const identityTags = [
+    ...identityIds.map((id) => `observation_task:${id}`),
+    ...(task.taskRevisionRootId
+      ? [`observation_task_root:${task.taskRevisionRootId}`]
+      : []),
+  ];
+  return identityTags.some((tag) => draft.tags.includes(tag));
 }
 
 export function isPlanFullyPublished(input: {

@@ -6,6 +6,7 @@ import {
   matchPhase173BatchAFormalResource,
   resolveFormalResourceBootstrapMatch,
 } from '../agents/phase173FormalResourceMatchingService.ts';
+import { adaptReviewedResourceCandidate } from '../agents/reviewedResourceCandidateAdapter.ts';
 import { buildScopedFormalResourceHistory } from '../agents/formalResourceHistoryScope.ts';
 import { preparePhase173BatchAPreflight } from '../agents/phase173BatchAPreflightService.ts';
 import { producePhase17BatchA } from '../agents/phase17BatchAProductionService.ts';
@@ -34,6 +35,7 @@ async function main(): Promise<void> {
   const environment = await createEnvironment();
   await genericRegistryRead(environment);
   await genericFormalMatch(environment);
+  await legacyHintPolicyCompatibility(environment);
   await dynamicBootstrapAbility(environment);
   await endedSessionDoesNotLeakMaterialContext(environment);
   await activeSessionKeepsMaterialContext(environment);
@@ -139,6 +141,36 @@ async function genericFormalMatch(environment: Environment): Promise<void> {
       result.resourceVersion.abilityMetadata.taskRole === 'training' &&
       result.taskReadiness?.canExecute === true,
     `status=${result.status}, resource=${result.resourceVersion?.resourceId || 'none'}, executable=${result.taskReadiness?.canExecute || false}`,
+  );
+}
+
+async function legacyHintPolicyCompatibility(environment: Environment): Promise<void> {
+  const training = environment.versions.find((item) => (
+    item.status === 'frozen' && item.abilityMetadata.taskRole === 'training'
+  ));
+  const retest = environment.versions.find((item) => (
+    item.status === 'frozen' && item.abilityMetadata.taskRole === 'retest'
+  ));
+  expect(training && retest, 'Legacy hint policy fixtures are missing.');
+
+  const legacyTraining = adaptReviewedResourceCandidate({
+    version: {
+      ...training,
+      tags: training.tags.filter((tag) => !tag.startsWith('hint_policy:')),
+    },
+  });
+  const legacyRetest = adaptReviewedResourceCandidate({
+    version: {
+      ...retest,
+      tags: retest.tags.filter((tag) => !tag.startsWith('hint_policy:')),
+    },
+  });
+
+  record(
+    '02B 历史正式资源缺少提示策略时按任务角色兼容读取',
+    legacyTraining.capabilities.includes('hint_policy:limited_hint') &&
+      legacyRetest.capabilities.includes('hint_policy:no_hint'),
+    `training=${legacyTraining.capabilities.filter((item) => item.startsWith('hint_policy:')).join('|') || 'none'}, retest=${legacyRetest.capabilities.filter((item) => item.startsWith('hint_policy:')).join('|') || 'none'}`,
   );
 }
 
