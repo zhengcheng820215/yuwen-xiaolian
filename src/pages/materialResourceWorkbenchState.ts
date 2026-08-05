@@ -74,6 +74,8 @@ export type MaterialResourceWorkbenchDetails = {
     title: string;
     abilityId: string;
     taskRole: string;
+    versionNumber: number | null;
+    frozenAt: string;
   }>;
   publishedResources: Array<{
     draftId: string;
@@ -89,6 +91,8 @@ export type MaterialResourceWorkbenchDetails = {
     title: string;
     abilityId: string;
     taskRole: string;
+    versionNumber: number | null;
+    frozenAt: string;
   }>;
 };
 
@@ -212,6 +216,8 @@ export function buildMaterialResourceWorkbenchDetails(
       title: version?.questionStem || version?.title || '未命名练习',
       abilityId: version?.abilityMetadata.abilityId || link.abilityId || '',
       taskRole: version?.abilityMetadata.taskRole || link.taskRole || '',
+      versionNumber: version?.versionNumber || null,
+      frozenAt: version?.frozenAt || '',
     };
   };
 

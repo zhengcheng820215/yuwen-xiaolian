@@ -82,6 +82,20 @@ import {
   resolveTaskPublicationEligibility,
   resolveTaskProductionState,
 } from './taskProductionState.ts';
+import {
+  enterTaskCardCalibration,
+  exitTaskCardCalibration,
+  isTaskCardDisclosureOpen,
+  setTaskCardDisclosureOpen,
+} from './taskCardDisclosureState.ts';
+import {
+  discardQuestionTaskWorkingContent,
+  getQuestionTaskWorkingContentState,
+  rebaseQuestionTaskWorkingContent,
+  saveQuestionTaskWorkingContent,
+} from '../api/workingTaskContent.ts';
+import { commitQuestionTaskWorkingChanges } from '../api/taskGroupSubmission.ts';
+import { extractQuestionEditableFields } from '../ai/schemas/workingTaskContent.schema.ts';
 
 const dimensionOptions = [
   ['fact', '事实'], ['character', '人物'], ['plot', '情节'], ['causality', '因果'],
@@ -154,6 +168,9 @@ export default function MaterialResourceProductionWorkbench() {
   const [tasks, setTasks] = useState([]);
   const [taskEditorDirty, setTaskEditorDirty] = useState(false);
   const [editableTaskIds, setEditableTaskIds] = useState(() => new Set());
+  const [taskCardDisclosures, setTaskCardDisclosures] = useState({});
+  const [taskWorkingStates, setTaskWorkingStates] = useState({});
+  const [taskCommitOperation, setTaskCommitOperation] = useState(null);
   const [generatorStatus, setGeneratorStatus] = useState(null);
   const [generatorResult, setGeneratorResult] = useState(null);
   const [generatorBusy, setGeneratorBusy] = useState(false);
@@ -177,6 +194,7 @@ export default function MaterialResourceProductionWorkbench() {
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  const [discardDialogSaving, setDiscardDialogSaving] = useState(false);
   const [taskRemovalCandidate, setTaskRemovalCandidate] = useState(null);
   const [removedTaskHistory, setRemovedTaskHistory] = useState([]);
   const [duplicateMaterial, setDuplicateMaterial] = useState(null);
@@ -188,6 +206,8 @@ export default function MaterialResourceProductionWorkbench() {
   const initialSelectionResolutionRef = useRef(true);
   const taskWorkflowInFlightRef = useRef(new Set());
   const taskBatchPublicationInFlightRef = useRef(false);
+  const taskCommitInFlightRef = useRef(false);
+  const taskCommitIdempotencyKeysRef = useRef(new Map());
   const materialFormHasInput = Boolean(
     materialForm.title.trim()
     || materialForm.content.trim()
@@ -353,6 +373,22 @@ export default function MaterialResourceProductionWorkbench() {
       published: summary.published,
     };
   }, [taskQuestionLifecycleById]);
+  const hasLocalUnsavedTaskChanges = useMemo(
+    () => (
+      tasks.some((task) => task.editorDirty || !task.observationTaskPlanId)
+      || removedTaskHistory.length > 0
+    ),
+    [tasks, removedTaskHistory],
+  );
+  const taskWorkingRecoveryKey = tasks
+    .map(taskWorkingIdentity)
+    .join('|');
+  const savedWorkingTaskIds = useMemo(
+    () => tasks
+      .map(taskWorkingIdentity)
+      .filter((trainingTaskId) => taskWorkingStates[trainingTaskId]?.status === 'saved'),
+    [tasks, taskWorkingStates],
+  );
   const taskPublicationCandidates = useMemo(
     () => [...taskQuestionLifecycleById.entries()].flatMap(([trainingTaskId, lifecycle]) => {
       const eligibility = resolveTaskPublicationEligibility(lifecycle.productionView);
@@ -400,6 +436,9 @@ export default function MaterialResourceProductionWorkbench() {
     setEditableTaskIds(new Set(nextTasks
       .filter((task) => task.sourceType !== 'ai_assisted')
       .map((task) => task.localId)));
+    setTaskCardDisclosures({});
+    setTaskWorkingStates({});
+    setTaskCommitOperation(null);
     setTaskEditorDirty(false);
     setTaskRegeneration(null);
     setGeneratorResult(null);
@@ -413,6 +452,42 @@ export default function MaterialResourceProductionWorkbench() {
     setTaskWarningRationales({});
     setTaskReviewNotes({});
   }, [selectedMaterialId, selectedPlan?.materialObservationPlanId]);
+
+  useEffect(() => {
+    if (!selectedPlan || tasks.length === 0 || planDrafts.length === 0) return undefined;
+    let cancelled = false;
+    void Promise.all(tasks.map(async (task) => {
+      const trainingTaskId = taskWorkingIdentity(task);
+      if (!trainingTaskId) return null;
+      const state = await getQuestionTaskWorkingContentState(trainingTaskId);
+      return { trainingTaskId, state };
+    })).then((results) => {
+      if (cancelled) return;
+      const recovered = results.filter(Boolean);
+      if (recovered.length === 0) return;
+      const stateById = Object.fromEntries(recovered.map(({ trainingTaskId, state }) => [
+        trainingTaskId,
+        state.status === 'missing'
+          ? { status: 'clean', workingContent: null }
+          : {
+            status: state.status === 'current' ? 'saved' : 'base_revision_conflict',
+            workingContent: state.workingContent,
+            conflictReason: state.status === 'base_revision_conflict' ? state.reason : null,
+          },
+      ]));
+      setTaskWorkingStates(stateById);
+      setTasks((current) => current.map((task) => {
+        const recoveredState = stateById[taskWorkingIdentity(task)];
+        return recoveredState?.workingContent
+          ? mergeWorkingContentIntoEditableTask(task, recoveredState.workingContent)
+          : task;
+      }));
+      if (recovered.some(({ state }) => state.status !== 'missing')) setTaskEditorDirty(true);
+    }).catch((error) => {
+      if (!cancelled) setNotice(errorNotice(error));
+    });
+    return () => { cancelled = true; };
+  }, [selectedPlan?.materialObservationPlanId, planDrafts, taskWorkingRecoveryKey]);
 
   useEffect(() => {
     setGeneratorResult(null);
@@ -626,7 +701,7 @@ export default function MaterialResourceProductionWorkbench() {
   }
 
   function withUnsavedChangesGuard(action) {
-    if (!taskEditorDirty) {
+    if (!hasLocalUnsavedTaskChanges) {
       action();
       return;
     }
@@ -643,8 +718,57 @@ export default function MaterialResourceProductionWorkbench() {
     const action = pendingDiscardActionRef.current;
     pendingDiscardActionRef.current = null;
     setDiscardDialogOpen(false);
-    setTaskEditorDirty(false);
+    restoreUnsavedTaskEdits();
     action?.();
+  }
+
+  async function saveChangesBeforeSwitch() {
+    const dirtyTasks = tasks
+      .map((task, index) => ({ task, index }))
+      .filter(({ task }) => task.editorDirty && task.observationTaskPlanId);
+    if (
+      dirtyTasks.length === 0
+      || tasks.some((task) => !task.observationTaskPlanId)
+      || removedTaskHistory.length > 0
+    ) return;
+
+    setDiscardDialogSaving(true);
+    setNotice(null);
+    try {
+      for (const { task, index } of dirtyTasks) {
+        const saved = await saveCurrentTaskWorkingContent(task, index, { silent: true });
+        if (!saved) return;
+      }
+      const action = pendingDiscardActionRef.current;
+      pendingDiscardActionRef.current = null;
+      setDiscardDialogOpen(false);
+      setToast({ id: Date.now(), message: '工作进度已保存。' });
+      action?.();
+    } finally {
+      setDiscardDialogSaving(false);
+    }
+  }
+
+  function restoreUnsavedTaskEdits() {
+    if (!selectedPlan) {
+      setTasks([]);
+      setTaskEditorDirty(false);
+      return;
+    }
+    const restoredTasks = selectedPlan.taskPlans.map((planTask, index) => {
+      const restored = planTaskToEditableTask(planTask, index, snapshot.anchors);
+      const workingState = taskWorkingStates[taskWorkingIdentity(planTask)];
+      return workingState?.workingContent
+        ? mergeWorkingContentIntoEditableTask(restored, workingState.workingContent)
+        : restored;
+    });
+    setTasks(restoredTasks);
+    setRemovedTaskHistory([]);
+    setTaskEditorDirty(
+      Object.values(taskWorkingStates).some((state) => (
+        state.status === 'saved' || state.status === 'base_revision_conflict'
+      )),
+    );
   }
 
   function showExistingMaterials() {
@@ -834,14 +958,16 @@ export default function MaterialResourceProductionWorkbench() {
     }
   }
 
-  function revealTaskFormalResource(event) {
+  function revealTaskFormalResource(event, taskId) {
     event.preventDefault();
     event.stopPropagation();
     const taskCard = event.currentTarget.closest('details[data-task-editor]');
     taskCard?.setAttribute('open', '');
+    setTaskCardDisclosures((current) => (
+      setTaskCardDisclosureOpen(current, taskId, 'formal_resource', true)
+    ));
     window.requestAnimationFrame(() => {
       const formalResource = taskCard?.querySelector('[data-formal-resource-summary]');
-      formalResource?.setAttribute('open', '');
       formalResource?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
   }
@@ -1315,7 +1441,18 @@ export default function MaterialResourceProductionWorkbench() {
   }
 
   function updateTask(index, patch) {
+    const targetTask = tasks[index];
+    const trainingTaskId = targetTask?.observationTaskPlanId;
     setTaskEditorDirty(true);
+    if (trainingTaskId) {
+      setTaskWorkingStates((current) => ({
+        ...current,
+        [trainingTaskId]: {
+          ...(current[trainingTaskId] || {}),
+          status: 'dirty',
+        },
+      }));
+    }
     setTasks((current) => current.map((task, taskIndex) => {
       if (taskIndex !== index) return task;
       const adjustedFields = Object.keys(patch).filter((field) => !['taskAttributeAdjusted', 'manuallyAdjustedFields', 'editorDirty'].includes(field));
@@ -1394,6 +1531,143 @@ export default function MaterialResourceProductionWorkbench() {
 
   function enableTaskEditing(task) {
     setEditableTaskIds((current) => new Set([...current, task.localId]));
+    setTaskCardDisclosures((current) => enterTaskCardCalibration(current, task.localId));
+  }
+
+  async function saveCurrentTaskWorkingContent(task, index, options = {}) {
+    const trainingTaskId = taskWorkingIdentity(task);
+    const lifecycle = task.observationTaskPlanId
+      ? taskQuestionLifecycleById.get(task.observationTaskPlanId)
+      : null;
+    const draft = lifecycle?.draft;
+    if (!trainingTaskId || !draft) {
+      if (!options.silent) {
+        setNotice({
+          type: 'error',
+          message: '当前任务尚未建立活动题目草稿，暂时不能单独保存工作进度。请先保存训练任务。',
+        });
+      }
+      return false;
+    }
+
+    setTaskWorkingStates((current) => ({
+      ...current,
+      [trainingTaskId]: {
+        ...(current[trainingTaskId] || {}),
+        status: 'saving',
+      },
+    }));
+    try {
+      const workingContent = await saveQuestionTaskWorkingContent({
+        trainingTaskId,
+        questionLineageId: draft.resourceId,
+        baseDraftId: draft.draftId,
+        baseRevision: draft.revision,
+        content: buildWorkingQuestionEditableFields(task, draft),
+        taskContent: buildTrainingTaskEditableFields(task),
+      });
+      setTaskWorkingStates((current) => ({
+        ...current,
+        [trainingTaskId]: {
+          status: 'saved',
+          workingContent,
+          conflictReason: null,
+        },
+      }));
+      setTasks((current) => current.map((item, taskIndex) => (
+        taskIndex === index ? { ...item, editorDirty: false } : item
+      )));
+      setTaskEditorDirty(true);
+      if (!options.silent) {
+        setToast({
+          id: Date.now(),
+          message: '工作进度已保存，尚未提交检查。',
+        });
+      }
+      return true;
+    } catch (error) {
+      if (error?.code === 'WORKING_TASK_CONTENT_BASE_CONFLICT') {
+        const conflictState = await getQuestionTaskWorkingContentState(trainingTaskId);
+        setTaskWorkingStates((current) => ({
+          ...current,
+          [trainingTaskId]: {
+            status: 'base_revision_conflict',
+            workingContent: conflictState.workingContent || current[trainingTaskId]?.workingContent,
+            conflictReason: conflictState.reason || 'revision_changed',
+          },
+        }));
+      } else {
+        setTaskWorkingStates((current) => ({
+          ...current,
+          [trainingTaskId]: {
+            ...(current[trainingTaskId] || {}),
+            status: 'save_failed',
+          },
+        }));
+      }
+      if (!options.silent) setNotice(errorNotice(error));
+      return false;
+    }
+  }
+
+  async function reapplyCurrentTaskWorkingContent(task, index) {
+    const trainingTaskId = taskWorkingIdentity(task);
+    const lifecycle = task.observationTaskPlanId
+      ? taskQuestionLifecycleById.get(task.observationTaskPlanId)
+      : null;
+    const draft = lifecycle?.draft;
+    if (!trainingTaskId || !draft) return;
+    setTaskWorkingStates((current) => ({
+      ...current,
+      [trainingTaskId]: {
+        ...(current[trainingTaskId] || {}),
+        status: 'saving',
+      },
+    }));
+    try {
+      const workingContent = await rebaseQuestionTaskWorkingContent({
+        trainingTaskId,
+        questionLineageId: draft.resourceId,
+        content: buildWorkingQuestionEditableFields(task, draft),
+        taskContent: buildTrainingTaskEditableFields(task),
+      });
+      setTaskWorkingStates((current) => ({
+        ...current,
+        [trainingTaskId]: { status: 'saved', workingContent, conflictReason: null },
+      }));
+      setTasks((current) => current.map((item, taskIndex) => (
+        taskIndex === index ? { ...item, editorDirty: false } : item
+      )));
+      setTaskEditorDirty(true);
+      setToast({ id: Date.now(), message: '工作修改已基于当前正式内容重新保存。' });
+    } catch (error) {
+      setTaskWorkingStates((current) => ({
+        ...current,
+        [trainingTaskId]: { ...(current[trainingTaskId] || {}), status: 'save_failed' },
+      }));
+      setNotice(errorNotice(error));
+    }
+  }
+
+  async function discardCurrentTaskWorkingContent(task, index) {
+    const trainingTaskId = taskWorkingIdentity(task);
+    if (!trainingTaskId) return;
+    await discardQuestionTaskWorkingContent(trainingTaskId);
+    const savedTask = selectedPlan?.taskPlans.find(
+      (item) => taskWorkingIdentity(item) === trainingTaskId,
+    );
+    if (savedTask) {
+      setTasks((current) => current.map((item, taskIndex) => (
+        taskIndex === index
+          ? planTaskToEditableTask(savedTask, index, snapshot.anchors)
+          : item
+      )));
+    }
+    setTaskWorkingStates((current) => ({
+      ...current,
+      [trainingTaskId]: { status: 'clean', workingContent: null },
+    }));
+    setToast({ id: Date.now(), message: '已放弃该任务的工作修改。' });
   }
 
   function exitTaskEditing(task, index) {
@@ -1401,10 +1675,16 @@ export default function MaterialResourceProductionWorkbench() {
       (item) => item.observationTaskPlanId === task.observationTaskPlanId,
     );
     if (!savedTask) return;
-    if (task.editorDirty && !window.confirm('退出校准将放弃当前任务尚未保存的修改，是否继续？')) return;
+    if (task.editorDirty && !window.confirm('退出人工校准将放弃当前任务尚未保存的修改，是否继续？')) return;
 
     setTasks((current) => {
-      const restoredTask = planTaskToEditableTask(savedTask, index, snapshot.anchors);
+      const workingState = taskWorkingStates[taskWorkingIdentity(task)];
+      const restoredTask = workingState?.workingContent
+        ? mergeWorkingContentIntoEditableTask(
+          planTaskToEditableTask(savedTask, index, snapshot.anchors),
+          workingState.workingContent,
+        )
+        : planTaskToEditableTask(savedTask, index, snapshot.anchors);
       const nextTasks = current.map((item, taskIndex) => (
         taskIndex === index ? restoredTask : item
       ));
@@ -1425,9 +1705,64 @@ export default function MaterialResourceProductionWorkbench() {
       next.delete(task.localId);
       return next;
     });
+    setTaskCardDisclosures((current) => exitTaskCardCalibration(current, task.localId));
     setTaskRegeneration((current) => (
       current?.sourceTaskId === task.observationTaskPlanId ? null : current
     ));
+  }
+
+  async function submitWorkingTaskChanges(requestedTaskIds) {
+    if (!selectedPlan || !selectedMaterialId || taskCommitInFlightRef.current) return;
+    const currentTaskIds = [...new Set(requestedTaskIds)]
+      .filter((trainingTaskId) => taskWorkingStates[trainingTaskId]?.status === 'saved');
+    if (currentTaskIds.length === 0) {
+      setNotice({ type: 'error', message: '当前没有已保存且等待提交检查的任务修改。' });
+      return;
+    }
+
+    const signature = `${selectedMaterialId}:${[...currentTaskIds].sort().join('|')}`;
+    const idempotencyKey = taskCommitIdempotencyKeysRef.current.get(signature)
+      || createTaskCommitIdempotencyKey(signature);
+    taskCommitIdempotencyKeysRef.current.set(signature, idempotencyKey);
+    taskCommitInFlightRef.current = true;
+    setTaskCommitOperation({ taskIds: currentTaskIds, signature });
+    setNotice(null);
+    try {
+      const result = await commitQuestionTaskWorkingChanges({
+        planId: selectedPlan.materialObservationPlanId,
+        materialVersionId: selectedMaterialId,
+        requestedTaskIds: currentTaskIds,
+        idempotencyKey,
+      });
+      const failedTasks = result.taskResults.filter((item) => Boolean(item.failedStage));
+      if (result.status === 'completed' || result.status === 'no_changes') {
+        taskCommitIdempotencyKeysRef.current.delete(signature);
+      }
+      await refresh({
+        materialVersionId: selectedMaterialId,
+        planId: result.committedPlanId || selectedPlan.materialObservationPlanId,
+      });
+      if (failedTasks.length > 0 || result.groupAssessmentStatus === 'failed') {
+        setNotice({
+          type: 'error',
+          message: failedTasks.length > 0
+            ? `${failedTasks.length} 个任务尚未完成提交或检查，已完成阶段不会重复执行，可以直接重试。`
+            : '单题修改已提交，但任务组覆盖检查未完成，可以直接重试检查。',
+        });
+      } else {
+        setToast({
+          id: Date.now(),
+          message: currentTaskIds.length === 1
+            ? '当前任务已提交并完成检查。'
+            : `${currentTaskIds.length} 个任务已提交并完成检查。`,
+        });
+      }
+    } catch (error) {
+      setNotice(errorNotice(error));
+    } finally {
+      taskCommitInFlightRef.current = false;
+      setTaskCommitOperation(null);
+    }
   }
 
   function focusTaskIssue(issue) {
@@ -1817,12 +2152,25 @@ export default function MaterialResourceProductionWorkbench() {
             <div className="mt-6 space-y-3">
               {taskReviewGroups.map(({ task, index, issues }) => {
                 const taskEditable = task.sourceType !== 'ai_assisted' || editableTaskIds.has(task.localId);
+                const taskDisclosureOpen = (key) => (
+                  isTaskCardDisclosureOpen(taskCardDisclosures, task.localId, key)
+                );
+                const updateTaskDisclosure = (key, open) => {
+                  setTaskCardDisclosures((current) => (
+                    setTaskCardDisclosureOpen(current, task.localId, key, open)
+                  ));
+                };
                 const questionLifecycle = taskQuestionLifecycleById.get(
                   task.observationTaskPlanId || task.localId,
                 );
                 const taskCardPresentation = questionLifecycle?.cardPresentation;
                 const taskProductionAction = taskCardPresentation?.primaryAction;
+                const showTaskProductionAction = Boolean(
+                  taskProductionAction?.label
+                  && taskProductionAction.kind !== 'view_formal_resource',
+                );
                 const workflowTargetId = task.observationTaskPlanId || task.localId;
+                const workingTaskId = taskWorkingIdentity(task);
                 const workflowOperationKey = workflowTargetId
                   ? `${workflowTargetId}:publish_task`
                   : '';
@@ -1837,6 +2185,21 @@ export default function MaterialResourceProductionWorkbench() {
                       ? taskWorkflowFeedback[questionLifecycle.draft.draftId]
                       : null)
                   : null;
+                const workingState = taskWorkingStates[workingTaskId] || {
+                  status: task.editorDirty ? 'dirty' : 'clean',
+                  workingContent: null,
+                };
+                const taskCommitBusy = Boolean(
+                  taskCommitOperation?.taskIds.includes(workingTaskId),
+                );
+                const workingStatusLabel = ({
+                  clean: '尚无工作修改',
+                  dirty: '有未保存修改',
+                  saving: '正在保存…',
+                  saved: '工作进度已保存，尚未提交检查',
+                  save_failed: '保存失败，可重新保存',
+                  base_revision_conflict: '基础版本已变化，需要处理冲突',
+                })[workingState.status] || '';
                 return (
                 <details
                   data-task-editor={task.localId}
@@ -1855,10 +2218,10 @@ export default function MaterialResourceProductionWorkbench() {
                         <span className="text-xs text-slate-500">状态：</span>
                         <TaskQuestionLifecycleBadge presentation={taskCardPresentation} />
                       </div>
-                      {(taskProductionAction?.label
+                      {(showTaskProductionAction
                         || taskCardPresentation?.auxiliaryActions?.length > 0) && (
                         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" aria-label="训练任务流程操作">
-                          {taskProductionAction?.label && (
+                          {showTaskProductionAction && (
                           <span className="inline-flex items-center gap-1.5">
                             <span className="text-slate-500">下一步：</span>
                             <button
@@ -1872,7 +2235,7 @@ export default function MaterialResourceProductionWorkbench() {
                                 event.preventDefault();
                                 event.stopPropagation();
                                 if (taskProductionAction.kind === 'view_formal_resource') {
-                                  revealTaskFormalResource(event);
+                                  revealTaskFormalResource(event, task.localId);
                                   return;
                                 }
                                 if (taskProductionAction.kind === 'open_confirmation') {
@@ -1906,7 +2269,7 @@ export default function MaterialResourceProductionWorkbench() {
                             <button
                               key={action.kind}
                               type="button"
-                              onClick={revealTaskFormalResource}
+                              onClick={(event) => revealTaskFormalResource(event, task.localId)}
                               className="text-[12px] font-medium text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                             >
                               {action.label}
@@ -1946,7 +2309,7 @@ export default function MaterialResourceProductionWorkbench() {
                         </p>
                       )}
                     </div>
-                    <span className="mt-1 inline-flex shrink-0 items-center gap-2 text-xs font-normal text-blue-700">
+                    <span className="mt-1 inline-flex shrink-0 items-center gap-2 text-[14px] font-normal text-blue-700">
                       <span className="group-open:hidden">展开详情</span>
                       <span className="hidden group-open:inline">收起详情</span>
                       <ChevronDown
@@ -1974,47 +2337,101 @@ export default function MaterialResourceProductionWorkbench() {
                       }))}
                     />
                   )}
-                  {!taskEditable && (
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md bg-violet-50 px-4 py-3 text-sm text-violet-900">
-                      <span>当前为 AI 生成预览。点击“人工编辑校准”后，人工调整字段会被记录。</span>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button type="button" onClick={() => enableTaskEditing(task)} className="ai-button-outline inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none">
-                          人工编辑校准
-                        </button>
-                        {selectedPlan && task.observationTaskPlanId && (
-                          <button
-                            type="button"
-                            disabled={!commandAvailability.regenerateSingleTask.enabled}
-                            title={commandAvailability.regenerateSingleTask.reason}
-                            onClick={() => regenerateSingleTask(task, index)}
-                            className="ai-button-solid inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm font-normal transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            重新生成此任务
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {taskEditable && selectedPlan && task.observationTaskPlanId && (
-                    <div className="mt-4 flex flex-wrap justify-end gap-2">
-                      <button
-                        type="button"
-                        disabled={!commandAvailability.regenerateSingleTask.enabled}
-                        title={commandAvailability.regenerateSingleTask.reason}
-                        onClick={() => regenerateSingleTask(task, index)}
-                        className="ai-button-solid inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm font-normal transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        重新生成此任务
-                      </button>
-                      {task.sourceType === 'ai_assisted' && (
+                  <div
+                    aria-label="训练任务校准操作"
+                    className="mt-4 grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md bg-violet-50 px-4 py-3 text-sm text-violet-900"
+                  >
+                    <span>
+                      {taskEditable ? workingStatusLabel : '当前为 AI 生成预览。'}
+                    </span>
+                    <div className="grid grid-cols-[12rem_9rem_11rem] items-center gap-2">
+                      {taskEditable && task.observationTaskPlanId ? (
                         <button
                           type="button"
-                          onClick={() => exitTaskEditing(task, index)}
-                          className="h-10 rounded-md border border-blue-600 bg-white px-4 text-sm font-normal text-blue-700 transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                          aria-busy={workingState.status === 'saving' || taskCommitBusy}
+                          disabled={
+                            workingState.status === 'saving'
+                            || taskCommitBusy
+                            || workingState.status === 'base_revision_conflict'
+                            || !questionLifecycle?.draft
+                          }
+                          onClick={() => {
+                            if (workingState.status === 'saved') {
+                              void submitWorkingTaskChanges([workingTaskId]);
+                              return;
+                            }
+                            void saveCurrentTaskWorkingContent(task, index);
+                          }}
+                          className="inline-flex h-10 w-48 items-center justify-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
                         >
-                          退出校准
+                          {workingState.status === 'saving' || taskCommitBusy ? (
+                            <LoaderCircle aria-hidden="true" size={16} className="animate-spin" />
+                          ) : (
+                            <Save aria-hidden="true" size={16} />
+                          )}
+                          {taskCommitBusy
+                            ? '正在提交并检查…'
+                            : workingState.status === 'saving'
+                            ? '正在保存…'
+                            : workingState.status === 'save_failed'
+                              ? '重新保存'
+                              : workingState.status === 'saved'
+                                ? '提交当前任务并检查'
+                                : '保存当前任务'}
+                        </button>
+                      ) : <span aria-hidden="true" />}
+                      {taskEditable ? (
+                        task.sourceType === 'ai_assisted' ? (
+                          <button
+                            type="button"
+                            onClick={() => exitTaskEditing(task, index)}
+                            className="ai-button-outline inline-flex h-10 w-36 items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none"
+                          >
+                            退出人工校准
+                          </button>
+                        ) : <span aria-hidden="true" />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => enableTaskEditing(task)}
+                          className="ai-button-outline inline-flex h-10 w-36 items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none"
+                        >
+                          人工编辑校准
                         </button>
                       )}
+                      {selectedPlan && task.observationTaskPlanId && (
+                        <button
+                          type="button"
+                          disabled={!commandAvailability.regenerateSingleTask.enabled}
+                          title={commandAvailability.regenerateSingleTask.reason}
+                          onClick={() => regenerateSingleTask(task, index)}
+                          className="ai-button-solid inline-flex h-10 w-44 items-center justify-center rounded-md border px-4 text-sm font-normal transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          重新生成此任务
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {workingState.status === 'base_revision_conflict' && (
+                    <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                      <p className="font-semibold">当前正式内容已更新，工作修改不能直接覆盖。</p>
+                      <p className="mt-1 leading-6">请重新应用工作修改，或放弃工作修改并恢复当前正式内容。</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void reapplyCurrentTaskWorkingContent(task, index)}
+                          className="h-10 rounded-md bg-blue-700 px-4 font-semibold text-white hover:bg-blue-800"
+                        >
+                          重新应用工作修改
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void discardCurrentTaskWorkingContent(task, index)}
+                          className="h-10 rounded-md border border-[#666666] bg-white px-4 font-semibold text-slate-800 hover:bg-slate-50"
+                        >
+                          放弃工作修改
+                        </button>
+                      </div>
                     </div>
                   )}
                   {taskRegeneration
@@ -2055,8 +2472,46 @@ export default function MaterialResourceProductionWorkbench() {
                       <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{task.focusDefinition || '尚未填写观察目标'}</p>
                     </section>
                   </div>
-                  <details className="mt-5 pt-1">
-                    <summary className="cursor-pointer text-sm font-normal text-blue-700">评分标准与答案示例</summary>
+                  <details
+                    open={taskDisclosureOpen('task_attributes')}
+                    onToggle={(event) => updateTaskDisclosure('task_attributes', event.currentTarget.open)}
+                    className="mt-2 rounded-md bg-slate-50 px-4 py-3"
+                  >
+                    <summary className="cursor-pointer text-sm font-medium text-blue-700">调整任务属性</summary>
+                    <div className={`mt-3 grid gap-3 sm:grid-cols-2 ${
+                      task.anchorType === 'paragraph_range'
+                        ? 'lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)_minmax(0,1.15fr)_minmax(7rem,0.6fr)_minmax(7rem,0.6fr)]'
+                        : task.anchorType === 'paragraph'
+                          ? 'lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(8rem,0.7fr)]'
+                          : 'lg:grid-cols-3'
+                    }`}>
+                      <Select id={taskFieldId(task, 'abilityId')} label="主要能力" value={task.abilityId} options={abilityOptions} onChange={(value) => updateTask(index, {
+                        abilityId: value,
+                        expectedStudentAction: actionForAbility(value),
+                        rubric: task.rubric.map((item, rubricIndex) => rubricIndex === 0 ? { ...item, abilityId: value } : item),
+                        taskAttributeAdjusted: true,
+                      })} />
+                      <Select id={taskFieldId(task, 'difficulty')} label="难度" value={task.difficulty} options={difficultyOptions} onChange={(value) => updateTask(index, { difficulty: value, taskAttributeAdjusted: true })} />
+                      <Select id={taskFieldId(task, 'anchorType')} label="阅读范围" value={task.anchorType} options={anchorOptions} onChange={(value) => updateTask(index, { anchorType: value, taskAttributeAdjusted: true })} />
+                      {task.anchorType !== 'full_text' && (
+                        <label className="block text-sm font-medium">开始段落<input id={taskFieldId(task, 'startParagraph')} type="number" min="1" max={Math.max(paragraphs.length, 1)} value={task.startParagraph} onChange={(event) => updateTask(index, { startParagraph: Number(event.target.value), taskAttributeAdjusted: true })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
+                      )}
+                      {task.anchorType === 'paragraph_range' && <label className="block text-sm font-medium">结束段落<input id={taskFieldId(task, 'endParagraph')} type="number" min={task.startParagraph} max={Math.max(paragraphs.length, 1)} value={task.endParagraph} onChange={(event) => updateTask(index, { endParagraph: Number(event.target.value), taskAttributeAdjusted: true })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>}
+                    </div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <Select id={taskFieldId(task, 'primaryDimension')} label="内容侧重" value={task.primaryDimension} options={dimensionOptions} onChange={(value) => updateTask(index, { primaryDimension: value, taskAttributeAdjusted: true })} />
+                      <Select id={taskFieldId(task, 'taskRole')} label="任务角色" value={task.taskRole} options={roleOptions} onChange={(value) => updateTask(index, { taskRole: value, taskAttributeAdjusted: true })} />
+                    </div>
+                    <label className="mt-3 block text-sm font-medium">具体训练点<input id={taskFieldId(task, 'focusDisplayName')} value={task.focusDisplayName} onChange={(event) => updateTask(index, { focusDisplayName: event.target.value, taskAttributeAdjusted: true })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" placeholder="例如：从动作推断人物心理" /></label>
+                    <label className="mt-3 block text-sm font-medium">训练点说明<textarea id={taskFieldId(task, 'focusDefinition')} value={task.focusDefinition} onChange={(event) => updateTask(index, { focusDefinition: event.target.value, taskAttributeAdjusted: true })} rows={2} className="mt-1 w-full rounded-md border border-slate-300 bg-white p-3 font-normal leading-6" placeholder="例如：学生能够引用具体动作，并说明动作与人物心理之间的关系。" /></label>
+                    {['retest', 'transfer'].includes(task.taskRole) && <label className="mt-3 block text-sm font-medium">关联训练组 ID<input id={taskFieldId(task, 'comparisonGroupId')} value={task.comparisonGroupId} onChange={(event) => updateTask(index, { comparisonGroupId: event.target.value, taskAttributeAdjusted: true })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" placeholder="同一能力 Training / Retest / Transfer 共用" /></label>}
+                  </details>
+                  <details
+                    open={taskDisclosureOpen('scoring')}
+                    onToggle={(event) => updateTaskDisclosure('scoring', event.currentTarget.open)}
+                    className="mt-2 rounded-md bg-slate-50 px-4 py-3"
+                  >
+                    <summary className="cursor-pointer text-sm font-medium text-blue-700">评分标准与答案示例</summary>
                     <div className="mt-4 space-y-4 px-4 sm:px-5">
                       <div>
                         <p className="text-sm font-medium">相关能力（可选）</p>
@@ -2126,8 +2581,12 @@ export default function MaterialResourceProductionWorkbench() {
                       </div>
                     </div>
                   </details>
-                  <details className="mt-4">
-                    <summary className="cursor-pointer text-sm font-normal text-blue-700">设计依据</summary>
+                  <details
+                    open={taskDisclosureOpen('design_rationale')}
+                    onToggle={(event) => updateTaskDisclosure('design_rationale', event.currentTarget.open)}
+                    className="mt-2 rounded-md bg-slate-50 px-4 py-3"
+                  >
+                    <summary className="cursor-pointer text-sm font-medium text-blue-700">设计依据</summary>
                     <div className="mt-3">
                       {taskEditable ? (
                         <AutoGrowingTextarea id={taskFieldId(task, 'designReason')} value={task.designReason} onChange={(value) => updateTask(index, { designReason: value })} placeholder="例如：检查学生能否建立“人物动作—心理判断”的关系。" />
@@ -2136,41 +2595,13 @@ export default function MaterialResourceProductionWorkbench() {
                       )}
                     </div>
                   </details>
-                  <details className="mt-4">
-                    <summary className="cursor-pointer text-sm font-normal text-blue-700">调整任务属性</summary>
-                    <div className={`mt-3 grid gap-3 sm:grid-cols-2 ${
-                      task.anchorType === 'paragraph_range'
-                        ? 'lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)_minmax(0,1.15fr)_minmax(7rem,0.6fr)_minmax(7rem,0.6fr)]'
-                        : task.anchorType === 'paragraph'
-                          ? 'lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(8rem,0.7fr)]'
-                          : 'lg:grid-cols-3'
-                    }`}>
-                      <Select id={taskFieldId(task, 'abilityId')} label="主要能力" value={task.abilityId} options={abilityOptions} onChange={(value) => updateTask(index, {
-                        abilityId: value,
-                        expectedStudentAction: actionForAbility(value),
-                        rubric: task.rubric.map((item, rubricIndex) => rubricIndex === 0 ? { ...item, abilityId: value } : item),
-                        taskAttributeAdjusted: true,
-                      })} />
-                      <Select id={taskFieldId(task, 'difficulty')} label="难度" value={task.difficulty} options={difficultyOptions} onChange={(value) => updateTask(index, { difficulty: value, taskAttributeAdjusted: true })} />
-                      <Select id={taskFieldId(task, 'anchorType')} label="阅读范围" value={task.anchorType} options={anchorOptions} onChange={(value) => updateTask(index, { anchorType: value, taskAttributeAdjusted: true })} />
-                      {task.anchorType !== 'full_text' && (
-                        <label className="block text-sm font-medium">开始段落<input id={taskFieldId(task, 'startParagraph')} type="number" min="1" max={Math.max(paragraphs.length, 1)} value={task.startParagraph} onChange={(event) => updateTask(index, { startParagraph: Number(event.target.value), taskAttributeAdjusted: true })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
-                      )}
-                      {task.anchorType === 'paragraph_range' && <label className="block text-sm font-medium">结束段落<input id={taskFieldId(task, 'endParagraph')} type="number" min={task.startParagraph} max={Math.max(paragraphs.length, 1)} value={task.endParagraph} onChange={(event) => updateTask(index, { endParagraph: Number(event.target.value), taskAttributeAdjusted: true })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>}
-                    </div>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <Select id={taskFieldId(task, 'primaryDimension')} label="内容侧重" value={task.primaryDimension} options={dimensionOptions} onChange={(value) => updateTask(index, { primaryDimension: value, taskAttributeAdjusted: true })} />
-                      <Select id={taskFieldId(task, 'taskRole')} label="任务角色" value={task.taskRole} options={roleOptions} onChange={(value) => updateTask(index, { taskRole: value, taskAttributeAdjusted: true })} />
-                    </div>
-                    <label className="mt-3 block text-sm font-medium">具体训练点<input id={taskFieldId(task, 'focusDisplayName')} value={task.focusDisplayName} onChange={(event) => updateTask(index, { focusDisplayName: event.target.value, taskAttributeAdjusted: true })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" placeholder="例如：从动作推断人物心理" /></label>
-                    <label className="mt-3 block text-sm font-medium">训练点说明<textarea id={taskFieldId(task, 'focusDefinition')} value={task.focusDefinition} onChange={(event) => updateTask(index, { focusDefinition: event.target.value, taskAttributeAdjusted: true })} rows={2} className="mt-1 w-full rounded-md border border-slate-300 bg-white p-3 font-normal leading-6" placeholder="例如：学生能够引用具体动作，并说明动作与人物心理之间的关系。" /></label>
-                    {['retest', 'transfer'].includes(task.taskRole) && <label className="mt-3 block text-sm font-medium">关联训练组 ID<input id={taskFieldId(task, 'comparisonGroupId')} value={task.comparisonGroupId} onChange={(event) => updateTask(index, { comparisonGroupId: event.target.value, taskAttributeAdjusted: true })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" placeholder="同一能力 Training / Retest / Transfer 共用" /></label>}
-                  </details>
                   </fieldset>
                   {questionLifecycle?.formalResource && (
                     <details
                       data-formal-resource-summary
-                      className="mt-5 rounded-md bg-slate-50 px-4 py-3"
+                      open={taskDisclosureOpen('formal_resource')}
+                      onToggle={(event) => updateTaskDisclosure('formal_resource', event.currentTarget.open)}
+                      className="mt-2 rounded-md bg-slate-50 px-4 py-3"
                     >
                       <summary className="cursor-pointer text-sm font-medium text-blue-700">
                         正式资源
@@ -2182,28 +2613,32 @@ export default function MaterialResourceProductionWorkbench() {
                         </div>
                         <div>
                           <dt className="text-slate-500">正式版本</dt>
-                          <dd className="mt-1 break-all text-slate-800">
-                            {questionLifecycle.formalResource.resourceVersionId || '未记录'}
+                          <dd className="mt-1 font-medium text-slate-800">
+                            {questionLifecycle.formalResource.versionNumber
+                              ? `第 ${questionLifecycle.formalResource.versionNumber} 版`
+                              : '当前版本'}
                           </dd>
                         </div>
                         <div>
-                          <dt className="text-slate-500">正式资源 ID</dt>
-                          <dd className="mt-1 break-all text-slate-800">
-                            {questionLifecycle.formalResource.resourceId || '未记录'}
-                          </dd>
+                          <dt className="text-slate-500">使用状态</dt>
+                          <dd className="mt-1 font-medium text-slate-800">可用于学习</dd>
                         </div>
                         <div>
-                          <dt className="text-slate-500">来源 Draft</dt>
-                          <dd className="mt-1 break-all text-slate-800">
-                            {questionLifecycle.formalResource.sourceDraftId || '未记录'}
+                          <dt className="text-slate-500">来源素材</dt>
+                          <dd className="mt-1 font-medium text-slate-800">
+                            {formatMaterialTitle(
+                              questionLifecycle.formalResource.materialTitle || selectedMaterial?.title || '',
+                            ) || '当前素材'}
                           </dd>
                         </div>
-                        <div className="sm:col-span-2">
-                          <dt className="text-slate-500">Material Version</dt>
-                          <dd className="mt-1 break-all text-slate-800">
-                            {questionLifecycle.formalResource.materialVersionId || '未记录'}
-                          </dd>
-                        </div>
+                        {questionLifecycle.formalResource.frozenAt && (
+                          <div>
+                            <dt className="text-slate-500">发布时间</dt>
+                            <dd className="mt-1 font-medium text-slate-800">
+                              {formatPublishedAt(questionLifecycle.formalResource.frozenAt)}
+                            </dd>
+                          </div>
+                        )}
                       </dl>
                     </details>
                   )}
@@ -2221,8 +2656,9 @@ export default function MaterialResourceProductionWorkbench() {
                         ? `从当前编辑区删除${taskEditorTitle(index)}`
                         : `每个训练任务组至少保留 ${MIN_TRAINING_TASK_COUNT} 个任务`}
                       onClick={() => requestTaskRemoval(task, index, taskEditable)}
-                      className="inline-flex h-10 items-center px-2 text-sm font-normal text-red-600 hover:text-red-700 disabled:cursor-not-allowed disabled:text-red-200"
+                      className="inline-flex h-10 items-center gap-2 rounded-md border border-red-600 bg-transparent px-3 text-sm font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-red-200 disabled:bg-transparent disabled:text-red-300"
                     >
+                      <Trash2 size={16} />
                       删除任务
                     </button>
                   </div>
@@ -2269,6 +2705,22 @@ export default function MaterialResourceProductionWorkbench() {
                   </button>
                 </>
               )}
+              {selectedPlan && savedWorkingTaskIds.length > 0 && (
+                <button
+                  type="button"
+                  aria-busy={Boolean(taskCommitOperation)}
+                  disabled={Boolean(taskCommitOperation)}
+                  onClick={() => void submitWorkingTaskChanges(savedWorkingTaskIds)}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-blue-700 bg-white px-5 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
+                >
+                  {taskCommitOperation && (
+                    <LoaderCircle aria-hidden="true" size={16} className="animate-spin" />
+                  )}
+                  {taskCommitOperation
+                    ? '正在提交并检查…'
+                    : `提交全部已保存修改（${savedWorkingTaskIds.length}）`}
+                </button>
+              )}
               <button
                 type="button"
                 disabled={!commandAvailability.savePlanRevision.enabled}
@@ -2296,7 +2748,14 @@ export default function MaterialResourceProductionWorkbench() {
       )}
       {discardDialogOpen && (
         <DiscardChangesDialog
+          canSave={
+            tasks.some((task) => task.editorDirty && task.observationTaskPlanId)
+            && tasks.every((task) => task.observationTaskPlanId)
+            && removedTaskHistory.length === 0
+          }
+          saving={discardDialogSaving}
           onCancel={cancelDiscardChanges}
+          onSave={() => void saveChangesBeforeSwitch()}
           onConfirm={confirmDiscardChanges}
         />
       )}
@@ -2372,7 +2831,7 @@ function MaterialRemovalDialog({ action, dependencyCount, material, busy, onCanc
   );
 }
 
-function DiscardChangesDialog({ onCancel, onConfirm }) {
+function DiscardChangesDialog({ canSave, saving, onCancel, onSave, onConfirm }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-5" role="presentation">
       <section
@@ -2381,13 +2840,19 @@ function DiscardChangesDialog({ onCancel, onConfirm }) {
         aria-labelledby="discard-task-edits-title"
         className="w-full max-w-md rounded-md bg-white p-6 shadow-xl"
       >
-        <h2 id="discard-task-edits-title" className="text-lg font-semibold">放弃未保存的任务修改？</h2>
+        <h2 id="discard-task-edits-title" className="text-lg font-semibold">当前任务有未保存修改</h2>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          当前编辑区包含尚未生成计划的修改。切换素材后，这些本地修改将不会保留。
+          可以先保存工作进度后切换，也可以放弃浏览器内尚未保存的修改。
         </p>
-        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onCancel} className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">继续编辑</button>
-          <button type="button" onClick={onConfirm} className="h-10 rounded-md bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700">放弃修改并切换</button>
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+          <button type="button" disabled={saving} onClick={onCancel} className="h-10 rounded-md border border-[#666666] bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40">取消</button>
+          <button type="button" disabled={saving} onClick={onConfirm} className="h-10 rounded-md border border-red-600 bg-white px-4 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40">放弃修改并切换</button>
+          {canSave && (
+            <button type="button" disabled={saving} onClick={onSave} className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-40">
+              {saving && <LoaderCircle aria-hidden="true" size={16} className="animate-spin" />}
+              {saving ? '正在保存…' : '保存后切换'}
+            </button>
+          )}
         </div>
       </section>
     </div>
@@ -3100,6 +3565,19 @@ function PreviewField({ label, value }) {
   return <div><p className="font-semibold text-slate-800">{label}</p><p className="mt-1 whitespace-pre-line text-slate-600">{value}</p></div>;
 }
 
+function formatPublishedAt(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '时间未记录';
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+}
+
 function formatAnswerAcceptance(value) {
   if (!value) return '尚未设置；必须在逐题审核中补充。';
   const parts = [];
@@ -3125,6 +3603,17 @@ function createCalibrationCases() {
     { localId: `calibration-${Date.now()}-partial`, category: 'partially_meets', answerText: '' },
     { localId: `calibration-${Date.now()}-error`, category: 'typical_error', answerText: '' },
   ];
+}
+
+function taskWorkingIdentity(task) {
+  return task?.taskRevisionRootId || task?.observationTaskPlanId || task?.localId || '';
+}
+
+function createTaskCommitIdempotencyKey(signature) {
+  const suffix = typeof globalThis.crypto?.randomUUID === 'function'
+    ? globalThis.crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return `task-working-commit:${signature}:${suffix}`;
 }
 
 function planTaskToEditableTask(task, index, anchors) {
@@ -3186,6 +3675,87 @@ function planTaskToEditableTask(task, index, anchors) {
     minLength: specification?.minimumAnswerRequirement?.minLength || (task.abilityId === 'extraction' ? 6 : 12),
     rubric,
     calibrationCases,
+  };
+}
+
+function buildTrainingTaskEditableFields(task) {
+  return {
+    primaryDimension: task.primaryDimension,
+    abilityId: task.abilityId,
+    focusDisplayName: task.focusDisplayName,
+    focusDefinition: task.focusDefinition,
+    questionStem: task.questionStem,
+    expectedStudentAction: task.expectedStudentAction,
+    designReason: task.designReason,
+    taskRole: task.taskRole,
+    difficulty: task.difficulty,
+    anchorType: task.anchorType,
+    startParagraph: task.startParagraph,
+    endParagraph: task.endParagraph,
+    supportingAbilityIdsText: task.supportingAbilityIdsText,
+    comparisonGroupId: task.comparisonGroupId,
+    assessmentMode: task.assessmentMode,
+    questionType: task.questionType,
+    responseFormat: task.responseFormat,
+    acceptedKeywordsText: task.acceptedKeywordsText,
+    semanticEquivalentAllowed: task.semanticEquivalentAllowed,
+    minLength: Number(task.minLength || 0),
+    rubric: (task.rubric || []).map((item) => ({ ...item })),
+    calibrationCases: (task.calibrationCases || []).map((item) => ({ ...item })),
+  };
+}
+
+function buildWorkingQuestionEditableFields(task, draft) {
+  const taskInput = toTaskInput(task);
+  const specification = taskInput.resourceDraftSpecification;
+  const baseContent = extractQuestionEditableFields(draft);
+  return {
+    ...baseContent,
+    title: specification.title,
+    questionStem: task.questionStem,
+    questionType: specification.questionType,
+    responseFormat: specification.responseFormat,
+    assessmentMode: specification.assessmentMode,
+    answerAcceptance: specification.answerAcceptance,
+    rubric: specification.rubric,
+    minimumAnswerRequirement: specification.minimumAnswerRequirement,
+    abilityMetadata: {
+      ...baseContent.abilityMetadata,
+      abilityId: task.abilityId,
+      supportingAbilityIds: specification.supportingAbilityIds,
+      taskRole: task.taskRole,
+      difficulty: task.difficulty,
+      gradeRange: specification.gradeRange || baseContent.abilityMetadata.gradeRange,
+    },
+  };
+}
+
+function mergeWorkingContentIntoEditableTask(task, workingContent) {
+  const taskContent = workingContent.taskContent;
+  if (taskContent) {
+    return {
+      ...task,
+      ...taskContent,
+      rubric: taskContent.rubric.map((item) => ({ ...item })),
+      calibrationCases: taskContent.calibrationCases.map((item) => ({ ...item })),
+      editorDirty: false,
+    };
+  }
+
+  return {
+    ...task,
+    questionStem: workingContent.content.questionStem,
+    questionType: workingContent.content.questionType,
+    responseFormat: workingContent.content.responseFormat,
+    assessmentMode: workingContent.content.assessmentMode,
+    semanticEquivalentAllowed:
+      workingContent.content.answerAcceptance.semanticEquivalentAllowed,
+    acceptedKeywordsText: [
+      ...(workingContent.content.answerAcceptance.acceptedKeywords || []),
+      ...(workingContent.content.answerAcceptance.acceptedAnswers || []),
+    ].join('\n'),
+    minLength: workingContent.content.minimumAnswerRequirement.minLength,
+    editorDirty: false,
   };
 }
 

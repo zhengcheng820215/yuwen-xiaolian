@@ -720,6 +720,68 @@ export async function createNextQuestionResourceVersionDraft(
   });
 }
 
+export async function createEditableSuccessorQuestionResourceDraft(
+  repository: QuestionResourceAdmissionRepository,
+  input: {
+    sourceDraftId: string;
+    draftId: string;
+    now?: string;
+  },
+): Promise<StructuredQuestionDraft> {
+  const source = await requireDraft(repository, input.sourceDraftId);
+  if (['drafted', 'validation_failed', 'revision_required'].includes(source.status)) {
+    return clone(source);
+  }
+
+  const frozenVersion = await repository.getVersionByDraftId(source.draftId);
+  if (frozenVersion) {
+    const existing = findActiveQuestionResourceRevisionDraft(
+      await repository.listDrafts(),
+      {
+        resourceId: source.resourceId,
+        parentVersionId: frozenVersion.resourceVersionId,
+      },
+    );
+    return existing || createNextQuestionResourceVersionDraft(repository, {
+      resourceId: source.resourceId,
+      draftId: input.draftId,
+      now: input.now,
+    });
+  }
+
+  const existing = (await repository.listDrafts())
+    .filter((draft) => (
+      draft.draftId !== source.draftId
+      && draft.resourceId === source.resourceId
+      && ['drafted', 'validation_failed', 'revision_required'].includes(draft.status)
+      && draft.tags.includes(`editable_successor_source:${source.draftId}`)
+    ))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+  if (existing) return existing;
+
+  return createStructuredQuestionDraft(repository, {
+    draftId: input.draftId,
+    resourceId: source.resourceId,
+    taskId: source.taskId,
+    proposedVersionNumber: source.proposedVersionNumber,
+    parentVersionId: source.parentVersionId,
+    materialVersionId: source.materialVersionId,
+    title: source.title,
+    questionStem: source.questionStem,
+    questionType: source.questionType,
+    responseFormat: source.responseFormat,
+    options: source.options,
+    assessmentMode: source.assessmentMode,
+    answerAcceptance: source.answerAcceptance,
+    rubric: source.rubric,
+    minimumAnswerRequirement: source.minimumAnswerRequirement,
+    abilityMetadata: source.abilityMetadata,
+    source: source.source,
+    tags: [...source.tags, `editable_successor_source:${source.draftId}`],
+    now: input.now,
+  });
+}
+
 export async function validateResourceRegistryConsistency(
   repository: QuestionResourceAdmissionRepository,
 ): Promise<ResourceRegistryConsistencyResult> {

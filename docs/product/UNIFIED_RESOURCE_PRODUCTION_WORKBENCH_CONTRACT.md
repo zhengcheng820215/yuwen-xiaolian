@@ -1043,7 +1043,7 @@ P6 必须同时完成“删除”和“保留”两件事：删除重复写入�
 
 1. 任务卡是当前训练任务内容的唯一默认查看入口，直接展示能力目标、题目、学生任务和观察目标；评分标准、答案示例、设计依据和任务属性继续在卡片内按需展开；
 2. 当前主流程不再提供独立“题目详情”入口，也不得为了查看任务内容跳转到 `QuestionResourceWorkbench`；
-3. 已发布任务的动作统一命名为“查看正式资源”，并在当前任务卡内展开只读追溯信息，包括发布状态、正式资源身份、正式版本、来源 Draft 和 Material Version；
+3. 已发布任务在当前任务卡内展开只读正式资源信息，只展示发布状态、可读版本、使用状态、来源素材和发布时间；内部资源身份与来源版本继续保留在数据和诊断链路，不进入生产界面；
 4. 当已发布版本与新活动 Revision 并存时，新 Revision 仍是任务卡主状态，“查看正式资源”只作为辅助动作，不得遮蔽保存、检查或最终确认；
 5. `mode=task-detail` 仅保留给旧书签、历史审核记录和既有深链使用，不再由统一生产工作台生成；该兼容页面始终只读，不得创建 Draft、Revision、Review 或 Formal Resource；
 6. 计划级“查看确认与发布记录”不得重新引入独立详情页面；正式资源追溯按任务在任务卡内查看。
@@ -1994,10 +1994,195 @@ P2 只收口任务卡读取与展示，不修改 Draft、Revision、Assessment�
 1. 四项互斥状态之和必须始终等于当前训练任务数量；
 2. 单任务发布只能改变当前任务的生产状态，不得连带确认或发布其他任务；
 3. 发布成功后必须在当前操作区域即时显示成功结果，并允许在统一页面内查看正式资源；
-4. 正式资源详情至少包含正式版本、资源 ID、来源 Draft 和 Material Version；
+4. 正式资源用户界面至少包含发布状态、可读版本、使用状态、来源素材和发布时间；资源 ID、来源草稿与素材版本等工程标识不得进入生产界面；
 5. 刷新或页签往返后必须恢复当前素材选择和已持久化任务状态；
 6. 素材标题格式化必须幂等，不得产生重复书名号；
 7. 学习入口没有符合能力、任务角色与去重条件的新任务时，应返回可解释的业务空状态，不得误报读取失败或生产失败；
 8. 学习入口读取通过不等于完成学生消费验收，完整消费仍需使用满足条件且未被使用的新正式任务。
 
 本轮真实浏览器结果为：3 个任务全部发布，刷新后状态保持 `0 + 0 + 0 + 3 = 3`，“查看正式资源”可读取正式身份信息，浏览器控制台 warning 与 error 均为 0；`/learning` 正常显示学习结束业务状态。
+
+### 21.15 已发布任务卡入口去重（2026-08-04）
+
+纯已发布任务不再同时展示“查看正式资源”和“展开详情”两个高度重复的首层入口。任务卡继续保留统一生产状态中的 `view_formal_resource` 语义，但前台按以下规则投影：
+
+1. 当前任务已发布且不存在活动新 Revision 时，首层仅保留“展开详情”；
+2. 展开任务卡后，“正式资源”二级区默认收起；用户按需展开后，只读取发布状态、可读版本、使用状态、来源素材和发布时间；
+3. 已发布正式版本与活动新 Revision 并存时，当前 Revision 决定主操作，并继续保留“查看正式资源”辅助入口，用于区分历史正式版本与当前修改内容；
+4. 本调整只收敛交互入口，不修改 `resolveTaskProductionState()`、Draft、Assessment、Human Review、Publication 或 Registry 的领域语义。
+
+### 21.16 任务卡二级折叠区视觉对齐（2026-08-04）
+
+任务卡内“评分标准与答案示例”“设计依据”“调整任务属性”和“正式资源”属于同一级二级信息，统一使用整行浅灰底色、相同圆角、内边距、标题字号与蓝色动作文字；相邻背景块的垂直间距固定为 8px。展开后内容继续留在对应背景块内；本调整仅统一信息层级表达，不改变字段、权限或生产状态。
+
+### 21.17 正式资源最小展示契约（2026-08-04）
+
+统一工作台中的“正式资源”默认视图只承担用户确认发布结果与可用性的职责，不承担工程调试面板职责。
+
+- 默认展示：发布状态、用户可读版本、使用状态、来源素材、发布时间；
+- 工程追溯：正式资源 ID、正式版本 ID、来源草稿 ID、素材版本 ID 仅保留在数据层、日志和管理员诊断链路；
+- 禁止使用原始 ID 代替用户可读版本；
+- 禁止在默认层直接暴露 `Draft`、`Material Version` 等内部 Schema 术语；
+- 追溯字段不得从数据模型删除，但生产界面不得提供查看或复制入口；
+- 该展示契约不得改变正式资源冻结、Registry 注册、材料观测关联和学习入口消费条件。
+
+### 21.18 任务卡二级信息顺序与展开状态契约（2026-08-04）
+
+任务卡二级信息按用户操作频率固定为“调整任务属性 → 评分标准与答案示例 → 设计依据 → 正式资源”。正式资源未形成时不渲染占位区。
+
+1. 任务卡进入预览或完成刷新恢复时，四个二级区默认收起；
+2. 点击“人工编辑校准”只展开当前任务的“调整任务属性”和“评分标准与答案示例”；
+3. 自动展开只发生在进入人工校准的动作边界，之后用户的手动展开或收起优先；
+4. 每个任务使用独立展开状态，禁止任务间、素材间或计划间串用；
+5. 点击“退出人工校准”后，当前任务全部二级区恢复收起；
+6. 折叠区状态属于瞬时界面状态，不写入 Draft、Revision、Assessment、Human Review、Formal Version 或 Registry；
+7. 错误定位仍可按目标字段临时展开必要父级，但不得把其他无关二级区一并打开。
+
+### 21.19 单任务工作进度保存与整组提交契约（2026-08-04）
+
+单任务卡可以提供“保存当前任务”，但该动作唯一用于保存可恢复的工作进度，不得推进题目版本、最终确认或正式发布生命周期。任务与题目版本关系继续保持：
+
+```text
+Training Task
+-> Question Lineage
+-> Active Question Draft
+-> Question Draft Revision
+```
+
+不同训练任务属于独立的 Question Lineage 和 Question Draft，不得共享一个 Question Revision。单卡保存与整组提交采用以下双层语义：
+
+```text
+保存当前任务
+-> 覆盖保存当前任务的 Working Task Content
+-> 不创建 Question Revision
+
+提交修改并重新检查
+-> 比较全部 Working Task Content 与各自 Base Revision
+-> 仅为发生业务内容变化的任务分别创建一个 Question Revision
+-> 创建一次 Task Group Submission
+-> 执行变化任务的单题检查与整组覆盖检查
+```
+
+#### 21.19.1 Working Task Content
+
+```ts
+type WorkingTaskContent = {
+  trainingTaskId: string;
+  questionLineageId: string;
+  baseDraftId: string;
+  baseRevision: number;
+  baseContentHash: string;
+  content: QuestionEditableFields;
+  taskContent?: TrainingTaskEditableFields;
+  workingContentHash: string;
+  savedAt: string;
+};
+```
+
+1. Working Task Content 不是新的 Question Draft 类型，而是当前活动 Draft 之上的可变工作区；一个训练任务最多只有一份活动 Working Task Content，可以在一次正式提交前反复覆盖保存；
+2. Working Task Content 刷新后可恢复，但不得进入 Question Revision 历史，也不得被最终确认、Human Review、Formal Version 或 Registry 直接消费；
+3. `workingContentHash` 必须基于字段契约中的规范化业务字段计算，排除瞬时界面状态、展开状态和无意义格式差异；
+4. 保存成功后的反馈统一为“工作进度已保存，尚未提交检查”，不得只显示容易与正式版本混淆的“已保存”；
+5. 保存失败时保留本地输入和 Working Task Content，显示可重试结果，不得清空表单或静默退出人工校准；
+6. 已发布任务进入修改时，旧正式资源继续可用，Working Task Content 只代表尚未发布的新修改。
+
+#### 21.19.2 Question Revision 与 Task Group Submission
+
+正式提交支持“提交当前任务并检查”和“提交全部已保存修改”两种入口，两者必须调用同一套 Revision 创建与检查编排。批量提交只是便利能力，不得要求用户完成整组所有任务后才能推进某个独立任务。
+
+同一任务无论此前保存多少次工作进度，每次正式提交最多新增一个 Question Revision；未发生业务内容变化的任务不得升版。包含多个任务的提交必须形成 Task Group Submission，并记录本次提交引用的完整任务快照，而不只是变化任务：
+
+```ts
+type TaskGroupSubmission = {
+  submissionId: string;
+  planId: string;
+  planVersion: number;
+  tasks: Array<{
+    trainingTaskId: string;
+    questionLineageId: string;
+    draftId: string;
+    revision: number;
+    changedInSubmission: boolean;
+  }>;
+  createdAt: string;
+};
+```
+
+1. Task Group Submission 是关联同一次批量提交所使用全部 Question Revision 的审计快照，不是新的题目版本，也不得替代 Question Revision；
+2. 变化任务分别创建独立 Question Revision，未变化任务沿用当前活动 Revision，并将实际 Revision 引用写入完整快照；
+3. 任务组覆盖 Assessment 必须绑定 `submissionId`、`planVersion` 和完整任务 Revision 快照，禁止根据未来的活动 Revision 反推历史检查对象；
+4. 修改任务能力、Observation Link、任务角色、训练顺序、覆盖目标或 Material Version 等计划级事实时，其他任务的单题确认继续保留，但任务组覆盖检查必须标记为 `stale_by_working_change`；
+5. 最终确认和正式发布只能消费已提交且检查有效的 Question Revision，不得读取尚未提交的 Working Task Content。
+
+#### 21.19.3 提交编排、幂等与失败恢复
+
+整组命令统一命名为：
+
+```ts
+commitTaskGroupChanges({
+  planId,
+  expectedPlanVersion,
+  taskChanges,
+  idempotencyKey,
+});
+```
+
+1. 创建各题 Question Revision 与 Task Group Submission 属于同一个提交阶段；具备事务能力时必须原子写入，不具备跨存储事务能力时必须使用 Operation Checkpoint 和幂等键保证可恢复；
+2. 单题结构检查、完整 Assessment 和任务组覆盖检查属于提交后的可重试阶段；检查失败不得回滚已经成功创建的 Revision；
+3. 重试必须继续使用同一 `submissionId`，不得重复创建 Question Revision 或 Task Group Submission；
+4. 返回结果必须逐任务说明是否创建 Revision、完成到哪个阶段、失败阶段和下一条可执行命令；
+5. Revision 创建成功后，该任务的 Working Task Content 即已完成正式提交，应清除并以新 Revision 作为下一轮编辑基础；后续 Assessment 失败只进入检查重试，不得把已经创建 Revision 的内容恢复成未提交工作区；仅 Revision 创建失败或尚未提交的任务继续保留 Working Task Content；
+6. 当 `baseRevision`、`expectedPlanVersion` 或服务端 `contentHash` 已变化时，提交必须阻断并进入冲突处理，不得自动覆盖。
+
+推荐返回结构：
+
+```ts
+type CommitTaskGroupResult = {
+  submissionId?: string;
+  changedTasks: Array<{
+    trainingTaskId: string;
+    revisionCreated: boolean;
+    newRevision?: number;
+    completedStages: string[];
+    failedStage?: string;
+  }>;
+  planAssessmentStatus: 'completed' | 'failed' | 'not_started';
+  nextCommand?: string;
+};
+```
+
+#### 21.19.4 Assessment 当前性
+
+1. 单卡保存后，旧 Assessment 继续属于其原 Question Revision，不删除也不改写；
+2. 旧 Assessment 不代表当前 Working Task Content，任务卡应显示“当前修改尚未检查”；
+3. 整组提交创建新 Question Revision 后，旧 Assessment 才正式进入 `stale_by_revision`；
+4. 任一 Working Task Content 发生覆盖关系、能力或角色变化时，任务组覆盖检查立即进入 `stale_by_working_change`；
+5. 未修改任务的单题 Assessment 和 Human Review 不得因同组其他任务变化而被清空。
+
+#### 21.19.5 交互状态与验收
+
+“保存当前任务”只在人工编辑校准状态出现，并至少支持 `未保存`、`正在保存`、`工作进度已保存` 和 `保存失败` 四种状态。离开存在未保存内容的任务时，必须提供“保存后切换”“放弃修改”“取消”，不得静默丢失修改，也不得自动创建 Revision。
+
+最低验收标准：
+
+1. 单卡保存并刷新后可以恢复相同内容；
+2. 同一任务连续保存多次不会新增 Question Revision；
+3. 提交当前任务或提交全部已保存修改都只为真实变化的任务各新增一个 Question Revision；
+4. Task Group Submission 引用本次提交中全部任务的确定 Revision；
+5. 其他任务内容、单题 Assessment 和 Human Review 不受无关单题保存影响；
+6. 保存或提交失败时输入内容不丢失，重试不产生重复 Revision；
+7. 基础 Revision 冲突时阻断覆盖，并提供查看差异、放弃本地修改或基于最新版本继续修改的恢复路径；
+8. 已发布任务的工作修改不得覆盖现有 Formal Version，只有新 Revision 完成检查、最终确认和发布后才能形成新正式版本。
+
+#### 21.19.6 P0 工程落地记录（2026-08-04）
+
+P0 已完成 Working Task Content 的独立数据边界，不包含任务卡交互接线和整组提交编排：
+
+1. 新增独立 IndexedDB 工作区，以 `trainingTaskId` 为唯一键覆盖保存，刷新后可恢复；
+2. 工作内容保存前校验 `baseDraftId`、`baseRevision` 与任务身份，基础版本变化时返回明确冲突，不自动覆盖；
+3. `contentHash` 只包含规范化可编辑字段，忽略换行、行尾空格、标签顺序和重复标签等无意义差异；
+4. 保存命令只调用 Working Task Content Repository，正式资源 Repository 仅用于读取基础 Draft，不写入 Question Revision、Assessment、Human Review、Formal Version 或 Registry；
+5. P0 专项 Debug 覆盖反复保存、任务隔离、内容哈希、刷新恢复、Revision 冲突和防御性拷贝，共 `8 / 8 PASS`；
+6. 原 Question Resource Admission 回归保持 `28 / 28 PASS`，生产构建通过；
+7. P1 已完成单卡保存、刷新恢复、离开保护与冲突恢复接线；P2 已提供“提交当前任务并检查”和“提交全部已保存修改”，两者复用 `commitTaskGroupChanges`；
+8. P2 编排以 `idempotencyKey` 恢复部分失败阶段：成功任务不得重复升版，Revision 创建失败的任务保留 Working Task Content，整组检查必须等待所有请求任务完成 Revision 创建后再执行。
