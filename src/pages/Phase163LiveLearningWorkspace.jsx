@@ -12,6 +12,7 @@ import {
 } from '../api/phase163DiagnosisBoundary.ts';
 import { requestStudentWritingCorrections } from '../api/studentWritingCorrections.ts';
 import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
+import ReadingMaterialText from '../components/continuous-learning/ReadingMaterialText.jsx';
 import {
   shouldRenderThinkingReview,
   shouldStageFeedbackPresentation,
@@ -249,9 +250,9 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
                 <BookOpen size={20} className="text-slate-500" />
                 阅读材料
               </h1>
-              <div className="mt-6 border-t border-slate-200 pt-7 text-base leading-8 text-slate-800">
+              <ReadingMaterialText className="mt-6 border-t border-slate-200 pt-7 text-base leading-8 text-slate-800">
                 {state.task.readingText || '本题不需要额外阅读材料。'}
-              </div>
+              </ReadingMaterialText>
             </div>
           </section>
 

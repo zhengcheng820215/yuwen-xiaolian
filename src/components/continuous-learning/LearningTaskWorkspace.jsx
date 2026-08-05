@@ -1,5 +1,6 @@
 import { ArrowRight, BookOpen, RefreshCw, Save } from 'lucide-react';
 import { StudentFeedbackPanel } from './StudentFeedbackPanel.jsx';
+import ReadingMaterialText from './ReadingMaterialText.jsx';
 
 export default function LearningTaskWorkspace({
   state,
@@ -21,7 +22,9 @@ export default function LearningTaskWorkspace({
             <BookOpen size={18} className="text-slate-500" />
             <h2 className="text-lg font-semibold leading-7 text-slate-950">阅读材料</h2>
           </div>
-          <p className="mt-5 whitespace-pre-wrap text-base leading-7 text-slate-800">{entry?.readingText}</p>
+          <ReadingMaterialText className="mt-5 text-base leading-7 text-slate-800">
+            {entry?.readingText}
+          </ReadingMaterialText>
         </div>
         </section>
 
