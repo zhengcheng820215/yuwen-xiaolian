@@ -2,9 +2,12 @@
 
 英文名称：AI Resource Generation and Optimization Workflow Contract
 
-状态：DESIGN PROPOSED / PRODUCT ALIGNMENT PENDING  
+状态：DESIGN FROZEN / P0 ACCEPTED
 契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1`  
 更新日期：2026-08-05
+
+产品确认日期：2026-08-05
+产品确认结论：同意以不可变 `QuestionCandidate` 作为 AI 生成、重新生成、优化和异常纠错的统一承载对象；只有采用 Candidate 才进入 Question Revision、检查、确认和发布链。P1 只建设 Candidate 基础能力，不删除现有 Working Draft，不接入正式 Revision 创建，不改动已发布资源读取链路。
 
 ## 一、目的
 
@@ -551,4 +554,3 @@ Adopt Candidate
 > 系统不提供标准化字段级人工编辑生产流程。训练资源由 AI 生成不可变候选，人通过结构化反馈指导优化，并通过采用决定候选是否进入正式版本链。只有采用候选后，系统才创建 Question Revision，并进入检查、确认和发布流程。
 >
 > 系统保留权限受控、强审计的异常纠错入口，用于处理 AI 无法可靠修正的特殊内容问题。任何异常纠错都必须创建新的 Candidate 或 Question Revision，不得覆盖历史 Candidate、Revision 或 Formal Resource。
-
