@@ -70,6 +70,7 @@
     "debug:phase15-integration": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase15IntegrationDebug.ts",
     "debug:question-resource-intake": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionResourceAdmissionDebug.ts",
     "debug:working-task-content": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runWorkingTaskContentDebug.ts",
+    "debug:question-candidate-workflow": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionCandidateWorkflowDebug.ts",
     "debug:task-group-submission": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runTaskGroupSubmissionDebug.ts",
     "debug:core-resource-eligibility": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runCoreResourceEligibilityDebug.ts",
     "debug:resource-match-quality": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runResourceMatchQualityDebug.ts",

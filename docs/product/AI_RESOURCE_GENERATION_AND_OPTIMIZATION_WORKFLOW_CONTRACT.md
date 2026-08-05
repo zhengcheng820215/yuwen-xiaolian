@@ -2,7 +2,7 @@
 
 英文名称：AI Resource Generation and Optimization Workflow Contract
 
-状态：DESIGN FROZEN / P0 ACCEPTED
+状态：DESIGN FROZEN / P0 ACCEPTED / P1 ENGINEERING COMPLETE
 契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1`  
 更新日期：2026-08-05
 
@@ -498,6 +498,30 @@ type TaskProductionState =
 ### P1：Candidate 基础能力
 
 新增 Candidate Schema、Repository、状态 Resolver、四条 Command，以及幂等、过期和冲突测试。P1 不删除现有 Working Draft 链路。
+
+#### P1 工程落地记录（2026-08-05）
+
+P1 已完成以下基础能力：
+
+1. 建立不可变 `QuestionCandidate` Schema，区分初始生成、重新生成、优化和异常纠错候选；
+2. 建立内存与 IndexedDB Repository，Candidate 内容只允许首次写入，后续仅能通过显式状态迁移更新生命周期；
+3. 建立 Candidate 与正式生产状态分离的统一 Resolver；
+4. 实现 `generateTaskCandidates`、`regenerateTaskCandidates`、`optimizeTaskCandidate`、`adoptTaskCandidate` 四条独立 Command；
+5. Command 使用请求指纹和幂等回执，重复请求不重复生成、采用或写入决策事件；
+6. Candidate 保存模型、Prompt、规则、素材、观察计划和训练任务版本上下文；上下文变化后旧 Candidate 进入过期冲突，不得静默采用；
+7. AI 优化执行 `allowedFields / lockedFields` 校验，禁止未授权字段变化；
+8. Adopt 通过注入式 Gateway 保留正式链边界；P1 只验证采用语义，不在本阶段直接接入正式 Question Revision 创建；
+9. 部分生成结果不得登记为完整成功，重新生成重试不得产生重复决策事件。
+
+P1 Debug 结果：
+
+- `debug:question-candidate-workflow`：10 / 10 PASS；
+- `debug:working-task-content`：13 / 13 PASS；
+- `debug:task-group-submission`：PASS；
+- `debug:task-production-state`：PASS；
+- `npm run build`：PASS。
+
+P1 完成不代表旧链退役。Working Draft、单任务保存、现有 Revision、Assessment、Human Review、Publication 和学习入口读取逻辑继续保持原状；页面双轨、正式 Revision 接入和旧链收口必须分别经过后续阶段验收。
 
 ### P2：Agent 与字段锁定
 
