@@ -2,9 +2,9 @@
 
 英文名称：Formal Resource Production Contract Map
 
-状态：ACTIVE CONTRACT INDEX / SINGLE-PAGE P0-P2 ENGINEERING COMPLETE / ACCEPTANCE RECORDED
-文档版本：`formal_resource_production_contract_map_v3.1`
-更新日期：2026-08-04
+状态：ACTIVE CONTRACT INDEX / AI CANDIDATE P0-P6 COMPLETE / ACCEPTANCE RECORDED
+文档版本：`formal_resource_production_contract_map_v3.2`
+更新日期：2026-08-05
 
 ## 一、目标与权威边界
 
@@ -14,7 +14,7 @@
 
 当本文摘要与正式契约不一致时，以对应职责范围内的正式契约为准，并同步修正本文。
 
-统一资源生产工作台是单人模式的目标态唯一可写生产与发布入口。目标态中，素材录入、AI 规划、任务编辑、内联质量检查、人工发布决定和失败恢复在同一页面完成；旧题目工作台只承担安全适配与只读审计。页面只提供一次明确的“发布任务”，底层仍分别保存 Revision、Validation / Assessment、Human Review、Freeze、Formal Version 和 Registry 结果。
+统一资源生产工作台是单人模式的目标态唯一可写生产与发布入口。目标态中，素材录入、AI 规划、不可变 Candidate 生成与采用、内联质量检查、人工发布决定和失败恢复在同一页面完成；旧题目工作台只承担安全适配与只读审计。页面只提供一次明确的“发布任务”，底层仍分别保存 Revision、Validation / Assessment、Human Review、Freeze、Formal Version 和 Registry 结果。
 
 P0-P7 既有对象关系、命令边界、任务卡主链路、按任务部分发布和端到端 Debug 已完成验收。单页发布收口已按 P0-P2 完成工程实现、专项回归与浏览器验收；完成结论以统一工作台契约和专项验收记录为准，而不是仅沿用历史 P0-P7 结论。
 
@@ -26,6 +26,7 @@ P0-P7 既有对象关系、命令边界、任务卡主链路、按任务部分�
 | --- | --- | --- |
 | 领域对象与写入边界 | 已冻结 | Revision、Assessment、Human Review、Freeze、Formal Version 和 Registry 的身份与写入边界继续有效 |
 | 历史 P0-P7 基线 | 已验收 | 证明对象关系、命令边界、部分发布和端到端主链已经通过回归 |
+| AI Candidate 生产边界 | 已完成 | Candidate 是正式生产的唯一前置入口，采用后才创建 Question Revision；旧 Working Content 仅保留只读迁移能力 |
 | 单页生产与发布目标 | 已冻结 | 当前产品与设计实现以统一工作台和单任务“发布任务”为唯一主链 |
 | 单页发布 P0-P2 工程实现 | 已完成 | 统一状态、任务卡动作和单页发布链已落地并通过专项回归 |
 | 工程与浏览器验收 | 已记录 | P0-P7 聚合套件、生产构建及 P2 浏览器证据均已归档 |
@@ -39,6 +40,8 @@ P0-P7 既有对象关系、命令边界、任务卡主链路、按任务部分�
 Material Version
 -> Observation Plan Revision
 -> Training Task
+-> Question Candidate
+-> Adopt Decision
 -> Question Lineage
 -> Question Draft Revision
 -> Contract Validation / Quality Assessment
@@ -53,6 +56,8 @@ Material Version
 | Material Version | 保存可追溯的素材内容与来源版本 |
 | Observation Plan Revision | 冻结一次训练任务规划的提交版本 |
 | Training Task | 描述学生需要完成的学习动作与观察目标 |
+| Question Candidate | 承载 AI 生成、重新生成、优化或异常纠错形成的不可变候选，不进入正式资源链 |
+| Adopt Decision | 记录人工采用决定，是 Candidate 创建 Question Lineage 或后继 Question Draft Revision 的唯一边界 |
 | Question Lineage | 维持一项训练任务对应题目从活动草稿到多个正式版本的稳定身份 |
 | Question Draft Revision | 承载可编辑、可校验、可送审的题目草稿 |
 | Contract Validation | 判断草稿结构是否合法，失败时阻断送审 |
@@ -64,18 +69,22 @@ Material Version
 
 ## 三、AI 候选支线
 
-AI 生成内容在被人工采用前不属于正式资源主链。
+AI 生成内容在被人工采用前不属于正式资源主链。Candidate 不进入编辑缓冲区或可变工作草稿；标准流程不提供字段级人工编辑。
 
 ```text
-AI Candidate Session
--> 人工采用候选
--> 编辑缓冲区
--> 保存工作草稿
--> 提交并冻结 Observation Plan Revision
--> 进入正式资源生产主链
+Material Version + Observation Plan Revision + Training Task
+-> AI 生成不可变 Question Candidate
+-> 人工判断
+   -> 重新生成 Candidate
+   -> 结构化优化 Candidate
+   -> 权限受控异常纠错 Candidate
+   -> 采用 Candidate
+-> Question Lineage
+-> Question Draft Revision
+-> Validation / Assessment / Human Review / Freeze / Publication
 ```
 
-候选、编辑缓冲区和工作草稿必须与已提交版本区分。预览、生成候选或在页面中展开内容，均不能被解释为已经保存、审核或正式化。
+预览、生成、重新生成或优化 Candidate 均不能被解释为已经创建 Revision、完成审核或正式化。只有显式采用 Candidate 才允许进入 Question Revision；未采用 Candidate 不得进入 Validation、Assessment、Human Review、Freeze、Formal Resource 或 Registry。
 
 ## 四、契约关系
 
@@ -84,6 +93,7 @@ AI Candidate Session
 | [录入字段契约](./AUTHORING_FIELD_CONTRACT.md) | 字段由谁生成、谁编辑、如何保存、何时失效，以及字段如何跨阶段适配 | AI 候选组操作和审核发布状态流 |
 | [单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) | 单个候选任务重新生成、采用、身份和版本边界 | 整组任务规划和正式题目发布 |
 | [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) | 补充候选、整组替代方案、工作草稿和批量采用边界 | 单题审核与 Frozen Resource 状态 |
+| [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md) | Question Candidate 的身份、不可变规则、生成、优化、采用、异常纠错及旧 Working Content 退出边界 | 上游训练任务组规划和采用后的审核发布状态流 |
 | [统一资源生产工作台契约](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md) | TrainingTask 与 QuestionLineage 关系、统一任务状态、任务卡主操作、部分发布和分阶段迁移 | 不替代字段、Assessment、Human Review、Freeze 与 Registry 的领域契约 |
 | [录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md) | 编辑与检查、人工发布决定、正式化三类领域职责；这些职责不等于三个页面 | 每个页面字段和按钮的详细实现 |
 | [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md) | 任务卡内检查、人工发布决定、冻结、发布、部分失败与恢复的具体工作流 | 上游 AI 候选生成与任务组规划 |
@@ -95,15 +105,17 @@ AI Candidate Session
 
 1. 本文；
 2. [统一资源生产工作台契约](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md)；
-3. [录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md)；
-4. [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md)。
+3. [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md)；
+4. [录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md)；
+5. [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md)。
 
 ### 5.2 开发统一工作台与任务卡状态
 
 1. [统一资源生产工作台契约](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md)；
-2. [录入字段契约](./AUTHORING_FIELD_CONTRACT.md)；
-3. [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md)；
-4. [产品颜色语义规范](./PRODUCT_COLOR_SEMANTICS.md)。
+2. [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md)；
+3. [录入字段契约](./AUTHORING_FIELD_CONTRACT.md)；
+4. [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md)；
+5. [产品颜色语义规范](./PRODUCT_COLOR_SEMANTICS.md)。
 
 ### 5.3 开发录入字段与保存能力
 
@@ -113,9 +125,10 @@ AI Candidate Session
 
 ### 5.4 开发 AI 候选与重新生成能力
 
-1. [单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md)；
-2. [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md)；
-3. [录入字段契约](./AUTHORING_FIELD_CONTRACT.md)。
+1. [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md)；
+2. [单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md)；
+3. [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md)；
+4. [录入字段契约](./AUTHORING_FIELD_CONTRACT.md)。
 
 ### 5.5 开发人工发布决定、冻结与恢复能力
 
@@ -145,6 +158,7 @@ P0-P7 最终串联验收已于 2026-08-03 完成，统一命令为 `pnpm run deb
 | 字段含义、来源、编辑权、保存和失效冲突 | [AUTHORING_FIELD_CONTRACT.md](./AUTHORING_FIELD_CONTRACT.md) |
 | 单个训练任务候选、身份或 Revision 冲突 | [SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) |
 | 补充候选、整组规划或工作草稿冲突 | [TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) |
+| Question Candidate 身份、不可变性、生成、优化、采用、异常纠错或旧 Working Content 退出冲突 | [AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md) |
 | 统一入口、任务卡主状态、任务组汇总、部分发布或迁移顺序冲突 | [UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md) |
 | 编辑与检查、人工发布决定、正式化职责冲突 | [AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md) |
 | Revision 绑定、内联检查、Human Review、冻结、发布或恢复冲突 | [QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md) |
@@ -183,7 +197,7 @@ P0-P7 最终串联验收已于 2026-08-03 完成，统一命令为 `pnpm run deb
 
 ## 十、当前结论
 
-正式资源生产已经形成从素材版本、训练任务规划、题目草稿、内联质量检查、人工发布决定到冻结发布和学习读取的可追溯主链。单人模式的现行体验目标是一个页面、一次发布决定，不暴露常驻版本选择，也不重复进入审核或最终确认页面。Revision、Assessment、Human Review、Freeze 与 Registry 仍作为底层正式对象保留。
+正式资源生产已经形成从素材版本、训练任务规划、不可变 Question Candidate、人工采用、题目 Revision、内联质量检查、人工发布决定到冻结发布和学习读取的可追溯主链。单人模式的现行体验目标是一个页面、一次发布决定，不暴露常驻版本选择，也不重复进入审核或最终确认页面。Candidate 不进入正式资源链；Revision、Assessment、Human Review、Freeze 与 Registry 仍作为底层正式对象保留。
 
 历史 P0-P7 已完成最终聚合自动化、浏览器、失败恢复、学习入口、静态检查和生产构建验收；单页发布 P0-P2 工程实现、专项回归与浏览器验收也已完成。十素材校准、单任务完整采用发布验收和 Bundle 性能优化属于独立后续项，不影响主链的 Engineering Complete。多人独立审核模式仍是后续独立决策。
 

@@ -197,7 +197,6 @@ export default function MaterialResourceProductionWorkbench() {
   const [taskBatchPublicationOperation, setTaskBatchPublicationOperation] = useState(null);
   const [taskBatchPublicationResult, setTaskBatchPublicationResult] = useState(null);
   const [taskWorkflowFeedback, setTaskWorkflowFeedback] = useState({});
-  const [taskWarningRationales, setTaskWarningRationales] = useState({});
   const [taskReviewNotes, setTaskReviewNotes] = useState({});
   const [generatorPreferences, setGeneratorPreferences] = useState({
     gradeRange: '初中',
@@ -381,9 +380,7 @@ export default function MaterialResourceProductionWorkbench() {
     const lifecycles = [...taskQuestionLifecycleById.values()];
     const summary = resolveTaskGroupSummary(lifecycles.map((item) => item.productionView));
     return {
-      actionRequired: summary.actionRequired,
-      pendingReview: summary.pendingConfirmation,
-      approvedPendingPublication: summary.confirmedAwaitingPublication,
+      pendingPublication: summary.total - summary.published,
       published: summary.published,
     };
   }, [taskQuestionLifecycleById]);
@@ -455,7 +452,6 @@ export default function MaterialResourceProductionWorkbench() {
     setTaskBatchPublicationOperation(null);
     setTaskBatchPublicationResult(null);
     setTaskWorkflowFeedback({});
-    setTaskWarningRationales({});
     setTaskReviewNotes({});
   }, [selectedMaterialId, selectedPlan?.materialObservationPlanId]);
 
@@ -909,26 +905,10 @@ export default function MaterialResourceProductionWorkbench() {
           });
         } else if (actionKind === 'open_confirmation' && draft) {
           const warnings = readiness?.qualityAssessment?.warnings || [];
-          const existingAcknowledgements = new Map(
-            (draft.warningAcknowledgements || []).map((record) => [record.warningCode, record.rationale]),
-          );
-          const rationales = taskWarningRationales[draft.draftId] || {};
           const warningAcknowledgements = warnings.map((warning) => ({
             warningCode: warning.code,
-            rationale: (rationales[warning.code] || existingAcknowledgements.get(warning.code) || '').trim(),
+            rationale: '已查看质量提醒，确认保留当前版本并继续发布。',
           }));
-          if (warningAcknowledgements.some((record) => !record.rationale)) {
-            setTaskWorkflowFeedback((current) => ({
-              ...current,
-              [observationTaskPlanId]: { type: 'warning', message: '请填写质量提醒的保留理由，再继续发布。' },
-            }));
-            window.requestAnimationFrame(() => {
-              const taskCard = document.querySelector(`[data-task-editor="${lifecycle.task?.localId || ''}"]`);
-              taskCard?.setAttribute('open', '');
-              taskCard?.querySelector('[data-task-production-workflow]')?.scrollIntoView({ block: 'nearest' });
-            });
-            return;
-          }
           await executeSubmitFinalConfirmationCommand({
             draftId: draft.draftId,
             expectedDraftRevision: draft.revision,
@@ -2020,21 +2000,12 @@ export default function MaterialResourceProductionWorkbench() {
                 </h2>
               </div>
               <div
-                className="grid w-full grid-cols-4 sm:w-auto"
-                aria-label={`${selectedMaterial.title}的题目状态`}
+                className="grid w-full grid-cols-2 sm:w-auto"
+                aria-label={`${selectedMaterial.title}当前版本的发布状态`}
               >
                 <Metric
-                  label="待处理"
-                  value={taskQuestionLifecycleSummary.actionRequired}
-                />
-                <Metric
-                  label="待最终确认"
-                  value={taskQuestionLifecycleSummary.pendingReview}
-                  tone="warning"
-                />
-                <Metric
-                  label="已确认（待发布）"
-                  value={taskQuestionLifecycleSummary.approvedPendingPublication}
+                  label="待发布"
+                  value={taskQuestionLifecycleSummary.pendingPublication}
                   tone="info"
                 />
                 <Metric
@@ -2197,9 +2168,13 @@ export default function MaterialResourceProductionWorkbench() {
                 );
                 const taskCardPresentation = questionLifecycle?.cardPresentation;
                 const taskProductionAction = taskCardPresentation?.primaryAction;
+                const pendingQualityWarnings = taskProductionAction?.kind === 'open_confirmation'
+                  ? questionLifecycle?.readiness?.qualityAssessment?.warnings || []
+                  : [];
                 const showTaskProductionAction = Boolean(
                   taskProductionAction?.label
-                  && taskProductionAction.kind !== 'view_formal_resource',
+                  && taskProductionAction.kind !== 'view_formal_resource'
+                  && pendingQualityWarnings.length === 0
                 );
                 const workflowTargetId = task.observationTaskPlanId || task.localId;
                 const workingTaskId = taskWorkingIdentity(task);
@@ -2243,7 +2218,7 @@ export default function MaterialResourceProductionWorkbench() {
                   data-task-production-state={questionLifecycle?.productionView?.state || 'unknown'}
                   data-task-production-action={taskProductionAction?.kind || 'none'}
                   key={task.localId}
-                  open={issues.length > 0 || task.editorDirty ? true : undefined}
+                  open={issues.length > 0 || task.editorDirty || pendingQualityWarnings.length > 0 ? true : undefined}
                   className="group rounded-md border border-slate-200 bg-white p-4 transition-colors open:border-blue-300 sm:p-5"
                 >
                   <summary className="flex cursor-pointer list-none items-start justify-between gap-4">
@@ -2359,15 +2334,9 @@ export default function MaterialResourceProductionWorkbench() {
                   {questionLifecycle?.draft && (
                     <TaskProductionWorkflowPanel
                       lifecycle={questionLifecycle}
-                      rationales={taskWarningRationales[questionLifecycle.draft.draftId] || {}}
                       reviewNotes={taskReviewNotes[questionLifecycle.draft.draftId] || ''}
-                      onRationaleChange={(warningCode, value) => setTaskWarningRationales((current) => ({
-                        ...current,
-                        [questionLifecycle.draft.draftId]: {
-                          ...(current[questionLifecycle.draft.draftId] || {}),
-                          [warningCode]: value,
-                        },
-                      }))}
+                      busy={workflowBusy || taskCandidateProjection.busy}
+                      onAcceptWarningsAndPublish={() => void runTaskWorkflowAction(questionLifecycle)}
                       onReviewNotesChange={(value) => setTaskReviewNotes((current) => ({
                         ...current,
                         [questionLifecycle.draft.draftId]: value,
@@ -2376,6 +2345,7 @@ export default function MaterialResourceProductionWorkbench() {
                   )}
                   <TaskCandidateDecisionPanel
                       projection={taskCandidateProjection}
+                      hasExistingRevision={Boolean(questionLifecycle?.draft)}
                       selectedCandidateId={taskCandidateProjection.selectedCandidateId}
                       optimizationGoals={taskCandidateOptimizationGoals[workingTaskId] || []}
                       optimizationOpen={Boolean(taskCandidatePanel.optimizationOpen)}
@@ -3032,6 +3002,7 @@ function resolveTaskLifecycleFromSnapshot(nextSnapshot, sourceLifecycle, planId)
 
 function TaskCandidateDecisionPanel({
   projection,
+  hasExistingRevision,
   selectedCandidateId,
   optimizationGoals,
   optimizationOpen,
@@ -3140,14 +3111,16 @@ function TaskCandidateDecisionPanel({
           <p className="text-sm text-slate-600">
             {projection.candidateState.state === 'candidate_expired'
               ? '已有候选与当前素材或任务版本不一致，请重新生成。'
-              : '当前任务还没有可供判断的 AI 候选。'}
+              : hasExistingRevision
+                ? '当前任务使用既有题目版本。如需调整，可生成新的 AI 候选方案。'
+                : '当前任务还没有可供判断的 AI 候选。'}
           </p>
           <button
             type="button"
             onClick={onGenerate}
             className="ai-button-solid inline-flex h-10 min-w-48 items-center justify-center rounded-md border px-4 text-sm font-semibold"
           >
-            生成候选方案
+            生成优化候选
           </button>
         </div>
       )}
@@ -3388,9 +3361,9 @@ function CandidateContentPreview({ candidate }) {
 
 function TaskProductionWorkflowPanel({
   lifecycle,
-  rationales,
   reviewNotes,
-  onRationaleChange,
+  busy,
+  onAcceptWarningsAndPublish,
   onReviewNotesChange,
 }) {
   const { draft, readiness } = lifecycle;
@@ -3401,24 +3374,24 @@ function TaskProductionWorkflowPanel({
     <div data-task-production-workflow className="mt-4 border-t border-slate-200 pt-4">
       {actionKind === 'open_confirmation' && warnings.length > 0 && (
         <div className="space-y-3">
-          <p className="text-sm font-medium text-slate-800">提交前请确认质量提醒</p>
-          {warnings.map((warning) => {
-            const existing = (draft.warningAcknowledgements || []).find(
-              (record) => record.warningCode === warning.code,
-            );
-            return (
-              <label key={warning.code} className="block text-sm text-slate-700">
-                <span className="block font-medium text-amber-800">{warning.message}</span>
-                <textarea
-                  value={rationales[warning.code] ?? existing?.rationale ?? ''}
-                  onChange={(event) => onRationaleChange(warning.code, event.target.value)}
-                  placeholder="说明保留当前设置的理由"
-                  rows={2}
-                  className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-600 focus:outline-none focus:shadow-[0_0_0_2px_rgba(37,99,235,0.3)]"
-                />
-              </label>
-            );
-          })}
+          <p className="text-sm font-semibold text-slate-900">质量提醒</p>
+          <ul className="space-y-2">
+            {warnings.map((warning) => (
+              <li key={warning.code} className="text-sm font-medium text-amber-800">
+                {warning.message}
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap justify-end gap-2 pt-1">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onAcceptWarningsAndPublish}
+              className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+            >
+              接受提醒并发布
+            </button>
+          </div>
         </div>
       )}
       {actionKind === 'confirm' && (

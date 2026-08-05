@@ -34,6 +34,7 @@ AI 提出不可变候选
 
 本文不替代以下既有契约：
 
+- [正式资源生产契约地图](./FORMAL_RESOURCE_PRODUCTION_CONTRACT_MAP.md)；
 - [统一资源生产工作台契约](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md)；
 - [录入字段契约](./AUTHORING_FIELD_CONTRACT.md)；
 - [录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md)；
@@ -1276,6 +1277,7 @@ P6 工程完成表示“旧写流程不可达、历史数据仍可受控迁移�
 7. 旧人工校准相关颜色断言和折叠辅助函数已删除，颜色语义回归改为覆盖 AI 优化、生成优化候选和重新生成候选；
 8. 浏览器实页携带历史 `candidateWorkflow=legacy` 参数时仍只展示 Candidate 主流程，人工校准、旧批量提交和继续旧修改入口均未出现，控制台无运行错误；
 9. Vite 生产构建通过；现存 ESM 模块类型、动态导入和大 Chunk 提示为仓库既有非阻断告警。
+10. 单人工作台的质量提醒已移除自由文本保留理由；用户可生成唯一的优化候选入口，或通过“接受提醒并发布”写入绑定当前 Revision 与 Assessment 的结构化审计决定。历史 Revision 没有活动 Candidate 时明确说明其为既有题目版本，不再误报为 Candidate 缺失故障。
 
 P6 代码退出审计状态：`ready`。不同设备上的运行时存量仍可能返回 `migration_required` 或 `blocked`，必须按统一 Resolver 引导迁移或解决冲突。底层 Working Content Repository 作为只读迁移兼容层暂时保留，待存量审计持续为零后再执行物理删除。
 

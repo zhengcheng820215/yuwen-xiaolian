@@ -451,8 +451,9 @@ function resolveTaskProductionState(input: TaskProductionSource): TaskProduction
 ```ts
 type TaskGroupProductionSummary = {
   total: number;
-  editingOrCheckRequired: number;
-  readyToPublish: number;
+  actionRequired: number;
+  pendingConfirmation: number;
+  confirmedAwaitingPublication: number;
   published: number;
   aggregateState: 'empty' | 'in_progress' | 'ready' | 'partial' | 'published';
 };
@@ -462,18 +463,30 @@ function resolveTaskGroupSummary(
 ): TaskGroupProductionSummary;
 ```
 
+上述结构是 Resolver 的内部诊断结果，继续保留细粒度状态用于任务卡动作、Debug、失败恢复和审计。单人生产页面的顶部总览不得逐项暴露这些内部阶段，只投影为：
+
+```ts
+type TaskGroupPublicationSummary = {
+  pendingPublication: number;
+  published: number;
+};
+
+pendingPublication = total - published;
+```
+
+“已发布”表示当前活动 Revision 已存在匹配的正式资源；其余状态统一归入“待发布”。若同一任务已有历史正式版本，但当前活动 Revision 尚未发布，顶部仍计入“待发布”，历史正式版本只在任务详情中说明。
+
 ### 9.2 数量守恒
 
-总览采用互斥分类，必须满足：
+单人生产页面总览采用两项互斥分类，必须满足：
 
 ```text
-editingOrCheckRequired
-+ readyToPublish
+pendingPublication
 + published
 = total
 ```
 
-阻断、提醒、失败次数、重复修改次数属于附加指标，不参与主状态数量相加。
+需要优化、质量提醒、可以发布、正在发布与发布未完成属于任务卡内部处理状态，不增加顶部统计项。阻断、提醒、失败次数、重复修改次数属于附加指标，不参与主状态数量相加。
 
 ### 9.3 任务组状态
 
@@ -543,15 +556,17 @@ type BatchPublicationResult = {
 
 ### 11.1 单页发布与内联质量检查
 
-单人生产模式必须在同一工作台完成材料录入、任务生成、人工编辑、质量处理和正式发布，不得把当前任务再次导航到独立审核平台。
+单人生产模式必须在同一工作台完成材料录入、任务生成、AI Candidate 判断与采用、质量处理和正式发布，不得把当前任务再次导航到独立审核平台，也不得恢复字段级人工编辑器。
 
 任务卡内联展示质量结果：
 
 1. 通过项默认压缩为摘要；
-2. 黄色提醒显示原因、影响和“查看原因 / 修改 / 接受提醒”；
+2. 黄色提醒显示原因与影响，并提供“生成优化候选 / 接受提醒并发布”；
 3. 红色阻断直接定位对应字段，未解决前禁用发布；
 4. 任一正式字段修改后，旧 Assessment 与提醒接受记录立即失效并显示“需要重新检查”；
 5. 自动检查不形成 Human Review Decision；用户点击“发布任务”才形成绑定当前 Revision 的最终人工决定。
+
+非阻断提醒的接受记录仍必须绑定当前 Revision、Assessment 与规则版本，但单人标准流程不要求用户填写自由文本理由。应用层以明确的接受动作写入结构化决定和稳定审计说明；需要调整时统一进入 AI Candidate 生成、判断与采用流程。提醒区和 Candidate 空状态不得重复提供两个等价的生成入口。
 
 “发布任务”必须携带 `draftId`、`expectedRevisionId` 与 `assessmentBundleId`。后台当前 Revision 不一致时返回 `QUESTION_DRAFT_REVISION_CONFLICT`，页面提示“版本已变化，请刷新后继续”，不得发布隐式最新版本。
 

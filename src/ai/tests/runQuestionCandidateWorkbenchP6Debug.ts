@@ -26,6 +26,12 @@ const forbiddenPageTokens = [
   '人工编辑校准',
   '退出人工校准',
   '继续处理旧修改',
+  '提交前请确认质量提醒',
+  '请填写质量提醒的保留理由',
+  '说明保留当前设置的理由',
+  'label="待处理"',
+  'label="待最终确认"',
+  'label="已确认（待发布）"',
 ];
 
 async function main(): Promise<void> {
@@ -40,6 +46,12 @@ async function main(): Promise<void> {
     'discardCurrentTaskWorkingContent',
     '迁移为纠错候选',
     '放弃旧修改',
+    '接受提醒并发布',
+    '生成优化候选',
+    '已查看质量提醒，确认保留当前版本并继续发布。',
+    '当前任务使用既有题目版本',
+    'label="待发布"',
+    'pendingPublication: summary.total - summary.published',
   ]) {
     assert.equal(source.includes(token), true, `P6 canonical token is missing: ${token}`);
   }
