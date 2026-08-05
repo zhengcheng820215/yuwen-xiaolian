@@ -1,5 +1,7 @@
 # 统一资源生产工作台契约
 
+> 下一阶段拟议中的 AI Candidate 生产模型、采用语义和异常纠错边界，见 [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md)。该文档当前状态为 `DESIGN PROPOSED / PRODUCT ALIGNMENT PENDING`；在其完成工程验收前，本契约中的 Working Draft 与单任务保存能力继续作为现行稳定实现。
+
 英文名称：Unified Resource Production Workbench Contract
 
 状态：DESIGN FROZEN / P0-P7 BASELINE ACCEPTED / SINGLE-PAGE P0-P2 ENGINEERING COMPLETE / ACCEPTANCE RECORDED
