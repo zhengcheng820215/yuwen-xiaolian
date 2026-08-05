@@ -11,6 +11,7 @@ import { IndexedDBWorkingTaskContentRepository } from '../ai/repositories/indexe
 const workingRepository = new IndexedDBWorkingTaskContentRepository();
 const questionRepository = createBrowserQuestionResourceAdmissionRepository();
 
+/** @deprecated P6 compatibility only. New production UI must use immutable Candidates. */
 export async function saveQuestionTaskWorkingContent(input: SaveWorkingTaskContentInput) {
   return saveWorkingTaskContent(workingRepository, questionRepository, input);
 }
@@ -27,6 +28,7 @@ export async function getQuestionTaskWorkingContentConflictDetails(trainingTaskI
   );
 }
 
+/** @deprecated P6 compatibility only. Do not reconnect this to the production workbench. */
 export async function rebaseQuestionTaskWorkingContent(input: Parameters<typeof rebaseWorkingTaskContent>[2]) {
   return rebaseWorkingTaskContent(workingRepository, questionRepository, input);
 }

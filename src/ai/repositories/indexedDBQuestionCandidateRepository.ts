@@ -7,12 +7,15 @@ import {
   type QuestionCandidate,
   type QuestionCandidateStatus,
 } from '../schemas/questionCandidate.schema.ts';
+import type { ExceptionCorrectionRecord } from
+  '../schemas/questionCandidateCorrection.schema.ts';
 
 const DEFAULT_DB_NAME = 'yuwen_xiaolian_question_candidates';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const CANDIDATE_STORE = 'questionCandidates';
 const EVENT_STORE = 'candidateDecisionEvents';
 const RECEIPT_STORE = 'candidateCommandReceipts';
+const CORRECTION_STORE = 'exceptionCorrectionRecords';
 
 type StoredReceipt = CandidateCommandReceipt & { receiptId: string };
 
@@ -93,6 +96,30 @@ implements QuestionCandidateRepository {
       .sort((left, right) => right.decidedAt.localeCompare(left.decidedAt));
   }
 
+  async saveCorrectionRecord(
+    record: ExceptionCorrectionRecord,
+  ): Promise<ExceptionCorrectionRecord> {
+    const existing = await this.get<ExceptionCorrectionRecord>(
+      CORRECTION_STORE,
+      record.correctionId,
+    );
+    if (existing && JSON.stringify(existing) !== JSON.stringify(record)) {
+      throw new Error(`Exception correction record is immutable: ${record.correctionId}`);
+    }
+    if (!existing) await this.put(CORRECTION_STORE, cloneQuestionCandidate(record));
+    return cloneQuestionCandidate(record);
+  }
+
+  async getCorrectionRecord(correctionId: string): Promise<ExceptionCorrectionRecord | null> {
+    return this.get<ExceptionCorrectionRecord>(CORRECTION_STORE, correctionId);
+  }
+
+  async listCorrectionRecords(candidateId?: string): Promise<ExceptionCorrectionRecord[]> {
+    return (await this.getAll<ExceptionCorrectionRecord>(CORRECTION_STORE))
+      .filter((record) => !candidateId || record.candidateId === candidateId)
+      .sort((left, right) => right.correctedAt.localeCompare(left.correctedAt));
+  }
+
   async saveCommandReceipt(receipt: CandidateCommandReceipt): Promise<CandidateCommandReceipt> {
     const receiptId = receiptKey(receipt.command, receipt.idempotencyKey);
     const existing = await this.get<StoredReceipt>(RECEIPT_STORE, receiptId);
@@ -120,12 +147,13 @@ implements QuestionCandidateRepository {
   async clear(): Promise<void> {
     const db = await this.openDatabase();
     const transaction = db.transaction(
-      [CANDIDATE_STORE, EVENT_STORE, RECEIPT_STORE],
+      [CANDIDATE_STORE, EVENT_STORE, RECEIPT_STORE, CORRECTION_STORE],
       'readwrite',
     );
     transaction.objectStore(CANDIDATE_STORE).clear();
     transaction.objectStore(EVENT_STORE).clear();
     transaction.objectStore(RECEIPT_STORE).clear();
+    transaction.objectStore(CORRECTION_STORE).clear();
     await transactionToPromise(transaction);
     db.close();
   }
@@ -175,6 +203,9 @@ implements QuestionCandidateRepository {
         }
         if (!db.objectStoreNames.contains(RECEIPT_STORE)) {
           db.createObjectStore(RECEIPT_STORE, { keyPath: 'receiptId' });
+        }
+        if (!db.objectStoreNames.contains(CORRECTION_STORE)) {
+          db.createObjectStore(CORRECTION_STORE, { keyPath: 'correctionId' });
         }
       };
       request.onsuccess = () => {

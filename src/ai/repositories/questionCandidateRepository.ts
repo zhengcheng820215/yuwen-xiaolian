@@ -5,6 +5,8 @@ import type {
   QuestionCandidate,
   QuestionCandidateStatus,
 } from '../schemas/questionCandidate.schema.ts';
+import type { ExceptionCorrectionRecord } from
+  '../schemas/questionCandidateCorrection.schema.ts';
 
 export interface QuestionCandidateRepository {
   saveCandidate(candidate: QuestionCandidate): Promise<QuestionCandidate>;
@@ -18,6 +20,9 @@ export interface QuestionCandidateRepository {
   }): Promise<QuestionCandidate>;
   saveDecisionEvent(event: CandidateDecisionEvent): Promise<CandidateDecisionEvent>;
   listDecisionEvents(candidateId?: string): Promise<CandidateDecisionEvent[]>;
+  saveCorrectionRecord(record: ExceptionCorrectionRecord): Promise<ExceptionCorrectionRecord>;
+  getCorrectionRecord(correctionId: string): Promise<ExceptionCorrectionRecord | null>;
+  listCorrectionRecords(candidateId?: string): Promise<ExceptionCorrectionRecord[]>;
   saveCommandReceipt(receipt: CandidateCommandReceipt): Promise<CandidateCommandReceipt>;
   getCommandReceipt(
     command: CandidateCommandName,

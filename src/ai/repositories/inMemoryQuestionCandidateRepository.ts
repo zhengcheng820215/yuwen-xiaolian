@@ -7,11 +7,14 @@ import {
   type QuestionCandidate,
   type QuestionCandidateStatus,
 } from '../schemas/questionCandidate.schema.ts';
+import type { ExceptionCorrectionRecord } from
+  '../schemas/questionCandidateCorrection.schema.ts';
 
 export class InMemoryQuestionCandidateRepository
 implements QuestionCandidateRepository {
   private readonly candidates = new Map<string, QuestionCandidate>();
   private readonly events = new Map<string, CandidateDecisionEvent>();
+  private readonly correctionRecords = new Map<string, ExceptionCorrectionRecord>();
   private readonly receipts = new Map<string, CandidateCommandReceipt>();
 
   async saveCandidate(candidate: QuestionCandidate): Promise<QuestionCandidate> {
@@ -73,6 +76,29 @@ implements QuestionCandidateRepository {
       .map(cloneQuestionCandidate);
   }
 
+  async saveCorrectionRecord(
+    record: ExceptionCorrectionRecord,
+  ): Promise<ExceptionCorrectionRecord> {
+    const existing = this.correctionRecords.get(record.correctionId);
+    if (existing && JSON.stringify(existing) !== JSON.stringify(record)) {
+      throw new Error(`Exception correction record is immutable: ${record.correctionId}`);
+    }
+    this.correctionRecords.set(record.correctionId, cloneQuestionCandidate(record));
+    return cloneQuestionCandidate(record);
+  }
+
+  async getCorrectionRecord(correctionId: string): Promise<ExceptionCorrectionRecord | null> {
+    const record = this.correctionRecords.get(correctionId);
+    return record ? cloneQuestionCandidate(record) : null;
+  }
+
+  async listCorrectionRecords(candidateId?: string): Promise<ExceptionCorrectionRecord[]> {
+    return [...this.correctionRecords.values()]
+      .filter((record) => !candidateId || record.candidateId === candidateId)
+      .sort((left, right) => right.correctedAt.localeCompare(left.correctedAt))
+      .map(cloneQuestionCandidate);
+  }
+
   async saveCommandReceipt(receipt: CandidateCommandReceipt): Promise<CandidateCommandReceipt> {
     const key = receiptKey(receipt.command, receipt.idempotencyKey);
     const existing = this.receipts.get(key);
@@ -94,6 +120,7 @@ implements QuestionCandidateRepository {
   async clear(): Promise<void> {
     this.candidates.clear();
     this.events.clear();
+    this.correctionRecords.clear();
     this.receipts.clear();
   }
 }

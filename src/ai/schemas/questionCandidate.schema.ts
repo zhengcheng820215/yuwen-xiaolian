@@ -24,7 +24,20 @@ export type QuestionCandidateStatus =
 export type CandidateFieldKey = AuthoringFieldKey
   | 'answerAcceptance'
   | 'rubric'
-  | 'materialScope';
+  | 'materialScope'
+  | 'sourceAttribution';
+
+export const CANDIDATE_FIELD_KEYS: CandidateFieldKey[] = [
+  'abilityTarget',
+  'specificTrainingPoint',
+  'questionStem',
+  'studentTask',
+  'observationTarget',
+  'answerAcceptance',
+  'rubric',
+  'materialScope',
+  'sourceAttribution',
+];
 
 export type CandidateGenerationContext = {
   modelId: string;
@@ -78,6 +91,7 @@ export type CandidateDecisionEvent = {
   decision: CandidateDecision;
   reasonCodes: string[];
   note?: string;
+  relatedCandidateIds?: string[];
   decidedBy: string;
   decidedAt: string;
 };
@@ -95,7 +109,14 @@ export type CandidateCommandName =
   | 'generateTaskCandidates'
   | 'regenerateTaskCandidates'
   | 'optimizeTaskCandidate'
-  | 'adoptTaskCandidate';
+  | 'adoptTaskCandidate'
+  | 'correctTaskCandidate'
+  | 'migrateWorkingTaskContent';
+
+export type CandidateGenerationCommandName = Extract<
+  CandidateCommandName,
+  'generateTaskCandidates' | 'regenerateTaskCandidates' | 'optimizeTaskCandidate'
+>;
 
 export type CandidateCommandResult =
   | {
@@ -105,6 +126,17 @@ export type CandidateCommandResult =
   | {
     kind: 'candidate_adoption';
     adoption: CandidateAdoptionResult;
+  }
+  | {
+    kind: 'candidate_correction';
+    candidateId: string;
+    correctionId: string;
+  }
+  | {
+    kind: 'working_content_migration';
+    status: 'migrated' | 'no_changes' | 'requires_protected_resolution';
+    candidateId?: string;
+    correctionId?: string;
   };
 
 export type CandidateCommandReceipt = {
@@ -157,10 +189,13 @@ export function candidateContextMatches(
   candidate: QuestionCandidate,
   context: CandidateRuntimeContext,
 ): boolean {
+  const draftIdentityMatches = candidate.basedOnDraftId === undefined
+    ? context.activeDraftId === undefined
+    : candidate.basedOnDraftId === context.activeDraftId;
   return candidate.generationContext.materialVersionId === context.materialVersionId &&
     candidate.generationContext.observationPlanVersion === context.observationPlanVersion &&
     candidate.generationContext.trainingTaskVersion === context.trainingTaskVersion &&
-    (candidate.basedOnDraftId === undefined || candidate.basedOnDraftId === context.activeDraftId) &&
+    draftIdentityMatches &&
     (candidate.basedOnRevision === undefined ||
       candidate.basedOnRevision === context.activeDraftRevision) &&
     (candidate.basedOnContentHash === undefined ||
@@ -256,6 +291,8 @@ export function readCandidateField(
           tag.startsWith('observation_task:')
         )),
       };
+    case 'sourceAttribution':
+      return content.source;
   }
 }
 

@@ -1,23 +1,25 @@
 # 统一资源生产工作台契约
 
-> 下一阶段的 AI Candidate 生产模型、采用语义和异常纠错边界，见 [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md)。该文档已完成产品确认、P0 契约冻结和 P1 Candidate 基础能力建设；页面双轨、正式 Revision 接入和旧链退出尚未完成，因此本契约中的 Working Draft 与单任务保存能力继续作为现行稳定实现。
+> 现行 AI Candidate 生产模型、采用语义和异常纠错边界，以 [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md) 为准。该契约已完成 P0-P6 工程与 Debug 验收：Candidate 是唯一正式生产主链，历史 Working Content 仅作为只读迁移兼容数据。本文第 21.18、21.19 节保留为历史决策与迁移依据，不得据此恢复人工校准、单卡 Working Draft 保存或旧批量提交入口。
 
 英文名称：Unified Resource Production Workbench Contract
 
-状态：DESIGN FROZEN / P0-P7 BASELINE ACCEPTED / SINGLE-PAGE P0-P2 ENGINEERING COMPLETE / ACCEPTANCE RECORDED
-文档版本：`unified_resource_production_workbench_v1.3`
-更新日期：2026-08-04
+状态：DESIGN FROZEN / P0-P7 BASELINE ACCEPTED / AI CANDIDATE P0-P6 COMPLETE / ACCEPTANCE RECORDED
+文档版本：`unified_resource_production_workbench_v1.4`
+更新日期：2026-08-05
 
 ## 一、文档目标
 
-本文冻结素材录入、训练任务规划、题目修改、内联质量检查、一次人工发布确认与正式发布在统一工作台中的产品边界、对象关系、状态计算和迁移顺序。
+本文冻结素材录入、训练任务规划、AI Candidate 判断与采用、内联质量检查、一次人工发布确认与正式发布在统一工作台中的产品边界、对象关系、状态计算和迁移顺序。
 
 统一工作台的目标是让用户围绕同一组训练任务完成一条连续生产链：
 
 ```text
 素材录入
 -> AI 规划训练任务
--> 人工编辑校准
+-> AI 生成不可变 Candidate
+-> 人工判断、结构化优化或异常纠错
+-> 采用 Candidate 并创建 Question Revision
 -> 自动检查并在任务卡内反馈
 -> 人工点击“发布任务”
 -> 正式发布
@@ -2030,6 +2032,8 @@ P2 只收口任务卡读取与展示，不修改 Draft、Revision、Assessment�
 
 ### 21.18 任务卡二级信息顺序与展开状态契约（2026-08-04）
 
+> 历史实现记录：本节中的“人工编辑校准”展开规则已被 AI Candidate 工作流 P6 取代。现行页面不提供人工校准入口；二级信息的视觉顺序仍可复用，但展开状态必须由 Candidate 判断、优化、纠错和正式资源查看动作驱动。
+
 任务卡二级信息按用户操作频率固定为“调整任务属性 → 评分标准与答案示例 → 设计依据 → 正式资源”。正式资源未形成时不渲染占位区。
 
 1. 任务卡进入预览或完成刷新恢复时，四个二级区默认收起；
@@ -2041,6 +2045,8 @@ P2 只收口任务卡读取与展示，不修改 Draft、Revision、Assessment�
 7. 错误定位仍可按目标字段临时展开必要父级，但不得把其他无关二级区一并打开。
 
 ### 21.19 单任务工作进度保存与整组提交契约（2026-08-04）
+
+> 已被取代：本节记录 P0-P2 Working Task Content 方案及其验收证据，仅用于历史数据迁移与审计。AI Candidate 工作流 P6 完成后，正式页面不得创建或更新 Working Task Content，不得恢复“保存当前任务”“提交全部已保存修改”或人工字段编辑入口。存量 Working Content 只能迁移为纠错 Candidate、显式放弃或进入受保护冲突处理。
 
 单任务卡可以提供“保存当前任务”，但该动作唯一用于保存可恢复的工作进度，不得推进题目版本、最终确认或正式发布生命周期。任务与题目版本关系继续保持：
 

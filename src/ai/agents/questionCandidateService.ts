@@ -8,6 +8,7 @@ import {
   type CandidateCommandName,
   type CandidateCommandReceipt,
   type CandidateFieldKey,
+  type CandidateGenerationCommandName,
   type CandidateGenerationContext,
   type CandidateRuntimeContext,
   type QuestionCandidate,
@@ -58,6 +59,11 @@ export interface QuestionCandidateContextGateway {
 }
 
 export interface CandidateAdoptionGateway {
+  findAdoption?(input: {
+    candidate: QuestionCandidate;
+    expectedContext: CandidateRuntimeContext;
+    idempotencyKey: string;
+  }): Promise<CandidateAdoptionResult | null>;
   adoptCandidate(input: {
     candidate: QuestionCandidate;
     expectedContext: CandidateRuntimeContext;
@@ -181,7 +187,7 @@ export class QuestionCandidateService {
       input.baseCandidateId,
       input.trainingTaskId,
     );
-    return this.runGenerationCommand({
+    const candidates = await this.runGenerationCommand({
       command: 'optimizeTaskCandidate',
       operation: 'optimize',
       candidateType: 'optimized',
@@ -190,6 +196,8 @@ export class QuestionCandidateService {
       allowedFields,
       lockedFields,
     });
+    await this.ensureOptimizationDecision(baseCandidate, candidates, input);
+    return candidates;
   }
 
   async adoptTaskCandidate(
@@ -220,16 +228,37 @@ export class QuestionCandidateService {
     }
 
     const candidate = await this.requireCandidate(candidateId, trainingTaskId);
+    const expectedContentHash = requireText(input.expectedContentHash, 'expectedContentHash');
+    if (candidate.contentHash !== expectedContentHash) {
+      throw new QuestionCandidateConflictError(
+        'CANDIDATE_CONTENT_CONFLICT',
+        `Candidate ${candidateId} content changed before adoption.`,
+      );
+    }
+    const expectedContext = input.expectedContext
+      ? cloneQuestionCandidate(input.expectedContext)
+      : await this.contextGateway.getCurrentContext(trainingTaskId);
+    const recovered = await this.adoptionGateway.findAdoption?.({
+      candidate: cloneQuestionCandidate(candidate),
+      expectedContext,
+      idempotencyKey,
+    });
+    if (recovered) {
+      validateAdoptionResult(candidate, recovered);
+      await this.repository.saveCommandReceipt({
+        command: 'adoptTaskCandidate',
+        idempotencyKey,
+        requestFingerprint,
+        result: { kind: 'candidate_adoption', adoption: recovered },
+        createdAt: recovered.adoptedAt,
+      });
+      await this.reconcileAdoption(candidateId, input, recovered);
+      return cloneQuestionCandidate(recovered);
+    }
     if (candidate.status !== 'ready') {
       throw new QuestionCandidateConflictError(
         'CANDIDATE_NOT_ADOPTABLE',
         `Candidate ${candidateId} is ${candidate.status} and cannot be adopted.`,
-      );
-    }
-    if (candidate.contentHash !== requireText(input.expectedContentHash, 'expectedContentHash')) {
-      throw new QuestionCandidateConflictError(
-        'CANDIDATE_CONTENT_CONFLICT',
-        `Candidate ${candidateId} content changed before adoption.`,
       );
     }
     const context = await this.requireCurrentContext(
@@ -258,7 +287,7 @@ export class QuestionCandidateService {
   }
 
   private async runGenerationCommand(input: {
-    command: Exclude<CandidateCommandName, 'adoptTaskCandidate'>;
+    command: CandidateGenerationCommandName;
     operation: CandidateOperation;
     candidateType: QuestionCandidateType;
     input: GenerateTaskCandidatesInput & { baseCandidateId?: string };
@@ -336,6 +365,7 @@ export class QuestionCandidateService {
       lockedFields: [...input.lockedFields],
       idempotencyKey,
     });
+    await this.requireCurrentContext(trainingTaskId, context);
     if (generated.length !== count) {
       throw new Error(`Candidate generator returned ${generated.length}, expected ${count}.`);
     }
@@ -457,6 +487,27 @@ export class QuestionCandidateService {
     });
   }
 
+  private async ensureOptimizationDecision(
+    baseCandidate: QuestionCandidate,
+    candidates: QuestionCandidate[],
+    input: OptimizeTaskCandidateInput,
+  ): Promise<void> {
+    const eventId = `optimized:${input.idempotencyKey}`;
+    const existingEvents = await this.repository.listDecisionEvents(baseCandidate.candidateId);
+    if (existingEvents.some((event) => event.eventId === eventId)) return;
+    await this.repository.saveDecisionEvent({
+      eventId,
+      candidateId: baseCandidate.candidateId,
+      trainingTaskId: baseCandidate.trainingTaskId,
+      decision: 'optimized',
+      reasonCodes: normalizeTextList(input.reasonCodes || []),
+      note: normalizeTextList(input.goals).join(', '),
+      relatedCandidateIds: candidates.map((candidate) => candidate.candidateId),
+      decidedBy: 'system',
+      decidedAt: candidates[0]?.createdAt || this.now(),
+    });
+  }
+
   private async reconcileAdoption(
     candidateId: string,
     input: AdoptTaskCandidateInput,
@@ -518,7 +569,7 @@ export class QuestionCandidateService {
   }
 
   private async saveGenerationReceipt(
-    command: Exclude<CandidateCommandName, 'adoptTaskCandidate'>,
+    command: CandidateGenerationCommandName,
     idempotencyKey: string,
     requestFingerprint: string,
     candidates: QuestionCandidate[],
@@ -575,6 +626,26 @@ function validateOptimizedContent(
       `Optimization omitted changed fields from its summary: ${undeclaredChanges.join(', ')}.`,
     );
   }
+  const actualChangedFields = OPTIMIZABLE_FIELDS.filter((field) => candidateFieldChanged(
+    base,
+    generated.content,
+    field,
+  ));
+  if (actualChangedFields.length === 0) {
+    throw new QuestionCandidateConflictError(
+      'CANDIDATE_NO_EFFECTIVE_CHANGE',
+      'Optimization did not produce an effective content change.',
+    );
+  }
+  const declaredButUnchanged = generated.changedFields.filter((field) => (
+    !actualChangedFields.includes(field)
+  ));
+  if (declaredButUnchanged.length > 0) {
+    throw new QuestionCandidateConflictError(
+      'CANDIDATE_CHANGE_SUMMARY_MISMATCH',
+      `Optimization declared unchanged fields: ${declaredButUnchanged.join(', ')}.`,
+    );
+  }
 }
 
 function candidateTopLevelFields(field: CandidateFieldKey): Array<keyof QuestionEditableFields> {
@@ -587,6 +658,7 @@ function candidateTopLevelFields(field: CandidateFieldKey): Array<keyof Question
     case 'answerAcceptance': return ['answerAcceptance'];
     case 'rubric': return ['rubric'];
     case 'materialScope': return ['materialVersionId', 'tags'];
+    case 'sourceAttribution': return ['source'];
   }
 }
 
