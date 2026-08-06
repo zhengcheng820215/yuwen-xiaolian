@@ -1,5 +1,5 @@
 import { createServer, request as httpRequest, type Server } from 'node:http';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -42,6 +42,8 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: 'A10 Plan lifecycle transitions preserve the content revision', run: casePlanLifecycleTransition },
   { name: 'A11 concurrent mutations retry without data loss', run: caseConcurrentMutationsRetryWithoutDataLoss },
   { name: 'A12 warning acknowledgement submission preserves the content revision', run: caseWarningAcknowledgementSubmission },
+  { name: 'A13 missing primary store recovers the backup automatically', run: caseMissingPrimaryRecoversBackup },
+  { name: 'A14 corrupted primary store recovers the backup automatically', run: caseCorruptedPrimaryRecoversBackup },
 ];
 
 async function main(): Promise<void> {
@@ -119,6 +121,10 @@ async function caseAtomicFreeze(): Promise<void> {
       repositoryB.getRegistryEntry(frozen.version.resourceId),
     ]);
     assert(version?.sourceDraftId === draft.draftId, 'Frozen version is missing in Browser B.');
+    assert(
+      version.tags.includes('hint_policy:limited_hint'),
+      'Frozen version did not receive the required runtime hint policy.',
+    );
     assert(
       registry?.currentFrozenVersionId === frozen.version.resourceVersionId,
       'Registry head and frozen version were not committed together.',
@@ -402,6 +408,54 @@ async function caseFailedCommitRollback(): Promise<void> {
       restored.data.questionResources.materials[0].materialVersionId === 'material-before:v1',
       'Failed write changed the committed baseline.',
     );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
+async function caseMissingPrimaryRecoversBackup(): Promise<void> {
+  const directory = await mkdtemp(join(tmpdir(), 'phase174a-missing-primary-'));
+  const storePath = join(directory, 'formal-resources.json');
+  try {
+    const store = new SharedFormalResourceStore({ storePath });
+    const data = createEmptySharedFormalResourceData();
+    data.questionResources.materials.push(materialFixture('material-recovery:v1', 'recovery'));
+    const initialized = await store.initialize(data, 'automatic-backup-recovery');
+
+    await rm(storePath, { force: true });
+    const recovered = await store.read();
+
+    assert(recovered.revision === initialized.revision, 'Backup recovery changed the committed revision.');
+    assert(
+      recovered.data.questionResources.materials[0]?.materialVersionId === 'material-recovery:v1',
+      'Backup recovery did not restore the committed data.',
+    );
+    const restoredPrimary = JSON.parse(await readFile(storePath, 'utf8')) as { revision: number };
+    assert(restoredPrimary.revision === initialized.revision, 'Backup recovery did not restore the primary file.');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
+async function caseCorruptedPrimaryRecoversBackup(): Promise<void> {
+  const directory = await mkdtemp(join(tmpdir(), 'phase174a-corrupted-primary-'));
+  const storePath = join(directory, 'formal-resources.json');
+  try {
+    const store = new SharedFormalResourceStore({ storePath });
+    const data = createEmptySharedFormalResourceData();
+    data.questionResources.materials.push(materialFixture('material-corrupted:v1', 'corrupted'));
+    const initialized = await store.initialize(data, 'automatic-backup-recovery');
+
+    await writeFile(storePath, '{ invalid json', 'utf8');
+    const recovered = await store.read();
+
+    assert(recovered.revision === initialized.revision, 'Corruption recovery changed the committed revision.');
+    assert(
+      recovered.data.questionResources.materials[0]?.materialVersionId === 'material-corrupted:v1',
+      'Corruption recovery did not restore the committed data.',
+    );
+    const restoredPrimary = JSON.parse(await readFile(storePath, 'utf8')) as { revision: number };
+    assert(restoredPrimary.revision === initialized.revision, 'Corruption recovery left the primary file invalid.');
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

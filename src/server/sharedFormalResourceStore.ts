@@ -84,17 +84,27 @@ export class SharedFormalResourceStore {
 
   async read(): Promise<SharedFormalResourceSnapshot> {
     try {
-      const raw = await readFile(this.storePath, 'utf8');
-      const parsed = JSON.parse(raw) as unknown;
+      const parsed = await readSnapshotFile(this.storePath);
       if (isLegacySnapshot(parsed)) {
         const migrated = migrateLegacySnapshot(parsed, this.now());
         await this.commit(migrated, false);
         return cloneSharedFormalResourceValue(migrated);
       }
       return validateSnapshot(parsed);
-    } catch (error) {
-      if (isMissingFileError(error)) return createEmptySnapshot(this.now());
-      throw error;
+    } catch (primaryError) {
+      try {
+        const parsedBackup = await readSnapshotFile(this.backupPath);
+        const backup = isLegacySnapshot(parsedBackup)
+          ? migrateLegacySnapshot(parsedBackup, this.now())
+          : validateSnapshot(parsedBackup);
+        await this.commit(backup, true);
+        return cloneSharedFormalResourceValue(backup);
+      } catch (backupError) {
+        if (isMissingFileError(primaryError) && isMissingFileError(backupError)) {
+          return createEmptySnapshot(this.now());
+        }
+        throw unreadableStoreError(primaryError, backupError);
+      }
     }
   }
 
@@ -174,7 +184,6 @@ export class SharedFormalResourceStore {
     }
 
     try {
-      await rm(this.storePath, { force: true });
       await rename(temporaryPath, this.storePath);
     } catch (error) {
       await rm(temporaryPath, { force: true });
@@ -184,6 +193,20 @@ export class SharedFormalResourceStore {
       throw error;
     }
   }
+}
+
+async function readSnapshotFile(path: string): Promise<unknown> {
+  return JSON.parse(await readFile(path, 'utf8')) as unknown;
+}
+
+function unreadableStoreError(primaryError: unknown, backupError: unknown): Error {
+  return new Error(
+    `Shared formal resource store and backup are unreadable. Primary: ${errorMessage(primaryError)}; Backup: ${errorMessage(backupError)}`,
+  );
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function createEmptySnapshot(now: string): SharedFormalResourceSnapshot {

@@ -365,6 +365,29 @@ export function isQuestionResourceTaskRole(value: unknown): value is Recommended
   return typeof value === 'string' && QUESTION_RESOURCE_TASK_ROLES.includes(value as RecommendedTaskRole);
 }
 
+export function getExpectedHintPolicyTag(taskRole: RecommendedTaskRole): string {
+  return taskRole === 'retest'
+    ? 'hint_policy:no_hint'
+    : 'hint_policy:limited_hint';
+}
+
+export function normalizeQuestionRuntimePolicyTags(
+  tags: readonly string[],
+  taskRole: RecommendedTaskRole,
+): string[] {
+  const expectedTag = getExpectedHintPolicyTag(taskRole);
+  const conflictingTags = tags.filter(
+    (tag) => tag.startsWith('hint_policy:') && tag !== expectedTag,
+  );
+  if (conflictingTags.length > 0) {
+    throw new Error(
+      `Question hint policy conflicts with task role ${taskRole}: ${conflictingTags.join(', ')}`,
+    );
+  }
+  return [...new Set([...tags, expectedTag])]
+    .sort((left, right) => left.localeCompare(right));
+}
+
 export function isQuestionResourceDifficulty(value: unknown): value is QuestionResourceDifficulty {
   return typeof value === 'string' && QUESTION_RESOURCE_DIFFICULTIES.includes(value as QuestionResourceDifficulty);
 }

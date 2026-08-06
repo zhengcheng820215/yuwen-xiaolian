@@ -39,6 +39,8 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '07 reviewed draft remains unchanged and creates a successor', run: reviewedDraftCreatesSuccessor },
   { name: '08 unchanged and stale candidates cannot create revisions', run: conflictsDoNotCreateRevision },
   { name: '09 adopting projection exposes loading feedback', run: adoptingProjectionIsBusy },
+  { name: '10 candidate runtime hint policy is normalized', run: candidateHintPolicyIsNormalized },
+  { name: '11 conflicting candidate hint policy is rejected', run: conflictingHintPolicyIsRejected },
 ];
 
 async function main(): Promise<void> {
@@ -235,6 +237,49 @@ async function adoptingProjectionIsBusy(): Promise<void> {
   assert.equal(projection.busy, true);
   assert.equal(projection.adoption.enabled, false);
   assert.equal(projection.selectedCandidateId, fixture.candidate.candidateId);
+}
+
+async function candidateHintPolicyIsNormalized(): Promise<void> {
+  const fixture = await createFixture();
+  assert(fixture.candidate.content.tags.includes('hint_policy:limited_hint'));
+  const adopted = await fixture.service.adoptTaskCandidate(
+    adoptInput(fixture.candidate, fixture.context.current),
+  );
+  const draft = await requireDraft(fixture.resources, adopted.draftId);
+  assert(draft.tags.includes('hint_policy:limited_hint'));
+}
+
+async function conflictingHintPolicyIsRejected(): Promise<void> {
+  assert.throws(
+    () => createQuestionCandidate({
+      candidateId: 'candidate-conflicting-policy',
+      generationCommandId: 'generate:candidate-conflicting-policy',
+      generationCommandFingerprint: 'fingerprint:candidate-conflicting-policy',
+      trainingTaskId: 'task-1',
+      candidateType: 'initial',
+      content: {
+        ...contentFixture(),
+        tags: [...contentFixture().tags, 'hint_policy:no_hint'],
+      },
+      generationReason: 'Conflicting runtime policy fixture',
+      changedFields: ['questionStem'],
+      allowedFields: ['questionStem'],
+      lockedFields: ['abilityTarget', 'materialScope'],
+      generationContext: {
+        modelId: 'debug-model',
+        promptVersion: 'p4-debug-v1',
+        promptHash: 'p4-debug-hash',
+        ruleVersion: 'p4-debug-rule-v1',
+        materialVersionId: 'material:v1',
+        observationPlanVersion: 1,
+        trainingTaskVersion: 1,
+        generatedAt: NOW,
+      },
+      status: 'ready',
+      createdAt: NOW,
+    }),
+    /hint policy conflicts with task role training/,
+  );
 }
 
 async function createFixture() {

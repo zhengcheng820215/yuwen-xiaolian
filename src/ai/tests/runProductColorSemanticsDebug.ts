@@ -78,8 +78,32 @@ assert.match(removeTaskButton, /<Trash2 size=\{16\}/, '删除任务应保留删�
 const taskWorkflowButton = buttonBlocks(materialWorkbenchSource)
   .find((candidate) => candidate.includes('taskProductionAction.label'));
 assert.ok(taskWorkflowButton, '未找到任务卡统一生产动作按钮');
-assert.match(taskWorkflowButton, /text-blue-700/, '任务卡统一生产动作应使用蓝色动作样式');
-assert.doesNotMatch(taskWorkflowButton, /ai-button-(?:solid|outline)/, '任务卡统一生产动作不得使用 AI 紫色样式');
+assert.match(taskWorkflowButton, /taskProductionAction\.kind === 'generate_candidate'/, '题目候选生成动作必须独立识别');
+assert.match(taskWorkflowButton, /ai-button-solid/, '题目候选生成动作应使用 AI 紫色主操作样式');
+assert.match(taskWorkflowButton, /text-blue-700/, '非 AI 任务生产动作仍应使用蓝色动作样式');
+assert.match(
+  materialWorkbenchSource,
+  /taskProductionAction\.kind !== 'generate_candidate'[\s\S]*?>下一步：</,
+  '题目候选生成动作前不得重复显示“下一步”辅助文案',
+);
+
+const candidatePreviewStart = materialWorkbenchSource.indexOf('function CandidateContentPreview');
+const candidatePreviewEnd = materialWorkbenchSource.indexOf(
+  'function TaskProductionWorkflowPanel',
+  candidatePreviewStart,
+);
+assert.ok(candidatePreviewStart >= 0 && candidatePreviewEnd > candidatePreviewStart, '未找到候选内容预览组件');
+const candidatePreviewSource = materialWorkbenchSource.slice(candidatePreviewStart, candidatePreviewEnd);
+assert.match(
+  candidatePreviewSource,
+  />作答要求：<\/span>[\s\S]*?不少于 \{minimumAnswerLength\} 字/,
+  '候选预览必须直接外显用户可理解的最低作答要求',
+);
+assert.doesNotMatch(
+  candidatePreviewSource,
+  /能力：|最低字数：|评分项：|变化：|generationReason/,
+  '候选预览不得展示能力代码、工程统计或生成说明',
+);
 
 assert.match(
   materialWorkbenchSource,
@@ -95,6 +119,36 @@ assert.match(
   materialWorkbenchSource,
   /<TaskQuestionLifecycleBadge presentation=\{taskCardPresentation\}/,
   '任务卡状态徽标必须直接消费统一展示投影',
+);
+assert.match(
+  materialWorkbenchSource,
+  /aria-label="训练任务标题与状态"[\s\S]*?<TaskQuestionLifecycleBadge presentation=\{taskCardPresentation\}/,
+  '任务卡首层应只保留任务标题与状态标签',
+);
+assert.doesNotMatch(
+  materialWorkbenchSource,
+  /<TaskSourceBadge|>来源：</,
+  '任务卡首层不应展示默认 AI 来源信息',
+);
+assert.match(
+  materialWorkbenchSource,
+  /<summary className="grid cursor-pointer list-none grid-cols-\[minmax\(0,1fr\)_auto\][^"\n]*">/,
+  '任务卡头部必须形成任务信息与主操作两列网格',
+);
+assert.doesNotMatch(
+  materialWorkbenchSource,
+  /sm:grid-cols-\[minmax\(0,1fr\)_auto_auto\]/,
+  '展开入口移到题目摘要后，不应继续占据独立第三列',
+);
+assert.match(
+  materialWorkbenchSource,
+  /className="col-span-2 row-start-3[^"\n]*sm:col-start-2 sm:row-start-1[^"\n]*"[\s\S]*?aria-label="训练任务流程操作"/,
+  '任务卡主操作必须在桌面端位于第一行中部操作区',
+);
+assert.match(
+  materialWorkbenchSource,
+  /className="col-span-2 row-start-4 flex min-w-0 items-baseline gap-2 sm:row-start-3"[\s\S]*?line-clamp-2[\s\S]*?>展开详情<[\s\S]*?>收起详情</,
+  '展开与收起入口必须以蓝色文字紧跟题目摘要，并避免被长题目挤出',
 );
 assert.match(
   materialWorkbenchSource,
@@ -156,6 +210,26 @@ assert.ok(
     && scoringIndex < designRationaleIndex
     && designRationaleIndex < formalResourceIndex,
   '任务卡二级信息必须按任务属性、评分标准、设计依据、正式资源排序',
+);
+const trainingTargetSource = materialWorkbenchSource.slice(taskAttributeIndex, scoringIndex);
+const scoringSource = materialWorkbenchSource.slice(scoringIndex, designRationaleIndex);
+assert.match(trainingTargetSource, />训练目标</, '任务属性区应以用户可理解的“训练目标”命名');
+assert.doesNotMatch(
+  trainingTargetSource,
+  /<Select\b|<input\b|<textarea\b|调整任务属性/,
+  '训练目标区不得保留冻结表单或编辑型命名',
+);
+assert.match(scoringSource, />评分标准与答案示例</, '评分区必须保留审核所需信息');
+assert.match(scoringSource, /label="作答要求"/, '评分区必须外显学生作答要求');
+assert.doesNotMatch(
+  scoringSource,
+  /<Select\b|<input\b|<textarea\b|<button\b/,
+  '评分区不得继续伪装为可编辑表单',
+);
+assert.doesNotMatch(
+  materialWorkbenchSource,
+  /<fieldset disabled/,
+  '任务详情不得再使用 disabled fieldset 模拟只读展示',
 );
 assert.match(
   materialWorkbenchSource,

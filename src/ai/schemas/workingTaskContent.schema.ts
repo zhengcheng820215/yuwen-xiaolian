@@ -1,6 +1,7 @@
 import type {
   StructuredQuestionDraft,
 } from './questionResourceAdmission.schema.ts';
+import { normalizeQuestionRuntimePolicyTags } from './questionResourceAdmission.schema.ts';
 
 export const WORKING_TASK_CONTENT_SCHEMA_VERSION = 'working-task-content-v2' as const;
 
@@ -115,7 +116,10 @@ export function normalizeQuestionEditableFields(
   const normalized = normalizeValue(content) as QuestionEditableFields;
   return {
     ...normalized,
-    tags: [...new Set(normalized.tags)].sort((left, right) => left.localeCompare(right)),
+    tags: normalizeQuestionRuntimePolicyTags(
+      normalized.tags,
+      normalized.abilityMetadata.taskRole,
+    ),
   };
 }
 

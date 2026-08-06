@@ -160,6 +160,7 @@ const dimensionLabels = Object.fromEntries(dimensionOptions);
 const trainingDirectionLabels = Object.fromEntries(trainingDirectionOptions);
 const roleLabels = Object.fromEntries(roleOptions);
 const difficultyLabels = Object.fromEntries(difficultyOptions);
+const assessmentModeLabels = Object.fromEntries(assessmentModeOptions);
 
 export default function MaterialResourceProductionWorkbench() {
   const location = useLocation();
@@ -1636,15 +1637,6 @@ export default function MaterialResourceProductionWorkbench() {
     });
   }
 
-  function toggleSupportingAbility(taskIndex, abilityId) {
-    const currentTask = tasks[taskIndex];
-    const selectedIds = commaValues(currentTask.supportingAbilityIdsText);
-    const nextIds = selectedIds.includes(abilityId)
-      ? selectedIds.filter((item) => item !== abilityId)
-      : [...selectedIds, abilityId];
-    updateTask(taskIndex, { supportingAbilityIdsText: nextIds.join(', ') });
-  }
-
   async function exportBrowserBaseline() {
     setBusy(true);
     setNotice(null);
@@ -2219,107 +2211,127 @@ export default function MaterialResourceProductionWorkbench() {
                   open={issues.length > 0 || task.editorDirty || pendingQualityWarnings.length > 0 ? true : undefined}
                   className="group rounded-md border border-slate-200 bg-white p-4 transition-colors open:border-blue-300 sm:p-5"
                 >
-                  <summary className="flex cursor-pointer list-none items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2" aria-label="训练任务标题、来源与状态">
+                  <summary className="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-2">
+                    <div className="contents">
+                      <div className="col-start-1 row-start-1 flex min-w-0 flex-wrap items-center gap-2" aria-label="训练任务标题与状态">
                         <h3 className="mr-1 text-sm font-bold">{taskEditorTitle(index)}</h3>
-                        <span className="text-xs text-slate-500">来源：</span>
-                        <TaskSourceBadge task={task} />
-                        <span className="text-xs text-slate-500">状态：</span>
                         <TaskQuestionLifecycleBadge presentation={taskCardPresentation} />
                       </div>
-                      {(showTaskProductionAction
-                        || taskCardPresentation?.auxiliaryActions?.length > 0) && (
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" aria-label="训练任务流程操作">
-                          {showTaskProductionAction && (
-                          <span className="inline-flex items-center gap-1.5">
-                            <span className="text-slate-500">下一步：</span>
-                            <button
-                              type="button"
-                              disabled={
-                                workflowBusy ||
-                                taskCandidateProjection.busy ||
-                                (taskProductionAction.kind === 'save_plan' && !commandAvailability.savePlanRevision.enabled)
-                              }
-                              title={taskProductionAction.kind === 'save_plan' ? commandAvailability.savePlanRevision.reason : ''}
-                              onClick={(event) => {
-                                event.preventDefault();
-                                event.stopPropagation();
-                                if (taskProductionAction.kind === 'view_formal_resource') {
-                                  revealTaskFormalResource(event, task.localId);
-                                  return;
-                                }
-                                if (taskProductionAction.kind === 'generate_candidate') {
-                                  const taskCard = event.currentTarget.closest('details');
-                                  taskCard?.setAttribute('open', '');
-                                  window.requestAnimationFrame(() => {
-                                    taskCard
-                                      ?.querySelector('[data-task-candidate-decision]')
-                                      ?.scrollIntoView({ block: 'nearest' });
-                                  });
-                                  void runTaskCandidateOperation(task, index, 'generate');
-                                  return;
-                                }
-                                if (taskProductionAction.kind === 'open_confirmation') {
-                                  const taskCard = event.currentTarget.closest('details');
-                                  taskCard?.setAttribute('open', '');
-                                  window.requestAnimationFrame(() => {
-                                    taskCard
-                                      ?.querySelector('[data-task-production-workflow]')
-                                      ?.scrollIntoView({ block: 'nearest' });
-                                  });
-                                }
-                                if (taskProductionAction.kind === 'focus_issue') {
-                                  if (issues[0]) focusTaskIssue(issues[0]);
-                                  return;
-                                }
-                                void runTaskWorkflowAction(questionLifecycle);
-                              }}
-                              className="text-[12px] font-medium text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-400 disabled:no-underline"
-                            >
-                              {batchWorkflowBusy
-                                ? taskBatchPublicationOperation?.activeDraftId === questionLifecycle?.draft?.draftId
-                                  ? '正在发布…'
-                                  : '等待发布…'
-                                : workflowBusy
-                                  ? taskProductionAction.busyLabel || '正在处理任务…'
-                                : taskCandidateProjection.busy
-                                  ? taskProductionAction.busyLabel || '正在生成候选…'
-                                : taskProductionAction.label}
-                            </button>
-                          </span>
-                          )}
-                          {taskCardPresentation?.auxiliaryActions?.map((action) => (
-                            <button
-                              key={action.kind}
-                              type="button"
-                              onClick={(event) => revealTaskFormalResource(event, task.localId)}
-                              className="text-[12px] font-medium text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                            >
-                              {action.label}
-                            </button>
-                          ))}
-                        </div>
-                        )}
-                      <div className="mt-2 flex flex-wrap gap-2" aria-label="训练任务属性摘要">
-                        <TaskAttributeChip>{dimensionLabels[task.primaryDimension]}</TaskAttributeChip>
-                        <TaskAttributeChip>{abilityLabels[task.abilityId]}</TaskAttributeChip>
-                        <TaskAttributeChip>{difficultyLabels[task.difficulty]}</TaskAttributeChip>
-                        <TaskAttributeChip>{formatAnchorSummary(task)}</TaskAttributeChip>
-                        <TaskAttributeChip>{roleLabels[task.taskRole]}</TaskAttributeChip>
-                      </div>
-                      <p
-                        className={`mt-2 line-clamp-2 text-sm leading-6 group-open:hidden ${
-                          task.questionStem?.trim() ? 'text-slate-700' : 'text-slate-400'
-                        }`}
-                        title={task.questionStem?.trim() || undefined}
+                      <div
+                        className="contents"
+                        aria-label="训练任务属性与操作"
                       >
-                        {task.questionStem?.trim() || '题目尚未生成'}
-                      </p>
+                        <div className="col-span-2 row-start-2 flex min-w-0 flex-wrap gap-2 sm:col-span-1 sm:col-start-1" aria-label="训练任务属性摘要">
+                          <TaskAttributeChip>{dimensionLabels[task.primaryDimension]}</TaskAttributeChip>
+                          <TaskAttributeChip>{abilityLabels[task.abilityId]}</TaskAttributeChip>
+                          <TaskAttributeChip>{difficultyLabels[task.difficulty]}</TaskAttributeChip>
+                          <TaskAttributeChip>{formatAnchorSummary(task)}</TaskAttributeChip>
+                          <TaskAttributeChip>{roleLabels[task.taskRole]}</TaskAttributeChip>
+                        </div>
+                        {(showTaskProductionAction
+                          || taskCardPresentation?.auxiliaryActions?.length > 0) && (
+                          <div
+                            className="col-span-2 row-start-3 flex shrink-0 flex-wrap items-center gap-2 text-xs sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:justify-end"
+                            aria-label="训练任务流程操作"
+                          >
+                            {showTaskProductionAction && (
+                            <span className="inline-flex items-center gap-1.5">
+                              {taskProductionAction.kind !== 'generate_candidate' && (
+                                <span className="text-slate-500">下一步：</span>
+                              )}
+                              <button
+                                type="button"
+                                disabled={
+                                  workflowBusy ||
+                                  taskCandidateProjection.busy ||
+                                  (taskProductionAction.kind === 'save_plan' && !commandAvailability.savePlanRevision.enabled)
+                                }
+                                title={taskProductionAction.kind === 'save_plan' ? commandAvailability.savePlanRevision.reason : ''}
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  if (taskProductionAction.kind === 'view_formal_resource') {
+                                    revealTaskFormalResource(event, task.localId);
+                                    return;
+                                  }
+                                  if (taskProductionAction.kind === 'generate_candidate') {
+                                    const taskCard = event.currentTarget.closest('details');
+                                    taskCard?.setAttribute('open', '');
+                                    window.requestAnimationFrame(() => {
+                                      taskCard
+                                        ?.querySelector('[data-task-candidate-decision]')
+                                        ?.scrollIntoView({ block: 'nearest' });
+                                    });
+                                    void runTaskCandidateOperation(task, index, 'generate');
+                                    return;
+                                  }
+                                  if (taskProductionAction.kind === 'open_confirmation') {
+                                    const taskCard = event.currentTarget.closest('details');
+                                    taskCard?.setAttribute('open', '');
+                                    window.requestAnimationFrame(() => {
+                                      taskCard
+                                        ?.querySelector('[data-task-production-workflow]')
+                                        ?.scrollIntoView({ block: 'nearest' });
+                                    });
+                                  }
+                                  if (taskProductionAction.kind === 'focus_issue') {
+                                    if (issues[0]) focusTaskIssue(issues[0]);
+                                    return;
+                                  }
+                                  void runTaskWorkflowAction(questionLifecycle);
+                                }}
+                                className={taskProductionAction.kind === 'generate_candidate'
+                                  ? 'ai-button-solid inline-flex h-9 items-center justify-center rounded-md border px-4 text-[12px] font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40'
+                                  : 'text-[12px] font-medium text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-400 disabled:no-underline'}
+                              >
+                                {batchWorkflowBusy
+                                  ? taskBatchPublicationOperation?.activeDraftId === questionLifecycle?.draft?.draftId
+                                    ? '正在发布…'
+                                    : '等待发布…'
+                                  : workflowBusy
+                                    ? taskProductionAction.busyLabel || '正在处理任务…'
+                                  : taskCandidateProjection.busy
+                                    ? taskProductionAction.busyLabel || '正在生成候选…'
+                                  : taskProductionAction.label}
+                              </button>
+                            </span>
+                            )}
+                            {taskCardPresentation?.auxiliaryActions?.map((action) => (
+                              <button
+                                key={action.kind}
+                                type="button"
+                                onClick={(event) => revealTaskFormalResource(event, task.localId)}
+                                className="text-[12px] font-medium text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                              >
+                                {action.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="col-span-2 row-start-4 flex min-w-0 items-baseline gap-2 sm:row-start-3">
+                        <p
+                          className={`min-w-0 line-clamp-2 text-sm leading-6 group-open:hidden ${
+                            task.questionStem?.trim() ? 'text-slate-700' : 'text-slate-400'
+                          }`}
+                          title={task.questionStem?.trim() || undefined}
+                        >
+                          {task.questionStem?.trim() || '题目尚未生成'}
+                        </p>
+                        <span className="inline-flex shrink-0 items-center gap-1 text-[14px] font-normal text-blue-700">
+                          <span className="group-open:hidden">展开详情</span>
+                          <span className="hidden group-open:inline">收起详情</span>
+                          <ChevronDown
+                            aria-hidden="true"
+                            size={18}
+                            className="shrink-0 text-blue-600 transition group-open:rotate-180"
+                          />
+                        </span>
+                      </div>
                       {workflowFeedback && (
                         <p
                           role={(workflowFeedback.type || workflowFeedback.tone) === 'error' ? 'alert' : 'status'}
-                          className={`mt-2 text-xs leading-5 ${
+                          className={`col-span-2 row-start-5 text-xs leading-5 sm:row-start-4 ${
                             (workflowFeedback.type || workflowFeedback.tone) === 'success'
                               ? 'text-emerald-700'
                               : (workflowFeedback.type || workflowFeedback.tone) === 'info'
@@ -2333,15 +2345,6 @@ export default function MaterialResourceProductionWorkbench() {
                         </p>
                       )}
                     </div>
-                    <span className="mt-1 inline-flex shrink-0 items-center gap-2 text-[14px] font-normal text-blue-700">
-                      <span className="group-open:hidden">展开详情</span>
-                      <span className="hidden group-open:inline">收起详情</span>
-                      <ChevronDown
-                        aria-hidden="true"
-                        size={18}
-                        className="shrink-0 text-blue-600 transition group-open:rotate-180"
-                      />
-                    </span>
                   </summary>
                   {questionLifecycle?.draft && (
                     <TaskProductionWorkflowPanel
@@ -2418,7 +2421,6 @@ export default function MaterialResourceProductionWorkbench() {
                       onDiscardWorkingContent={() => void discardCurrentTaskWorkingContent(task)}
                       onAdopt={() => void adoptTaskCandidate(task)}
                     />
-                  <fieldset disabled className="min-w-0 border-0 p-0">
                   <div className="mt-5 space-y-5">
                     <section>
                       <p className="text-sm font-semibold text-slate-900">能力目标</p>
@@ -2442,34 +2444,15 @@ export default function MaterialResourceProductionWorkbench() {
                     onToggle={(event) => updateTaskDisclosure('task_attributes', event.currentTarget.open)}
                     className="mt-2 rounded-md bg-slate-50 px-4 py-3"
                   >
-                    <summary className="cursor-pointer text-sm font-medium text-blue-700">调整任务属性</summary>
-                    <div className={`mt-3 grid gap-3 sm:grid-cols-2 ${
-                      task.anchorType === 'paragraph_range'
-                        ? 'lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)_minmax(0,1.15fr)_minmax(7rem,0.6fr)_minmax(7rem,0.6fr)]'
-                        : task.anchorType === 'paragraph'
-                          ? 'lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(8rem,0.7fr)]'
-                          : 'lg:grid-cols-3'
-                    }`}>
-                      <Select id={taskFieldId(task, 'abilityId')} label="主要能力" value={task.abilityId} options={abilityOptions} onChange={(value) => updateTask(index, {
-                        abilityId: value,
-                        expectedStudentAction: actionForAbility(value),
-                        rubric: task.rubric.map((item, rubricIndex) => rubricIndex === 0 ? { ...item, abilityId: value } : item),
-                        taskAttributeAdjusted: true,
-                      })} />
-                      <Select id={taskFieldId(task, 'difficulty')} label="难度" value={task.difficulty} options={difficultyOptions} onChange={(value) => updateTask(index, { difficulty: value, taskAttributeAdjusted: true })} />
-                      <Select id={taskFieldId(task, 'anchorType')} label="阅读范围" value={task.anchorType} options={anchorOptions} onChange={(value) => updateTask(index, { anchorType: value, taskAttributeAdjusted: true })} />
-                      {task.anchorType !== 'full_text' && (
-                        <label className="block text-sm font-medium">开始段落<input id={taskFieldId(task, 'startParagraph')} type="number" min="1" max={Math.max(paragraphs.length, 1)} value={task.startParagraph} onChange={(event) => updateTask(index, { startParagraph: Number(event.target.value), taskAttributeAdjusted: true })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
-                      )}
-                      {task.anchorType === 'paragraph_range' && <label className="block text-sm font-medium">结束段落<input id={taskFieldId(task, 'endParagraph')} type="number" min={task.startParagraph} max={Math.max(paragraphs.length, 1)} value={task.endParagraph} onChange={(event) => updateTask(index, { endParagraph: Number(event.target.value), taskAttributeAdjusted: true })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>}
-                    </div>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <Select id={taskFieldId(task, 'primaryDimension')} label="内容侧重" value={task.primaryDimension} options={dimensionOptions} onChange={(value) => updateTask(index, { primaryDimension: value, taskAttributeAdjusted: true })} />
-                      <Select id={taskFieldId(task, 'taskRole')} label="任务角色" value={task.taskRole} options={roleOptions} onChange={(value) => updateTask(index, { taskRole: value, taskAttributeAdjusted: true })} />
-                    </div>
-                    <label className="mt-3 block text-sm font-medium">具体训练点<input id={taskFieldId(task, 'focusDisplayName')} value={task.focusDisplayName} onChange={(event) => updateTask(index, { focusDisplayName: event.target.value, taskAttributeAdjusted: true })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" placeholder="例如：从动作推断人物心理" /></label>
-                    <label className="mt-3 block text-sm font-medium">训练点说明<textarea id={taskFieldId(task, 'focusDefinition')} value={task.focusDefinition} onChange={(event) => updateTask(index, { focusDefinition: event.target.value, taskAttributeAdjusted: true })} rows={2} className="mt-1 w-full rounded-md border border-slate-300 bg-white p-3 font-normal leading-6" placeholder="例如：学生能够引用具体动作，并说明动作与人物心理之间的关系。" /></label>
-                    {['retest', 'transfer'].includes(task.taskRole) && <label className="mt-3 block text-sm font-medium">关联训练组 ID<input id={taskFieldId(task, 'comparisonGroupId')} value={task.comparisonGroupId} onChange={(event) => updateTask(index, { comparisonGroupId: event.target.value, taskAttributeAdjusted: true })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" placeholder="同一能力 Training / Retest / Transfer 共用" /></label>}
+                    <summary className="cursor-pointer text-sm font-medium text-blue-700">训练目标</summary>
+                    <dl className="mt-3 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <TaskReadOnlyFact label="主要能力">{abilityLabels[task.abilityId] || '未设置'}</TaskReadOnlyFact>
+                      <TaskReadOnlyFact label="难度">{difficultyLabels[task.difficulty] || '未设置'}</TaskReadOnlyFact>
+                      <TaskReadOnlyFact label="阅读范围">{formatAnchorSummary(task)}</TaskReadOnlyFact>
+                      <TaskReadOnlyFact label="内容侧重">{dimensionLabels[task.primaryDimension] || '未设置'}</TaskReadOnlyFact>
+                      <TaskReadOnlyFact label="任务角色">{roleLabels[task.taskRole] || '未设置'}</TaskReadOnlyFact>
+                      <TaskReadOnlyFact label="具体训练点">{task.focusDisplayName || '未设置'}</TaskReadOnlyFact>
+                    </dl>
                   </details>
                   <details
                     open={taskDisclosureOpen('scoring')}
@@ -2477,73 +2460,63 @@ export default function MaterialResourceProductionWorkbench() {
                     className="mt-2 rounded-md bg-slate-50 px-4 py-3"
                   >
                     <summary className="cursor-pointer text-sm font-medium text-blue-700">评分标准与答案示例</summary>
-                    <div className="mt-4 space-y-4 px-4 sm:px-5">
-                      <div>
-                        <p className="text-sm font-medium">相关能力（可选）</p>
-                        <div className="mt-1 flex min-h-10 flex-wrap gap-2">
-                          {abilityOptions
-                            .filter(([abilityId]) => abilityId !== task.abilityId)
-                            .map(([abilityId, label]) => {
-                              const selected = commaValues(task.supportingAbilityIdsText).includes(abilityId);
-                              return (
-                                <button
-                                  key={abilityId}
-                                  type="button"
-                                  aria-pressed={selected}
-                                  onClick={() => toggleSupportingAbility(index, abilityId)}
-                                  className={`h-10 rounded-md border px-3 text-xs font-normal transition ${selected ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-slate-300 bg-white text-slate-600'}`}
-                                >
-                                  {label}
-                                </button>
-                              );
-                            })}
+                    <div className="mt-4 space-y-5 px-1 sm:px-2">
+                      <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <TaskReadOnlyFact label="评分方式">{assessmentModeLabels[task.assessmentMode] || '未设置'}</TaskReadOnlyFact>
+                        <TaskReadOnlyFact label="题目类型">{questionTypeDisplay(task.questionType)}</TaskReadOnlyFact>
+                        <TaskReadOnlyFact label="作答形式">{responseFormatDisplay(task.responseFormat)}</TaskReadOnlyFact>
+                        <TaskReadOnlyFact label="作答要求">
+                          {Number(task.minLength) > 0 ? `不少于 ${task.minLength} 字` : '未设置'}
+                        </TaskReadOnlyFact>
+                      </dl>
+                      {commaValues(task.supportingAbilityIdsText).length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-slate-500">相关能力</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {commaValues(task.supportingAbilityIdsText).map((abilityId) => (
+                              <TaskAttributeChip key={abilityId}>{abilityLabels[abilityId] || abilityId}</TaskAttributeChip>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <Select label="评分方式" value={task.assessmentMode} options={assessmentModeOptions} onChange={(value) => updateTask(index, { assessmentMode: value })} />
-                        <label className="block text-sm font-medium">最低字数<input type="number" min="1" value={task.minLength} onChange={(event) => updateTask(index, { minLength: Number(event.target.value) })} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
-                        <Select label="题目类型" value={task.questionType} options={questionTypeOptions} onChange={(value) => updateTask(index, { questionType: value })} />
-                        <Select label="作答形式" value={task.responseFormat} options={responseFormatOptions} onChange={(value) => updateTask(index, { responseFormat: value })} />
-                      </div>
-                      <label className="block text-sm font-medium">可接受要点（每行一项）<textarea value={task.acceptedKeywordsText} onChange={(event) => updateTask(index, { acceptedKeywordsText: event.target.value })} rows={3} className="mt-1 w-full rounded-md border border-slate-300 bg-white p-3 font-normal leading-6" placeholder={'例如：\n母亲把伞推向孩子\n自己的肩膀被淋湿'} /></label>
-                      <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={task.semanticEquivalentAllowed} onChange={(event) => updateTask(index, { semanticEquivalentAllowed: event.target.checked })} />允许语义等价表达</label>
-                      <div>
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-semibold">评分要点</p>
-                          <button type="button" onClick={() => updateTask(index, { rubric: [...task.rubric, createRubricItem(task.abilityId, task.rubric.length)] })} className="inline-flex h-10 items-center text-sm font-semibold text-blue-700">增加评分项</button>
+                      )}
+                      {lineValues(task.acceptedKeywordsText).length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-slate-500">可接受要点</p>
+                          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-slate-700">
+                            {lineValues(task.acceptedKeywordsText).map((keyword) => <li key={keyword}>{keyword}</li>)}
+                          </ul>
                         </div>
+                      )}
+                      <p className="text-sm text-slate-700">
+                        {task.semanticEquivalentAllowed ? '接受语义等价表达' : '按明确要点判定'}
+                      </p>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">评分要点</p>
                         <div id={taskFieldId(task, 'rubric')} tabIndex={-1} className="mt-2 space-y-3 outline-none">
                           {task.rubric.map((item, rubricIndex) => (
-                            <div key={item.localId} className="border-l-2 border-slate-200 pl-3">
-                              <div className="grid gap-2 sm:grid-cols-2">
-                                <input aria-label={`评分项 ${rubricIndex + 1} 名称`} value={item.name} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { name: event.target.value }) })} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm" placeholder="例如：写出人物心理" />
-                                <select aria-label={`评分项 ${rubricIndex + 1} 能力`} value={item.abilityId} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { abilityId: event.target.value }) })} className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">{abilityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-                              </div>
-                              <textarea aria-label={`评分项 ${rubricIndex + 1} 描述`} value={item.description} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { description: event.target.value }) })} rows={2} className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3 text-sm leading-6" placeholder="学生需要完成什么" />
-                              <input aria-label={`评分项 ${rubricIndex + 1} 可接受表达`} value={item.acceptedSignalsText} onChange={(event) => updateTask(index, { rubric: updateArrayItem(task.rubric, rubricIndex, { acceptedSignalsText: event.target.value }) })} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" placeholder="例如：担心、不舍、焦急（用逗号分隔）" />
-                              {task.rubric.length > 1 && <button type="button" onClick={() => updateTask(index, { rubric: task.rubric.filter((_, itemIndex) => itemIndex !== rubricIndex) })} className="mt-2 inline-flex h-10 items-center text-xs font-semibold text-red-600 hover:text-red-700">删除此项</button>}
+                            <div key={item.localId} className="border-l-2 border-slate-200 pl-3 text-sm leading-6 text-slate-700">
+                              <p className="font-semibold text-slate-900">评分项{rubricIndex + 1} · {item.name || '未命名'}</p>
+                              {item.description && <p className="mt-1">{item.description}</p>}
+                              {commaValues(item.acceptedSignalsText || '').length > 0 && (
+                                <p className="mt-1 text-slate-600">可接受表达：{commaValues(item.acceptedSignalsText).join('、')}</p>
+                              )}
                             </div>
                           ))}
                         </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold">答案示例（仅供审核，不影响学生记录）</p>
+                      {task.calibrationCases.some((item) => item.answerText?.trim()) && (
+                        <div>
+                        <p className="text-sm font-semibold text-slate-900">答案示例</p>
                         <div className="mt-2 space-y-3">
-                          {task.calibrationCases.map((item, caseIndex) => (
-                            <div key={item.localId} className="grid gap-2 sm:grid-cols-[140px_1fr]">
-                              <select value={item.category} onChange={(event) => updateTask(index, { calibrationCases: updateArrayItem(task.calibrationCases, caseIndex, { category: event.target.value }) })} className="min-h-10 rounded-md border border-slate-300 bg-white px-2 text-sm">
-                                <option value="fully_meets">完整有效</option>
-                                <option value="partially_meets">部分完成</option>
-                                <option value="typical_error">典型错误</option>
-                                <option value="reasonable_alternative">合理异表述</option>
-                                <option value="concise_valid">简短有效</option>
-                                <option value="irrelevant">无关回答</option>
-                              </select>
-                              <textarea value={item.answerText} onChange={(event) => updateTask(index, { calibrationCases: updateArrayItem(task.calibrationCases, caseIndex, { answerText: event.target.value }) })} rows={2} className="rounded-md border border-slate-300 bg-white p-3 text-sm leading-6" placeholder="例如：父亲很担心孩子，因为他反复向门外张望。" />
+                          {task.calibrationCases.filter((item) => item.answerText?.trim()).map((item) => (
+                            <div key={item.localId} className="grid gap-1 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-3">
+                              <p className="text-xs font-medium text-slate-500">{calibrationCategoryLabel(item.category)}</p>
+                              <p className="text-sm leading-6 text-slate-700">{item.answerText}</p>
                             </div>
                           ))}
                         </div>
                       </div>
+                      )}
                     </div>
                   </details>
                   <details
@@ -2556,7 +2529,6 @@ export default function MaterialResourceProductionWorkbench() {
                       <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{task.designReason}</p>
                     </div>
                   </details>
-                  </fieldset>
                   {questionLifecycle?.formalResource && (
                     <details
                       data-formal-resource-summary
@@ -3129,13 +3101,27 @@ function TaskCandidateDecisionPanel({
                 ? '当前任务使用既有题目版本。如需调整，可生成新的 AI 候选方案。'
                 : '当前任务还没有可供判断的 AI 候选。'}
           </p>
-          <button
-            type="button"
-            onClick={onGenerate}
-            className="ai-button-solid inline-flex h-10 min-w-48 items-center justify-center rounded-md border px-4 text-sm font-semibold"
-          >
-            生成优化候选
-          </button>
+          {(projection.candidateState.state === 'candidate_expired'
+            || projection.candidateState.state === 'candidate_failed') && (
+            <button
+              type="button"
+              onClick={onGenerate}
+              className="ai-button-outline inline-flex h-10 min-w-48 items-center justify-center rounded-md border px-4 text-sm font-semibold"
+            >
+              重新生成候选
+            </button>
+          )}
+          {hasExistingRevision
+            && projection.candidateState.state !== 'candidate_expired'
+            && projection.candidateState.state !== 'candidate_failed' && (
+            <button
+              type="button"
+              onClick={onGenerate}
+              className="ai-button-solid inline-flex h-10 min-w-48 items-center justify-center rounded-md border px-4 text-sm font-semibold"
+            >
+              生成优化候选
+            </button>
+          )}
         </div>
       )}
 
@@ -3355,6 +3341,7 @@ function CandidateAdoptionResultNotice({ result }) {
 
 function CandidateContentPreview({ candidate }) {
   const content = candidate.content;
+  const minimumAnswerLength = Number(content.minimumAnswerRequirement?.minLength || 0);
   return (
     <article className="min-w-0 border-l-2 border-violet-500 bg-white px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -3362,13 +3349,12 @@ function CandidateContentPreview({ candidate }) {
         <span className="text-xs text-violet-700">{candidateTypeLabel(candidate.candidateType)}</span>
       </div>
       <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-800">{content.questionStem}</p>
-      <dl className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
-        <div><dt className="inline font-medium text-slate-800">能力：</dt><dd className="inline">{content.abilityMetadata?.abilityId || '未设置'}</dd></div>
-        <div><dt className="inline font-medium text-slate-800">最低字数：</dt><dd className="inline">{content.minimumAnswerRequirement?.minLength || 0} 字</dd></div>
-        <div><dt className="inline font-medium text-slate-800">评分项：</dt><dd className="inline">{content.rubric?.length || 0} 项</dd></div>
-        <div><dt className="inline font-medium text-slate-800">变化：</dt><dd className="inline">{candidate.changedFields.length || 0} 个字段</dd></div>
-      </dl>
-      <p className="mt-3 text-xs leading-5 text-slate-500">{candidate.generationReason}</p>
+      {minimumAnswerLength > 0 && (
+        <p className="mt-3 text-xs leading-5 text-slate-600">
+          <span className="font-medium text-slate-800">作答要求：</span>
+          不少于 {minimumAnswerLength} 字
+        </p>
+      )}
     </article>
   );
 }
@@ -3483,26 +3469,12 @@ function TaskAttributeChip({ children }) {
   );
 }
 
-function TaskSourceBadge({ task }) {
-  const source = resolveTaskSource(task);
-  const styles = {
-    ai_generated: 'bg-violet-50 text-violet-700',
-    human_adjusted: 'bg-blue-50 text-blue-700',
-    human_created: 'bg-slate-100 text-slate-700',
-  };
-  const labels = {
-    ai_generated: 'AI生成',
-    human_adjusted: '人工调整',
-    human_created: '人工创建',
-  };
-  const adjustedFields = (task.manuallyAdjustedFields || []).map(taskFieldLabel).filter(Boolean);
+function TaskReadOnlyFact({ label, children }) {
   return (
-    <span
-      className={`rounded px-2 py-1 text-xs font-normal ${styles[source]}`}
-      title={adjustedFields.length ? `人工调整字段：${adjustedFields.join('、')}` : undefined}
-    >
-      {labels[source]}
-    </span>
+    <div className="min-w-0">
+      <dt className="text-xs font-medium text-slate-500">{label}</dt>
+      <dd className="mt-1 break-words text-sm leading-6 text-slate-800">{children}</dd>
+    </div>
   );
 }
 
@@ -4498,13 +4470,6 @@ function validationFieldTarget(fieldPath) {
   if (fieldPath.includes('observationFocus')) return 'focusDisplayName';
   if (fieldPath.includes('intendedComparisonGroupId')) return 'comparisonGroupId';
   return 'questionStem';
-}
-
-function resolveTaskSource(task) {
-  if (task.sourceType !== 'ai_assisted') return 'human_created';
-  return (task.manuallyAdjustedFields || []).length > 0 || task.taskAttributeAdjusted
-    ? 'human_adjusted'
-    : 'ai_generated';
 }
 
 function dedupeTaskIssues(issues) {
