@@ -311,6 +311,16 @@ assert.deepEqual(resolveTaskProductionVisibleSummary([
   pendingPublication: 0,
   published: 0,
 });
+assert.deepEqual(resolveTaskProductionVisibleSummary([
+  { productionView: published, actionRequired: true },
+  { productionView: pendingConfirmation, actionRequired: true },
+  { productionView: resolveTaskProductionState({ trainingTaskId: 'candidate-task' }), candidateReady: true },
+]), {
+  actionRequired: 1,
+  awaitingAdoption: 1,
+  pendingPublication: 0,
+  published: 1,
+});
 
 assert.equal(resolveTaskGroupSummary([]).aggregateState, 'empty');
 assert.equal(resolveTaskGroupSummary([confirmed]).aggregateState, 'ready');

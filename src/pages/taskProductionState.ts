@@ -478,10 +478,12 @@ export function resolveTaskProductionVisibleSummary(
 ): TaskGroupPublicationSummary {
   return items.reduce<TaskGroupPublicationSummary>((summary, item) => {
     const state = item.productionView.state;
-    if (item.actionRequired) {
-      summary.actionRequired += 1;
-    } else if (state === 'published') {
+    // Publication is a terminal fact. Stale candidate-panel feedback must not
+    // move an already published task back into an actionable bucket.
+    if (state === 'published') {
       summary.published += 1;
+    } else if (item.actionRequired) {
+      summary.actionRequired += 1;
     } else if (state === 'draft_empty' && item.candidateReady) {
       summary.awaitingAdoption += 1;
     } else if ([

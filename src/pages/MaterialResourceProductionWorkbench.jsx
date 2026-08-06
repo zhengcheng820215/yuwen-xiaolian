@@ -409,6 +409,9 @@ export default function MaterialResourceProductionWorkbench() {
         adoption: { enabled: true },
         workingStatus: taskWorkingStates[trainingTaskId]?.status || 'clean',
       });
+      const pendingQualityWarnings = lifecycle.cardPresentation.primaryAction.kind === 'open_confirmation'
+        ? lifecycle.readiness.qualityAssessment?.warnings || []
+        : [];
       return {
         productionView: lifecycle.productionView,
         candidateReady: Boolean(
@@ -416,8 +419,12 @@ export default function MaterialResourceProductionWorkbench() {
           && projection.selectedCandidateId,
         ),
         actionRequired: Boolean(
-          panel.adoptionResult?.visibleState === 'action_required'
-          || ['candidate_expired', 'candidate_failed'].includes(projection.candidateState.state),
+          lifecycle.productionView.state !== 'published'
+          && (
+            pendingQualityWarnings.length > 0
+            || panel.adoptionResult?.visibleState === 'action_required'
+            || ['candidate_expired', 'candidate_failed'].includes(projection.candidateState.state)
+          )
         ),
       };
     });
