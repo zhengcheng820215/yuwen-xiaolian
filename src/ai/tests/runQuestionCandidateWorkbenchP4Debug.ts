@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { QuestionResourceCandidateAdoptionGateway } from
   '../agents/questionCandidateAdoptionGateway.ts';
-import { adoptQuestionCandidateAndRunChecks } from
+import {
+  adoptQuestionCandidateAndPublish,
+  adoptQuestionCandidateAndRunChecks,
+} from
   '../agents/questionCandidateAdoptionWorkflow.ts';
 import {
   QuestionCandidateConflictError,
@@ -41,6 +44,9 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '09 adopting projection exposes loading feedback', run: adoptingProjectionIsBusy },
   { name: '10 candidate runtime hint policy is normalized', run: candidateHintPolicyIsNormalized },
   { name: '11 conflicting candidate hint policy is rejected', run: conflictingHintPolicyIsRejected },
+  { name: '12 clean adoption completes publication', run: cleanAdoptionCompletesPublication },
+  { name: '13 warnings interrupt before review', run: warningsInterruptBeforeReview },
+  { name: '14 publication failure retains completed review', run: publicationFailureRetainsReview },
 ];
 
 async function main(): Promise<void> {
@@ -280,6 +286,91 @@ async function conflictingHintPolicyIsRejected(): Promise<void> {
     }),
     /hint policy conflicts with task role training/,
   );
+}
+
+async function cleanAdoptionCompletesPublication(): Promise<void> {
+  const fixture = await createFixture();
+  const calls: string[] = [];
+  const result = await adoptQuestionCandidateAndPublish(
+    adoptInput(fixture.candidate, fixture.context.current),
+    {
+      service: fixture.service,
+      async validate() { calls.push('validation'); return { passed: true }; },
+      async assess() { calls.push('assessment'); return { warningCodes: [] }; },
+      async submitReview() { calls.push('submit_review'); },
+      async approveReview() { calls.push('approve_review'); },
+      async publish() { calls.push('publication'); return { publicationStatus: 'completed' }; },
+    },
+  );
+  assert.deepEqual(calls, [
+    'validation',
+    'assessment',
+    'submit_review',
+    'approve_review',
+    'publication',
+  ]);
+  assert.deepEqual(result.completedStages, [
+    'adopt',
+    'validation',
+    'assessment',
+    'review',
+    'publication',
+  ]);
+  assert.equal(result.visibleState, 'published');
+  assert.equal(result.nextAction, 'published');
+  assert.equal(result.review.status, 'completed');
+  assert.equal(result.publication.status, 'completed');
+}
+
+async function warningsInterruptBeforeReview(): Promise<void> {
+  const fixture = await createFixture();
+  let reviewCalls = 0;
+  let publicationCalls = 0;
+  const result = await adoptQuestionCandidateAndPublish(
+    adoptInput(fixture.candidate, fixture.context.current),
+    {
+      service: fixture.service,
+      async validate() { return { passed: true }; },
+      async assess() { return { warningCodes: ['difficulty_alignment_warning'] }; },
+      async submitReview() { reviewCalls += 1; },
+      async approveReview() { reviewCalls += 1; },
+      async publish() { publicationCalls += 1; return { publicationStatus: 'completed' }; },
+    },
+  );
+  assert.equal(result.visibleState, 'action_required');
+  assert.equal(result.nextAction, 'resolve_warnings');
+  assert.deepEqual(result.assessment.warningCodes, ['difficulty_alignment_warning']);
+  assert.equal(result.review.status, 'not_started');
+  assert.equal(result.publication.status, 'not_started');
+  assert.equal(reviewCalls, 0);
+  assert.equal(publicationCalls, 0);
+}
+
+async function publicationFailureRetainsReview(): Promise<void> {
+  const fixture = await createFixture();
+  const result = await adoptQuestionCandidateAndPublish(
+    adoptInput(fixture.candidate, fixture.context.current),
+    {
+      service: fixture.service,
+      async validate() { return { passed: true }; },
+      async assess() { return { warningCodes: [] }; },
+      async submitReview() {},
+      async approveReview() {},
+      async publish() { throw new Error('registry unavailable'); },
+    },
+  );
+  assert.equal(result.visibleState, 'action_required');
+  assert.equal(result.nextAction, 'retry_publication');
+  assert.equal(result.review.status, 'completed');
+  assert.equal(result.publication.status, 'failed');
+  assert.match(result.publication.message || '', /registry unavailable/);
+  assert.deepEqual(result.completedStages, [
+    'adopt',
+    'validation',
+    'assessment',
+    'review',
+  ]);
+  assert.equal((await fixture.resources.listDrafts()).length, 1);
 }
 
 async function createFixture() {

@@ -36,11 +36,11 @@ const empty = resolveTaskProductionState({ trainingTaskId: 'task-empty' });
 assert.equal(empty.state, 'draft_empty');
 assert.equal(empty.binding.questionLineageId, 'question-lineage:task-empty');
 assert.equal(empty.presentation.stateLabel, '未生成题目');
-assert.equal(empty.presentation.primaryActionLabel, '生成题目候选');
+assert.equal(empty.presentation.primaryActionLabel, '生成题目');
 assert.deepEqual(resolveTaskProductionCardAction(empty), {
   kind: 'generate_candidate',
-  label: '生成题目候选',
-  busyLabel: '正在生成题目候选…',
+  label: '生成题目',
+  busyLabel: '正在生成题目…',
 });
 
 const checkRequired = resolveTaskProductionState({
@@ -258,19 +258,22 @@ assert.equal(
   summary.total,
 );
 assert.deepEqual(resolveTaskGroupPublicationSummary(summary), {
-  pendingPublication: 3,
+  actionRequired: 2,
+  pendingPublication: 1,
   published: 1,
 });
 assert.deepEqual(resolveTaskGroupPublicationSummary(resolveTaskGroupSummary([
   publishedWithNewRevision,
   published,
 ])), {
-  pendingPublication: 1,
+  actionRequired: 1,
+  pendingPublication: 0,
   published: 1,
 });
 assert.deepEqual(resolveTaskGroupPublicationSummary(resolveTaskGroupSummary([
   published,
 ])), {
+  actionRequired: 0,
   pendingPublication: 0,
   published: 1,
 });

@@ -88,7 +88,19 @@ export function resolveCandidatePanelProjection(input: {
     failed: operation === 'failed',
   });
   const readyIds = new Set(candidateState.readyCandidateIds);
-  const readyCandidates = input.candidates.filter((candidate) => readyIds.has(candidate.candidateId));
+  const allReadyCandidates = input.candidates.filter((candidate) => readyIds.has(candidate.candidateId));
+  const requestedCandidate = allReadyCandidates.find(
+    (candidate) => candidate.candidateId === input.selectedCandidateId,
+  );
+  const latestCandidate = [...allReadyCandidates].sort(compareCandidateRecency)[0];
+  const activeGenerationCommandId = (
+    requestedCandidate || latestCandidate
+  )?.generationCommandId;
+  const readyCandidates = activeGenerationCommandId
+    ? allReadyCandidates.filter(
+        (candidate) => candidate.generationCommandId === activeGenerationCommandId,
+      )
+    : [];
   const selectedCandidateId = readyCandidates.some(
     (candidate) => candidate.candidateId === input.selectedCandidateId,
   )
@@ -145,4 +157,12 @@ function parseMode(value: unknown): CandidateWorkflowMode | null {
 
 function unique<T>(values: T[]): T[] {
   return [...new Set(values)];
+}
+
+function compareCandidateRecency(left: QuestionCandidate, right: QuestionCandidate): number {
+  const createdAtDifference = Date.parse(right.createdAt) - Date.parse(left.createdAt);
+  if (Number.isFinite(createdAtDifference) && createdAtDifference !== 0) {
+    return createdAtDifference;
+  }
+  return right.candidateId.localeCompare(left.candidateId);
 }

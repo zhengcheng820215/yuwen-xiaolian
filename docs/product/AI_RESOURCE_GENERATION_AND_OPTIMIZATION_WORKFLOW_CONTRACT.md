@@ -2,12 +2,16 @@
 
 英文名称：AI Resource Generation and Optimization Workflow Contract
 
-状态：DESIGN FROZEN / P0-P6 ENGINEERING COMPLETE / DEBUG ACCEPTED
-契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1`  
-更新日期：2026-08-05
+状态：DESIGN FROZEN / P0-P7 ENGINEERING COMPLETE / SINGLE-OPERATOR ADOPTION ORCHESTRATION DEBUG ACCEPTED
+契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_2`
+更新日期：2026-08-06
 
 产品确认日期：2026-08-05
 产品确认结论：同意以不可变 `QuestionCandidate` 作为 AI 生成、重新生成、优化和异常纠错的统一承载对象；只有采用 Candidate 才进入 Question Revision、检查、确认和发布链。P1-P5 已依次完成 Candidate 基础能力、页面接入、正式 Revision 采用、优化与异常纠错；P6 已将 Candidate 设为唯一正式生产主链，并把历史 Working Content 降级为只读迁移兼容数据。已发布资源读取链路保持不变。
+
+2026-08-06 增补确认：当 AI 训练任务规划结果已经包含符合 `QuestionEditableContent` 契约的完整题目内容时，系统必须基于该内容形成不可变的初始 Candidate，不得要求用户再次执行一次 AI 生成。页面此时显示“题目待采用”，主操作为“采用题目”，次操作为“重新生成题目”。只有训练任务确实没有完整题目内容时，才显示“生成题目”。该调整不改变“采用后才创建 Revision”的底层边界。
+
+2026-08-06 单人模式收敛确认：用户点击“采用题目”即对当前可见 Candidate 作出明确采用决定。系统在创建 Question Revision 后，应自动串联 Validation、Assessment、Human Review Decision、Freeze、Formal Resource 与 Registry；正常无提醒路径直接完成发布。存在质量提醒、检查失败、确认失败或发布失败时必须中断为“需要处理”，不得自动接受提醒、伪造理由或回滚已经成功的领域阶段。多人审核模式仍可恢复为分阶段操作，但不改变底层命令和审计边界。
 
 ## 一、目的
 
@@ -20,7 +24,8 @@ AI 提出不可变候选
 -> 人判断方向与质量
 -> 人采用候选
 -> 系统创建正式题目版本
--> 检查、确认和发布
+-> 自动检查、记录确认并发布
+-> 异常时中断处理
 ```
 
 标准流程中：
@@ -30,7 +35,9 @@ AI 提出不可变候选
 3. 人不直接编辑标准生产流程中的正式资源字段；
 4. Candidate 不属于正式资源链；
 5. 只有采用 Candidate 才能创建 `QuestionDraft Revision`；
-6. 系统保留权限受控、强审计的异常纠错入口，但该入口不属于常规生产流程。
+6. 系统保留权限受控、强审计的异常纠错入口，但该入口不属于常规生产流程；
+7. AI 规划 TrainingTask 时已经生成的完整题目内容，必须被视为初始候选来源，不得在页面上误报为“未生成题目”；
+8. Candidate 是工程与审计边界，用户主流程使用“题目、采用题目、重新生成题目”等任务语义，不要求用户理解 Candidate 数据模型。
 
 本文不替代以下既有契约：
 
@@ -50,7 +57,9 @@ AI 提出不可变候选
 Material
 -> Observation Plan
 -> TrainingTask
--> AI 生成 Candidate
+-> 形成初始 Candidate
+   -> TrainingTask 已包含完整题目：由现有题目内容确定性形成
+   -> TrainingTask 尚无完整题目：调用 AI 生成
 -> 人工判断
    -> 方向错误：重新生成 Candidate
    -> 细节不足：优化 Candidate
@@ -59,7 +68,7 @@ Material
 -> QuestionDraft Revision
 -> Validation
 -> Assessment
--> Human Review
+-> Human Review Decision（单人正常路径自动编排并独立留痕）
 -> Freeze
 -> Formal Resource
 -> Registry
@@ -67,7 +76,28 @@ Material
 
 人工主要负责选择候选、判断候选是否符合训练意图、提供结构化优化目标，并决定候选是否进入正式版本链。
 
-### 2.2 异常流程
+在单人生产模式中，“采用题目”是唯一正常路径的人工确认动作。采用后的检查、审核决定和发布由应用层编排器继续执行，但每一步仍写入独立领域记录。任何提醒或失败都会停止编排并把任务交还用户处理。
+
+### 2.2 初始题目来源
+
+初始 Candidate 有两种来源，但进入同一后续链路：
+
+```text
+来源 A：训练任务规划已输出完整题目
+TrainingTask Question Payload
+-> 确定性形成 initial Candidate
+-> 题目待采用
+
+来源 B：训练任务仅定义训练意图
+TrainingTask
+-> 用户执行“生成题目”
+-> AI 生成 initial Candidate
+-> 题目待采用
+```
+
+来源 A 不得再次调用 AI，不得创建 Revision，也不得在刷新时重复创建 Candidate。来源 B 只有在题目内容确实不完整时才允许出现。
+
+### 2.3 异常流程
 
 以下内容可以进入异常纠错入口：
 
@@ -79,7 +109,7 @@ Material
 
 异常纠错不得成为默认入口，不得用于日常题目改写、训练方向调整或 Rubric 重构。
 
-### 2.3 标准能力边界
+### 2.4 标准能力边界
 
 标准生产流程不提供：
 
@@ -106,7 +136,7 @@ Material
 | `Material` | 提供学习材料及版本化内容 |
 | `Observation Plan` | 定义材料上的训练规划和覆盖约束 |
 | `TrainingTask` | 定义一个稳定的训练意图 |
-| `QuestionCandidate` | 表达 AI 针对训练意图提出的不可变候选方案 |
+| `QuestionCandidate` | 表达针对训练意图形成的不可变题目候选，包括训练任务规划已生成的初始题目和后续 AI 生成结果 |
 | `QuestionLineage` | 表达正式题目的稳定身份 |
 | `QuestionDraft Revision` | 表达正式题目身份下的一次不可变内容版本 |
 | `Formal Resource Version` | 表达冻结发布后的正式资源版本 |
@@ -123,7 +153,26 @@ TrainingTask
 
 `QuestionCandidate` 不是 `TrainingTask`，不是 `QuestionDraft`，也不是 `QuestionDraft Revision`。
 
-### 3.2 首次采用
+### 3.2 训练任务初始候选
+
+TrainingTask 可以携带训练规划阶段已经生成的题目内容，但该内容仍不属于正式题目版本。系统必须通过同一个领域函数校验其是否满足完整 `QuestionEditableContent` 契约，页面组件、按钮和统计模块不得分别判断：
+
+```ts
+type InitialCandidateCompleteness = {
+  complete: boolean;
+  missingFields: CandidateFieldKey[];
+};
+
+function inspectInitialCandidateCompleteness(
+  content: QuestionEditableContent,
+): InitialCandidateCompleteness;
+```
+
+最低完整性范围冻结为：`questionStem`、`studentTask`、`observationTarget`、`rubric`、`answerAcceptance`、能力目标和材料关联。字段完整时，系统以 `trainingTaskId + trainingTaskVersion + materialVersionId + contentHash` 形成稳定业务身份，并创建或恢复唯一的 `training_task_compatibility_wrap` 初始 Candidate。刷新、路由切换、重复读取和重复请求不得增加候选数量。
+
+字段不完整时不得伪造候选，页面进入“题目未完整生成”状态并提供“生成题目”。版本、内容哈希或上下文冲突时必须展示可恢复错误，不得静默选用任一份内容。
+
+### 3.3 首次采用
 
 当 TrainingTask 尚无正式题目身份时：
 
@@ -135,7 +184,7 @@ Candidate B
 -> 创建 QuestionDraft Revision 1
 ```
 
-### 3.3 已有题目的再次优化
+### 3.4 已有题目的再次优化
 
 ```text
 QuestionDraft Revision 3
@@ -155,6 +204,7 @@ type QuestionCandidate = {
   candidateId: string;
   trainingTaskId: string;
   candidateType: 'initial' | 'regenerated' | 'optimized' | 'exception_corrected';
+  candidateOrigin: 'training_task_compatibility_wrap' | 'question_generation' | 'regeneration' | 'optimization' | 'exception_correction';
 
   basedOnCandidateId?: string;
   basedOnDraftId?: string;
@@ -181,6 +231,7 @@ type QuestionCandidate = {
 
 ```ts
 type CandidateGenerationContext = {
+  source: 'ai_generated' | 'training_task_compatibility_wrap';
   modelId: string;
   promptVersion: string;
   promptHash: string;
@@ -188,6 +239,7 @@ type CandidateGenerationContext = {
   materialVersionId: string;
   observationPlanVersion: number;
   trainingTaskVersion: number;
+  trainingTaskContentHash: string;
   generatedAt: string;
 };
 ```
@@ -212,6 +264,8 @@ Candidate 创建后不可修改：
 Candidate 不产生 Question Revision、Validation、Assessment、Human Review、Freeze、Formal Resource 或 Registry Entry。
 
 Candidate 可以执行 AI 自检，但 AI 自检结果只用于候选选择，不能伪装为正式 Assessment。
+
+训练任务初始候选同样遵守本节规则。它虽然复用训练任务规划阶段已经生成的题目内容，但仍只是 Candidate；在用户采用之前，不得进入 Validation、Assessment、Human Review 或 Publication。
 
 ## 五、人机职责边界
 
@@ -253,7 +307,33 @@ type CandidateDecisionEvent = {
 
 ## 六、生成、重新生成和优化
 
-### 6.1 初次生成
+### 6.1 初始候选解析
+
+系统必须通过应用层兼容适配器执行统一解析和确定性固化：
+
+```ts
+ensureInitialCandidateFromTrainingTask({
+  trainingTaskId,
+  expectedTrainingTaskVersion,
+  expectedContentHash,
+  idempotencyKey,
+})
+```
+
+解析规则：
+
+1. TrainingTask 已包含完整题目内容：确定性创建或恢复一个 `candidateOrigin: 'training_task_compatibility_wrap'` 的 `initial` Candidate，不调用 AI；
+2. 已存在相同上下文和 `contentHash` 的初始 Candidate：返回原 Candidate；
+3. TrainingTask 内容不完整：返回 `question_generation_required`；
+4. 上下文或内容发生冲突：返回明确冲突，不追加候选；
+5. 解析成功不创建 Question Revision，不改变正式题目状态。
+6. Candidate 必须记录 TrainingTask 版本、内容哈希和兼容来源；相同任务版本和内容不得重复写入。
+7. TrainingTask 内容变化后，基于旧内容且尚未采用的初始 Candidate 进入 `expired`；已经采用的 Candidate 继续保留审计事实，不得回写或删除。
+8. 适配器只允许复制并固化 TrainingTask 题目内容，TrainingTask 本身不得被当作 Candidate。
+
+历史任务采用按需兼容：读取任务时发现完整题目且缺少对应 Candidate，才执行上述命令；不得执行无差别批量迁移。该过程不得调用 Provider、创建 Revision、修改 Formal Version 或更新 Registry。
+
+### 6.2 首次 AI 生成
 
 ```ts
 generateTaskCandidates({
@@ -267,7 +347,9 @@ generateTaskCandidates({
 
 输出一至多个 `initial` Candidate。生成成功不改变正式题目状态。
 
-### 6.2 重新生成
+该命令只在 `ensureInitialCandidateFromTrainingTask()` 返回 `question_generation_required` 时作为页面主操作。不得因为页面尚未加载 Candidate Repository，就忽略 TrainingTask 已有题目并重复调用 AI。
+
+### 6.3 重新生成
 
 适用于能力方向、题型、材料切入或难度方向错误：
 
@@ -284,7 +366,7 @@ regenerateTaskCandidates({
 
 重新生成不会覆盖基础 Candidate，也不会影响已存在的 Question Revision。
 
-### 6.3 AI 局部优化
+### 6.4 AI 局部优化
 
 适用于方向正确，但表达、难度或评分细节不足：
 
@@ -348,6 +430,50 @@ AI 生成 / 重新生成 / 优化 Candidate：不产生 Revision
 2. 旧 Assessment 继续绑定旧 Revision，不删除；
 3. 旧 Human Review 不得代表新 Revision；
 4. 已发布 Formal Version 在新 Revision 再次完成发布前继续有效。
+
+### 7.4 单人模式采用后自动编排
+
+单人模式采用命令成功后，应用层必须按以下顺序执行或恢复：
+
+```text
+Adopt Candidate
+-> Create Question Revision
+-> Validation
+-> Assessment
+-> Record Human Review Decision
+-> Freeze / Publish
+-> Formal Resource / Registry
+```
+
+冻结规则：
+
+1. “采用题目”是用户对当前 Candidate 的明确人工决定，不得再要求一次无新增信息的“最终确认”；
+2. Validation 未通过时停止在 `需要处理`，不得继续 Assessment；
+3. Assessment 失败或不可用时停止在 `需要处理`，允许从检查阶段重试；
+4. Assessment 存在任何待确认 warning 时停止在 `需要处理`，必须由用户处理或提供结构化保留理由；系统不得填写统一理由或自动接受；
+5. 无 warning 且质量门禁通过时，系统可以记录绑定当前 Revision 与 Assessment Bundle 的 Human Review Decision，并继续发布；
+6. 发布失败不得回滚已创建的 Revision、Assessment 或 Human Review Decision，页面显示“需要处理”并提供“重试发布”；
+7. 重试必须从最后未完成阶段继续，不得重复创建 Revision、审核决定、Formal Version 或 Registry Entry；
+8. 已发布 Formal Version 在新版本发布成功前持续有效，不得被 Candidate 或失败中的 Revision 覆盖。
+
+编排结果至少包含：
+
+```ts
+type CandidateAdoptionOrchestrationResult = {
+  draftId: string;
+  revision: number;
+  completedStages: Array<
+    'adopt' | 'validation' | 'assessment' | 'review' | 'publication'
+  >;
+  visibleState: 'processing' | 'published' | 'action_required';
+  nextAction?:
+    | 'resolve_validation'
+    | 'retry_assessment'
+    | 'resolve_warnings'
+    | 'retry_review'
+    | 'retry_publication';
+};
+```
 
 ## 八、异常纠错
 
@@ -432,43 +558,55 @@ correctTaskCandidate({
 
 ## 九、任务卡交互
 
-### 9.1 AI 候选状态
+### 9.1 题目待采用状态
 
 ```text
 训练任务1
-状态：AI 候选待选择
+状态：题目待采用
 
 题目预览：……
 
-[采用候选] [AI 优化] [重新生成]
+[采用题目] [重新生成题目] [AI 优化]
 ```
 
-存在多个候选时提供候选切换和差异比较，不允许把多个 Candidate 合并成一个可变编辑区。
+主流程不得使用“生成题目候选”“查看候选”“采用候选”“候选待采用”作为用户必须理解的主要文案。Candidate 名称只保留在技术信息、调试、审计和差异比较的内部语境中。
 
-### 9.2 已采用状态
+存在多个 Candidate 时，页面仍可提供“其他方案”或“比较方案”，但不允许把多个 Candidate 合并成一个可变编辑区。用户选择某一方案后执行的动作统一称为“采用题目”。
+
+### 9.2 未生成题目状态
+
+只有 `resolveInitialTaskCandidate()` 确认 TrainingTask 不含完整题目内容时才显示：
 
 ```text
 训练任务1
-状态：待检查
-当前版本：Revision 3
+状态：未生成题目
 
-[检查题目] [AI 优化] [重新生成]
+[生成题目]
 ```
 
-在已采用状态执行 AI 优化或重新生成，只创建 Candidate，不修改 Revision 3。
+点击后应立即显示“正在生成题目…”。生成成功后，同一任务卡直接进入“题目待采用”，展示题目正文和“采用题目 / 重新生成题目”，不得只增加 Candidate 数量而让任务卡继续显示“未生成题目”。
 
-### 9.3 检查后状态
+### 9.3 采用后的正常路径
 
 ```text
 训练任务1
-状态：检查完成
-
-[提交最终确认] [AI 优化]
+状态：处理中
 ```
 
-AI 优化始终产生新的 Candidate；采用后创建后继 Revision，并使新版本重新进入检查。
+系统自动执行检查、确认和发布。正常路径不再外显“待检查、待最终确认、已确认待发布”等内部阶段，也不要求用户逐步点击。
 
-### 9.4 迁移完成后删除的界面状态
+### 9.4 异常中断状态
+
+```text
+训练任务1
+状态：需要处理
+
+[处理问题 / 重试检查 / 重试发布]
+```
+
+仅在存在真实失败或待确认提醒时显示对应恢复动作。AI 优化始终产生新的 Candidate；采用后创建后继 Revision，并重新进入同一自动编排。
+
+### 9.5 迁移完成后删除的界面状态
 
 Candidate 新流程完成迁移后，标准任务卡删除：
 
@@ -537,9 +675,10 @@ Candidate 状态与正式生产状态必须分开计算：
 
 ```ts
 type TaskCandidateState =
-  | 'not_generated'
+  | 'question_missing'
+  | 'resolving_initial_candidate'
   | 'generating'
-  | 'candidate_ready'
+  | 'question_pending_adoption'
   | 'optimizing'
   | 'regenerating'
   | 'candidate_failed'
@@ -556,9 +695,29 @@ type TaskProductionState =
   | 'publishing'
   | 'publication_failed'
   | 'published';
+
+type TaskProductionVisibleState =
+  | 'question_missing'
+  | 'question_pending_adoption'
+  | 'processing'
+  | 'published'
+  | 'action_required';
 ```
 
 页面标题、任务卡状态、主操作和按钮禁用规则必须消费统一 Resolver，不得在组件中分别拼装生命周期。
+
+统一映射冻结为：
+
+| Candidate / Task 事实 | 用户状态 | 主操作 | 次操作 |
+| --- | --- | --- | --- |
+| 训练任务无完整题目，且无可用 Candidate | 未生成题目 | 生成题目 | 无 |
+| 训练任务已有完整题目，初始 Candidate 正在恢复 | 正在准备题目… | Loading | 无 |
+| 存在可用 Candidate，尚未采用 | 题目待采用 | 采用题目 | 重新生成题目 / AI 优化 |
+| 已采用，自动编排正在执行 | 处理中 | Loading | 无 |
+| 自动编排全部完成 | 已发布 | 无 | 重新生成题目 / AI 优化 |
+| 存在提醒或任一阶段失败 | 需要处理 | 按 `nextAction` 显示恢复动作 | AI 优化 / 重新生成题目 |
+
+页面状态、主按钮、统计和刷新恢复必须消费同一个可见状态 Resolver。内部详细状态继续用于审计和恢复，不得逐项重新暴露成用户步骤。顶部统计中，未采用 Candidate 和异常中断均归入“待处理”；正在自动编排归入“处理中”；只有 Formal Resource 与 Registry 完整提交后才归入“已发布”。
 
 ## 十二、工程实施顺序
 
@@ -1277,9 +1436,31 @@ P6 工程完成表示“旧写流程不可达、历史数据仍可受控迁移�
 7. 旧人工校准相关颜色断言和折叠辅助函数已删除，颜色语义回归改为覆盖 AI 优化、生成优化候选和重新生成候选；
 8. 浏览器实页携带历史 `candidateWorkflow=legacy` 参数时仍只展示 Candidate 主流程，人工校准、旧批量提交和继续旧修改入口均未出现，控制台无运行错误；
 9. Vite 生产构建通过；现存 ESM 模块类型、动态导入和大 Chunk 提示为仓库既有非阻断告警。
-10. 单人工作台的质量提醒已移除自由文本保留理由；用户可生成唯一的优化候选入口，或通过“接受提醒并发布”写入绑定当前 Revision 与 Assessment 的结构化审计决定。历史 Revision 没有活动 Candidate 时明确说明其为既有题目版本，不再误报为 Candidate 缺失故障。
+10. 单人工作台的质量提醒已移除自由文本保留理由；用户可生成唯一的优化候选入口，或通过“接受提醒并发布”写入绑定当前 Revision 与 Assessment 的结构化审计决定。只有该显式点击可以携带当前 warning code 和固定结构化确认理由续跑，普通自动编排仍必须在 warning 处中断；执行期间按钮显示“正在发布…”并保持防重复提交。历史 Revision 没有活动 Candidate 时明确说明其为既有题目版本，不再误报为 Candidate 缺失故障。
 
 P6 代码退出审计状态：`ready`。不同设备上的运行时存量仍可能返回 `migration_required` 或 `blocked`，必须按统一 Resolver 引导迁移或解决冲突。底层 Working Content Repository 作为只读迁移兼容层暂时保留，待存量审计持续为零后再执行物理删除。
+
+### P7：训练任务初始题目对齐（已完成）
+
+P7 只修正“TrainingTask 已有完整题目，但页面仍要求再次生成 Candidate”的语义断裂，不回退 P0-P6 已冻结的 Candidate、Adopt、Revision、检查、确认和发布边界。
+
+实施顺序：
+
+1. 增加 `inspectInitialCandidateCompleteness()`，统一判断 TrainingTask 是否已经具备完整题目；
+2. 增加 `ensureInitialCandidateFromTrainingTask()`，为符合条件的 TrainingTask 确定性创建或恢复唯一 `training_task_compatibility_wrap` Candidate；
+3. 将历史 TrainingTask 兼容为按需恢复，不进行破坏性批量迁移；
+4. 统一状态 Resolver，把已有题目映射为 `question_pending_adoption`，真正缺失题目才映射为 `question_missing`；
+5. 任务卡主文案调整为“生成题目 / 题目待采用 / 采用题目 / 重新生成题目”；
+6. 采用继续复用现有 Candidate Adoption Gateway，保持一次采用只创建一个 Revision；
+7. 重新生成创建新 Candidate，保留原初始 Candidate，不覆盖 TrainingTask、Revision 或已发布资源；
+8. 修正顶部统计，未采用题目归入“待处理”，不得归入“待发布”；
+9. 完成刷新恢复、重复点击、历史数据、采用幂等和正式发布回归。
+
+P7 不新增人工编辑，不让 TrainingTask 直接进入正式链，也不把初始题目内容原地升级为 Revision。
+
+P7 回归必须覆盖：完整旧任务首次读取只形成一个初始 Candidate；刷新和重复读取不重复形成；兼容固化不调用 AI、不创建 Revision；字段不足时禁止采用；TrainingTask 内容变化后旧未采用 Candidate 失效；重新生成保留原初始 Candidate；采用只创建一次 Revision；已发布 Formal Version 与 Registry 不受影响；页面不再出现“已有题目但显示未生成”的矛盾状态。
+
+P7 验收结论（2026-08-06）：训练任务初始题目兼容服务、完整性检查、确定性 Candidate 恢复、状态投影和单人采用发布编排均已接入。初始 Candidate 回归 `4 / 4`、Candidate 工作台 P4 回归 `14 / 14`、P6 退出审计与生产构建通过。浏览器真实数据验收中，质量提醒会先中断自动编排；用户显式执行“接受提醒并发布”后，结构化确认被记录，目标任务进入“已发布”，顶部数量同步闭合并展示发布成功反馈。P7 不调用 Provider 包装历史题目，不在包装阶段创建 Revision，也不改变已发布 Formal Version 与 Registry。
 
 ## 十三、验收标准
 
@@ -1303,9 +1484,18 @@ P6 代码退出审计状态：`ready`。不同设备上的运行时存量仍可�
 16. 双轨期间现有 Working Content 可以恢复，不发生静默丢失；
 17. Candidate 流程失败时停留在稳定 Candidate / Revision 状态并支持重试，不得回到旧人工写链；
 18. P6 收口时，旧入口依赖和旧写 Handler 引用均为零；历史 Working Content 只能处于已迁移、已显式放弃或受保护阻断态。
+19. TrainingTask 已有完整题目时，页面首次打开即可显示题目正文和“题目待采用”，不得要求再次调用 AI；
+20. 同一 TrainingTask 重复刷新、切换页面或重复解析，不得增加重复初始 Candidate；
+21. 已有题目的主操作必须是“采用题目”，重新生成只能作为次操作并创建新 Candidate；
+22. 真正缺少完整题目内容时才显示“未生成题目 / 生成题目”；
+23. 生成完成后任务卡必须立即进入“题目待采用”，不得继续显示“未生成题目”或只增加候选数量；
+24. 采用训练任务初始 Candidate 仍只创建一个 Question Revision，并完整复用检查、确认和发布链；
+25. 未采用题目计入“待处理”，只有已经进入正式 Revision 链且尚未发布的题目才计入“待发布”。
 
 ## 十四、最终冻结表述
 
 > 系统不提供标准化字段级人工编辑生产流程。训练资源由 AI 生成不可变候选，人通过结构化反馈指导优化，并通过采用决定候选是否进入正式版本链。只有采用候选后，系统才创建 Question Revision，并进入检查、确认和发布流程。
 >
 > 系统保留权限受控、强审计的异常纠错入口，用于处理 AI 无法可靠修正的特殊内容问题。任何异常纠错都必须创建新的 Candidate 或 Question Revision，不得覆盖历史 Candidate、Revision 或 Formal Resource。
+>
+> 当 TrainingTask 已经携带完整题目内容时，该内容确定性形成初始 Candidate，页面直接进入“题目待采用”；不得让用户重复执行一次没有产品价值的 AI 生成。Candidate 继续作为底层不可变与审计边界，但主流程以“生成题目、采用题目、重新生成题目”表达用户任务。

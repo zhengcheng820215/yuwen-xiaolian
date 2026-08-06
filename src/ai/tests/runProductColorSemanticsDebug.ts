@@ -34,8 +34,8 @@ const aiActions = [
   [materialWorkbenchSource, '重新生成整组任务', 'ai-button-outline'],
   [materialWorkbenchSource, '补充生成候选任务', 'ai-button-solid'],
   [materialWorkbenchSource, 'AI 优化', 'ai-button-outline'],
-  [materialWorkbenchSource, '生成优化候选', 'ai-button-solid'],
-  [materialWorkbenchSource, '重新生成候选', 'ai-button-outline'],
+  [materialWorkbenchSource, '生成优化方案', 'ai-button-solid'],
+  [materialWorkbenchSource, '重新生成题目', 'ai-button-outline'],
   [materialWorkbenchSource, '采用所选候选', 'ai-button-solid'],
   [questionWorkbenchSource, 'AI 优化题干', 'ai-button-outline'],
   [questionWorkbenchSource, 'AI 优化本项', 'ai-button-outline'],
@@ -76,14 +76,14 @@ assert.match(removeTaskButton, /hover:bg-red-50/, '删除任务悬停时应使�
 assert.match(removeTaskButton, /<Trash2 size=\{16\}/, '删除任务应保留删除图标');
 
 const taskWorkflowButton = buttonBlocks(materialWorkbenchSource)
-  .find((candidate) => candidate.includes('taskProductionAction.label'));
+  .find((candidate) => candidate.includes('taskCardAction.label'));
 assert.ok(taskWorkflowButton, '未找到任务卡统一生产动作按钮');
-assert.match(taskWorkflowButton, /taskProductionAction\.kind === 'generate_candidate'/, '题目候选生成动作必须独立识别');
+assert.match(taskWorkflowButton, /taskCardAction\.kind === 'generate_candidate'/, '题目候选生成动作必须独立识别');
 assert.match(taskWorkflowButton, /ai-button-solid/, '题目候选生成动作应使用 AI 紫色主操作样式');
 assert.match(taskWorkflowButton, /text-blue-700/, '非 AI 任务生产动作仍应使用蓝色动作样式');
 assert.match(
   materialWorkbenchSource,
-  /taskProductionAction\.kind !== 'generate_candidate'[\s\S]*?>下一步：</,
+  /taskCardAction\.kind !== 'generate_candidate'[\s\S]*?>下一步：</,
   '题目候选生成动作前不得重复显示“下一步”辅助文案',
 );
 
@@ -117,13 +117,18 @@ assert.match(
 );
 assert.match(
   materialWorkbenchSource,
-  /<TaskQuestionLifecycleBadge presentation=\{taskCardPresentation\}/,
+  /<TaskQuestionLifecycleBadge[\s\S]*?presentation=\{taskCardPresentation\}[\s\S]*?candidateReady=\{candidateReadyForAdoption\}/,
   '任务卡状态徽标必须直接消费统一展示投影',
 );
 assert.match(
   materialWorkbenchSource,
-  /aria-label="训练任务标题与状态"[\s\S]*?<TaskQuestionLifecycleBadge presentation=\{taskCardPresentation\}/,
+  /aria-label="训练任务标题与状态"[\s\S]*?<TaskQuestionLifecycleBadge[\s\S]*?presentation=\{taskCardPresentation\}/,
   '任务卡首层应只保留任务标题与状态标签',
+);
+assert.match(
+  materialWorkbenchSource,
+  /stateLabel: '题目待采用'[\s\S]*?tone: 'candidate'/,
+  '已有完整题目但尚未采用时必须显示“题目待采用”，不得继续显示“未生成题目”',
 );
 assert.doesNotMatch(
   materialWorkbenchSource,
@@ -157,12 +162,12 @@ assert.match(
 );
 assert.match(
   materialWorkbenchSource,
-  /data-task-production-action=\{taskProductionAction\?\.kind \|\| 'none'\}/,
+  /data-task-production-action=\{taskCardAction\?\.kind \|\| 'none'\}/,
   '任务卡必须暴露唯一主操作供端到端验收',
 );
 assert.match(
   materialWorkbenchSource,
-  /taskProductionAction\.kind !== 'view_formal_resource'/,
+  /taskCardAction\.kind !== 'view_formal_resource'/,
   '纯已发布任务不得重复渲染首层“查看正式资源”入口',
 );
 assert.doesNotMatch(

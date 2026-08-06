@@ -6,11 +6,13 @@ import {
 import { QuestionResourceCandidateAdoptionGateway } from
   '../ai/agents/questionCandidateAdoptionGateway.ts';
 import {
-  adoptQuestionCandidateAndRunChecks,
-  type CandidateAdoptionWorkflowResult,
+  adoptQuestionCandidateAndPublish,
+  type CandidateAdoptionPublicationWorkflowResult,
 } from '../ai/agents/questionCandidateAdoptionWorkflow.ts';
 import { StructuredQuestionCandidateOptimizationService } from
   '../ai/agents/structuredQuestionCandidateOptimizationService.ts';
+import { TrainingTaskInitialCandidateService } from
+  '../ai/agents/trainingTaskInitialCandidateService.ts';
 import {
   QuestionCandidateCorrectionService,
   type CreateExceptionCorrectionCandidateInput,
@@ -35,9 +37,13 @@ import type { CandidateOptimizationGoal } from
 import {
   calculateQuestionEditableFieldsHash,
   extractQuestionEditableFields,
+  type QuestionEditableFields,
 } from '../ai/schemas/workingTaskContent.schema.ts';
 import {
   completeQuestionResourceWorkbenchQualityCheck,
+  decideQuestionResourceWorkbenchReview,
+  freezeQuestionResourceWorkbenchDraft,
+  submitQuestionResourceWorkbenchReview,
   validateQuestionResourceWorkbenchStructure,
 } from './questionResourceWorkbench.ts';
 
@@ -70,6 +76,15 @@ export type AdoptQuestionTaskCandidateInput = {
   adoptedBy: string;
 };
 
+export type EnsureQuestionTaskInitialCandidateInput = {
+  trainingTaskId: string;
+  expectedTrainingTaskVersion: number;
+  expectedContentHash: string;
+  expectedContext: CandidateRuntimeContext;
+  content: QuestionEditableFields;
+  idempotencyKey: string;
+};
+
 export type CorrectQuestionTaskCandidateInput =
   CreateExceptionCorrectionCandidateInput;
 
@@ -85,6 +100,30 @@ export async function listQuestionTaskCandidates(
   trainingTaskId: string,
 ): Promise<QuestionCandidate[]> {
   return repository.listCandidates(trainingTaskId);
+}
+
+export async function ensureQuestionTaskInitialCandidate(
+  input: EnsureQuestionTaskInitialCandidateInput,
+) {
+  const service = new TrainingTaskInitialCandidateService(repository, {
+    async getInitialCandidateSource(trainingTaskId) {
+      if (trainingTaskId !== input.trainingTaskId) {
+        throw new Error('Initial candidate source requested for another training task.');
+      }
+      return {
+        trainingTaskVersion: input.expectedContext.trainingTaskVersion,
+        contentHash: calculateQuestionEditableFieldsHash(input.content),
+        content: input.content,
+        context: input.expectedContext,
+      };
+    },
+  });
+  return service.ensureInitialCandidateFromTrainingTask({
+    trainingTaskId: input.trainingTaskId,
+    expectedTrainingTaskVersion: input.expectedTrainingTaskVersion,
+    expectedContentHash: input.expectedContentHash,
+    idempotencyKey: input.idempotencyKey,
+  });
 }
 
 export async function listQuestionCandidateCorrectionRecords(
@@ -171,7 +210,7 @@ export async function executeCandidateWorkbenchCommand(
 
 export async function adoptQuestionTaskCandidate(
   input: AdoptQuestionTaskCandidateInput,
-): Promise<CandidateAdoptionWorkflowResult> {
+): Promise<CandidateAdoptionPublicationWorkflowResult> {
   const service = new QuestionCandidateService(
     repository,
     {
@@ -189,10 +228,24 @@ export async function adoptQuestionTaskCandidate(
     },
     new QuestionResourceCandidateAdoptionGateway(questionRepository),
   );
-  return adoptQuestionCandidateAndRunChecks(input, {
+  return adoptQuestionCandidateAndPublish(input, {
     service,
     validate: validateQuestionResourceWorkbenchStructure,
     assess: completeQuestionResourceWorkbenchQualityCheck,
+    submitReview: (draftId, revision) => submitQuestionResourceWorkbenchReview(
+      draftId,
+      revision,
+      [],
+    ),
+    approveReview: (draftId, revision) => decideQuestionResourceWorkbenchReview({
+      draftId,
+      expectedDraftRevision: revision,
+      action: 'approve',
+      reviewerId: input.adoptedBy || 'local-candidate-adopter',
+      notes: '采用题目并通过自动质量门禁。',
+      acceptedWarningCodes: [],
+    }),
+    publish: freezeQuestionResourceWorkbenchDraft,
   });
 }
 

@@ -2,23 +2,24 @@
 
 英文名称：Question Review and Publication Workflow Contract
 
-状态：DESIGN FROZEN / SINGLE-PAGE P0-P2 ENGINEERING COMPLETE / ACCEPTANCE RECORDED
-契约版本：`question_review_publication_workflow_v1.5`
-更新日期：2026-08-04
+状态：DESIGN FROZEN / SINGLE-PAGE P0-P2 ENGINEERING COMPLETE / CANDIDATE ADOPTION ALIGNMENT DEBUG ACCEPTED
+契约版本：`question_review_publication_workflow_v1.6`
+更新日期：2026-08-06
 
 ## 一、用途与权威边界
 
 本文冻结 Phase 17 题目检查、人工发布决定与正式发布的领域工作流、信息层级、操作语义和质量问题分级。单人生产模式由统一资源生产工作台承载，不再要求独立题目审核平台作为主入口。
 
-面向用户的主链收口为：
+面向用户的单人 Candidate 主链收口为：
 
 ```text
-任务卡内编辑与检查
-→ 人工点击“发布任务”
-→ 正式发布或可恢复失败
+生成题目
+→ 人工点击“采用题目”
+→ 系统自动检查、记录确认并发布
+→ 正式发布或进入可恢复异常
 ```
 
-“发布任务”是一次用户动作，不是一次不可追溯的领域写入。系统内部仍依次保留保存 Revision、Validation / Assessment、记录 Human Review Decision、Freeze、Formal Version 与 Registry 写入，并持久化每一阶段结果。
+“采用题目”是单人模式正常路径中的明确人工决定，不是一次不可追溯的领域写入。系统内部仍依次保留创建 Revision、Validation / Assessment、记录 Human Review Decision、Freeze、Formal Version 与 Registry 写入，并持久化每一阶段结果。质量提醒不得自动接受；任一阶段失败时停止并提供阶段恢复动作。多人模式仍可恢复独立提交、审核和发布动作。
 
 平台不要求用户一次性理解所有 Schema、来源、版本和内部质量字段，也不承担训练任务规划或 Material Observation Plan 的重新设计。
 
@@ -1729,3 +1730,19 @@ type QuestionWorkbenchCommand =
 6. 提交、审核与发布等生命周期命令完成后，页面不再停留在旧操作状态；
 7. Command E2E 验证重复保存、检查、提交、审核和发布不会产生重复 Revision、Review 或正式
    资源。
+
+### 交互补充：显式接受质量提醒
+
+单人模式中，质量提醒出现后自动编排必须停止。只有用户点击“接受提醒并发布”，系统才可把当前
+warning code、当前 Revision、当前 Assessment 和结构化确认理由写入审计记录，并从已完成阶段
+继续确认与发布。该按钮执行时必须立即显示“正在发布…”和旋转图标；失败后恢复可重试状态并在
+操作区附近展示错误，禁止静默禁用、自动接受提醒或重复创建 Revision。
+
+### 本轮验收记录（2026-08-06）
+
+1. 无提醒 Candidate 采用会自动串联 Revision、Validation、Assessment、Human Review 与正式发布；
+2. 质量提醒会中断普通自动编排，不会被系统静默接受；
+3. 只有用户显式点击“接受提醒并发布”才写入绑定当前 Revision、Assessment 和 warning code 的结构化确认，并从已完成阶段继续；
+4. 执行按钮即时显示“正在发布…”和旋转图标，并通过同步执行锁防止重复写入；
+5. Candidate 工作台 P4 回归 `14 / 14`、P6 退出审计和生产构建通过；
+6. 浏览器真实数据验收完成“提醒中断 -> 显式接受 -> 已发布”，任务数量闭合且成功反馈可见。

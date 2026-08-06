@@ -39,6 +39,7 @@ export type TaskProductionPresentation = {
 
 export type TaskProductionCardActionKind =
   | 'generate_candidate'
+  | 'adopt_candidate'
   | 'focus_issue'
   | 'save_plan'
   | 'open_repair'
@@ -51,7 +52,7 @@ export type TaskProductionCardActionKind =
 
 export type TaskProductionCardAction = {
   kind: TaskProductionCardActionKind | null;
-  label: '生成题目候选' | '继续修改' | '发布任务' | '查看正式资源' | null;
+  label: '生成题目' | '采用题目' | '继续修改' | '发布任务' | '查看正式资源' | null;
   busyLabel: string | null;
 };
 
@@ -127,6 +128,7 @@ export type TaskProductionSummary = {
 };
 
 export type TaskGroupPublicationSummary = {
+  actionRequired: number;
   pendingPublication: number;
   published: number;
 };
@@ -211,8 +213,8 @@ export function resolveTaskProductionCardAction(
     if (productionView.state === 'draft_empty') {
       return {
         kind: 'generate_candidate',
-        label: '生成题目候选',
-        busyLabel: '正在生成题目候选…',
+        label: '生成题目',
+        busyLabel: '正在生成题目…',
       };
     }
     return {
@@ -291,7 +293,7 @@ function getTaskProductionPrimaryActionLabel(
   state: TaskProductionState,
   action: TaskProductionAction,
 ): string {
-  if (state === 'draft_empty' && action === 'edit') return '生成题目候选';
+  if (state === 'draft_empty' && action === 'edit') return '生成题目';
   return getTaskProductionActionLabel(action);
 }
 
@@ -445,7 +447,8 @@ export function resolveTaskGroupPublicationSummary(
   summary: TaskProductionSummary,
 ): TaskGroupPublicationSummary {
   return {
-    pendingPublication: summary.total - summary.published,
+    actionRequired: summary.actionRequired + summary.pendingConfirmation,
+    pendingPublication: summary.confirmedAwaitingPublication,
     published: summary.published,
   };
 }

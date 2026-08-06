@@ -40,6 +40,7 @@ export const CANDIDATE_FIELD_KEYS: CandidateFieldKey[] = [
 ];
 
 export type CandidateGenerationContext = {
+  source?: 'ai_generated' | 'training_task_compatibility_wrap';
   modelId: string;
   promptVersion: string;
   promptHash: string;
@@ -47,8 +48,13 @@ export type CandidateGenerationContext = {
   materialVersionId: string;
   observationPlanVersion: number;
   trainingTaskVersion: number;
+  trainingTaskContentHash?: string;
   generatedAt: string;
 };
+
+export type QuestionCandidateOrigin =
+  | 'ai_generated'
+  | 'training_task_compatibility_wrap';
 
 export type CandidateRuntimeContext = {
   materialVersionId: string;
@@ -64,6 +70,7 @@ export type QuestionCandidate = {
   generationCommandId: string;
   generationCommandFingerprint: string;
   trainingTaskId: string;
+  candidateOrigin?: QuestionCandidateOrigin;
   candidateType: QuestionCandidateType;
   basedOnCandidateId?: string;
   basedOnDraftId?: string;
@@ -106,6 +113,7 @@ export type CandidateAdoptionResult = {
 };
 
 export type CandidateCommandName =
+  | 'ensureInitialCandidateFromTrainingTask'
   | 'generateTaskCandidates'
   | 'regenerateTaskCandidates'
   | 'optimizeTaskCandidate'
@@ -169,15 +177,58 @@ export type TaskCandidateProjection = {
   expiredCandidateIds: string[];
 };
 
+export type InitialCandidateCompleteness = {
+  complete: boolean;
+  missingFields: CandidateFieldKey[];
+};
+
+export function inspectInitialCandidateCompleteness(
+  content: QuestionEditableFields,
+): InitialCandidateCompleteness {
+  const missingFields: CandidateFieldKey[] = [];
+  if (!content.questionStem.trim()) missingFields.push('questionStem');
+  if (!content.responseFormat || !content.minimumAnswerRequirement) {
+    missingFields.push('studentTask');
+  }
+  if (!content.abilityMetadata?.abilityId?.trim()) missingFields.push('abilityTarget');
+  if (!content.rubric.length || !content.rubric.some((item) => (
+    Boolean(item.abilityId?.trim()) && Boolean((item.description || item.name)?.trim())
+  ))) {
+    missingFields.push('observationTarget');
+  }
+  if (!content.rubric.length) missingFields.push('rubric');
+  if (!content.answerAcceptance || (
+    !Array.isArray(content.answerAcceptance.acceptedKeywords)
+    && typeof content.answerAcceptance.semanticEquivalentAllowed !== 'boolean'
+  )) {
+    missingFields.push('answerAcceptance');
+  }
+  const hasMaterialScope = Boolean(content.materialVersionId?.trim()) && content.tags.some(
+    (tag) => tag.startsWith('observation_task:'),
+  );
+  if (!hasMaterialScope) missingFields.push('materialScope');
+  return {
+    complete: missingFields.length === 0,
+    missingFields: uniqueFields(missingFields),
+  };
+}
+
 export function createQuestionCandidate(input: Omit<
   QuestionCandidate,
   'content' | 'contentHash' | 'schemaVersion'
 > & { content: QuestionEditableFields }): QuestionCandidate {
   const content = normalizeQuestionEditableFields(input.content);
+  const contentHash = calculateQuestionEditableFieldsHash(content);
   return {
     ...cloneQuestionCandidate(input),
+    candidateOrigin: input.candidateOrigin || 'ai_generated',
     content,
-    contentHash: calculateQuestionEditableFieldsHash(content),
+    contentHash,
+    generationContext: {
+      source: input.generationContext.source || input.candidateOrigin || 'ai_generated',
+      trainingTaskContentHash: input.generationContext.trainingTaskContentHash || contentHash,
+      ...cloneQuestionCandidate(input.generationContext),
+    },
     changedFields: uniqueFields(input.changedFields),
     allowedFields: uniqueFields(input.allowedFields),
     lockedFields: uniqueFields(input.lockedFields),

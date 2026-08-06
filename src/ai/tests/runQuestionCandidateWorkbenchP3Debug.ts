@@ -12,10 +12,15 @@ const context = {
   trainingTaskVersion: 3,
 };
 
-function candidate(candidateId: string, materialVersionId = context.materialVersionId) {
+function candidate(
+  candidateId: string,
+  materialVersionId = context.materialVersionId,
+  generationCommandId = 'command-current-batch',
+  createdAt = '2026-08-05T00:00:00.000Z',
+) {
   return createQuestionCandidate({
     candidateId,
-    generationCommandId: `command-${candidateId}`,
+    generationCommandId,
     generationCommandFingerprint: `fingerprint-${candidateId}`,
     trainingTaskId: 'training-task-1',
     candidateType: 'initial',
@@ -69,10 +74,10 @@ function candidate(candidateId: string, materialVersionId = context.materialVers
       materialVersionId,
       observationPlanVersion: context.observationPlanVersion,
       trainingTaskVersion: context.trainingTaskVersion,
-      generatedAt: '2026-08-05T00:00:00.000Z',
+      generatedAt: createdAt,
     },
     status: 'ready',
-    createdAt: '2026-08-05T00:00:00.000Z',
+    createdAt,
   });
 }
 
@@ -108,6 +113,22 @@ assert.equal(ready.candidateState.state, 'candidate_ready');
 assert.equal(ready.selectedCandidateId, 'b');
 assert.deepEqual(ready.comparisonCandidateIds, ['b', 'a']);
 assert.equal(ready.comparisonCandidateIds.length, 2, 'comparison must be capped at two');
+
+const latestBatch = resolveCandidatePanelProjection({
+  candidates: [
+    candidate('old-a', context.materialVersionId, 'command-old', '2026-08-04T00:00:00.000Z'),
+    candidate('old-b', context.materialVersionId, 'command-old', '2026-08-04T00:00:00.000Z'),
+    candidate('new-a', context.materialVersionId, 'command-new', '2026-08-05T00:00:00.000Z'),
+    candidate('new-b', context.materialVersionId, 'command-new', '2026-08-05T00:00:00.000Z'),
+    candidate('new-c', context.materialVersionId, 'command-new', '2026-08-05T00:00:00.000Z'),
+  ],
+  context,
+});
+assert.deepEqual(
+  latestBatch.readyCandidates.map((item) => item.candidateId),
+  ['new-a', 'new-b', 'new-c'],
+  'the decision panel should show only the latest generation batch by default',
+);
 
 const optimizing = resolveCandidatePanelProjection({
   candidates: [candidate('a')],
