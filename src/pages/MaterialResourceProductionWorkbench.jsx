@@ -78,8 +78,8 @@ import {
 } from './trainingTaskEditingState.ts';
 import {
   resolveTaskAssessmentStatus,
-  resolveTaskGroupPublicationSummary,
   resolveTaskGroupSummary,
+  resolveTaskProductionVisibleSummary,
   resolveTaskProductionCardPresentation,
   resolveTaskPublicationEligibility,
   resolveTaskProductionState,
@@ -163,6 +163,12 @@ const trainingDirectionLabels = Object.fromEntries(trainingDirectionOptions);
 const roleLabels = Object.fromEntries(roleOptions);
 const difficultyLabels = Object.fromEntries(difficultyOptions);
 const assessmentModeLabels = Object.fromEntries(assessmentModeOptions);
+const WARNING_RETENTION_REASON_OPTIONS = [
+  ['training_goal_unaffected', '提醒不影响训练目标'],
+  ['distinct_assessment_angle', '与已有题目考查角度不同'],
+  ['difficulty_matches_usage', '当前难度符合实际使用需要'],
+  ['other', '其他'],
+];
 
 export default function MaterialResourceProductionWorkbench() {
   const location = useLocation();
@@ -202,6 +208,7 @@ export default function MaterialResourceProductionWorkbench() {
   const [taskBatchPublicationResult, setTaskBatchPublicationResult] = useState(null);
   const [taskWorkflowFeedback, setTaskWorkflowFeedback] = useState({});
   const [taskReviewNotes, setTaskReviewNotes] = useState({});
+  const [warningRetentionDialog, setWarningRetentionDialog] = useState(null);
   const [generatorPreferences, setGeneratorPreferences] = useState({
     gradeRange: '初中',
     preferredAbilityIds: [],
@@ -381,10 +388,49 @@ export default function MaterialResourceProductionWorkbench() {
     [taskReviewGroups, selectedPlan, planDrafts, snapshot.draftReadiness, selectedMaterialResourceDetails],
   );
   const taskQuestionLifecycleSummary = useMemo(() => {
-    const lifecycles = [...taskQuestionLifecycleById.values()];
-    const summary = resolveTaskGroupSummary(lifecycles.map((item) => item.productionView));
-    return resolveTaskGroupPublicationSummary(summary);
-  }, [taskQuestionLifecycleById]);
+    const visibleItems = tasks.map((task) => {
+      const trainingTaskId = taskWorkingIdentity(task);
+      const lifecycle = taskQuestionLifecycleById.get(
+        task.observationTaskPlanId || task.localId,
+      );
+      const context = buildTaskCandidateRuntimeContext({
+        selectedMaterial,
+        selectedPlan,
+        task,
+        draft: lifecycle?.draft || null,
+      });
+      const panel = taskCandidatePanels[trainingTaskId] || {};
+      const projection = resolveCandidatePanelProjection({
+        candidates: taskCandidatesById[trainingTaskId] || [],
+        context,
+        operation: panel.operation,
+        selectedCandidateId: panel.selectedCandidateId,
+        comparisonCandidateIds: panel.comparisonCandidateIds,
+        adoption: { enabled: true },
+        workingStatus: taskWorkingStates[trainingTaskId]?.status || 'clean',
+      });
+      return {
+        productionView: lifecycle.productionView,
+        candidateReady: Boolean(
+          lifecycle.productionView.state === 'draft_empty'
+          && projection.selectedCandidateId,
+        ),
+        actionRequired: Boolean(
+          panel.adoptionResult?.visibleState === 'action_required'
+          || ['candidate_expired', 'candidate_failed'].includes(projection.candidateState.state),
+        ),
+      };
+    });
+    return resolveTaskProductionVisibleSummary(visibleItems);
+  }, [
+    taskQuestionLifecycleById,
+    tasks,
+    selectedMaterial,
+    selectedPlan,
+    taskCandidatePanels,
+    taskCandidatesById,
+    taskWorkingStates,
+  ]);
   const hasLocalUnsavedTaskChanges = useMemo(
     () => (
       tasks.some((task) => task.editorDirty || !task.observationTaskPlanId)
@@ -941,16 +987,17 @@ export default function MaterialResourceProductionWorkbench() {
           });
         } else if (actionKind === 'open_confirmation' && draft) {
           const warnings = readiness?.qualityAssessment?.warnings || [];
-          if (warnings.length > 0 && !options.acceptCurrentWarnings) {
-            throw new Error('当前题目仍有质量提醒，请先处理或填写明确的保留理由。');
+          const warningAcknowledgements = options.warningAcknowledgements || [];
+          const acknowledgementByCode = new Map(
+            warningAcknowledgements.map((record) => [record.warningCode, record]),
+          );
+          if (warnings.some((warning) => !acknowledgementByCode.get(warning.code)?.rationale?.trim())) {
+            throw new Error('请先为每项质量提醒选择保留理由。');
           }
           await executeSubmitFinalConfirmationCommand({
             draftId: draft.draftId,
             expectedDraftRevision: draft.revision,
-            warningAcknowledgements: warnings.map((warning) => ({
-              warningCode: warning.code,
-              rationale: '用户已查看当前质量提醒，并明确选择保留当前题目。',
-            })),
+            warningAcknowledgements,
           });
         } else if (actionKind === 'confirm' && draft) {
           await executeRecordFinalConfirmationCommand({
@@ -988,13 +1035,22 @@ export default function MaterialResourceProductionWorkbench() {
         [observationTaskPlanId]: { type: 'success', message: successMessage },
       }));
       setToast({ id: Date.now(), message: successMessage });
+      return true;
     } catch (error) {
       const feedback = errorNotice(error);
       setTaskWorkflowFeedback((current) => ({ ...current, [observationTaskPlanId]: feedback }));
+      return false;
     } finally {
       taskWorkflowInFlightRef.current.delete(operationKey);
       setTaskWorkflowOperation((current) => (current === operationKey ? null : current));
     }
+  }
+
+  async function confirmWarningRetention(warningAcknowledgements) {
+    const dialog = warningRetentionDialog;
+    if (!dialog) return;
+    await runTaskWorkflowAction(dialog.lifecycle, { warningAcknowledgements });
+    setWarningRetentionDialog(null);
   }
 
   function revealTaskFormalResource(event, taskId) {
@@ -1439,6 +1495,11 @@ export default function MaterialResourceProductionWorkbench() {
           [observationTaskPlanId]: { type: 'success', message: successMessage },
         }));
         setToast({ id: Date.now(), message: successMessage });
+      } else if (adoptionResult.nextAction === 'resolve_warnings') {
+        setTaskWorkflowFeedback((current) => ({
+          ...current,
+          [observationTaskPlanId]: null,
+        }));
       } else {
         setTaskWorkflowFeedback((current) => ({
           ...current,
@@ -2041,18 +2102,23 @@ export default function MaterialResourceProductionWorkbench() {
             <div className="flex flex-wrap items-start justify-between gap-3 sm:items-center">
               <div>
                 <h2 className="text-lg font-semibold">
-                  {selectedPlan ? '修改训练任务' : tasks.length > 0 ? '确认训练任务' : '规划训练任务'}
+                  训练任务
                   <span className="ml-2 font-normal text-slate-950">（<span className="text-blue-700">{tasks.length}</span>/6）</span>
                 </h2>
               </div>
               <div
-                className="grid w-full grid-cols-3 sm:w-auto"
+                className="grid w-full grid-cols-2 sm:w-auto sm:grid-cols-4"
                 aria-label={`${selectedMaterial.title}当前版本的发布状态`}
               >
                 <Metric
-                  label="待处理"
+                  label="需处理"
                   value={taskQuestionLifecycleSummary.actionRequired}
                   tone="neutral"
+                />
+                <Metric
+                  label="待采用"
+                  value={taskQuestionLifecycleSummary.awaitingAdoption}
+                  tone="candidate"
                 />
                 <Metric
                   label="待发布"
@@ -2269,6 +2335,11 @@ export default function MaterialResourceProductionWorkbench() {
                   pendingQualityWarnings.length > 0
                   || taskCandidatePanel.adoptionResult?.visibleState === 'action_required',
                 );
+                const showTaskCandidatePanel = pendingQualityWarnings.length === 0
+                  || taskCandidateProjection.busy
+                  || taskCandidateProjection.readyCandidates.length > 0
+                  || taskCandidatePanel.correctionResult
+                  || taskCandidatePanel.migrationResult;
                 const taskCardAction = candidateReadyForAdoption
                   && taskProductionAction?.kind === 'generate_candidate'
                   ? {
@@ -2303,6 +2374,11 @@ export default function MaterialResourceProductionWorkbench() {
                           candidateReady={candidateReadyForAdoption}
                           actionRequired={candidateActionRequired}
                         />
+                        {pendingQualityWarnings.length > 0 && (
+                          <span className="text-xs font-medium text-amber-700">
+                            {pendingQualityWarnings.length} 项质量提醒
+                          </span>
+                        )}
                       </div>
                       <div
                         className="contents"
@@ -2336,10 +2412,6 @@ export default function MaterialResourceProductionWorkbench() {
                               </button>
                             )}
                             {showTaskProductionAction && (
-                            <span className="inline-flex items-center gap-1.5">
-                              {taskCardAction.kind !== 'generate_candidate' && (
-                                <span className="text-slate-500">下一步：</span>
-                              )}
                               <button
                                 type="button"
                                 disabled={
@@ -2410,7 +2482,6 @@ export default function MaterialResourceProductionWorkbench() {
                                     ? taskCardAction.busyLabel || '正在处理题目…'
                                   : taskCardAction.label}
                               </button>
-                            </span>
                             )}
                             {taskCardPresentation?.auxiliaryActions?.map((action) => (
                               <button
@@ -2467,8 +2538,11 @@ export default function MaterialResourceProductionWorkbench() {
                       lifecycle={questionLifecycle}
                       reviewNotes={taskReviewNotes[questionLifecycle.draft.draftId] || ''}
                       busy={workflowBusy || taskCandidateProjection.busy}
-                      onAcceptWarningsAndPublish={() => void runTaskWorkflowAction(questionLifecycle, {
-                        acceptCurrentWarnings: true,
+                      onGenerateOptimizedQuestion={() => void runTaskCandidateOperation(task, index, 'generate')}
+                      onRetainCurrentQuestion={() => setWarningRetentionDialog({
+                        lifecycle: questionLifecycle,
+                        taskTitle: taskEditorTitle(index),
+                        warnings: pendingQualityWarnings,
                       })}
                       onReviewNotesChange={(value) => setTaskReviewNotes((current) => ({
                         ...current,
@@ -2476,7 +2550,7 @@ export default function MaterialResourceProductionWorkbench() {
                       }))}
                     />
                   )}
-                  <TaskCandidateDecisionPanel
+                  {showTaskCandidatePanel && <TaskCandidateDecisionPanel
                       projection={taskCandidateProjection}
                       hasExistingRevision={Boolean(questionLifecycle?.draft)}
                       selectedCandidateId={taskCandidateProjection.selectedCandidateId}
@@ -2538,7 +2612,7 @@ export default function MaterialResourceProductionWorkbench() {
                       onMigrateWorkingContent={() => void migrateTaskWorkingContent(task)}
                       onDiscardWorkingContent={() => void discardCurrentTaskWorkingContent(task)}
                       onAdopt={() => void adoptTaskCandidate(task)}
-                    />
+                    />}
                   <div className="mt-5 space-y-5">
                     <section>
                       <p className="text-sm font-semibold text-slate-900">能力目标</p>
@@ -2743,7 +2817,7 @@ export default function MaterialResourceProductionWorkbench() {
                     title={commandAvailability.planReplacementGroup.reason}
                     className="ai-button-outline inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {generatorOperation === 'replace_group' ? '正在重新生成…' : '重新生成整组任务'}
+                    {generatorOperation === 'replace_group' ? '正在重新规划…' : '重新规划整组任务'}
                   </button>
                   <button
                     type="button"
@@ -2752,20 +2826,22 @@ export default function MaterialResourceProductionWorkbench() {
                     title={commandAvailability.planSupplementCandidates.reason}
                     className="ai-button-solid inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {generatorOperation === 'supplement_group' ? '正在补充候选…' : '补充生成候选任务'}
+                    {generatorOperation === 'supplement_group' ? '正在补充生成…' : '补充生成训练任务'}
                   </button>
                 </>
               )}
-              <button
-                type="button"
-                disabled={!commandAvailability.savePlanRevision.enabled}
-                title={commandAvailability.savePlanRevision.reason}
-                onClick={savePlanRevision}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-blue-700 bg-blue-700 px-5 text-sm font-semibold text-white transition hover:border-blue-800 hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:border-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
-              >
-                <Save aria-hidden="true" size={18} />
-                {selectedPlan ? '确认任务并保存' : '保存训练任务'}
-              </button>
+              {taskEditorDirty && (
+                <button
+                  type="button"
+                  disabled={!commandAvailability.savePlanRevision.enabled}
+                  title={commandAvailability.savePlanRevision.reason}
+                  onClick={savePlanRevision}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-blue-700 bg-blue-700 px-5 text-sm font-semibold text-white transition hover:border-blue-800 hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:border-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
+                >
+                  <Save aria-hidden="true" size={18} />
+                  {selectedPlan ? '保存任务组修改' : '保存训练任务'}
+                </button>
+              )}
             </div>
             </section>
             </section>
@@ -2801,6 +2877,15 @@ export default function MaterialResourceProductionWorkbench() {
           onConfirm={confirmTaskRemoval}
         />
       )}
+      {warningRetentionDialog && (
+        <TaskWarningRetentionDialog
+          taskTitle={warningRetentionDialog.taskTitle}
+          warnings={warningRetentionDialog.warnings}
+          busy={Boolean(taskWorkflowOperation)}
+          onCancel={() => setWarningRetentionDialog(null)}
+          onConfirm={(warningAcknowledgements) => void confirmWarningRetention(warningAcknowledgements)}
+        />
+      )}
       {duplicateMaterial && (
         <DuplicateMaterialDialog
           material={duplicateMaterial}
@@ -2818,6 +2903,116 @@ export default function MaterialResourceProductionWorkbench() {
           onConfirm={confirmMaterialRemoval}
         />
       )}
+    </div>
+  );
+}
+
+function TaskWarningRetentionDialog({ taskTitle, warnings, busy, onCancel, onConfirm }) {
+  const [decisions, setDecisions] = useState(() => Object.fromEntries(
+    warnings.map((warning) => [warning.code, { reasonCode: '', note: '' }]),
+  ));
+  const reasonLabels = Object.fromEntries(WARNING_RETENTION_REASON_OPTIONS);
+  const canConfirm = warnings.length > 0 && warnings.every((warning) => {
+    const decision = decisions[warning.code];
+    if (!decision?.reasonCode) return false;
+    return decision.reasonCode !== 'other' || Boolean(decision.note.trim());
+  });
+
+  function updateDecision(warningCode, patch) {
+    setDecisions((current) => ({
+      ...current,
+      [warningCode]: { ...current[warningCode], ...patch },
+    }));
+  }
+
+  function confirmRetention() {
+    if (!canConfirm || busy) return;
+    onConfirm(warnings.map((warning) => {
+      const decision = decisions[warning.code];
+      const rationale = decision.reasonCode === 'other'
+        ? decision.note.trim()
+        : reasonLabels[decision.reasonCode];
+      return {
+        warningCode: warning.code,
+        rationale,
+        reasonSource: 'manual',
+        structuredReason: decision.reasonCode,
+      };
+    }));
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-5 py-8" role="presentation">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="retain-question-title"
+        className="max-h-full w-full max-w-2xl overflow-y-auto rounded-md bg-white p-6 shadow-xl"
+      >
+        <h2 id="retain-question-title" className="text-lg font-semibold">保留当前题目</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          {taskTitle}存在 {warnings.length} 项质量提醒。请逐项说明保留理由，系统会将决定绑定到当前题目版本和检查记录。
+        </p>
+        <div className="mt-5 space-y-4">
+          {warnings.map((warning, index) => {
+            const decision = decisions[warning.code] || { reasonCode: '', note: '' };
+            return (
+              <section key={warning.code} className="rounded-md border border-amber-200 bg-amber-50 px-4 py-4">
+                <p className="text-sm font-semibold text-amber-900">
+                  {index + 1}. {warning.message}
+                </p>
+                <label className="mt-3 block text-xs font-medium text-slate-700">
+                  保留理由
+                  <select
+                    value={decision.reasonCode}
+                    onChange={(event) => updateDecision(warning.code, {
+                      reasonCode: event.target.value,
+                      note: event.target.value === 'other' ? decision.note : '',
+                    })}
+                    className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-blue-600 focus:outline-none focus:shadow-[0_0_0_2px_rgba(37,99,235,0.3)]"
+                  >
+                    <option value="">请选择理由</option>
+                    {WARNING_RETENTION_REASON_OPTIONS.map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+                {decision.reasonCode === 'other' && (
+                  <label className="mt-3 block text-xs font-medium text-slate-700">
+                    具体说明
+                    <textarea
+                      value={decision.note}
+                      onChange={(event) => updateDecision(warning.code, { note: event.target.value })}
+                      rows={2}
+                      placeholder="说明为什么该提醒不影响当前题目的采用与发布"
+                      className="mt-1 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 focus:border-blue-600 focus:outline-none focus:shadow-[0_0_0_2px_rgba(37,99,235,0.3)]"
+                    />
+                  </label>
+                )}
+              </section>
+            );
+          })}
+        </div>
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onCancel}
+            className="h-10 rounded-md border border-[#666666] bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            disabled={!canConfirm || busy}
+            onClick={confirmRetention}
+            className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+          >
+            {busy && <LoaderCircle aria-hidden="true" size={16} className="mr-2 animate-spin" />}
+            {busy ? '正在确认并发布…' : '确认保留并发布'}
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
@@ -2921,6 +3116,8 @@ function Metric({ label, value, tone = 'default' }) {
     ? 'text-amber-700'
     : tone === 'info'
       ? 'text-blue-700'
+      : tone === 'candidate'
+        ? 'text-violet-700'
       : tone === 'success'
         ? 'text-emerald-700'
         : 'text-slate-950';
@@ -3246,7 +3443,7 @@ function TaskCandidateDecisionPanel({
               onClick={onGenerate}
               className="ai-button-solid inline-flex h-10 min-w-48 items-center justify-center rounded-md border px-4 text-sm font-semibold"
             >
-              生成优化方案
+              生成优化题目
             </button>
           )}
         </div>
@@ -3405,7 +3602,7 @@ function TaskCandidateDecisionPanel({
                 onClick={onOptimize}
                 className="ai-button-solid inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
               >
-                生成优化方案
+                生成优化题目
               </button>
             )}
             <button
@@ -3461,11 +3658,6 @@ function CandidateAdoptionResultNotice({ result }) {
       title: '题目已采用，完整检查尚未完成',
       detail: result.assessment?.message || '新版本已经保留，可以单独重试完整检查。',
     },
-    resolve_warnings: {
-      tone: 'border-amber-300 bg-amber-50 text-amber-900',
-      title: '题目已采用，仍有质量提醒需要处理',
-      detail: '系统不会自动接受质量提醒，请处理问题或填写明确的保留理由。',
-    },
     retry_review: {
       tone: 'border-red-300 bg-red-50 text-red-800',
       title: '检查已完成，确认记录尚未完成',
@@ -3490,7 +3682,7 @@ function candidateAdoptionRecoveryMessage(result) {
   return ({
     resolve_validation: result.validation?.message || '结构检查未通过，请处理后重试。',
     retry_assessment: result.assessment?.message || '完整质量检查未完成，请重试。',
-    resolve_warnings: '当前题目仍有质量提醒，请先处理或填写明确的保留理由。',
+    resolve_warnings: '当前题目有质量提醒，请选择生成优化题目或保留当前题目。',
     retry_review: result.review?.message || '最终确认记录未完成，请重试。',
     retry_publication: result.publication?.message || '审核已通过，发布未完成，请重试发布。',
   })[result.nextAction] || '题目处理尚未完成，请根据当前状态继续。';
@@ -3520,7 +3712,8 @@ function TaskProductionWorkflowPanel({
   lifecycle,
   reviewNotes,
   busy,
-  onAcceptWarningsAndPublish,
+  onGenerateOptimizedQuestion,
+  onRetainCurrentQuestion,
   onReviewNotesChange,
 }) {
   const { draft, readiness } = lifecycle;
@@ -3531,23 +3724,34 @@ function TaskProductionWorkflowPanel({
     <div data-task-production-workflow className="mt-4 border-t border-slate-200 pt-4">
       {actionKind === 'open_confirmation' && warnings.length > 0 && (
         <div className="space-y-3">
-          <p className="text-sm font-semibold text-slate-900">质量提醒</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-slate-900">质量提醒</p>
+            <span className="text-xs font-medium text-amber-700">{warnings.length} 项需要判断</span>
+          </div>
           <ul className="space-y-2">
-            {warnings.map((warning) => (
-              <li key={warning.code} className="text-sm font-medium text-amber-800">
-                {warning.message}
+            {warnings.map((warning, index) => (
+              <li key={warning.code} className="flex gap-2 text-sm leading-6 text-amber-900">
+                <span aria-hidden="true" className="shrink-0">{index + 1}.</span>
+                <span>{warning.message}</span>
               </li>
             ))}
           </ul>
-          <div className="flex flex-wrap justify-end gap-2 pt-1">
+          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4">
             <button
               type="button"
               disabled={busy}
-              onClick={onAcceptWarningsAndPublish}
-              className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+              onClick={onGenerateOptimizedQuestion}
+              className="ai-button-solid inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {busy && <LoaderCircle aria-hidden="true" size={16} className="mr-2 animate-spin" />}
-              {busy ? '正在发布…' : '接受提醒并发布'}
+              {busy ? '正在生成优化题目…' : '生成优化题目'}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onRetainCurrentQuestion}
+              className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+            >
+              保留当前题目
             </button>
           </div>
         </div>
@@ -4488,7 +4692,7 @@ function candidatePanelStateLabel(state) {
     candidate_regenerating: '正在重新生成',
     candidate_expired: '题目方案已过期',
     candidate_failed: '题目生成失败',
-  })[state] || '题目处理中';
+  })[state] || '题目状态待确认';
 }
 
 function candidateTypeLabel(type) {

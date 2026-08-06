@@ -129,8 +129,15 @@ export type TaskProductionSummary = {
 
 export type TaskGroupPublicationSummary = {
   actionRequired: number;
+  awaitingAdoption: number;
   pendingPublication: number;
   published: number;
+};
+
+export type TaskProductionVisibleSummaryItem = {
+  productionView: TaskProductionView;
+  candidateReady?: boolean;
+  actionRequired?: boolean;
 };
 
 export type TaskPublicationEligibilityReason =
@@ -445,12 +452,56 @@ export const summarizeTaskProductionViews = resolveTaskGroupSummary;
  */
 export function resolveTaskGroupPublicationSummary(
   summary: TaskProductionSummary,
+  options: {
+    awaitingAdoption?: number;
+  } = {},
 ): TaskGroupPublicationSummary {
+  const awaitingAdoption = Math.min(
+    summary.actionRequired,
+    Math.max(0, Math.floor(options.awaitingAdoption || 0)),
+  );
   return {
-    actionRequired: summary.actionRequired + summary.pendingConfirmation,
+    actionRequired: summary.actionRequired - awaitingAdoption + summary.pendingConfirmation,
+    awaitingAdoption,
     pendingPublication: summary.confirmedAwaitingPublication,
     published: summary.published,
   };
+}
+
+/**
+ * Projects task-level lifecycle facts into the four mutually exclusive buckets
+ * used by the unified workbench. Candidate readiness is a product-visible fact,
+ * while detailed check, confirmation and publication states remain internal.
+ */
+export function resolveTaskProductionVisibleSummary(
+  items: TaskProductionVisibleSummaryItem[],
+): TaskGroupPublicationSummary {
+  return items.reduce<TaskGroupPublicationSummary>((summary, item) => {
+    const state = item.productionView.state;
+    if (item.actionRequired) {
+      summary.actionRequired += 1;
+    } else if (state === 'published') {
+      summary.published += 1;
+    } else if (state === 'draft_empty' && item.candidateReady) {
+      summary.awaitingAdoption += 1;
+    } else if ([
+      'check_required',
+      'checking',
+      'pending_confirmation',
+      'confirmed',
+      'publishing',
+    ].includes(state)) {
+      summary.pendingPublication += 1;
+    } else {
+      summary.actionRequired += 1;
+    }
+    return summary;
+  }, {
+    actionRequired: 0,
+    awaitingAdoption: 0,
+    pendingPublication: 0,
+    published: 0,
+  });
 }
 
 export function resolveTaskPublicationEligibility(

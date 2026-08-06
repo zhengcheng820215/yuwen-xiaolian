@@ -31,10 +31,10 @@ function assertButtonUsesAiStyle(source: string, label: string, expectedClass: s
 
 const aiActions = [
   [materialWorkbenchSource, 'AI根据素材生成训练任务', 'ai-button-solid'],
-  [materialWorkbenchSource, '重新生成整组任务', 'ai-button-outline'],
-  [materialWorkbenchSource, '补充生成候选任务', 'ai-button-solid'],
+  [materialWorkbenchSource, '重新规划整组任务', 'ai-button-outline'],
+  [materialWorkbenchSource, '补充生成训练任务', 'ai-button-solid'],
   [materialWorkbenchSource, 'AI 优化', 'ai-button-outline'],
-  [materialWorkbenchSource, '生成优化方案', 'ai-button-solid'],
+  [materialWorkbenchSource, '生成优化题目', 'ai-button-solid'],
   [materialWorkbenchSource, '重新生成题目', 'ai-button-outline'],
   [materialWorkbenchSource, '采用所选候选', 'ai-button-solid'],
   [questionWorkbenchSource, 'AI 优化题干', 'ai-button-outline'],
@@ -46,7 +46,7 @@ for (const [source, label, expectedClass] of aiActions) {
 }
 
 const ordinaryActionLabels = [
-  '确认任务并保存',
+  '保存任务组修改',
   '提交最终确认',
   '保存本次修改',
   '退回录入修改',
@@ -65,9 +65,14 @@ for (const label of ordinaryActionLabels) {
   }
 }
 
-const savePlanButton = findButton(materialWorkbenchSource, '确认任务并保存');
-assert.match(savePlanButton, /bg-blue-700/, '确认任务并保存应使用蓝色主操作样式');
-assert.doesNotMatch(savePlanButton, /bg-emerald-|border-emerald-|text-emerald-/, '确认任务并保存不得使用绿色操作样式');
+const savePlanButton = findButton(materialWorkbenchSource, '保存任务组修改');
+assert.match(savePlanButton, /bg-blue-700/, '保存任务组修改应使用蓝色主操作样式');
+assert.doesNotMatch(savePlanButton, /bg-emerald-|border-emerald-|text-emerald-/, '保存任务组修改不得使用绿色操作样式');
+assert.match(
+  materialWorkbenchSource,
+  /\{taskEditorDirty && \([\s\S]*?保存任务组修改/,
+  '保存任务组修改仅应在任务组存在未保存变化时显示',
+);
 
 const removeTaskButton = findButton(materialWorkbenchSource, '删除任务');
 assert.match(removeTaskButton, /border-red-600/, '删除任务应使用标准红色线框');
@@ -81,10 +86,10 @@ assert.ok(taskWorkflowButton, '未找到任务卡统一生产动作按钮');
 assert.match(taskWorkflowButton, /taskCardAction\.kind === 'generate_candidate'/, '题目候选生成动作必须独立识别');
 assert.match(taskWorkflowButton, /ai-button-solid/, '题目候选生成动作应使用 AI 紫色主操作样式');
 assert.match(taskWorkflowButton, /text-blue-700/, '非 AI 任务生产动作仍应使用蓝色动作样式');
-assert.match(
+assert.doesNotMatch(
   materialWorkbenchSource,
-  /taskCardAction\.kind !== 'generate_candidate'[\s\S]*?>下一步：</,
-  '题目候选生成动作前不得重复显示“下一步”辅助文案',
+  />下一步：<\/span>/,
+  '任务卡流程动作不得额外显示“下一步”辅助文案',
 );
 
 const candidatePreviewStart = materialWorkbenchSource.indexOf('function CandidateContentPreview');

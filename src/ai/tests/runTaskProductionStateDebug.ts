@@ -3,6 +3,7 @@ import {
   resolveTaskAssessmentStatus,
   resolveTaskGroupPublicationSummary,
   resolveTaskGroupSummary,
+  resolveTaskProductionVisibleSummary,
   resolveTaskProductionCardAction,
   resolveTaskProductionCardPresentation,
   resolveTaskPublicationEligibility,
@@ -259,6 +260,15 @@ assert.equal(
 );
 assert.deepEqual(resolveTaskGroupPublicationSummary(summary), {
   actionRequired: 2,
+  awaitingAdoption: 0,
+  pendingPublication: 1,
+  published: 1,
+});
+assert.deepEqual(resolveTaskGroupPublicationSummary(summary, {
+  awaitingAdoption: 1,
+}), {
+  actionRequired: 1,
+  awaitingAdoption: 1,
   pendingPublication: 1,
   published: 1,
 });
@@ -267,6 +277,7 @@ assert.deepEqual(resolveTaskGroupPublicationSummary(resolveTaskGroupSummary([
   published,
 ])), {
   actionRequired: 1,
+  awaitingAdoption: 0,
   pendingPublication: 0,
   published: 1,
 });
@@ -274,8 +285,31 @@ assert.deepEqual(resolveTaskGroupPublicationSummary(resolveTaskGroupSummary([
   published,
 ])), {
   actionRequired: 0,
+  awaitingAdoption: 0,
   pendingPublication: 0,
   published: 1,
+});
+
+assert.deepEqual(resolveTaskProductionVisibleSummary([
+  { productionView: checkRequired },
+  { productionView: pendingConfirmation },
+  { productionView: confirmed },
+  { productionView: published },
+]), {
+  actionRequired: 0,
+  awaitingAdoption: 0,
+  pendingPublication: 3,
+  published: 1,
+});
+assert.deepEqual(resolveTaskProductionVisibleSummary([
+  { productionView: resolveTaskProductionState({ trainingTaskId: 'candidate-task' }), candidateReady: true },
+  { productionView: resolveTaskProductionState({ trainingTaskId: 'missing-task' }) },
+  { productionView: publicationFailed },
+]), {
+  actionRequired: 2,
+  awaitingAdoption: 1,
+  pendingPublication: 0,
+  published: 0,
 });
 
 assert.equal(resolveTaskGroupSummary([]).aggregateState, 'empty');

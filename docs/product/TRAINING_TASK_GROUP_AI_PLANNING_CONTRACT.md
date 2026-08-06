@@ -2,16 +2,16 @@
 
 英文名称：Training Task Group AI Planning Contract
 
-状态：P1 ENGINEERING IMPLEMENTED / V1.3 ENGINEERING IMPLEMENTED / SINGLE-PAGE ACTIONS ALIGNED / BROWSER ACCEPTANCE PASSED / TEN-MATERIAL CALIBRATION PENDING
-契约版本：`training_task_group_ai_planning_contract_v1.4`
+状态：P1 ENGINEERING IMPLEMENTED / V1.5 GROUP ACTIONS ALIGNED / BROWSER ACCEPTANCE PASSED / TEN-MATERIAL CALIBRATION PENDING
+契约版本：`training_task_group_ai_planning_contract_v1.5`
 更新日期：2026-08-06
 
 ## 一、用途
 
 本文定义素材资源录入平台中两项任务组级 AI 能力：
 
-1. `重新规划候选任务组`：当前整组候选方向不合适时，生成一组替代方案；
-2. `补充生成候选任务`：当前任务组基本可用但覆盖不足时，在保留已有任务的前提下补充候选任务。
+1. `重新规划整组任务`：当前整组方向不合适时，生成一组替代方案；
+2. `补充生成训练任务`：当前任务组基本可用但覆盖不足时，在保留已有任务的前提下补充训练任务候选。
 
 两项能力只处理上游 `TrainingTaskCandidate`，不直接创建正式题目，也不替代下游 `QuestionCandidate` 的采用、质量检查、人工发布决定或正式发布。
 
@@ -24,10 +24,10 @@
 -> 重新生成此任务
 
 当前任务组可用，但覆盖不足
--> 补充生成候选任务
+-> 补充生成训练任务
 
 当前整组方向不合适
--> 重新规划候选任务组
+-> 重新规划整组任务
 ```
 
 ### 1.1 当前页面动作与历史术语
@@ -37,20 +37,31 @@
 当前页面动作冻结为：
 
 ```text
-任务组：重新生成整组任务 / 补充生成候选任务 / 确认任务并保存
-单任务：发布任务
+任务组常驻：重新规划整组任务 / 补充生成训练任务
+任务组存在未保存变化时：保存任务组修改
+单任务：生成题目 / 采用题目 / 重新生成题目 / 处理问题
 ```
 
 本文历史章节与验收记录中仍可能出现旧文案。读取规则如下：
 
 | 历史术语 | 当前解释 |
 | --- | --- |
-| `保存任务组并重新检查` | 旧页面文案；当前页面统一为`确认任务并保存`，内部仍可分阶段保存和检查 |
+| `保存任务组并重新检查` / `确认任务并保存` | 旧页面文案；当前仅在任务组真实变化时显示`保存任务组修改` |
 | `提交题目审核` / `提交人工审核` | 兼容命令或历史流程证据；当前任务组页面不显示该按钮 |
 | `审核区` | 历史独立区域；当前质量结果、提醒处理和发布入口均归属对应任务卡 |
 | `pending_review` / `reviewed` | 兼容领域记录；当前页面主状态由统一工作台的`resolveTaskProductionState()`投影 |
 
 以下章节若未明确标注为当前页面规范，上述映射优先于历史按钮文案。
+
+### 1.2 组级动作与单任务采用边界
+
+1. 任务卡流程动作直接显示动作名称，不使用“下一步：”辅助前缀；
+2. `采用题目`只作用于当前任务的 QuestionCandidate，并由单任务编排继续检查与发布；
+3. 页面不得在题目采用后再要求执行任务组级“确认任务并保存”；
+4. `重新规划整组任务`和`补充生成训练任务`只生成 TrainingTaskCandidate，不直接采用或发布题目；
+5. TrainingTaskCandidate 被采用到任务组、任务被删除或恢复后，页面进入任务组未保存状态，并临时显示`保存任务组修改`；
+6. 任务组没有未保存变化时，不显示保存按钮，更不得保留一个无法解释的禁用按钮；
+7. `保存任务组修改`只更新 Observation Plan 工作草稿或 Revision，不创建 Question Revision、Assessment、Human Review 或 Formal Resource。
 
 ## 二、核心对象与状态边界
 

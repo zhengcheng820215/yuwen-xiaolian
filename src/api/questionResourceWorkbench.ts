@@ -458,6 +458,8 @@ export async function submitQuestionResourceWorkbenchReview(
   warningAcknowledgements: Array<{
     warningCode: string;
     rationale: string;
+    reasonSource?: 'fixed' | 'generated' | 'manual';
+    structuredReason?: string;
   }> = [],
 ) {
   const currentDraft = await requireExpectedDraftRevision(
@@ -474,34 +476,42 @@ export async function submitQuestionResourceWorkbenchReview(
     qualityRepository,
     draftId,
   );
-  const acknowledgementByCode = new Map(
-    warningAcknowledgements.map((item) => [item.warningCode, item.rationale.trim()]),
-  );
+  const acknowledgementByCode = new Map(warningAcknowledgements.map((item) => [
+    item.warningCode,
+    {
+      ...item,
+      rationale: item.rationale.trim(),
+      structuredReason: item.structuredReason?.trim(),
+    },
+  ]));
   const missingAcknowledgement = context.deterministic.warnings.find(
-    (warning) => !acknowledgementByCode.get(warning.code),
+    (warning) => !acknowledgementByCode.get(warning.code)?.rationale,
   );
   if (missingAcknowledgement) {
     throw new Error('提交审核前，请说明保留当前设置的理由。');
   }
   const acknowledgedAt = new Date().toISOString();
   const records: AuthorWarningAcknowledgement[] = context.deterministic.warnings.map(
-    (warning) => ({
-      acknowledgementId: `${draftId}:r${context.draft.revision}:${context.deterministic.assessmentId}:${warning.code}:author`,
-      draftId,
-      draftRevision: context.draft.revision,
-      assessmentId: context.deterministic.assessmentId,
-      warningCode: warning.code,
-      action: 'accepted_current_design',
-      rationale: acknowledgementByCode.get(warning.code) || '',
-      acknowledgedBy: 'local-author',
-      acknowledgedAt,
-      decisionCode: 'accept_current_design',
-      reasonSource: 'fixed',
-      structuredReason: acknowledgementByCode.get(warning.code) || '',
-      ruleVersion: context.deterministic.ruleVersion,
-      operatorId: 'local-author',
-      decidedAt: acknowledgedAt,
-    }),
+    (warning) => {
+      const acknowledgement = acknowledgementByCode.get(warning.code);
+      return {
+        acknowledgementId: `${draftId}:r${context.draft.revision}:${context.deterministic.assessmentId}:${warning.code}:author`,
+        draftId,
+        draftRevision: context.draft.revision,
+        assessmentId: context.deterministic.assessmentId,
+        warningCode: warning.code,
+        action: 'accepted_current_design',
+        rationale: acknowledgement?.rationale || '',
+        acknowledgedBy: 'local-author',
+        acknowledgedAt,
+        decisionCode: 'accept_current_design',
+        reasonSource: acknowledgement?.reasonSource || 'fixed',
+        structuredReason: acknowledgement?.structuredReason || acknowledgement?.rationale || '',
+        ruleVersion: context.deterministic.ruleVersion,
+        operatorId: 'local-author',
+        decidedAt: acknowledgedAt,
+      };
+    },
   );
   return submitQuestionResourceForReview(
     repository,

@@ -11,6 +11,11 @@ const PAGE_PATH = fileURLToPath(new URL(
   import.meta.url,
 ));
 
+const API_PATH = fileURLToPath(new URL(
+  '../../api/questionResourceWorkbench.ts',
+  import.meta.url,
+));
+
 const forbiddenPageTokens = [
   'candidateWorkflowEnabled',
   'QUESTION_CANDIDATE_WORKFLOW_STORAGE_KEY',
@@ -33,10 +38,19 @@ const forbiddenPageTokens = [
   'label="待最终确认"',
   'label="已确认（待发布）"',
   'pendingPublication: summary.total - summary.published',
+  '接受提醒并发布',
+  'acceptCurrentWarnings: true',
+  '用户已查看当前质量提醒，并明确选择保留当前题目。',
+  "busy ? '正在发布…' : '接受提醒并发布'",
+  '生成优化方案',
+  '题目已采用，仍有质量提醒需要处理',
 ];
 
 async function main(): Promise<void> {
-  const source = await readFile(PAGE_PATH, 'utf8');
+  const [source, apiSource] = await Promise.all([
+    readFile(PAGE_PATH, 'utf8'),
+    readFile(API_PATH, 'utf8'),
+  ]);
 
   for (const token of forbiddenPageTokens) {
     assert.equal(source.includes(token), false, `legacy token remains reachable: ${token}`);
@@ -47,17 +61,30 @@ async function main(): Promise<void> {
     'discardCurrentTaskWorkingContent',
     '迁移为纠错候选',
     '放弃旧修改',
-    '接受提醒并发布',
-    'acceptCurrentWarnings: true',
-    '用户已查看当前质量提醒，并明确选择保留当前题目。',
-    "busy ? '正在发布…' : '接受提醒并发布'",
-    '生成优化方案',
+    '生成优化题目',
+    '保留当前题目',
+    '确认保留并发布',
+    '正在确认并发布…',
+    'WARNING_RETENTION_REASON_OPTIONS',
+    "reasonSource: 'manual'",
+    'structuredReason: decision.reasonCode',
+    'showTaskCandidatePanel',
     '当前任务使用既有题目版本',
-    'label="待处理"',
+    'label="需处理"',
+    'label="待采用"',
     'label="待发布"',
-    'resolveTaskGroupPublicationSummary(summary)',
+    'resolveTaskProductionVisibleSummary(visibleItems)',
+    '训练任务\n',
   ]) {
     assert.equal(source.includes(token), true, `P6 canonical token is missing: ${token}`);
+  }
+  for (const token of [
+    "reasonSource?: 'fixed' | 'generated' | 'manual'",
+    'structuredReason?: string',
+    "reasonSource: acknowledgement?.reasonSource || 'fixed'",
+    'structuredReason: acknowledgement?.structuredReason || acknowledgement?.rationale ||',
+  ]) {
+    assert.equal(apiSource.includes(token), true, `warning audit contract is missing: ${token}`);
   }
 
   assert.deepEqual(resolveLegacyWorkflowExitAudit(exitFixture()), {
