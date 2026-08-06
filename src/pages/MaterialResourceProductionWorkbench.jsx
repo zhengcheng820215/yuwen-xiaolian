@@ -78,6 +78,7 @@ import {
 } from './trainingTaskEditingState.ts';
 import {
   resolveTaskAssessmentStatus,
+  resolveTaskGroupPublicationSummary,
   resolveTaskGroupSummary,
   resolveTaskProductionCardPresentation,
   resolveTaskPublicationEligibility,
@@ -379,10 +380,7 @@ export default function MaterialResourceProductionWorkbench() {
   const taskQuestionLifecycleSummary = useMemo(() => {
     const lifecycles = [...taskQuestionLifecycleById.values()];
     const summary = resolveTaskGroupSummary(lifecycles.map((item) => item.productionView));
-    return {
-      pendingPublication: summary.total - summary.published,
-      published: summary.published,
-    };
+    return resolveTaskGroupPublicationSummary(summary);
   }, [taskQuestionLifecycleById]);
   const hasLocalUnsavedTaskChanges = useMemo(
     () => (
@@ -2240,6 +2238,7 @@ export default function MaterialResourceProductionWorkbench() {
                               type="button"
                               disabled={
                                 workflowBusy ||
+                                taskCandidateProjection.busy ||
                                 (taskProductionAction.kind === 'save_plan' && !commandAvailability.savePlanRevision.enabled)
                               }
                               title={taskProductionAction.kind === 'save_plan' ? commandAvailability.savePlanRevision.reason : ''}
@@ -2248,6 +2247,17 @@ export default function MaterialResourceProductionWorkbench() {
                                 event.stopPropagation();
                                 if (taskProductionAction.kind === 'view_formal_resource') {
                                   revealTaskFormalResource(event, task.localId);
+                                  return;
+                                }
+                                if (taskProductionAction.kind === 'generate_candidate') {
+                                  const taskCard = event.currentTarget.closest('details');
+                                  taskCard?.setAttribute('open', '');
+                                  window.requestAnimationFrame(() => {
+                                    taskCard
+                                      ?.querySelector('[data-task-candidate-decision]')
+                                      ?.scrollIntoView({ block: 'nearest' });
+                                  });
+                                  void runTaskCandidateOperation(task, index, 'generate');
                                   return;
                                 }
                                 if (taskProductionAction.kind === 'open_confirmation') {
@@ -2273,6 +2283,8 @@ export default function MaterialResourceProductionWorkbench() {
                                   : '等待发布…'
                                 : workflowBusy
                                   ? taskProductionAction.busyLabel || '正在处理任务…'
+                                : taskCandidateProjection.busy
+                                  ? taskProductionAction.busyLabel || '正在生成候选…'
                                 : taskProductionAction.label}
                             </button>
                           </span>
@@ -2947,6 +2959,7 @@ function resolveTaskQuestionLifecycle({
   });
   const cardAction = cardPresentation.primaryAction;
   const actionTargets = {
+    generate_candidate: taskEntryItem,
     focus_issue: draftItem || taskEntryItem,
     save_plan: draftItem || taskEntryItem,
     open_repair: draftItem || taskEntryItem,
@@ -3042,6 +3055,7 @@ function TaskCandidateDecisionPanel({
 
   return (
     <section
+      data-task-candidate-decision
       aria-label="AI 任务候选决策"
       className="mt-4 rounded-md border border-violet-200 bg-violet-50 px-4 py-4"
     >
@@ -4238,6 +4252,10 @@ function buildQuestionCandidateContent(task, draft, selectedMaterial) {
   if (draft) return buildWorkingQuestionEditableFields(task, draft);
 
   const specification = toTaskInput(task).resourceDraftSpecification;
+  const taskIdentityTags = [
+    task.observationTaskPlanId ? `observation_task:${task.observationTaskPlanId}` : '',
+    task.taskRevisionRootId ? `observation_task_root:${task.taskRevisionRootId}` : '',
+  ].filter(Boolean);
   return {
     materialVersionId: selectedMaterial?.materialVersionId,
     title: specification.title,
@@ -4261,7 +4279,7 @@ function buildQuestionCandidateContent(task, draft, selectedMaterial) {
       sourceType: 'ai_assisted',
       description: '由学习材料与训练计划生成的候选题目。',
     },
-    tags: specification.tags || [],
+    tags: [...new Set([...(specification.tags || []), ...taskIdentityTags])],
   };
 }
 

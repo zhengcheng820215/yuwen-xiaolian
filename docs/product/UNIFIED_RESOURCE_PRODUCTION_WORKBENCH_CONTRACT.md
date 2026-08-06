@@ -5,8 +5,8 @@
 英文名称：Unified Resource Production Workbench Contract
 
 状态：DESIGN FROZEN / P0-P7 BASELINE ACCEPTED / AI CANDIDATE P0-P6 COMPLETE / ACCEPTANCE RECORDED
-文档版本：`unified_resource_production_workbench_v1.4`
-更新日期：2026-08-05
+文档版本：`unified_resource_production_workbench_v1.5`
+更新日期：2026-08-06
 
 ## 一、文档目标
 
@@ -44,8 +44,9 @@
 | 契约 | 在统一工作台中的职责 |
 | --- | --- |
 | [录入字段契约](./AUTHORING_FIELD_CONTRACT.md) | 继续负责字段含义、来源、读写路径、失效和错误定位 |
-| [单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) | 继续负责单任务 AI 候选、采用和身份边界 |
-| [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) | 继续负责整组规划、补充候选、采用与 Revision 边界 |
+| [单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) | 继续负责上游单个 `TrainingTaskCandidate` 的生成、采用和 Plan Revision 边界 |
+| [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) | 继续负责上游整组 `TrainingTaskCandidate` 规划、补充候选、采用与 Plan Revision 边界 |
+| [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md) | 负责下游不可变 `QuestionCandidate` 的生成、优化、异常纠错、采用与 Question Revision 边界 |
 | [录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md) | 继续负责内容编辑权、人工裁决权和正式化权的领域边界 |
 | [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md) | 继续负责 Assessment、Human Review、Freeze、Publication 和失败恢复 |
 | [产品颜色语义规范](./PRODUCT_COLOR_SEMANTICS.md) | 继续负责状态色、操作色和 AI 相关能力的颜色语义 |
@@ -103,7 +104,7 @@ AI 生成、人工调整、来源、历史正式版本等属于辅助信息，�
 
 `QuestionLineage` 是该训练任务对应题目的稳定演进线，承载草稿、Revision 和正式版本之间的身份关系。
 
-`QuestionDraft` 是当前可编辑内容。
+`QuestionDraft` 是采用不可变 `QuestionCandidate` 后形成的正式题目草稿身份。标准生产主链不提供字段级人工编辑；权限受控的异常纠错也必须先形成新的 Candidate，再由采用动作写入 Revision。
 
 `QuestionRevision` 是一次保存或提交形成的不可变快照。
 
@@ -129,7 +130,7 @@ QuestionLineage
 3. 修改已发布题目时，不覆盖已有正式版本，而是在同一 Lineage 下创建新 Revision；
 4. 发布单位是某项 `TrainingTask` 当前已确认且未变化的 `QuestionRevision`；
 5. 若要从同一训练目标生产第二道独立题目，应创建新的 `TrainingTask`，不得在同一活动草稿中隐式分叉；
-6. AI 重新生成只产生候选或更新活动草稿，不得静默创建第二条题目 Lineage；
+6. AI 重新生成、优化和异常纠错只产生不可变 Candidate，不得更新活动草稿或静默创建第二条题目 Lineage；
 7. 任务删除、停用或替换不得删除历史 Revision、Human Review 或 Formal Version。
 
 ### 4.3 建议身份字段
@@ -149,24 +150,22 @@ type TrainingTaskQuestionBinding = {
 
 ## 五、写入与失效边界
 
-### 5.1 编辑
+### 5.1 Candidate 生成与采用
 
-人工编辑或采用 AI 候选后：
+标准生产主链不提供字段级人工编辑、dirty 状态或单卡 Working Draft 保存。AI 生成、重新生成、结构化优化和异常纠错均只创建不可变 `QuestionCandidate`：
 
-1. 只更新当前任务的活动草稿；
-2. 标记当前任务为 dirty；
-3. 使旧 Assessment 对当前活动内容失效；
-4. 使绑定旧 Revision 的人工发布确认失效；
-5. 不影响其他任务；
-6. 不覆盖已发布正式版本。
+1. Candidate 不更新活动草稿；
+2. Candidate 不创建 Revision、Assessment、Human Review 或 Formal Version；
+3. 放弃 Candidate 不改变当前正式链；
+4. 只有显式采用 Candidate 才允许创建 Question Revision；
+5. 采用动作只影响当前 Training Task，不影响其他任务；
+6. 已发布正式版本继续可用，不得被 Candidate 或新 Revision 覆盖。
 
-### 5.2 保存
+### 5.2 Revision 写入与失效
 
-保存负责持久化当前任务内容，不等于检查、人工发布确认或正式发布。
+采用 `QuestionCandidate` 时，系统比较 Candidate 的基础身份与当前活动 Draft：首次采用创建 `QuestionLineage + Question Draft Revision 1`，后续采用在同一 Lineage 下创建一个新 Revision。重复采用同一 Candidate 必须幂等。
 
-连续多次编辑在未形成正式检查或提交边界前，应优先复用当前活动 Revision，避免无意义堆积版本。
-
-创建新 Revision 的时机必须由 Revision 契约统一决定，页面按钮不得自行生成版本号。
+新 Revision 形成后，旧 Assessment 与 Human Review 仍保留用于追溯，但不得代表新 Revision。历史 Working Content 只允许通过迁移流程转为异常纠错 Candidate 或放弃，不得恢复为标准可写生产入口。
 
 ### 5.3 检查
 
@@ -198,6 +197,10 @@ Assessment 必须绑定：
 
 统一工作台必须通过明确命令执行操作，不得让多个按钮共用含义模糊的 handler。
 
+标准生产主链的内容写入命令以 `generateTaskCandidates`、`regenerateTaskCandidates`、`optimizeTaskCandidate`、`correctTaskCandidate` 和 `adoptTaskCandidate` 为准。生成、重新生成、优化与异常纠错只写 Candidate；只有 `adoptTaskCandidate` 写入 Question Revision。
+
+下列 `TaskProductionCommand` 负责采用后的检查、确认与发布编排。`editTaskQuestion` 与 `saveTaskDraft` 仅保留为历史迁移类型，不得出现在标准页面入口或被 Candidate 内容生产链调用。
+
 ```ts
 type TaskProductionCommand =
   | 'createTaskQuestionDraft'
@@ -216,8 +219,8 @@ type TaskProductionCommand =
 | 命令 | 允许写入 | 禁止隐含行为 |
 | --- | --- | --- |
 | `createTaskQuestionDraft` | 为当前 Training Task 创建或复用唯一活动 Draft | 不创建平行 Draft、不检查、不确认、不发布 |
-| `editTaskQuestion` | 活动草稿 | 不保存、不检查、不确认、不发布 |
-| `saveTaskDraft` | 当前活动 Draft / Revision | 不自动检查、不自动确认 |
+| `editTaskQuestion` | 只读迁移兼容；标准主链禁止调用 | 不得恢复字段级编辑入口 |
+| `saveTaskDraft` | 只读迁移兼容；标准主链禁止调用 | 不得恢复 Working Draft 保存或创建 Revision |
 | `runTaskCheck` | 当前 Revision 的 Assessment | 不修改正式字段 |
 | `recordTaskConfirmationDecision` | 为当前 Revision 和 Assessment Bundle 写入 Human Review Decision | 不静默修改题目、不读取隐式最新 Revision |
 | `returnTaskForRevision` | 退回记录与任务状态 | 不创建第二个 Draft |
@@ -225,7 +228,7 @@ type TaskProductionCommand =
 | `retryTaskPublication` | 从已有发布结果继续 | 不重复创建已成功对象 |
 | `viewFormalQuestion` | 无 | 只读，不触发状态迁移 |
 
-前台“发布任务”是应用层编排动作，不是新的领域写入类型。它必须显式执行或恢复：`saveTaskDraft -> runTaskCheck -> recordTaskConfirmationDecision -> publishConfirmedTask`。任一阶段失败时停止后续阶段并返回可定位、可恢复的阶段结果。
+前台“发布任务”是应用层编排动作，不是新的领域写入类型。对已采用的当前 Revision，它必须显式执行或恢复：`runTaskCheck -> recordTaskConfirmationDecision -> publishConfirmedTask`。Candidate 尚未采用时必须先完成 `adoptTaskCandidate`，不得由发布动作隐式采用。任一阶段失败时停止后续阶段并返回可定位、可恢复的阶段结果。
 
 ### 6.1 P3 可执行命令契约
 
@@ -273,7 +276,7 @@ type TaskProductionCommandStageError<T = unknown> = Error & {
 
 ### 6.2 Revision 与写入规则
 
-1. `saveTaskDraft` 只在正式字段发生变化时创建一个新 Revision；内容未变化时复用当前 Revision；
+1. `adoptTaskCandidate` 是内容变化创建 Question Revision 的唯一标准命令；`saveTaskDraft` 只允许读取历史迁移回执，不得写入新 Revision；
 2. `runTaskCheck` 只为当前 Draft Revision 和当前规则版本写入 Assessment，不创建 Revision；
 3. `recordTaskConfirmationDecision` 只绑定显式传入的当前 Revision 与 Assessment Bundle 写入审核决定，不修改 Draft；
 4. `publishConfirmedTask` 只消费已确认且未变化的 Revision；同一 Revision 重试必须复用 Freeze、Formal Version 和 Registry 结果；
@@ -396,11 +399,11 @@ function resolveTaskProductionState(input: TaskProductionSource): TaskProduction
 
 | 主状态 | 用户可见文案 | 主操作 |
 | --- | --- | --- |
-| `draft_empty` | 尚未生成题目 | AI 生成或人工创建 |
-| `editing` | 编辑中 | 保存任务 |
+| `draft_empty` | 尚未采用题目 | 生成或选择 AI Candidate |
+| `editing` | 存在历史未迁移修改 | 迁移为纠错候选或放弃旧修改 |
 | `check_required` | 待检查 | 运行题目检查 |
 | `checking` | 正在检查 | 无，显示 Loading |
-| `revision_required` | 需要修改 | 继续修改 |
+| `revision_required` | 需要优化 | AI 优化、重新生成或异常纠错 |
 | `ready_to_publish` | 检查完成，可发布 | 发布任务 |
 | `publishing` | 正在发布 | 无，显示 Loading |
 | `publication_incomplete` | 已确认，发布未完成 | 重试发布 |
@@ -433,9 +436,9 @@ function resolveTaskProductionState(input: TaskProductionSource): TaskProduction
 
 卡片展开后根据 `primaryState` 呈现对应工作区：
 
-1. 编辑中：题目字段、评分规则与保存；
+1. Candidate 待选择：预览、差异、采用、AI 优化与重新生成；
 2. 待检查：自动检查状态与 Loading；
-3. 需要修改：问题、原因、建议和定位修改；
+3. 需要优化：问题、原因、结构化优化目标与 Candidate 操作；
 4. 可发布：通过项摘要、人工关注和发布准备；
 5. 发布未完成：已完成阶段、失败原因和重试入口；
 6. 已发布：正式资源摘要。
@@ -471,7 +474,9 @@ type TaskGroupPublicationSummary = {
   published: number;
 };
 
-pendingPublication = total - published;
+function resolveTaskGroupPublicationSummary(
+  summary: TaskGroupProductionSummary
+): TaskGroupPublicationSummary;
 ```
 
 “已发布”表示当前活动 Revision 已存在匹配的正式资源；其余状态统一归入“待发布”。若同一任务已有历史正式版本，但当前活动 Revision 尚未发布，顶部仍计入“待发布”，历史正式版本只在任务详情中说明。
@@ -1590,10 +1595,10 @@ type TaskProductionSummary = {
 | 主状态 | 统一展示 | 主操作 |
 | --- | --- | --- |
 | `draft_empty` | 未生成题目 | 创建题目 |
-| `editing` | 编辑中 | 保存任务 |
+| `editing` | 兼容历史未迁移修改 | 迁移为纠错候选或放弃旧修改 |
 | `check_required` | 待检查 | 检查题目 |
 | `checking` | 检查中 | 无，显示 Loading |
-| `revision_required` | 需要修改 | 继续修改 |
+| `revision_required` | 需要优化 | AI 优化、重新生成或异常纠错 |
 | `pending_confirmation` | 待最终确认 | 进入最终确认 |
 | `confirmed` | 已确认，待发布 | 发布正式题目 |
 | `publishing` | 正在发布 | 无，显示 Loading |
@@ -1604,7 +1609,7 @@ type TaskProductionSummary = {
 
 1. 当 `publication.sourceDraftId === activeDraft.draftId` 时，正式版本属于当前 Draft，主状态可为 `published`；
 2. 当两者不同时，正式版本属于历史 Revision，当前新 Revision 的状态必须成为主状态；
-3. 此时“查看正式资源”仅作辅助操作，不得遮蔽新 Revision 的保存、检查或最终确认操作。
+3. 此时历史正式资源仅作辅助信息，不得遮蔽新 Revision 的检查、最终确认或发布操作。
 
 ### 20.6 P1 验收标准
 
@@ -1691,7 +1696,7 @@ P2 已按 20.9 的边界完成任务卡首层收口，不增加生产阶段，�
 4. 已发布正式版本与新活动 Revision 并存时，新 Revision 决定主状态和主操作，旧正式版本仅作为“查看正式资源”辅助入口；
 5. “查看正式资源”必须展开当前任务卡内的正式资源追溯区，并定位到正式版本、资源 ID、来源 Draft 与 Material Version，不得渲染成无响应文字；
 6. 页面只绑定统一投影提供的动作，不再读取 `reviewStatus`、`publicationStatus` 或检查记录拼装另一套卡片状态；
-7. 顶部任务组统计继续消费 `resolveTaskGroupSummary()` 的互斥分桶，任务卡展示层不得反向参与统计。
+7. 顶部任务组统计先消费 `resolveTaskGroupSummary()` 的互斥分桶，再统一通过 `resolveTaskGroupPublicationSummary()` 投影为“待发布 / 已发布”；任务卡展示层不得反向参与统计。
 
 P2 Debug 验收基线：
 
@@ -1940,7 +1945,7 @@ P1 在 21.11 的单入口编排基础上继续收口读取语义，不增加写�
 4. 材料工作台不得再根据 Draft、Review、Publication 或检查结果自行拼装动作文案；页面只负责把统一动作绑定到对应 Command 目标；
 5. 质量问题存在时，`revision_required` 统一投影为“继续修改 / 定位问题”；没有质量问题但需要建立或恢复草稿时，统一投影为“继续修改 / 打开修订”；
 6. 已发布正式版本与当前新 Revision 并存时，当前 Revision 决定主状态和主动作，旧正式版本只保留“查看正式资源”辅助动作；
-7. 任务组汇总继续直接消费 `resolveTaskGroupSummary()`，不得从任务卡展示标签反向统计。
+7. 任务组内部汇总继续消费 `resolveTaskGroupSummary()`，顶部展示只消费 `resolveTaskGroupPublicationSummary()`，不得从任务卡展示标签反向统计。
 
 P1 Debug 至少覆盖：
 
@@ -1973,7 +1978,7 @@ P2 在 20.9—20.10 已冻结边界上完成当前分支复验，不新增状态
 2. 状态徽标不再接收完整生命周期对象，避免展示组件绕过投影自行读取 Draft、Review 或 Publication；
 3. 任务卡增加 `data-task-production-state` 与 `data-task-production-action`，用于浏览器端到端验收当前主状态与唯一主操作，不参与业务写入；
 4. 来源继续由任务创作元数据判定，生产状态继续唯一来自 `resolveTaskProductionState()`，二者不得互相替代；
-5. `resolveTaskGroupSummary()` 仍是顶部互斥统计的唯一来源，卡片展示字段不得参与反向统计。
+5. `resolveTaskGroupSummary()` 是内部互斥统计的唯一来源，`resolveTaskGroupPublicationSummary()` 是顶部展示的唯一投影；卡片展示字段不得参与反向统计。
 
 P2 防回退要求：
 

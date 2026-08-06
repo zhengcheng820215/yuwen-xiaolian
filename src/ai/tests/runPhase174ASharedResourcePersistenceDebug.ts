@@ -258,6 +258,12 @@ async function caseWarningAcknowledgementSubmission(): Promise<void> {
         rationale: '材料范围较小，当前难度仍然合适。',
         acknowledgedBy: 'author-1',
         acknowledgedAt: NOW,
+        decisionCode: 'accept_current_design',
+        reasonSource: 'fixed',
+        structuredReason: '材料范围较小，当前难度仍然合适。',
+        ruleVersion: 'question-quality-v1',
+        operatorId: 'author-1',
+        decidedAt: NOW,
       }],
     );
 
@@ -266,6 +272,12 @@ async function caseWarningAcknowledgementSubmission(): Promise<void> {
     assert(
       submitted.warningAcknowledgements?.[0]?.warningCode === 'quality.difficulty.incoherent',
       'Warning acknowledgement was not persisted.',
+    );
+    assert(
+      submitted.warningAcknowledgements?.[0]?.decisionCode === 'accept_current_design' &&
+        submitted.warningAcknowledgements?.[0]?.reasonSource === 'fixed' &&
+        submitted.warningAcknowledgements?.[0]?.ruleVersion,
+      'Structured warning acknowledgement audit payload was not persisted.',
     );
   });
 }

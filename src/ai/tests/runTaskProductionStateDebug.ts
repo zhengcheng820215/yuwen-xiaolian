@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   resolveTaskAssessmentStatus,
+  resolveTaskGroupPublicationSummary,
   resolveTaskGroupSummary,
   resolveTaskProductionCardAction,
   resolveTaskProductionCardPresentation,
@@ -35,11 +36,11 @@ const empty = resolveTaskProductionState({ trainingTaskId: 'task-empty' });
 assert.equal(empty.state, 'draft_empty');
 assert.equal(empty.binding.questionLineageId, 'question-lineage:task-empty');
 assert.equal(empty.presentation.stateLabel, '未生成题目');
-assert.equal(empty.presentation.primaryActionLabel, '创建题目');
+assert.equal(empty.presentation.primaryActionLabel, '生成题目候选');
 assert.deepEqual(resolveTaskProductionCardAction(empty), {
-  kind: 'open_repair',
-  label: '发布任务',
-  busyLabel: '正在创建题目草稿…',
+  kind: 'generate_candidate',
+  label: '生成题目候选',
+  busyLabel: '正在生成题目候选…',
 });
 
 const checkRequired = resolveTaskProductionState({
@@ -256,6 +257,23 @@ assert.equal(
     summary.published,
   summary.total,
 );
+assert.deepEqual(resolveTaskGroupPublicationSummary(summary), {
+  pendingPublication: 3,
+  published: 1,
+});
+assert.deepEqual(resolveTaskGroupPublicationSummary(resolveTaskGroupSummary([
+  publishedWithNewRevision,
+  published,
+])), {
+  pendingPublication: 1,
+  published: 1,
+});
+assert.deepEqual(resolveTaskGroupPublicationSummary(resolveTaskGroupSummary([
+  published,
+])), {
+  pendingPublication: 0,
+  published: 1,
+});
 
 assert.equal(resolveTaskGroupSummary([]).aggregateState, 'empty');
 assert.equal(resolveTaskGroupSummary([confirmed]).aggregateState, 'ready');

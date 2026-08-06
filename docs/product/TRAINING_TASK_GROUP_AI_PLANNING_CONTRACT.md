@@ -4,7 +4,7 @@
 
 状态：P1 ENGINEERING IMPLEMENTED / V1.3 ENGINEERING IMPLEMENTED / SINGLE-PAGE ACTIONS ALIGNED / BROWSER ACCEPTANCE PASSED / TEN-MATERIAL CALIBRATION PENDING
 契约版本：`training_task_group_ai_planning_contract_v1.4`
-更新日期：2026-08-04
+更新日期：2026-08-06
 
 ## 一、用途
 
@@ -13,7 +13,9 @@
 1. `重新规划候选任务组`：当前整组候选方向不合适时，生成一组替代方案；
 2. `补充生成候选任务`：当前任务组基本可用但覆盖不足时，在保留已有任务的前提下补充候选任务。
 
-两项能力只处理候选训练任务，不直接创建正式题目，不替代人工校准、质量检查、人工审核或发布。
+两项能力只处理上游 `TrainingTaskCandidate`，不直接创建正式题目，也不替代下游 `QuestionCandidate` 的采用、质量检查、人工发布决定或正式发布。
+
+> 对象边界：本文的候选容器、编辑缓冲区和 Revision 均属于 Observation Plan 层。`TrainingTaskCandidate` 被采用后先进入 Plan 编辑缓冲区，确认任务组时形成 Plan Revision；下游 `QuestionCandidate` 被采用时才创建 Question Draft Revision。两类候选不得共享采用命令、状态字段或 Revision 语义。
 
 本文与 [单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) 共同形成三个清晰作用域：
 

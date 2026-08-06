@@ -127,6 +127,7 @@ export function matchesDraftToObservationTask(
   task: MaterialObservationPlan['taskPlans'][number],
 ): boolean {
   const identityIds = observationTaskIdentityIds(task);
+  if (identityIds.includes(draft.taskId)) return true;
   const identityTags = [
     ...identityIds.map((id) => `observation_task:${id}`),
     ...(task.taskRevisionRootId

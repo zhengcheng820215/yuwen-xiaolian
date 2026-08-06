@@ -38,6 +38,7 @@ export type TaskProductionPresentation = {
 };
 
 export type TaskProductionCardActionKind =
+  | 'generate_candidate'
   | 'focus_issue'
   | 'save_plan'
   | 'open_repair'
@@ -50,7 +51,7 @@ export type TaskProductionCardActionKind =
 
 export type TaskProductionCardAction = {
   kind: TaskProductionCardActionKind | null;
-  label: '继续修改' | '发布任务' | '查看正式资源' | null;
+  label: '生成题目候选' | '继续修改' | '发布任务' | '查看正式资源' | null;
   busyLabel: string | null;
 };
 
@@ -123,6 +124,11 @@ export type TaskProductionSummary = {
   confirmedAwaitingPublication: number;
   published: number;
   aggregateState: TaskGroupAggregateState;
+};
+
+export type TaskGroupPublicationSummary = {
+  pendingPublication: number;
+  published: number;
 };
 
 export type TaskPublicationEligibilityReason =
@@ -204,9 +210,9 @@ export function resolveTaskProductionCardAction(
   if (action === 'edit') {
     if (productionView.state === 'draft_empty') {
       return {
-        kind: 'open_repair',
-        label: '发布任务',
-        busyLabel: '正在创建题目草稿…',
+        kind: 'generate_candidate',
+        label: '生成题目候选',
+        busyLabel: '正在生成题目候选…',
       };
     }
     return {
@@ -285,7 +291,7 @@ function getTaskProductionPrimaryActionLabel(
   state: TaskProductionState,
   action: TaskProductionAction,
 ): string {
-  if (state === 'draft_empty' && action === 'edit') return '创建题目';
+  if (state === 'draft_empty' && action === 'edit') return '生成题目候选';
   return getTaskProductionActionLabel(action);
 }
 
@@ -429,6 +435,20 @@ export function resolveTaskGroupSummary(
 }
 
 export const summarizeTaskProductionViews = resolveTaskGroupSummary;
+
+/**
+ * Projects the mutually exclusive production buckets into the compact overview
+ * shown above the task cards. Historical formal versions do not count as
+ * published when the active revision still requires work.
+ */
+export function resolveTaskGroupPublicationSummary(
+  summary: TaskProductionSummary,
+): TaskGroupPublicationSummary {
+  return {
+    pendingPublication: summary.total - summary.published,
+    published: summary.published,
+  };
+}
 
 export function resolveTaskPublicationEligibility(
   productionView: TaskProductionView,

@@ -3,8 +3,8 @@
 英文名称：Formal Resource Production Contract Map
 
 状态：ACTIVE CONTRACT INDEX / AI CANDIDATE P0-P6 COMPLETE / ACCEPTANCE RECORDED
-文档版本：`formal_resource_production_contract_map_v3.2`
-更新日期：2026-08-05
+文档版本：`formal_resource_production_contract_map_v3.3`
+更新日期：2026-08-06
 
 ## 一、目标与权威边界
 
@@ -86,11 +86,22 @@ Material Version + Observation Plan Revision + Training Task
 
 预览、生成、重新生成或优化 Candidate 均不能被解释为已经创建 Revision、完成审核或正式化。只有显式采用 Candidate 才允许进入 Question Revision；未采用 Candidate 不得进入 Validation、Assessment、Human Review、Freeze、Formal Resource 或 Registry。
 
+### 3.1 Candidate 命名空间与写入边界
+
+生产链存在两类处于不同层级的候选，文档、命令、Schema 和测试不得仅使用无前缀的 `Candidate` 指代二者：
+
+| 对象 | 所属阶段 | 采用目标 | 何时创建 Revision | 禁止行为 |
+| --- | --- | --- | --- | --- |
+| `TrainingTaskCandidate` | 上游 Observation Plan / 训练任务规划 | Plan 编辑缓冲区 | 用户确认任务组时创建或更新 Plan Revision | 不创建 Question Revision，不进入题目检查或发布 |
+| `QuestionCandidate` | 下游正式题目生产 | Question Lineage | 显式采用时创建一个 Question Draft Revision | 不进入 Plan 编辑缓冲区，不在采用前进入检查或发布 |
+
+`TrainingTaskCandidate` 的“采用”与 `QuestionCandidate` 的“采用”不是同一命令，也不共享 Revision 语义。新接口、事件和存储对象必须携带完整对象前缀；仅在上下文已经唯一确定时，界面文案可以使用“候选”。
+
 ## 四、契约关系
 
 | 契约 | 负责回答 | 不负责回答 |
 | --- | --- | --- |
-| [录入字段契约](./AUTHORING_FIELD_CONTRACT.md) | 字段由谁生成、谁编辑、如何保存、何时失效，以及字段如何跨阶段适配 | AI 候选组操作和审核发布状态流 |
+| [录入字段契约](./AUTHORING_FIELD_CONTRACT.md) | 字段由谁生成、Candidate 如何映射、采用后何时失效，以及异常纠错如何审计 | AI 候选组操作和审核发布状态流 |
 | [单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) | 单个候选任务重新生成、采用、身份和版本边界 | 整组任务规划和正式题目发布 |
 | [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) | 补充候选、整组替代方案、工作草稿和批量采用边界 | 单题审核与 Frozen Resource 状态 |
 | [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md) | Question Candidate 的身份、不可变规则、生成、优化、采用、异常纠错及旧 Working Content 退出边界 | 上游训练任务组规划和采用后的审核发布状态流 |
@@ -117,7 +128,7 @@ Material Version + Observation Plan Revision + Training Task
 4. [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md)；
 5. [产品颜色语义规范](./PRODUCT_COLOR_SEMANTICS.md)。
 
-### 5.3 开发录入字段与保存能力
+### 5.3 开发字段映射、校验与异常纠错能力
 
 1. 本文；
 2. [录入字段契约](./AUTHORING_FIELD_CONTRACT.md)；
@@ -151,11 +162,13 @@ P0-P7 最终串联验收已于 2026-08-03 完成，统一命令为 `pnpm run deb
 
 人工 Demo 与后续问题复验证据见 [Phase 17 统一资源生产工作台人工 Demo 验收记录](../education/phase/reports/phase17_unified_resource_production_manual_demo_acceptance_2026-08-03.md)。单题检查过程可见性、素材标题格式幂等和学习入口空结果分型统一由 [统一资源生产工作台契约 21.10](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md#2110-单题检查可观察性标题幂等与学习空状态) 约束。
 
+2026-08-06 版本收口进一步确认：未生成题目的任务卡只进入 Question Candidate 生成与采用流程；Candidate 采用产生的 Draft 同时写入任务身份标签，并对仅保留 `taskId` 的历史数据提供任务身份恢复；生成、采用、检查、最终确认、发布及刷新恢复的人工 Demo 已通过。Node 执行环境统一声明为 ESM，`MODULE_TYPELESS_PACKAGE_JSON` 警告已消除。对应门禁为 `pnpm debug:task-production-state`、`pnpm debug:material-resource-workbench-state`、`pnpm debug:question-publication-recovery`、`pnpm debug:question-candidate-optimization`、`pnpm debug:unified-resource-production-final` 与 `pnpm build`。
+
 ## 六、问题冲突路由
 
 | 问题类型 | 权威文档 |
 | --- | --- |
-| 字段含义、来源、编辑权、保存和失效冲突 | [AUTHORING_FIELD_CONTRACT.md](./AUTHORING_FIELD_CONTRACT.md) |
+| 字段含义、来源、Candidate 映射、异常纠错、审计和失效冲突 | [AUTHORING_FIELD_CONTRACT.md](./AUTHORING_FIELD_CONTRACT.md) |
 | 单个训练任务候选、身份或 Revision 冲突 | [SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) |
 | 补充候选、整组规划或工作草稿冲突 | [TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) |
 | Question Candidate 身份、不可变性、生成、优化、采用、异常纠错或旧 Working Content 退出冲突 | [AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md) |

@@ -248,6 +248,13 @@ export type AuthorWarningAcknowledgement = {
   rationale: string;
   acknowledgedBy: string;
   acknowledgedAt: string;
+  /** Present on records written by the unified production workbench. */
+  decisionCode?: 'accept_current_design';
+  reasonSource?: 'fixed' | 'generated' | 'manual';
+  structuredReason?: string;
+  ruleVersion?: string;
+  operatorId?: string;
+  decidedAt?: string;
 };
 
 export type ResourceReviewReturnRequest = {

@@ -261,6 +261,24 @@ Draft ID
 
 `Reason` 是审计字段，不等同于必须向单人生产用户展示自由文本输入框。标准工作台可由明确的“接受提醒并发布”动作写入固定决策码和结构化审计说明；只有多人独立审核、异常纠错或政策明确要求补充依据时，才要求人工填写说明。
 
+统一审计载荷冻结为：
+
+```ts
+type StructuredWarningAcceptance = {
+  decisionCode: 'accept_current_design';
+  reasonSource: 'fixed' | 'generated' | 'manual';
+  structuredReason: string;
+  draftId: string;
+  draftRevision: number;
+  assessmentId: string;
+  ruleVersion: string;
+  operatorId: string;
+  decidedAt: string;
+};
+```
+
+页面文案不得充当决策码。单人标准流程可以使用固定 `decisionCode` 与 `reasonSource: 'fixed'`；异常纠错或多人审核要求补充理由时使用 `manual`。提交、发布、刷新恢复和审计记录必须消费同一载荷，不得各自拼装“已接受”状态。
+
 ## 八、Assessment 失效原则
 
 任何影响正式质量判断的编辑操作，都必须使相关 Assessment 和尚未完成正式化的 Human Review Decision 失效，并要求基于新 Revision 重新评估。

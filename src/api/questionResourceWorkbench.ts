@@ -495,6 +495,12 @@ export async function submitQuestionResourceWorkbenchReview(
       rationale: acknowledgementByCode.get(warning.code) || '',
       acknowledgedBy: 'local-author',
       acknowledgedAt,
+      decisionCode: 'accept_current_design',
+      reasonSource: 'fixed',
+      structuredReason: acknowledgementByCode.get(warning.code) || '',
+      ruleVersion: context.deterministic.ruleVersion,
+      operatorId: 'local-author',
+      decidedAt: acknowledgedAt,
     }),
   );
   return submitQuestionResourceForReview(
@@ -561,8 +567,9 @@ export async function freezeQuestionResourceWorkbenchDraft(
   await requireExpectedDraftRevision(draftId, expectedDraftRevision, 'freeze');
   await requireQuestionPublicationPreflight(draftId, 'question_publication.freeze');
   const draft = await repository.getDraft(draftId);
-  const planId = readTagValue(draft?.tags, 'observation_plan:');
-  const observationTaskPlanId = readTagValue(draft?.tags, 'observation_task:');
+  const { planId, observationTaskPlanId } = draft
+    ? await resolveObservationTaskReferenceForDraft(draft)
+    : { planId: null, observationTaskPlanId: null };
   if (!planId || !observationTaskPlanId) {
     const result = await freezeQuestionResourceDraftWithPersistedQuality(
       repository,
@@ -625,8 +632,7 @@ export async function retryQuestionResourceWorkbenchPublication(
   await requireQuestionPublicationPreflight(draftId, 'question_publication.retry');
   const draft = await repository.getDraft(draftId);
   if (!draft) throw new Error(`Draft not found: ${draftId}`);
-  const planId = readTagValue(draft.tags, 'observation_plan:');
-  const observationTaskPlanId = readTagValue(draft.tags, 'observation_task:');
+  const { planId, observationTaskPlanId } = await resolveObservationTaskReferenceForDraft(draft);
   if (!planId || !observationTaskPlanId) {
     throw createStructuredRuntimeError({
       code: 'PUBLICATION_RECOVERY_REQUIRED',
@@ -770,7 +776,7 @@ export async function getQuestionResourceWorkbenchPublicationPreflight(
     : draftOrId;
   if (!draft) throw new Error(`Draft not found: ${draftOrId}`);
 
-  const { planId, observationTaskPlanId } = readObservationTaskReference(draft.tags);
+  const { planId, observationTaskPlanId } = await resolveObservationTaskReferenceForDraft(draft);
   if (!planId || !observationTaskPlanId) {
     return { scoped: false, passed: true, differences: [] };
   }
@@ -912,10 +918,46 @@ async function alignDraftInputWithObservationPlan(
 async function getObservationTaskForDraft(
   draft: StructuredQuestionDraft,
 ) {
-  const reference = readObservationTaskReference(draft.tags);
+  const reference = await resolveObservationTaskReferenceForDraft(draft);
   if (!reference.planId || !reference.observationTaskPlanId) return null;
   const plan = await observationRepository.getPlan(reference.planId);
   return findObservationTaskPlan(plan, reference);
+}
+
+async function resolveObservationTaskReferenceForDraft(
+  draft: StructuredQuestionDraft,
+): Promise<{ planId: string | null; observationTaskPlanId: string | null }> {
+  const taggedReference = readObservationTaskReference(draft.tags);
+  if (taggedReference.planId && taggedReference.observationTaskPlanId) {
+    return taggedReference;
+  }
+
+  const plans = await observationRepository.listPlans(draft.materialVersionId || undefined);
+  const matchingPlans = plans
+    .filter((plan) => plan.taskPlans.some((task) => (
+      [
+        task.observationTaskPlanId,
+        task.taskRevisionRootId,
+        task.parentObservationTaskPlanId,
+      ].filter(Boolean).includes(draft.taskId)
+    )))
+    .sort((left, right) => {
+      const statusDifference = Number(right.status === 'reviewed') - Number(left.status === 'reviewed');
+      if (statusDifference !== 0) return statusDifference;
+      return right.revision - left.revision;
+    });
+  const plan = matchingPlans[0];
+  const task = plan?.taskPlans.find((item) => (
+    [
+      item.observationTaskPlanId,
+      item.taskRevisionRootId,
+      item.parentObservationTaskPlanId,
+    ].filter(Boolean).includes(draft.taskId)
+  ));
+  return {
+    planId: plan?.materialObservationPlanId || taggedReference.planId,
+    observationTaskPlanId: task?.observationTaskPlanId || taggedReference.observationTaskPlanId,
+  };
 }
 
 async function assertPublicationRepairAligned(draft: StructuredQuestionDraft): Promise<void> {

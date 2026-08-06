@@ -4,7 +4,7 @@
 
 状态：ENGINEERING IMPLEMENTED / CANDIDATE BROWSER ACCEPTANCE PASSED / END-TO-END PRODUCT ACCEPTANCE PENDING
 契约版本：`single_training_task_regeneration_contract_v1`  
-更新日期：2026-07-29
+更新日期：2026-08-06
 
 ## 一、用途
 
@@ -18,6 +18,8 @@
 4. 当前任务已经人工审核或已经产生正式题目，不能被新结果直接覆盖。
 
 本契约不是“重新生成整批训练任务”的快捷入口，也不是直接发布操作。
+
+> 对象边界：本文中的“候选”专指上游 Observation Plan 的 `TrainingTaskCandidate`。采用该候选只进入 Plan 编辑缓冲区，确认任务组后才形成 Plan Revision；它不是下游不可变 `QuestionCandidate`，也不会因采用而创建 Question Revision。正式题目候选以 [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md) 为准。
 
 ## 二、核心原则
 
@@ -34,7 +36,7 @@
 
 操作前后任务槽位数量不变，不得因为一次单任务重新生成新增第四个任务，也不得重新生成兄弟任务。
 
-### 2.2 候选先行，采用进入编辑区，保存后成版
+### 2.2 TrainingTaskCandidate 先行，采用进入 Plan 编辑区，确认后成版
 
 点击“AI 重新生成”只创建临时候选，不立即创建 Plan Revision：
 

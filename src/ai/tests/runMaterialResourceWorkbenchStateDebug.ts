@@ -80,10 +80,23 @@ const selectedDrafts = selectCurrentPlanDrafts(
   planV2 as never,
   [oldDraftA, currentDraftA, currentDraftB] as never,
 );
+
+const taskIdOnlyDraft = {
+  ...currentDraftA,
+  draftId: 'draft-task-id-only',
+  tags: currentDraftA.tags.filter((tag) => !tag.startsWith('observation_task:')),
+  updatedAt: '2026-08-06T12:00:00.000Z',
+};
 check(
   '01 历史 Draft 不进入当前计划计数',
   selectedDrafts.length === 2 && selectedDrafts[0]?.draftId === 'draft-a-v2',
   `selected=${selectedDrafts.map((item) => item.draftId).join(',')}`,
+);
+check(
+  '01a 候选采用 Draft 缺少旧身份标签时仍可按 taskId 恢复',
+  selectCurrentPlanDrafts(planV2 as never, [taskIdOnlyDraft] as never)[0]?.draftId
+    === taskIdOnlyDraft.draftId,
+  'candidate-adopted Draft remains visible through taskId fallback',
 );
 
 check(

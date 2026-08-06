@@ -32,6 +32,7 @@ const forbiddenPageTokens = [
   'label="待处理"',
   'label="待最终确认"',
   'label="已确认（待发布）"',
+  'pendingPublication: summary.total - summary.published',
 ];
 
 async function main(): Promise<void> {
@@ -51,7 +52,7 @@ async function main(): Promise<void> {
     '已查看质量提醒，确认保留当前版本并继续发布。',
     '当前任务使用既有题目版本',
     'label="待发布"',
-    'pendingPublication: summary.total - summary.published',
+    'resolveTaskGroupPublicationSummary(summary)',
   ]) {
     assert.equal(source.includes(token), true, `P6 canonical token is missing: ${token}`);
   }
