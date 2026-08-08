@@ -134,6 +134,11 @@ export type TaskGroupPublicationSummary = {
   published: number;
 };
 
+export type TaskGroupTopLevelSummary = {
+  pendingPublication: number;
+  published: number;
+};
+
 export type TaskProductionVisibleSummaryItem = {
   productionView: TaskProductionView;
   candidateReady?: boolean;
@@ -504,6 +509,20 @@ export function resolveTaskProductionVisibleSummary(
     pendingPublication: 0,
     published: 0,
   });
+}
+
+/**
+ * Keeps lifecycle detail inside each task card while exposing the only two
+ * group-level facts a content operator needs: whether a formal resource exists.
+ */
+export function resolveTaskGroupTopLevelSummary(
+  summary: TaskGroupPublicationSummary,
+): TaskGroupTopLevelSummary {
+  return {
+    pendingPublication:
+      summary.actionRequired + summary.awaitingAdoption + summary.pendingPublication,
+    published: summary.published,
+  };
 }
 
 export function resolveTaskPublicationEligibility(

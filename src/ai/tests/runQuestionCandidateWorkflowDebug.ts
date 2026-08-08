@@ -33,6 +33,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '08 active draft revision conflicts block adoption', run: caseDraftConflict },
   { name: '09 adoption is idempotent and cannot be repeated', run: caseAdoptionIdempotency },
   { name: '10 candidate projection uses one context resolver', run: caseProjection },
+  { name: '11 rejecting a batch discards every ready scheme idempotently', run: caseRejectBatch },
 ];
 
 async function main(): Promise<void> {
@@ -91,6 +92,27 @@ async function caseGenerationIdempotency(): Promise<void> {
     () => fixture.service.generateTaskCandidates({ ...input, count: 3 }),
     'CANDIDATE_IDEMPOTENCY_CONFLICT',
   );
+}
+
+async function caseRejectBatch(): Promise<void> {
+  const fixture = createFixture();
+  const candidates = await fixture.service.generateTaskCandidates({
+    trainingTaskId: 'task-1',
+    count: 3,
+    idempotencyKey: 'generate-rejectable-batch',
+  });
+  const input = {
+    trainingTaskId: 'task-1',
+    candidateId: candidates[1]!.candidateId,
+    idempotencyKey: 'reject-batch-1',
+    rejectedBy: 'operator-1',
+  };
+  const first = await fixture.service.rejectCandidateBatch(input);
+  const second = await fixture.service.rejectCandidateBatch(input);
+  assert(first.every((candidate) => candidate.status === 'rejected'));
+  assert(second.every((candidate) => candidate.status === 'rejected'));
+  assert.equal((await fixture.repository.listDecisionEvents()).length, 3);
+  assert.equal(fixture.adoption.calls, 0, 'Rejecting candidates entered the formal adoption boundary.');
 }
 
 async function caseCandidateImmutability(): Promise<void> {

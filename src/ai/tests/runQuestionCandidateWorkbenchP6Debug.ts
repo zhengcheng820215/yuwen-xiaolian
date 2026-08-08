@@ -37,6 +37,8 @@ const forbiddenPageTokens = [
   '已查看质量提醒，确认保留当前版本并继续发布。',
   'label="待最终确认"',
   'label="已确认（待发布）"',
+  'label="需处理"',
+  'label="待采用"',
   'pendingPublication: summary.total - summary.published',
   '接受提醒并发布',
   'acceptCurrentWarnings: true',
@@ -70,11 +72,9 @@ async function main(): Promise<void> {
     'structuredReason: decision.reasonCode',
     'showTaskCandidatePanel',
     '当前任务使用既有题目版本',
-    'label="需处理"',
-    'label="待采用"',
     'label="待发布"',
-    'resolveTaskProductionVisibleSummary(visibleItems)',
-    '训练任务\n',
+    'label="已发布"',
+    'resolveTaskGroupTopLevelSummary(taskQuestionLifecycleSummary)',
   ]) {
     assert.equal(source.includes(token), true, `P6 canonical token is missing: ${token}`);
   }

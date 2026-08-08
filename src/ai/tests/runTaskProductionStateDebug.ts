@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   resolveTaskAssessmentStatus,
   resolveTaskGroupPublicationSummary,
+  resolveTaskGroupTopLevelSummary,
   resolveTaskGroupSummary,
   resolveTaskProductionVisibleSummary,
   resolveTaskProductionCardAction,
@@ -320,6 +321,24 @@ assert.deepEqual(resolveTaskProductionVisibleSummary([
   awaitingAdoption: 1,
   pendingPublication: 0,
   published: 1,
+});
+assert.deepEqual(resolveTaskGroupTopLevelSummary({
+  actionRequired: 1,
+  awaitingAdoption: 1,
+  pendingPublication: 2,
+  published: 3,
+}), {
+  pendingPublication: 4,
+  published: 3,
+});
+assert.deepEqual(resolveTaskGroupTopLevelSummary({
+  actionRequired: 0,
+  awaitingAdoption: 0,
+  pendingPublication: 0,
+  published: 3,
+}), {
+  pendingPublication: 0,
+  published: 3,
 });
 
 assert.equal(resolveTaskGroupSummary([]).aggregateState, 'empty');

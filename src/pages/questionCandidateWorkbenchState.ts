@@ -31,6 +31,7 @@ export type CandidatePanelOperation =
   | 'correcting'
   | 'migrating'
   | 'adopting'
+  | 'discarding'
   | 'failed';
 
 export type CandidateAdoptionCapability = {
@@ -99,19 +100,14 @@ export function resolveCandidatePanelProjection(input: {
   const readyCandidates = activeGenerationCommandId
     ? allReadyCandidates.filter(
         (candidate) => candidate.generationCommandId === activeGenerationCommandId,
-      )
+      ).slice(0, 3)
     : [];
   const selectedCandidateId = readyCandidates.some(
     (candidate) => candidate.candidateId === input.selectedCandidateId,
   )
     ? input.selectedCandidateId || null
     : readyCandidates[0]?.candidateId || null;
-  const comparisonCandidateIds = unique([
-    selectedCandidateId,
-    ...(input.comparisonCandidateIds || []),
-  ].filter((value): value is string => Boolean(value)))
-    .filter((candidateId) => readyIds.has(candidateId))
-    .slice(0, 2);
+  const comparisonCandidateIds = selectedCandidateId ? [selectedCandidateId] : [];
   const busy = [
     'loading_candidates',
     'regenerating',
@@ -119,6 +115,7 @@ export function resolveCandidatePanelProjection(input: {
     'correcting',
     'migrating',
     'adopting',
+    'discarding',
   ].includes(operation);
   const requestedAdoption = input.adoption || {
     enabled: false,
@@ -153,10 +150,6 @@ function parseMode(value: unknown): CandidateWorkflowMode | null {
   if (value === true || value === 'true' || value === 'enabled') return 'enabled';
   if (value === false || value === 'false' || value === 'legacy') return 'legacy';
   return null;
-}
-
-function unique<T>(values: T[]): T[] {
-  return [...new Set(values)];
 }
 
 function compareCandidateRecency(left: QuestionCandidate, right: QuestionCandidate): number {

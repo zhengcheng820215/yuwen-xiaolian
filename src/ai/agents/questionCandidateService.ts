@@ -105,6 +105,13 @@ export type AdoptTaskCandidateInput = {
   adoptedBy: string;
 };
 
+export type RejectCandidateBatchInput = {
+  trainingTaskId: string;
+  candidateId: string;
+  idempotencyKey: string;
+  rejectedBy: string;
+};
+
 export class QuestionCandidateConflictError extends Error {
   readonly code: string;
 
@@ -284,6 +291,60 @@ export class QuestionCandidateService {
     });
     await this.reconcileAdoption(candidateId, input, adoption);
     return cloneQuestionCandidate(adoption);
+  }
+
+  async rejectCandidateBatch(
+    input: RejectCandidateBatchInput,
+  ): Promise<QuestionCandidate[]> {
+    const trainingTaskId = requireText(input.trainingTaskId, 'trainingTaskId');
+    const candidateId = requireText(input.candidateId, 'candidateId');
+    const idempotencyKey = requireText(input.idempotencyKey, 'idempotencyKey');
+    const rejectedBy = requireText(input.rejectedBy, 'rejectedBy');
+    const anchor = await this.requireCandidate(candidateId, trainingTaskId);
+    const batch = (await this.repository.listCandidates(trainingTaskId)).filter(
+      (candidate) => candidate.generationCommandId === anchor.generationCommandId,
+    );
+    if (batch.length === 0) {
+      throw new Error(`Candidate batch not found: ${anchor.generationCommandId}`);
+    }
+    const invalid = batch.find((candidate) => !['ready', 'rejected'].includes(candidate.status));
+    if (invalid) {
+      throw new QuestionCandidateConflictError(
+        'CANDIDATE_BATCH_NOT_REJECTABLE',
+        `Candidate ${invalid.candidateId} is ${invalid.status} and the batch cannot be rejected.`,
+      );
+    }
+
+    const rejectedAt = this.now();
+    const rejected: QuestionCandidate[] = [];
+    for (const candidate of batch) {
+      const updated = candidate.status === 'ready'
+        ? await this.repository.updateCandidateStatus({
+            candidateId: candidate.candidateId,
+            expectedStatus: 'ready',
+            status: 'rejected',
+            occurredAt: rejectedAt,
+          })
+        : candidate;
+      const eventId = `rejected:${idempotencyKey}:${candidate.candidateId}`;
+      const events = await this.repository.listDecisionEvents(candidate.candidateId);
+      if (!events.some((event) => event.eventId === eventId)) {
+        await this.repository.saveDecisionEvent({
+          eventId,
+          candidateId: candidate.candidateId,
+          trainingTaskId,
+          decision: 'rejected',
+          reasonCodes: ['operator_discarded_batch'],
+          relatedCandidateIds: batch
+            .filter((item) => item.candidateId !== candidate.candidateId)
+            .map((item) => item.candidateId),
+          decidedBy: rejectedBy,
+          decidedAt: rejectedAt,
+        });
+      }
+      rejected.push(updated);
+    }
+    return rejected.map(cloneQuestionCandidate);
   }
 
   private async runGenerationCommand(input: {

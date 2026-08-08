@@ -102,6 +102,21 @@ export async function listQuestionTaskCandidates(
   return repository.listCandidates(trainingTaskId);
 }
 
+export async function rejectQuestionTaskCandidateBatch(input: {
+  trainingTaskId: string;
+  candidateId: string;
+  idempotencyKey: string;
+  rejectedBy: string;
+}): Promise<QuestionCandidate[]> {
+  const service = new QuestionCandidateService(
+    repository,
+    { async generate() { throw new Error('Candidate generation is not available during rejection.'); } },
+    { async getCurrentContext() { throw new Error('Candidate context is not required during rejection.'); } },
+    { async adoptCandidate() { throw new Error('Candidate adoption is not available during rejection.'); } },
+  );
+  return service.rejectCandidateBatch(input);
+}
+
 export async function ensureQuestionTaskInitialCandidate(
   input: EnsureQuestionTaskInitialCandidateInput,
 ) {

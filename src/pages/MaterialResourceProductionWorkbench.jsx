@@ -79,6 +79,7 @@ import {
 import {
   resolveTaskAssessmentStatus,
   resolveTaskGroupSummary,
+  resolveTaskGroupTopLevelSummary,
   resolveTaskProductionVisibleSummary,
   resolveTaskProductionCardPresentation,
   resolveTaskPublicationEligibility,
@@ -103,6 +104,7 @@ import {
   executeCandidateWorkbenchCommand,
   listQuestionTaskCandidates,
   migrateQuestionTaskWorkingContent,
+  rejectQuestionTaskCandidateBatch,
 } from '../api/questionCandidateWorkbench.ts';
 import {
   CANDIDATE_OPTIMIZATION_GOALS,
@@ -115,6 +117,9 @@ import {
 } from '../ai/schemas/questionCandidate.schema.ts';
 import { resolveCandidateOptimizationFieldPolicy } from
   '../ai/schemas/questionCandidateOptimization.schema.ts';
+
+const secondaryButtonToneClass = 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50';
+const secondaryButtonFocusClass = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2';
 
 const dimensionOptions = [
   ['fact', '事实'], ['character', '人物'], ['plot', '情节'], ['causality', '因果'],
@@ -438,6 +443,10 @@ export default function MaterialResourceProductionWorkbench() {
     taskCandidatesById,
     taskWorkingStates,
   ]);
+  const taskGroupTopLevelSummary = useMemo(
+    () => resolveTaskGroupTopLevelSummary(taskQuestionLifecycleSummary),
+    [taskQuestionLifecycleSummary],
+  );
   const hasLocalUnsavedTaskChanges = useMemo(
     () => (
       tasks.some((task) => task.editorDirty || !task.observationTaskPlanId)
@@ -1528,6 +1537,39 @@ export default function MaterialResourceProductionWorkbench() {
     }
   }
 
+  async function discardTaskCandidateBatch(task) {
+    const trainingTaskId = taskWorkingIdentity(task);
+    const panel = taskCandidatePanels[trainingTaskId] || {};
+    const candidate = (taskCandidatesById[trainingTaskId] || []).find(
+      (item) => item.candidateId === panel.selectedCandidateId,
+    );
+    if (!candidate) return;
+
+    updateTaskCandidatePanel(trainingTaskId, { operation: 'discarding', error: null });
+    try {
+      await rejectQuestionTaskCandidateBatch({
+        trainingTaskId,
+        candidateId: candidate.candidateId,
+        idempotencyKey: `candidate:discard-batch:${candidate.generationCommandId}`,
+        rejectedBy: 'local-entry-operator',
+      });
+      const allCandidates = await listQuestionTaskCandidates(trainingTaskId);
+      setTaskCandidatesById((current) => ({ ...current, [trainingTaskId]: allCandidates }));
+      updateTaskCandidatePanel(trainingTaskId, {
+        operation: 'idle',
+        selectedCandidateId: null,
+        comparisonCandidateIds: [],
+        adoptionResult: null,
+        error: null,
+      });
+    } catch (error) {
+      updateTaskCandidatePanel(trainingTaskId, {
+        operation: 'failed',
+        error: createWorkbenchErrorNotice(error).message,
+      });
+    }
+  }
+
   async function correctTaskCandidate(task) {
     if (!selectedMaterial || !selectedPlan) return;
     const trainingTaskId = taskWorkingIdentity(task);
@@ -1910,6 +1952,18 @@ export default function MaterialResourceProductionWorkbench() {
       }));
   }
 
+  const selectedGeneratorPreferenceLabels = [
+    ...trainingDirectionOptions
+      .filter(([focusId]) => generatorPreferences.requestedFocusIds.includes(focusId))
+      .map(([, label]) => label),
+    ...abilityOptions
+      .filter(([abilityId]) => generatorPreferences.preferredAbilityIds.includes(abilityId))
+      .map(([, label]) => label),
+  ];
+  const generatorPreferenceSummary = selectedGeneratorPreferenceLabels.length > 0
+    ? selectedGeneratorPreferenceLabels.join(' · ')
+    : '由 AI 自动判断';
+
   return (
     <div className="material-resource-workbench min-h-screen bg-[#f6f8fb] text-slate-950">
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
@@ -1921,10 +1975,10 @@ export default function MaterialResourceProductionWorkbench() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={requestLoadTongguanCalibration} disabled={busy} className={`hidden h-10 items-center rounded-md border px-3 text-sm font-semibold disabled:opacity-50 md:flex ${activeLoadPreset === 'tongguan' ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
+            <button type="button" onClick={requestLoadTongguanCalibration} disabled={busy} className={`hidden h-10 items-center rounded-md border px-3 text-sm font-semibold disabled:opacity-50 md:flex ${activeLoadPreset === 'tongguan' ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700' : secondaryButtonToneClass}`}>
               使用《潼关》校准案例
             </button>
-            <button type="button" onClick={requestLoadBatchA} disabled={busy} className={`hidden h-10 items-center rounded-md border px-3 text-sm font-semibold disabled:opacity-50 sm:flex ${activeLoadPreset === 'batch_a' ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
+            <button type="button" onClick={requestLoadBatchA} disabled={busy} className={`hidden h-10 items-center rounded-md border px-3 text-sm font-semibold disabled:opacity-50 sm:flex ${activeLoadPreset === 'batch_a' ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700' : secondaryButtonToneClass}`}>
               使用 Batch A 资源包
             </button>
             <RefreshIconButton
@@ -1966,7 +2020,7 @@ export default function MaterialResourceProductionWorkbench() {
                   type="button"
                   onClick={exportBrowserBaseline}
                   disabled={busy}
-                  className="h-10 rounded-md border border-emerald-600 bg-white px-4 text-sm text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
+                  className={`h-10 rounded-md border px-4 text-sm disabled:opacity-40 ${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}
                 >
                   导出当前浏览器快照
                 </button>
@@ -2090,7 +2144,7 @@ export default function MaterialResourceProductionWorkbench() {
                   <label className="block text-sm font-semibold">版权备注<input value={materialForm.copyrightNote} onChange={(event) => setMaterialForm((value) => ({ ...value, copyrightNote: event.target.value }))} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
                 </div>
                 <div className="mt-5 flex flex-wrap justify-center gap-2">
-                  <button type="button" onClick={clearMaterialForm} disabled={busy || !materialFormHasInput} className="flex h-10 w-[240px] items-center justify-center gap-2 rounded-md border border-[#666666] bg-white px-4 text-sm font-semibold text-slate-900 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40">
+                  <button type="button" onClick={clearMaterialForm} disabled={busy || !materialFormHasInput} className={`flex h-10 w-[240px] items-center justify-center gap-2 rounded-md border px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}>
                     <Trash2 aria-hidden="true" size={18} />
                     清空内容
                   </button>
@@ -2114,27 +2168,17 @@ export default function MaterialResourceProductionWorkbench() {
                 </h2>
               </div>
               <div
-                className="grid w-full grid-cols-2 sm:w-auto sm:grid-cols-4"
+                className="grid w-full grid-cols-2 sm:w-auto"
                 aria-label={`${selectedMaterial.title}当前版本的发布状态`}
               >
                 <Metric
-                  label="需处理"
-                  value={taskQuestionLifecycleSummary.actionRequired}
-                  tone="neutral"
-                />
-                <Metric
-                  label="待采用"
-                  value={taskQuestionLifecycleSummary.awaitingAdoption}
-                  tone="candidate"
-                />
-                <Metric
                   label="待发布"
-                  value={taskQuestionLifecycleSummary.pendingPublication}
+                  value={taskGroupTopLevelSummary.pendingPublication}
                   tone="info"
                 />
                 <Metric
                   label="已发布"
-                  value={taskQuestionLifecycleSummary.published}
+                  value={taskGroupTopLevelSummary.published}
                   tone="success"
                 />
               </div>
@@ -2199,49 +2243,59 @@ export default function MaterialResourceProductionWorkbench() {
                   </span>
                 </div>
               </div>
-              <div className="mt-4 space-y-4">
-                <div>
-                  <p className="text-sm font-medium">适用学段（生成参考）</p>
-                  <div className="mt-1 flex min-h-10 items-center rounded-md border border-slate-300 bg-slate-50 px-3 text-sm font-normal text-slate-700">初中</div>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">
-                    训练方向
-                    <span className="ml-2 font-normal text-slate-500">（可选 2 项，默认由 AI 判断）</span>
-                  </p>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    {trainingDirectionOptions.map(([focusId, label]) => {
-                      const selected = generatorPreferences.requestedFocusIds.includes(focusId);
-                      const selectionLimitReached = generatorPreferences.requestedFocusIds.length >= 2;
-                      return (
-                        <button
-                          key={focusId}
-                          type="button"
-                          aria-pressed={selected}
-                          disabled={generatorBusy || (!selected && selectionLimitReached)}
-                          onClick={() => toggleRequestedFocus(focusId)}
-                          className={`h-10 rounded-md border px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-35 ${selected ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-600'}`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
+              <details className="group mt-3 border-t border-slate-100 pt-3">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm text-slate-700 [&::-webkit-details-marker]:hidden">
+                  <span className="font-medium">生成偏好（可选）</span>
+                  <span className="flex min-w-0 items-center gap-2 text-slate-500">
+                    <span className="truncate">{generatorPreferenceSummary}</span>
+                    <ChevronDown aria-hidden="true" size={16} className="shrink-0 transition-transform group-open:rotate-180" />
+                  </span>
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <p className="text-xs font-medium text-slate-600">训练方向</p>
+                    <div className="mt-1.5 flex flex-wrap gap-2">
+                      {trainingDirectionOptions.map(([focusId, label]) => {
+                        const selected = generatorPreferences.requestedFocusIds.includes(focusId);
+                        const selectionLimitReached = generatorPreferences.requestedFocusIds.length >= 2;
+                        return (
+                          <button
+                            key={focusId}
+                            type="button"
+                            aria-pressed={selected}
+                            disabled={generatorBusy || (!selected && selectionLimitReached)}
+                            onClick={() => toggleRequestedFocus(focusId)}
+                            className={`h-8 rounded-md border px-3 text-xs font-normal transition disabled:cursor-not-allowed disabled:opacity-35 ${selected ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-slate-600">训练能力</p>
+                    <div className="mt-1.5 flex flex-wrap gap-2">
+                      {abilityOptions.map(([abilityId, label]) => {
+                        const selected = generatorPreferences.preferredAbilityIds.includes(abilityId);
+                        const selectionLimitReached = generatorPreferences.preferredAbilityIds.length >= 2;
+                        return (
+                          <button
+                            key={abilityId}
+                            type="button"
+                            aria-pressed={selected}
+                            disabled={generatorBusy || (!selected && selectionLimitReached)}
+                            onClick={() => togglePreferredAbility(abilityId)}
+                            className={`h-8 rounded-md border px-3 text-xs font-normal transition disabled:cursor-not-allowed disabled:opacity-35 ${selected ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="mt-4">
-                <p className="text-sm font-semibold">
-                  训练能力
-                  <span className="ml-2 font-normal text-slate-500">（可选 2 项，默认由 AI 判断）</span>
-                </p>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  {abilityOptions.map(([abilityId, label]) => {
-                    const selected = generatorPreferences.preferredAbilityIds.includes(abilityId);
-                    const selectionLimitReached = generatorPreferences.preferredAbilityIds.length >= 2;
-                    return <button key={abilityId} type="button" aria-pressed={selected} disabled={generatorBusy || (!selected && selectionLimitReached)} onClick={() => togglePreferredAbility(abilityId)} className={`h-10 rounded-md border px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-35 ${selected ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-600'}`}>{label}</button>;
-                  })}
-                </div>
-              </div>
+              </details>
               <div className="mt-4 border-l-4 border-blue-500 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-950">
                 {!selectedMaterial
                   ? '请先选择或保存素材，再生成训练任务。'
@@ -2561,12 +2615,6 @@ export default function MaterialResourceProductionWorkbench() {
                       projection={taskCandidateProjection}
                       hasExistingRevision={Boolean(questionLifecycle?.draft)}
                       selectedCandidateId={taskCandidateProjection.selectedCandidateId}
-                      optimizationGoals={taskCandidateOptimizationGoals[workingTaskId] || []}
-                      optimizationOpen={Boolean(taskCandidatePanel.optimizationOpen)}
-                      correctionOpen={Boolean(taskCandidatePanel.correctionOpen)}
-                      correctionReasonCode={taskCandidatePanel.correctionReasonCode || 'typo'}
-                      correctionQuestionStem={taskCandidatePanel.correctionQuestionStem || ''}
-                      correctionNote={taskCandidatePanel.correctionNote || ''}
                       error={taskCandidatePanel.error}
                       adoptionResult={taskCandidatePanel.adoptionResult}
                       correctionResult={taskCandidatePanel.correctionResult}
@@ -2576,48 +2624,10 @@ export default function MaterialResourceProductionWorkbench() {
                         comparisonCandidateIds: [candidateId],
                         error: null,
                       })}
-                      onToggleComparison={(candidateId) => updateTaskCandidatePanel(workingTaskId, {
-                        comparisonCandidateIds: toggleCandidateComparison(
-                          taskCandidateProjection.comparisonCandidateIds,
-                          candidateId,
-                        ),
-                      })}
-                      onToggleOptimization={() => updateTaskCandidatePanel(workingTaskId, {
-                        optimizationOpen: !taskCandidatePanel.optimizationOpen,
-                        error: null,
-                      })}
-                      onToggleCorrection={() => {
-                        const selected = taskCandidateProjection.readyCandidates.find(
-                          (candidate) => candidate.candidateId === taskCandidateProjection.selectedCandidateId,
-                        );
-                        updateTaskCandidatePanel(workingTaskId, {
-                          correctionOpen: !taskCandidatePanel.correctionOpen,
-                          correctionQuestionStem: taskCandidatePanel.correctionOpen
-                            ? taskCandidatePanel.correctionQuestionStem
-                            : selected?.content.questionStem || '',
-                          correctionResult: null,
-                          error: null,
-                        });
-                      }}
-                      onCorrectionReasonChange={(value) => updateTaskCandidatePanel(workingTaskId, {
-                        correctionReasonCode: value,
-                        error: null,
-                      })}
-                      onCorrectionQuestionStemChange={(value) => updateTaskCandidatePanel(workingTaskId, {
-                        correctionQuestionStem: value,
-                        error: null,
-                      })}
-                      onCorrectionNoteChange={(value) => updateTaskCandidatePanel(workingTaskId, {
-                        correctionNote: value,
-                        error: null,
-                      })}
-                      onToggleGoal={(goal) => toggleTaskCandidateOptimizationGoal(workingTaskId, goal)}
                       onGenerate={() => void runTaskCandidateOperation(task, index, 'generate')}
-                      onRegenerate={() => void runTaskCandidateOperation(task, index, 'regenerate')}
-                      onOptimize={() => void runTaskCandidateOperation(task, index, 'optimize')}
-                      onCorrect={() => void correctTaskCandidate(task)}
                       onMigrateWorkingContent={() => void migrateTaskWorkingContent(task)}
                       onDiscardWorkingContent={() => void discardCurrentTaskWorkingContent(task)}
+                      onDiscardBatch={() => void discardTaskCandidateBatch(task)}
                       onAdopt={() => void adoptTaskCandidate(task)}
                     />}
                   <div className="mt-5 space-y-5">
@@ -3005,7 +3015,7 @@ function TaskWarningRetentionDialog({ taskTitle, warnings, busy, onCancel, onCon
             type="button"
             disabled={busy}
             onClick={onCancel}
-            className="h-10 rounded-md border border-[#666666] bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className={`h-10 rounded-md border px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}
           >
             取消
           </button>
@@ -3035,7 +3045,7 @@ function DuplicateMaterialDialog({ material, onCancel, onUseExisting }) {
           {retired ? ' 这份素材目前已停用。' : ' 可以直接使用已有素材继续。'}
         </p>
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onCancel} className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50">返回检查</button>
+          <button type="button" onClick={onCancel} className={`h-10 rounded-md border px-4 text-sm ${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}>返回检查</button>
           {!retired && <button type="button" onClick={onUseExisting} className="h-10 rounded-md bg-emerald-600 px-4 text-sm text-white hover:bg-emerald-700">使用已有素材</button>}
         </div>
       </section>
@@ -3058,7 +3068,7 @@ function MaterialRemovalDialog({ action, dependencyCount, material, busy, onCanc
             : `${formatMaterialTitle(material.title)}已有 ${dependencyCount} 项下游记录，不能直接删除。停用后将不再用于新任务，但历史训练、题目和审核记录仍可追溯。`}
         </p>
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onCancel} disabled={busy} className="h-10 rounded-md border border-emerald-600 bg-white px-4 text-sm text-emerald-700 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40">取消</button>
+          <button type="button" onClick={onCancel} disabled={busy} className={`h-10 rounded-md border px-4 text-sm disabled:opacity-40 ${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}>取消</button>
           <button type="button" onClick={onConfirm} disabled={busy} className={`h-10 rounded-md px-4 text-sm text-white disabled:opacity-40 ${willDelete ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
             {busy ? '正在处理' : willDelete ? '确认删除' : '确认停用'}
           </button>
@@ -3082,7 +3092,7 @@ function DiscardChangesDialog({ canSave, saving, onCancel, onSave, onConfirm }) 
           可以先保存工作进度后切换，也可以放弃浏览器内尚未保存的修改。
         </p>
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-          <button type="button" disabled={saving} onClick={onCancel} className="h-10 rounded-md border border-[#666666] bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40">取消</button>
+          <button type="button" disabled={saving} onClick={onCancel} className={`h-10 rounded-md border px-4 text-sm font-semibold disabled:opacity-40 ${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}>取消</button>
           <button type="button" disabled={saving} onClick={onConfirm} className="h-10 rounded-md border border-red-600 bg-white px-4 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40">放弃修改并切换</button>
           {canSave && (
             <button type="button" disabled={saving} onClick={onSave} className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-40">
@@ -3110,7 +3120,7 @@ function TaskRemovalDialog({ title, onCancel, onConfirm }) {
           将从当前编辑区删除{title}。保存任务组前可以撤销；已发布题目和历史版本不会被删除。
         </p>
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onCancel} className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">取消</button>
+          <button type="button" onClick={onCancel} className={`h-10 rounded-md border px-4 text-sm font-semibold ${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}>取消</button>
           <button type="button" onClick={onConfirm} className="h-10 rounded-md bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700">删除任务</button>
         </div>
       </section>
@@ -3318,40 +3328,20 @@ function TaskCandidateDecisionPanel({
   projection,
   hasExistingRevision,
   selectedCandidateId,
-  optimizationGoals,
-  optimizationOpen,
-  correctionOpen,
-  correctionReasonCode,
-  correctionQuestionStem,
-  correctionNote,
   error,
   adoptionResult,
   correctionResult,
   migrationResult,
   onSelectCandidate,
-  onToggleComparison,
-  onToggleOptimization,
-  onToggleCorrection,
-  onCorrectionReasonChange,
-  onCorrectionQuestionStemChange,
-  onCorrectionNoteChange,
-  onToggleGoal,
   onGenerate,
-  onRegenerate,
-  onOptimize,
-  onCorrect,
   onMigrateWorkingContent,
   onAdopt,
+  onDiscardBatch,
   onDiscardWorkingContent,
 }) {
   const selectedCandidate = projection.readyCandidates.find(
     (candidate) => candidate.candidateId === selectedCandidateId,
   ) || null;
-  const comparisonCandidates = projection.comparisonCandidateIds
-    .map((candidateId) => projection.readyCandidates.find(
-      (candidate) => candidate.candidateId === candidateId,
-    ))
-    .filter(Boolean);
   const stateLabel = candidatePanelStateLabel(projection.candidateState.state);
 
   return (
@@ -3409,6 +3399,8 @@ function TaskCandidateDecisionPanel({
                   ? '正在迁移旧工作内容…'
               : projection.operation === 'adopting'
                 ? '正在采用并发布题目…'
+                : projection.operation === 'discarding'
+                  ? '正在放弃本轮方案…'
                 : '正在读取题目方案…'}
         </div>
       )}
@@ -3468,7 +3460,7 @@ function TaskCandidateDecisionPanel({
                 className={`h-9 rounded-md border px-3 text-xs font-medium ${
                   candidate.candidateId === selectedCandidateId
                     ? 'border-blue-600 bg-blue-50 text-blue-700'
-                    : 'border-[#666666] bg-white text-slate-700 hover:bg-slate-50'
+                    : secondaryButtonToneClass
                 }`}
               >
                 方案{index + 1}
@@ -3476,149 +3468,24 @@ function TaskCandidateDecisionPanel({
             ))}
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-600">
-            <span>对比方案（最多 2 项）：</span>
-            {projection.readyCandidates.map((candidate, index) => (
-              <label key={candidate.candidateId} className="inline-flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={projection.comparisonCandidateIds.includes(candidate.candidateId)}
-                  onChange={() => onToggleComparison(candidate.candidateId)}
-                  className="h-4 w-4 accent-blue-600"
-                />
-                方案{index + 1}
-              </label>
-            ))}
+          <div className="mt-4">
+            {selectedCandidate && (
+              <CandidateContentPreview
+                key={selectedCandidate.candidateId}
+                candidate={selectedCandidate}
+              />
+            )}
           </div>
-
-          <div className={`mt-4 grid gap-3 ${comparisonCandidates.length > 1 ? 'lg:grid-cols-2' : ''}`}>
-            {(comparisonCandidates.length > 0 ? comparisonCandidates : [selectedCandidate]).filter(Boolean)
-              .map((candidate) => (
-                <CandidateContentPreview key={candidate.candidateId} candidate={candidate} />
-              ))}
-          </div>
-
-          {optimizationOpen && (
-            <div className="mt-4 border-t border-violet-200 pt-4">
-              <p className="text-sm font-semibold text-slate-900">选择优化目标</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {CANDIDATE_OPTIMIZATION_GOALS.map((goal) => (
-                  <label
-                    key={goal.value}
-                    className={`inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs ${
-                      optimizationGoals.includes(goal.value)
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-slate-300 bg-white text-slate-700'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={optimizationGoals.includes(goal.value)}
-                      onChange={() => onToggleGoal(goal.value)}
-                      className="h-4 w-4 accent-blue-600"
-                    />
-                    {goal.label}
-                  </label>
-                ))}
-              </div>
-              <p className="mt-2 text-xs text-slate-500">能力目标与材料范围等受控字段会保持锁定。</p>
-            </div>
-          )}
-
-          {correctionOpen && selectedCandidate && (
-            <div className="mt-4 border-t border-violet-200 pt-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">异常纠错</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    仅用于错别字、专有名词、版权或指定表达纠正；提交后生成新候选。
-                  </p>
-                </div>
-                <span className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">权限受控</span>
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
-                <label className="text-xs font-medium text-slate-700">
-                  纠错原因
-                  <select
-                    value={correctionReasonCode}
-                    onChange={(event) => onCorrectionReasonChange(event.target.value)}
-                    className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
-                  >
-                    <option value="typo">错别字</option>
-                    <option value="proper_noun">专有名词</option>
-                    <option value="copyright">版权信息</option>
-                    <option value="required_wording">指定表达</option>
-                    <option value="other">其他</option>
-                  </select>
-                </label>
-                <label className="text-xs font-medium text-slate-700">
-                  纠错说明{correctionReasonCode === 'other' ? '（必填）' : '（可选）'}
-                  <input
-                    value={correctionNote}
-                    onChange={(event) => onCorrectionNoteChange(event.target.value)}
-                    className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
-                    placeholder="说明错误与纠正依据"
-                  />
-                </label>
-              </div>
-              <label className="mt-3 block text-xs font-medium text-slate-700">
-                纠正后的题目
-                <textarea
-                  value={correctionQuestionStem}
-                  onChange={(event) => onCorrectionQuestionStemChange(event.target.value)}
-                  rows={4}
-                  className="mt-1 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
-                />
-              </label>
-              <div className="mt-3 flex justify-end">
-                <button
-                  type="button"
-                  disabled={!correctionQuestionStem.trim() || (
-                    correctionReasonCode === 'other' && !correctionNote.trim()
-                  )}
-                  onClick={onCorrect}
-                  className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
-                >
-                  生成纠错方案
-                </button>
-              </div>
-            </div>
-          )}
 
           {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
 
           <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-violet-200 pt-4">
             <button
               type="button"
-              onClick={onToggleCorrection}
-              className="inline-flex h-10 items-center justify-center rounded-md border border-[#666666] bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+              onClick={onDiscardBatch}
+              className={`inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-semibold ${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}
             >
-              {correctionOpen ? '收起异常纠错' : '更多操作'}
-            </button>
-            <button
-              type="button"
-              onClick={onToggleOptimization}
-              className="ai-button-outline inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm font-semibold"
-            >
-              {optimizationOpen ? '收起优化目标' : 'AI 优化'}
-            </button>
-            {optimizationOpen && (
-              <button
-                type="button"
-                disabled={!projection.canOptimize || optimizationGoals.length === 0}
-                onClick={onOptimize}
-                className="ai-button-solid inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                生成优化题目
-              </button>
-            )}
-            <button
-              type="button"
-              disabled={!projection.canRegenerate}
-              onClick={onRegenerate}
-              className="ai-button-outline inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              重新生成题目
+              放弃本轮方案
             </button>
             <button
               type="button"
@@ -3627,7 +3494,7 @@ function TaskCandidateDecisionPanel({
               onClick={onAdopt}
               className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
             >
-              采用题目
+              采用当前方案
             </button>
           </div>
           {!projection.adoption.enabled && projection.adoption.reason && (
@@ -4107,7 +3974,7 @@ function GeneratorCandidatePreview({
             <button
               type="button"
               onClick={onDiscard}
-              className="h-10 rounded-md border border-slate-400 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className={`h-10 rounded-md border px-4 text-sm font-semibold ${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}
             >
               {supplementMode || initialPlanningMode ? '放弃候选' : '保留当前任务组'}
             </button>
@@ -4682,13 +4549,6 @@ function createCandidateCommandIdempotencyKey(trainingTaskId, operation) {
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   return `candidate:${trainingTaskId}:${operation}:${nonce}`;
-}
-
-function toggleCandidateComparison(candidateIds, candidateId) {
-  if (candidateIds.includes(candidateId)) {
-    return candidateIds.filter((value) => value !== candidateId);
-  }
-  return [...candidateIds.slice(-1), candidateId];
 }
 
 function candidatePanelStateLabel(state) {

@@ -1,16 +1,16 @@
 # 统一资源生产工作台契约
 
-> 现行 AI Candidate 生产模型、采用语义和异常纠错边界，以 [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md) 为准。该契约已完成 P0-P6 工程与 Debug 验收：Candidate 是唯一正式生产主链，历史 Working Content 仅作为只读迁移兼容数据。本文第 21.18、21.19 节保留为历史决策与迁移依据，不得据此恢复人工校准、单卡 Working Draft 保存或旧批量提交入口。
+> 现行 AI Candidate 生产模型、采用语义和异常纠错边界，以 [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md) 为准。该契约与统一工作台均已完成 P0-P7 工程与 Debug 验收：Candidate 是唯一正式生产主链，历史 Working Content 仅作为只读迁移兼容数据。本文第 21.18、21.19 节保留为历史决策与迁移依据，不得据此恢复人工校准、单卡 Working Draft 保存或旧批量提交入口。
 
 英文名称：Unified Resource Production Workbench Contract
 
-状态：DESIGN FROZEN / P0-P7 BASELINE ACCEPTED / AI CANDIDATE P0-P6 COMPLETE / ACCEPTANCE RECORDED
-文档版本：`unified_resource_production_workbench_v1.5`
-更新日期：2026-08-06
+状态：DESIGN FROZEN / P0-P7 ENGINEERING COMPLETE / ACCEPTANCE RECORDED
+文档版本：`unified_resource_production_workbench_v1.6`
+更新日期：2026-08-08
 
 ## 一、文档目标
 
-本文冻结素材录入、训练任务规划、AI Candidate 判断与采用、内联质量检查、一次人工发布确认与正式发布在统一工作台中的产品边界、对象关系、状态计算和迁移顺序。
+本文冻结素材录入、训练任务规划、AI Candidate 判断与采用、采用后自动质量检查与正式发布在统一工作台中的产品边界、对象关系、状态计算和迁移顺序。
 
 统一工作台的目标是让用户围绕同一组训练任务完成一条连续生产链：
 
@@ -20,9 +20,8 @@
 -> AI 生成不可变 Candidate
 -> 人工判断、结构化优化或异常纠错
 -> 采用 Candidate 并创建 Question Revision
--> 自动检查并在任务卡内反馈
--> 人工点击“发布任务”
--> 正式发布
+-> 应用层自动编排 Validation / Assessment / Human Review / Freeze / Registry
+-> 无提醒路径自动发布；提醒或失败停留在任务卡内处理
 ```
 
 本文合并的是前台工作路径，不合并底层领域命令、审计结果和正式资源边界。
@@ -32,7 +31,7 @@
 1. 保存 Draft Revision；
 2. 运行 Contract Validation 与 Quality Assessment；
 3. 绑定当前 Revision 与 Assessment；
-4. 记录由“发布任务”动作形成的 Human Review Decision；
+4. 记录由采用后自动编排形成、并绑定当前 Revision 与 Assessment 的 Human Review Decision；
 5. Freeze 当前确认的 Revision；
 6. 创建 Formal Question Version；
 7. 更新 Registry 与材料观测关联。
@@ -68,7 +67,7 @@
 2. 每项训练任务的当前状态；
 3. 每项任务唯一的下一步操作；
 4. 已发布正式题目与当前修订工作的并存关系；
-5. 当前可发布任务数量和失败恢复入口。
+5. 当前待发布、已发布任务数量和失败恢复入口。
 
 页面可以按任务展开编辑、检查、确认和发布内容，但不得要求用户通过另一个平台重新定位同一任务。
 
@@ -76,7 +75,7 @@
 
 统一页面不得把保存、检查、确认和发布实现为一个不可追溯的写入操作。
 
-前台只提供一次明确的“发布任务”主操作。该操作可以在应用层编排保存、检查、人工决定、Freeze 与 Registry 写入，但内部必须保持独立阶段、精确身份、幂等和失败恢复，不得实现为不可追溯的一次写入。
+前台以“采用题目”为正常路径唯一主操作。采用成功后，应用层自动编排保存 Revision、检查、无提醒人工决定记录、Freeze 与 Registry 写入；内部必须保持独立阶段、精确身份、幂等和失败恢复，不得实现为不可追溯的一次写入。存在提醒或失败时，任务卡只外显与当前中断原因匹配的处理或重试动作，不恢复常驻“发布任务”入口。
 
 页面按钮与领域命令必须分层命名：
 
@@ -100,14 +99,12 @@ AI 生成、人工调整、来源、历史正式版本等属于辅助信息，�
 
 训练任务区域标题统一使用“训练任务（N/6）”，不得继续使用“修改训练任务”“确认训练任务”等会随局部操作变化的页面名称。
 
-顶部总览固定为四类互斥统计：
+顶部总览固定为两类互斥统计：
 
-1. `需处理`：题目内容缺失、Candidate 失效、质量处理未完成或编排失败；
-2. `待采用`：已有完整题目 Candidate，但尚未通过 Adopt 创建 Question Revision；
-3. `待发布`：已经 Adopt，检查、确认或发布仍在进行；
-4. `已发布`：Formal Resource 与 Active Registry 已完整成立。
+1. `待发布`：当前活动任务尚未形成完整的 Formal Resource 与 Active Registry，包括缺少题目、待采用、处理中、质量提醒和发布失败；
+2. `已发布`：Formal Resource 与 Active Registry 已完整成立。
 
-四项之和必须等于当前训练任务数量。任务卡状态、顶部统计、刷新恢复和主操作必须消费同一个可见状态 Resolver，不得由页面组件分别推断。已发布任务通过卡片现有“展开详情”查看正式内容，不得为同一内容重复提供“查看正式题目”入口。
+两项之和必须等于当前训练任务数量。任务卡内部继续显示“未生成题目、题目待采用、处理中、需要处理、发布未完成、已发布”等子状态和唯一恢复动作。任务卡状态、顶部统计、刷新恢复和主操作必须消费同一个可见状态 Resolver，不得由页面组件分别推断。已发布任务通过卡片现有“展开详情”查看正式内容，不得为同一内容重复提供“查看正式题目”入口。
 
 ## 四、Training Task 与 Question 的关系
 
@@ -192,9 +189,11 @@ Assessment 必须绑定：
 
 只有当前 Revision、当前规则版本且状态完成的 Assessment 才可用于人工发布确认。
 
-### 5.4 人工发布确认
+### 5.4 采用决定与自动正式化
 
-人工点击“发布任务”时形成的确认必须绑定精确的 `QuestionRevision` 和当前 Assessment Bundle。不得通过独立“提交最终确认”页面再次要求用户确认同一批内容。
+用户采用 Candidate 后，系统创建精确的 `QuestionRevision`，并在无提醒路径自动形成绑定当前 Revision 与 Assessment Bundle 的 Human Review Decision。不得通过独立“提交最终确认”页面或常驻“发布任务”按钮再次要求用户确认同一批内容。
+
+存在非阻断提醒时，用户只对具体提醒作结构化保留决定；存在阻断或阶段失败时，任务卡只提供优化、重新生成或重试入口。提醒决定和失败恢复不得改变“采用题目”是正常路径唯一主动作的原则。
 
 当前 Revision 被确认后进入正式化流程。正式版本形成后只读；如需修改，必须从同一 Lineage 创建新 Draft Revision 并重新检查。
 
@@ -241,7 +240,7 @@ type TaskProductionCommand =
 | `retryTaskPublication` | 从已有发布结果继续 | 不重复创建已成功对象 |
 | `viewFormalQuestion` | 无 | 只读，不触发状态迁移 |
 
-前台“发布任务”是应用层编排动作，不是新的领域写入类型。对已采用的当前 Revision，它必须显式执行或恢复：`runTaskCheck -> recordTaskConfirmationDecision -> publishConfirmedTask`。Candidate 尚未采用时必须先完成 `adoptTaskCandidate`，不得由发布动作隐式采用。任一阶段失败时停止后续阶段并返回可定位、可恢复的阶段结果。
+前台“采用题目”触发应用层正式化编排，但不是新的领域写入类型。它必须先完成 `adoptTaskCandidate`，再对返回的精确 Revision 显式执行或恢复：`runTaskCheck -> recordTaskConfirmationDecision -> publishConfirmedTask`。任一阶段失败时停止后续阶段并返回可定位、可恢复的阶段结果；不得读取隐式最新 Revision，也不得恢复独立“发布任务”步骤。
 
 ### 6.1 P3 可执行命令契约
 
@@ -332,7 +331,7 @@ P3 至少验证：
 3. 提交成功、草稿创建失败后重试不重复提交训练计划；
 4. 审核决定成功、发布失败后保留审核结果并只重试发布；
 5. Registry 写入失败后复用已有 Freeze 和 Formal Version；
-6. 页面只调用应用层“发布任务”编排命令，不直接组合 Repository 或领域 API；
+6. 页面只调用应用层“采用后自动正式化”编排命令，不直接组合 Repository 或领域 API；
 7. 所有命令完成后，任务卡、总览和主操作读取同一个 Resolver 结果。
 
 ## 七、唯一生产状态解析
@@ -417,7 +416,7 @@ function resolveTaskProductionState(input: TaskProductionSource): TaskProduction
 | `check_required` | 待检查 | 运行题目检查 |
 | `checking` | 正在检查 | 无，显示 Loading |
 | `revision_required` | 需要优化 | AI 优化、重新生成或异常纠错 |
-| `ready_to_publish` | 检查完成，可发布 | 发布任务 |
+| `ready_to_publish` | 检查完成，正在自动正式化 | 无；由编排器继续执行 |
 | `publishing` | 正在发布 | 无，显示 Loading |
 | `publication_incomplete` | 已确认，发布未完成 | 重试发布 |
 | `published` | 已发布 | 查看正式题目 |
@@ -512,19 +511,19 @@ pendingPublication
 | --- | --- |
 | `empty` | 没有训练任务 |
 | `in_progress` | 至少一项任务仍在编辑、检查或失败恢复 |
-| `ready` | 所有未发布任务均已通过当前检查并完成提醒处理，可执行发布 |
+| `ready` | 所有未发布任务均已通过当前检查并完成提醒处理，自动正式化编排可以继续或恢复 |
 | `partial` | 同时存在已发布任务和未完成任务 |
 | `published` | 所有任务均已发布 |
 
 任务组状态不得人工选择或持久化为第二套事实来源。
 
-## 十、部分发布
+## 十、自动正式化与部分成功
 
 部分发布依赖本契约前置能力完成后再实施。
 
-### 10.1 可发布集合
+### 10.1 自动正式化集合
 
-可发布任务必须同时满足：
+进入自动正式化的任务必须同时满足：
 
 1. 当前活动 Revision 已形成有效 Assessment；
 2. 非阻断人工关注已处理或显式接受；
@@ -534,13 +533,13 @@ pendingPublication
 
 ### 10.2 页面操作
 
-单人生产主界面提供：
+单人生产主界面的正常路径只提供：
 
 ```text
-发布任务（N）
+采用题目
 ```
 
-该操作只发布满足条件的当前任务。其他任务保留当前状态，不被自动删除、退回或重建。页面不得在该按钮之前再增加“提交最终确认”“进入审核”或版本选择步骤。
+该操作只采用当前 Candidate，并以返回的精确 Revision 自动编排检查与正式发布。其他任务保留当前状态，不被自动删除、退回或重建。页面不得在该按钮之后再增加“提交最终确认”“进入审核”“发布任务”或版本选择步骤。存在提醒或失败时，卡片根据中断原因显示结构化处理或重试动作。
 
 ### 10.3 失败恢复
 
@@ -567,7 +566,7 @@ type BatchPublicationResult = {
 1. 素材区：录入或选择当前学习材料；
 2. AI 规划区：首次生成、补充生成、重新规划和候选采用；
 3. 训练任务列表：承载题目正文、编辑、内联质量结果、提醒处理和展开区；
-4. 任务组操作区：重新生成、补充候选与“发布任务”；
+4. 任务组操作区：重新生成、补充候选与确认任务组保存；单题采用和异常恢复保留在对应任务卡；
 5. 历史与审计入口：查看 Revision、Assessment、Human Review 和正式版本。
 
 总览数据只负责导航和理解整体进度，具体状态原因与查看操作必须落到对应训练任务卡。
@@ -582,13 +581,13 @@ type BatchPublicationResult = {
 2. 黄色提醒显示原因与影响，并提供“生成优化题目 / 保留当前题目”；选择保留后，在轻量确认层为每条提醒选择结构化理由，再执行“确认保留并发布”；
 3. 红色阻断直接显示必须修正的问题，只提供“生成优化题目”或“重新生成题目”，不得提供保留或发布入口；
 4. 任一正式字段修改后，旧 Assessment 与提醒接受记录立即失效并显示“需要重新检查”；
-5. 自动检查不形成 Human Review Decision；用户点击“发布任务”才形成绑定当前 Revision 的最终人工决定。
+5. 自动检查本身不形成 Human Review Decision；无提醒路径由采用后编排形成绑定当前 Revision 的决定，存在提醒时由用户针对具体提醒作出的结构化决定形成记录。
 
 非阻断提醒的接受记录仍必须绑定当前 Revision、Assessment 与规则版本。单人标准流程使用结构化理由选项减少输入负担，但不得以同一固定理由批量接受全部提醒；每个 warning code 必须形成独立记录，选择“其他”时必须补充说明。需要调整时统一进入 AI Candidate 生成、判断与采用流程。提醒区和 Candidate 空状态不得重复提供两个等价的生成入口；没有新 Candidate 时，页面不展示重复的 AI 方案空面板。
 
 任务卡只表达一次当前问题：卡片状态显示“需要处理”，并补充“n 项质量提醒”；展开区展示一份提醒列表和“生成优化题目 / 保留当前题目”两个判断。不得再叠加等价的红色说明、静态“题目处理中”或“题目已采用仍需处理”面板。生成优化 Candidate 后，比较区域才按需出现。
 
-“发布任务”必须携带 `draftId`、`expectedRevisionId` 与 `assessmentBundleId`。后台当前 Revision 不一致时返回 `QUESTION_DRAFT_REVISION_CONFLICT`，页面提示“版本已变化，请刷新后继续”，不得发布隐式最新版本。
+自动正式化阶段必须携带 `draftId`、`expectedRevisionId` 与 `assessmentBundleId`。后台当前 Revision 不一致时返回 `QUESTION_DRAFT_REVISION_CONFLICT`，页面提示“版本已变化，请刷新后继续”，不得发布隐式最新版本。
 
 发布幂等键至少为：
 
@@ -654,7 +653,7 @@ AI 规划区的产品行为统一为：
 
 ## 十四、历史实施顺序与验收记录
 
-本节及其后的 P0-P7 内容记录统一工作台形成过程中的历史迁移步骤和验收证据，其中出现的“提交最终确认”“进入最终确认”“待最终确认”及独立审核页操作均属于旧交互阶段，不再定义当前单人生产主界面。当前产品规则以第一至十三节，尤其是 5.4、7.3、11.1 和 12 节为准；历史领域身份、失败样例和验收证据继续保留用于追溯。
+本节及其后的 P0-P7 内容记录统一工作台形成过程中的历史迁移步骤和验收证据，其中出现的“发布任务”“提交最终确认”“进入最终确认”“待最终确认”及独立审核页操作均属于旧交互阶段，不再定义当前单人生产主界面。当前产品规则以第一至十三节，尤其是 3.5、5.4、7.3、11.1 和 12 节为准；历史领域身份、失败样例和验收证据继续保留用于追溯。
 
 ### P0：冻结契约与身份边界
 

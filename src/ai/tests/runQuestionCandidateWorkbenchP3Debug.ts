@@ -104,15 +104,15 @@ assert.equal(empty.candidateState.state, 'not_generated');
 assert.equal(empty.adoption.enabled, false, 'P3 must not expose candidate adoption');
 
 const ready = resolveCandidatePanelProjection({
-  candidates: [candidate('a'), candidate('b'), candidate('c')],
+  candidates: [candidate('a'), candidate('b'), candidate('c'), candidate('d')],
   context,
   selectedCandidateId: 'b',
   comparisonCandidateIds: ['a', 'b', 'c'],
 });
 assert.equal(ready.candidateState.state, 'candidate_ready');
 assert.equal(ready.selectedCandidateId, 'b');
-assert.deepEqual(ready.comparisonCandidateIds, ['b', 'a']);
-assert.equal(ready.comparisonCandidateIds.length, 2, 'comparison must be capped at two');
+assert.deepEqual(ready.comparisonCandidateIds, ['b']);
+assert.equal(ready.readyCandidates.length, 3, 'the decision panel must expose at most three schemes');
 
 const latestBatch = resolveCandidatePanelProjection({
   candidates: [
