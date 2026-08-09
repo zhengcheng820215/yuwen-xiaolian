@@ -250,6 +250,7 @@ export async function resolveFormalResourceBootstrapMatch(input: {
   observationRepository: MaterialObservationRepository;
   recentHistory: ResourceMatchRecentHistory;
   evaluatedAt?: string;
+  reusePreviouslyUsedWhenExhausted?: boolean;
 }): Promise<{
   taskRequest: TaskRequest;
   matched: NextFormalTaskResolution;
@@ -258,7 +259,7 @@ export async function resolveFormalResourceBootstrapMatch(input: {
   const evaluatedAt = input.evaluatedAt || new Date().toISOString();
   const recentVersionIds = new Set(input.recentHistory.recentResourceVersionIds);
   const recentMaterialIds = new Set(input.recentHistory.recentMaterialIds);
-  const candidates = [...input.versions]
+  const freshCandidates = [...input.versions]
     .filter((version) => (
       version.status === 'frozen' &&
       version.abilityMetadata.taskRole === 'training' &&
@@ -270,13 +271,36 @@ export async function resolveFormalResourceBootstrapMatch(input: {
       left.abilityMetadata.abilityId.localeCompare(right.abilityMetadata.abilityId) ||
       left.resourceVersionId.localeCompare(right.resourceVersionId)
     ));
+  const activeTaskIds = new Set(input.recentHistory.recentTaskIds);
+  const activeResourceIds = new Set(input.recentHistory.recentResourceIds);
+  const reviewCandidates = input.reusePreviouslyUsedWhenExhausted
+    ? [...input.versions]
+        .filter((version) => (
+          version.status === 'frozen' &&
+          version.abilityMetadata.taskRole === 'training' &&
+          recentVersionIds.has(version.resourceVersionId) &&
+          Boolean(version.materialId) &&
+          !activeTaskIds.has(version.taskId) &&
+          !activeResourceIds.has(version.resourceId)
+        ))
+        .sort((left, right) => (
+          left.abilityMetadata.abilityId.localeCompare(right.abilityMetadata.abilityId) ||
+          left.resourceVersionId.localeCompare(right.resourceVersionId)
+        ))
+    : [];
+  const reviewHistory = {
+    ...input.recentHistory,
+    recentResourceVersionIds: input.recentHistory.recentResourceVersionIds.filter((id) => (
+      !reviewCandidates.some((candidate) => candidate.resourceVersionId === id)
+    )),
+  };
   let firstAttempt: {
     taskRequest: TaskRequest;
     matched: NextFormalTaskResolution;
     bootstrapVersion?: FrozenQuestionResourceVersion;
   } | undefined;
 
-  for (const candidate of candidates) {
+  for (const candidate of freshCandidates) {
     const taskRequest = createFormalResourceBootstrapTaskRequest(
       input.studentId,
       evaluatedAt,
@@ -289,6 +313,27 @@ export async function resolveFormalResourceBootstrapMatch(input: {
       resourceRepository: input.resourceRepository,
       observationRepository: input.observationRepository,
       recentHistory: input.recentHistory,
+      bootstrapMaterialId: candidate.materialId,
+      evaluatedAt,
+    });
+    const attempt = { taskRequest, matched, bootstrapVersion: candidate };
+    firstAttempt ||= attempt;
+    if (matched.status === 'matched') return attempt;
+  }
+
+  for (const candidate of reviewCandidates) {
+    const taskRequest = createFormalResourceBootstrapTaskRequest(
+      input.studentId,
+      evaluatedAt,
+      candidate.abilityMetadata.abilityId,
+      candidate.abilityMetadata.taskRole,
+    );
+    const matched = await matchCurrentFormalResource({
+      taskRequest,
+      studentId: input.studentId,
+      resourceRepository: input.resourceRepository,
+      observationRepository: input.observationRepository,
+      recentHistory: reviewHistory,
       bootstrapMaterialId: candidate.materialId,
       evaluatedAt,
     });

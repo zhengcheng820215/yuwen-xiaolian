@@ -1801,7 +1801,7 @@ type LearningFormalResourceReadState =
 4. 确实没有合格资源时显示正常空状态；
 5. Repository 读取失败、Registry 指针失效或版本映射失败时显示系统错误，不伪装为空状态；
 6. Batch A 历史 Debug 继续保持原有隔离和结果；
-7. 结束旧会话后开始新会话，旧会话材料不限制新首题，旧会话已经使用的具体 Frozen Version 仍不会被重复选择；
+7. 结束旧会话后开始新会话，旧会话材料不限制新首题；匹配优先选择未使用的 Frozen Version，全部新版本均不可用时允许轮换复习历史版本，但不得重复当前活动会话已经使用的任务；
 8. 同一活动会话进入下一 Round 时，当前材料语境继续生效。
 
 ### 21.6 入口与工作区可用性一致
@@ -1812,7 +1812,7 @@ type LearningFormalResourceReadState =
 
 1. 入口与工作区统一调用 `resolveCurrentLearningTaskAvailability()`，使用相同的学生身份、能力、任务角色、复测计划、当前 Round、已使用资源和材料去重条件；
 2. `available` 才允许入口显示“任务已经准备好”并启用“开始学习”；
-3. `no_eligible_match` 或 `already_used` 必须在入口直接显示真实空状态，不得先进入工作区再暴露无任务；
+3. `no_eligible_match` 或 `already_used` 必须在入口直接显示真实空状态，不得先进入工作区再暴露无任务；但只有未用版本与安全复习版本均不可匹配时，才允许返回资源耗尽；
 4. `read_failed`、`invalid_registry`、`mapping_failed` 必须在入口显示读取失败和重试动作；
 5. 入口状态探测不得创建 Session、Round、学习记录或其他领域写入；
 6. 从入口显示“可以开始”到点击进入工作区之间没有外部资源变化时，工作区必须成功形成同一条件下的 Concrete Learning Task。
@@ -1820,14 +1820,15 @@ type LearningFormalResourceReadState =
 8. 普通 Training 的 `same_context` 表示允许并要求复用当前材料语境，材料曾经使用过不能被判定为“资源耗尽”；只有具体 `resourceVersionId` 已使用才排除该版本；
 9. Transfer 的 `new_context` 继续排除已使用材料，Retest 继续遵守受控相似材料关系，两者不得复用 Training 的耗尽算法；
 10. 正常空状态应沿用统一可用性探测返回的具体说明，不得再次退化为固定的通用空文案。
+11. 到期 Retest 仍具有优先级；当前没有合格 Retest 资源时，不得阻断普通 Training，入口应降级匹配可用正式训练任务。
 
 ### 21.7 学习会话历史边界
 
 正式资源历史必须拆分为“跨会话版本去重”和“当前活动会话语境”两层，不得把全部历史记录直接投影成当前材料语境：
 
-1. `recentResourceVersionIds` 可以跨学习会话累计，用于避免同一 Frozen Version 被重复形成正式学习任务；
+1. `recentResourceVersionIds` 可以跨学习会话累计，用于优先选择未使用的 Frozen Version；资源池耗尽后可作为轮换复习依据，不构成永久禁用；
 2. `recentMaterialIds`、`recentTaskIds`、`recentResourceIds` 与 `recentExecutionSessionIds` 只允许来自当前活动 `learningSessionId` 对应的 Round；
-3. `ended` 会话或不存在活动会话时，新的首轮匹配必须清空材料、任务、资源与执行会话上下文，但继续保留已使用 Frozen Version 的去重记录；
+3. `ended` 会话或不存在活动会话时，新的首轮匹配必须清空材料、任务、资源与执行会话上下文，但继续保留已使用 Frozen Version 记录用于新题优先和资源池耗尽判断；
 4. 普通 Training 的同材料连续性只在同一个活动会话内成立；开始新会话时可以从任意仍有未使用正式版本的合格材料重新建立语境；
 5. Round 归属统一通过 `learningRoundId = ${learningSessionId}-round-*` 判定，入口探测、工作区首题和下一题匹配必须消费同一个历史作用域函数；
 6. 页面不得因为已结束会话的 `materialId` 泄漏到新会话而显示“当前没有新的正式任务”。

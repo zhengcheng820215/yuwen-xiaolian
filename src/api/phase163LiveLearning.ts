@@ -424,7 +424,8 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
   const effectiveHistory = currentVersion
     ? withoutCurrentResource(recentHistory, currentVersion)
     : recentHistory;
-  const bootstrapResolution = !retestPlan && !plannedResolution && !currentVersion
+  let effectiveRetestPlan = retestPlan;
+  let bootstrapResolution = !retestPlan && !plannedResolution && !currentVersion
     ? await resolveFormalResourceBootstrapMatch({
         studentId: PHASE163_LEARNING_STUDENT_ID,
         versions: currentVersions,
@@ -432,28 +433,50 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
         observationRepository: materialObservationRepository,
         recentHistory: effectiveHistory,
         evaluatedAt: descriptorAt,
+        reusePreviouslyUsedWhenExhausted: true,
       })
     : undefined;
-  const taskRequest = retestPlan
+  let taskRequest = retestPlan
     ? taskRequestFromRetestPlan(retestPlan, descriptorAt)
     : previousCheckpoint?.nextTaskRequest && plannedResolution
       ? previousCheckpoint.nextTaskRequest
       : currentVersion
         ? taskRequestForExistingVersion(currentVersion, descriptorAt)
         : bootstrapResolution!.taskRequest;
-  const matched = bootstrapResolution?.matched || await matchCurrentFormalResource({
+  let matched = bootstrapResolution?.matched || await matchCurrentFormalResource({
+    taskRequest,
+    studentId: PHASE163_LEARNING_STUDENT_ID,
+    resourceRepository: formalResourceRepository,
+    observationRepository: materialObservationRepository,
+    recentHistory: effectiveHistory,
+    bootstrapMaterialId: currentVersion?.materialId || selectBootstrapMaterialId(
+      currentVersions,
       taskRequest,
+      effectiveHistory.recentResourceVersionIds,
+    ),
+    evaluatedAt: descriptorAt,
+  });
+  if (
+    matched.status !== 'matched' &&
+    retestPlan &&
+    !plannedResolution &&
+    !currentVersion
+  ) {
+    bootstrapResolution = await resolveFormalResourceBootstrapMatch({
       studentId: PHASE163_LEARNING_STUDENT_ID,
+      versions: currentVersions,
       resourceRepository: formalResourceRepository,
       observationRepository: materialObservationRepository,
       recentHistory: effectiveHistory,
-      bootstrapMaterialId: currentVersion?.materialId || selectBootstrapMaterialId(
-        currentVersions,
-        taskRequest,
-        effectiveHistory.recentResourceVersionIds,
-      ),
       evaluatedAt: descriptorAt,
+      reusePreviouslyUsedWhenExhausted: true,
     });
+    if (bootstrapResolution.matched.status === 'matched') {
+      effectiveRetestPlan = undefined;
+      taskRequest = bootstrapResolution.taskRequest;
+      matched = bootstrapResolution.matched;
+    }
+  }
   return {
     descriptorAt,
     context,
@@ -462,7 +485,7 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
     records,
     latest,
     currentCheckpoint,
-    retestPlan,
+    retestPlan: effectiveRetestPlan,
     currentVersions,
     taskRequest,
     recentHistory: effectiveHistory,

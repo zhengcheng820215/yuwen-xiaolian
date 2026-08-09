@@ -124,7 +124,18 @@ async function main(): Promise<void> {
     taskAvailabilityMessage: '本轮可用的正式资源已经完成。',
   }), 'no_task', (state) => (
     state.taskAvailabilityState === 'already_used' &&
-    state.title === '本轮可用任务已经完成'
+      state.title === '本轮可用任务已经完成'
+  ));
+  checkState('B23 已结束且无可用任务时不显示可点击的新学习入口', baseInput({
+    activeContexts: [activeContext({ status: 'ended' })],
+    latestPersistenceRecord: completedRecord(),
+    hasAvailableTask: false,
+    taskAvailabilityState: 'already_used',
+    taskAvailabilityMessage: '当前没有可用任务。',
+  }), 'no_task', (state) => (
+    state.primaryAction === 'none' &&
+    state.primaryActionText === '暂无任务' &&
+    !state.canEnterWorkspace
   ));
   await checkRepositoryConflict();
   checkInternalSummary();

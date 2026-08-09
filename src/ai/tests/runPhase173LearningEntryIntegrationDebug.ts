@@ -37,6 +37,7 @@ async function main(): Promise<void> {
   await genericFormalMatch(environment);
   await legacyHintPolicyCompatibility(environment);
   await dynamicBootstrapAbility(environment);
+  await exhaustedPoolFallsBackToReview(environment);
   await endedSessionDoesNotLeakMaterialContext(environment);
   await activeSessionKeepsMaterialContext(environment);
   await bootstrapTraining(environment);
@@ -60,6 +61,35 @@ async function main(): Promise<void> {
   if (passed !== reports.length) {
     throw new Error('Phase 17.3 Batch A /learning entry integration Debug failed.');
   }
+}
+
+async function exhaustedPoolFallsBackToReview(environment: Environment): Promise<void> {
+  const trainingVersions = environment.versions.filter((item) => (
+    item.status === 'frozen' && item.abilityMetadata.taskRole === 'training'
+  ));
+  const activeVersion = trainingVersions[0];
+  expect(activeVersion && trainingVersions.length > 1, 'Review fallback requires at least two training versions.');
+  const resolution = await resolveFormalResourceBootstrapMatch({
+    studentId: STUDENT_ID,
+    versions: environment.versions,
+    resourceRepository: environment.resources,
+    observationRepository: environment.observations,
+    recentHistory: {
+      studentId: STUDENT_ID,
+      recentTaskIds: [activeVersion.taskId],
+      recentResourceIds: [activeVersion.resourceId],
+      recentResourceVersionIds: trainingVersions.map((item) => item.resourceVersionId),
+      recentMaterialIds: [],
+    },
+    evaluatedAt: NOW,
+    reusePreviouslyUsedWhenExhausted: true,
+  });
+  record(
+    '03B 新题资源耗尽后轮换复习且不重复当前会话任务',
+    resolution.matched.status === 'matched' &&
+      resolution.matched.resourceVersion?.resourceVersionId !== activeVersion.resourceVersionId,
+    `status=${resolution.matched.status}, active=${activeVersion.resourceVersionId}, selected=${resolution.matched.resourceVersion?.resourceVersionId || 'none'}`,
+  );
 }
 
 async function endedSessionDoesNotLeakMaterialContext(environment: Environment): Promise<void> {

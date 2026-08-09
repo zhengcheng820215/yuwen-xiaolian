@@ -142,6 +142,15 @@ export function buildUnifiedLearningEntryState(
     });
   }
   if (ended && active.length === 0) {
+    if (!input.hasAvailableTask) {
+      return finish({
+        ...base,
+        status: 'no_task', priority: 7,
+        title: noTaskTitle(input.taskAvailabilityState),
+        message: input.taskAvailabilityMessage || '本次学习结果已经保存，当前暂时没有可用任务。',
+        primaryAction: 'none', primaryActionText: '暂无任务', canEnterWorkspace: false,
+      });
+    }
     return finish({
       ...base,
       status: 'session_ended', priority: 3,
