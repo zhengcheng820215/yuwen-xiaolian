@@ -1459,6 +1459,10 @@ export default function MaterialResourceProductionWorkbench() {
       });
       const observationTaskPlanId = task.observationTaskPlanId || task.localId;
       if (adoptionResult.visibleState === 'published') {
+        await refresh({
+          materialVersionId: selectedMaterial.materialVersionId,
+          planId: selectedPlan.materialObservationPlanId,
+        });
         const successMessage = '题目已经发布成功！';
         setTaskWorkflowFeedback((current) => ({
           ...current,

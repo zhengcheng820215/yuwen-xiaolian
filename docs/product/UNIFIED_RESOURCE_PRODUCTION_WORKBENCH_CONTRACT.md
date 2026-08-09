@@ -2445,3 +2445,15 @@ Debug 验收（2026-08-09）：初始 Candidate、Candidate Workflow、Workbench
 5. 切换素材只改变读取上下文，不创建 Candidate、Revision、Formal Resource 或 Registry，也不得修改已发布资源。
 
 回归验收：新增素材选择状态用例，覆盖“同一素材存在多个历史 Plan 时恢复已记忆 Plan”以及“路由 Plan 不跨素材泄漏”，专项 Debug `11 / 11 PASS`。浏览器连续执行《狼》->《皇帝的新装》->《狼》和《狼》->《猫》->《狼》两轮切换后，均稳定恢复为“待发布 1 / 已发布 2”，三个任务的发布状态未发生降级。
+
+### 22.16 采用发布成功后的快照一致性（2026-08-09）
+
+1. `adoptQuestionTaskCandidate` 返回 `visibleState = published` 时，只能证明后台采用与发布编排已经完成；页面仍必须以当前 `materialVersionId + materialObservationPlanId` 重新读取 Shared Store 快照；
+2. 成功提示、任务卡“已发布”标签、顶部“待发布 / 已发布”统计和正式资源入口必须来自同一次发布后快照，不得混用命令结果与发布前缓存；
+3. 页面必须先完成快照刷新，再展示“题目已经发布成功”；不得出现成功提示已经显示而任务卡仍为“待处理”的矛盾状态；
+4. 发布后的刷新只更新读取投影，不得重复创建 Candidate、Revision、Formal Version 或 Registry Entry；
+5. 该规则同时适用于首次采用发布和正式资源新版发布，发布失败恢复仍遵循已完成阶段不回退与幂等重试边界。
+
+问题修复记录：候选采用发布成功分支此前只写入成功反馈，没有刷新 `publishedResources`，导致任务卡继续使用发布前快照。现已在成功分支按当前素材和 Plan 强制刷新，再显示成功反馈。
+
+回归验收：Candidate Workbench P6、Task Production State、Material Resource Workbench State `14 / 14 PASS` 与 Production Build 通过；浏览器重新载入真实《狼》后显示“待发布 0 / 已发布 3”，训练任务2正确显示“已发布”，控制台错误为 0。

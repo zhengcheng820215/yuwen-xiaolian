@@ -1598,3 +1598,11 @@ Candidate 一旦存在，当前任务的人工决策只能在 Candidate 判断�
 ## 素材切换状态恢复约束（2026-08-09）
 
 Candidate 与发布状态的页面投影必须绑定明确的 `materialVersionId + materialObservationPlanId`。工作台切换素材时应恢复该素材最近一次有效 Plan；路由 Plan 只能作用于同一素材，不能跨素材复用。切换行为不得创建、失效或重排 Candidate，也不得改变 Formal Resource 与 Active Registry。回归测试必须覆盖多 Plan 素材切出再切回后，已发布任务仍保持已发布、待处理任务仍保持待处理，顶部统计与任务卡逐项一致。
+
+## 采用并发布后的读取一致性（2026-08-09）
+
+`adoptAndPublishCandidate` 的成功结果与工作台的可见发布状态属于两个不同边界：前者是应用命令结果，后者必须由 Shared Store 中的 Formal Resource 与 Active Registry 重新投影。命令成功后，工作台必须按当前 Material 与 Plan 刷新快照，再展示成功提示、已发布标签、顶部统计和正式资源入口。
+
+禁止仅依赖 `visibleState = published` 写入临时成功文案，同时继续使用采用前的 `publishedResources` 缓存。刷新操作不得重放采用或发布命令；它只负责读取正式结果，因此不会产生重复 Formal Version 或 Registry Entry。
+
+专项回归已覆盖“发布成功分支必须刷新当前素材和 Plan 快照”。浏览器真实数据验收显示《狼》三个训练任务均恢复为已发布，顶部为“待发布 0 / 已发布 3”，控制台无异常。

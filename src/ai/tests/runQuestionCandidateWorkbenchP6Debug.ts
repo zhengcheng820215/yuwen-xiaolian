@@ -85,6 +85,11 @@ async function main(): Promise<void> {
   ]) {
     assert.equal(source.includes(token), true, `P6 canonical token is missing: ${token}`);
   }
+  assert.match(
+    source,
+    /if \(adoptionResult\.visibleState === 'published'\) \{\s*await refresh\(\{\s*materialVersionId: selectedMaterial\.materialVersionId,\s*planId: selectedPlan\.materialObservationPlanId,/,
+    'published adoption must refresh the current material and plan snapshot before rendering success',
+  );
   for (const token of [
     "reasonSource?: 'fixed' | 'generated' | 'manual'",
     'structuredReason?: string',
@@ -130,6 +135,7 @@ async function main(): Promise<void> {
   console.log('PASS canonical candidate workflow is the only reachable production path');
   console.log('PASS exit audit resolves ready, migration_required, and blocked');
   console.log('PASS historical working content exposes migration recovery');
+  console.log('PASS published adoption refreshes the task-card formal resource state');
 }
 
 function exitFixture() {
