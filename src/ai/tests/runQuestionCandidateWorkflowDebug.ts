@@ -34,6 +34,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '09 adoption is idempotent and cannot be repeated', run: caseAdoptionIdempotency },
   { name: '10 candidate projection uses one context resolver', run: caseProjection },
   { name: '11 rejecting a batch discards every ready scheme idempotently', run: caseRejectBatch },
+  { name: '12 a new AI round supersedes old AI candidates but preserves the current scheme', run: caseAiRoundSupersession },
 ];
 
 async function main(): Promise<void> {
@@ -198,7 +199,38 @@ async function caseAllowedOptimization(): Promise<void> {
   assert.equal(optimized.candidateType, 'optimized');
   assert.equal(optimized.basedOnCandidateId, base.candidateId);
   assert.match(optimized.content.questionStem, /结合文本说明/);
-  assert.equal((await fixture.repository.getCandidate(base.candidateId))?.status, 'ready');
+  assert.equal((await fixture.repository.getCandidate(base.candidateId))?.status, 'superseded');
+}
+
+async function caseAiRoundSupersession(): Promise<void> {
+  const fixture = createFixture();
+  const current = createQuestionCandidate({
+    ...candidateFixture('current-scheme', defaultContext()),
+    generationCommandId: 'ensure-current-scheme',
+    candidateOrigin: 'training_task_compatibility_wrap',
+    generationContext: {
+      ...candidateFixture('current-source', defaultContext()).generationContext,
+      source: 'training_task_compatibility_wrap',
+    },
+  });
+  await fixture.repository.saveCandidate(current);
+  const firstRound = await fixture.service.generateTaskCandidates({
+    trainingTaskId: 'task-1',
+    count: 2,
+    idempotencyKey: 'first-ai-round',
+  });
+  const secondRound = await fixture.service.generateTaskCandidates({
+    trainingTaskId: 'task-1',
+    count: 2,
+    idempotencyKey: 'second-ai-round',
+  });
+  assert.equal((await fixture.repository.getCandidate(current.candidateId))?.status, 'ready');
+  for (const candidate of firstRound) {
+    assert.equal((await fixture.repository.getCandidate(candidate.candidateId))?.status, 'superseded');
+  }
+  for (const candidate of secondRound) {
+    assert.equal((await fixture.repository.getCandidate(candidate.candidateId))?.status, 'ready');
+  }
 }
 
 async function caseLockedOptimization(): Promise<void> {

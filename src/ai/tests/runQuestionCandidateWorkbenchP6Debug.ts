@@ -46,6 +46,8 @@ const forbiddenPageTokens = [
   "busy ? '正在发布…' : '接受提醒并发布'",
   '生成优化方案',
   '题目已采用，仍有质量提醒需要处理',
+  '放弃本轮方案',
+  'onDiscardBatch',
 ];
 
 async function main(): Promise<void> {
@@ -78,7 +80,10 @@ async function main(): Promise<void> {
     'hasCandidateDecision={hasCandidateDecision}',
     'data-quality-warning-decision-mode="candidate"',
     'data-quality-warning-decision-mode="fallback"',
-    '请在下方题目方案中切换查看，并选择“采用并发布”或“放弃本轮方案”。',
+    'candidatePanelOptionLabel(candidate, projection.readyCandidates)',
+    "candidate.candidateOrigin === 'training_task_compatibility_wrap'",
+    '生成新一轮方案',
+    '请在下方题目方案中切换查看，选择合适方案后采用并发布。',
     '当前题目有质量提醒，请在题目方案区继续处理。',
   ]) {
     assert.equal(source.includes(token), true, `P6 canonical token is missing: ${token}`);

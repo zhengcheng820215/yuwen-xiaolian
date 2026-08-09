@@ -90,18 +90,30 @@ export function resolveCandidatePanelProjection(input: {
   });
   const readyIds = new Set(candidateState.readyCandidateIds);
   const allReadyCandidates = input.candidates.filter((candidate) => readyIds.has(candidate.candidateId));
-  const requestedCandidate = allReadyCandidates.find(
+  const currentCandidate = input.context.baseFormalResourceId
+    ? undefined
+    : [...allReadyCandidates]
+      .filter(isTrainingTaskCompatibilityCandidate)
+      .sort(compareCandidateRecency)[0];
+  const aiCandidates = allReadyCandidates.filter(
+    (candidate) => !isTrainingTaskCompatibilityCandidate(candidate),
+  );
+  const requestedAiCandidate = aiCandidates.find(
     (candidate) => candidate.candidateId === input.selectedCandidateId,
   );
-  const latestCandidate = [...allReadyCandidates].sort(compareCandidateRecency)[0];
+  const latestAiCandidate = [...aiCandidates].sort(compareCandidateRecency)[0];
   const activeGenerationCommandId = (
-    requestedCandidate || latestCandidate
+    requestedAiCandidate || latestAiCandidate
   )?.generationCommandId;
-  const readyCandidates = activeGenerationCommandId
-    ? allReadyCandidates.filter(
+  const activeAiCandidates = activeGenerationCommandId
+    ? aiCandidates.filter(
         (candidate) => candidate.generationCommandId === activeGenerationCommandId,
       ).slice(0, 3)
     : [];
+  const readyCandidates = [
+    ...(currentCandidate ? [currentCandidate] : []),
+    ...activeAiCandidates,
+  ];
   const selectedCandidateId = readyCandidates.some(
     (candidate) => candidate.candidateId === input.selectedCandidateId,
   )
@@ -146,6 +158,18 @@ export function resolveCandidatePanelProjection(input: {
   };
 }
 
+export function candidatePanelOptionLabel(
+  candidate: QuestionCandidate,
+  candidates: QuestionCandidate[],
+): string {
+  if (isTrainingTaskCompatibilityCandidate(candidate)) return '当前方案';
+  const aiCandidates = candidates.filter(
+    (item) => !isTrainingTaskCompatibilityCandidate(item),
+  );
+  const index = aiCandidates.findIndex((item) => item.candidateId === candidate.candidateId);
+  return `AI 方案${Math.max(index, 0) + 1}`;
+}
+
 function parseMode(value: unknown): CandidateWorkflowMode | null {
   if (value === true || value === 'true' || value === 'enabled') return 'enabled';
   if (value === false || value === 'false' || value === 'legacy') return 'legacy';
@@ -158,4 +182,8 @@ function compareCandidateRecency(left: QuestionCandidate, right: QuestionCandida
     return createdAtDifference;
   }
   return right.candidateId.localeCompare(left.candidateId);
+}
+
+function isTrainingTaskCompatibilityCandidate(candidate: QuestionCandidate): boolean {
+  return candidate.candidateOrigin === 'training_task_compatibility_wrap';
 }

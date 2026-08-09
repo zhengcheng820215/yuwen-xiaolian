@@ -103,10 +103,10 @@ import {
   executeCandidateWorkbenchCommand,
   listQuestionTaskCandidates,
   migrateQuestionTaskWorkingContent,
-  rejectQuestionTaskCandidateBatch,
 } from '../api/questionCandidateWorkbench.ts';
 import {
   CANDIDATE_OPTIMIZATION_GOALS,
+  candidatePanelOptionLabel,
   resolveCandidatePanelProjection,
 } from './questionCandidateWorkbenchState.ts';
 import {
@@ -560,10 +560,12 @@ export default function MaterialResourceProductionWorkbench() {
       });
       let candidates = await listQuestionTaskCandidates(trainingTaskId);
       const hasCurrentCandidate = candidates.some((candidate) => (
-        candidate.status === 'ready' && candidateContextMatches(candidate, context)
+        candidate.status === 'ready'
+        && candidate.candidateOrigin === 'training_task_compatibility_wrap'
+        && candidateContextMatches(candidate, context)
       ));
-      if (!activeDraft && !hasCurrentCandidate) {
-        const content = buildQuestionCandidateContent(task, null, selectedMaterial);
+      if (!formalResource && !hasCurrentCandidate) {
+        const content = buildQuestionCandidateContent(task, activeDraft || null, selectedMaterial);
         const contentHash = calculateQuestionEditableFieldsHash(content);
         await ensureQuestionTaskInitialCandidate({
           trainingTaskId,
@@ -1478,39 +1480,6 @@ export default function MaterialResourceProductionWorkbench() {
       await refresh({
         materialVersionId: selectedMaterial.materialVersionId,
         planId: selectedPlan.materialObservationPlanId,
-      });
-    } catch (error) {
-      updateTaskCandidatePanel(trainingTaskId, {
-        operation: 'failed',
-        error: createWorkbenchErrorNotice(error).message,
-      });
-    }
-  }
-
-  async function discardTaskCandidateBatch(task) {
-    const trainingTaskId = taskWorkingIdentity(task);
-    const panel = taskCandidatePanels[trainingTaskId] || {};
-    const candidate = (taskCandidatesById[trainingTaskId] || []).find(
-      (item) => item.candidateId === panel.selectedCandidateId,
-    );
-    if (!candidate) return;
-
-    updateTaskCandidatePanel(trainingTaskId, { operation: 'discarding', error: null });
-    try {
-      await rejectQuestionTaskCandidateBatch({
-        trainingTaskId,
-        candidateId: candidate.candidateId,
-        idempotencyKey: `candidate:discard-batch:${candidate.generationCommandId}`,
-        rejectedBy: 'local-entry-operator',
-      });
-      const allCandidates = await listQuestionTaskCandidates(trainingTaskId);
-      setTaskCandidatesById((current) => ({ ...current, [trainingTaskId]: allCandidates }));
-      updateTaskCandidatePanel(trainingTaskId, {
-        operation: 'idle',
-        selectedCandidateId: null,
-        comparisonCandidateIds: [],
-        adoptionResult: null,
-        error: null,
       });
     } catch (error) {
       updateTaskCandidatePanel(trainingTaskId, {
@@ -2562,7 +2531,6 @@ export default function MaterialResourceProductionWorkbench() {
                       onGenerate={() => void runTaskCandidateOperation(task, index, 'generate')}
                       onMigrateWorkingContent={() => void migrateTaskWorkingContent(task)}
                       onDiscardWorkingContent={() => void discardCurrentTaskWorkingContent(task)}
-                      onDiscardBatch={() => void discardTaskCandidateBatch(task)}
                       onAdopt={() => void adoptTaskCandidate(task)}
                     />}
                   <details
@@ -3260,7 +3228,6 @@ function TaskCandidateDecisionPanel({
   onGenerate,
   onMigrateWorkingContent,
   onAdopt,
-  onDiscardBatch,
   onDiscardWorkingContent,
 }) {
   const selectedCandidate = projection.readyCandidates.find(
@@ -3281,7 +3248,7 @@ function TaskCandidateDecisionPanel({
         </div>
         <span className="rounded bg-white px-2 py-1 text-xs font-medium text-violet-700">
           {projection.readyCandidates.length > 0
-            ? `${stateLabel} · 本轮 ${projection.readyCandidates.length} 个`
+            ? `${stateLabel} · ${projection.readyCandidates.length} 个方案`
             : stateLabel}
         </span>
       </div>
@@ -3323,8 +3290,6 @@ function TaskCandidateDecisionPanel({
                   ? '正在迁移旧工作内容…'
               : projection.operation === 'adopting'
                 ? '正在采用并发布题目…'
-                : projection.operation === 'discarding'
-                  ? '正在放弃本轮方案…'
                 : '正在读取题目方案…'}
         </div>
       )}
@@ -3375,7 +3340,7 @@ function TaskCandidateDecisionPanel({
       {!projection.busy && projection.readyCandidates.length > 0 && (
         <>
           <div className="mt-4 flex flex-wrap gap-2" aria-label="选择题目方案">
-            {projection.readyCandidates.map((candidate, index) => (
+            {projection.readyCandidates.map((candidate) => (
               <button
                 key={candidate.candidateId}
                 type="button"
@@ -3387,7 +3352,7 @@ function TaskCandidateDecisionPanel({
                     : secondaryButtonToneClass
                 }`}
               >
-                方案{index + 1}
+                {candidatePanelOptionLabel(candidate, projection.readyCandidates)}
               </button>
             ))}
           </div>
@@ -3406,10 +3371,11 @@ function TaskCandidateDecisionPanel({
           <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-violet-200 pt-4">
             <button
               type="button"
-              onClick={onDiscardBatch}
+              disabled={projection.busy}
+              onClick={onGenerate}
               className={`inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-semibold ${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}
             >
-              放弃本轮方案
+              生成新一轮方案
             </button>
             <button
               type="button"
@@ -3540,7 +3506,7 @@ function TaskProductionWorkflowPanel({
               data-quality-warning-decision-mode="candidate"
               className="border-t border-slate-200 pt-3 text-xs leading-5 text-slate-600"
             >
-              请在下方题目方案中切换查看，并选择“采用并发布”或“放弃本轮方案”。
+              请在下方题目方案中切换查看，选择合适方案后采用并发布。
             </p>
           ) : (
             <div

@@ -427,6 +427,11 @@ export class QuestionCandidateService {
         requestFingerprint,
         recoverable,
       );
+      await this.supersedePreviousAiCandidates(
+        trainingTaskId,
+        recoverable.map((candidate) => candidate.candidateId),
+        recoverable[0]?.createdAt || this.now(),
+      );
       return recoverable.map(cloneQuestionCandidate);
     }
 
@@ -501,7 +506,35 @@ export class QuestionCandidateService {
       requestFingerprint,
       candidates,
     );
+    await this.supersedePreviousAiCandidates(
+      trainingTaskId,
+      candidates.map((candidate) => candidate.candidateId),
+      candidates[0]?.createdAt || this.now(),
+    );
     return candidates.map(cloneQuestionCandidate);
+  }
+
+  private async supersedePreviousAiCandidates(
+    trainingTaskId: string,
+    retainedCandidateIds: string[],
+    occurredAt: string,
+  ): Promise<void> {
+    const retained = new Set(retainedCandidateIds);
+    const previousCandidates = (await this.repository.listCandidates(trainingTaskId)).filter(
+      (candidate) => (
+        candidate.status === 'ready'
+        && candidate.candidateOrigin !== 'training_task_compatibility_wrap'
+        && !retained.has(candidate.candidateId)
+      ),
+    );
+    for (const candidate of previousCandidates) {
+      await this.repository.updateCandidateStatus({
+        candidateId: candidate.candidateId,
+        expectedStatus: 'ready',
+        status: 'superseded',
+        occurredAt,
+      });
+    }
   }
 
   private async requireCandidate(

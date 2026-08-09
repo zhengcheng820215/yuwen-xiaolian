@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createQuestionCandidate } from '../schemas/questionCandidate.schema.ts';
 import {
   QUESTION_CANDIDATE_WORKFLOW_STORAGE_KEY,
+  candidatePanelOptionLabel,
   resolveCandidatePanelProjection,
   resolveQuestionCandidateWorkflowMode,
 } from '../../pages/questionCandidateWorkbenchState.ts';
@@ -17,12 +18,14 @@ function candidate(
   materialVersionId = context.materialVersionId,
   generationCommandId = 'command-current-batch',
   createdAt = '2026-08-05T00:00:00.000Z',
+  candidateOrigin = 'ai_generated',
 ) {
   return createQuestionCandidate({
     candidateId,
     generationCommandId,
     generationCommandFingerprint: `fingerprint-${candidateId}`,
     trainingTaskId: 'training-task-1',
+    candidateOrigin,
     candidateType: 'initial',
     content: {
       materialVersionId,
@@ -129,6 +132,35 @@ assert.deepEqual(
   ['new-a', 'new-b', 'new-c'],
   'the decision panel should show only the latest generation batch by default',
 );
+
+const currentCandidate = candidate(
+  'current',
+  context.materialVersionId,
+  'ensure-current',
+  '2026-08-03T00:00:00.000Z',
+  'training_task_compatibility_wrap',
+);
+const unifiedChoices = resolveCandidatePanelProjection({
+  candidates: [
+    currentCandidate,
+    candidate('ai-a', context.materialVersionId, 'command-ai', '2026-08-05T00:00:00.000Z'),
+    candidate('ai-b', context.materialVersionId, 'command-ai', '2026-08-05T00:00:00.000Z'),
+    candidate('ai-c', context.materialVersionId, 'command-ai', '2026-08-05T00:00:00.000Z'),
+  ],
+  context,
+});
+assert.deepEqual(
+  unifiedChoices.readyCandidates.map((item) => item.candidateId),
+  ['current', 'ai-a', 'ai-b', 'ai-c'],
+  'the stable current question and latest three AI schemes should share one choice list',
+);
+assert.deepEqual(
+  unifiedChoices.readyCandidates.map((item) => (
+    candidatePanelOptionLabel(item, unifiedChoices.readyCandidates)
+  )),
+  ['当前方案', 'AI 方案1', 'AI 方案2', 'AI 方案3'],
+);
+assert.equal(unifiedChoices.selectedCandidateId, 'current');
 
 const optimizing = resolveCandidatePanelProjection({
   candidates: [candidate('a')],

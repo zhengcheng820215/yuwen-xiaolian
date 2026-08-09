@@ -18,7 +18,8 @@ async function main(): Promise<void> {
   await incompleteTaskRequiresGeneration();
   await changedTaskExpiresOnlyTheOldReadyCompatibilityCandidate();
   await expectedVersionAndHashProtectTheAdapterBoundary();
-  console.log('Training Task Initial Candidate Debug: 4 / 4 PASS');
+  await activeDraftIdentityIsBoundToTheCurrentScheme();
+  console.log('Training Task Initial Candidate Debug: 5 / 5 PASS');
 }
 
 async function completeTaskCreatesOneDeterministicCandidate(): Promise<void> {
@@ -94,6 +95,20 @@ async function expectedVersionAndHashProtectTheAdapterBoundary(): Promise<void> 
     /TRAINING_TASK_CONTENT_CONFLICT/,
   );
   assert.equal((await fixture.repository.listCandidates('task-1')).length, 0);
+}
+
+async function activeDraftIdentityIsBoundToTheCurrentScheme(): Promise<void> {
+  const fixture = createFixture(contentFixture(), 4);
+  fixture.source.context.activeDraftId = 'draft-4';
+  fixture.source.context.activeDraftRevision = 4;
+  fixture.source.context.activeDraftContentHash = fixture.source.contentHash;
+  const result = await fixture.service.ensureInitialCandidateFromTrainingTask(
+    ensureInput(fixture.source),
+  );
+  assert.notEqual(result.status, 'question_generation_required');
+  assert.equal(result.candidate.basedOnDraftId, 'draft-4');
+  assert.equal(result.candidate.basedOnRevision, 4);
+  assert.equal(result.candidate.basedOnContentHash, fixture.source.contentHash);
 }
 
 function createFixture(content: QuestionEditableFields, trainingTaskVersion: number) {
