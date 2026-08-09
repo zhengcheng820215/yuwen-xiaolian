@@ -58,8 +58,10 @@ export class QuestionResourceCandidateAdoptionGateway implements CandidateAdopti
     idempotencyKey: string;
     adoptedAt: string;
   }): Promise<CandidateAdoptionResult> {
+    this.assertFormalVersionCandidateIdentity(input.candidate, input.expectedContext);
     const recovered = await this.findAdoption(input);
     if (recovered) return recovered;
+    await this.requireCurrentFormalVersionBase(input.candidate);
 
     const source = input.expectedContext.activeDraftId
       ? await this.requireExpectedDraft(input.expectedContext)
@@ -111,6 +113,50 @@ export class QuestionResourceCandidateAdoptionGateway implements CandidateAdopti
       now: input.adoptedAt,
     });
     return this.toAdoption(input.candidate, successor, input.adoptedAt);
+  }
+
+  private assertFormalVersionCandidateIdentity(
+    candidate: QuestionCandidate,
+    context: CandidateRuntimeContext,
+  ): void {
+    if (candidate.candidateType !== 'formal_version_optimization') return;
+    if (!candidate.basedOnFormalResourceId || !candidate.basedOnFormalVersionId) {
+      throw conflict(
+        'FORMAL_RESOURCE_CANDIDATE_BASE_REQUIRED',
+        'Formal-version candidate must identify its source resource and version.',
+      );
+    }
+    if (
+      candidate.basedOnFormalResourceId !== context.baseFormalResourceId
+      || candidate.basedOnFormalVersionId !== context.baseFormalVersionId
+    ) {
+      throw conflict(
+        'FORMAL_RESOURCE_CANDIDATE_BASE_CONFLICT',
+        'Formal-version candidate does not match the requested source version.',
+      );
+    }
+  }
+
+  private async requireCurrentFormalVersionBase(candidate: QuestionCandidate): Promise<void> {
+    if (candidate.candidateType !== 'formal_version_optimization') return;
+    const resourceId = candidate.basedOnFormalResourceId!;
+    const versionId = candidate.basedOnFormalVersionId!;
+    const [version, registry] = await Promise.all([
+      this.repository.getVersion(versionId),
+      this.repository.getRegistryEntry(resourceId),
+    ]);
+    if (
+      !version
+      || version.resourceId !== resourceId
+      || version.status !== 'frozen'
+      || registry?.status !== 'active'
+      || registry.currentFrozenVersionId !== versionId
+    ) {
+      throw conflict(
+        'FORMAL_RESOURCE_CANDIDATE_BASE_CONFLICT',
+        'The formal resource has changed. Generate a new candidate from the current version.',
+      );
+    }
   }
 
   private async requireExpectedDraft(

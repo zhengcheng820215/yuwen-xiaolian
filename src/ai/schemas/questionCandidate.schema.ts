@@ -12,6 +12,7 @@ export type QuestionCandidateType =
   | 'initial'
   | 'regenerated'
   | 'optimized'
+  | 'formal_version_optimization'
   | 'exception_corrected';
 
 export type QuestionCandidateStatus =
@@ -60,6 +61,8 @@ export type CandidateRuntimeContext = {
   materialVersionId: string;
   observationPlanVersion: number;
   trainingTaskVersion: number;
+  baseFormalResourceId?: string;
+  baseFormalVersionId?: string;
   activeDraftId?: string;
   activeDraftRevision?: number;
   activeDraftContentHash?: string;
@@ -76,6 +79,8 @@ export type QuestionCandidate = {
   basedOnDraftId?: string;
   basedOnRevision?: number;
   basedOnContentHash?: string;
+  basedOnFormalResourceId?: string;
+  basedOnFormalVersionId?: string;
   content: QuestionEditableFields;
   contentHash: string;
   generationReason: string;
@@ -115,6 +120,7 @@ export type CandidateAdoptionResult = {
 export type CandidateCommandName =
   | 'ensureInitialCandidateFromTrainingTask'
   | 'generateTaskCandidates'
+  | 'generateFormalVersionOptimizationCandidates'
   | 'regenerateTaskCandidates'
   | 'optimizeTaskCandidate'
   | 'adoptTaskCandidate'
@@ -123,7 +129,10 @@ export type CandidateCommandName =
 
 export type CandidateGenerationCommandName = Extract<
   CandidateCommandName,
-  'generateTaskCandidates' | 'regenerateTaskCandidates' | 'optimizeTaskCandidate'
+  | 'generateTaskCandidates'
+  | 'generateFormalVersionOptimizationCandidates'
+  | 'regenerateTaskCandidates'
+  | 'optimizeTaskCandidate'
 >;
 
 export type CandidateCommandResult =
@@ -246,6 +255,8 @@ export function candidateContextMatches(
   return candidate.generationContext.materialVersionId === context.materialVersionId &&
     candidate.generationContext.observationPlanVersion === context.observationPlanVersion &&
     candidate.generationContext.trainingTaskVersion === context.trainingTaskVersion &&
+    candidate.basedOnFormalResourceId === context.baseFormalResourceId &&
+    candidate.basedOnFormalVersionId === context.baseFormalVersionId &&
     draftIdentityMatches &&
     (candidate.basedOnRevision === undefined ||
       candidate.basedOnRevision === context.activeDraftRevision) &&

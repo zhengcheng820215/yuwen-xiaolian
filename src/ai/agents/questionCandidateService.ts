@@ -85,6 +85,11 @@ export type RegenerateTaskCandidatesInput = GenerateTaskCandidatesInput & {
   baseCandidateId: string;
 };
 
+export type GenerateFormalVersionOptimizationCandidatesInput = GenerateTaskCandidatesInput & {
+  formalResourceId: string;
+  baseFormalVersionId: string;
+};
+
 export type OptimizeTaskCandidateInput = {
   trainingTaskId: string;
   baseCandidateId: string;
@@ -293,6 +298,30 @@ export class QuestionCandidateService {
     return cloneQuestionCandidate(adoption);
   }
 
+  async generateFormalVersionOptimizationCandidates(
+    input: GenerateFormalVersionOptimizationCandidatesInput,
+  ): Promise<QuestionCandidate[]> {
+    const formalResourceId = requireText(input.formalResourceId, 'formalResourceId');
+    const baseFormalVersionId = requireText(input.baseFormalVersionId, 'baseFormalVersionId');
+    if (
+      input.expectedContext?.baseFormalResourceId !== formalResourceId
+      || input.expectedContext?.baseFormalVersionId !== baseFormalVersionId
+    ) {
+      throw new QuestionCandidateConflictError(
+        'FORMAL_RESOURCE_CANDIDATE_BASE_CONFLICT',
+        '正式资源版本已经变化，请刷新后重新生成新版方案。',
+      );
+    }
+    return this.runGenerationCommand({
+      command: 'generateFormalVersionOptimizationCandidates',
+      operation: 'generate',
+      candidateType: 'formal_version_optimization',
+      input,
+      allowedFields: OPTIMIZABLE_FIELDS,
+      lockedFields: [],
+    });
+  }
+
   async rejectCandidateBatch(
     input: RejectCandidateBatchInput,
   ): Promise<QuestionCandidate[]> {
@@ -453,6 +482,8 @@ export class QuestionCandidateService {
         basedOnDraftId: context.activeDraftId,
         basedOnRevision: context.activeDraftRevision,
         basedOnContentHash: context.activeDraftContentHash,
+        basedOnFormalResourceId: context.baseFormalResourceId,
+        basedOnFormalVersionId: context.baseFormalVersionId,
         content: item.content,
         generationReason: item.generationReason,
         changedFields: item.changedFields,

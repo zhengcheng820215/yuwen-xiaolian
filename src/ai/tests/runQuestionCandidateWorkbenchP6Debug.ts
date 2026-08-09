@@ -75,6 +75,11 @@ async function main(): Promise<void> {
     'label="待发布"',
     'label="已发布"',
     'resolveTaskGroupTopLevelSummary(taskQuestionLifecycleSummary)',
+    'hasCandidateDecision={hasCandidateDecision}',
+    'data-quality-warning-decision-mode="candidate"',
+    'data-quality-warning-decision-mode="fallback"',
+    '请在下方题目方案中切换查看，并选择“采用并发布”或“放弃本轮方案”。',
+    '当前题目有质量提醒，请在题目方案区继续处理。',
   ]) {
     assert.equal(source.includes(token), true, `P6 canonical token is missing: ${token}`);
   }

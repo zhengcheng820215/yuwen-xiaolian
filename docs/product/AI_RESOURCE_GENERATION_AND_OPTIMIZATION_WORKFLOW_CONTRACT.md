@@ -3,7 +3,7 @@
 英文名称：AI Resource Generation and Optimization Workflow Contract
 
 状态：DESIGN FROZEN / P0-P7 ENGINEERING COMPLETE / SINGLE-OPERATOR ADOPTION ORCHESTRATION DEBUG ACCEPTED
-契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_3`
+契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_4`
 更新日期：2026-08-09
 
 产品确认日期：2026-08-05
@@ -723,7 +723,7 @@ type TaskProductionVisibleState =
 | 自动编排全部完成 | 已发布 | 无 | 无 |
 | 存在提醒或任一阶段失败 | 需要处理 | 按 `nextAction` 显示必要的恢复动作 | 无常驻入口 |
 
-页面状态、主按钮、统计和刷新恢复必须消费同一个可见状态 Resolver。内部详细状态继续用于审计和恢复，不得逐项重新暴露成用户步骤。顶部只固定显示互斥的“待发布 / 已发布”两类统计：没有完整 Formal Resource 与 Active Registry 的当前任务统一计入“待发布”；只有 Formal Resource 与 Registry 完整提交后才计入“已发布”。“需处理、题目待采用、处理中、发布未完成”等原因保留在任务卡内部，不再成为顶部并列状态。两项之和必须始终等于当前训练任务总数。
+页面状态、主按钮、统计和刷新恢复必须消费同一个可见状态 Resolver。内部详细状态继续用于审计和恢复，不得逐项重新暴露成用户步骤。顶部只固定显示互斥的“待发布 / 已发布”两类统计：没有完整 Formal Resource 与 Active Registry 的当前任务统一计入“待发布”；只有 Formal Resource 与 Registry 完整提交后才计入“已发布”。任务卡主状态进一步冻结为“待处理 / 已确认 / 已发布”：Candidate 待判断、内容缺失或提醒待处理时显示“待处理”；Candidate 已采用且正式发布尚未完成时显示“已确认”；Formal Resource 与 Registry 完整后显示“已发布”。“题目待采用、处理中、发布未完成”等只作为卡内原因和恢复说明，不再成为业务状态标签。两项顶部统计之和必须始终等于当前训练任务总数。
 
 ## 十二、工程实施顺序
 
@@ -1472,6 +1472,8 @@ P7 验收结论（2026-08-06）：训练任务初始题目兼容服务、完整�
 
 Candidate 采用后的质量治理必须区分两类结果，页面不得仅根据提示文字自行猜测严重度：
 
+本节仅适用于尚未发布的 Candidate、Draft 与 Revision。已发布 Formal Resource 始终只读；其后续调整必须使用“生成新版方案”，并遵循 [正式资源不可变性契约](./FORMAL_RESOURCE_IMMUTABILITY_CONTRACT.md)，不得复用本节的原地优化入口。
+
 1. `warning`：完整检查已形成，题目可以保留，但必须逐项记录人工保留理由；
 2. `blocking`：结构、必填字段、Rubric、答案范围或发布前置条件不成立，必须生成优化题目或重新生成，不得显示保留并发布入口。
 
@@ -1557,3 +1559,20 @@ P7.1 浏览器验收（2026-08-06）：真实任务卡只展示一份 `3 项质�
 当前用户主流程进一步收敛为“生成题目 / 重新生成题目 / 采用并发布”。“采用并发布”只合并人工动作，不取消 Candidate、Revision、Validation、Assessment、Human Review、Freeze 与 Registry 的独立领域留痕。正常成功路径不再要求用户重复采用、确认、审核或发布；质量提醒会中断编排，发布阶段失败会保留已完成结果并提供“重试发布”。
 
 验收结果：Candidate 编排专项 `14 / 14 PASS`，P0-P7 最终集成 `26 / 26 PASS`，Production Build 通过。
+
+## P1 任务卡三态投影落地（2026-08-09）
+
+任务卡已统一使用“待处理 / 已确认 / 已发布”三态投影。Candidate、Revision、Validation、Assessment、Human Review、Freeze 与 Registry 的详细状态继续保留在领域和恢复链路中；页面只把具体提醒、处理中阶段和发布失败作为卡内原因展示。发布失败不会回退采用结果，仍以“已确认 + 发布未完成 + 重试发布”表达。
+
+## Candidate 单一人工决策入口（2026-08-09）
+
+Candidate 一旦存在，当前任务的人工决策只能在 Candidate 判断区完成：
+
+1. 方案切换只改变当前预览选择，不修改 Candidate、不创建 Revision；
+2. “放弃本轮方案”幂等拒绝本轮 Candidate，不修改当前 Draft、Formal Resource 或 Registry；
+3. “采用并发布”是唯一主动作，继续由应用层串联现有独立领域命令；
+4. 质量提醒区只展示触发原因，不得同时提供“生成优化题目 / 保留当前题目”等第二套决策入口；
+5. 没有 Candidate 时，页面才可以依据当前原因显示“生成题目方案”或“生成新版方案”；
+6. 已发布正式资源的“生成新版方案”必须绑定 `baseFormalVersionId`，不得转化为对当前正式版本的编辑。
+
+上述规则只收敛可见交互，不改变 Candidate 不可变性、Revision 绑定、提醒阻断、部分失败恢复和正式资源不可覆盖边界。

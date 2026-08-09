@@ -64,6 +64,9 @@ export type TaskProductionCardAction = {
 };
 
 export type TaskProductionCardPresentation = {
+  visibleStatus: TaskProductionVisibleStatus;
+  visibleStatusLabel: '待处理' | '已确认' | '已发布';
+  visibleStatusTone: 'warning' | 'action' | 'success';
   stateLabel: string;
   tone: TaskProductionTone;
   primaryAction: TaskProductionCardAction;
@@ -140,6 +143,8 @@ export type TaskGroupPublicationSummary = {
   pendingPublication: number;
   published: number;
 };
+
+export type TaskProductionVisibleStatus = 'pending' | 'confirmed' | 'published';
 
 export type TaskGroupTopLevelSummary = {
   pendingPublication: number;
@@ -283,14 +288,21 @@ export function resolveTaskProductionCardAction(
  */
 export function resolveTaskProductionCardPresentation(
   productionView: TaskProductionView,
-  options: { hasIssues?: boolean } = {},
+  options: { hasIssues?: boolean; actionRequired?: boolean } = {},
 ): TaskProductionCardPresentation {
   const primaryAction = resolveTaskProductionCardAction(productionView, options);
+  const visibleStatus = resolveTaskProductionVisibleStatus(
+    productionView,
+    Boolean(options.actionRequired),
+  );
   const canViewHistoricalFormalResource = productionView.hasPublishedVersion
     && primaryAction.kind !== 'view_formal_resource'
     && productionView.availableActions.includes('view_formal_resource');
 
   return {
+    visibleStatus,
+    visibleStatusLabel: getTaskProductionVisibleStatusLabel(visibleStatus),
+    visibleStatusTone: getTaskProductionVisibleStatusTone(visibleStatus),
     stateLabel: productionView.presentation.stateLabel,
     tone: productionView.presentation.tone,
     primaryAction,
@@ -348,7 +360,7 @@ export function resolveTaskProductionState(input: TaskProductionInput): TaskProd
       hasPublishedVersion,
     );
   }
-  if (hasPublishedVersion && (!draft || publicationMatchesDraft)) {
+  if (hasPublishedVersion) {
     return view(
       binding,
       'published',
@@ -362,14 +374,11 @@ export function resolveTaskProductionState(input: TaskProductionInput): TaskProd
     return view(binding, 'draft_empty', ['edit'], 'edit', '尚未生成题目草稿。', hasPublishedVersion);
   }
 
-  const publishedAuxiliaryAction: TaskProductionAction[] = hasPublishedVersion
-    ? ['view_formal_resource']
-    : [];
   if (draft.isDirty) {
     return view(
       binding,
       'editing',
-      ['edit', 'save', ...publishedAuxiliaryAction],
+      ['edit', 'save'],
       'save',
       '当前修改尚未保存。',
       hasPublishedVersion,
@@ -379,7 +388,7 @@ export function resolveTaskProductionState(input: TaskProductionInput): TaskProd
     return view(
       binding,
       'checking',
-      publishedAuxiliaryAction,
+      [],
       null,
       '正在检查题目。',
       hasPublishedVersion,
@@ -389,7 +398,7 @@ export function resolveTaskProductionState(input: TaskProductionInput): TaskProd
     return view(
       binding,
       'revision_required',
-      ['edit', 'run_check', ...publishedAuxiliaryAction],
+      ['edit', 'run_check'],
       'edit',
       '题目需要修改并重新检查。',
       hasPublishedVersion,
@@ -399,7 +408,7 @@ export function resolveTaskProductionState(input: TaskProductionInput): TaskProd
     return view(
       binding,
       'pending_confirmation',
-      ['open_confirmation', 'confirm', 'return_for_revision', ...publishedAuxiliaryAction],
+      ['open_confirmation', 'confirm', 'return_for_revision'],
       'confirm',
       '题目等待最终确认。',
       hasPublishedVersion,
@@ -409,7 +418,7 @@ export function resolveTaskProductionState(input: TaskProductionInput): TaskProd
     return view(
       binding,
       'confirmed',
-      ['publish', 'return_for_revision', ...publishedAuxiliaryAction],
+      ['publish', 'return_for_revision'],
       'publish',
       '题目已确认，等待发布。',
       hasPublishedVersion,
@@ -419,7 +428,7 @@ export function resolveTaskProductionState(input: TaskProductionInput): TaskProd
     return view(
       binding,
       'pending_confirmation',
-      ['open_confirmation', ...publishedAuxiliaryAction],
+      ['open_confirmation'],
       'open_confirmation',
       '题目检查已完成，等待最终确认。',
       hasPublishedVersion,
@@ -428,7 +437,7 @@ export function resolveTaskProductionState(input: TaskProductionInput): TaskProd
   return view(
     binding,
     'check_required',
-    ['edit', 'run_check', ...publishedAuxiliaryAction],
+    ['edit', 'run_check'],
     'run_check',
     '题目需要完成检查。',
     hasPublishedVersion,
@@ -538,6 +547,44 @@ export function resolveTaskGroupTopLevelSummary(
       summary.actionRequired + summary.awaitingAdoption + summary.pendingPublication,
     published: summary.published,
   };
+}
+
+export function resolveTaskProductionVisibleStatus(
+  productionView: TaskProductionView,
+  actionRequired = false,
+): TaskProductionVisibleStatus {
+  if (productionView.state === 'published') return 'published';
+  if (actionRequired) return 'pending';
+  if (
+    productionView.state === 'checking'
+    || productionView.state === 'pending_confirmation'
+    || productionView.state === 'confirmed'
+    || productionView.state === 'publishing'
+    || productionView.state === 'publication_failed'
+  ) {
+    return 'confirmed';
+  }
+  return 'pending';
+}
+
+export function getTaskProductionVisibleStatusLabel(
+  status: TaskProductionVisibleStatus,
+): TaskProductionCardPresentation['visibleStatusLabel'] {
+  return ({
+    pending: '待处理',
+    confirmed: '已确认',
+    published: '已发布',
+  })[status];
+}
+
+export function getTaskProductionVisibleStatusTone(
+  status: TaskProductionVisibleStatus,
+): TaskProductionCardPresentation['visibleStatusTone'] {
+  return ({
+    pending: 'warning',
+    confirmed: 'action',
+    published: 'success',
+  })[status];
 }
 
 export function resolveTaskPublicationEligibility(

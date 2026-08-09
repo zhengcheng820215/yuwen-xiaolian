@@ -1,7 +1,5 @@
 export type TaskCardDisclosureKey =
-  | 'task_attributes'
-  | 'scoring'
-  | 'design_rationale'
+  | 'task_rationale'
   | 'formal_resource';
 
 export type TaskCardDisclosureState = Record<
@@ -10,9 +8,7 @@ export type TaskCardDisclosureState = Record<
 >;
 
 const CLOSED_DISCLOSURES: Record<TaskCardDisclosureKey, boolean> = {
-  task_attributes: false,
-  scoring: false,
-  design_rationale: false,
+  task_rationale: false,
   formal_resource: false,
 };
 

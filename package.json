@@ -72,6 +72,8 @@
     "debug:question-resource-intake": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionResourceAdmissionDebug.ts",
     "debug:working-task-content": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runWorkingTaskContentDebug.ts",
     "debug:question-candidate-workflow": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionCandidateWorkflowDebug.ts",
+    "debug:formal-resource-optimization-candidate": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runFormalResourceOptimizationCandidateDebug.ts",
+    "debug:formal-resource-version-upgrade": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runFormalResourceVersionUpgradeDebug.ts",
     "debug:training-task-initial-candidate": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runTrainingTaskInitialCandidateDebug.ts",
     "debug:question-candidate-optimization": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionCandidateOptimizationAgentDebug.ts",
     "debug:question-candidate-workbench-p3": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionCandidateWorkbenchP3Debug.ts",

@@ -242,7 +242,7 @@ type CurrentAssessmentState =
 4. 返回 `draft` 后才允许编辑并产生新 Revision；
 5. 禁止在审核中静默修改内容，否则 Human Review 与页面内容将不再指向同一 Revision。
 
-`approved`、`frozen` 和 `published` 状态下的正式内容同样不可原地修改。后续调整必须通过受控的新 Draft Revision 完成。
+`approved`、`frozen` 和 `published` 状态下的正式内容同样不可原地修改。`published` 后续调整必须先基于当前 Formal Resource Version 生成新的不可变 Question Candidate；采用后才允许在同一 Lineage 下创建新 Draft Revision。完整边界以 [正式资源不可变性契约](./FORMAL_RESOURCE_IMMUTABILITY_CONTRACT.md) 为准。
 
 `reviewed` / `approved` 状态下如在发布前发现内容问题，必须先撤销当前发布流程并退回修改。修改后创建新 Draft Revision，旧 Human Review Decision 继续绑定原 Revision，仅用于追溯；禁止修改已审核 Revision 后继续沿用原审核结论。
 
@@ -420,7 +420,8 @@ type PublishTaskRequest = {
 4. 红色阻断必须定位修改，不能通过接受绕过；
 5. 幂等键使用 `publish:{draftId}:{expectedRevisionId}` 或等价稳定身份；
 6. 成功后状态为 `published`；部分成功为 `publication_incomplete` 并提供“重试发布”；
-7. 已发布正式版本不可覆盖，后续修改创建同一 Lineage 下的新 Draft Revision。
+7. 已发布正式版本不可覆盖；后续调整先创建绑定 `baseFormalVersionId` 的新 Candidate，采用后才创建同一 Lineage 下的新 Draft Revision，并发布为新 Formal Resource Version；
+8. 新版完整发布前，原活动版本继续供 Runtime 使用。
 
 ## 七、质量问题分级
 
@@ -1419,7 +1420,7 @@ Assessment。统一投影函数必须成为步骤条、页面标题、主提示�
 `published` 是终态。页面进入该状态后，不得继续使用当前 Draft Revision 的 Assessment、
 训练计划差异或发布准备清单反向判定已发布结果，也不得再显示 `发布准备`、`3/4 项完成`、
 当前 Revision 阻断或修复入口。历史检查结果、审核决定与发布过程只允许在检查记录、审核记录
-或发布记录中只读查看。正式资源如需调整，必须创建或恢复修订链路，不得在已发布页面直接修改。
+或发布记录中只读查看。正式资源如需调整，必须先基于当前正式版本生成新版 Candidate，采用后创建新的修订链路；不得恢复或直接修改已发布版本。
 
 存在质量提醒且录入人员尚未完成处理说明时，页面处于 `warning_pending`。该状态不能只展示提醒
 和理由输入框，还必须持续外显明确的下一步动作：

@@ -7,6 +7,7 @@ import {
   resolveTaskProductionVisibleSummary,
   resolveTaskProductionCardAction,
   resolveTaskProductionCardPresentation,
+  resolveTaskProductionVisibleStatus,
   resolveTaskPublicationEligibility,
   resolveTaskProductionState,
 } from '../../pages/taskProductionState.ts';
@@ -183,6 +184,9 @@ assert.deepEqual(resolveTaskProductionCardAction(published), {
   busyLabel: null,
 });
 assert.deepEqual(resolveTaskProductionCardPresentation(published), {
+  visibleStatus: 'published',
+  visibleStatusLabel: '已发布',
+  visibleStatusTone: 'success',
   stateLabel: '已发布',
   tone: 'success',
   primaryAction: {
@@ -204,22 +208,21 @@ const publishedWithNewRevision = resolveTaskProductionState({
     formalVersionId: 'resource-published-with-revision:v1',
   },
 });
-assert.equal(publishedWithNewRevision.state, 'check_required');
+assert.equal(publishedWithNewRevision.state, 'published');
 assert.equal(publishedWithNewRevision.hasPublishedVersion, true);
-assert.equal(publishedWithNewRevision.availableActions.includes('view_formal_resource'), true);
+assert.deepEqual(publishedWithNewRevision.availableActions, ['view_formal_resource']);
 assert.deepEqual(resolveTaskProductionCardPresentation(publishedWithNewRevision), {
-  stateLabel: '需要处理',
-  tone: 'warning',
+  visibleStatus: 'published',
+  visibleStatusLabel: '已发布',
+  visibleStatusTone: 'success',
+  stateLabel: '已发布',
+  tone: 'success',
   primaryAction: {
-    kind: 'run_check',
-    label: '继续处理',
-    busyLabel: '正在检查题目…',
-  },
-  auxiliaryActions: [{
     kind: 'view_formal_resource',
     label: '查看正式资源',
     busyLabel: null,
-  }],
+  },
+  auxiliaryActions: [],
 });
 
 const publishedWithUnsavedRevision = resolveTaskProductionState({
@@ -234,9 +237,12 @@ const publishedWithUnsavedRevision = resolveTaskProductionState({
     formalVersionId: 'resource-published-with-unsaved-revision:v1',
   },
 });
-assert.equal(publishedWithUnsavedRevision.state, 'editing');
-assert.equal(publishedWithUnsavedRevision.primaryAction, 'save');
-assert.equal(publishedWithUnsavedRevision.availableActions.includes('view_formal_resource'), true);
+assert.equal(publishedWithUnsavedRevision.state, 'published');
+assert.equal(publishedWithUnsavedRevision.primaryAction, 'view_formal_resource');
+assert.deepEqual(publishedWithUnsavedRevision.availableActions, ['view_formal_resource']);
+assert.equal(publishedWithUnsavedRevision.availableActions.includes('edit'), false);
+assert.equal(publishedWithUnsavedRevision.availableActions.includes('save'), false);
+assert.equal(publishedWithUnsavedRevision.availableActions.includes('run_check'), false);
 
 const summary = resolveTaskGroupSummary([
   checkRequired,
@@ -277,10 +283,10 @@ assert.deepEqual(resolveTaskGroupPublicationSummary(resolveTaskGroupSummary([
   publishedWithNewRevision,
   published,
 ])), {
-  actionRequired: 1,
+  actionRequired: 0,
   awaitingAdoption: 0,
   pendingPublication: 0,
-  published: 1,
+  published: 2,
 });
 assert.deepEqual(resolveTaskGroupPublicationSummary(resolveTaskGroupSummary([
   published,
@@ -322,6 +328,14 @@ assert.deepEqual(resolveTaskProductionVisibleSummary([
   pendingPublication: 0,
   published: 1,
 });
+
+assert.equal(resolveTaskProductionVisibleStatus(empty), 'pending');
+assert.equal(resolveTaskProductionVisibleStatus(checking), 'confirmed');
+assert.equal(resolveTaskProductionVisibleStatus(confirmationReady), 'confirmed');
+assert.equal(resolveTaskProductionVisibleStatus(confirmationReady, true), 'pending');
+assert.equal(resolveTaskProductionVisibleStatus(confirmed), 'confirmed');
+assert.equal(resolveTaskProductionVisibleStatus(publicationFailed), 'confirmed');
+assert.equal(resolveTaskProductionVisibleStatus(published), 'published');
 assert.deepEqual(resolveTaskGroupTopLevelSummary({
   actionRequired: 1,
   awaitingAdoption: 1,

@@ -134,8 +134,13 @@ assert.match(
 );
 assert.match(
   materialWorkbenchSource,
-  /stateLabel: '题目待采用'[\s\S]*?tone: 'candidate'/,
-  '已有完整题目但尚未采用时必须显示“题目待采用”，不得继续显示“未生成题目”',
+  /actionRequired \|\| candidateReady \? \{[\s\S]*?visibleStatusLabel: '待处理'[\s\S]*?visibleStatusTone: 'warning'/,
+  '已有候选或质量提醒时，任务卡必须统一显示“待处理”而不暴露内部候选状态',
+);
+assert.match(
+  materialWorkbenchSource,
+  /visibleStatusLabel = resolvedPresentation\.visibleStatusLabel/,
+  '任务卡徽标必须优先使用统一三态投影',
 );
 assert.doesNotMatch(
   materialWorkbenchSource,
@@ -184,6 +189,36 @@ assert.doesNotMatch(
 );
 assert.match(
   materialWorkbenchSource,
+  /const isPublishedTask = questionLifecycle\?\.productionView\?\.state === 'published'/,
+  '任务卡必须显式识别已发布只读状态',
+);
+assert.match(
+  materialWorkbenchSource,
+  /const hasFormalVersionCandidate = taskCandidateProjection\.readyCandidates\.some/,
+  '已发布任务只能通过明确绑定正式版本的新版 Candidate 打开决策区',
+);
+assert.match(
+  materialWorkbenchSource,
+  /const showTaskCandidatePanel = \(!isPublishedTask \|\| hasFormalVersionCandidate\) &&/,
+  '普通历史 Candidate 不得在已发布任务下继续显示',
+);
+assert.match(
+  materialWorkbenchSource,
+  /data-published-resource-readonly[\s\S]*?>正式资源已冻结<[\s\S]*?>当前学习将继续使用此版本。</,
+  '已发布任务展开后必须展示冻结说明',
+);
+assert.match(
+  materialWorkbenchSource,
+  /'生成新版方案'/,
+  '已发布任务必须以独立新版 Candidate 入口替代直接编辑',
+);
+assert.match(
+  materialWorkbenchSource,
+  /\{!isPublishedTask && \([\s\S]*?aria-label=\{`删除\$\{taskEditorTitle\(index\)\}`\}/,
+  '已发布任务不得继续显示删除或编辑链入口',
+);
+assert.match(
+  materialWorkbenchSource,
   />使用状态<[\s\S]*?>可用于学习</,
   '正式资源首层必须展示用户可理解的使用状态',
 );
@@ -207,36 +242,24 @@ assert.doesNotMatch(
   />Material Version</,
   '正式资源不得继续展示中英混排的 Material Version 标签',
 );
-assert.equal(
-  materialWorkbenchSource.match(/className="mt-2 rounded-md bg-slate-50 px-4 py-3"/g)?.length,
-  4,
-  '任务卡四个二级折叠区必须使用统一的浅底色容器样式',
-);
-const taskAttributeIndex = materialWorkbenchSource.indexOf("open={taskDisclosureOpen('task_attributes')}");
-const scoringIndex = materialWorkbenchSource.indexOf("open={taskDisclosureOpen('scoring')}");
-const designRationaleIndex = materialWorkbenchSource.indexOf("open={taskDisclosureOpen('design_rationale')}");
+const taskRationaleIndex = materialWorkbenchSource.indexOf("open={taskDisclosureOpen('task_rationale')}");
 const formalResourceIndex = materialWorkbenchSource.indexOf("open={taskDisclosureOpen('formal_resource')}");
 assert.ok(
-  taskAttributeIndex >= 0
-    && taskAttributeIndex < scoringIndex
-    && scoringIndex < designRationaleIndex
-    && designRationaleIndex < formalResourceIndex,
-  '任务卡二级信息必须按任务属性、评分标准、设计依据、正式资源排序',
+  taskRationaleIndex >= 0 && taskRationaleIndex < formalResourceIndex,
+  '任务卡低频信息必须先收进任务依据，正式资源只读区随后独立展示',
 );
-const trainingTargetSource = materialWorkbenchSource.slice(taskAttributeIndex, scoringIndex);
-const scoringSource = materialWorkbenchSource.slice(scoringIndex, designRationaleIndex);
-assert.match(trainingTargetSource, />训练目标</, '任务属性区应以用户可理解的“训练目标”命名');
+const taskRationaleSource = materialWorkbenchSource.slice(taskRationaleIndex, formalResourceIndex);
+assert.match(taskRationaleSource, />查看任务依据</, '任务依据折叠区必须保留审核所需信息');
+assert.match(taskRationaleSource, />能力目标</, '任务依据中必须保留能力目标');
+assert.match(taskRationaleSource, />学生任务</, '任务依据中必须保留学生任务');
+assert.match(taskRationaleSource, />观察目标</, '任务依据中必须保留观察目标');
+assert.match(taskRationaleSource, />评分标准</, '任务依据中必须保留评分标准');
+assert.match(taskRationaleSource, /label="作答要求"/, '评分标准必须外显学生作答要求');
+assert.match(taskRationaleSource, />设计依据</, '任务依据中必须保留设计依据');
 assert.doesNotMatch(
-  trainingTargetSource,
-  /<Select\b|<input\b|<textarea\b|调整任务属性/,
-  '训练目标区不得保留冻结表单或编辑型命名',
-);
-assert.match(scoringSource, />评分标准与答案示例</, '评分区必须保留审核所需信息');
-assert.match(scoringSource, /label="作答要求"/, '评分区必须外显学生作答要求');
-assert.doesNotMatch(
-  scoringSource,
+  taskRationaleSource,
   /<Select\b|<input\b|<textarea\b|<button\b/,
-  '评分区不得继续伪装为可编辑表单',
+  '任务依据不得继续伪装为可编辑表单',
 );
 assert.doesNotMatch(
   materialWorkbenchSource,
@@ -245,18 +268,8 @@ assert.doesNotMatch(
 );
 assert.match(
   materialWorkbenchSource,
-  /open=\{taskDisclosureOpen\('task_attributes'\)\}/,
-  '任务属性必须消费当前任务的受控展开状态',
-);
-assert.match(
-  materialWorkbenchSource,
-  /open=\{taskDisclosureOpen\('scoring'\)\}/,
-  '评分标准必须消费当前任务的受控展开状态',
-);
-assert.match(
-  materialWorkbenchSource,
-  /open=\{taskDisclosureOpen\('design_rationale'\)\}/,
-  '设计依据必须消费当前任务的受控展开状态',
+  /open=\{taskDisclosureOpen\('task_rationale'\)\}/,
+  '任务依据必须消费当前任务的受控展开状态',
 );
 assert.match(
   materialWorkbenchSource,
@@ -280,23 +293,23 @@ assert.doesNotMatch(
 );
 
 let disclosureState = {};
-for (const key of ['task_attributes', 'scoring', 'design_rationale', 'formal_resource'] as const) {
+for (const key of ['task_rationale', 'formal_resource'] as const) {
   assert.equal(
     isTaskCardDisclosureOpen(disclosureState, 'task-1', key),
     false,
     `${key} 初始必须收起`,
   );
 }
-disclosureState = setTaskCardDisclosureOpen(disclosureState, 'task-1', 'task_attributes', true);
-assert.equal(isTaskCardDisclosureOpen(disclosureState, 'task-1', 'task_attributes'), true);
-disclosureState = setTaskCardDisclosureOpen(disclosureState, 'task-1', 'scoring', false);
+disclosureState = setTaskCardDisclosureOpen(disclosureState, 'task-1', 'task_rationale', true);
+assert.equal(isTaskCardDisclosureOpen(disclosureState, 'task-1', 'task_rationale'), true);
+disclosureState = setTaskCardDisclosureOpen(disclosureState, 'task-1', 'task_rationale', false);
 assert.equal(
-  isTaskCardDisclosureOpen(disclosureState, 'task-1', 'scoring'),
+  isTaskCardDisclosureOpen(disclosureState, 'task-1', 'task_rationale'),
   false,
-  '任务卡手动收起评分标准后必须保持收起',
+  '任务卡手动收起任务依据后必须保持收起',
 );
 assert.equal(
-  isTaskCardDisclosureOpen(disclosureState, 'task-2', 'task_attributes'),
+  isTaskCardDisclosureOpen(disclosureState, 'task-2', 'task_rationale'),
   false,
   '任务间不得串用展开状态',
 );

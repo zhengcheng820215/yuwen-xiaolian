@@ -67,6 +67,15 @@ export type CandidateWorkbenchCommandInput = {
   idempotencyKey: string;
 };
 
+export type CreateOptimizationCandidateFromFormalVersionInput = {
+  formalResourceId: string;
+  baseFormalVersionId: string;
+  generationCommandId: string;
+  trainingTaskId: string;
+  expectedContext: CandidateRuntimeContext;
+  generatedCandidates: GeneratedQuestionCandidate[];
+};
+
 export type AdoptQuestionTaskCandidateInput = {
   trainingTaskId: string;
   candidateId: string;
@@ -223,6 +232,43 @@ export async function executeCandidateWorkbenchCommand(
   });
 }
 
+export async function createOptimizationCandidateFromFormalVersion(
+  input: CreateOptimizationCandidateFromFormalVersionInput,
+): Promise<QuestionCandidate[]> {
+  const generator: QuestionCandidateGenerator = {
+    async generate() {
+      return input.generatedCandidates;
+    },
+  };
+  const service = new QuestionCandidateService(
+    repository,
+    generator,
+    {
+      async getCurrentContext(trainingTaskId) {
+        if (trainingTaskId !== input.trainingTaskId) {
+          throw new Error('Candidate context requested for another training task.');
+        }
+        return input.expectedContext;
+      },
+    },
+    {
+      async adoptCandidate() {
+        throw new Error('CANDIDATE_ADOPTION_GATEWAY_NOT_READY');
+      },
+    },
+  );
+  return service.generateFormalVersionOptimizationCandidates({
+    trainingTaskId: input.trainingTaskId,
+    formalResourceId: input.formalResourceId,
+    baseFormalVersionId: input.baseFormalVersionId,
+    count: input.generatedCandidates.length,
+    reasonCodes: ['formal_version_optimization'],
+    goals: ['create_new_formal_version'],
+    expectedContext: input.expectedContext,
+    idempotencyKey: input.generationCommandId,
+  });
+}
+
 export async function adoptQuestionTaskCandidate(
   input: AdoptQuestionTaskCandidateInput,
 ): Promise<CandidateAdoptionPublicationWorkflowResult> {
@@ -280,12 +326,16 @@ async function resolveCurrentCandidateContext(
       materialVersionId: expectedContext.materialVersionId,
       observationPlanVersion: expectedContext.observationPlanVersion,
       trainingTaskVersion: expectedContext.trainingTaskVersion,
+      baseFormalResourceId: expectedContext.baseFormalResourceId,
+      baseFormalVersionId: expectedContext.baseFormalVersionId,
     };
   }
   return {
     materialVersionId: expectedContext.materialVersionId,
     observationPlanVersion: expectedContext.observationPlanVersion,
     trainingTaskVersion: expectedContext.trainingTaskVersion,
+    baseFormalResourceId: expectedContext.baseFormalResourceId,
+    baseFormalVersionId: expectedContext.baseFormalVersionId,
     activeDraftId: activeDraft.draftId,
     activeDraftRevision: activeDraft.revision,
     activeDraftContentHash: calculateQuestionEditableFieldsHash(
