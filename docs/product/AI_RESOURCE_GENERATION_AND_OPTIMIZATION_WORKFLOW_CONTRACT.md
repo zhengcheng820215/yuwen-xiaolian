@@ -172,7 +172,7 @@ function inspectInitialCandidateCompleteness(
 ): InitialCandidateCompleteness;
 ```
 
-最低完整性范围冻结为：`questionStem`、`studentTask`、`observationTarget`、`rubric`、`answerAcceptance`、能力目标和材料关联。字段完整时，系统以 `trainingTaskId + trainingTaskVersion + materialVersionId + contentHash` 形成稳定业务身份，并创建或恢复唯一的 `training_task_compatibility_wrap` 初始 Candidate。刷新、路由切换、重复读取和重复请求不得增加候选数量。
+最低完整性范围冻结为：`questionStem`、`studentTask`、`observationTarget`、`rubric`、`answerAcceptance`、能力目标和材料关联。字段完整时，系统以 `trainingTaskId + trainingTaskVersion + contentHash + CandidateRuntimeContext` 形成稳定业务身份，并创建或恢复唯一的 `training_task_compatibility_wrap` 初始 Candidate。`CandidateRuntimeContext` 至少包含 Material Version、Observation Plan Version、Active Draft 身份与 Revision、Base Formal Resource Version；刷新、路由切换、重复读取和重复请求不得增加候选数量。
 
 字段不完整时不得伪造候选，页面进入“题目未完整生成”状态并提供“生成题目”。版本、内容哈希或上下文冲突时必须展示可恢复错误，不得静默选用任一份内容。
 
@@ -1606,3 +1606,11 @@ Candidate 与发布状态的页面投影必须绑定明确的 `materialVersionId
 禁止仅依赖 `visibleState = published` 写入临时成功文案，同时继续使用采用前的 `publishedResources` 缓存。刷新操作不得重放采用或发布命令；它只负责读取正式结果，因此不会产生重复 Formal Version 或 Registry Entry。
 
 专项回归已覆盖“发布成功分支必须刷新当前素材和 Plan 快照”。浏览器真实数据验收显示《狼》三个训练任务均恢复为已发布，顶部为“待发布 0 / 已发布 3”，控制台无异常。
+
+## 初始 Candidate 上下文恢复一致性（2026-08-09）
+
+TrainingTask 已携带完整题目时，页面是否显示“生成题目”必须由当前有效初始 Candidate 决定，不能只根据历史 Candidate 是否存在判断。初始 Candidate 的确定性身份必须纳入完整 `CandidateRuntimeContext`；Material、Plan、Active Draft 或 Base Formal Version 任一身份变化时，应创建当前上下文对应的新 Candidate，并使旧上下文 Candidate 失效。
+
+已失效的旧 Candidate 不得因复用相同 `trainingTaskId + trainingTaskVersion + contentHash` 阻断当前 Candidate 的恢复。切换素材、切换 Plan 或刷新后，只要训练任务仍含完整题目，任务卡就必须显示题目正文以及“重新生成题目 / 采用并发布”，不得误显示“生成题目”。
+
+专项 Debug 已增加 Plan 上下文变化用例，初始 Candidate 回归 `6 / 6 PASS`；Candidate Workbench P6、任务生产状态与 Production Build 均通过。真实《皇帝的新装》页面验收确认三个已有题目的任务均恢复为当前候选，不再显示“生成题目”。

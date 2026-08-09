@@ -2457,3 +2457,15 @@ Debug 验收（2026-08-09）：初始 Candidate、Candidate Workflow、Workbench
 问题修复记录：候选采用发布成功分支此前只写入成功反馈，没有刷新 `publishedResources`，导致任务卡继续使用发布前快照。现已在成功分支按当前素材和 Plan 强制刷新，再显示成功反馈。
 
 回归验收：Candidate Workbench P6、Task Production State、Material Resource Workbench State `14 / 14 PASS` 与 Production Build 通过；浏览器重新载入真实《狼》后显示“待发布 0 / 已发布 3”，训练任务2正确显示“已发布”，控制台错误为 0。
+
+### 22.17 已有题目的当前 Candidate 恢复（2026-08-09）
+
+1. TrainingTask 已包含完整题目时，工作台必须恢复当前 Material、Plan、Draft 与 Formal Version 上下文对应的初始 Candidate；
+2. `training_task_compatibility_wrap` 的稳定身份除任务版本与内容哈希外，必须包含完整 Candidate Runtime Context 指纹；
+3. 历史上下文中的 `expired` Candidate 不得阻断当前上下文创建新的 `ready` Candidate；
+4. 切换素材或 Plan 后再返回，已有题目的卡片必须继续显示“重新生成题目 / 采用并发布”，只有真正缺失完整题目时才显示“生成题目”；
+5. 上下文恢复只补齐 Candidate 读取边界，不创建 Question Revision、Formal Resource 或 Registry Entry，也不改变已发布资源。
+
+问题修复记录：此前初始 Candidate 身份未包含 Observation Plan、Active Draft 与 Base Formal Version，上下文变化后会命中同一条已失效 Candidate，页面因找不到当前 Candidate 而把已有题目误判为尚未生成。现已将完整运行上下文加入确定性身份。
+
+回归验收：初始 Candidate Debug `6 / 6 PASS`，Candidate Workbench P6、Task Production State 与 Production Build 通过；真实《皇帝的新装》三个已有题目的任务均显示“重新生成题目 / 采用并发布”，不再显示“生成题目”。

@@ -71,6 +71,7 @@ export class TrainingTaskInitialCandidateService {
       input.trainingTaskId,
       input.expectedTrainingTaskVersion,
       input.expectedContentHash,
+      source.context,
     );
     const existing = await this.repository.getCandidate(candidateId);
     if (existing) return { status: 'existing', candidate: existing, completeness };
@@ -138,6 +139,32 @@ function compatibilityCandidateId(
   trainingTaskId: string,
   trainingTaskVersion: number,
   contentHash: string,
+  context: CandidateRuntimeContext,
 ): string {
-  return `candidate:training-task-wrap:${encodeURIComponent(trainingTaskId)}:${trainingTaskVersion}:${contentHash}`;
+  return [
+    'candidate:training-task-wrap',
+    encodeURIComponent(trainingTaskId),
+    trainingTaskVersion,
+    contentHash,
+    runtimeContextFingerprint(context),
+  ].join(':');
+}
+
+function runtimeContextFingerprint(context: CandidateRuntimeContext): string {
+  const serialized = JSON.stringify({
+    activeDraftContentHash: context.activeDraftContentHash || null,
+    activeDraftId: context.activeDraftId || null,
+    activeDraftRevision: context.activeDraftRevision || null,
+    baseFormalResourceId: context.baseFormalResourceId || null,
+    baseFormalVersionId: context.baseFormalVersionId || null,
+    materialVersionId: context.materialVersionId,
+    observationPlanVersion: context.observationPlanVersion,
+    trainingTaskVersion: context.trainingTaskVersion,
+  });
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < serialized.length; index += 1) {
+    hash ^= serialized.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `context-${(hash >>> 0).toString(16).padStart(8, '0')}`;
 }

@@ -17,9 +17,10 @@ async function main(): Promise<void> {
   await completeTaskCreatesOneDeterministicCandidate();
   await incompleteTaskRequiresGeneration();
   await changedTaskExpiresOnlyTheOldReadyCompatibilityCandidate();
+  await changedPlanContextCreatesCurrentCompatibilityCandidate();
   await expectedVersionAndHashProtectTheAdapterBoundary();
   await activeDraftIdentityIsBoundToTheCurrentScheme();
-  console.log('Training Task Initial Candidate Debug: 5 / 5 PASS');
+  console.log('Training Task Initial Candidate Debug: 6 / 6 PASS');
 }
 
 async function completeTaskCreatesOneDeterministicCandidate(): Promise<void> {
@@ -95,6 +96,27 @@ async function expectedVersionAndHashProtectTheAdapterBoundary(): Promise<void> 
     /TRAINING_TASK_CONTENT_CONFLICT/,
   );
   assert.equal((await fixture.repository.listCandidates('task-1')).length, 0);
+}
+
+async function changedPlanContextCreatesCurrentCompatibilityCandidate(): Promise<void> {
+  const fixture = createFixture(contentFixture(), 1);
+  const first = await fixture.service.ensureInitialCandidateFromTrainingTask(
+    ensureInput(fixture.source),
+  );
+  assert.notEqual(first.status, 'question_generation_required');
+
+  fixture.source.context.observationPlanVersion = 2;
+  const next = await fixture.service.ensureInitialCandidateFromTrainingTask(
+    ensureInput(fixture.source),
+  );
+
+  assert.equal(next.status, 'created');
+  assert.notEqual(next.candidate.candidateId, first.candidate.candidateId);
+  assert.equal(next.candidate.status, 'ready');
+  assert.equal(
+    (await fixture.repository.getCandidate(first.candidate.candidateId))?.status,
+    'expired',
+  );
 }
 
 async function activeDraftIdentityIsBoundToTheCurrentScheme(): Promise<void> {
