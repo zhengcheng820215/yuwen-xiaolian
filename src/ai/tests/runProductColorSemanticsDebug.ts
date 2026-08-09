@@ -96,7 +96,7 @@ assert.doesNotMatch(
 
 const candidatePreviewStart = materialWorkbenchSource.indexOf('function CandidateContentPreview');
 const candidatePreviewEnd = materialWorkbenchSource.indexOf(
-  'function TaskProductionWorkflowPanel',
+  'function TaskQualityWarningSummary',
   candidatePreviewStart,
 );
 assert.ok(candidatePreviewStart >= 0 && candidatePreviewEnd > candidatePreviewStart, '未找到候选内容预览组件');

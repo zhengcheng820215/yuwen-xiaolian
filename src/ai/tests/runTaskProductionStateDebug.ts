@@ -108,7 +108,7 @@ const confirmationReady = resolveTaskProductionState({
 assert.equal(confirmationReady.state, 'pending_confirmation');
 assert.deepEqual(resolveTaskProductionCardAction(confirmationReady), {
   kind: 'open_confirmation',
-  label: '处理问题',
+  label: '查看题目方案',
   busyLabel: '正在继续处理…',
 });
 
@@ -121,7 +121,7 @@ assert.equal(pendingConfirmation.primaryAction, 'confirm');
 assert.equal(pendingConfirmation.presentation.primaryActionLabel, '确认通过');
 assert.deepEqual(resolveTaskProductionCardAction(pendingConfirmation), {
   kind: 'confirm',
-  label: '继续处理',
+  label: '继续发布',
   busyLabel: '正在完成最终确认…',
 });
 
@@ -139,9 +139,9 @@ assert.deepEqual(resolveTaskPublicationEligibility(confirmed), {
   message: '题目已完成最终确认，可以发布。',
 });
 assert.deepEqual(resolveTaskProductionCardAction(confirmed), {
-  kind: 'retry_publication',
-  label: '重试发布',
-  busyLabel: '正在重试发布…',
+  kind: 'publish',
+  label: '继续发布',
+  busyLabel: '正在发布正式题目…',
 });
 
 const publicationFailed = resolveTaskProductionState({
@@ -330,11 +330,11 @@ assert.deepEqual(resolveTaskProductionVisibleSummary([
 });
 
 assert.equal(resolveTaskProductionVisibleStatus(empty), 'pending');
-assert.equal(resolveTaskProductionVisibleStatus(checking), 'confirmed');
-assert.equal(resolveTaskProductionVisibleStatus(confirmationReady), 'confirmed');
+assert.equal(resolveTaskProductionVisibleStatus(checking), 'processing');
+assert.equal(resolveTaskProductionVisibleStatus(confirmationReady), 'processing');
 assert.equal(resolveTaskProductionVisibleStatus(confirmationReady, true), 'pending');
-assert.equal(resolveTaskProductionVisibleStatus(confirmed), 'confirmed');
-assert.equal(resolveTaskProductionVisibleStatus(publicationFailed), 'confirmed');
+assert.equal(resolveTaskProductionVisibleStatus(confirmed), 'processing');
+assert.equal(resolveTaskProductionVisibleStatus(publicationFailed), 'processing');
 assert.equal(resolveTaskProductionVisibleStatus(published), 'published');
 assert.deepEqual(resolveTaskGroupTopLevelSummary({
   actionRequired: 1,

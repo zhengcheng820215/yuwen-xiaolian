@@ -57,6 +57,8 @@ export type TaskProductionCardAction = {
     | '采用并发布'
     | '处理问题'
     | '继续处理'
+    | '查看题目方案'
+    | '继续发布'
     | '重试发布'
     | '查看正式资源'
     | null;
@@ -65,7 +67,7 @@ export type TaskProductionCardAction = {
 
 export type TaskProductionCardPresentation = {
   visibleStatus: TaskProductionVisibleStatus;
-  visibleStatusLabel: '待处理' | '已确认' | '已发布';
+  visibleStatusLabel: '待处理' | '处理中' | '已发布';
   visibleStatusTone: 'warning' | 'action' | 'success';
   stateLabel: string;
   tone: TaskProductionTone;
@@ -144,7 +146,7 @@ export type TaskGroupPublicationSummary = {
   published: number;
 };
 
-export type TaskProductionVisibleStatus = 'pending' | 'confirmed' | 'published';
+export type TaskProductionVisibleStatus = 'pending' | 'processing' | 'published';
 
 export type TaskGroupTopLevelSummary = {
   pendingPublication: number;
@@ -268,7 +270,7 @@ export function resolveTaskProductionCardAction(
     };
   }
 
-  if (action === 'retry_publication' || action === 'publish') {
+  if (action === 'retry_publication') {
     return {
       kind: 'retry_publication',
       label: '重试发布',
@@ -276,9 +278,21 @@ export function resolveTaskProductionCardAction(
     };
   }
 
+  if (action === 'publish') {
+    return {
+      kind: 'publish',
+      label: '继续发布',
+      busyLabel: '正在发布正式题目…',
+    };
+  }
+
   return {
     ...orchestrationActions[action],
-    label: action === 'open_confirmation' ? '处理问题' : '继续处理',
+    label: action === 'open_confirmation'
+      ? '查看题目方案'
+      : action === 'confirm'
+        ? '继续发布'
+        : '继续处理',
   };
 }
 
@@ -562,7 +576,7 @@ export function resolveTaskProductionVisibleStatus(
     || productionView.state === 'publishing'
     || productionView.state === 'publication_failed'
   ) {
-    return 'confirmed';
+    return 'processing';
   }
   return 'pending';
 }
@@ -572,7 +586,7 @@ export function getTaskProductionVisibleStatusLabel(
 ): TaskProductionCardPresentation['visibleStatusLabel'] {
   return ({
     pending: '待处理',
-    confirmed: '已确认',
+    processing: '处理中',
     published: '已发布',
   })[status];
 }
@@ -582,7 +596,7 @@ export function getTaskProductionVisibleStatusTone(
 ): TaskProductionCardPresentation['visibleStatusTone'] {
   return ({
     pending: 'warning',
-    confirmed: 'action',
+    processing: 'action',
     published: 'success',
   })[status];
 }

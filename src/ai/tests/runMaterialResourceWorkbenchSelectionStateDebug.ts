@@ -1,6 +1,7 @@
 import {
   clearMaterialWorkbenchSelection,
   readMaterialWorkbenchSelection,
+  resolveMaterialPlanSelection,
   resolveMaterialWorkbenchSelection,
   shouldOpenExistingMaterialMode,
   writeMaterialWorkbenchSelection,
@@ -110,6 +111,34 @@ check(
     resolvedMaterialVersionId: 'material-a:v1',
   }),
   'non-initial refresh should preserve the visible mode',
+);
+
+check(
+  '10 material switch restores its remembered plan identity',
+  resolveMaterialPlanSelection({
+    materialVersionId: 'material-a:v1',
+    plans: [
+      { materialObservationPlanId: 'plan-a-newer', materialVersionId: 'material-a:v1' },
+      { materialObservationPlanId: 'plan-a-published', materialVersionId: 'material-a:v1' },
+    ],
+    rememberedPlanId: 'plan-a-published',
+    routeMaterialVersionId: 'material-a:v1',
+    routePlanId: 'plan-a-published',
+  }) === 'plan-a-published',
+  'remembered per-material plan should win over list fallback',
+);
+
+check(
+  '11 route plan cannot leak into another material',
+  resolveMaterialPlanSelection({
+    materialVersionId: 'material-b:v1',
+    plans: [
+      { materialObservationPlanId: 'plan-b', materialVersionId: 'material-b:v1' },
+    ],
+    routeMaterialVersionId: 'material-a:v1',
+    routePlanId: 'plan-a',
+  }) === 'plan-b',
+  'route plan from another material must not leak into selection',
 );
 
 const failures = cases.filter((item) => !item.passed);

@@ -21,6 +21,29 @@ type PlanOption = {
   materialVersionId: string;
 };
 
+export function resolveMaterialPlanSelection(input: {
+  materialVersionId: string;
+  plans: PlanOption[];
+  rememberedPlanId?: string;
+  routeMaterialVersionId?: string;
+  routePlanId?: string;
+}): string {
+  const matchingPlans = input.plans.filter(
+    (plan) => plan.materialVersionId === input.materialVersionId,
+  );
+  const matchingPlanIds = new Set(
+    matchingPlans.map((plan) => plan.materialObservationPlanId),
+  );
+  const routePlanId = input.routeMaterialVersionId === input.materialVersionId
+    ? input.routePlanId
+    : '';
+  return [
+    input.rememberedPlanId,
+    routePlanId,
+    matchingPlans[0]?.materialObservationPlanId,
+  ].find((candidate) => Boolean(candidate && matchingPlanIds.has(candidate))) || '';
+}
+
 export function resolveMaterialWorkbenchSelection(input: {
   materials: MaterialOption[];
   plans: PlanOption[];
