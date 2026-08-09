@@ -33,10 +33,8 @@ const aiActions = [
   [materialWorkbenchSource, 'AI根据素材生成训练任务', 'ai-button-solid'],
   [materialWorkbenchSource, '重新规划整组任务', 'ai-button-outline'],
   [materialWorkbenchSource, '补充生成训练任务', 'ai-button-solid'],
-  [materialWorkbenchSource, 'AI 优化', 'ai-button-outline'],
   [materialWorkbenchSource, '生成优化题目', 'ai-button-solid'],
   [materialWorkbenchSource, '重新生成题目', 'ai-button-outline'],
-  [materialWorkbenchSource, '采用所选候选', 'ai-button-solid'],
   [questionWorkbenchSource, 'AI 优化题干', 'ai-button-outline'],
   [questionWorkbenchSource, 'AI 优化本项', 'ai-button-outline'],
 ] as const;
@@ -47,6 +45,8 @@ for (const [source, label, expectedClass] of aiActions) {
 
 const ordinaryActionLabels = [
   '保存任务组修改',
+  '采用并发布',
+  '采用所选候选',
   '提交最终确认',
   '保存本次修改',
   '退回录入修改',
@@ -85,6 +85,8 @@ const taskWorkflowButton = buttonBlocks(materialWorkbenchSource)
 assert.ok(taskWorkflowButton, '未找到任务卡统一生产动作按钮');
 assert.match(taskWorkflowButton, /taskCardAction\.kind === 'generate_candidate'/, '题目候选生成动作必须独立识别');
 assert.match(taskWorkflowButton, /ai-button-solid/, '题目候选生成动作应使用 AI 紫色主操作样式');
+assert.match(taskWorkflowButton, /taskCardAction\.kind === 'adopt_candidate'/, '候选采用并发布动作必须独立识别');
+assert.match(taskWorkflowButton, /bg-blue-700/, '采用并发布应使用常规蓝色主操作样式');
 assert.match(taskWorkflowButton, /text-blue-700/, '非 AI 任务生产动作仍应使用蓝色动作样式');
 assert.doesNotMatch(
   materialWorkbenchSource,

@@ -69,7 +69,6 @@ import {
   executeRecordFinalConfirmationCommand,
   executeSubmitFinalConfirmationCommand,
 } from './questionProductionCommands.ts';
-import { executePublishConfirmedTaskBatchCommand } from './taskPublicationBatch.ts';
 import {
   canRemoveTrainingTask,
   MIN_TRAINING_TASK_COUNT,
@@ -82,7 +81,6 @@ import {
   resolveTaskGroupTopLevelSummary,
   resolveTaskProductionVisibleSummary,
   resolveTaskProductionCardPresentation,
-  resolveTaskPublicationEligibility,
   resolveTaskProductionState,
 } from './taskProductionState.ts';
 import {
@@ -209,8 +207,6 @@ export default function MaterialResourceProductionWorkbench() {
   const [generatorOperation, setGeneratorOperation] = useState(null);
   const [groupCandidateSession, setGroupCandidateSession] = useState(null);
   const [taskWorkflowOperation, setTaskWorkflowOperation] = useState(null);
-  const [taskBatchPublicationOperation, setTaskBatchPublicationOperation] = useState(null);
-  const [taskBatchPublicationResult, setTaskBatchPublicationResult] = useState(null);
   const [taskWorkflowFeedback, setTaskWorkflowFeedback] = useState({});
   const [taskReviewNotes, setTaskReviewNotes] = useState({});
   const [warningRetentionDialog, setWarningRetentionDialog] = useState(null);
@@ -236,7 +232,6 @@ export default function MaterialResourceProductionWorkbench() {
   const pendingDiscardActionRef = useRef(null);
   const initialSelectionResolutionRef = useRef(true);
   const taskWorkflowInFlightRef = useRef(new Set());
-  const taskBatchPublicationInFlightRef = useRef(false);
   const materialFormHasInput = Boolean(
     materialForm.title.trim()
     || materialForm.content.trim()
@@ -457,19 +452,6 @@ export default function MaterialResourceProductionWorkbench() {
   const taskWorkingRecoveryKey = tasks
     .map(taskWorkingIdentity)
     .join('|');
-  const taskPublicationCandidates = useMemo(
-    () => [...taskQuestionLifecycleById.entries()].flatMap(([trainingTaskId, lifecycle]) => {
-      const eligibility = resolveTaskPublicationEligibility(lifecycle.productionView);
-      if (!eligibility.eligible || !eligibility.action || !lifecycle.draft) return [];
-      return [{
-        trainingTaskId,
-        draftId: lifecycle.draft.draftId,
-        expectedDraftRevision: lifecycle.draft.revision,
-        action: eligibility.action,
-      }];
-    }),
-    [taskQuestionLifecycleById],
-  );
   const protectedTaskIds = useMemo(() => {
     if (!selectedPlan) return [];
     const protectedIds = new Set(
@@ -512,8 +494,6 @@ export default function MaterialResourceProductionWorkbench() {
     setTaskRemovalCandidate(null);
     setRemovedTaskHistory([]);
     setTaskWorkflowOperation(null);
-    setTaskBatchPublicationOperation(null);
-    setTaskBatchPublicationResult(null);
     setTaskWorkflowFeedback({});
     setTaskReviewNotes({});
   }, [selectedMaterialId, selectedPlan?.materialObservationPlanId]);
@@ -1081,57 +1061,6 @@ export default function MaterialResourceProductionWorkbench() {
       const formalResource = taskCard?.querySelector('[data-formal-resource-summary]');
       formalResource?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
-  }
-
-  async function runTaskPublicationBatch(items = taskPublicationCandidates) {
-    if (taskBatchPublicationInFlightRef.current || items.length === 0) return;
-    taskBatchPublicationInFlightRef.current = true;
-    setTaskBatchPublicationOperation({
-      draftIds: items.map((item) => item.draftId),
-      activeDraftId: null,
-    });
-    setTaskBatchPublicationResult(null);
-    setTaskWorkflowFeedback((current) => {
-      const next = { ...current };
-      items.forEach((item) => { next[item.draftId] = null; });
-      return next;
-    });
-    try {
-      const result = await executePublishConfirmedTaskBatchCommand({
-        items,
-        publishItem: executePublishConfirmedTaskCommand,
-        onItemStart: (item) => {
-          setTaskBatchPublicationOperation((current) => current
-            ? { ...current, activeDraftId: item.draftId }
-            : current);
-          setTaskWorkflowFeedback((current) => ({
-            ...current,
-            [item.draftId]: { type: 'info', message: '正在发布当前题目…' },
-          }));
-        },
-        onItemComplete: (item) => {
-          setTaskWorkflowFeedback((current) => ({
-            ...current,
-            [item.draftId]: item.status === 'failed'
-              ? { type: 'error', message: item.message }
-              : { type: 'success', message: item.message },
-          }));
-        },
-      });
-      setTaskBatchPublicationResult(result);
-      await refresh({ materialVersionId: selectedMaterialId, planId: selectedPlanId });
-      const message = result.status === 'completed'
-        ? `已发布 ${result.completed} 道题目。`
-        : result.status === 'partially_completed'
-          ? `已发布 ${result.completed} 道，${result.failed} 道未完成，可单独重试。`
-          : `${result.failed} 道题目发布未完成，可重试。`;
-      setToast({ id: Date.now(), message });
-    } catch (error) {
-      setNotice(errorNotice(error));
-    } finally {
-      taskBatchPublicationInFlightRef.current = false;
-      setTaskBatchPublicationOperation(null);
-    }
   }
 
   function requestLoadBatchA() {
@@ -1812,7 +1741,7 @@ export default function MaterialResourceProductionWorkbench() {
       setBaselinePreview(baseline);
       setToast({
         id: Date.now(),
-        message: `当前浏览器资源已导出：${baseline.counts.materials} 篇学习材料，${baseline.counts.drafts} 道待最终确认题目。`,
+        message: `当前浏览器资源已导出：${baseline.counts.materials} 篇学习材料，${baseline.counts.drafts} 道待发布题目。`,
       });
     } catch (error) {
       setNotice(errorNotice(error));
@@ -2011,7 +1940,7 @@ export default function MaterialResourceProductionWorkbench() {
                 </p>
                 {baselinePreview && (
                   <p className="mt-2 text-sm font-medium text-amber-950">
-                    当前快照：{baselinePreview.counts.materials} 篇学习材料、{baselinePreview.counts.plans} 个训练计划、{baselinePreview.counts.drafts} 道待最终确认题目。
+                    当前快照：{baselinePreview.counts.materials} 篇学习材料、{baselinePreview.counts.plans} 个训练计划、{baselinePreview.counts.drafts} 道待发布题目。
                   </p>
                 )}
               </div>
@@ -2103,7 +2032,7 @@ export default function MaterialResourceProductionWorkbench() {
                 )}
                 {!selectedMaterial && (
                   <div className="mt-4 border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-950">
-                    请先选择一篇学习材料，查看并处理对应的待最终确认题目和已发布练习。
+                    请先选择一篇学习材料，查看并处理对应的待发布题目和已发布练习。
                   </div>
                 )}
               </div>
@@ -2189,50 +2118,6 @@ export default function MaterialResourceProductionWorkbench() {
                   ? '正在修改工作草稿。保存会更新当前草稿并重新检查，不会新增版本。'
                   : `正在基于第 ${selectedPlan.revision} 版修改。首次保存会创建一份工作草稿。`}
               </div>
-            )}
-            {(taskPublicationCandidates.length > 0 || taskBatchPublicationResult) && (
-              <section className="mt-4 border-t border-slate-200 pt-4" aria-labelledby="task-batch-publication-title">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 id="task-batch-publication-title" className="text-base font-semibold">正式发布</h3>
-                  {taskBatchPublicationResult && (
-                    <p
-                      role="status"
-                      className={`text-sm ${
-                        taskBatchPublicationResult.failed === 0
-                          ? 'text-emerald-700'
-                          : taskBatchPublicationResult.completed > 0
-                            ? 'text-amber-700'
-                            : 'text-red-700'
-                      }`}
-                    >
-                      已完成 {taskBatchPublicationResult.completed} 道
-                      {taskBatchPublicationResult.failed > 0
-                        ? `，${taskBatchPublicationResult.failed} 道未完成`
-                        : ''}
-                    </p>
-                  )}
-                </div>
-                {taskPublicationCandidates.length > 0 && (
-                  <div className="mt-3 flex justify-center">
-                    <button
-                      type="button"
-                      aria-busy={Boolean(taskBatchPublicationOperation)}
-                      disabled={Boolean(taskBatchPublicationOperation || taskWorkflowOperation || busy)}
-                      onClick={() => void runTaskPublicationBatch()}
-                      className="inline-flex h-10 w-[420px] max-w-full items-center justify-center gap-2 rounded-md bg-blue-700 px-5 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
-                    >
-                      {taskBatchPublicationOperation && (
-                        <LoaderCircle aria-hidden="true" size={18} className="animate-spin" />
-                      )}
-                      {taskBatchPublicationOperation
-                        ? `正在发布 ${taskPublicationCandidates.length} 道题目…`
-                        : taskPublicationCandidates.every((item) => item.action === 'retry_publication')
-                          ? `重试未完成题目（${taskPublicationCandidates.length}）`
-                          : `发布已确认题目（${taskPublicationCandidates.length}）`}
-                    </button>
-                  </div>
-                )}
-              </section>
             )}
             <section className="mt-4 rounded-md bg-white p-4 sm:p-5" aria-labelledby="ai-observation-generator-title" aria-busy={generatorBusy}>
               <div>
@@ -2354,11 +2239,7 @@ export default function MaterialResourceProductionWorkbench() {
                 const workflowOperationKey = workflowTargetId
                   ? `${workflowTargetId}:publish_task`
                   : '';
-                const batchWorkflowBusy = Boolean(
-                  questionLifecycle?.draft
-                  && taskBatchPublicationOperation?.draftIds.includes(questionLifecycle.draft.draftId),
-                );
-                const workflowBusy = taskWorkflowOperation === workflowOperationKey || batchWorkflowBusy;
+                const workflowBusy = taskWorkflowOperation === workflowOperationKey;
                 const workflowFeedback = workflowTargetId
                   ? taskWorkflowFeedback[workflowTargetId]
                     || (questionLifecycle?.draft
@@ -2405,7 +2286,7 @@ export default function MaterialResourceProductionWorkbench() {
                   && taskProductionAction?.kind === 'generate_candidate'
                   ? {
                       kind: 'adopt_candidate',
-                      label: '采用题目',
+                      label: '采用并发布',
                       busyLabel: '正在采用并发布题目…',
                     }
                   : taskProductionAction;
@@ -2529,15 +2410,12 @@ export default function MaterialResourceProductionWorkbench() {
                                   void runTaskWorkflowAction(questionLifecycle);
                                 }}
                                 className={taskCardAction.kind === 'generate_candidate'
-                                  || taskCardAction.kind === 'adopt_candidate'
                                   ? 'ai-button-solid inline-flex h-9 items-center justify-center rounded-md border px-4 text-[12px] font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40'
+                                  : taskCardAction.kind === 'adopt_candidate'
+                                    ? 'inline-flex h-9 items-center justify-center rounded-md bg-blue-700 px-4 text-[12px] font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500'
                                   : 'text-[12px] font-medium text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-400 disabled:no-underline'}
                               >
-                                {batchWorkflowBusy
-                                  ? taskBatchPublicationOperation?.activeDraftId === questionLifecycle?.draft?.draftId
-                                    ? '正在发布…'
-                                    : '等待发布…'
-                                  : workflowBusy
+                                {workflowBusy
                                     ? taskCardAction.busyLabel || '正在处理任务…'
                                   : taskCandidateProjection.busy
                                     ? taskCardAction.busyLabel || '正在处理题目…'
@@ -3353,7 +3231,7 @@ function TaskCandidateDecisionPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h4 className="text-sm font-semibold text-slate-950">AI 题目方案</h4>
-          <p className="mt-1 text-xs text-slate-600">采用题目后才会创建版本并进入检查流程。</p>
+          <p className="mt-1 text-xs text-slate-600">采用后，系统会自动完成检查并发布；中断时保留已完成结果。</p>
         </div>
         <span className="rounded bg-white px-2 py-1 text-xs font-medium text-violet-700">
           {projection.readyCandidates.length > 0
@@ -3494,7 +3372,7 @@ function TaskCandidateDecisionPanel({
               onClick={onAdopt}
               className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
             >
-              采用当前方案
+              采用并发布
             </button>
           </div>
           {!projection.adoption.enabled && projection.adoption.reason && (
@@ -3520,7 +3398,7 @@ function CandidateAdoptionResultNotice({ result }) {
     ready_for_confirmation: {
       tone: 'border-emerald-300 bg-emerald-50 text-emerald-800',
       title: '题目已采用并完成检查',
-      detail: '当前题目版本可以进入最终确认。',
+      detail: '当前题目版本已通过检查，可以继续完成发布。',
     },
     resolve_validation: {
       tone: 'border-amber-300 bg-amber-50 text-amber-900',
@@ -3982,7 +3860,7 @@ function GeneratorCandidatePreview({
               type="button"
               onClick={onAdopt}
               disabled={supplementMode && selectedCount === 0}
-              className="ai-button-solid h-10 rounded-md border px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40"
+              className="h-10 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
             >
               {supplementMode
                 ? `采用所选候选（${selectedCount}）`

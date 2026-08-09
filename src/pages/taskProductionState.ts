@@ -52,7 +52,14 @@ export type TaskProductionCardActionKind =
 
 export type TaskProductionCardAction = {
   kind: TaskProductionCardActionKind | null;
-  label: '生成题目' | '采用题目' | '继续修改' | '发布任务' | '查看正式资源' | null;
+  label:
+    | '生成题目'
+    | '采用并发布'
+    | '处理问题'
+    | '继续处理'
+    | '重试发布'
+    | '查看正式资源'
+    | null;
   busyLabel: string | null;
 };
 
@@ -163,13 +170,13 @@ export type TaskPublicationEligibility = {
 
 const STATE_PRESENTATIONS: Record<TaskProductionState, Omit<TaskProductionPresentation, 'primaryActionLabel'>> = {
   draft_empty: { stateLabel: '未生成题目', tone: 'neutral', busy: false },
-  editing: { stateLabel: '编辑中', tone: 'action', busy: false },
-  check_required: { stateLabel: '待检查', tone: 'warning', busy: false },
-  checking: { stateLabel: '检查中', tone: 'action', busy: true },
-  revision_required: { stateLabel: '需要修改', tone: 'warning', busy: false },
-  pending_confirmation: { stateLabel: '待最终确认', tone: 'warning', busy: false },
-  confirmed: { stateLabel: '已确认，待发布', tone: 'action', busy: false },
-  publishing: { stateLabel: '正在发布', tone: 'action', busy: true },
+  editing: { stateLabel: '需要处理', tone: 'warning', busy: false },
+  check_required: { stateLabel: '需要处理', tone: 'warning', busy: false },
+  checking: { stateLabel: '处理中', tone: 'action', busy: true },
+  revision_required: { stateLabel: '需要处理', tone: 'warning', busy: false },
+  pending_confirmation: { stateLabel: '需要处理', tone: 'warning', busy: false },
+  confirmed: { stateLabel: '处理中', tone: 'action', busy: false },
+  publishing: { stateLabel: '处理中', tone: 'action', busy: true },
   publication_failed: { stateLabel: '发布未完成', tone: 'danger', busy: false },
   published: { stateLabel: '已发布', tone: 'success', busy: false },
 };
@@ -178,7 +185,7 @@ const ACTION_LABELS: Record<TaskProductionAction, string> = {
   edit: '继续修改',
   save: '保存任务',
   run_check: '检查题目',
-  open_confirmation: '进入最终确认',
+  open_confirmation: '继续处理',
   confirm: '确认通过',
   return_for_revision: '退回修改',
   publish: '发布正式题目',
@@ -231,7 +238,7 @@ export function resolveTaskProductionCardAction(
     }
     return {
       kind: options.hasIssues ? 'focus_issue' : 'open_repair',
-      label: '继续修改',
+      label: '处理问题',
       busyLabel: null,
     };
   }
@@ -242,7 +249,7 @@ export function resolveTaskProductionCardAction(
   > = {
     save: { kind: 'save_plan', busyLabel: '正在保存任务修改…' },
     run_check: { kind: 'run_check', busyLabel: '正在检查题目…' },
-    open_confirmation: { kind: 'open_confirmation', busyLabel: '正在提交最终确认…' },
+    open_confirmation: { kind: 'open_confirmation', busyLabel: '正在继续处理…' },
     confirm: { kind: 'confirm', busyLabel: '正在完成最终确认…' },
     publish: { kind: 'publish', busyLabel: '正在发布正式题目…' },
     retry_publication: { kind: 'retry_publication', busyLabel: '正在重试发布…' },
@@ -251,14 +258,22 @@ export function resolveTaskProductionCardAction(
   if (action === 'return_for_revision') {
     return {
       kind: 'open_repair',
-      label: '继续修改',
+      label: '处理问题',
       busyLabel: null,
+    };
+  }
+
+  if (action === 'retry_publication' || action === 'publish') {
+    return {
+      kind: 'retry_publication',
+      label: '重试发布',
+      busyLabel: '正在重试发布…',
     };
   }
 
   return {
     ...orchestrationActions[action],
-    label: '发布任务',
+    label: action === 'open_confirmation' ? '处理问题' : '继续处理',
   };
 }
 

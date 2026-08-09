@@ -1,12 +1,12 @@
 # 统一资源生产工作台契约
 
-> 现行 AI Candidate 生产模型、采用语义和异常纠错边界，以 [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md) 为准。该契约与统一工作台均已完成 P0-P7 工程与 Debug 验收：Candidate 是唯一正式生产主链，历史 Working Content 仅作为只读迁移兼容数据。本文第 21.18、21.19 节保留为历史决策与迁移依据，不得据此恢复人工校准、单卡 Working Draft 保存或旧批量提交入口。
+> 现行 AI Candidate 生产模型、采用语义和异常纠错边界，以 [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md) 为准。该契约与统一工作台均已完成 P0-P7 工程与 Debug 验收：Candidate 是唯一正式生产主链，历史 Working Content 仅作为只读迁移兼容数据。本文第 21 章记录历史演进与迁移事实；其中出现的人工校准、单卡 Working Draft 保存、最终确认、常驻发布和旧批量发布入口均不是当前活动交互依据。当前页面主链以第 3、5、6、9、10 章及第 22 章为准。
 
 英文名称：Unified Resource Production Workbench Contract
 
 状态：DESIGN FROZEN / P0-P7 ENGINEERING COMPLETE / ACCEPTANCE RECORDED
-文档版本：`unified_resource_production_workbench_v1.6`
-更新日期：2026-08-08
+文档版本：`unified_resource_production_workbench_v1.7`
+更新日期：2026-08-09
 
 ## 一、文档目标
 
@@ -18,8 +18,9 @@
 素材录入
 -> AI 规划训练任务
 -> AI 生成不可变 Candidate
--> 人工判断、结构化优化或异常纠错
--> 采用 Candidate 并创建 Question Revision
+-> 人工判断当前方案是否可用
+-> 采用并发布当前 Candidate
+   -> 采用 Candidate 并创建 Question Revision
 -> 应用层自动编排 Validation / Assessment / Human Review / Freeze / Registry
 -> 无提醒路径自动发布；提醒或失败停留在任务卡内处理
 ```
@@ -75,11 +76,11 @@
 
 统一页面不得把保存、检查、确认和发布实现为一个不可追溯的写入操作。
 
-前台以“采用题目”为正常路径唯一主操作。采用成功后，应用层自动编排保存 Revision、检查、无提醒人工决定记录、Freeze 与 Registry 写入；内部必须保持独立阶段、精确身份、幂等和失败恢复，不得实现为不可追溯的一次写入。存在提醒或失败时，任务卡只外显与当前中断原因匹配的处理或重试动作，不恢复常驻“发布任务”入口。
+前台以“采用并发布”为正常路径唯一主操作。该文案表达用户对当前方案的采用意图以及系统随后自动完成正式化的目标，不表示绕过检查或保证所有阶段必然成功。采用成功后，应用层自动编排保存 Revision、检查、无提醒人工决定记录、Freeze 与 Registry 写入；内部必须保持独立阶段、精确身份、幂等和失败恢复，不得实现为不可追溯的一次写入。存在提醒或失败时，任务卡只外显与当前中断原因匹配的处理或重试动作，不恢复常驻“发布任务”入口。
 
 页面按钮与领域命令必须分层命名：
 
-1. 当前单人模式页面按钮只表达用户意图，例如`保存任务组修改`和`采用题目`；没有任务组变化时不得常驻保存按钮；
+1. 当前单人模式页面按钮只表达用户意图，例如`保存任务组修改`和`采用并发布`；没有任务组变化时不得常驻保存按钮；
 2. `提交人工审核`、`审核通过`、`发布正式题目`等名称只用于兼容记录或内部领域命令，不得重新作为并列页面步骤或按钮；
 3. 领域命令可以由一次页面动作顺序编排，但每一步仍须独立记录成功、失败和重试位置。
 
@@ -191,9 +192,9 @@ Assessment 必须绑定：
 
 ### 5.4 采用决定与自动正式化
 
-用户采用 Candidate 后，系统创建精确的 `QuestionRevision`，并在无提醒路径自动形成绑定当前 Revision 与 Assessment Bundle 的 Human Review Decision。不得通过独立“提交最终确认”页面或常驻“发布任务”按钮再次要求用户确认同一批内容。
+用户执行“采用并发布”后，系统采用 Candidate、创建精确的 `QuestionRevision`，并在无提醒路径自动形成绑定当前 Revision 与 Assessment Bundle 的 Human Review Decision。不得通过独立“提交最终确认”页面、常驻“发布任务”按钮或批量“发布已确认题目”入口再次要求用户确认同一批内容。
 
-存在非阻断提醒时，用户只对具体提醒作结构化保留决定；存在阻断或阶段失败时，任务卡只提供优化、重新生成或重试入口。提醒决定和失败恢复不得改变“采用题目”是正常路径唯一主动作的原则。
+存在非阻断提醒时，用户只对具体提醒作结构化保留决定；存在阻断或阶段失败时，任务卡只提供优化、重新生成或重试入口。提醒决定和失败恢复不得改变“采用并发布”是正常路径唯一主动作的原则。
 
 当前 Revision 被确认后进入正式化流程。正式版本形成后只读；如需修改，必须从同一 Lineage 创建新 Draft Revision 并重新检查。
 
@@ -2228,3 +2229,90 @@ P0 已完成 Working Task Content 的独立数据边界，不包含任务卡交�
 6. 原 Question Resource Admission 回归保持 `28 / 28 PASS`，生产构建通过；
 7. P1 已完成单卡保存、刷新恢复、离开保护与冲突恢复接线；P2 已提供“提交当前任务并检查”和“提交全部已保存修改”，两者复用 `commitTaskGroupChanges`；
 8. P2 编排以 `idempotencyKey` 恢复部分失败阶段：成功任务不得重复升版，Revision 创建失败的任务保留 Working Task Content，整组检查必须等待所有请求任务完成 Revision 创建后再执行。
+
+## 二十二、单人生产主链现行基线（2026-08-09）
+
+本节是统一工作台当前用户交互与工程收口的最高优先级规则。第二十一节继续作为历史迁移、领域拆分与验收证据保留；其中与本节冲突的“采用题目”“提交最终确认”“发布任务”“发布已确认题目”、独立审核页和常驻版本选择等用户操作，不再作为当前实现依据。
+
+### 22.1 唯一正常主链
+
+单人生产模式只向用户表达一次有业务意义的人工决定：当前 AI 方案是否可以成为正式资源。
+
+```text
+Material
+-> AI 规划 TrainingTask
+-> 形成或生成 QuestionCandidate
+-> 人工判断
+   -> 不满意：切换候选、放弃本轮方案或重新生成
+   -> 满意：采用并发布
+-> 系统自动编排 Revision、检查、确认留痕、Freeze 与 Registry
+-> Formal Resource
+```
+
+“采用并发布”只合并用户动作，不合并领域命令。应用层必须按精确身份依次执行 Candidate Adopt、Question Revision、Validation、Quality Assessment、Human Review Decision、Freeze、Formal Resource 与 Registry；每一阶段继续独立留痕、幂等和可恢复。
+
+### 22.2 用户可见状态
+
+顶部只保留两项互斥统计：
+
+1. `待发布`：当前任务尚未形成完整 Formal Resource 与 Active Registry；
+2. `已发布`：Formal Resource 与 Registry 已完整提交。
+
+任务卡内部保留真实处理原因，但不得把它们扩展成新的顶部流程步骤：
+
+| 卡片情形 | 卡片状态 | 唯一主要动作 |
+| --- | --- | --- |
+| 尚无完整题目 | 未生成题目 | 生成题目 |
+| 已有一个至三个候选 | 题目待采用 | 采用并发布 |
+| 自动编排正在运行 | 处理中 | 无重复提交入口 |
+| 检查或质量提醒需要人工判断 | 需要处理 | 与当前提醒匹配的处理动作 |
+| Candidate 已采用但正式写入未完成 | 发布未完成 | 重试发布 |
+| Formal Resource 与 Registry 完整 | 已发布 | 展开只读正式内容 |
+
+候选区最多提供三个方案切换入口、一个“放弃本轮方案”次操作和一个“采用并发布”主操作。不得提供多选采用、字段级人工编辑或对同一 Candidate 的重复确认。
+
+### 22.3 禁止恢复的旧交互
+
+正常单人主链不得出现：
+
+1. 独立“提交最终确认”模块或页面；
+2. 常驻“发布任务”“提交题目审核”“进入审核”按钮；
+3. 批量“发布已确认题目”入口；
+4. 让用户选择活动 Revision 的常驻版本下拉框；
+5. 在 Candidate 已采用后重新要求选择同一 Candidate；
+6. 将 Validation、Assessment 或 Human Review 的内部状态拆成连续人工点击步骤。
+
+历史版本、Assessment、Human Review 和发布记录继续存在于数据、审计与诊断链路；用户不需要在正常生产页面管理这些内部对象。
+
+### 22.4 提醒与失败恢复
+
+简化交互不得削弱以下保护：
+
+1. 采用与发布必须携带当前 `draftId`、精确 `expectedRevisionId` 和幂等键；Revision 不一致时阻断并提示刷新；
+2. 质量提醒不得被自动接受，必须在任务卡展示原因和允许的结构化处理动作；
+3. 任一阶段失败只中断后续阶段，不回滚已经成功的 Candidate Adopt、Revision、Freeze 或 Formal Resource；
+4. Freeze 成功但 Registry 写入失败时显示“发布未完成”，重试必须复用既有正式身份；
+5. 已发布 Formal Resource 不可被后续 Draft Revision 覆盖；修改必须形成新的 Revision 和正式版本；
+6. 刷新后必须依据持久化 Operation Checkpoint 恢复到同一阶段，不得重建 Candidate 或重复写入正式资源。
+
+### 22.5 最低验收标准
+
+1. 已有完整题目的 TrainingTask 首次打开直接显示候选，不重复调用 AI；
+2. 正常无提醒路径只需点击一次“采用并发布”即可形成 Active Registry；
+3. 页面不会在采用后继续出现最终确认、审核或发布按钮；
+4. 质量提醒会中断自动编排，且卡片能说明原因和下一项有效动作；
+5. 发布部分失败后刷新仍显示“发布未完成”，点击重试不会新增 Revision、Formal Resource 或 Registry；
+6. 顶部 `待发布 + 已发布` 始终等于当前训练任务总数；
+7. 已发布资源只能以只读方式查看，后续修改不会覆盖原正式版本；
+8. 历史迁移入口不得重新进入当前页面主导航或主操作区。
+
+### 22.6 P0 单动作主链工程落地记录（2026-08-09）
+
+当前工作台已完成单动作生产主链收口：
+
+1. Candidate 区唯一人工主动作统一为“采用并发布”，应用层仍依次执行 Candidate Adopt、精确 Revision、Validation、Quality Assessment、Human Review Decision、Freeze、Formal Resource 与 Registry；
+2. 正常路径已移除“采用题目”“提交最终确认”“发布任务”“发布已确认题目”以及批量发布入口；
+3. 顶部仅汇总“待发布 / 已发布”，卡片内部保留“未生成题目、题目待采用、处理中、需要处理、发布未完成、已发布”等真实原因；
+4. 质量提醒仍会阻断自动编排，并在卡片内提供结构化处理入口；发布阶段失败只显示“重试发布”，不回滚已完成阶段；
+5. 历史内部命令名继续保留用于迁移与恢复，但不再作为当前用户操作文案；
+6. P4 Candidate 编排专项 `14 / 14 PASS`，P6 工作台接入专项全部通过，P0-P7 最终集成 `26 / 26 PASS`，Production Build 通过。

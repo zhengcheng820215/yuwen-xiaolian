@@ -54,7 +54,7 @@ assert.equal(checkRequired.primaryAction, 'run_check');
 assert.equal(checkRequired.presentation.primaryActionLabel, '检查题目');
 assert.deepEqual(resolveTaskProductionCardAction(checkRequired), {
   kind: 'run_check',
-  label: '发布任务',
+  label: '继续处理',
   busyLabel: '正在检查题目…',
 });
 
@@ -66,7 +66,7 @@ assert.equal(editing.state, 'editing');
 assert.equal(editing.primaryAction, 'save');
 assert.deepEqual(resolveTaskProductionCardAction(editing), {
   kind: 'save_plan',
-  label: '发布任务',
+  label: '继续处理',
   busyLabel: '正在保存任务修改…',
 });
 
@@ -93,7 +93,7 @@ const revisionRequired = resolveTaskProductionState({
 assert.equal(revisionRequired.state, 'revision_required');
 assert.deepEqual(resolveTaskProductionCardAction(revisionRequired, { hasIssues: true }), {
   kind: 'focus_issue',
-  label: '继续修改',
+  label: '处理问题',
   busyLabel: null,
 });
 
@@ -107,8 +107,8 @@ const confirmationReady = resolveTaskProductionState({
 assert.equal(confirmationReady.state, 'pending_confirmation');
 assert.deepEqual(resolveTaskProductionCardAction(confirmationReady), {
   kind: 'open_confirmation',
-  label: '发布任务',
-  busyLabel: '正在提交最终确认…',
+  label: '处理问题',
+  busyLabel: '正在继续处理…',
 });
 
 const pendingConfirmation = resolveTaskProductionState({
@@ -120,7 +120,7 @@ assert.equal(pendingConfirmation.primaryAction, 'confirm');
 assert.equal(pendingConfirmation.presentation.primaryActionLabel, '确认通过');
 assert.deepEqual(resolveTaskProductionCardAction(pendingConfirmation), {
   kind: 'confirm',
-  label: '发布任务',
+  label: '继续处理',
   busyLabel: '正在完成最终确认…',
 });
 
@@ -138,9 +138,9 @@ assert.deepEqual(resolveTaskPublicationEligibility(confirmed), {
   message: '题目已完成最终确认，可以发布。',
 });
 assert.deepEqual(resolveTaskProductionCardAction(confirmed), {
-  kind: 'publish',
-  label: '发布任务',
-  busyLabel: '正在发布正式题目…',
+  kind: 'retry_publication',
+  label: '重试发布',
+  busyLabel: '正在重试发布…',
 });
 
 const publicationFailed = resolveTaskProductionState({
@@ -158,7 +158,7 @@ assert.equal(resolveTaskPublicationEligibility(publicationFailed).eligible, true
 assert.equal(resolveTaskPublicationEligibility(publicationFailed).action, 'retry_publication');
 assert.deepEqual(resolveTaskProductionCardAction(publicationFailed), {
   kind: 'retry_publication',
-  label: '发布任务',
+  label: '重试发布',
   busyLabel: '正在重试发布…',
 });
 
@@ -208,11 +208,11 @@ assert.equal(publishedWithNewRevision.state, 'check_required');
 assert.equal(publishedWithNewRevision.hasPublishedVersion, true);
 assert.equal(publishedWithNewRevision.availableActions.includes('view_formal_resource'), true);
 assert.deepEqual(resolveTaskProductionCardPresentation(publishedWithNewRevision), {
-  stateLabel: '待检查',
+  stateLabel: '需要处理',
   tone: 'warning',
   primaryAction: {
     kind: 'run_check',
-    label: '发布任务',
+    label: '继续处理',
     busyLabel: '正在检查题目…',
   },
   auxiliaryActions: [{
