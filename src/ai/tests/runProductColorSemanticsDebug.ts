@@ -26,7 +26,11 @@ function findButton(source: string, label: string) {
 
 function assertButtonUsesAiStyle(source: string, label: string, expectedClass: string) {
   const block = findButton(source, label);
-  assert.match(block, new RegExp(`className="[^"]*${expectedClass}`), `${label} 应使用 ${expectedClass}`);
+  assert.match(
+    block,
+    new RegExp(`className=(?:"[^"]*${expectedClass}|\\{\\\`[^\\\`]*${expectedClass})`),
+    `${label} 应使用 ${expectedClass}`,
+  );
 }
 
 const aiActions = [
@@ -34,7 +38,6 @@ const aiActions = [
   [materialWorkbenchSource, '重新规划整组任务', 'ai-button-outline'],
   [materialWorkbenchSource, '补充生成训练任务', 'ai-button-solid'],
   [materialWorkbenchSource, '生成优化题目', 'ai-button-solid'],
-  [materialWorkbenchSource, '重新生成题目', 'ai-button-outline'],
   [questionWorkbenchSource, 'AI 优化题干', 'ai-button-outline'],
   [questionWorkbenchSource, 'AI 优化本项', 'ai-button-outline'],
 ] as const;
@@ -86,8 +89,32 @@ assert.ok(taskWorkflowButton, '未找到任务卡统一生产动作按钮');
 assert.match(taskWorkflowButton, /taskCardAction\.kind === 'generate_candidate'/, '题目候选生成动作必须独立识别');
 assert.match(taskWorkflowButton, /ai-button-solid/, '题目候选生成动作应使用 AI 紫色主操作样式');
 assert.match(taskWorkflowButton, /taskCardAction\.kind === 'adopt_candidate'/, '候选采用并发布动作必须独立识别');
-assert.match(taskWorkflowButton, /bg-blue-700/, '采用并发布应使用常规蓝色主操作样式');
+assert.match(taskWorkflowButton, /candidateAdoptButtonClassName/, '采用并发布应复用统一的 AI 紫色主操作样式');
+assert.match(
+  taskWorkflowButton,
+  /taskCardAction\.kind === 'adopt_candidate'[\s\S]*?group-open:hidden/,
+  '任务卡展开后必须隐藏首层采用入口，避免与方案区重复执行同一命令',
+);
 assert.match(taskWorkflowButton, /text-blue-700/, '非 AI 任务生产动作仍应使用蓝色动作样式');
+assert.match(
+  materialWorkbenchSource,
+  /candidateReadyForAdoption[\s\S]*?重新生成题目[\s\S]*?group-open:hidden/,
+  '任务卡展开后必须隐藏首层重新生成入口，避免与方案区重复执行同一命令',
+);
+assert.match(
+  materialWorkbenchSource,
+  /const candidateRegenerateButtonClassName = 'ai-button-outline inline-flex h-10 w-fit[\s\S]*?whitespace-nowrap[\s\S]*?disabled:opacity-40'/,
+  '重新生成题目必须使用统一的 AI 紫色线框次操作样式',
+);
+assert.match(
+  materialWorkbenchSource,
+  /const candidateAdoptButtonClassName = 'ai-button-solid inline-flex h-10 w-fit[\s\S]*?whitespace-nowrap[\s\S]*?disabled:opacity-40'/,
+  '采用并发布必须使用统一的 AI 紫色实心主操作样式',
+);
+assert.ok(
+  (materialWorkbenchSource.match(/candidateRegenerateButtonClassName/g) || []).length >= 4,
+  '折叠态、展开态与失败恢复态必须复用同一重新生成按钮样式',
+);
 assert.doesNotMatch(
   materialWorkbenchSource,
   />下一步：<\/span>/,
@@ -108,8 +135,32 @@ assert.match(
 );
 assert.doesNotMatch(
   candidatePreviewSource,
-  /能力：|最低字数：|评分项：|变化：|generationReason/,
-  '候选预览不得展示能力代码、工程统计或生成说明',
+  /能力：|最低字数：|评分项：|变化：|generationReason|candidateTypeLabel/,
+  '候选预览不得展示能力代码、工程统计、生成说明或重复的 AI 来源标签',
+);
+const warningSummarySource = materialWorkbenchSource.slice(
+  materialWorkbenchSource.indexOf('function TaskQualityWarningSummary'),
+  materialWorkbenchSource.indexOf('function MaterialContentPreview'),
+);
+assert.doesNotMatch(
+  warningSummarySource,
+  /项需要判断/,
+  '质量提醒区不得重复显示提醒数量',
+);
+assert.match(
+  materialWorkbenchSource,
+  /<span>\{taskQualityWarningMessage\(warning\)\}<\/span>/,
+  '统一工作台的质量提醒必须经过用户文案投影',
+);
+assert.match(
+  materialWorkbenchSource,
+  /warning\.check === 'difficultyCoherence'[\s\S]*?题目难度可能需要调整/,
+  '历史难度一致性提醒必须映射为直白的用户文案',
+);
+assert.doesNotMatch(
+  warningSummarySource,
+  /<span>\{warning\.message\}<\/span>/,
+  '质量提醒列表不得直接渲染历史 message',
 );
 
 assert.match(
@@ -134,8 +185,13 @@ assert.match(
 );
 assert.match(
   materialWorkbenchSource,
-  /actionRequired \|\| candidateReady \? \{[\s\S]*?visibleStatusLabel: '待处理'[\s\S]*?visibleStatusTone: 'warning'/,
-  '已有候选或质量提醒时，任务卡必须统一显示“待处理”而不暴露内部候选状态',
+  /qualityWarningCount > 0 \? \{[\s\S]*?visibleStatusLabel: '质量提醒待处理'[\s\S]*?candidateReady \? \{[\s\S]*?visibleStatusLabel: '题目待采用'/,
+  '任务卡必须区分质量提醒待处理与题目待采用，避免相同标签对应不同操作',
+);
+assert.match(
+  materialWorkbenchSource,
+  /qualityWarningCount=\{pendingQualityWarnings\.length\}/,
+  '任务卡状态标签必须读取当前质量提醒数量',
 );
 assert.match(
   materialWorkbenchSource,
@@ -186,6 +242,16 @@ assert.doesNotMatch(
   materialWorkbenchSource,
   /open=\{taskProductionAction\?\.kind === 'view_formal_resource'\}/,
   '正式资源不得再根据生产动作自动展开',
+);
+assert.doesNotMatch(
+  materialWorkbenchSource,
+  /open=\{!isPublishedTask[\s\S]*?pendingQualityWarnings\.length > 0/,
+  '任务卡不得因待处理问题或质量提醒自动展开',
+);
+assert.match(
+  materialWorkbenchSource,
+  /pendingQualityWarnings\.length > 0[\s\S]*?taskProductionAction\?\.kind === 'open_confirmation'[\s\S]*?\? null/,
+  '质量提醒已有具体标签和展开入口时，不应重复显示同义操作',
 );
 assert.match(
   materialWorkbenchSource,

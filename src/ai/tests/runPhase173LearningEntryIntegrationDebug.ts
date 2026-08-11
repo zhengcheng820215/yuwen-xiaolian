@@ -4,6 +4,7 @@ import {
   loadPhase173BatchACurrentVersions,
   matchCurrentFormalResource,
   matchPhase173BatchAFormalResource,
+  orderFormalResourceRotationCandidates,
   resolveFormalResourceBootstrapMatch,
 } from '../agents/phase173FormalResourceMatchingService.ts';
 import { adaptReviewedResourceCandidate } from '../agents/reviewedResourceCandidateAdapter.ts';
@@ -38,6 +39,7 @@ async function main(): Promise<void> {
   await legacyHintPolicyCompatibility(environment);
   await dynamicBootstrapAbility(environment);
   await exhaustedPoolFallsBackToReview(environment);
+  rotationReviewUsesCooldownAndLeastUsage(environment);
   await endedSessionDoesNotLeakMaterialContext(environment);
   await activeSessionKeepsMaterialContext(environment);
   await bootstrapTraining(environment);
@@ -61,6 +63,29 @@ async function main(): Promise<void> {
   if (passed !== reports.length) {
     throw new Error('Phase 17.3 Batch A /learning entry integration Debug failed.');
   }
+}
+
+function rotationReviewUsesCooldownAndLeastUsage(environment: Environment): void {
+  const candidates = environment.versions.filter((item) => (
+    item.status === 'frozen' && item.abilityMetadata.taskRole === 'training'
+  )).slice(0, 3);
+  expect(candidates.length === 3, 'Rotation policy requires three training versions.');
+  const [leastRecent, recentOnce, recentTwice] = candidates;
+  const ordered = orderFormalResourceRotationCandidates(candidates, {
+    recentResourceVersionIds: candidates.map((item) => item.resourceVersionId),
+    resourceVersionConsumptionSequence: [
+      leastRecent.resourceVersionId,
+      recentOnce.resourceVersionId,
+      recentTwice.resourceVersionId,
+      recentTwice.resourceVersionId,
+    ],
+  }, environment.versions);
+  record(
+    '03C 历史轮换优先冷却区外且使用次数较少的任务',
+    ordered[0]?.resourceVersionId === leastRecent.resourceVersionId &&
+      ordered.at(-1)?.resourceVersionId === recentTwice.resourceVersionId,
+    `ordered=${ordered.map((item) => item.resourceVersionId).join(' -> ')}`,
+  );
 }
 
 async function exhaustedPoolFallsBackToReview(environment: Environment): Promise<void> {

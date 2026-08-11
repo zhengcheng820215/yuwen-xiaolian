@@ -3,8 +3,8 @@
 英文名称：Formal Resource Production Contract Map
 
 状态：ACTIVE CONTRACT INDEX / AI CANDIDATE P0-P7 COMPLETE / ACCEPTANCE RECORDED
-文档版本：`formal_resource_production_contract_map_v3.5`
-更新日期：2026-08-09
+文档版本：`formal_resource_production_contract_map_v3.7`
+更新日期：2026-08-10
 
 ## 一、目标与权威边界
 
@@ -14,7 +14,7 @@
 
 当本文摘要与正式契约不一致时，以对应职责范围内的正式契约为准，并同步修正本文。
 
-统一资源生产工作台是单人模式的目标态唯一可写生产与发布入口。目标态中，素材录入、AI 规划、不可变 Candidate 生成与采用、内联质量检查、自动正式化编排和失败恢复在同一页面完成；旧题目工作台只承担安全适配与只读审计。正常路径以“采用题目”为唯一主操作，采用后由应用层自动编排发布；底层仍分别保存 Revision、Validation / Assessment、Human Review、Freeze、Formal Version 和 Registry 结果。
+统一资源生产工作台是单人模式的目标态唯一可写生产与发布入口。目标态中，素材录入、AI 规划、不可变 Candidate 生成与采用、内联质量检查、自动正式化编排和失败恢复在同一页面完成；旧题目工作台只承担安全适配与只读审计。正常路径以“采用并发布”为唯一主操作，采用后由应用层自动编排发布；底层仍分别保存 Revision、Validation / Assessment、Human Review、Freeze、Formal Version 和 Registry 结果。
 
 P0-P7 既有对象关系、命令边界、任务卡主链路、按任务部分发布和端到端 Debug 已完成验收。单页发布收口已按 P0-P2 完成工程实现、专项回归与浏览器验收；完成结论以统一工作台契约和专项验收记录为准，而不是仅沿用历史 P0-P7 结论。
 
@@ -33,6 +33,14 @@ P0-P7 既有对象关系、命令边界、任务卡主链路、按任务部分�
 | 专项产品校准 | 进行中 | 十素材校准和单任务完整采用发布验收独立跟踪，不反向标记主链工程未完成 |
 
 因此，“目标态唯一入口”既是当前契约要求，也是 P0-P2 已完成的工程事实。页面、测试和验收报告引用状态时，仍必须注明是在描述历史基线、当前运行态还是尚未完成的专项产品校准。
+
+统一交付状态固定为：
+
+- **Engineering Complete**：契约、工程实现、自动化回归与已记录浏览器验收完成；
+- **Operational Validation In Progress**：十素材校准、真实单任务长流程与连续运行仍在验证；
+- **Production Scale Approval Pending**：多人并发、长期真实数据和规模化运营批准尚未完成。
+
+`Engineering Complete` 不等于长期运营验收完成，也不得被用作规模化生产批准的替代结论。
 
 ## 二、正式资源生产主链
 

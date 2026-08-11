@@ -388,12 +388,15 @@ function checkDifficultyCoherence(
   );
 
   if (advancedTooLight || basicTooHeavy) {
+    const message = basicTooHeavy
+      ? '当前设为基础难度，但作答要求较多或评分条件较复杂。'
+      : '当前设为进阶难度，但作答要求和评分条件较少。';
     addWarning(
       warnings,
       'quality.difficulty.incoherent',
       'difficultyCoherence',
       'warning',
-      '难度声明与当前作答要求或 Rubric 复杂度可能不一致。',
+      message,
       ['abilityMetadata.difficulty', 'minimumAnswerRequirement', 'rubric'],
     );
     return 'warning';

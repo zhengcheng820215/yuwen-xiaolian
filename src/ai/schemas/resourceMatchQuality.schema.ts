@@ -125,6 +125,8 @@ export type ResourceMatchRecentHistory = {
   recentTaskIds: string[];
   recentResourceIds: string[];
   recentResourceVersionIds: string[];
+  /** Completed Frozen Versions in chronological order. Repeated consumption is retained. */
+  resourceVersionConsumptionSequence?: string[];
   recentMaterialIds: string[];
   recentExecutionSessionIds: string[];
   historyWindowStartedAt?: string;

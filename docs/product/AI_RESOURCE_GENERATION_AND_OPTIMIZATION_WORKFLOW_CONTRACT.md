@@ -3,8 +3,8 @@
 英文名称：AI Resource Generation and Optimization Workflow Contract
 
 状态：DESIGN FROZEN / P0-P7 ENGINEERING COMPLETE / SINGLE-OPERATOR ADOPTION ORCHESTRATION DEBUG ACCEPTED
-契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_4`
-更新日期：2026-08-09
+契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_5`
+更新日期：2026-08-10
 
 产品确认日期：2026-08-05
 产品确认结论：同意以不可变 `QuestionCandidate` 作为 AI 生成、重新生成、优化和异常纠错的统一承载对象；只有采用 Candidate 才进入 Question Revision、检查、确认和发布链。P1-P5 已依次完成 Candidate 基础能力、页面接入、正式 Revision 采用、优化与异常纠错；P6 已将 Candidate 设为唯一正式生产主链，并把历史 Working Content 降级为只读迁移兼容数据。已发布资源读取链路保持不变。
@@ -13,7 +13,9 @@
 
 2026-08-06 单人模式收敛确认（2026-08-09 决策语义校准）：用户点击采用主操作即对当前可见 Candidate 及其已展示质量提醒作出明确采用决定。系统在创建 Question Revision 后，应自动串联 Validation、Assessment、Human Review Decision、Freeze、Formal Resource 与 Registry；采用前必须展示质量提醒，采用时按 warning code 写入固定结构化留痕，不再要求填写第二份确认说明。检查失败、身份冲突或发布失败仍必须中断，且不得回滚已经成功的领域阶段。多人审核模式仍可恢复为分阶段操作，但不改变底层命令和审计边界。
 
-2026-08-09 用户动作收口确认：单人生产界面的采用主按钮统一命名为“采用并发布”。它只合并用户需要理解的决策，不合并领域写入：系统仍依次执行 Candidate Adopt、Revision、Validation、Assessment、Human Review Decision、Freeze、Formal Resource 与 Registry。质量提醒或任一阶段失败时必须停在对应任务卡，显示“需要处理”或“发布未完成”及唯一恢复动作；不得回滚已成功阶段，也不得重新要求用户选择同一 Candidate。正常路径不得再出现“采用题目”“提交最终确认”“发布任务”或“发布已确认题目”等连续按钮。
+2026-08-09 用户动作收口确认：单人生产界面的采用主按钮统一命名为“采用并发布”。它只合并用户需要理解的决策，不合并领域写入：系统仍依次执行 Candidate Adopt、Revision、Validation、Assessment、Human Review Decision、Freeze、Formal Resource 与 Registry。阻断问题、采用后新发现且未在采用前展示的提醒，或任一领域阶段失败时，必须停在对应任务卡，显示“需要处理”或“发布未完成”及唯一恢复动作；不得回滚已成功阶段，也不得重新要求用户选择同一 Candidate。采用前已经展示的非阻断提醒，由“采用并发布”一次性作出明确接受决定，并按 warning code 分别留痕，不得再次要求用户确认。正常路径不得再出现“采用题目”“提交最终确认”“发布任务”或“发布已确认题目”等连续按钮。
+
+2026-08-10 质量提醒语义收口确认：`warning` 必须在“采用并发布”前完整展示。用户点击该主操作即接受当前可见的非阻断提醒；系统必须为每个 warning code 分别写入结构化 acknowledgement，并记录当前 Revision、Assessment、规则版本、操作人和时间。该留痕可以使用系统固定的决定来源 `single_operator_adopt_and_publish`，不得合并为一条无 warning 身份的批量记录，也不得再弹出自由文本理由表单或第二次最终确认。`blocking` 始终禁止发布，只能进入生成优化题目、重新生成或对应恢复动作。
 
 2026-08-06 组级操作收口确认：任务卡直接展示当前可执行动作，不再添加“下一步：”前缀。题目采用属于单任务动作，采用后不需要任务组级再次确认。页面底部常驻区只保留“重新规划整组任务”和“补充生成训练任务”两项组级 AI 生成动作；旧“确认任务并保存”不得常驻或以禁用态出现。只有训练任务组本身发生候选组采用、增删等未保存变化时，才临时显示“保存任务组修改”，该动作只维护 Observation Plan，不确认题目、不创建 Question Revision，也不进入题目发布链。
 
@@ -572,7 +574,7 @@ correctTaskCandidate({
 
 当前方案预览：……
 
-[生成新一轮方案] [采用并发布]
+[重新生成题目] [采用并发布]
 ```
 
 主流程不得使用“生成题目候选”“查看候选”“采用候选”“候选待采用”作为用户必须理解的主要文案。Candidate 名称只保留在技术信息、调试、审计和差异比较的内部语境中。
@@ -1444,7 +1446,7 @@ P6 工程完成表示“旧写流程不可达、历史数据仍可受控迁移�
 7. 旧人工校准相关颜色断言和折叠辅助函数已删除，颜色语义回归改为覆盖 AI 优化、生成优化候选和重新生成候选；
 8. 浏览器实页携带历史 `candidateWorkflow=legacy` 参数时仍只展示 Candidate 主流程，人工校准、旧批量提交和继续旧修改入口均未出现，控制台无运行错误；
 9. Vite 生产构建通过；现存 ESM 模块类型、动态导入和大 Chunk 提示为仓库既有非阻断告警。
-10. 单人工作台的质量提醒通过逐项结构化理由留痕；用户可生成唯一的优化候选入口，或选择“保留当前题目”，在轻量确认层中为每条 warning 选择理由后继续发布。只有该显式决定可以携带当前 warning code、Revision、Assessment 和规则版本续跑，普通自动编排仍必须在 warning 处中断；结构或字段阻断不得使用保留理由绕过。历史 Revision 没有活动 Candidate 时明确说明其为既有题目版本，不再误报为 Candidate 缺失故障。
+10. 2026-08-06 过渡实现曾通过逐项结构化理由处理质量提醒；该交互已由 2026-08-10 质量提醒语义收口规则取代。现行单人模式在采用前展示提醒，并由“采用并发布”按 warning code 分别留痕；结构或字段阻断仍不得绕过。历史 Revision 没有活动 Candidate 时明确说明其为既有题目版本，不再误报为 Candidate 缺失故障。
 
 P6 代码退出审计状态：`ready`。不同设备上的运行时存量仍可能返回 `migration_required` 或 `blocked`，必须按统一 Resolver 引导迁移或解决冲突。底层 Working Content Repository 作为只读迁移兼容层暂时保留，待存量审计持续为零后再执行物理删除。
 
@@ -1458,7 +1460,7 @@ P7 只修正“TrainingTask 已有完整题目，但页面仍要求再次生成 
 2. 增加 `ensureInitialCandidateFromTrainingTask()`，为符合条件的 TrainingTask 确定性创建或恢复唯一 `training_task_compatibility_wrap` Candidate；
 3. 将历史 TrainingTask 兼容为按需恢复，不进行破坏性批量迁移；
 4. 统一状态 Resolver，把已有题目映射为 `question_pending_adoption`，真正缺失题目才映射为 `question_missing`；
-5. 任务卡主文案调整为“生成题目 / 题目待采用 / 采用题目 / 重新生成题目”；
+5. P7 当时将任务卡主文案调整为“生成题目 / 题目待采用 / 采用题目 / 重新生成题目”；其中“采用题目”已在后续单人动作收口中统一替换为“采用并发布”；
 6. 采用继续复用现有 Candidate Adoption Gateway，保持一次采用只创建一个 Revision；
 7. 重新生成创建新 Candidate，保留原初始 Candidate，不覆盖 TrainingTask、Revision 或已发布资源；
 8. 修正顶部统计，未采用题目独立归入“待采用”，不得与异常任务共用“需处理”，也不得提前归入“待发布”；
@@ -1476,31 +1478,29 @@ Candidate 采用后的质量治理必须区分两类结果，页面不得仅根�
 
 本节仅适用于尚未发布的 Candidate、Draft 与 Revision。已发布 Formal Resource 始终只读；其后续调整必须使用“生成新版方案”，并遵循 [正式资源不可变性契约](./FORMAL_RESOURCE_IMMUTABILITY_CONTRACT.md)，不得复用本节的原地优化入口。
 
-1. `warning`：完整检查已形成，题目可以保留，但必须逐项记录人工保留理由；
+1. `warning`：完整检查已形成，题目可以保留；采用前必须完整展示，采用时按 warning code 分别记录结构化接受决定；
 2. `blocking`：结构、必填字段、Rubric、答案范围或发布前置条件不成立，必须生成优化题目或重新生成，不得显示保留并发布入口。
 
-普通提醒的标准交互为：
+单人模式普通提醒的现行标准交互为：
 
 ```text
 质量提醒
 → 生成优化题目
 或
-→ 保留当前题目
-→ 为每项 warning 选择结构化理由
-→ 提交最终确认
-→ 记录 Human Review Decision
-→ 发布
+→ 采用并发布
+→ 为每项可见 warning 写入结构化 acknowledgement
+→ 自动继续检查、人工决定与发布编排
 ```
 
-结构化理由至少支持“提醒不影响训练目标”“考查角度不同”“当前难度符合使用需要”和“其他”。选择“其他”时必须补充说明。每条 `AuthorWarningAcknowledgement` 必须独立保存 `warningCode`、理由、`draftRevision`、`assessmentId`、`ruleVersion`、操作人和时间，不得用一条固定理由批量代替全部提醒。
+每条 `AuthorWarningAcknowledgement` 必须独立保存 `warningCode`、决定、决定来源、`draftRevision`、`assessmentId`、`ruleVersion`、操作人和时间。单人模式允许使用系统固定决定来源 `single_operator_adopt_and_publish`，但不得用一条固定记录代替多个 warning code，也不得要求用户为同一采用决定再次填写自由文本说明。
 
-“保留当前题目”只表示开始作出保留决定；确认层的最终动作统一为“确认保留并发布”。若 Human Review 已成功而 Publication 失败，审核决定不得回滚，页面进入“发布未完成”，只提供重试发布。
+“保留当前题目”“逐项选择理由”“提交最终确认”和“确认保留并发布”属于 2026-08-06 过渡实现，不再定义当前单人交互。若 Human Review 已成功而 Publication 失败，审核决定不得回滚，页面进入“发布未完成”，只提供重试发布。
 
 任务卡状态可继续使用“需要处理”，但必须紧邻显示具体原因，例如“3 项质量提醒”。“题目处理中”只用于 Candidate 生成、检查或发布等真实异步阶段，不得作为静态兜底状态。
 
 提醒区只保留一份问题列表和一组决策动作。没有新 Candidate 时不得同时渲染重复的“AI 题目方案”说明；用户开始生成优化题目后，才展开当前题目与优化题目的比较和采用操作。
 
-P7.1 浏览器验收（2026-08-06）：真实任务卡只展示一份 `3 项质量提醒` 列表，以及“生成优化题目 / 保留当前题目”两个决策动作；页面不存在重复的静态警示或旧“接受提醒并发布”入口。点击“保留当前题目”后，确认层按三条提醒生成三项独立理由选择；未逐项完成时“确认保留并发布”保持禁用，取消后不产生任何审核或发布写入。浏览器控制台错误为 `0`。
+P7.1 历史浏览器验收（2026-08-06）：当时真实任务卡采用“生成优化题目 / 保留当前题目”，并在确认层逐项选择理由。该记录只保留为过渡实现的验收证据，已由 2026-08-10 质量提醒语义收口规则取代，不得据此恢复第二次确认页面。浏览器控制台错误为 `0`。
 
 ### P7.2 任务卡与顶部汇总同源规则
 
@@ -1586,6 +1586,7 @@ Candidate 一旦存在，当前任务的人工决策只能在 Candidate 判断�
 4. 质量提醒区只展示触发原因，不得同时提供“生成优化题目 / 保留当前题目”等第二套决策入口；
 5. 没有 Candidate 时，页面才可以依据当前原因显示“生成题目方案”或“生成新版方案”；
 6. 已发布正式资源的“生成新版方案”必须绑定 `baseFormalVersionId`，不得转化为对当前正式版本的编辑。
+7. 同一视图、同一任务状态下，同一个 Command 不得同时出现两个可见入口。只要当前任务存在可采用 Candidate，无论它是普通“题目待采用”还是“质量提醒待处理”，任务卡收起时都应在摘要区提供“重新生成题目 / 采用并发布”快捷操作；任务卡展开后，摘要区的同命令入口必须隐藏，由 Candidate 判断区承接同一组操作。两处只允许作为互斥的响应式投影，不得让用户误以为需要重复执行。同一 Command 在不同投影中的用户文案和视觉层级也必须一致，不得交替使用“生成新一轮方案”等近义表达；“重新生成题目”统一使用 AI 紫色线框次按钮，“采用并发布”统一使用 AI 紫色实心主按钮。两者宽度按文字与内边距自然适配，并共享高度、焦点态、加载态与禁用态。
 
 上述规则只收敛可见交互，不改变 Candidate 不可变性、Revision 绑定、提醒阻断、部分失败恢复和正式资源不可覆盖边界。
 

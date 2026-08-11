@@ -9,7 +9,11 @@ export function buildScopedFormalResourceHistory(input: {
   activeLearningSessionId?: string;
   historyWindowEndedAt: string;
 }): ResourceMatchRecentHistory {
-  const globalVersionIds = uniqueStrings(input.records.flatMap(resourceVersionIdsFromRecord));
+  const chronologicalRecords = [...input.records]
+    .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt));
+  const resourceVersionConsumptionSequence = chronologicalRecords
+    .flatMap(resourceVersionIdsFromRecord);
+  const globalVersionIds = uniqueStrings(resourceVersionConsumptionSequence);
   const activeLearningSessionId = input.activeLearningSessionId;
   const sessionRecords = activeLearningSessionId
     ? input.records.filter((record) => recordBelongsToSession(record, activeLearningSessionId))
@@ -24,6 +28,7 @@ export function buildScopedFormalResourceHistory(input: {
     recentTaskIds: uniqueStrings(sessionVersions.map((version) => version.taskId)),
     recentResourceIds: uniqueStrings(sessionVersions.map((version) => version.resourceId)),
     recentResourceVersionIds: globalVersionIds,
+    resourceVersionConsumptionSequence,
     recentMaterialIds: uniqueStrings(sessionVersions.flatMap((version) => (
       version.materialId ? [version.materialId] : []
     ))),

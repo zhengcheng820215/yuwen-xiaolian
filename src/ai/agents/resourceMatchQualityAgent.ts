@@ -604,6 +604,8 @@ function isRecentHistory(value: ResourceMatchRecentHistory): boolean {
     typeof value.studentId === 'string' && value.studentId.length > 0 &&
     arrays(value.recentTaskIds, value.recentResourceIds, value.recentResourceVersionIds,
       value.recentMaterialIds, value.recentExecutionSessionIds) &&
+    (value.resourceVersionConsumptionSequence === undefined ||
+      arrays(value.resourceVersionConsumptionSequence)) &&
     (value.historyWindowStartedAt === undefined || isTimestamp(value.historyWindowStartedAt)) &&
     isTimestamp(value.historyWindowEndedAt)
   );
@@ -650,6 +652,7 @@ function historyIdentity(history: ResourceMatchRecentHistory): string {
     ...uniqueSorted(history.recentTaskIds),
     ...uniqueSorted(history.recentResourceIds),
     ...uniqueSorted(history.recentResourceVersionIds),
+    ...(history.resourceVersionConsumptionSequence || []),
     ...uniqueSorted(history.recentMaterialIds),
     ...uniqueSorted(history.recentExecutionSessionIds),
     history.historyWindowStartedAt || 'none',

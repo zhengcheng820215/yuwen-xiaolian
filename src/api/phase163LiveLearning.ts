@@ -86,6 +86,7 @@ export type Phase163LiveWorkspaceState = {
     focus: string;
     readingText: string;
     questionText: string;
+    minimumAnswerLength: number;
   };
   answerDraft: string;
   feedback?: {
@@ -598,6 +599,7 @@ function readyState(descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescr
       focus: task.targetAbilityName,
       readingText: task.readingText || '',
       questionText: task.question,
+      minimumAnswerLength: descriptor.input.resourceVersion.minimumAnswerRequirement.minLength,
     },
     answerDraft,
     learningPresentation,

@@ -13,6 +13,7 @@ import {
 import { requestStudentWritingCorrections } from '../api/studentWritingCorrections.ts';
 import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
 import ReadingMaterialText from '../components/continuous-learning/ReadingMaterialText.jsx';
+import AnswerLengthIndicator from '../components/continuous-learning/AnswerLengthIndicator.jsx';
 import {
   shouldRenderThinkingReview,
   shouldStageFeedbackPresentation,
@@ -243,9 +244,9 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
           onReturn={onReturnToEntry}
         />
       ) : (
-        <main className="mx-auto grid min-h-[calc(100vh-65px)] w-full max-w-[1400px] lg:grid-cols-[minmax(0,9fr)_minmax(0,11fr)] xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <section className="border-b border-slate-200 bg-[#f7f9fc] px-6 py-8 lg:border-b-0 lg:border-r lg:px-10 lg:py-10 xl:px-14">
-            <div className="mx-auto max-w-[640px]">
+        <main className="mx-auto grid min-h-[calc(100vh-65px)] w-full max-w-[1680px] min-[1060px]:grid-cols-[clamp(460px,55%,760px)_minmax(480px,1fr)]">
+          <section className="border-b border-slate-200 bg-[#f7f9fc] px-6 py-8 lg:px-10 lg:py-10 min-[1060px]:border-b-0 min-[1060px]:border-r">
+            <div className="mx-auto w-full max-w-[760px]">
               <h1 className="flex items-center gap-3 text-lg font-semibold">
                 <BookOpen size={20} className="text-slate-500" />
                 阅读材料
@@ -279,6 +280,10 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
                 aria-label="输入你的回答"
                 placeholder="请在这里输入你的回答。"
                 className="mt-7 min-h-[240px] max-h-[400px] w-full resize-none rounded-md border border-slate-300 bg-[#f8fafc] px-4 py-4 text-base leading-7 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-wait disabled:opacity-70"
+              />
+              <AnswerLengthIndicator
+                answer={answer}
+                minimumLength={state.task.minimumAnswerLength}
               />
 
               <div className="mt-5 grid grid-cols-2 gap-3">

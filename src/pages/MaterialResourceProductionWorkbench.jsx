@@ -120,6 +120,8 @@ import { resolveCandidateOptimizationFieldPolicy } from
 
 const secondaryButtonToneClass = 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50';
 const secondaryButtonFocusClass = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2';
+const candidateRegenerateButtonClassName = 'ai-button-outline inline-flex h-10 w-fit items-center justify-center whitespace-nowrap rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40';
+const candidateAdoptButtonClassName = 'ai-button-solid inline-flex h-10 w-fit items-center justify-center whitespace-nowrap rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40';
 
 const dimensionOptions = [
   ['fact', '事实'], ['character', '人物'], ['plot', '情节'], ['causality', '因果'],
@@ -2281,6 +2283,10 @@ export default function MaterialResourceProductionWorkbench() {
                   questionLifecycle?.productionView?.state === 'draft_empty'
                   && selectedTaskCandidate,
                 );
+                const candidateReadyForDecision = Boolean(
+                  selectedTaskCandidate
+                  && (candidateReadyForAdoption || pendingQualityWarnings.length > 0),
+                );
                 const candidateActionRequired = Boolean(
                   pendingQualityWarnings.length > 0
                   || taskCandidatePanel.adoptionResult?.visibleState === 'action_required',
@@ -2296,18 +2302,19 @@ export default function MaterialResourceProductionWorkbench() {
                   || taskCandidatePanel.correctionResult
                   || taskCandidatePanel.migrationResult
                 );
-                const taskCardAction = candidateReadyForAdoption
-                  && taskProductionAction?.kind === 'generate_candidate'
+                const taskCardAction = candidateReadyForDecision
                   ? {
                       kind: 'adopt_candidate',
                       label: '采用并发布',
                       busyLabel: '正在采用并发布题目…',
                     }
+                  : pendingQualityWarnings.length > 0
+                    && taskProductionAction?.kind === 'open_confirmation'
+                    ? null
                   : taskProductionAction;
                 const showTaskProductionAction = Boolean(
                   taskCardAction?.label
                   && taskCardAction.kind !== 'view_formal_resource'
-                  && pendingQualityWarnings.length === 0
                 );
                 const taskSummaryQuestionStem = candidateReadyForAdoption
                   ? selectedTaskCandidate?.content.questionStem?.trim()
@@ -2318,10 +2325,6 @@ export default function MaterialResourceProductionWorkbench() {
                   data-task-production-state={questionLifecycle?.productionView?.state || 'unknown'}
                   data-task-production-action={taskCardAction?.kind || 'none'}
                   key={task.localId}
-                  open={!isPublishedTask
-                    && (issues.length > 0 || task.editorDirty || pendingQualityWarnings.length > 0)
-                    ? true
-                    : undefined}
                   className="group rounded-md border border-slate-200 bg-white p-4 transition-colors open:border-blue-300 sm:p-5"
                 >
                   <summary className="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-2">
@@ -2332,6 +2335,7 @@ export default function MaterialResourceProductionWorkbench() {
                           presentation={taskCardPresentation}
                           candidateReady={candidateReadyForAdoption}
                           actionRequired={candidateActionRequired}
+                          qualityWarningCount={pendingQualityWarnings.length}
                         />
                         {pendingQualityWarnings.length > 0 && (
                           <span className="text-xs font-medium text-amber-700">
@@ -2356,7 +2360,7 @@ export default function MaterialResourceProductionWorkbench() {
                             className="col-span-2 row-start-3 flex shrink-0 flex-wrap items-center gap-2 text-xs sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:justify-end"
                             aria-label="训练任务流程操作"
                           >
-                            {candidateReadyForAdoption && (
+                            {candidateReadyForDecision && (
                               <button
                                 type="button"
                                 disabled={taskCandidateProjection.busy}
@@ -2365,7 +2369,7 @@ export default function MaterialResourceProductionWorkbench() {
                                   event.stopPropagation();
                                   void runTaskCandidateOperation(task, index, 'regenerate');
                                 }}
-                                className="ai-button-outline inline-flex h-9 items-center justify-center rounded-md border px-4 text-[12px] font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+                                className={`${candidateRegenerateButtonClassName} group-open:hidden`}
                               >
                                 {taskCandidateProjection.busy ? '正在重新生成题目…' : '重新生成题目'}
                               </button>
@@ -2411,16 +2415,7 @@ export default function MaterialResourceProductionWorkbench() {
                                     void runTaskCandidateOperation(task, index, 'generate');
                                     return;
                                   }
-                                  if (taskCardAction.kind === 'open_confirmation') {
-                                    const taskCard = event.currentTarget.closest('details');
-                                    taskCard?.setAttribute('open', '');
-                                    window.requestAnimationFrame(() => {
-                                      taskCard
-                                        ?.querySelector('[data-task-candidate-decision]')
-                                        ?.scrollIntoView({ block: 'nearest' });
-                                    });
-                                    return;
-                                  }
+                                  if (taskCardAction.kind === 'open_confirmation') return;
                                   if (taskCardAction.kind === 'focus_issue') {
                                     if (issues[0]) focusTaskIssue(issues[0]);
                                     return;
@@ -2430,7 +2425,7 @@ export default function MaterialResourceProductionWorkbench() {
                                 className={taskCardAction.kind === 'generate_candidate'
                                   ? 'ai-button-solid inline-flex h-9 items-center justify-center rounded-md border px-4 text-[12px] font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40'
                                   : taskCardAction.kind === 'adopt_candidate'
-                                    ? 'inline-flex h-9 items-center justify-center rounded-md bg-blue-700 px-4 text-[12px] font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500'
+                                    ? `${candidateAdoptButtonClassName} group-open:hidden`
                                   : 'text-[12px] font-medium text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-400 disabled:no-underline'}
                               >
                                 {workflowBusy
@@ -2919,11 +2914,24 @@ function Metric({ label, value, tone = 'default' }) {
   );
 }
 
-function TaskQuestionLifecycleBadge({ presentation, candidateReady = false, actionRequired = false }) {
-  const resolvedPresentation = actionRequired || candidateReady ? {
-    visibleStatusLabel: '待处理',
+function TaskQuestionLifecycleBadge({
+  presentation,
+  candidateReady = false,
+  actionRequired = false,
+  qualityWarningCount = 0,
+}) {
+  const resolvedPresentation = qualityWarningCount > 0 ? {
+    visibleStatusLabel: '质量提醒待处理',
     visibleStatusTone: 'warning',
-    stateLabel: '待处理',
+    stateLabel: '质量提醒待处理',
+  } : candidateReady ? {
+    visibleStatusLabel: '题目待采用',
+    visibleStatusTone: 'candidate',
+    stateLabel: '题目待采用',
+  } : actionRequired ? {
+    visibleStatusLabel: '需要处理',
+    visibleStatusTone: 'warning',
+    stateLabel: '需要处理',
   } : presentation || {
     visibleStatusLabel: '待处理',
     visibleStatusTone: 'warning',
@@ -3205,7 +3213,7 @@ function TaskCandidateDecisionPanel({
             <button
               type="button"
               onClick={onGenerate}
-              className="ai-button-outline inline-flex h-10 min-w-48 items-center justify-center rounded-md border px-4 text-sm font-semibold"
+              className={candidateRegenerateButtonClassName}
             >
               重新生成题目
             </button>
@@ -3260,16 +3268,16 @@ function TaskCandidateDecisionPanel({
               type="button"
               disabled={projection.busy}
               onClick={onGenerate}
-              className={`inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-semibold ${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}
+              className={candidateRegenerateButtonClassName}
             >
-              生成新一轮方案
+              重新生成题目
             </button>
             <button
               type="button"
               disabled={!projection.adoption.enabled}
               title={projection.adoption.reason}
               onClick={onAdopt}
-              className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+              className={candidateAdoptButtonClassName}
             >
               采用并发布
             </button>
@@ -3277,6 +3285,7 @@ function TaskCandidateDecisionPanel({
           {!projection.adoption.enabled && projection.adoption.reason && (
             <p className="mt-2 text-right text-xs text-slate-500">{projection.adoption.reason}</p>
           )}
+
         </>
       )}
 
@@ -3344,10 +3353,7 @@ function CandidateContentPreview({ candidate }) {
   const minimumAnswerLength = Number(content.minimumAnswerRequirement?.minLength || 0);
   return (
     <article className="min-w-0 border-l-2 border-violet-500 bg-white px-4 py-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-slate-950">{content.title || '未命名候选'}</p>
-        <span className="text-xs text-violet-700">{candidateTypeLabel(candidate.candidateType)}</span>
-      </div>
+      <p className="text-sm font-semibold text-slate-950">{content.title || '未命名候选'}</p>
       <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-800">{content.questionStem}</p>
       {minimumAnswerLength > 0 && (
         <p className="mt-3 text-xs leading-5 text-slate-600">
@@ -3362,15 +3368,12 @@ function CandidateContentPreview({ candidate }) {
 function TaskQualityWarningSummary({ warnings }) {
   return (
     <div data-task-quality-warning-summary className="mt-4 border-t border-slate-200 pt-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-slate-900">质量提醒</p>
-        <span className="text-xs font-medium text-amber-700">{warnings.length} 项需要判断</span>
-      </div>
+      <p className="text-sm font-semibold text-slate-900">质量提醒</p>
       <ul className="mt-3 space-y-2">
         {warnings.map((warning, index) => (
           <li key={warning.code} className="flex gap-2 text-sm leading-6 text-amber-900">
             <span aria-hidden="true" className="shrink-0">{index + 1}.</span>
-            <span>{warning.message}</span>
+            <span>{taskQualityWarningMessage(warning)}</span>
           </li>
         ))}
       </ul>
@@ -3379,6 +3382,14 @@ function TaskQualityWarningSummary({ warnings }) {
       </p>
     </div>
   );
+}
+
+function taskQualityWarningMessage(warning) {
+  if (warning.check === 'difficultyCoherence') {
+    if (warning.message?.startsWith('当前设为')) return warning.message;
+    return '题目难度可能需要调整，请检查当前难度是否与作答要求和评分条件相符。';
+  }
+  return warning.message;
 }
 
 function MaterialContentPreview({ paragraphs, expanded, onToggle }) {
@@ -4314,16 +4325,6 @@ function candidatePanelStateLabel(state) {
     candidate_expired: '题目方案已过期',
     candidate_failed: '题目生成失败',
   })[state] || '题目状态待确认';
-}
-
-function candidateTypeLabel(type) {
-  return ({
-    initial: 'AI 生成',
-    regenerated: '重新生成',
-    optimized: 'AI 优化',
-    formal_version_optimization: '新版方案',
-    exception_corrected: '异常纠错',
-  })[type] || 'AI 候选';
 }
 
 function isTaskReady(task) {

@@ -31,6 +31,7 @@ import type {
 
 const BATCH_A_RESOURCE_PREFIX = 'phase17-batch-a-resource-';
 const BATCH_A_BOOTSTRAP_MATERIAL_ID = 'phase17-batch-a-material-station';
+const FORMAL_RESOURCE_ROTATION_COOLDOWN_TASK_COUNT = 2;
 
 export type Phase173FormalResourceMatchInput = {
   taskRequest: TaskRequest;
@@ -274,19 +275,18 @@ export async function resolveFormalResourceBootstrapMatch(input: {
   const activeTaskIds = new Set(input.recentHistory.recentTaskIds);
   const activeResourceIds = new Set(input.recentHistory.recentResourceIds);
   const reviewCandidates = input.reusePreviouslyUsedWhenExhausted
-    ? [...input.versions]
-        .filter((version) => (
+    ? orderFormalResourceRotationCandidates(
+        input.versions.filter((version) => (
           version.status === 'frozen' &&
           version.abilityMetadata.taskRole === 'training' &&
           recentVersionIds.has(version.resourceVersionId) &&
           Boolean(version.materialId) &&
           !activeTaskIds.has(version.taskId) &&
           !activeResourceIds.has(version.resourceId)
-        ))
-        .sort((left, right) => (
-          left.abilityMetadata.abilityId.localeCompare(right.abilityMetadata.abilityId) ||
-          left.resourceVersionId.localeCompare(right.resourceVersionId)
-        ))
+        )),
+        input.recentHistory,
+        input.versions,
+      )
     : [];
   const reviewHistory = {
     ...input.recentHistory,
@@ -355,6 +355,46 @@ export async function resolveFormalResourceBootstrapMatch(input: {
       evaluatedAt,
     }),
   };
+}
+
+export function orderFormalResourceRotationCandidates(
+  candidates: FrozenQuestionResourceVersion[],
+  recentHistory: Pick<
+    ResourceMatchRecentHistory,
+    'recentResourceVersionIds' | 'resourceVersionConsumptionSequence'
+  >,
+  allVersions: FrozenQuestionResourceVersion[] = candidates,
+): FrozenQuestionResourceVersion[] {
+  const sequence = recentHistory.resourceVersionConsumptionSequence?.length
+    ? recentHistory.resourceVersionConsumptionSequence
+    : recentHistory.recentResourceVersionIds;
+  const cooldownIds = new Set(sequence.slice(-FORMAL_RESOURCE_ROTATION_COOLDOWN_TASK_COUNT));
+  const consumeCounts = new Map<string, number>();
+  const lastConsumedIndex = new Map<string, number>();
+  sequence.forEach((id, index) => {
+    consumeCounts.set(id, (consumeCounts.get(id) || 0) + 1);
+    lastConsumedIndex.set(id, index);
+  });
+  const lastVersionId = sequence.at(-1);
+  const lastMaterialId = allVersions.find((version) => (
+    version.resourceVersionId === lastVersionId
+  ))?.materialId;
+  const lastAbilityId = allVersions.find((version) => (
+    version.resourceVersionId === lastVersionId
+  ))?.abilityMetadata.abilityId;
+
+  return [...candidates].sort((left, right) => (
+    Number(cooldownIds.has(left.resourceVersionId)) - Number(cooldownIds.has(right.resourceVersionId)) ||
+    (consumeCounts.get(left.resourceVersionId) || 0) - (consumeCounts.get(right.resourceVersionId) || 0) ||
+    Number(Boolean(lastMaterialId && left.materialId === lastMaterialId)) -
+      Number(Boolean(lastMaterialId && right.materialId === lastMaterialId)) ||
+    Number(Boolean(lastAbilityId && left.abilityMetadata.abilityId === lastAbilityId)) -
+      Number(Boolean(lastAbilityId && right.abilityMetadata.abilityId === lastAbilityId)) ||
+    (lastConsumedIndex.get(left.resourceVersionId) ?? -1) -
+      (lastConsumedIndex.get(right.resourceVersionId) ?? -1) ||
+    left.abilityMetadata.abilityId.localeCompare(right.abilityMetadata.abilityId) ||
+    left.resourceVersionId.localeCompare(right.resourceVersionId)
+  ));
 }
 
 export async function loadPhase173BatchACurrentVersions(

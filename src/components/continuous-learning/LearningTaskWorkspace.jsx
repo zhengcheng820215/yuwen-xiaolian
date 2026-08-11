@@ -1,6 +1,7 @@
 import { ArrowRight, BookOpen, RefreshCw, Save } from 'lucide-react';
 import { StudentFeedbackPanel } from './StudentFeedbackPanel.jsx';
 import ReadingMaterialText from './ReadingMaterialText.jsx';
+import AnswerLengthIndicator, { readMinimumAnswerLength } from './AnswerLengthIndicator.jsx';
 
 export default function LearningTaskWorkspace({
   state,
@@ -14,10 +15,10 @@ export default function LearningTaskWorkspace({
   const entry = state.entryState;
 
   return (
-    <div className="learning-workspace-split-background relative bg-[#f7f9fc] lg:h-[calc(100vh-64px)] lg:min-h-[620px]">
-      <div className="relative mx-auto grid w-full max-w-[1400px] border-b border-slate-200 lg:h-full lg:grid-cols-[minmax(0,9fr)_minmax(0,11fr)] xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <section className="border-b border-slate-200 bg-[#f7f9fc] px-4 py-5 md:px-6 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-8 lg:py-7">
-        <div className="mx-auto max-w-[640px]">
+    <div className="learning-workspace-split-background relative bg-[#f7f9fc] min-[1060px]:h-[calc(100vh-64px)] min-[1060px]:min-h-[620px]">
+      <div className="relative mx-auto grid w-full max-w-[1680px] border-b border-slate-200 min-[1060px]:h-full min-[1060px]:grid-cols-[clamp(460px,55%,760px)_minmax(480px,1fr)]">
+        <section className="border-b border-slate-200 bg-[#f7f9fc] px-4 py-5 md:px-6 lg:px-8 lg:py-7 min-[1060px]:overflow-y-auto min-[1060px]:border-b-0 min-[1060px]:border-r">
+        <div className="mx-auto w-full max-w-[760px]">
           <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
             <BookOpen size={18} className="text-slate-500" />
             <h2 className="text-lg font-semibold leading-7 text-slate-950">阅读材料</h2>
@@ -28,7 +29,7 @@ export default function LearningTaskWorkspace({
         </div>
         </section>
 
-        <section className="bg-white px-4 py-5 md:px-6 lg:overflow-y-auto lg:px-8 lg:py-7">
+        <section className="bg-white px-4 py-5 md:px-6 lg:px-8 lg:py-7 min-[1060px]:overflow-y-auto">
         <div className="mx-auto w-full max-w-[640px] space-y-6">
           <div>
             <h2 className="text-lg font-semibold leading-7 text-slate-950">
@@ -53,6 +54,10 @@ export default function LearningTaskWorkspace({
               rows={8}
               placeholder="请在这里输入你的回答。"
               className="min-h-52 w-full resize-y rounded-md border border-slate-300 bg-[#f7f9fc] p-4 text-base leading-7 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+            />
+            <AnswerLengthIndicator
+              answer={answer}
+              minimumLength={readMinimumAnswerLength(entry?.answerRequirements)}
             />
             <div className="mt-3 flex flex-col-reverse gap-3 sm:grid sm:grid-cols-2">
               <button
