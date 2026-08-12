@@ -162,7 +162,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
         setAnalysisRetry(false);
         showMessage(RUNTIME_UNAVAILABLE_MESSAGE, 'error');
       } else {
-        setAnalysisRetry(true);
+        setAnalysisRetry(isRetryableAnalysisFailure(error));
         showMessage(toMessage(error), 'error');
       }
     } finally {
@@ -213,8 +213,8 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
   const paused = state.status === 'blocked' || state.status === 'review_required';
   const recovering = state.status === 'retry_required' && state.primaryAction === 'resume_processing';
   return (
-    <div className={`min-h-screen text-slate-950 ${completed || paused || recovering ? 'bg-[#f7f9fc]' : 'learning-workspace-split-background bg-[#f7f9fc]'}`}>
-      <header className="border-b border-slate-200 bg-white">
+    <div className={`min-h-screen text-slate-950 ${completed || paused || recovering ? 'bg-[#f7f9fc]' : 'learning-workspace-split-background bg-[#f7f9fc] min-[1060px]:h-screen min-[1060px]:overflow-hidden'}`}>
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
         <div className="mx-auto flex min-h-16 w-full max-w-[1400px] items-center justify-between gap-4 px-5 md:px-8">
           <button
             type="button"
@@ -225,7 +225,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
             <ArrowLeft size={19} />
           </button>
           <div className="flex items-center gap-3 text-sm text-slate-500">
-            {state.isRetest ? <span className="font-medium text-blue-700">延迟复测</span> : null}
+            {state.isRetest ? <span className="font-medium text-emerald-700">延迟复测</span> : null}
             <span>第 {state.roundNumber} 轮</span>
           </div>
         </div>
@@ -244,8 +244,8 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
           onReturn={onReturnToEntry}
         />
       ) : (
-        <main className="mx-auto grid min-h-[calc(100vh-65px)] w-full max-w-[1680px] min-[1060px]:grid-cols-[clamp(460px,55%,760px)_minmax(480px,1fr)]">
-          <section className="border-b border-slate-200 bg-[#f7f9fc] px-6 py-8 lg:px-10 lg:py-10 min-[1060px]:border-b-0 min-[1060px]:border-r">
+        <main className="mx-auto grid min-h-[calc(100vh-65px)] w-full max-w-[1680px] min-[1060px]:h-[calc(100vh-65px)] min-[1060px]:min-h-0 min-[1060px]:grid-cols-[clamp(460px,55%,760px)_minmax(480px,1fr)] min-[1060px]:overflow-hidden">
+          <section className="border-b border-slate-200 bg-[#f7f9fc] px-6 py-8 lg:px-10 lg:py-10 min-[1060px]:min-h-0 min-[1060px]:overflow-y-auto min-[1060px]:overscroll-contain min-[1060px]:border-b-0 min-[1060px]:border-r">
             <div className="mx-auto w-full max-w-[760px]">
               <h1 className="flex items-center gap-3 text-lg font-semibold">
                 <BookOpen size={20} className="text-slate-500" />
@@ -257,11 +257,10 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
             </div>
           </section>
 
-          <section className="px-6 py-8 lg:px-10 lg:py-10 xl:px-14">
+          <section className="bg-white px-6 py-8 lg:px-10 lg:py-10 xl:px-14 min-[1060px]:min-h-0 min-[1060px]:overflow-y-auto min-[1060px]:overscroll-contain">
             <div className="mx-auto max-w-[640px]">
-              <p className="text-sm text-slate-500">本题考查：{state.task.focus}</p>
               {state.learningPresentation?.taskReason ? (
-                <div className="mt-5 border-l-2 border-blue-500 pl-4">
+                <div className="border-l-2 border-emerald-500 pl-4">
                   <p className="text-sm font-semibold text-slate-800">为什么练这题</p>
                   <p className="mt-1 text-sm leading-6 text-slate-600">{state.learningPresentation.taskReason}</p>
                 </div>
@@ -279,7 +278,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
                 disabled={busy || analysisRetry}
                 aria-label="输入你的回答"
                 placeholder="请在这里输入你的回答。"
-                className="mt-7 min-h-[240px] max-h-[400px] w-full resize-none rounded-md border border-slate-300 bg-[#f8fafc] px-4 py-4 text-base leading-7 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-wait disabled:opacity-70"
+                className="mt-7 min-h-[240px] max-h-[400px] w-full resize-none rounded-md border border-slate-300 bg-[#f8fafc] px-4 py-4 text-base leading-7 text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:cursor-wait disabled:opacity-70"
               />
               <AnswerLengthIndicator
                 answer={answer}
@@ -471,7 +470,7 @@ function RecoveringWorkspace({ state, busy, runtimeAvailability, onResume, onRet
   const unavailable = runtimeAvailability === 'unavailable';
   return (
     <main className="mx-auto flex min-h-[calc(100vh-65px)] max-w-[720px] flex-col justify-center px-6 py-12">
-      <RefreshCw size={24} className={busy ? 'animate-spin text-blue-600' : 'text-slate-500'} />
+      <RefreshCw size={24} className={busy ? 'animate-spin text-emerald-600' : 'text-slate-500'} />
       <h1 className="mt-4 text-lg font-semibold">{unavailable ? '分析服务尚未就绪' : '恢复本次提交'}</h1>
       <p className="mt-3 text-base leading-7 text-slate-600">{unavailable ? RUNTIME_UNAVAILABLE_MESSAGE : state.studentMessage}</p>
       <div className="mt-8 flex flex-wrap gap-3">
@@ -771,4 +770,10 @@ function toMessage(error) {
     return '本次分析尚未完成，回答已经保留。请点击“重新分析”继续，无需刷新或重新作答。';
   }
   return value;
+}
+
+function isRetryableAnalysisFailure(error) {
+  const value = error instanceof Error ? error.message : String(error);
+  if (/暂无符合|当前没有.*任务|任务尚未准备|resource|match|正式任务/i.test(value)) return false;
+  return /api|provider|diagnosis|prompt|schema|分析.*失败|分析.*超时/i.test(value);
 }

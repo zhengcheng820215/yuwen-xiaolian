@@ -564,6 +564,8 @@ Phase 17 的录入、题目人工审核与发布正式化遵循 [Authoring, Revi
 | Phase 1–16.2 组合式 Runtime 回归 | [集成回归记录](../education/phase/reports/phase1_16_2_integrated_runtime_regression_2026-07-20.md) |
 | 某个 Phase 的规则与验收 | 对应 `docs/education/phase/phase*.md` |
 | PC / 平板学生体验原则 | [PC Learning Workspace UX Calibration](../product/PC_LEARNING_WORKSPACE_UX_CALIBRATION.md) |
+| Learning 与资源生产平台的共享 UX 基础及分离边界 | [Cross-platform UX Foundation](../product/CROSS_PLATFORM_UX_FOUNDATION.md) |
+| 素材录入、审核与发布平台体验规范 | [Resource Production Workbench UX Standard](../product/RESOURCE_PRODUCTION_WORKBENCH_UX_STANDARD.md) |
 | 单学生产品页面与入口收敛 | [Product Interface Consolidation](../product/STUDENT_PRODUCT_INTERFACE_CONSOLIDATION.md) |
 | 学生学习叙事校准 | [Student Learning Narrative Calibration](../product/STUDENT_LEARNING_NARRATIVE_CALIBRATION.md) |
 | 产品负责人控制表 | [Product Owner Control Table](../product/PRODUCT_CONTROL_TABLE.md) |

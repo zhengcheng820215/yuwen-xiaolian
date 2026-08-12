@@ -13,7 +13,7 @@ export default function LearningWorkspaceHeader({
           <button
             type="button"
             onClick={onBack}
-            className="flex min-h-10 items-center gap-2 rounded-md px-2 text-sm font-normal text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="flex min-h-10 items-center gap-2 rounded-md px-2 text-sm font-normal text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
           >
             <ArrowLeft size={18} />
             学习入口
@@ -40,7 +40,7 @@ function RoundSteps({ current, completed, total }) {
               isCompleted
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                 : isCurrent
-                  ? 'border-blue-300 bg-blue-50 text-blue-700'
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                   : 'border-slate-200 bg-slate-50 text-slate-400'
             }`}
           >

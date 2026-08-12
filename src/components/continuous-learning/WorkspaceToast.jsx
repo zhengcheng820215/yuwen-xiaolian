@@ -38,7 +38,7 @@ export default function WorkspaceToast({ message, tone = 'success', duration, on
         {isError ? (
           <CircleAlert size={16} className="shrink-0 text-red-600" />
         ) : isOperation ? (
-          <Info size={16} className="shrink-0 text-blue-600" />
+          <Info size={16} className="shrink-0 text-emerald-600" />
         ) : (
           <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
         )}
@@ -47,7 +47,7 @@ export default function WorkspaceToast({ message, tone = 'success', duration, on
           <button
             type="button"
             onClick={beginDismiss}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
             aria-label="关闭提示"
           >
             <X size={16} />

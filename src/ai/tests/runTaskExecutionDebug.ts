@@ -227,6 +227,20 @@ function runTaskExecutionDebug(): void {
       expectedValidityStatus: 'irrelevant',
       expectedCanEnterDiagnosis: false,
     },
+    {
+      id: 'case_13_long_random_input_with_accidental_overlap',
+      title: 'long random input with one accidental task overlap',
+      result: runTaskExecutionAgent({
+        concreteTask: task,
+        readiness,
+        studentAnswer: {
+          answerText: '喝酒完事瑞尔会哦还让我iuUI撒电话问候侨电视剧还款日u二回极速达作者',
+        },
+      }),
+      expectedResultStatus: 'submitted_invalid',
+      expectedValidityStatus: 'irrelevant',
+      expectedCanEnterDiagnosis: false,
+    },
   ];
 
   const failures = validateCases(cases);

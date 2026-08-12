@@ -1,5 +1,7 @@
 # 素材资源录入平台 UX 校准记录
 
+> 2026-08-12 规范说明：本文继续作为历史校准与落地记录。后续资源录入、审核和发布页面的规范性设计与验收，以[资源生产工作台 UX 规范](./RESOURCE_PRODUCTION_WORKBENCH_UX_STANDARD.md)为主；共享基础遵循[跨平台 UX 基础规范](./CROSS_PLATFORM_UX_FOUNDATION.md)。本文中的既有页面证据和校准结论继续有效，但不得覆盖新的平台边界。
+
 ## 状态
 
 `IMPLEMENTED / BUILD VERIFIED`

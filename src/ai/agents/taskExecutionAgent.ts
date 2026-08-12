@@ -282,7 +282,22 @@ function isHighConfidenceTaskIrrelevantAnswer(value: string, task: ConcreteLearn
 
   const contextAnchors = meaningfulBigrams(context);
   if (contextAnchors.size === 0) return false;
-  return [...meaningfulBigrams(value)].every((anchor) => !contextAnchors.has(anchor));
+  const answerAnchors = [...meaningfulBigrams(value)];
+  const matchedAnchors = answerAnchors.filter((anchor) => contextAnchors.has(anchor));
+
+  if (matchedAnchors.length === 0) return true;
+
+  // One accidental two-character overlap is common in input-method noise.
+  // Only block that case deterministically when the response also contains a
+  // high-confidence mixture of fragmented Latin text and unrelated Chinese;
+  // ordinary short Chinese answers remain available to the semantic gate.
+  return matchedAnchors.length === 1 && isMixedInputMethodNoise(value);
+}
+
+function isMixedInputMethodNoise(value: string): boolean {
+  const latinRuns = value.match(/[a-z]{2,}/gi) || [];
+  const hanCount = [...value].filter((char) => /\p{Script=Han}/u.test(char)).length;
+  return hanCount >= 12 && latinRuns.some((run) => run.length >= 2);
 }
 
 function meaningfulBigrams(value: string): Set<string> {

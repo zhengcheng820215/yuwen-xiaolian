@@ -332,6 +332,8 @@ PRODUCT.md 只负责：
 | 整体流程如何编排 | `LEARNING_FLOW.md` |
 | Agent 如何协作 | `AGENT_PROTOCOL.md` |
 | PC / 平板学习工作台如何组织学生体验 | `PC_LEARNING_WORKSPACE_UX_CALIBRATION.md` |
+| Learning 与资源生产平台共享哪些基础、哪些必须分开 | [Cross-platform UX Foundation](./CROSS_PLATFORM_UX_FOUNDATION.md) |
+| 素材录入、审核和发布工作台如何组织专业生产体验 | [Resource Production Workbench UX Standard](./RESOURCE_PRODUCTION_WORKBENCH_UX_STANDARD.md) |
 | 正式资源生产契约如何关联、按什么顺序阅读 | [Formal Resource Production Contract Map](./FORMAL_RESOURCE_PRODUCTION_CONTRACT_MAP.md) |
 | 产品颜色分别表达什么状态与操作 | [Product Color Semantics](./PRODUCT_COLOR_SEMANTICS.md) |
 | 产品负责人如何查看当前模块、产品验收与问题归类 | [Product Owner Control Table](./PRODUCT_CONTROL_TABLE.md) |

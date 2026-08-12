@@ -53,7 +53,7 @@ export default function LearningTaskWorkspace({
               onChange={(event) => onAnswerChange(event.target.value)}
               rows={8}
               placeholder="请在这里输入你的回答。"
-              className="min-h-52 w-full resize-y rounded-md border border-slate-300 bg-[#f7f9fc] p-4 text-base leading-7 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+              className="min-h-52 w-full resize-y rounded-md border border-slate-300 bg-[#f7f9fc] p-4 text-base leading-7 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
             <AnswerLengthIndicator
               answer={answer}

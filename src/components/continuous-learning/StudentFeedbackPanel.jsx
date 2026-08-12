@@ -3,7 +3,7 @@ export function StudentFeedbackPanel({ feedback, className = '' }) {
 
   return (
     <section className={`border-t border-slate-200 pt-5 ${className}`} aria-live="polite">
-      <p className="text-sm font-semibold leading-5 text-blue-700">本轮反馈</p>
+      <p className="text-sm font-semibold leading-5 text-emerald-700">本轮反馈</p>
       <h2 className="mt-1 text-lg font-semibold leading-7 text-slate-950">{feedback.headline}</h2>
       <p className="mt-3 text-base leading-7 text-slate-700">{feedback.summary}</p>
 
@@ -26,7 +26,7 @@ export function WorkspaceNotice({ tone = 'info', title, text, className = '' }) 
   const toneClass = {
     success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
     error: 'border-red-200 bg-red-50 text-red-800',
-    info: 'border-blue-200 bg-blue-50 text-blue-800',
+    info: 'border-emerald-200 bg-emerald-50 text-emerald-800',
   }[tone];
 
   return (

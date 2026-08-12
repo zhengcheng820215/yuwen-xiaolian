@@ -79,7 +79,7 @@ export default function UnifiedLearningEntry() {
     <div className="min-h-screen bg-[#f7f9fc] text-slate-950">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex min-h-16 max-w-[1360px] items-center px-5 md:px-8">
-          <BookOpen size={20} className="text-blue-600" />
+          <BookOpen size={20} className="text-emerald-600" />
           <span className="ml-3 text-lg font-semibold">学习</span>
         </div>
       </header>
@@ -99,7 +99,7 @@ export default function UnifiedLearningEntry() {
               </p>
 
               {entryPresentation ? (
-                <div className="mt-7 max-w-[680px] border-l-2 border-blue-500 pl-4">
+                <div className="mt-7 max-w-[680px] border-l-2 border-emerald-500 pl-4">
                   <p className="text-sm font-semibold text-slate-900">
                     {entryPresentation.title}
                   </p>
@@ -110,14 +110,14 @@ export default function UnifiedLearningEntry() {
               ) : null}
 
               {entry.hasDraft ? (
-                <p className="mt-6 flex items-center gap-2 text-sm leading-6 text-blue-700">
+                <p className="mt-6 flex items-center gap-2 text-sm leading-6 text-emerald-700">
                   <RotateCcw size={16} />
                   上次输入的答案草稿已经保留
                 </p>
               ) : null}
 
               {entry.retest ? (
-                <div className="mt-7 border-l-2 border-blue-500 pl-4">
+                <div className="mt-7 border-l-2 border-emerald-500 pl-4">
                   <p className="text-sm font-semibold text-slate-900">待完成复测</p>
                   <p className="mt-1 text-sm leading-6 text-slate-600">{entry.retest.whyNow}</p>
                 </div>
@@ -180,7 +180,7 @@ function resolveEntryPresentation(entry) {
 function StatusEyebrow({ status, title }) {
   const isComplete = ['feedback_available', 'session_ended'].includes(status);
   const isActionable = ['continue_round', 'start_new_round', 'delayed_retest_available'].includes(status);
-  const tone = isComplete ? 'text-emerald-700' : isActionable ? 'text-blue-700' : ['blocked', 'review_required'].includes(status) ? 'text-amber-700' : 'text-slate-600';
+  const tone = isComplete || isActionable ? 'text-emerald-700' : ['blocked', 'review_required'].includes(status) ? 'text-amber-700' : 'text-slate-600';
   return (
     <div className={`flex items-center gap-2 text-sm font-semibold ${tone}`}>
       {isComplete ? <CheckCircle2 size={16} /> : <Clock3 size={16} />}
