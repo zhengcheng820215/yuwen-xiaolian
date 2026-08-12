@@ -37,7 +37,6 @@ const aiActions = [
   [materialWorkbenchSource, 'AI根据素材生成训练任务', 'ai-button-solid'],
   [materialWorkbenchSource, '重新规划整组任务', 'ai-button-outline'],
   [materialWorkbenchSource, '补充生成训练任务', 'ai-button-solid'],
-  [materialWorkbenchSource, '生成优化题目', 'ai-button-solid'],
   [questionWorkbenchSource, 'AI 优化题干', 'ai-button-outline'],
   [questionWorkbenchSource, 'AI 优化本项', 'ai-button-outline'],
 ] as const;
@@ -48,7 +47,6 @@ for (const [source, label, expectedClass] of aiActions) {
 
 const ordinaryActionLabels = [
   '保存任务组修改',
-  '采用并发布',
   '采用所选候选',
   '提交最终确认',
   '保存本次修改',
@@ -185,8 +183,8 @@ assert.match(
 );
 assert.match(
   materialWorkbenchSource,
-  /qualityWarningCount > 0 \? \{[\s\S]*?visibleStatusLabel: '质量提醒待处理'[\s\S]*?candidateReady \? \{[\s\S]*?visibleStatusLabel: '题目待采用'/,
-  '任务卡必须区分质量提醒待处理与题目待采用，避免相同标签对应不同操作',
+  /qualityWarningCount > 0 \? \{[\s\S]*?visibleStatusLabel: '需要确认'[\s\S]*?candidateReady \? \{[\s\S]*?visibleStatusLabel: '可以发布'/,
+  '任务卡必须区分需要确认与可以发布，避免相同标签对应不同操作',
 );
 assert.match(
   materialWorkbenchSource,

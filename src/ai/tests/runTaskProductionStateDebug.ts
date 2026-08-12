@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import {
+  resolveInitialQuestionCandidateGapPresentation,
+  resolveCandidateAwareTaskCardFallback,
+  shouldShowInitialQuestionCandidateGap,
   resolveTaskAssessmentStatus,
   resolveTaskGroupPublicationSummary,
   resolveTaskGroupTopLevelSummary,
@@ -11,6 +14,117 @@ import {
   resolveTaskPublicationEligibility,
   resolveTaskProductionState,
 } from '../../pages/taskProductionState.ts';
+
+const incompleteInitialCandidate = resolveInitialQuestionCandidateGapPresentation({
+  questionStem: '已有题干',
+  missingFields: ['rubric', 'answerAcceptance'],
+});
+assert.equal(incompleteInitialCandidate.stateLabel, '题目待采用');
+assert.equal(incompleteInitialCandidate.actionLabel, '重新生成题目');
+assert.equal(incompleteInitialCandidate.busyLabel, '正在重新生成题目…');
+assert.match(incompleteInitialCandidate.emptyMessage, /恢复当前题目方案/);
+assert.equal(incompleteInitialCandidate.hasQuestionContent, true);
+assert.deepEqual(incompleteInitialCandidate.missingFields, ['rubric', 'answerAcceptance']);
+
+const missingInitialCandidate = resolveInitialQuestionCandidateGapPresentation({
+  questionStem: ' ',
+});
+assert.equal(missingInitialCandidate.stateLabel, '未生成题目');
+assert.equal(missingInitialCandidate.actionLabel, '生成题目');
+assert.equal(missingInitialCandidate.hasQuestionContent, false);
+
+const legacyGenerateAction = {
+  kind: 'generate_candidate',
+  label: '生成题目',
+  busyLabel: '正在生成题目…',
+} as const;
+assert.deepEqual(resolveCandidateAwareTaskCardFallback({
+  baseAction: legacyGenerateAction,
+  hasQuestionContent: true,
+  isLoadingCandidates: false,
+  isPublishedTask: false,
+}), {
+  kind: 'adopt_candidate',
+  label: '采用并发布',
+  busyLabel: '正在采用并发布题目…',
+});
+assert.deepEqual(resolveCandidateAwareTaskCardFallback({
+  baseAction: legacyGenerateAction,
+  hasQuestionContent: true,
+  isLoadingCandidates: true,
+  isPublishedTask: false,
+}), {
+  kind: null,
+  label: null,
+  busyLabel: null,
+});
+assert.deepEqual(resolveCandidateAwareTaskCardFallback({
+  baseAction: legacyGenerateAction,
+  hasQuestionContent: false,
+  isLoadingCandidates: false,
+  isPublishedTask: false,
+}), legacyGenerateAction);
+
+assert.equal(shouldShowInitialQuestionCandidateGap({
+  isPublishedTask: false,
+  hasSelectedCandidate: false,
+  isLoadingCandidates: false,
+  readyCandidateCount: 0,
+  initialCandidateStatus: 'question_generation_required',
+  hasExistingDraft: false,
+  hasQuestionContent: false,
+  productionState: 'editing',
+}), true);
+assert.equal(shouldShowInitialQuestionCandidateGap({
+  isPublishedTask: false,
+  hasSelectedCandidate: false,
+  isLoadingCandidates: false,
+  readyCandidateCount: 0,
+  initialCandidateStatus: 'question_generation_required',
+  hasExistingDraft: false,
+  hasQuestionContent: true,
+  productionState: 'draft_empty',
+}), false);
+assert.equal(shouldShowInitialQuestionCandidateGap({
+  isPublishedTask: false,
+  hasSelectedCandidate: false,
+  isLoadingCandidates: false,
+  readyCandidateCount: 0,
+  initialCandidateStatus: null,
+  hasExistingDraft: false,
+  hasQuestionContent: false,
+  productionState: 'revision_required',
+}), true);
+assert.equal(shouldShowInitialQuestionCandidateGap({
+  isPublishedTask: false,
+  hasSelectedCandidate: false,
+  isLoadingCandidates: false,
+  readyCandidateCount: 0,
+  initialCandidateStatus: null,
+  hasExistingDraft: true,
+  hasQuestionContent: false,
+  productionState: 'check_required',
+}), false);
+assert.equal(shouldShowInitialQuestionCandidateGap({
+  isPublishedTask: false,
+  hasSelectedCandidate: true,
+  isLoadingCandidates: false,
+  readyCandidateCount: 1,
+  initialCandidateStatus: 'candidate_available',
+  hasExistingDraft: false,
+  hasQuestionContent: true,
+  productionState: 'draft_empty',
+}), false);
+assert.equal(shouldShowInitialQuestionCandidateGap({
+  isPublishedTask: true,
+  hasSelectedCandidate: false,
+  isLoadingCandidates: false,
+  readyCandidateCount: 0,
+  initialCandidateStatus: 'question_generation_required',
+  hasExistingDraft: false,
+  hasQuestionContent: false,
+  productionState: 'published',
+}), false);
 
 assert.equal(resolveTaskAssessmentStatus(undefined, null), 'missing');
 assert.equal(resolveTaskAssessmentStatus(3, null), 'missing');
@@ -45,6 +159,11 @@ assert.deepEqual(resolveTaskProductionCardAction(empty), {
   label: '生成题目',
   busyLabel: '正在生成题目…',
 });
+assert.deepEqual(resolveTaskProductionCardPresentation(empty, { hasIssues: true }).primaryAction, {
+  kind: 'generate_candidate',
+  label: '生成题目',
+  busyLabel: '正在生成题目…',
+});
 
 const checkRequired = resolveTaskProductionState({
   trainingTaskId: 'task-check',
@@ -55,7 +174,7 @@ assert.equal(checkRequired.primaryAction, 'run_check');
 assert.equal(checkRequired.presentation.primaryActionLabel, '检查题目');
 assert.deepEqual(resolveTaskProductionCardAction(checkRequired), {
   kind: 'run_check',
-  label: '继续处理',
+  label: '检查题目',
   busyLabel: '正在检查题目…',
 });
 
@@ -67,7 +186,7 @@ assert.equal(editing.state, 'editing');
 assert.equal(editing.primaryAction, 'save');
 assert.deepEqual(resolveTaskProductionCardAction(editing), {
   kind: 'save_plan',
-  label: '继续处理',
+  label: '保存任务',
   busyLabel: '正在保存任务修改…',
 });
 
@@ -109,7 +228,7 @@ assert.equal(confirmationReady.state, 'pending_confirmation');
 assert.deepEqual(resolveTaskProductionCardAction(confirmationReady), {
   kind: 'open_confirmation',
   label: '查看题目方案',
-  busyLabel: '正在继续处理…',
+  busyLabel: null,
 });
 
 const pendingConfirmation = resolveTaskProductionState({

@@ -15,12 +15,13 @@ const NOW = '2026-08-06T10:00:00.000Z';
 
 async function main(): Promise<void> {
   await completeTaskCreatesOneDeterministicCandidate();
-  await incompleteTaskRequiresGeneration();
+  await emptyQuestionRequiresGeneration();
+  await visibleQuestionWithIncompleteInternalFieldsCreatesCandidate();
   await changedTaskExpiresOnlyTheOldReadyCompatibilityCandidate();
   await changedPlanContextCreatesCurrentCompatibilityCandidate();
   await expectedVersionAndHashProtectTheAdapterBoundary();
   await activeDraftIdentityIsBoundToTheCurrentScheme();
-  console.log('Training Task Initial Candidate Debug: 6 / 6 PASS');
+  console.log('Training Task Initial Candidate Debug: 7 / 7 PASS');
 }
 
 async function completeTaskCreatesOneDeterministicCandidate(): Promise<void> {
@@ -38,16 +39,30 @@ async function completeTaskCreatesOneDeterministicCandidate(): Promise<void> {
   assert.equal((await fixture.repository.listCandidates('task-1')).length, 1);
 }
 
-async function incompleteTaskRequiresGeneration(): Promise<void> {
-  const incomplete = { ...contentFixture(), rubric: [] };
+async function emptyQuestionRequiresGeneration(): Promise<void> {
+  const incomplete = { ...contentFixture(), questionStem: '   ' };
   const fixture = createFixture(incomplete, 1);
   const result = await fixture.service.ensureInitialCandidateFromTrainingTask(
     ensureInput(fixture.source),
   );
 
   assert.equal(result.status, 'question_generation_required');
-  assert(result.completeness.missingFields.includes('rubric'));
+  assert(result.completeness.missingFields.includes('questionStem'));
   assert.equal((await fixture.repository.listCandidates('task-1')).length, 0);
+}
+
+async function visibleQuestionWithIncompleteInternalFieldsCreatesCandidate(): Promise<void> {
+  const incomplete = { ...contentFixture(), rubric: [] };
+  const fixture = createFixture(incomplete, 1);
+  const result = await fixture.service.ensureInitialCandidateFromTrainingTask(
+    ensureInput(fixture.source),
+  );
+
+  assert.equal(result.status, 'created');
+  assert.equal(result.completeness.complete, false);
+  assert(result.completeness.missingFields.includes('rubric'));
+  assert.equal(result.candidate.content.questionStem, incomplete.questionStem);
+  assert.equal((await fixture.repository.listCandidates('task-1')).length, 1);
 }
 
 async function changedTaskExpiresOnlyTheOldReadyCompatibilityCandidate(): Promise<void> {

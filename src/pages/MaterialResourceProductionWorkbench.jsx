@@ -80,6 +80,9 @@ import {
   resolveTaskAssessmentStatus,
   resolveTaskGroupSummary,
   resolveTaskGroupTopLevelSummary,
+  resolveInitialQuestionCandidateGapPresentation,
+  resolveCandidateAwareTaskCardFallback,
+  shouldShowInitialQuestionCandidateGap,
   resolveTaskProductionVisibleSummary,
   resolveTaskProductionCardPresentation,
   resolveTaskProductionState,
@@ -417,8 +420,8 @@ export default function MaterialResourceProductionWorkbench() {
       return {
         productionView: lifecycle.productionView,
         candidateReady: Boolean(
-          lifecycle.productionView.state === 'draft_empty'
-          && projection.selectedCandidateId,
+          projection.selectedCandidateId
+          && lifecycle.productionView.state !== 'published',
         ),
         actionRequired: Boolean(
           lifecycle.productionView.state !== 'published'
@@ -558,6 +561,8 @@ export default function MaterialResourceProductionWorkbench() {
         formalResource,
       });
       let candidates = await listQuestionTaskCandidates(trainingTaskId);
+      let initialCandidateStatus = candidates.length > 0 ? 'candidate_available' : null;
+      let initialCandidateMissingFields = [];
       const hasCurrentCandidate = candidates.some((candidate) => (
         candidate.status === 'ready'
         && candidate.candidateOrigin === 'training_task_compatibility_wrap'
@@ -566,7 +571,7 @@ export default function MaterialResourceProductionWorkbench() {
       if (!formalResource && !hasCurrentCandidate) {
         const content = buildQuestionCandidateContent(task, activeDraft || null, selectedMaterial);
         const contentHash = calculateQuestionEditableFieldsHash(content);
-        await ensureQuestionTaskInitialCandidate({
+        const initialCandidateResult = await ensureQuestionTaskInitialCandidate({
           trainingTaskId,
           expectedTrainingTaskVersion: context.trainingTaskVersion,
           expectedContentHash: contentHash,
@@ -574,11 +579,15 @@ export default function MaterialResourceProductionWorkbench() {
           content,
           idempotencyKey: `training-task-wrap:${trainingTaskId}:${context.trainingTaskVersion}:${contentHash}`,
         });
+        initialCandidateStatus = initialCandidateResult.status;
+        initialCandidateMissingFields = initialCandidateResult.completeness?.missingFields || [];
         candidates = await listQuestionTaskCandidates(trainingTaskId);
       }
       return {
         trainingTaskId,
         candidates,
+        initialCandidateStatus,
+        initialCandidateMissingFields,
       };
     })).then((results) => {
       if (cancelled) return;
@@ -586,14 +595,20 @@ export default function MaterialResourceProductionWorkbench() {
         trainingTaskId,
         candidates,
       ])));
-      setTaskCandidatePanels((current) => Object.fromEntries(trainingTaskIds.map((trainingTaskId) => [
-        trainingTaskId,
-        {
-          ...(current[trainingTaskId] || {}),
-          operation: 'idle',
-          error: null,
-        },
-      ])));
+      const resultByTrainingTaskId = new Map(results.map((result) => [result.trainingTaskId, result]));
+      setTaskCandidatePanels((current) => Object.fromEntries(trainingTaskIds.map((trainingTaskId) => {
+        const result = resultByTrainingTaskId.get(trainingTaskId);
+        return [
+          trainingTaskId,
+          {
+            ...(current[trainingTaskId] || {}),
+            operation: 'idle',
+            error: null,
+            initialCandidateStatus: result?.initialCandidateStatus || null,
+            initialCandidateMissingFields: result?.initialCandidateMissingFields || [],
+          },
+        ];
+      })));
     }).catch((error) => {
       if (cancelled) return;
       setTaskCandidatePanels((current) => Object.fromEntries(trainingTaskIds.map((trainingTaskId) => [
@@ -933,7 +948,10 @@ export default function MaterialResourceProductionWorkbench() {
       || lifecycle.item?.observationTaskPlanId;
     const planId = lifecycle.item?.materialObservationPlanId
       || selectedPlan?.materialObservationPlanId;
-    if (!observationTaskPlanId || !planId) return;
+    if (!observationTaskPlanId || !planId) {
+      setNotice({ type: 'error', message: '当前题目方案尚未就绪，请重新生成题目。' });
+      return false;
+    }
     if (initialActionKind === 'focus_issue') return;
     if (initialActionKind === 'view_formal_resource') return;
 
@@ -1415,7 +1433,7 @@ export default function MaterialResourceProductionWorkbench() {
       formalResource: lifecycle?.formalResource || null,
     });
     const panel = taskCandidatePanels[trainingTaskId] || {};
-    const projection = resolveCandidatePanelProjection({
+    let projection = resolveCandidatePanelProjection({
       candidates: taskCandidatesById[trainingTaskId] || [],
       context,
       operation: panel.operation,
@@ -1424,16 +1442,9 @@ export default function MaterialResourceProductionWorkbench() {
       adoption: { enabled: true },
       workingStatus: taskWorkingStates[trainingTaskId]?.status,
     });
-    const candidate = projection.readyCandidates.find(
+    let candidate = projection.readyCandidates.find(
       (item) => item.candidateId === projection.selectedCandidateId,
-    );
-    if (!candidate) {
-      updateTaskCandidatePanel(trainingTaskId, {
-        operation: 'failed',
-        error: '请先选择一个当前有效的候选方案。',
-      });
-      return;
-    }
+    ) || projection.readyCandidates[0];
 
     updateTaskCandidatePanel(trainingTaskId, {
       operation: 'adopting',
@@ -1441,6 +1452,44 @@ export default function MaterialResourceProductionWorkbench() {
       adoptionResult: null,
     });
     try {
+      if (!candidate && task.questionStem?.trim()) {
+        const content = buildQuestionCandidateContent(task, draft, selectedMaterial);
+        const contentHash = calculateQuestionEditableFieldsHash(content);
+        await ensureQuestionTaskInitialCandidate({
+          trainingTaskId,
+          expectedTrainingTaskVersion: context.trainingTaskVersion,
+          expectedContentHash: contentHash,
+          expectedContext: context,
+          content,
+          idempotencyKey: `training-task-wrap:${trainingTaskId}:${context.trainingTaskVersion}:${contentHash}`,
+        });
+        const restoredCandidates = await listQuestionTaskCandidates(trainingTaskId);
+        setTaskCandidatesById((current) => ({
+          ...current,
+          [trainingTaskId]: restoredCandidates,
+        }));
+        projection = resolveCandidatePanelProjection({
+          candidates: restoredCandidates,
+          context,
+          operation: 'adopting',
+          selectedCandidateId: panel.selectedCandidateId,
+          comparisonCandidateIds: panel.comparisonCandidateIds,
+          adoption: { enabled: true },
+          workingStatus: taskWorkingStates[trainingTaskId]?.status,
+        });
+        candidate = projection.readyCandidates.find(
+          (item) => item.candidateId === projection.selectedCandidateId,
+        ) || projection.readyCandidates[0];
+      }
+
+      if (!candidate) {
+        updateTaskCandidatePanel(trainingTaskId, {
+          operation: 'failed',
+          error: '当前题目尚未形成可采用方案，请生成题目。',
+        });
+        return;
+      }
+
       const adoptionResult = await adoptQuestionTaskCandidate({
         trainingTaskId,
         candidateId: candidate.candidateId,
@@ -2239,6 +2288,7 @@ export default function MaterialResourceProductionWorkbench() {
                 const taskCardPresentation = questionLifecycle?.cardPresentation;
                 const taskProductionAction = taskCardPresentation?.primaryAction;
                 const isPublishedTask = questionLifecycle?.productionView?.state === 'published';
+                const hasVisibleQuestionContent = Boolean(task.questionStem?.trim());
                 const pendingQualityWarnings = !isPublishedTask
                   && taskProductionAction?.kind === 'open_confirmation'
                   ? questionLifecycle?.readiness?.qualityAssessment?.warnings || []
@@ -2279,14 +2329,36 @@ export default function MaterialResourceProductionWorkbench() {
                 const selectedTaskCandidate = taskCandidateProjection.readyCandidates.find(
                   (candidate) => candidate.candidateId === taskCandidateProjection.selectedCandidateId,
                 ) || null;
+                const initialCandidateGapRequired = shouldShowInitialQuestionCandidateGap({
+                  isPublishedTask,
+                  hasSelectedCandidate: Boolean(selectedTaskCandidate),
+                  isLoadingCandidates: taskCandidatePanel.operation === 'loading_candidates',
+                  readyCandidateCount: taskCandidateProjection.readyCandidates.length,
+                  initialCandidateStatus: taskCandidatePanel.initialCandidateStatus,
+                  hasExistingDraft: Boolean(questionLifecycle?.draft),
+                  hasQuestionContent: hasVisibleQuestionContent,
+                  productionState: questionLifecycle?.productionView?.state,
+                });
+                const initialCandidateGap = initialCandidateGapRequired
+                  ? resolveInitialQuestionCandidateGapPresentation({
+                      questionStem: task.questionStem,
+                      missingFields: taskCandidatePanel.initialCandidateMissingFields || [],
+                    })
+                  : null;
                 const candidateReadyForAdoption = Boolean(
-                  questionLifecycle?.productionView?.state === 'draft_empty'
-                  && selectedTaskCandidate,
+                  selectedTaskCandidate
+                  && !isPublishedTask,
                 );
                 const candidateReadyForDecision = Boolean(
                   selectedTaskCandidate
                   && (candidateReadyForAdoption || pendingQualityWarnings.length > 0),
                 );
+                const adoptActionLabel = pendingQualityWarnings.length > 0
+                  ? '确认并发布'
+                  : '采用并发布';
+                const adoptBusyLabel = pendingQualityWarnings.length > 0
+                  ? '正在确认并发布题目…'
+                  : '正在采用并发布题目…';
                 const candidateActionRequired = Boolean(
                   pendingQualityWarnings.length > 0
                   || taskCandidatePanel.adoptionResult?.visibleState === 'action_required',
@@ -2301,17 +2373,34 @@ export default function MaterialResourceProductionWorkbench() {
                   || taskCandidateProjection.readyCandidates.length > 0
                   || taskCandidatePanel.correctionResult
                   || taskCandidatePanel.migrationResult
+                  || initialCandidateGap
                 );
-                const taskCardAction = candidateReadyForDecision
+                const candidateAwareFallbackAction = resolveCandidateAwareTaskCardFallback({
+                  baseAction: taskProductionAction || {
+                    kind: null,
+                    label: null,
+                    busyLabel: null,
+                  },
+                  hasQuestionContent: hasVisibleQuestionContent,
+                  isLoadingCandidates: taskCandidatePanel.operation === 'loading_candidates',
+                  isPublishedTask,
+                });
+                const taskCardAction = initialCandidateGapRequired
+                  ? {
+                      kind: 'generate_candidate',
+                      label: initialCandidateGap.actionLabel,
+                      busyLabel: initialCandidateGap.busyLabel,
+                    }
+                  : candidateReadyForDecision
                   ? {
                       kind: 'adopt_candidate',
-                      label: '采用并发布',
-                      busyLabel: '正在采用并发布题目…',
+                      label: adoptActionLabel,
+                      busyLabel: adoptBusyLabel,
                     }
                   : pendingQualityWarnings.length > 0
                     && taskProductionAction?.kind === 'open_confirmation'
                     ? null
-                  : taskProductionAction;
+                  : candidateAwareFallbackAction;
                 const showTaskProductionAction = Boolean(
                   taskCardAction?.label
                   && taskCardAction.kind !== 'view_formal_resource'
@@ -2336,6 +2425,7 @@ export default function MaterialResourceProductionWorkbench() {
                           candidateReady={candidateReadyForAdoption}
                           actionRequired={candidateActionRequired}
                           qualityWarningCount={pendingQualityWarnings.length}
+                          candidateGapLabel={initialCandidateGap?.stateLabel}
                         />
                         {pendingQualityWarnings.length > 0 && (
                           <span className="text-xs font-medium text-amber-700">
@@ -2415,7 +2505,16 @@ export default function MaterialResourceProductionWorkbench() {
                                     void runTaskCandidateOperation(task, index, 'generate');
                                     return;
                                   }
-                                  if (taskCardAction.kind === 'open_confirmation') return;
+                                  if (taskCardAction.kind === 'open_confirmation') {
+                                    const taskCard = event.currentTarget.closest('details');
+                                    taskCard?.setAttribute('open', '');
+                                    window.requestAnimationFrame(() => {
+                                      taskCard
+                                        ?.querySelector('[data-task-candidate-decision]')
+                                        ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                                    });
+                                    return;
+                                  }
                                   if (taskCardAction.kind === 'focus_issue') {
                                     if (issues[0]) focusTaskIssue(issues[0]);
                                     return;
@@ -2524,6 +2623,9 @@ export default function MaterialResourceProductionWorkbench() {
                       adoptionResult={taskCandidatePanel.adoptionResult}
                       correctionResult={taskCandidatePanel.correctionResult}
                       migrationResult={taskCandidatePanel.migrationResult}
+                            initialCandidateGap={initialCandidateGap}
+                            adoptActionLabel={adoptActionLabel}
+                            adoptBusyLabel={adoptBusyLabel}
                       onSelectCandidate={(candidateId) => updateTaskCandidatePanel(workingTaskId, {
                         selectedCandidateId: candidateId,
                         comparisonCandidateIds: [candidateId],
@@ -2919,15 +3021,20 @@ function TaskQuestionLifecycleBadge({
   candidateReady = false,
   actionRequired = false,
   qualityWarningCount = 0,
+  candidateGapLabel = null,
 }) {
   const resolvedPresentation = qualityWarningCount > 0 ? {
-    visibleStatusLabel: '质量提醒待处理',
+    visibleStatusLabel: '需要确认',
     visibleStatusTone: 'warning',
-    stateLabel: '质量提醒待处理',
+    stateLabel: '需要确认',
+  } : candidateGapLabel ? {
+    visibleStatusLabel: candidateGapLabel,
+    visibleStatusTone: 'warning',
+    stateLabel: candidateGapLabel,
   } : candidateReady ? {
-    visibleStatusLabel: '题目待采用',
+    visibleStatusLabel: '可以发布',
     visibleStatusTone: 'candidate',
-    stateLabel: '题目待采用',
+    stateLabel: '可以发布',
   } : actionRequired ? {
     visibleStatusLabel: '需要处理',
     visibleStatusTone: 'warning',
@@ -3025,7 +3132,7 @@ function resolveTaskQuestionLifecycle({
     status: issues.length > 0 ? 'validation_failed' : draft.status,
     isDirty: Boolean(task.editorDirty),
     assessmentStatus,
-  } : hasLocalRevision ? {
+  } : task.editorDirty ? {
     draftId: `task-plan:${observationTaskPlanId}`,
     revision: 0,
     status: issues.length > 0 ? 'validation_failed' : 'drafted',
@@ -3114,6 +3221,9 @@ function resolveTaskLifecycleFromSnapshot(nextSnapshot, sourceLifecycle, planId)
 function TaskCandidateDecisionPanel({
   projection,
   hasExistingRevision,
+  initialCandidateGap,
+  adoptActionLabel = '采用并发布',
+  adoptBusyLabel = '正在采用并发布题目…',
   selectedCandidateId,
   error,
   adoptionResult,
@@ -3128,7 +3238,17 @@ function TaskCandidateDecisionPanel({
   const selectedCandidate = projection.readyCandidates.find(
     (candidate) => candidate.candidateId === selectedCandidateId,
   ) || null;
-  const stateLabel = candidatePanelStateLabel(projection.candidateState.state);
+  const stateLabel = initialCandidateGap?.stateLabel
+    || candidatePanelStateLabel(projection.candidateState.state);
+  const candidateNeedsRegeneration = projection.candidateState.state === 'candidate_expired'
+    || projection.candidateState.state === 'candidate_failed';
+  const emptyCandidateActionLabel = candidateNeedsRegeneration
+    ? '重新生成题目'
+    : initialCandidateGap?.actionLabel
+      ? initialCandidateGap.actionLabel
+    : hasExistingRevision
+      ? '生成优化题目'
+      : '生成题目';
 
   return (
     <section
@@ -3175,7 +3295,9 @@ function TaskCandidateDecisionPanel({
       {projection.busy && (
         <div className="mt-4 flex min-h-24 items-center justify-center gap-2 text-sm text-violet-800" role="status">
           <LoaderCircle aria-hidden="true" size={18} className="animate-spin" />
-          {projection.operation === 'optimizing'
+          {initialCandidateGap && projection.operation === 'regenerating'
+            ? initialCandidateGap.busyLabel
+            : projection.operation === 'optimizing'
               ? '正在优化题目…'
             : projection.operation === 'regenerating'
               ? '正在重新生成题目…'
@@ -3184,7 +3306,7 @@ function TaskCandidateDecisionPanel({
                 : projection.operation === 'migrating'
                   ? '正在迁移旧工作内容…'
               : projection.operation === 'adopting'
-                ? '正在采用并发布题目…'
+                ? adoptBusyLabel
                 : '正在读取题目方案…'}
         </div>
       )}
@@ -3204,31 +3326,21 @@ function TaskCandidateDecisionPanel({
           <p className="text-sm text-slate-600">
             {projection.candidateState.state === 'candidate_expired'
               ? '已有题目方案与当前素材或任务版本不一致，请重新生成。'
+              : initialCandidateGap?.emptyMessage
+                ? initialCandidateGap.emptyMessage
               : hasExistingRevision
                 ? '当前任务使用既有题目版本。如需调整，可生成新的 AI 题目方案。'
-                : '当前任务还没有可供判断的题目方案。'}
+                : '当前任务还没有题目。'}
           </p>
-          {(projection.candidateState.state === 'candidate_expired'
-            || projection.candidateState.state === 'candidate_failed') && (
-            <button
-              type="button"
-              onClick={onGenerate}
-              className={candidateRegenerateButtonClassName}
-            >
-              重新生成题目
-            </button>
-          )}
-          {hasExistingRevision
-            && projection.candidateState.state !== 'candidate_expired'
-            && projection.candidateState.state !== 'candidate_failed' && (
-            <button
-              type="button"
-              onClick={onGenerate}
-              className="ai-button-solid inline-flex h-10 min-w-48 items-center justify-center rounded-md border px-4 text-sm font-semibold"
-            >
-              生成优化题目
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={onGenerate}
+            className={candidateNeedsRegeneration
+              ? candidateRegenerateButtonClassName
+              : 'ai-button-solid inline-flex h-10 w-fit items-center justify-center whitespace-nowrap rounded-md border px-5 text-sm font-semibold'}
+          >
+            {emptyCandidateActionLabel}
+          </button>
         </div>
       )}
 
@@ -3279,7 +3391,7 @@ function TaskCandidateDecisionPanel({
               onClick={onAdopt}
               className={candidateAdoptButtonClassName}
             >
-              采用并发布
+              {adoptActionLabel}
             </button>
           </div>
           {!projection.adoption.enabled && projection.adoption.reason && (
@@ -3342,7 +3454,7 @@ function candidateAdoptionRecoveryMessage(result) {
   return ({
     resolve_validation: result.validation?.message || '结构检查未通过，请处理后重试。',
     retry_assessment: result.assessment?.message || '完整质量检查未完成，请重试。',
-    resolve_warnings: '当前题目有质量提醒，请在题目方案区继续处理。',
+    resolve_warnings: '当前题目有质量提醒，请确认是否保留当前题目，或重新生成。',
     retry_review: result.review?.message || '发布所需记录未完成，请重试。',
     retry_publication: result.publication?.message || '发布未完成，已完成步骤会保留，请重试发布。',
   })[result.nextAction] || '题目处理尚未完成，请根据当前状态继续。';
@@ -3707,20 +3819,12 @@ function GeneratorCandidatePreview({
         </details>
       )}
       {result.status === 'candidates_ready' && result.candidates.length > 0 && session && (
-        <div className="mt-4 border-l-4 border-blue-500 bg-blue-50 px-4 py-3">
-          <p className="text-sm leading-6 text-blue-950">
-            {supplementMode
-              ? `已选择 ${selectedCount} 个候选；采用后将加入当前编辑区。`
-              : initialPlanningMode
-                ? `采用后将把这 ${result.candidates.length} 个候选加入训练任务编辑区。`
-                : `采用后将用这 ${result.candidates.length} 个候选替换当前编辑区中的任务组。`}
-            保存前不会创建新版本，也不会进入正式资源。
-          </p>
-          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          <div className="flex flex-wrap justify-end gap-3">
             <button
               type="button"
               onClick={onDiscard}
-              className={`h-10 rounded-md border px-4 text-sm font-semibold ${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}
+              className={`h-10 rounded-md border px-5 text-sm font-semibold ${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}
             >
               {supplementMode || initialPlanningMode ? '放弃候选' : '保留当前任务组'}
             </button>
@@ -3728,7 +3832,7 @@ function GeneratorCandidatePreview({
               type="button"
               onClick={onAdopt}
               disabled={supplementMode && selectedCount === 0}
-              className="h-10 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+              className="h-10 rounded-md bg-blue-700 px-5 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
             >
               {supplementMode
                 ? `采用所选候选（${selectedCount}）`
@@ -4318,13 +4422,13 @@ function createCandidateCommandIdempotencyKey(trainingTaskId, operation) {
 
 function candidatePanelStateLabel(state) {
   return ({
-    no_candidate: '暂无题目方案',
-    candidate_ready: '题目待采用',
+    no_candidate: '未生成题目',
+    candidate_ready: '可以发布',
     candidate_optimizing: '正在优化',
     candidate_regenerating: '正在重新生成',
     candidate_expired: '题目方案已过期',
     candidate_failed: '题目生成失败',
-  })[state] || '题目状态待确认';
+  })[state] || '未生成题目';
 }
 
 function isTaskReady(task) {

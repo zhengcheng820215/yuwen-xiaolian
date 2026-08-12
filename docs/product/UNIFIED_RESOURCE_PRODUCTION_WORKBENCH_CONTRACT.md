@@ -2504,3 +2504,24 @@ Debug 验收（2026-08-09）：初始 Candidate、Candidate Workflow、Workbench
 问题修复记录：此前初始 Candidate 身份未包含 Observation Plan、Active Draft 与 Base Formal Version，上下文变化后会命中同一条已失效 Candidate，页面因找不到当前 Candidate 而把已有题目误判为尚未生成。现已将完整运行上下文加入确定性身份。
 
 回归验收：初始 Candidate Debug `6 / 6 PASS`，Candidate Workbench P6、Task Production State 与 Production Build 通过；真实《皇帝的新装》三个已有题目的任务均显示“重新生成题目 / 采用并发布”，不再显示“生成题目”。
+
+### 22.18 单人任务卡的可见决策状态（2026-08-11）
+
+单人生产工作台不得把 Candidate 内部资料完整性暴露为人工补字段任务。任务卡只呈现用户能够作出决定的状态和动作：
+
+1. 无题目正文：`未生成题目`，显示“生成题目”；
+2. 已有题目且无质量提醒：`可以发布`，显示“重新生成题目 / 采用并发布”；
+3. 已有题目且有普通提醒：`需要确认`，显示“重新生成题目 / 确认并发布”；
+4. 题目可读但内部发布资料不完整：不得形成独立可见状态；系统必须先恢复初始 Candidate，再由采用后的检查链判断为可自动处理、普通提醒或真实阻断；
+5. 真正阻断项：保持`需要确认`并禁止发布，只允许系统修复或重新生成；
+6. 命令运行中与正式发布完成分别显示`处理中`和`已发布`。
+
+题目正文非空即视为已有可判断题目，兼容适配器应确定性创建或恢复初始 Candidate；只有题目正文为空才进入“未生成题目”。活动页面禁止出现“题目方案待补全”“补全题目方案”等内部工程语义。任务卡、顶部统计、主按钮和展开区必须共同读取统一状态解析结果，不得分别推断 Candidate 完整性。该收口只调整前台投影；Candidate 不可变性、Adopt 才创建 Revision、发布前检查与确认、失败恢复及 Registry 读取边界保持不变。
+
+### 22.19 历史题目的兼容采用与统一动作投影（2026-08-11）
+
+1. 任务卡存在非空题目正文且已恢复 `training_task_compatibility_wrap` Candidate 时，卡片、统计与展开区必须直接进入“采用并发布 / 重新生成题目”决策，不得继续依赖旧 Draft 状态判断 Candidate 是否可采用；
+2. 兼容 Candidate 与既有活动 Draft 内容哈希一致时，采用命令绑定既有 QuestionLineage、Draft 与 Revision，不重复升版，不返回 `CANDIDATE_NO_CHANGES`；
+3. 上述等价绑定只适用于 `training_task_compatibility_wrap`。普通 AI Candidate 与当前 Revision 内容相同时仍视为无变化，避免伪造采用记录；
+4. 兼容 Candidate 的绑定仍必须通过统一 Adoption Gateway、命令幂等与上下文冲突校验，不允许页面直接把 TrainingTask 当作 Candidate 或 Revision；
+5. 浏览器历史任务验收必须覆盖“已有题目、已有 Draft、无历史 Candidate”场景，确认页面不再显示“生成题目”“题目方案待补全”或无效“继续处理”。

@@ -47,7 +47,10 @@ export class QuestionResourceCandidateAdoptionGateway implements CandidateAdopti
     if (!input.expectedContext.activeDraftId) return null;
     const activeDraft = await this.repository.getDraft(input.expectedContext.activeDraftId);
     if (!activeDraft || input.expectedContext.activeDraftRevision === undefined) return null;
-    if (activeDraft.revision !== input.expectedContext.activeDraftRevision + 1) return null;
+    const expectedRevision = isTrainingTaskCompatibilityCandidate(input.candidate)
+      ? input.expectedContext.activeDraftRevision
+      : input.expectedContext.activeDraftRevision + 1;
+    if (activeDraft.revision !== expectedRevision) return null;
     if (draftContentHash(activeDraft) !== input.candidate.contentHash) return null;
     return this.toRecoveredAdoption(input.candidate, activeDraft);
   }
@@ -69,6 +72,12 @@ export class QuestionResourceCandidateAdoptionGateway implements CandidateAdopti
     if (!source) {
       const taskDrafts = (await this.repository.listDrafts())
         .filter((draft) => draft.taskId === input.candidate.trainingTaskId && draft.status !== 'archived');
+      const compatibleDraft = isTrainingTaskCompatibilityCandidate(input.candidate)
+        ? taskDrafts.find((draft) => draftContentHash(draft) === input.candidate.contentHash)
+        : null;
+      if (compatibleDraft) {
+        return this.toRecoveredAdoption(input.candidate, compatibleDraft);
+      }
       if (taskDrafts.length > 0) {
         throw conflict(
           'CANDIDATE_BASE_REVISION_CONFLICT',
@@ -86,6 +95,9 @@ export class QuestionResourceCandidateAdoptionGateway implements CandidateAdopti
     }
 
     if (draftContentHash(source) === input.candidate.contentHash) {
+      if (isTrainingTaskCompatibilityCandidate(input.candidate)) {
+        return this.toRecoveredAdoption(input.candidate, source);
+      }
       throw conflict('CANDIDATE_NO_CHANGES', '候选内容与当前题目版本一致，无需创建新版本。');
     }
 
@@ -215,6 +227,11 @@ function safeIdentity(value: string): string {
 
 function draftContentHash(draft: StructuredQuestionDraft): string {
   return calculateQuestionEditableFieldsHash(extractQuestionEditableFields(draft));
+}
+
+function isTrainingTaskCompatibilityCandidate(candidate: QuestionCandidate): boolean {
+  return candidate.candidateOrigin === 'training_task_compatibility_wrap'
+    || candidate.generationContext.source === 'training_task_compatibility_wrap';
 }
 
 function conflict(code: string, message: string): QuestionCandidateConflictError {

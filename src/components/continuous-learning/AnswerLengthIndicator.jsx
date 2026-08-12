@@ -2,14 +2,11 @@ export default function AnswerLengthIndicator({ answer, minimumLength }) {
   if (!Number.isInteger(minimumLength) || minimumLength <= 0) return null;
 
   const currentLength = Array.from(answer.trim()).length;
-  const requirementMet = currentLength >= minimumLength;
 
   return (
-    <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm leading-6">
-      <p className="text-slate-600">作答要求：不少于 {minimumLength} 字</p>
-      <p className={requirementMet ? 'text-emerald-700' : 'text-slate-500'}>
-        已输入 {currentLength} 字
-      </p>
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm leading-6 text-slate-500">
+      <p>作答要求：不少于 {minimumLength} 字</p>
+      <p>已输入 {currentLength} 字</p>
     </div>
   );
 }

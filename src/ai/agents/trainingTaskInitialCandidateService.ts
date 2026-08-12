@@ -63,7 +63,7 @@ export class TrainingTaskInitialCandidateService {
     }
 
     const completeness = inspectInitialCandidateCompleteness(source.content);
-    if (!completeness.complete) {
+    if (!source.content.questionStem.trim()) {
       return { status: 'question_generation_required', candidate: null, completeness };
     }
 
@@ -102,7 +102,7 @@ export class TrainingTaskInitialCandidateService {
       basedOnRevision: source.context.activeDraftRevision,
       basedOnContentHash: source.context.activeDraftContentHash,
       content: source.content,
-      generationReason: '由训练任务现有完整题目确定性固化为初始题目方案。',
+      generationReason: '由训练任务现有题目确定性固化为初始题目方案。',
       changedFields: CANDIDATE_FIELD_KEYS,
       allowedFields: CANDIDATE_FIELD_KEYS,
       lockedFields: [],

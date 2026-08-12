@@ -54,9 +54,12 @@ export type TaskProductionCardAction = {
   kind: TaskProductionCardActionKind | null;
   label:
     | '生成题目'
+    | '重新生成题目'
     | '采用并发布'
+    | '确认并发布'
     | '处理问题'
-    | '继续处理'
+    | '保存任务'
+    | '检查题目'
     | '查看题目方案'
     | '继续发布'
     | '重试发布'
@@ -64,6 +67,80 @@ export type TaskProductionCardAction = {
     | null;
   busyLabel: string | null;
 };
+
+export type InitialQuestionCandidateGapPresentation = {
+  stateLabel: '题目待采用' | '未生成题目';
+  actionLabel: '重新生成题目' | '生成题目';
+  busyLabel: '正在重新生成题目…' | '正在生成题目…';
+  emptyMessage: string;
+  hasQuestionContent: boolean;
+  missingFields: string[];
+};
+
+export function resolveInitialQuestionCandidateGapPresentation({
+  questionStem,
+  missingFields = [],
+}: {
+  questionStem?: string | null;
+  missingFields?: string[];
+}): InitialQuestionCandidateGapPresentation {
+  const hasQuestionContent = Boolean(questionStem?.trim());
+
+  if (hasQuestionContent) {
+    return {
+      stateLabel: '题目待采用',
+      actionLabel: '重新生成题目',
+      busyLabel: '正在重新生成题目…',
+      emptyMessage: '正在恢复当前题目方案，请稍候。',
+      hasQuestionContent: true,
+      missingFields: [...missingFields],
+    };
+  }
+
+  return {
+    stateLabel: '未生成题目',
+    actionLabel: '生成题目',
+    busyLabel: '正在生成题目…',
+    emptyMessage: '当前任务还没有题目。',
+    hasQuestionContent: false,
+    missingFields: [...missingFields],
+  };
+}
+
+export function shouldShowInitialQuestionCandidateGap({
+  isPublishedTask,
+  hasSelectedCandidate,
+  isLoadingCandidates,
+  readyCandidateCount,
+  initialCandidateStatus,
+  hasExistingDraft,
+  hasQuestionContent,
+  productionState,
+}: {
+  isPublishedTask: boolean;
+  hasSelectedCandidate: boolean;
+  isLoadingCandidates: boolean;
+  readyCandidateCount: number;
+  initialCandidateStatus?: string | null;
+  hasExistingDraft: boolean;
+  hasQuestionContent: boolean;
+  productionState?: TaskProductionState | null;
+}): boolean {
+  if (
+    isPublishedTask
+    || hasSelectedCandidate
+    || isLoadingCandidates
+    || readyCandidateCount > 0
+  ) {
+    return false;
+  }
+
+  if (hasQuestionContent) return false;
+
+  return initialCandidateStatus === 'question_generation_required'
+    || !hasExistingDraft
+    || productionState === 'draft_empty';
+}
 
 export type TaskProductionCardPresentation = {
   visibleStatus: TaskProductionVisibleStatus;
@@ -192,7 +269,7 @@ const ACTION_LABELS: Record<TaskProductionAction, string> = {
   edit: '继续修改',
   save: '保存任务',
   run_check: '检查题目',
-  open_confirmation: '继续处理',
+  open_confirmation: '查看题目方案',
   confirm: '确认通过',
   return_for_revision: '退回修改',
   publish: '发布正式题目',
@@ -256,7 +333,7 @@ export function resolveTaskProductionCardAction(
   > = {
     save: { kind: 'save_plan', busyLabel: '正在保存任务修改…' },
     run_check: { kind: 'run_check', busyLabel: '正在检查题目…' },
-    open_confirmation: { kind: 'open_confirmation', busyLabel: '正在继续处理…' },
+    open_confirmation: { kind: 'open_confirmation', busyLabel: null },
     confirm: { kind: 'confirm', busyLabel: '正在完成最终确认…' },
     publish: { kind: 'publish', busyLabel: '正在发布正式题目…' },
     retry_publication: { kind: 'retry_publication', busyLabel: '正在重试发布…' },
@@ -292,7 +369,43 @@ export function resolveTaskProductionCardAction(
       ? '查看题目方案'
       : action === 'confirm'
         ? '继续发布'
-        : '继续处理',
+        : action === 'save'
+          ? '保存任务'
+          : '检查题目',
+  };
+}
+
+/**
+ * Prevents the legacy empty-draft action from contradicting question content
+ * already visible on the task card while its initial Candidate is restored.
+ */
+export function resolveCandidateAwareTaskCardFallback({
+  baseAction,
+  hasQuestionContent,
+  isLoadingCandidates,
+  isPublishedTask,
+}: {
+  baseAction: TaskProductionCardAction;
+  hasQuestionContent: boolean;
+  isLoadingCandidates: boolean;
+  isPublishedTask: boolean;
+}): TaskProductionCardAction {
+  if (
+    baseAction.kind !== 'generate_candidate'
+    || !hasQuestionContent
+    || isPublishedTask
+  ) {
+    return baseAction;
+  }
+
+  if (isLoadingCandidates) {
+    return { kind: null, label: null, busyLabel: null };
+  }
+
+  return {
+    kind: 'adopt_candidate',
+    label: '采用并发布',
+    busyLabel: '正在采用并发布题目…',
   };
 }
 

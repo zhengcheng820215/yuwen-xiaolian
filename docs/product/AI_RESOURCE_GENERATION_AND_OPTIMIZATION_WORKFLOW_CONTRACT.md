@@ -174,9 +174,9 @@ function inspectInitialCandidateCompleteness(
 ): InitialCandidateCompleteness;
 ```
 
-最低完整性范围冻结为：`questionStem`、`studentTask`、`observationTarget`、`rubric`、`answerAcceptance`、能力目标和材料关联。字段完整时，系统以 `trainingTaskId + trainingTaskVersion + contentHash + CandidateRuntimeContext` 形成稳定业务身份，并创建或恢复唯一的 `training_task_compatibility_wrap` 初始 Candidate。`CandidateRuntimeContext` 至少包含 Material Version、Observation Plan Version、Active Draft 身份与 Revision、Base Formal Resource Version；刷新、路由切换、重复读取和重复请求不得增加候选数量。
+完整性检查继续覆盖 `questionStem`、`studentTask`、`observationTarget`、`rubric`、`answerAcceptance`、能力目标和材料关联，但它只用于采用后的 Validation 与 Assessment，不得直接生成“补全题目方案”等人工生产步骤。
 
-字段不完整时不得伪造候选，页面进入“题目未完整生成”状态并提供“生成题目”。版本、内容哈希或上下文冲突时必须展示可恢复错误，不得静默选用任一份内容。
+只要 `questionStem` 非空，系统就必须以 `trainingTaskId + trainingTaskVersion + contentHash + CandidateRuntimeContext` 形成稳定业务身份，并创建或恢复唯一的 `training_task_compatibility_wrap` 初始 Candidate。`CandidateRuntimeContext` 至少包含 Material Version、Observation Plan Version、Active Draft 身份与 Revision、Base Formal Resource Version；刷新、路由切换、重复读取和重复请求不得增加候选数量。只有 `questionStem` 为空时，页面才进入“未生成题目”状态并提供“生成题目”。版本、内容哈希或上下文冲突时必须展示可恢复错误，不得静默选用任一份内容。
 
 ### 3.3 首次采用
 
@@ -189,6 +189,8 @@ Candidate B
 -> 创建 QuestionDraft
 -> 创建 QuestionDraft Revision 1
 ```
+
+历史兼容任务可能已经存在与 `training_task_compatibility_wrap` 内容完全相同的活动 QuestionDraft。此时采用初始 Candidate 必须绑定既有 QuestionLineage、Draft 与 Revision，不得因内容相同报错，也不得重复创建 Revision。该例外只适用于兼容包装 Candidate；普通 AI Candidate 与当前 Draft 内容完全相同时，仍按无变化命令处理。
 
 ### 3.4 已有题目的再次优化
 
@@ -1615,3 +1617,24 @@ TrainingTask 已携带完整题目时，页面是否显示“生成题目”必�
 已失效的旧 Candidate 不得因复用相同 `trainingTaskId + trainingTaskVersion + contentHash` 阻断当前 Candidate 的恢复。切换素材、切换 Plan 或刷新后，只要训练任务仍含完整题目，任务卡就必须显示题目正文以及“重新生成题目 / 采用并发布”，不得误显示“生成题目”。
 
 专项 Debug 已增加 Plan 上下文变化用例，初始 Candidate 回归 `6 / 6 PASS`；Candidate Workbench P6、任务生产状态与 Production Build 均通过。真实《皇帝的新装》页面验收确认三个已有题目的任务均恢复为当前候选，不再显示“生成题目”。
+
+## 单人生产可见状态与内部资料缺口收口（2026-08-11）
+
+本节覆盖此前将内部 Candidate 完整性直接表达为“题目方案待补全 / 补全题目方案”的页面规则。单人 AI 生产场景中，人工只判断题目是否可以采用，不负责理解或补写 Candidate、Rubric、Answer Acceptance 等内部生产字段。
+
+用户可见状态统一为：
+
+1. `未生成题目`：题目正文尚未形成，主操作为“生成题目”；
+2. `可以发布`：题目方案完整且没有需要人工判断的质量提醒，操作为“重新生成题目 / 采用并发布”；
+3. `需要确认`：题目存在可见质量提醒，需要用户判断是否保留当前题目；
+4. `处理中`：采用、检查、确认留痕、冻结或发布命令正在运行；
+5. `已发布`：Formal Resource 与 Active Registry 均已成立。
+
+题目是否已经形成，只由用户可见的题目正文判断。题目正文非空时，兼容适配器必须确定性创建或恢复初始 Candidate；Candidate 完整性检查发现评分、答案范围或其他内部字段缺失时：
+
+- 页面不得显示“题目方案待补全”“补全题目方案”或字段级人工编辑入口；
+- 不得把已有题目重新投影成“未生成题目”，也不得要求用户先补全 Candidate；
+- 缺失的内部资料由采用后的 Validation 与 Assessment 统一判断：可自动补齐的由系统处理，普通提醒进入“需要确认”，真实阻断项才禁止发布；
+- 只有题目正文为空时，页面才显示“未生成题目 / 生成题目”。
+
+已有题目且没有提醒时显示“可以发布”；存在普通提醒时显示“需要确认”，并由“确认并发布”承接结构化留痕；真实阻断问题仍禁止发布，只允许系统重新生成或修复。Candidate 完整性是内部诊断结果，不得单独成为用户生命周期状态。Candidate、Revision、Validation、Assessment、Human Review、Freeze、Formal Resource 与 Registry 的领域边界保持不变。

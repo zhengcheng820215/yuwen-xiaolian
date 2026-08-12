@@ -47,6 +47,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '12 clean adoption completes publication', run: cleanAdoptionCompletesPublication },
   { name: '13 warnings interrupt before review', run: warningsInterruptBeforeReview },
   { name: '14 publication failure retains completed review', run: publicationFailureRetainsReview },
+  { name: '15 compatibility candidate reuses matching revision', run: compatibilityCandidateReusesMatchingRevision },
 ];
 
 async function main(): Promise<void> {
@@ -230,6 +231,36 @@ async function conflictsDoNotCreateRevision(): Promise<void> {
     'CANDIDATE_CONTEXT_CONFLICT',
   );
   assert.equal((await requireDraft(fixture.resources, base.draftId)).revision, 1);
+}
+
+async function compatibilityCandidateReusesMatchingRevision(): Promise<void> {
+  const fixture = await createFixture();
+  const first = await fixture.service.adoptTaskCandidate(
+    adoptInput(fixture.candidate, fixture.context.current),
+  );
+  const base = await requireDraft(fixture.resources, first.draftId);
+  fixture.context.current = contextForDraft(base);
+  const compatibilityCandidate = await saveCandidate(
+    fixture.candidates,
+    'candidate-compatibility-wrap',
+    extractQuestionEditableFields(base),
+    fixture.context.current,
+    'training_task_compatibility_wrap',
+  );
+
+  const adopted = await fixture.service.adoptTaskCandidate(adoptInput(
+    compatibilityCandidate,
+    fixture.context.current,
+    'candidate:adopt:compatibility-wrap',
+  ));
+
+  assert.equal(adopted.draftId, first.draftId);
+  assert.equal(adopted.revision, 1);
+  assert.equal((await fixture.resources.listDrafts()).length, 1);
+  assert.equal(
+    (await fixture.candidates.getCandidate(compatibilityCandidate.candidateId))?.status,
+    'adopted',
+  );
 }
 
 async function adoptingProjectionIsBusy(): Promise<void> {
@@ -418,6 +449,7 @@ async function saveCandidate(
   candidateId: string,
   content: QuestionEditableFields,
   context: CandidateRuntimeContext,
+  candidateOrigin: QuestionCandidate['candidateOrigin'] = 'ai_generated',
 ): Promise<QuestionCandidate> {
   return repository.saveCandidate(createQuestionCandidate({
     candidateId,
@@ -425,6 +457,7 @@ async function saveCandidate(
     generationCommandFingerprint: `fingerprint:${candidateId}`,
     trainingTaskId: 'task-1',
     candidateType: 'initial',
+    candidateOrigin,
     basedOnDraftId: context.activeDraftId,
     basedOnRevision: context.activeDraftRevision,
     basedOnContentHash: context.activeDraftContentHash,
@@ -441,6 +474,7 @@ async function saveCandidate(
       materialVersionId: context.materialVersionId,
       observationPlanVersion: context.observationPlanVersion,
       trainingTaskVersion: context.trainingTaskVersion,
+      source: candidateOrigin,
       generatedAt: NOW,
     },
     status: 'ready',

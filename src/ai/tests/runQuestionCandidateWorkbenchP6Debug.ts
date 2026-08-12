@@ -82,7 +82,7 @@ async function main(): Promise<void> {
     "reasonSource: 'fixed'",
     "structuredReason: 'selected_candidate_with_warning'",
     '请比较当前方案与 AI 新方案，选择合适方案后采用并发布。',
-    '当前题目有质量提醒，请在题目方案区继续处理。',
+    '当前题目有质量提醒，请确认是否保留当前题目，或重新生成。',
   ]) {
     assert.equal(source.includes(token), true, `P6 canonical token is missing: ${token}`);
   }
