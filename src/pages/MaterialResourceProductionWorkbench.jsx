@@ -204,6 +204,7 @@ export default function MaterialResourceProductionWorkbench() {
   const [generatorStatus, setGeneratorStatus] = useState(null);
   const [generatorResult, setGeneratorResult] = useState(null);
   const [generatorBusy, setGeneratorBusy] = useState(false);
+  const [generatorSlow, setGeneratorSlow] = useState(false);
   const [generatorOperation, setGeneratorOperation] = useState(null);
   const [groupCandidateSession, setGroupCandidateSession] = useState(null);
   const [taskWorkflowOperation, setTaskWorkflowOperation] = useState(null);
@@ -228,6 +229,7 @@ export default function MaterialResourceProductionWorkbench() {
   const [baselinePreview, setBaselinePreview] = useState(null);
   const [materialPreviewExpanded, setMaterialPreviewExpanded] = useState(false);
   const pendingDiscardActionRef = useRef(null);
+  const generatorResultRef = useRef(null);
   const initialSelectionResolutionRef = useRef(true);
   const selectedPlanByMaterialRef = useRef({});
   const taskWorkflowInFlightRef = useRef(new Set());
@@ -261,6 +263,22 @@ export default function MaterialResourceProductionWorkbench() {
     if (!selectedMaterialId || !selectedPlanId) return;
     selectedPlanByMaterialRef.current[selectedMaterialId] = selectedPlanId;
   }, [selectedMaterialId, selectedPlanId]);
+
+  useEffect(() => {
+    if (!generatorBusy) {
+      setGeneratorSlow(false);
+      return undefined;
+    }
+    const slowTimer = window.setTimeout(() => setGeneratorSlow(true), 15000);
+    return () => window.clearTimeout(slowTimer);
+  }, [generatorBusy]);
+
+  useEffect(() => {
+    if (!generatorResult) return;
+    window.requestAnimationFrame(() => {
+      generatorResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }, [generatorResult]);
 
   const selectedMaterial = useMemo(
     () => snapshot.materials.find((item) => item.materialVersionId === selectedMaterialId) || null,
@@ -543,7 +561,7 @@ export default function MaterialResourceProductionWorkbench() {
       trainingTaskId,
       {
         ...(current[trainingTaskId] || {}),
-        operation: 'loading_candidates',
+        operation: current[trainingTaskId]?.operation || 'loading_candidates',
         error: null,
       },
     ])));
@@ -1138,6 +1156,7 @@ export default function MaterialResourceProductionWorkbench() {
     if (!requireAvailableCommand(MATERIAL_PRODUCTION_COMMANDS.savePlanRevision)) return null;
     const isWorkingDraftUpdate = Boolean(selectedPlan)
       && ['draft', 'revision_required'].includes(selectedPlan.status);
+    setToast({ id: Date.now(), message: '正在保存训练任务…', tone: 'operation' });
     const result = await run(
       () => executeSavePlanRevisionCommand({
         materialVersionId: selectedMaterialId,
@@ -1157,6 +1176,19 @@ export default function MaterialResourceProductionWorkbench() {
       setRemovedTaskHistory([]);
       setTaskRemovalCandidate(null);
       setTaskEditorDirty(false);
+      setToast({
+        id: Date.now(),
+        message: result.validation.passed
+          ? '训练任务已保存，并通过内容检查。'
+          : '训练任务已保存，但仍有内容需要调整。',
+        tone: result.validation.passed ? 'success' : 'operation',
+      });
+    } else {
+      setToast({
+        id: Date.now(),
+        message: '训练任务保存失败，请根据页面提示检查后重试。',
+        tone: 'error',
+      });
     }
     return result;
   }
@@ -1169,6 +1201,15 @@ export default function MaterialResourceProductionWorkbench() {
   function planReplacementGroup() {
     if (!requireAvailableCommand(MATERIAL_PRODUCTION_COMMANDS.planReplacementGroup)) return;
     return requestTaskGroupCandidates('replace_group');
+  }
+
+  function regeneratePrimaryCandidates() {
+    const hasUnadoptedCandidates = generatorResult?.status === 'candidates_ready'
+      && generatorResult.candidates.length > 0;
+    if (hasUnadoptedCandidates && !window.confirm('重新生成会替换当前尚未采用的候选训练任务，是否继续？')) {
+      return;
+    }
+    return planReplacementGroup();
   }
 
   async function requestTaskGroupCandidates(operationType) {
@@ -1420,9 +1461,11 @@ export default function MaterialResourceProductionWorkbench() {
     }
   }
 
-  async function adoptTaskCandidate(task) {
+  async function adoptTaskCandidate(task, preferredCandidate = null) {
     if (!selectedMaterial || !selectedPlan) return;
     const trainingTaskId = taskWorkingIdentity(task);
+    const candidateWorkingStatus = taskWorkingStates[trainingTaskId]?.status
+      || (task.editorDirty ? 'dirty' : 'clean');
     const lifecycle = taskQuestionLifecycleById.get(task.observationTaskPlanId || task.localId);
     const draft = lifecycle?.draft || null;
     const context = buildTaskCandidateRuntimeContext({
@@ -1440,11 +1483,12 @@ export default function MaterialResourceProductionWorkbench() {
       selectedCandidateId: panel.selectedCandidateId,
       comparisonCandidateIds: panel.comparisonCandidateIds,
       adoption: { enabled: true },
-      workingStatus: taskWorkingStates[trainingTaskId]?.status,
+      workingStatus: candidateWorkingStatus,
     });
-    let candidate = projection.readyCandidates.find(
-      (item) => item.candidateId === projection.selectedCandidateId,
-    ) || projection.readyCandidates[0];
+    let candidate = preferredCandidate?.status === 'ready' ? preferredCandidate : null;
+    candidate ||= projection.readyCandidates.find(
+      (item) => item.status === 'ready' && item.candidateId === projection.selectedCandidateId,
+    ) || projection.readyCandidates.find((item) => item.status === 'ready');
 
     updateTaskCandidatePanel(trainingTaskId, {
       operation: 'adopting',
@@ -1455,7 +1499,7 @@ export default function MaterialResourceProductionWorkbench() {
       if (!candidate && task.questionStem?.trim()) {
         const content = buildQuestionCandidateContent(task, draft, selectedMaterial);
         const contentHash = calculateQuestionEditableFieldsHash(content);
-        await ensureQuestionTaskInitialCandidate({
+        const ensuredInitialCandidate = await ensureQuestionTaskInitialCandidate({
           trainingTaskId,
           expectedTrainingTaskVersion: context.trainingTaskVersion,
           expectedContentHash: contentHash,
@@ -1475,9 +1519,9 @@ export default function MaterialResourceProductionWorkbench() {
           selectedCandidateId: panel.selectedCandidateId,
           comparisonCandidateIds: panel.comparisonCandidateIds,
           adoption: { enabled: true },
-          workingStatus: taskWorkingStates[trainingTaskId]?.status,
+          workingStatus: candidateWorkingStatus,
         });
-        candidate = projection.readyCandidates.find(
+        candidate = ensuredInitialCandidate.candidate || projection.readyCandidates.find(
           (item) => item.candidateId === projection.selectedCandidateId,
         ) || projection.readyCandidates[0];
       }
@@ -1488,6 +1532,27 @@ export default function MaterialResourceProductionWorkbench() {
           error: '当前题目尚未形成可采用方案，请生成题目。',
         });
         return;
+      }
+
+      if (!selectedValidation?.passed) {
+        throw new Error('训练计划尚未通过结构检查，当前题目不能进入发布流程。');
+      }
+      if (selectedPlan.status !== 'reviewed') {
+        setTaskWorkflowFeedback((current) => ({
+          ...current,
+          [task.observationTaskPlanId || task.localId]: {
+            type: 'info',
+            message: '正在确认训练计划并准备发布…',
+          },
+        }));
+        await executeConfirmTrainingPlanForTaskProductionCommand({
+          planId: selectedPlan.materialObservationPlanId,
+          currentStatus: selectedPlan.status,
+        });
+        await refresh({
+          materialVersionId: selectedMaterial.materialVersionId,
+          planId: selectedPlan.materialObservationPlanId,
+        });
       }
 
       const adoptionResult = await adoptQuestionTaskCandidate({
@@ -1519,6 +1584,13 @@ export default function MaterialResourceProductionWorkbench() {
           ...current,
           [observationTaskPlanId]: { type: 'success', message: successMessage },
         }));
+        updateTaskCandidatePanel(trainingTaskId, {
+          operation: 'idle',
+          selectedCandidateId: null,
+          comparisonCandidateIds: [],
+          adoptionResult: null,
+          error: null,
+        });
         setToast({ id: Date.now(), message: successMessage });
       } else if (adoptionResult.nextAction === 'resolve_warnings') {
         const refreshedSnapshot = await refresh({
@@ -1554,10 +1626,16 @@ export default function MaterialResourceProductionWorkbench() {
         planId: selectedPlan.materialObservationPlanId,
       });
     } catch (error) {
+      const message = createWorkbenchErrorNotice(error).message;
       updateTaskCandidatePanel(trainingTaskId, {
         operation: 'failed',
-        error: createWorkbenchErrorNotice(error).message,
+        error: message,
       });
+      setTaskWorkflowFeedback((current) => ({
+        ...current,
+        [task.observationTaskPlanId || task.localId]: { type: 'error', message },
+      }));
+      setToast({ id: Date.now(), message, tone: 'error' });
     }
   }
 
@@ -1695,18 +1773,18 @@ export default function MaterialResourceProductionWorkbench() {
     }
   }
 
-  function adoptCandidates() {
+  async function adoptCandidates() {
     if (!requireAvailableCommand(MATERIAL_PRODUCTION_COMMANDS.adoptCandidates)) return;
     if (generatorResult?.status !== 'candidates_ready' || !groupCandidateSession) return;
     try {
-      const result = adoptTrainingTaskGroupCandidate({
+      const adoption = adoptTrainingTaskGroupCandidate({
         session: groupCandidateSession,
         currentTasks: tasks,
         currentPlanRevision: selectedPlan?.revision || 0,
         protectedTaskIds,
         maxTasks: MAX_TRAINING_TASK_COUNT,
       });
-      if (!result.changed) {
+      if (!adoption.changed) {
         setNotice({
           type: 'error',
           message: groupCandidateSession.operationType === 'supplement_group'
@@ -1715,17 +1793,49 @@ export default function MaterialResourceProductionWorkbench() {
         });
         return;
       }
-      setTasks(result.tasks);
-      setTaskEditorDirty(true);
+      setToast({ id: Date.now(), message: '正在采用并保存训练任务…', tone: 'operation' });
+      const saved = await run(
+        () => executeSavePlanRevisionCommand({
+          materialVersionId: selectedMaterialId,
+          sourcePlanId: selectedPlan?.materialObservationPlanId,
+          tasks: adoption.tasks.map(toTaskInput),
+        }),
+        (saveResult) => saveResult.validation.passed
+          ? '候选训练任务已采用、保存并通过内容检查。'
+          : '候选训练任务已采用并保存，但仍有内容需要调整。',
+        (saveResult) => ({
+          materialVersionId: selectedMaterialId,
+          planId: saveResult.plan.materialObservationPlanId,
+        }),
+      );
+      if (!saved) {
+        setToast({
+          id: Date.now(),
+          message: '采用并保存失败，当前候选已保留，请检查后重试。',
+          tone: 'error',
+        });
+        return;
+      }
+      setTasks(adoption.tasks);
+      setTaskEditorDirty(false);
+      setRemovedTaskHistory([]);
+      setTaskRemovalCandidate(null);
       setGeneratorResult(null);
       setGroupCandidateSession(null);
       setNotice({
         type: 'success',
         message: groupCandidateSession.operationType === 'replace_group'
           ? tasks.length === 0
-            ? `已将 ${result.adoptedCandidateTaskIds.length} 个首批候选加入训练任务编辑区。保存前不会创建新版本。`
-            : `已用 ${result.adoptedCandidateTaskIds.length} 个候选替换本地任务组。保存前不会创建新版本。`
-          : `已将 ${result.adoptedCandidateTaskIds.length} 个候选加入本地任务组。保存前不会创建新版本。`,
+            ? `已采用并保存 ${adoption.adoptedCandidateTaskIds.length} 个首批训练任务。`
+            : `已用 ${adoption.adoptedCandidateTaskIds.length} 个候选替换并保存当前任务组。`
+          : `已采用并保存 ${adoption.adoptedCandidateTaskIds.length} 个补充训练任务。`,
+      });
+      setToast({
+        id: Date.now(),
+        message: saved.validation.passed
+          ? '候选训练任务已采用并保存。'
+          : '候选训练任务已保存，但仍有内容需要调整。',
+        tone: saved.validation.passed ? 'success' : 'operation',
       });
     } catch (error) {
       setNotice({
@@ -1747,7 +1857,7 @@ export default function MaterialResourceProductionWorkbench() {
       message: discardingInitialGroup
         ? '首批候选已放弃，当前尚未建立训练任务。'
         : replacing
-          ? '已保留当前任务组，替代候选已放弃。'
+          ? '新候选已放弃，当前任务组未改变。'
           : '补充候选已放弃，当前任务组未改变。',
     });
   }
@@ -2240,6 +2350,8 @@ export default function MaterialResourceProductionWorkbench() {
               <div className="mt-4 border-l-4 border-blue-500 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-950">
                 {!selectedMaterial
                   ? '请先选择或保存素材，再生成训练任务。'
+                  : generatorResult?.status === 'candidates_ready' && generatorResult.candidates.length > 0
+                    ? '当前候选尚未采用。重新生成会使用新候选替换当前候选，不会修改已保存的训练任务。'
                   : generatorInventory.observations.length === 0 && generatorInventory.questions.length === 0
                     ? '当前素材尚无已保存的训练任务，可以开始生成。'
                     : '再次生成时，系统会参考当前素材已有的训练任务，优先生成不同的训练内容。'}
@@ -2248,29 +2360,42 @@ export default function MaterialResourceProductionWorkbench() {
                 <div className="mt-4 flex justify-center">
                   <button
                     type="button"
-                    onClick={planReplacementGroup}
+                    onClick={regeneratePrimaryCandidates}
                     disabled={!commandAvailability.planReplacementGroup.enabled}
                     title={commandAvailability.planReplacementGroup.reason}
                     className="ai-button-solid inline-flex h-10 w-[420px] max-w-full items-center justify-center rounded-md border px-4 text-sm font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {generatorBusy ? '正在分析素材并生成训练任务…' : 'AI根据素材生成训练任务'}
+                    {generatorBusy
+                      ? '正在分析素材并生成训练任务…'
+                      : generatorResult?.status === 'candidates_ready' && generatorResult.candidates.length > 0
+                        ? '重新生成候选训练任务'
+                        : 'AI根据素材生成训练任务'}
                   </button>
                 </div>
+              )}
+              {generatorBusy && (
+                <p className="mt-3 text-center text-xs leading-5 text-slate-600" role="status" aria-live="polite">
+                  {generatorSlow
+                    ? '生成时间较长，AI 仍在分析素材，请继续等待，不要重复提交。'
+                    : '正在生成候选训练任务，完成后会自动显示在下方。'}
+                </p>
               )}
               {taskEditorDirty && selectedPlan && (
                 <p className="mt-2 text-xs leading-5 text-amber-700">请先保存当前任务组修改，再生成新的候选方案。</p>
               )}
-              {generatorResult && (
-                <GeneratorCandidatePreview
-                  result={generatorResult}
-                  session={groupCandidateSession}
-                  currentTasks={tasks}
-                  currentTaskCount={tasks.length}
-                  protectedTaskIds={protectedTaskIds}
-                  onToggleCandidate={selectGeneratedCandidatesWithinLimit}
-                  onAdopt={adoptCandidates}
-                  onDiscard={discardCandidates}
-                />
+              {generatorResult && groupCandidateSession?.operationType !== 'supplement_group' && (
+                <div ref={generatorResultRef} aria-live="polite" aria-label="AI 训练任务生成结果">
+                  <GeneratorCandidatePreview
+                    result={generatorResult}
+                    session={groupCandidateSession}
+                    currentTasks={tasks}
+                    currentTaskCount={tasks.length}
+                    protectedTaskIds={protectedTaskIds}
+                    onToggleCandidate={selectGeneratedCandidatesWithinLimit}
+                    onAdopt={adoptCandidates}
+                    onDiscard={discardCandidates}
+                  />
+                </div>
               )}
             <div className="mt-6 space-y-3">
               {taskReviewGroups.map(({ task, index, issues }) => {
@@ -2329,6 +2454,11 @@ export default function MaterialResourceProductionWorkbench() {
                 const selectedTaskCandidate = taskCandidateProjection.readyCandidates.find(
                   (candidate) => candidate.candidateId === taskCandidateProjection.selectedCandidateId,
                 ) || null;
+                const planCanPrepareForPublication = Boolean(
+                  selectedPlan
+                  && selectedValidation?.passed
+                  && ['draft', 'revision_required', 'pending_review', 'reviewed'].includes(selectedPlan.status),
+                );
                 const initialCandidateGapRequired = shouldShowInitialQuestionCandidateGap({
                   isPublishedTask,
                   hasSelectedCandidate: Boolean(selectedTaskCandidate),
@@ -2347,12 +2477,25 @@ export default function MaterialResourceProductionWorkbench() {
                   : null;
                 const candidateReadyForAdoption = Boolean(
                   selectedTaskCandidate
-                  && !isPublishedTask,
+                  && !isPublishedTask
+                  && planCanPrepareForPublication,
                 );
                 const candidateReadyForDecision = Boolean(
                   selectedTaskCandidate
+                  && planCanPrepareForPublication
                   && (candidateReadyForAdoption || pendingQualityWarnings.length > 0),
                 );
+                const taskCardPresentationWithPlanGate = !isPublishedTask
+                  && selectedTaskCandidate
+                  && !planCanPrepareForPublication
+                  ? {
+                      visibleStatusLabel: '需要处理',
+                      visibleStatusTone: 'warning',
+                      stateLabel: selectedValidation?.passed
+                        ? '训练计划尚未准备好发布'
+                        : '训练计划需要先通过内容检查',
+                    }
+                  : taskCardPresentation;
                 const adoptActionLabel = pendingQualityWarnings.length > 0
                   ? '确认并发布'
                   : '采用并发布';
@@ -2360,9 +2503,15 @@ export default function MaterialResourceProductionWorkbench() {
                   ? '正在确认并发布题目…'
                   : '正在采用并发布题目…';
                 const candidateActionRequired = Boolean(
-                  pendingQualityWarnings.length > 0
-                  || taskCandidatePanel.adoptionResult?.visibleState === 'action_required',
+                  !isPublishedTask
+                  && (
+                    pendingQualityWarnings.length > 0
+                    || taskCandidatePanel.adoptionResult?.visibleState === 'action_required'
+                  ),
                 );
+                const qualityWarningCandidateMissing = pendingQualityWarnings.length > 0
+                  && taskCandidateProjection.readyCandidates.length === 0
+                  && !taskCandidateProjection.busy;
                 const hasFormalVersionCandidate = taskCandidateProjection.readyCandidates.some(
                   (candidate) => candidate.basedOnFormalVersionId
                     === questionLifecycle?.formalResource?.resourceVersionId,
@@ -2385,22 +2534,17 @@ export default function MaterialResourceProductionWorkbench() {
                   isLoadingCandidates: taskCandidatePanel.operation === 'loading_candidates',
                   isPublishedTask,
                 });
-                const taskCardAction = initialCandidateGapRequired
-                  ? {
-                      kind: 'generate_candidate',
-                      label: initialCandidateGap.actionLabel,
-                      busyLabel: initialCandidateGap.busyLabel,
-                    }
-                  : candidateReadyForDecision
-                  ? {
-                      kind: 'adopt_candidate',
-                      label: adoptActionLabel,
-                      busyLabel: adoptBusyLabel,
-                    }
-                  : pendingQualityWarnings.length > 0
-                    && taskProductionAction?.kind === 'open_confirmation'
-                    ? null
-                  : candidateAwareFallbackAction;
+                const taskCardAction = resolveTaskCardDecisionAction({
+                  initialCandidateGap,
+                  initialCandidateGapRequired,
+                  candidateReadyForDecision,
+                  adoptActionLabel,
+                  adoptBusyLabel,
+                  qualityWarningCandidateMissing,
+                  hasPendingQualityWarnings: pendingQualityWarnings.length > 0,
+                  taskProductionAction,
+                  fallbackAction: candidateAwareFallbackAction,
+                });
                 const showTaskProductionAction = Boolean(
                   taskCardAction?.label
                   && taskCardAction.kind !== 'view_formal_resource'
@@ -2408,6 +2552,11 @@ export default function MaterialResourceProductionWorkbench() {
                 const taskSummaryQuestionStem = candidateReadyForAdoption
                   ? selectedTaskCandidate?.content.questionStem?.trim()
                   : task.questionStem?.trim();
+                const taskCardFeedback = workflowFeedback || (
+                  taskCandidatePanel.error && !isPublishedTask
+                    ? { type: 'error', message: taskCandidatePanel.error }
+                    : null
+                );
                 return (
                 <details
                   data-task-editor={task.localId}
@@ -2421,7 +2570,7 @@ export default function MaterialResourceProductionWorkbench() {
                       <div className="col-start-1 row-start-1 flex min-w-0 flex-wrap items-center gap-2" aria-label="训练任务标题与状态">
                         <h3 className="mr-1 text-sm font-bold">{taskEditorTitle(index)}</h3>
                         <TaskQuestionLifecycleBadge
-                          presentation={taskCardPresentation}
+                          presentation={taskCardPresentationWithPlanGate}
                           candidateReady={candidateReadyForAdoption}
                           actionRequired={candidateActionRequired}
                           qualityWarningCount={pendingQualityWarnings.length}
@@ -2491,7 +2640,7 @@ export default function MaterialResourceProductionWorkbench() {
                                     return;
                                   }
                                   if (taskCardAction.kind === 'adopt_candidate') {
-                                    void adoptTaskCandidate(task);
+                                    void adoptTaskCandidate(task, selectedTaskCandidate);
                                     return;
                                   }
                                   if (taskCardAction.kind === 'generate_candidate') {
@@ -2549,7 +2698,7 @@ export default function MaterialResourceProductionWorkbench() {
                       </div>
                       <div className="col-span-2 row-start-4 flex min-w-0 items-baseline gap-2 sm:row-start-3">
                         <p
-                          className={`min-w-0 line-clamp-2 text-sm leading-6 group-open:hidden ${
+                          className={`min-w-0 whitespace-pre-wrap text-sm leading-6 line-clamp-2 group-open:line-clamp-none ${
                             taskSummaryQuestionStem ? 'text-slate-700' : 'text-slate-400'
                           }`}
                           title={taskSummaryQuestionStem || undefined}
@@ -2566,20 +2715,20 @@ export default function MaterialResourceProductionWorkbench() {
                           />
                         </span>
                       </div>
-                      {workflowFeedback && (
+                      {taskCardFeedback && (
                         <p
-                          role={(workflowFeedback.type || workflowFeedback.tone) === 'error' ? 'alert' : 'status'}
+                          role={(taskCardFeedback.type || taskCardFeedback.tone) === 'error' ? 'alert' : 'status'}
                           className={`col-span-2 row-start-5 text-xs leading-5 sm:row-start-4 ${
-                            (workflowFeedback.type || workflowFeedback.tone) === 'success'
+                            (taskCardFeedback.type || taskCardFeedback.tone) === 'success'
                               ? 'text-emerald-700'
-                              : (workflowFeedback.type || workflowFeedback.tone) === 'info'
+                              : (taskCardFeedback.type || taskCardFeedback.tone) === 'info'
                                 ? 'text-blue-700'
-                                : (workflowFeedback.type || workflowFeedback.tone) === 'warning'
+                                : (taskCardFeedback.type || taskCardFeedback.tone) === 'warning'
                                   ? 'text-amber-700'
                                 : 'text-red-700'
                           }`}
                         >
-                          {workflowFeedback.message}
+                          {taskCardFeedback.message}
                         </p>
                       )}
                     </div>
@@ -2594,13 +2743,6 @@ export default function MaterialResourceProductionWorkbench() {
                         <p className="mt-1 text-xs leading-5 text-slate-500">当前学习将继续使用此版本。</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={(event) => revealTaskFormalResource(event, task.localId)}
-                          className="text-sm font-medium text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                        >
-                          查看正式资源
-                        </button>
                         <button
                           type="button"
                           disabled={taskCandidateProjection.busy}
@@ -2634,7 +2776,7 @@ export default function MaterialResourceProductionWorkbench() {
                       onGenerate={() => void runTaskCandidateOperation(task, index, 'generate')}
                       onMigrateWorkingContent={() => void migrateTaskWorkingContent(task)}
                       onDiscardWorkingContent={() => void discardCurrentTaskWorkingContent(task)}
-                      onAdopt={() => void adoptTaskCandidate(task)}
+                      onAdopt={() => void adoptTaskCandidate(task, selectedTaskCandidate)}
                     />}
                   <details
                     data-task-rationale
@@ -2798,6 +2940,27 @@ export default function MaterialResourceProductionWorkbench() {
               })}
             </div>
 
+            {generatorResult && groupCandidateSession?.operationType === 'supplement_group' && (
+              <div
+                ref={generatorResultRef}
+                className="mt-8"
+                aria-live="polite"
+                aria-label="待采用的补充候选"
+                data-supplement-candidate-section
+              >
+                <GeneratorCandidatePreview
+                  result={generatorResult}
+                  session={groupCandidateSession}
+                  currentTasks={tasks}
+                  currentTaskCount={tasks.length}
+                  protectedTaskIds={protectedTaskIds}
+                  onToggleCandidate={selectGeneratedCandidatesWithinLimit}
+                  onAdopt={adoptCandidates}
+                  onDiscard={discardCandidates}
+                />
+              </div>
+            )}
+
             {removedTaskHistory.length > 0 && (
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                 <span>
@@ -2845,7 +3008,11 @@ export default function MaterialResourceProductionWorkbench() {
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-blue-700 bg-blue-700 px-5 text-sm font-semibold text-white transition hover:border-blue-800 hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:border-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
                 >
                   <Save aria-hidden="true" size={18} />
-                  {selectedPlan ? '保存任务组修改' : '保存训练任务'}
+                  {busy
+                    ? '正在保存训练任务…'
+                    : selectedPlan
+                      ? '保存任务组修改'
+                      : '保存训练任务'}
                 </button>
               )}
             </div>
@@ -2859,7 +3026,8 @@ export default function MaterialResourceProductionWorkbench() {
         <WorkspaceToast
           key={toast.id}
           message={toast.message}
-          duration={3000}
+          tone={toast.tone}
+          duration={toast.tone === 'operation' ? undefined : 3000}
           onDismiss={() => setToast((current) => current?.id === toast.id ? null : current)}
         />
       )}
@@ -3490,7 +3658,7 @@ function TaskQualityWarningSummary({ warnings }) {
         ))}
       </ul>
       <p className="mt-3 border-t border-slate-200 pt-3 text-xs leading-5 text-slate-600">
-        请比较当前方案与 AI 新方案，选择合适方案后采用并发布。
+        点击“生成优化题目”获得可比较方案；选择合适方案后，点击“确认并发布”完成确认。
       </p>
     </div>
   );
@@ -3612,9 +3780,6 @@ function GeneratorCandidatePreview({
   const selectedCount = selectedCandidateIds.size;
   const admittedCandidateCount = result.candidates.length + result.withheldCandidates.length;
   const totalCandidateCount = admittedCandidateCount + result.rejectedCandidates.length;
-  const visibleLimitations = result.limitations.filter(
-    (limitation) => !/^\d+ candidate\(s\) were rejected before import\.$/.test(limitation),
-  );
   const currentCoverage = summarizeTrainingTaskGroupCoverage(currentTasks);
   const replacementTasks = session?.operationType === 'replace_group'
     ? adoptTrainingTaskGroupCandidate({
@@ -3631,12 +3796,12 @@ function GeneratorCandidatePreview({
     (task) => protectedIds.has(task.observationTaskPlanId || task.localId),
   ).length;
   return (
-    <div className="mt-5 border-l-4 border-slate-300 pl-4">
+    <div className="mt-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-base font-semibold">
           {result.status === 'candidates_ready'
             ? supplementMode
-              ? '补充候选任务'
+              ? '待采用的补充候选'
               : initialPlanningMode
                 ? '首批候选训练任务'
                 : '替代候选任务组'
@@ -3663,17 +3828,10 @@ function GeneratorCandidatePreview({
           ))}
         </div>
       </div>
-      {result.status === 'candidates_ready' && !supplementMode && (
-        <section className="mt-3 border-l-4 border-blue-500 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-950" aria-label="任务数量建议">
-          <p className="font-semibold">推荐训练任务：{result.candidates.length} 个</p>
-          <p>
-            当前材料支持 {result.coveragePreview.independentObservationCount} 个独立观察点
-            {result.coveragePreview.primaryAbilityIds.length > 0
-              ? `，覆盖${result.coveragePreview.primaryAbilityIds.map((id) => abilityLabels[id] || id).join('、')}`
-              : ''}
-            。数量由材料可支持的观察价值决定。
-          </p>
-        </section>
+      {supplementMode && result.status === 'candidates_ready' && (
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          以下候选尚未加入当前任务组，采用并保存后才会进入任务列表。
+        </p>
       )}
       {result.status === 'candidates_ready' && session?.operationType === 'replace_group' && !initialPlanningMode && (
         <section className="mt-4 grid gap-3 rounded-md bg-slate-50 p-4 sm:grid-cols-2" aria-label="新旧任务组覆盖对比">
@@ -3686,7 +3844,7 @@ function GeneratorCandidatePreview({
           )}
         </section>
       )}
-      {(result.validation.issues.length > 0 || result.rejectedCandidates.length > 0 || visibleLimitations.length > 0) && (
+      {(result.validation.issues.length > 0 || result.rejectedCandidates.length > 0) && (
         <section className="mt-3 space-y-3" aria-label="生成校验结果">
           {!result.validation.passed && result.validation.issues.length > 0 && (
             <div className="border-l-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950">
@@ -3730,14 +3888,6 @@ function GeneratorCandidatePreview({
               </ol>
             </details>
           )}
-          {visibleLimitations.length > 0 && (
-            <details className="border-l-2 border-slate-300 pl-3 text-xs leading-5 text-slate-500">
-              <summary className="cursor-pointer font-semibold text-slate-700">{providerFailed ? '查看安全处理结果' : '查看生成说明'}</summary>
-              <ul className="mt-2 space-y-1">
-                {visibleLimitations.map((limitation, index) => <li key={`${index}-${limitation}`}>- {generatorLimitationLabel(limitation)}</li>)}
-              </ul>
-            </details>
-          )}
         </section>
       )}
       {(result.provider.repair?.attempted || result.coveragePreview.possibleDuplicatePairs.length > 0) && (
@@ -3753,14 +3903,14 @@ function GeneratorCandidatePreview({
         </div>
       )}
       {result.candidates.length > 0 && (
-        <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
+        <div className="mt-6 space-y-7">
           {result.candidates.map((candidate, index) => {
             const selected = selectedCandidateIds.has(candidate.candidateId);
             const selectionLimitReached = supplementMode && !selected && currentTaskCount + selectedCount >= MAX_TRAINING_TASK_COUNT;
             return (
-            <article key={candidate.candidateId} className="py-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
+            <article key={candidate.candidateId}>
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="flex items-center gap-2">
                   {supplementMode && (
                     <input
                       type="checkbox"
@@ -3772,14 +3922,6 @@ function GeneratorCandidatePreview({
                     />
                   )}
                   <p className="inline-flex rounded bg-blue-50 px-2 py-1 text-xs font-normal text-blue-700">候选训练任务 {index + 1}</p>
-                  <p className="text-sm font-normal text-slate-600">{candidate.observationFocus.displayName}</p>
-                </div>
-                <span className="text-xs font-normal text-slate-600">{abilityLabels[candidate.primaryAbilityId]} · {dimensionLabels[candidate.observationDimension]}</span>
-              </div>
-              <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs font-semibold text-slate-500">生成的题目</p>
-                  <p className="text-xs font-normal text-slate-500">题目依据：{formatCandidateAnchor(candidate.materialAnchor)}</p>
                 </div>
                 <p className="mt-1 text-sm font-medium leading-6 text-slate-900">{candidate.questionStem}</p>
               </div>
@@ -3819,26 +3961,26 @@ function GeneratorCandidatePreview({
         </details>
       )}
       {result.status === 'candidates_ready' && result.candidates.length > 0 && session && (
-        <div className="mt-4 border-t border-slate-200 pt-4">
-          <div className="flex flex-wrap justify-end gap-3">
+        <div className="mt-8">
+          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
             <button
               type="button"
               onClick={onDiscard}
-              className={`h-10 rounded-md border px-5 text-sm font-semibold ${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}
+              className={`h-10 w-full rounded-md border px-5 text-sm font-semibold sm:w-[240px] ${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}
             >
-              {supplementMode || initialPlanningMode ? '放弃候选' : '保留当前任务组'}
+              {supplementMode || initialPlanningMode ? '放弃候选' : '放弃新候选'}
             </button>
             <button
               type="button"
               onClick={onAdopt}
               disabled={supplementMode && selectedCount === 0}
-              className="h-10 rounded-md bg-blue-700 px-5 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+              className="h-10 w-full rounded-md bg-blue-700 px-5 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 sm:w-[240px]"
             >
               {supplementMode
-                ? `采用所选候选（${selectedCount}）`
+                ? `采用并保存所选候选（${selectedCount}）`
                 : initialPlanningMode
-                  ? '采用这组候选'
-                  : '用候选组替换当前任务组'}
+                  ? '采用并保存这组候选'
+                  : '用候选组替换并保存当前任务组'}
             </button>
           </div>
         </div>
@@ -4429,6 +4571,44 @@ function candidatePanelStateLabel(state) {
     candidate_expired: '题目方案已过期',
     candidate_failed: '题目生成失败',
   })[state] || '未生成题目';
+}
+
+function resolveTaskCardDecisionAction({
+  initialCandidateGap,
+  initialCandidateGapRequired,
+  candidateReadyForDecision,
+  adoptActionLabel,
+  adoptBusyLabel,
+  qualityWarningCandidateMissing,
+  hasPendingQualityWarnings,
+  taskProductionAction,
+  fallbackAction,
+}) {
+  if (initialCandidateGapRequired) {
+    return {
+      kind: 'generate_candidate',
+      label: initialCandidateGap.actionLabel,
+      busyLabel: initialCandidateGap.busyLabel,
+    };
+  }
+  if (candidateReadyForDecision) {
+    return {
+      kind: 'adopt_candidate',
+      label: adoptActionLabel,
+      busyLabel: adoptBusyLabel,
+    };
+  }
+  if (qualityWarningCandidateMissing) {
+    return {
+      kind: 'generate_candidate',
+      label: '生成优化题目',
+      busyLabel: '正在生成优化题目…',
+    };
+  }
+  if (hasPendingQualityWarnings && taskProductionAction?.kind === 'open_confirmation') {
+    return null;
+  }
+  return fallbackAction;
 }
 
 function isTaskReady(task) {

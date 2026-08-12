@@ -23,6 +23,8 @@
 
 “采用并发布”是单人模式正常路径中的明确人工决定，不是一次不可追溯的领域写入。系统内部仍依次保留创建 Revision、Validation / Assessment、记录 Human Review Decision、Freeze、Formal Version 与 Registry 写入，并持久化每一阶段结果。采用前已经展示的非阻断提醒随该决定按 warning code 分别留痕；阻断问题、采用后新增未确认提醒或任一领域阶段失败时停止并提供阶段恢复动作。多人模式仍可恢复独立提交、审核和发布动作。
 
+单人模式中，“可以发布 / 采用并发布”必须满足可执行承诺：发布预检中的 Plan 存在性、任务归属、材料身份、Plan Validation 和 Plan Review 等可预见条件，必须在按钮展示前确认，或在点击后的 Candidate Adopt 之前确定性完成。预检与执行必须共享同一身份和门禁规则；不得出现页面承诺可以发布、Candidate 已采用后才返回 `plan_not_reviewed` 等前置错误。运行时异常可中断，但必须从已完成阶段恢复，不得要求用户重新采用。
+
 平台不要求用户一次性理解所有 Schema、来源、版本和内部质量字段，也不承担训练任务规划或 Material Observation Plan 的重新设计。
 
 本文不替代：

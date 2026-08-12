@@ -3,8 +3,8 @@
 英文名称：AI Resource Generation and Optimization Workflow Contract
 
 状态：DESIGN FROZEN / P0-P7 ENGINEERING COMPLETE / SINGLE-OPERATOR ADOPTION ORCHESTRATION DEBUG ACCEPTED
-契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_5`
-更新日期：2026-08-10
+契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_6`
+更新日期：2026-08-12
 
 产品确认日期：2026-08-05
 产品确认结论：同意以不可变 `QuestionCandidate` 作为 AI 生成、重新生成、优化和异常纠错的统一承载对象；只有采用 Candidate 才进入 Question Revision、检查、确认和发布链。P1-P5 已依次完成 Candidate 基础能力、页面接入、正式 Revision 采用、优化与异常纠错；P6 已将 Candidate 设为唯一正式生产主链，并把历史 Working Content 降级为只读迁移兼容数据。已发布资源读取链路保持不变。
@@ -18,6 +18,10 @@
 2026-08-10 质量提醒语义收口确认：`warning` 必须在“采用并发布”前完整展示。用户点击该主操作即接受当前可见的非阻断提醒；系统必须为每个 warning code 分别写入结构化 acknowledgement，并记录当前 Revision、Assessment、规则版本、操作人和时间。该留痕可以使用系统固定的决定来源 `single_operator_adopt_and_publish`，不得合并为一条无 warning 身份的批量记录，也不得再弹出自由文本理由表单或第二次最终确认。`blocking` 始终禁止发布，只能进入生成优化题目、重新生成或对应恢复动作。
 
 2026-08-06 组级操作收口确认：任务卡直接展示当前可执行动作，不再添加“下一步：”前缀。题目采用属于单任务动作，采用后不需要任务组级再次确认。页面底部常驻区只保留“重新规划整组任务”和“补充生成训练任务”两项组级 AI 生成动作；旧“确认任务并保存”不得常驻或以禁用态出现。只有训练任务组本身发生候选组采用、增删等未保存变化时，才临时显示“保存任务组修改”，该动作只维护 Observation Plan，不确认题目、不创建 Question Revision，也不进入题目发布链。
+
+2026-08-12 任务组候选采用收口确认：TrainingTaskCandidate 的人工采用动作在前台统一为“采用并保存”。该动作只合并用户操作，不合并领域命令：应用层必须先计算采用后的任务组，再调用 Observation Plan 保存与结构检查；保存成功后才关闭候选区并显示任务卡，保存失败时保留原候选供重试。该动作不得创建 Question Revision、Assessment、Human Review、Formal Resource 或 Registry 记录，更不得直接发布；单任务 QuestionCandidate 的“采用并发布”边界保持不变。
+
+2026-08-12 “可以发布”承诺确认：任务卡显示“可以发布 / 采用并发布”即表示所有可预见发布前置条件已经满足，或可由同一次点击确定性自动完成。应用层必须在 Candidate Adopt 前完成 Observation Plan 校验、提交与单人模式审核确认，并让可见状态与执行命令消费同一前置检查结果。不得先采用 Candidate，再以 `plan_not_reviewed`、Plan 缺失、任务身份缺失或已知校验失败阻断用户。点击后仅网络、存储、Provider 或并发状态变化等不可预见运行时异常可以中断；中断时保留已完成领域阶段并显示唯一恢复动作，不得要求重新采用同一 Candidate。
 
 ## 一、目的
 
@@ -1638,3 +1642,12 @@ TrainingTask 已携带完整题目时，页面是否显示“生成题目”必�
 - 只有题目正文为空时，页面才显示“未生成题目 / 生成题目”。
 
 已有题目且没有提醒时显示“可以发布”；存在普通提醒时显示“需要确认”，并由“确认并发布”承接结构化留痕；真实阻断问题仍禁止发布，只允许系统重新生成或修复。Candidate 完整性是内部诊断结果，不得单独成为用户生命周期状态。Candidate、Revision、Validation、Assessment、Human Review、Freeze、Formal Resource 与 Registry 的领域边界保持不变。
+
+## 候选操作状态隔离与错误可见性（2026-08-12）
+
+1. Candidate 的生成、重新生成、采用与发布状态必须按任务身份隔离；一项任务运行命令时，不得把相邻任务投影为相同 Loading；
+2. 候选列表的后台重新读取不等于候选生成，不得复用 `regenerating / adopting` 的按钮文案或禁用语义；
+3. 摘要快捷按钮与展开 Candidate 决策区必须传递同一个已选 Candidate，执行层不得再次用不同工作状态默认值寻找候选；
+4. 主按钮触发的错误必须同步进入任务卡摘要的 `alert`，即使卡片保持折叠也能看到；详情区只补充原因与恢复动作；
+5. 对 `expired` 初始 Candidate 的上下文恢复必须由 Candidate Service 完成，不允许页面绕过不可变记录直接修改状态；
+6. 回归测试必须断言：单任务采用不会改变其他任务的操作文案、已显示主操作不会静默返回、失败反馈不依赖展开卡片。

@@ -81,7 +81,8 @@ async function main(): Promise<void> {
     'candidateReadyForDecision',
     "reasonSource: 'fixed'",
     "structuredReason: 'selected_candidate_with_warning'",
-    '请比较当前方案与 AI 新方案，选择合适方案后采用并发布。',
+    '点击“生成优化题目”获得可比较方案；选择合适方案后，点击“确认并发布”完成确认。',
+    'qualityWarningCandidateMissing',
     '当前题目有质量提醒，请确认是否保留当前题目，或重新生成。',
   ]) {
     assert.equal(source.includes(token), true, `P6 canonical token is missing: ${token}`);

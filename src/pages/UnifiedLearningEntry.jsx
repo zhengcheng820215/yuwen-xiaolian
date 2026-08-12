@@ -35,8 +35,13 @@ export default function UnifiedLearningEntry() {
     setBusy(true);
     setError('');
     try {
-      await startOrResumeUnifiedLearning();
-      setView('workspace');
+      const nextEntry = await startOrResumeUnifiedLearning();
+      setEntry(nextEntry);
+      if (nextEntry.canEnterWorkspace) {
+        setView('workspace');
+      } else {
+        setView('entry');
+      }
     } catch (startError) {
       setError(toMessage(startError));
     } finally {

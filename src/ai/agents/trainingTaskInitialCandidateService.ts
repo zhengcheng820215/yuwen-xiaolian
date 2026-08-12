@@ -74,7 +74,17 @@ export class TrainingTaskInitialCandidateService {
       source.context,
     );
     const existing = await this.repository.getCandidate(candidateId);
-    if (existing) return { status: 'existing', candidate: existing, completeness };
+    if (existing) {
+      const candidate = existing.status === 'expired'
+        ? await this.repository.updateCandidateStatus({
+            candidateId: existing.candidateId,
+            expectedStatus: 'expired',
+            status: 'ready',
+            occurredAt: this.clock(),
+          })
+        : existing;
+      return { status: 'existing', candidate, completeness };
+    }
 
     const candidates = await this.repository.listCandidates(input.trainingTaskId);
     await Promise.all(candidates
