@@ -32,6 +32,15 @@ export class IndexedDBRealLearningOperationRepository implements RealLearningOpe
     }
   }
 
+  async listByStudent(studentId: string): Promise<RealLearningOperationCheckpoint[]> {
+    const database = await this.openDatabase();
+    try {
+      return await requestToPromise<RealLearningOperationCheckpoint[]>(
+        database.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).index('studentId').getAll(studentId),
+      );
+    } finally { database.close(); }
+  }
+
   async save(checkpoint: RealLearningOperationCheckpoint): Promise<RealLearningOperationWriteResult> {
     const existing = await this.getByOperationId(checkpoint.operationId);
     const store: InMemoryRealLearningOperationStore = new Map();

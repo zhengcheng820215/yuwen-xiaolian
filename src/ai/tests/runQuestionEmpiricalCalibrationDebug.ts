@@ -11,10 +11,12 @@ const insufficient = calibrateQuestionFromAnonymousAttempts({
   generatedAt: now,
   attempts: Array.from({ length: 10 }, (_, index) => ({
     attemptId: `insufficient-${index}`,
+    subjectKey: `insufficient-subject-${index}`,
     resourceVersionId,
     itemScore: index % 2,
-    totalScore: index,
-    valid: true,
+    itemScorePolicyVersion: 'rubric_required_equal_weight_v1' as const,
+    totalScoreStatus: 'unavailable_single_round' as const,
+    valid: true as const,
     completedAt: now,
   })),
 });
@@ -26,10 +28,14 @@ const calibrated = calibrateQuestionFromAnonymousAttempts({
   generatedAt: now,
   attempts: Array.from({ length: 30 }, (_, index) => ({
     attemptId: `calibrated-${index}`,
+    subjectKey: `calibrated-subject-${index}`,
     resourceVersionId,
     itemScore: index >= 15 ? 1 : 0,
+    itemScorePolicyVersion: 'rubric_required_equal_weight_v1' as const,
     totalScore: index,
-    valid: true,
+    totalScoreStatus: 'available_comparable_window' as const,
+    assessmentWindowId: 'debug-comparable-window',
+    valid: true as const,
     completedAt: now,
   })),
 });

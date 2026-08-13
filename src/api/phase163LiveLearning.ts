@@ -41,8 +41,28 @@ import {
   createBrowserQuestionResourceAdmissionRepository,
 } from '../ai/repositories/formalResourceRepositoryRouter.ts';
 import { IndexedDBRealLearningOperationRepository } from '../ai/repositories/indexedDBRealLearningOperationRepository.ts';
+import {
+  IndexedDBLearningObservationOutboxRepository,
+  IndexedDBLearningObservationRepository,
+  IndexedDBQuestionCalibrationProjectionRepository,
+} from '../ai/repositories/indexedDBLearningCollectionRepositories.ts';
 import { LocalStorageUnifiedLearningEntryRepository } from '../ai/repositories/localStorageUnifiedLearningEntryRepository.ts';
+import { LearningObservationService } from '../ai/services/learningObservationService.ts';
+import { QuestionCalibrationProjectionService } from '../ai/services/questionCalibrationProjectionService.ts';
+import {
+  buildLearningCalibrationAttemptId,
+  buildLearningObservationEventId,
+  buildLearningSubmissionIntentId,
+  buildQuestionPresentationId,
+} from '../ai/agents/learningObservationIdentity.ts';
+import {
+  LEARNING_OBSERVATION_EVENT_SCHEMA_VERSION,
+  type LearningObservationEvent,
+  type LearningObservationEventPayload,
+  type LearningObservationEventType,
+} from '../ai/schemas/learningObservationEvent.schema.ts';
 import type { LearningPersistenceRecord } from '../ai/schemas/learningPersistence.schema.ts';
+import type { RealLearningOperationCheckpoint } from '../ai/schemas/realLearningOperation.schema.ts';
 import type { DelayedRetestPlan } from '../ai/schemas/delayedRetestScheduling.schema.ts';
 import type { CurrentLearningContext, TaskRequest } from '../ai/schemas/nextLearningStrategy.schema.ts';
 import type { FrozenQuestionResourceVersion } from '../ai/schemas/questionResourceAdmission.schema.ts';
@@ -75,6 +95,14 @@ const activityRepository = new LocalStorageUnifiedLearningEntryRepository();
 const multiDayRepository = new IndexedDBPhase163MultiDayRunRepository();
 const formalResourceRepository = createBrowserQuestionResourceAdmissionRepository();
 const materialObservationRepository = createBrowserMaterialObservationRepository();
+const observationService = new LearningObservationService(
+  new IndexedDBLearningObservationRepository(),
+  new IndexedDBLearningObservationOutboxRepository(),
+);
+const calibrationProjectionService = new QuestionCalibrationProjectionService(
+  new IndexedDBQuestionCalibrationProjectionRepository(),
+);
+const LEARNING_APP_VERSION = 'phase16_3_live_learning_wp5';
 
 export type Phase163LiveWorkspaceState = {
   status: 'ready' | 'submitting' | 'completed' | 'retry_required' | 'review_required' | 'blocked';
@@ -129,8 +157,46 @@ export async function loadPhase163LiveWorkspace(): Promise<Phase163LiveWorkspace
     });
   }
   if (checkpoint) assertPhase163ProductRuntimeIdentity(checkpoint);
+  await recoverPhase163LearningObservations(descriptor, checkpoint, persisted).catch(() => {
+    // Observation recovery is non-critical and must never block workspace loading.
+  });
   if (!checkpoint) return readyState(descriptor, persisted?.answerDraft || '');
   return stateFromCheckpoint(descriptor, checkpoint, persisted?.answerDraft || '');
+}
+
+export async function recordPhase163QuestionPresented(roundId: string): Promise<void> {
+  const descriptor = await buildCurrentRoundDescriptor();
+  if (descriptor.input.learningRoundId !== roundId) return;
+  const presentationId = buildQuestionPresentationId({
+    studentId: descriptor.input.studentId,
+    learningRoundId: roundId,
+    resourceVersionId: descriptor.input.resourceVersion.resourceVersionId,
+  });
+  await recordObservation(descriptor, 'question_presented', presentationId, {
+    kind: 'question_presented',
+    presentationId,
+  });
+}
+
+export async function recordPhase163FeedbackPresented(roundId: string): Promise<void> {
+  const descriptor = await buildCurrentRoundDescriptor();
+  if (descriptor.input.learningRoundId !== roundId) return;
+  const checkpoint = await operationRepository.getByOperationId(descriptor.input.operationId);
+  const response = checkpoint?.taskExecutionResult?.studentResponse;
+  const feedback = checkpoint?.controlledFeedbackResult;
+  if (!checkpoint || !response || !feedback?.studentLearningFeedback) return;
+  const submissionIntentId = buildLearningSubmissionIntentId({
+    responseId: response.responseId,
+    answerText: response.answerText,
+  });
+  const attemptId = attemptIdFor(descriptor, submissionIntentId);
+  await recordObservation(descriptor, 'feedback_presented', feedback.feedbackRequestId, {
+    kind: 'feedback_presented',
+    responseId: response.responseId,
+    attemptId,
+    feedbackRequestId: feedback.feedbackRequestId,
+    feedbackSchemaVersion: feedback.schemaVersion,
+  }, checkpoint.updatedAt);
 }
 
 export async function savePhase163LiveDraft(answerDraft: string): Promise<void> {
@@ -153,17 +219,42 @@ export async function savePhase163LiveDraft(answerDraft: string): Promise<void> 
 
 export async function submitPhase163LiveAnswer(answerText: string): Promise<Phase163LiveWorkspaceState> {
   const descriptor = await buildCurrentRoundDescriptor();
-  const submittedAt = new Date().toISOString();
+  const existingCheckpoint = await operationRepository.getByOperationId(descriptor.input.operationId);
+  const submittedAt = existingCheckpoint?.taskExecutionResult?.studentResponse?.submittedAt
+    || new Date().toISOString();
   const validityPreflight = runTaskExecutionAgent({
     concreteTask: descriptor.concreteTask,
     readiness: descriptor.readiness,
     studentAnswer: { answerText: answerText.trim(), submittedAt },
     startedAt: submittedAt,
   });
+  const preflightResponse = validityPreflight.taskExecutionResult?.studentResponse;
+  if (preflightResponse) {
+    const submissionIntentId = buildLearningSubmissionIntentId({
+      responseId: preflightResponse.responseId,
+      answerText: preflightResponse.answerText,
+    });
+    const attemptId = attemptIdFor(descriptor, submissionIntentId);
+    await recordObservation(descriptor, 'answer_submitted', submissionIntentId, {
+      kind: 'answer_submitted',
+      responseId: preflightResponse.responseId,
+      attemptId,
+      submittedAt: preflightResponse.submittedAt,
+    }, preflightResponse.submittedAt);
+    if (!validityPreflight.taskExecutionResult?.canEnterDiagnosisRuntime) {
+      await projectPhase163CalibrationAttempt(
+        descriptor,
+        validityPreflight.taskExecutionResult,
+        undefined,
+        undefined,
+      );
+    }
+  }
   if (!validityPreflight.taskExecutionResult?.canEnterDiagnosisRuntime) {
     const validity = validityPreflight.taskExecutionResult?.responseValidity;
     const copiedMaterial = validity?.reasons.some((reason) => reason.includes('复制阅读材料'));
     await savePhase163LiveDraft(answerText);
+    await observationService.retryDue().catch(() => undefined);
     return {
       ...readyState(descriptor, answerText),
       status: 'retry_required',
@@ -195,9 +286,196 @@ export async function submitPhase163LiveAnswer(answerText: string): Promise<Phas
   }
 
   const persistence = await persistenceRepository.loadByRound(PHASE163_LEARNING_STUDENT_ID, input.learningRoundId);
+  await recordRuntimeCompletionObservations(descriptor, result.checkpoint, persistence);
+  await projectPhase163CalibrationAttempt(descriptor, result.checkpoint.taskExecutionResult, result.checkpoint, persistence);
+  await observationService.retryDue().catch(() => undefined);
   if (persistence?.learningRoundResult) await appendRoundToCurrentSession(persistence);
   await recordNaturalDay(result, descriptor.retestPlan);
   return stateFromCheckpoint(descriptor, result.checkpoint, answerText);
+}
+
+async function recoverPhase163LearningObservations(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  checkpoint: RealLearningOperationCheckpoint | undefined,
+  persistence: LearningPersistenceRecord | undefined,
+): Promise<void> {
+  await observationService.retryDue();
+  const response = checkpoint?.taskExecutionResult?.studentResponse;
+  if (!checkpoint || !response) return;
+  const submissionIntentId = buildLearningSubmissionIntentId({
+    responseId: response.responseId,
+    answerText: response.answerText,
+  });
+  const attemptId = attemptIdFor(descriptor, submissionIntentId);
+  const events: LearningObservationEvent[] = [];
+  const submitted = buildObservation(descriptor, 'answer_submitted', submissionIntentId, {
+    kind: 'answer_submitted',
+    responseId: response.responseId,
+    attemptId,
+    submittedAt: response.submittedAt,
+  }, response.submittedAt);
+  if (submitted) events.push(submitted);
+  const formalCommit = checkpoint.realDiagnosisRuntimeResult?.formalDiagnosisCommit;
+  if (formalCommit?.status === 'committed' && formalCommit.committedAt) {
+    const diagnosis = buildObservation(descriptor, 'diagnosis_completed', formalCommit.formalDiagnosisId, {
+      kind: 'diagnosis_completed',
+      responseId: response.responseId,
+      attemptId,
+      formalDiagnosisId: formalCommit.formalDiagnosisId,
+      diagnosisSchemaVersion: formalCommit.schemaVersion,
+    }, formalCommit.committedAt);
+    if (diagnosis) events.push(diagnosis);
+  }
+  if (persistence?.learningRoundResult?.status === 'completed') {
+    const completed = buildObservation(descriptor, 'learning_round_completed', persistence.recordId, {
+      kind: 'learning_round_completed',
+      responseId: response.responseId,
+      attemptId,
+      persistenceRecordId: persistence.recordId,
+      completedAt: persistence.updatedAt,
+    }, persistence.updatedAt);
+    if (completed) events.push(completed);
+  }
+  await observationService.reconcileRound(descriptor.input.learningRoundId, events);
+  await projectPhase163CalibrationAttempt(descriptor, checkpoint.taskExecutionResult, checkpoint, persistence);
+}
+
+async function projectPhase163CalibrationAttempt(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  execution: RealLearningOperationCheckpoint['taskExecutionResult'],
+  checkpoint: RealLearningOperationCheckpoint | undefined,
+  persistence: LearningPersistenceRecord | undefined,
+): Promise<void> {
+  const response = execution?.studentResponse;
+  if (!response) return;
+  const submissionIntentId = buildLearningSubmissionIntentId({
+    responseId: response.responseId,
+    answerText: response.answerText,
+  });
+  const formalCommit = checkpoint?.realDiagnosisRuntimeResult?.formalDiagnosisCommit;
+  const version = descriptor.input.resourceVersion;
+  const identityIssues = [
+    response.studentId !== descriptor.input.studentId ? 'projection_response_student_mismatch' : undefined,
+    response.taskId !== descriptor.concreteTask.taskId ? 'projection_response_task_mismatch' : undefined,
+    checkpoint && checkpoint.learningRoundId !== descriptor.input.learningRoundId ? 'projection_round_mismatch' : undefined,
+    checkpoint && checkpoint.sourceResourceVersionId !== version.resourceVersionId ? 'projection_resource_version_mismatch' : undefined,
+    formalCommit && checkpoint?.realDiagnosisRuntimeResult?.runRecord.responseId !== response.responseId
+      ? 'projection_diagnosis_response_mismatch'
+      : undefined,
+  ].filter((issue): issue is string => Boolean(issue));
+  const completed = persistence?.learningRoundResult?.status === 'completed';
+  await calibrationProjectionService.project({
+    attemptId: attemptIdFor(descriptor, submissionIntentId),
+    runtimeScope: 'product',
+    studentId: descriptor.input.studentId,
+    operationId: descriptor.input.operationId,
+    learningSessionId: descriptor.input.learningSessionId,
+    learningRoundId: descriptor.input.learningRoundId,
+    responseId: response.responseId,
+    responseValidityStatus: execution?.responseValidity.status,
+    roundCompleted: completed,
+    completedAt: completed ? persistence.updatedAt : undefined,
+    formalDiagnosisId: formalCommit?.formalDiagnosisId,
+    formalDiagnosisCommitted: formalCommit?.status === 'committed',
+    rubricItems: formalCommit?.diagnosisResult?.rubricItems,
+    resourceVersionId: version.resourceVersionId,
+    projectedAt: persistence?.updatedAt || formalCommit?.committedAt || response.submittedAt,
+    identityIssues,
+  });
+}
+
+async function recordRuntimeCompletionObservations(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  checkpoint: Awaited<ReturnType<typeof runPhase163RealLearningChain>>['checkpoint'],
+  persistence: LearningPersistenceRecord | undefined,
+): Promise<void> {
+  const response = checkpoint.taskExecutionResult?.studentResponse;
+  if (!response) return;
+  const submissionIntentId = buildLearningSubmissionIntentId({
+    responseId: response.responseId,
+    answerText: response.answerText,
+  });
+  const attemptId = attemptIdFor(descriptor, submissionIntentId);
+  const formalCommit = checkpoint.realDiagnosisRuntimeResult?.formalDiagnosisCommit;
+  if (formalCommit?.status === 'committed' && formalCommit.committedAt) {
+    await recordObservation(descriptor, 'diagnosis_completed', formalCommit.formalDiagnosisId, {
+      kind: 'diagnosis_completed',
+      responseId: response.responseId,
+      attemptId,
+      formalDiagnosisId: formalCommit.formalDiagnosisId,
+      diagnosisSchemaVersion: formalCommit.schemaVersion,
+    }, formalCommit.committedAt);
+  }
+  if (persistence?.learningRoundResult?.status === 'completed') {
+    await recordObservation(descriptor, 'learning_round_completed', persistence.recordId, {
+      kind: 'learning_round_completed',
+      responseId: response.responseId,
+      attemptId,
+      persistenceRecordId: persistence.recordId,
+      completedAt: persistence.updatedAt,
+    }, persistence.updatedAt);
+  }
+}
+
+async function recordObservation(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  eventType: LearningObservationEventType,
+  sourceEntityId: string,
+  payload: LearningObservationEventPayload,
+  occurredAt = new Date().toISOString(),
+): Promise<void> {
+  const event = buildObservation(descriptor, eventType, sourceEntityId, payload, occurredAt);
+  if (event) await observationService.record(event);
+}
+
+function buildObservation(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  eventType: LearningObservationEventType,
+  sourceEntityId: string,
+  payload: LearningObservationEventPayload,
+  occurredAt = new Date().toISOString(),
+): LearningObservationEvent | undefined {
+  const version = descriptor.input.resourceVersion;
+  if (!version.materialVersionId) return undefined;
+  const event: LearningObservationEvent = {
+    schemaVersion: LEARNING_OBSERVATION_EVENT_SCHEMA_VERSION,
+    eventId: buildLearningObservationEventId({
+      schemaVersion: LEARNING_OBSERVATION_EVENT_SCHEMA_VERSION,
+      eventType,
+      studentId: descriptor.input.studentId,
+      learningSessionId: descriptor.input.learningSessionId,
+      learningRoundId: descriptor.input.learningRoundId,
+      sourceEntityId,
+    }),
+    eventType,
+    occurredAt,
+    recordedAt: new Date().toISOString(),
+    runtimeScope: 'product',
+    studentId: PHASE163_LEARNING_STUDENT_ID,
+    operationId: descriptor.input.operationId,
+    learningSessionId: descriptor.input.learningSessionId,
+    learningRoundId: descriptor.input.learningRoundId,
+    materialVersionId: version.materialVersionId,
+    resourceId: version.resourceId,
+    resourceVersionId: version.resourceVersionId,
+    taskId: version.taskId,
+    sourceEntityId,
+    appVersion: LEARNING_APP_VERSION,
+    payload,
+  };
+  return event;
+}
+
+function attemptIdFor(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  submissionIntentId: string,
+): string {
+  return buildLearningCalibrationAttemptId({
+    studentId: descriptor.input.studentId,
+    learningSessionId: descriptor.input.learningSessionId,
+    learningRoundId: descriptor.input.learningRoundId,
+    submissionIntentId,
+  });
 }
 
 export async function advancePhase163LiveRound(): Promise<void> {

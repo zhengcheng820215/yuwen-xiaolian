@@ -3,6 +3,8 @@ import { ArrowLeft, ArrowRight, BookOpen, Lightbulb, Pencil, RefreshCw, Save, Th
 import {
   advancePhase163LiveRound,
   loadPhase163LiveWorkspace,
+  recordPhase163FeedbackPresented,
+  recordPhase163QuestionPresented,
   savePhase163LiveDraft,
   submitPhase163LiveAnswer,
 } from '../api/phase163LiveLearning.ts';
@@ -55,6 +57,16 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
       .finally(() => active && setBusy(false));
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!state?.roundId) return undefined;
+    const presentsQuestion = !state.feedback && ['ready', 'retry_required'].includes(state.status);
+    if (!presentsQuestion) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      void recordPhase163QuestionPresented(state.roundId).catch(() => {});
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [state?.roundId, state?.status, Boolean(state?.feedback)]);
 
   useEffect(() => {
     if (!autoRetryResource || autoResourceRetryStarted.current || busy || state?.primaryAction !== 'retry_resource') return;
@@ -350,9 +362,13 @@ function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus,
   useEffect(() => {
     if (!shouldStageFeedback) {
       setPresentationStep((step) => synchronizeFeedbackPresentationStep(step, false));
+      void recordPhase163FeedbackPresented(state.roundId).catch(() => {});
       return undefined;
     }
-    const reviewTimer = window.setTimeout(() => setPresentationStep((step) => Math.max(step, 1)), 180);
+    const reviewTimer = window.setTimeout(() => {
+      setPresentationStep((step) => Math.max(step, 1));
+      void recordPhase163FeedbackPresented(state.roundId).catch(() => {});
+    }, 180);
     const guidanceTimer = window.setTimeout(() => setPresentationStep((step) => Math.max(step, 2)), 520);
     const actionTimer = window.setTimeout(() => {
       setPresentationStep(3);
@@ -433,6 +449,10 @@ function PausedWorkspace({ state, writingCorrections, busy, onReturn }) {
   const attention = guidance ? [] : state.feedback?.whatNeedsAttention?.slice(0, 1) || [];
   const hasLearningNarrative = hasOutcomeNarrative(state.learningPresentation);
   const showPauseMessage = !state.feedback || !['resource_unavailable', 'next_task_review'].includes(state.pauseReason);
+  useEffect(() => {
+    if (!state.feedback) return;
+    void recordPhase163FeedbackPresented(state.roundId).catch(() => {});
+  }, [state.feedback, state.roundId]);
   return (
     <main className="flex min-h-[calc(100vh-65px)] items-center px-6 py-12">
       <div className="mx-auto w-full max-w-[720px]">

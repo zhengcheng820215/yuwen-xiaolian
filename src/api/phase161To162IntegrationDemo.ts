@@ -179,7 +179,7 @@ export async function getPhase163FormalResourcePoolData(
         questionStem: '父亲在列车开动后的动作表现出怎样的心理？请结合新的材料情境说明理由。',
         acceptedKeywords: ['不舍', '牵挂', '留恋'],
         acceptedSignals: ['指出反复检查行李、留下联系方式、一直挥手或看不见后才放下手臂', '说明这些动作与不舍、牵挂或担心之间的联系'],
-        tags: ['material_relation:new_context', 'hint_policy:no_hint', '人物心理', '迁移验证'],
+        tags: ['material_relation:new_context', 'hint_policy:limited_hint', '人物心理', '迁移验证'],
       },
     },
     {
@@ -570,7 +570,7 @@ function buildEnvelope(
         ? 'diagnostic_verification'
         : isObservation ? 'collect_more_evidence' : 'continue_training';
   const materialNovelty = isRetest || isTransfer ? 'new_context' : 'similar_context';
-  const hintPolicy = isRetest || isTransfer ? 'no_hint' : 'limited_hint';
+  const hintPolicy = isRetest ? 'no_hint' : 'limited_hint';
   base.taskRequest.studentId = studentId;
   base.taskRequest.targetAbilityId = targetAbilityId;
   base.taskRequest.taskRole = taskRole;

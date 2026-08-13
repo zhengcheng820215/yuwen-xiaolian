@@ -14,6 +14,13 @@ import { loadPhase163MultiDayReview } from '../api/internalLearningReview.ts';
 
 const tools = [
   {
+    to: '/internal/learning-collection',
+    icon: ShieldCheck,
+    title: '学习采集完整性',
+    description: '只读核对五事件、校准 Attempt、版本绑定及缺失或冲突问题。',
+    meta: '数据完整性',
+  },
+  {
     to: '/material-resource-workbench',
     icon: BookOpenCheck,
     title: '素材与题目生产工作台',

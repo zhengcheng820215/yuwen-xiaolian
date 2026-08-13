@@ -51,6 +51,7 @@ Debug / Acceptance Report
 | Phase 17.4 本机共享正式资源 | 让不同本机客户端读取同一份正式资源，并保护版本与冲突 | PASS | DEBUG 10 / 10 + BASELINE CUTOVER + FRESH INITIALIZATION PASS | CONTROLLED DUAL-CLIENT + INDEPENDENT BROWSER-KERNEL CHECK PASS | RESTART PERSISTENCE PASS |
 | Phase 17.5 题目生成质量评估 | 在发布前发现结构、语义和批次质量问题 | PASS | 17.5A / B / C1 / C2 / C3A / C3B RUNTIME PASS + REVIEW / PUBLICATION WORKFLOW P0 PASS | STAGE 1–5 TEN-MATERIAL / 34-QUESTION CALIBRATION PASS | REAL LEARNING SAMPLE CALIBRATION AWAITING DATA |
 | `/learning` 正式学习入口 | 让单学生从一个入口开始、恢复、作答、反馈并继续 | PASS | MAIN PATH PASS / SHARED FORMAL SNAPSHOT READ FIXED / CONSOLIDATION IN PROGRESS | UNIFIED ENTRY 20 / 20 + FORMAL ENTRY 10 / 10 PASS | `0 / 5` |
+| 真实 Learning 数据采集与观察 | 在不干扰学生的前提下记录匿名使用者、过程、答案与版本化校准样本 | PASS | EXISTING ANSWER / SESSION PERSISTENCE PASS; MINIMUM EVENT CHAIN PENDING | PENDING | AWAITING REAL DATA |
 | 多能力调度 | 根据表现和正式资源决定下一步练什么 | PASS | RUNTIME PASS | LIMITED BY RESOURCE PACK | PENDING |
 | Student Learning Narrative | 把系统已有判断转化为学生可理解、可执行的表达 | PASS | BASELINE PASS | REAL STUDENT CALIBRATION PENDING | PENDING |
 | 跨 Session、复测与长期记忆 | 跨天记住学习历史并在合适时间复测 | PASS | PASS / FROZEN | CONTROLLED DEMO PASS | `0 / 5` |
@@ -93,6 +94,19 @@ Debug / Acceptance Report
 | 演示路径 | `/learning` -> 完成一轮 -> 查看反馈 -> 下一任务 -> 刷新恢复 -> 关闭后重新进入。 |
 | FAIL 先查 | 不知道点哪里：交互；恢复、重复、状态错位：Runtime；反馈无价值：表达；题目无法完成：内容。 |
 | 证据 | [界面与入口收敛](./STUDENT_PRODUCT_INTERFACE_CONSOLIDATION.md) · [Phase 16.3](../education/phase/phase16_3.md) |
+
+### 6.1 真实 Learning 数据采集与观察
+
+| 控制项 | 产品负责人视图 |
+| --- | --- |
+| 为什么需要 | 当前已保存答案、Diagnosis、Evidence 与 Session，但还没有五事件最小链和自动校准 Attempt 接续。若不先补齐，34道题虽能作答，却不能稳定形成题目版本级真实样本。 |
+| 使用者变化 | 第一阶段学生体验不增加步骤，只继续看到保存、提交、反馈和完成；内部人员可以核对每个完成 Round 是否形成唯一校准 Attempt。家长报告和多使用者后置。 |
+| 只做 | 当前优先只做固定单学生五个核心事件、稳定 attemptId、完成轮次后的匿名校准投影和内部完整性报告。 |
+| 不做 | 不记录逐键、鼠标轨迹、剪贴板、其他网页活动；不建立广告画像；不把单人重复作答解释为群体样本；不静默上传本地数据。 |
+| 产品级 PASS | ① 正常作答形成五事件；② 提交时创建稳定 attemptId；③ 只有完成且已评分的轮次投影一个 Attempt；④ 刷新恢复不重复；⑤ 内部报告能发现缺失、重复、错绑和 Demo 泄漏。 |
+| 演示路径 | 固定产品学生完成一题 → 核对五事件 → 刷新恢复 → 核对同一 resourceVersionId 只有一个匿名 Attempt → 查看内部完整性报告。 |
+| FAIL 先查 | 身份、版本、幂等或时间：Runtime；学生被干扰：交互；家长观察被当成系统结论：表达 / Runtime；样本资格错误：数据治理。 |
+| 证据 | [真实 Learning 数据采集与观察契约](./REAL_LEARNING_DATA_COLLECTION_AND_OBSERVATION_CONTRACT.md) · [最小采集工程契约](./REAL_LEARNING_MINIMUM_COLLECTION_ENGINEERING_CONTRACT.md) · [AI 题目采用与真实作答校准契约](./AI_QUESTION_ADOPTION_AND_EMPIRICAL_CALIBRATION_CONTRACT.md) |
 
 ## 七、多能力调度
 
@@ -167,13 +181,15 @@ Debug / Acceptance Report
 
 当前产品定位：
 
-> 已通过真实单轮学习链路验收，具备正式资源录入、审核、发布、发布前质量治理和本机共享持久化基础的单学生封闭 Beta；尚未完成真实十素材校准、完整资源生态、多轮连续 Session 和自然日稳定性证明。
+> 已完成10篇材料、34道正式题的资源生产校准，以及真实 Learning 最小采集 `WP0—WP7`；具备正式资源录入、AI生成、质量门禁、采用发布、版本治理、Learning消费、本机学习记录、五事件采集、失败恢复、校准 Projection 和内部完整性审计能力。当前进入固定单学生的受控真实运行，尚缺真实样本量、多轮连续 Session 和自然日稳定性证明。
 
 ```text
-1. 真实十素材校准：固定 10 篇代表材料，运行生成、质量评估与人工观察，形成 Phase 17.5 校准结论
-2. 资源生态：继续生产 Phase 17.2 Batch B / C，完成 24—28 道正式资源与既定 Retest / Transfer / 跨能力路径
-3. 连续 Session 与学生感知：完成 3 个受控 Session，并使用 6—10 组真实记录验收 Narrative
-4. 冻结稳定构建，开始 Phase 16.3C 5—7 个自然日运行
+1. 真实 Learning：由固定单学生使用当前10篇材料、34道题完成连续 Session，重点观察12道长文本提示题与4道 v4 试点题
+2. 每个新轮次后检查内部完整性页，记录五事件完整率、eligible/excluded 比例、Outbox 恢复和真实 Diagnosis 可用性
+3. 累积真实样本并按独立使用者口径解释；单一学生的重复作答不得充当多人样本或群体校准
+4. 完成多轮连续 Session 与自然日稳定性证明，区分历史缺失记录和新链路数据
+5. P4 家长报告与扩展过程指标；P5 多使用者。二者不阻塞第一批真实数据
+6. 扩大试用前单独完成材料来源与版权核验，不把治理状态变成学生步骤或题目审核步骤
 ```
 
 产品负责人不需要重新掌握全部字段和对象。主要责任是守住目标、用户结果、PASS 标准、模块边界和问题分类。

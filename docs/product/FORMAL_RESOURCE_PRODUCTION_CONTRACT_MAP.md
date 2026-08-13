@@ -14,6 +14,8 @@
 
 AI 题目的人工作业和真实样本观察遵循 [AI_QUESTION_ADOPTION_AND_EMPIRICAL_CALIBRATION_CONTRACT.md](./AI_QUESTION_ADOPTION_AND_EMPIRICAL_CALIBRATION_CONTRACT.md)。生产主链只有“采用并发布 / 不采用并重新优化”一次人工选择；真实作答校准只在 Learning 使用后后台运行，不增加审核步骤。
 
+真实 Learning 如何形成匿名使用者、过程事件与版本化校准 Attempt，属于生产后的跨边界输入，遵循[真实 Learning 数据采集与观察契约](./REAL_LEARNING_DATA_COLLECTION_AND_OBSERVATION_CONTRACT.md)。本文不接管其 Session、隐私、展示或存储规则；生产端只消费去标识化、已通过资格检查的题目版本级校准结果。
+
 AI 题目的完整生成、作答格式匹配、同篇去重、能力梯度与少量定向替换遵循 [AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md](./AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md)。该契约禁止整批覆盖正式题，并要求未采用候选不影响 Registry、Observation Link 或 Learning。
 
 阶段1—5已经完成十篇材料、34道正式题的基线、规则、候选、逐题采用发布和素材收口；最终执行状态见[阶段5收口计划与执行记录](./AI_QUESTION_OPTIMIZATION_STAGE5_CLOSURE_PLAN_2026-08-13.md)。真实作答校准已具备能力但仍等待真实 Learning 样本，不得以模拟样本提前宣称稳定。
@@ -243,6 +245,6 @@ P0-P7 最终串联验收已于 2026-08-03 完成，统一命令为 `pnpm run deb
 
 正式资源生产已经形成从素材版本、训练任务规划、不可变 Question Candidate、人工采用、题目 Revision、内联质量检查、人工发布决定到冻结发布和学习读取的可追溯主链。单人模式的现行体验目标是一个页面、一次发布决定，不暴露常驻版本选择，也不重复进入审核或最终确认页面。Candidate 不进入正式资源链；Revision、Assessment、Human Review、Freeze 与 Registry 仍作为底层正式对象保留。
 
-历史 P0-P7 已完成最终聚合自动化、浏览器、失败恢复、学习入口、静态检查和生产构建验收；单页发布 P0-P2 工程实现、专项回归与浏览器验收也已完成。十素材校准、单任务完整采用发布验收和 Bundle 性能优化属于独立后续项，不影响主链的 Engineering Complete。多人独立审核模式仍是后续独立决策。
+历史 P0-P7 已完成最终聚合自动化、浏览器、失败恢复、学习入口、静态检查和生产构建验收；阶段1—5进一步完成10篇活动材料、34道当前正式题的语料治理、质量规则、候选试点、单题采用发布和版本一致性收口。当前资源生产校准已经完成，后续重点转为真实 Learning 最小采集链、真实样本与自然日验证；多人独立审核模式仍是后续独立决策。
 
 本地图为产品、设计、开发和验收提供统一入口，使问题能够回到正确契约解决，而不是在页面实现或阶段文档中重复定义规则。

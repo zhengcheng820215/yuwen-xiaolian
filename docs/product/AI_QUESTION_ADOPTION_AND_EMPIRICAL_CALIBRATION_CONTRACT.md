@@ -4,7 +4,7 @@
 
 状态：`ACTIVE`
 
-文档版本：`ai_question_adoption_and_empirical_calibration_v1.6`
+文档版本：`ai_question_adoption_and_empirical_calibration_v1.7`
 
 生效日期：`2026-08-13`
 
@@ -75,6 +75,10 @@ AI 生成题目候选
 
 真实作答校准是 Learning 使用后的后台观察，不进入题目生成与发布交互，也不要求教师填写意见。
 
+真实作答的采集事实、匿名 Learner、Attempt 资格、成人帮助处理、时间口径、前端展示与本地数据控制统一遵循[真实 Learning 数据采集与观察契约](./REAL_LEARNING_DATA_COLLECTION_AND_OBSERVATION_CONTRACT.md)。本文只负责题目版本级校准状态与阈值，不重复定义 Learning 事件。
+
+P0—P3 的具体事件 Schema、稳定 Attempt 身份、投影审计、required Rubric 等权计分、`totalScore` 缺省语义与完整性公式统一遵循[真实 Learning 最小采集工程契约](./REAL_LEARNING_MINIMUM_COLLECTION_ENGINEERING_CONTRACT.md)。在 v2 Schema 适配完成前，现有强制 `totalScore` 的 v1 计算器不得接入真实单学生数据。
+
 样本必须绑定学生实际消费的 `resourceVersionId`，并只向题目治理层提供匿名指标：
 
 ```text
@@ -93,6 +97,9 @@ awaiting_data
 - 达到试运行阈值后仍不得把初步指标描述为题目质量已经稳定；
 - 不同 Question Version 的样本不得合并。
 - 能力、难度等非阻断建议按材料聚合后供后台治理使用，不创建新的人工确认入口，也不自动修改当前正式题。
+- 同一 Learner 对同一版本的重复作答可以用于纵向观察，但不得冒充多个独立使用者样本；成人较多帮助的作答默认不进入独立题目校准。
+- 当前校准计算器已经实现，但 Learning 提交自动投影为匿名校准 Attempt 尚未完成；在接续验收通过前保持 `awaiting_data`，不得用已有答案记录推断已自动入池。
+- `answer_submitted` 只创建稳定 `attemptId` 和待定提交事实；必须在 Validity 通过、Diagnosis 与正式评分形成且 `learning_round_completed` 后，才自动投影有效 `AnonymousQuestionCalibrationAttempt`。无效或未完成提交不得入池。
 
 ## 六、最低验收标准
 

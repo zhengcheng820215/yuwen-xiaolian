@@ -97,6 +97,10 @@ ResponseValidityResult
    下一轮真实作答
 ```
 
+真实使用中的 Session / Round、核心过程事件、校准 Attempt、后续家长观察与多使用者边界，统一遵循[真实 Learning 数据采集与观察契约](../product/REAL_LEARNING_DATA_COLLECTION_AND_OBSERVATION_CONTRACT.md)。当前复用固定产品学生身份，五事件最小链、完成轮次后的自动校准接续、失败恢复和内部完整性报告均已完成；家长报告和多使用者后置。该契约继续区分工程能力、真实运行数据与群体校准结论，不得把自动化验收误报为真实样本已经充足。
+
+五事件字段、稳定身份、IndexedDB Repository、Outbox 补写、Attempt 投影、开放题评分和 P3 一致性公式由[真实 Learning 最小采集工程契约](../product/REAL_LEARNING_MINIMUM_COLLECTION_ENGINEERING_CONTRACT.md)冻结。`WP0—WP7` 已完成代码、自动化与浏览器验收，当前可以进入固定单学生的真实 Learning 受控运行；单学生单轮数据仍不得伪造 `totalScore` 或高低组区分度。
+
 跨 Session 的延迟验证链：
 
 ```text

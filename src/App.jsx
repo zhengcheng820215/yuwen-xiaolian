@@ -36,6 +36,7 @@ import Phase163UnifiedEntryDemo from './pages/Phase163UnifiedEntryDemo.jsx';
 import Phase163MultiDayOperationDemo from './pages/Phase163MultiDayOperationDemo.jsx';
 import InternalHub from './pages/InternalHub.jsx';
 import InternalAcceptanceHub from './pages/InternalAcceptanceHub.jsx';
+import LearningCollectionIntegrity from './pages/LearningCollectionIntegrity.jsx';
 import ResourceCoverageDashboardDemo from './pages/ResourceCoverageDashboardDemo.jsx';
 import MaterialResourceProductionWorkbench from './pages/MaterialResourceProductionWorkbench.jsx';
 import StudentLearningNarrativeCalibrationDemo from './pages/StudentLearningNarrativeCalibrationDemo.jsx';
@@ -83,6 +84,7 @@ export default function App() {
         <Route path="/internal" element={<InternalHub />} />
         <Route path="/internal/acceptance" element={<InternalAcceptanceHub />} />
         <Route path="/internal/learning-review" element={<InternalLearningReview />} />
+        <Route path="/internal/learning-collection" element={<LearningCollectionIntegrity />} />
         <Route path="/phase16-3-unified-entry-demo" element={<Phase163UnifiedEntryDemo />} />
         <Route path="/phase16-3-multiday-operation-demo" element={<Phase163MultiDayOperationDemo />} />
         <Route path="/resource-coverage-dashboard-demo" element={<ResourceCoverageDashboardDemo />} />

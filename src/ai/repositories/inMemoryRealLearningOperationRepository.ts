@@ -30,6 +30,10 @@ export class InMemoryRealLearningOperationRepository implements RealLearningOper
     return this.records.get(operationId) || null;
   }
 
+  async listByStudent(studentId: string): Promise<RealLearningOperationCheckpoint[]> {
+    return [...this.records.values()].filter((checkpoint) => checkpoint.studentId === studentId);
+  }
+
   async save(checkpoint: RealLearningOperationCheckpoint): Promise<RealLearningOperationWriteResult> {
     const existing = this.records.get(checkpoint.operationId);
     if (!existing) {
