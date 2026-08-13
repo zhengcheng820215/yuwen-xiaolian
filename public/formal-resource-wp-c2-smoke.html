@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="UTF-8"><title>WP-C2 Browser Smoke</title></head>
+  <body>
+    <button id="run" type="button">Run WP-C2 Smoke</button>
+    <button id="hold" type="button">Hold Cross-Tab Lock</button>
+    <button id="acquire" type="button">Acquire Cross-Tab Lock</button>
+    <button id="broadcast" type="button">Broadcast Revision</button>
+    <pre id="result">READY</pre>
+    <pre id="cross-tab-result">CROSS_TAB_READY</pre>
+    <script>
+      const crossTabResult = document.getElementById('cross-tab-result');
+      const crossTabChannel = new BroadcastChannel('formal-resource-store-events-smoke-cross-tab');
+      crossTabChannel.addEventListener('message', (event) => {
+        crossTabResult.textContent = `REVISION_RECEIVED:${event.data.revision}`;
+      });
+      document.getElementById('hold').addEventListener('click', async () => {
+        await navigator.locks.request('formal-resource-store-write-smoke-cross-tab', async () => {
+          crossTabResult.textContent = 'HOLDING';
+          await new Promise((resolve) => setTimeout(resolve, 1200));
+        });
+        crossTabResult.textContent = 'HOLD_COMPLETE';
+      });
+      document.getElementById('acquire').addEventListener('click', async () => {
+        const startedAt = performance.now();
+        crossTabResult.textContent = 'WAITING';
+        await navigator.locks.request('formal-resource-store-write-smoke-cross-tab', async () => undefined);
+        const waited = performance.now() - startedAt;
+        crossTabResult.textContent = waited >= 700 ? `WAIT_PASS:${Math.round(waited)}ms` : `WAIT_FAIL:${Math.round(waited)}ms`;
+      });
+      document.getElementById('broadcast').addEventListener('click', () => {
+        crossTabChannel.postMessage({
+          type: 'formal_resource_revision_updated',
+          revision: 965,
+          occurredAt: new Date().toISOString(),
+        });
+      });
+      document.getElementById('run').addEventListener('click', async () => {
+        const result = document.getElementById('result');
+        try {
+          if (!navigator.locks?.request) throw new Error('Web Locks unavailable');
+          if (typeof BroadcastChannel !== 'function') throw new Error('BroadcastChannel unavailable');
+          const order = [];
+          let release;
+          const gate = new Promise((resolve) => { release = resolve; });
+          const first = navigator.locks.request('formal-resource-store-write-smoke', async () => {
+            order.push('first:start');
+            await gate;
+            order.push('first:end');
+          });
+          const second = navigator.locks.request('formal-resource-store-write-smoke', async () => {
+            order.push('second:start');
+          });
+          await new Promise((resolve) => setTimeout(resolve, 30));
+          release();
+          await Promise.all([first, second]);
+          if (order.join(',') !== 'first:start,first:end,second:start') throw new Error(`lock order: ${order}`);
+
+          const channelA = new BroadcastChannel('formal-resource-store-events-smoke');
+          const channelB = new BroadcastChannel('formal-resource-store-events-smoke');
+          const received = new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('broadcast timeout')), 500);
+            channelB.addEventListener('message', (event) => {
+              clearTimeout(timer);
+              resolve(event.data);
+            }, { once: true });
+          });
+          channelA.postMessage({ type: 'formal_resource_revision_updated', revision: 964 });
+          const message = await received;
+          channelA.close();
+          channelB.close();
+          if (message.type !== 'formal_resource_revision_updated' || message.revision !== 964) {
+            throw new Error('invalid broadcast payload');
+          }
+          result.textContent = 'PASS 4/4\nWeb Locks available\nExclusive order verified\nBroadcastChannel available\nRevision event delivered';
+        } catch (error) {
+          result.textContent = `FAIL\n${error.message}`;
+        }
+      });
+    </script>
+  </body>
+</html>

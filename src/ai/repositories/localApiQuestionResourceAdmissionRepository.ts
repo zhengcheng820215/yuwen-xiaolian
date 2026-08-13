@@ -83,7 +83,7 @@ implements QuestionResourceAdmissionRepository {
       if (index >= 0) assertDraftRevision(collection[index], draft);
       upsert(collection, 'draftId', draft);
       return draft;
-    });
+    }, 'save-draft');
   }
 
   async getDraft(draftId: string): Promise<StructuredQuestionDraft | null> {
@@ -112,7 +112,7 @@ implements QuestionResourceAdmissionRepository {
   }
 
   async saveValidation(result: ResourceValidationResult): Promise<ResourceValidationResult> {
-    return this.saveImmutable('validations', 'validationId', result);
+    return this.saveImmutable('validations', 'validationId', result, 'save-validation');
   }
 
   async getValidation(validationId: string): Promise<ResourceValidationResult | null> {
@@ -121,7 +121,7 @@ implements QuestionResourceAdmissionRepository {
   }
 
   async saveReview(decision: ResourceReviewDecision): Promise<ResourceReviewDecision> {
-    return this.saveImmutable('reviews', 'reviewId', decision);
+    return this.saveImmutable('reviews', 'reviewId', decision, 'record-review');
   }
 
   async getReview(reviewId: string): Promise<ResourceReviewDecision | null> {
@@ -212,7 +212,7 @@ implements QuestionResourceAdmissionRepository {
         registryEntry: commit.registryEntry,
         inserted: true,
       };
-    });
+    }, 'commit-publication');
   }
 
   async clear(): Promise<void> {
@@ -222,7 +222,12 @@ implements QuestionResourceAdmissionRepository {
   private async saveImmutable<
     K extends 'validations' | 'reviews',
     T extends ResourceValidationResult | ResourceReviewDecision,
-  >(collectionName: K, key: keyof T, value: T): Promise<T> {
+  >(
+    collectionName: K,
+    key: keyof T,
+    value: T,
+    commandType: 'save-validation' | 'record-review',
+  ): Promise<T> {
     const envelope = await this.client.read();
     const collection = envelope.snapshot.data.questionResources[collectionName] as T[];
     const existing = collection.find((item) => item[key] === value[key]);
@@ -233,7 +238,7 @@ implements QuestionResourceAdmissionRepository {
     return this.client.mutate((data) => {
       (data.questionResources[collectionName] as T[]).push(clone(value));
       return value;
-    });
+    }, commandType);
   }
 }
 

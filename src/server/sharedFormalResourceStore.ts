@@ -42,6 +42,26 @@ export type SharedFormalResourceStoreOptions = {
   failBeforeCommit?: () => boolean;
 };
 
+export type SharedFormalResourceCollectionPatch = {
+  scope: 'questionResources' | 'materialObservations' | 'questionQuality';
+  collection: string;
+  values: unknown[];
+};
+
+export type SharedFormalResourceAtomicCommand = {
+  commandType:
+    | 'apply_collection_patch'
+    | 'save-plan'
+    | 'save-draft'
+    | 'save-validation'
+    | 'save-quality-bundle'
+    | 'record-review'
+    | 'commit-publication'
+    | 'recover-publication';
+  commandId: string;
+  patches: SharedFormalResourceCollectionPatch[];
+};
+
 export class SharedFormalResourceConflictError extends Error {
   readonly code = 'shared_resource_revision_conflict';
   readonly expectedRevision: number;
@@ -154,6 +174,53 @@ export class SharedFormalResourceStore {
     });
   }
 
+  async applyCommand(
+    expectedRevision: number,
+    command: SharedFormalResourceAtomicCommand,
+  ): Promise<SharedFormalResourceSnapshot> {
+    return this.enqueueWrite(async () => {
+      const current = await this.read();
+      if (!current.initialized) throw new Error('Shared formal resource store is not initialized.');
+      const fingerprint = JSON.stringify(command);
+      const receipt = current.commandReceipts?.find((item) => item.commandId === command.commandId);
+      if (receipt) {
+        if (receipt.fingerprint !== fingerprint) {
+          throw new Error(`Shared formal resource command identity conflict: ${command.commandId}`);
+        }
+        return cloneSharedFormalResourceValue(current);
+      }
+      if (current.revision !== expectedRevision) {
+        throw new SharedFormalResourceConflictError(expectedRevision, current.revision);
+      }
+      if (!isSupportedAtomicCommandType(command.commandType) || !command.commandId?.trim()) {
+        throw new Error('Shared formal resource command is invalid.');
+      }
+      const data = cloneSharedFormalResourceValue(current.data) as Record<string, Record<string, unknown[]>>;
+      for (const patch of command.patches) {
+        const scope = data[patch.scope];
+        if (!scope || !Object.prototype.hasOwnProperty.call(scope, patch.collection)) {
+          throw new Error(`Unsupported shared resource collection: ${patch.scope}.${patch.collection}`);
+        }
+        if (!Array.isArray(patch.values)) {
+          throw new Error('Shared resource collection patch values must be an array.');
+        }
+        scope[patch.collection] = cloneSharedFormalResourceValue(patch.values);
+      }
+      const next: SharedFormalResourceSnapshot = {
+        ...current,
+        revision: current.revision + 1,
+        updatedAt: this.now(),
+        commandReceipts: [
+          ...(current.commandReceipts || []),
+          { commandId: command.commandId, fingerprint, committedRevision: current.revision + 1 },
+        ].slice(-500),
+        data: validateData(data as unknown as SharedFormalResourceData),
+      };
+      await this.commit(next, false);
+      return cloneSharedFormalResourceValue(next);
+    });
+  }
+
   async restoreBackup(): Promise<SharedFormalResourceSnapshot> {
     return this.enqueueWrite(async () => {
       const raw = await readFile(this.backupPath, 'utf8');
@@ -195,6 +262,19 @@ export class SharedFormalResourceStore {
   }
 }
 
+function isSupportedAtomicCommandType(value: string): boolean {
+  return [
+    'apply_collection_patch',
+    'save-plan',
+    'save-draft',
+    'save-validation',
+    'save-quality-bundle',
+    'record-review',
+    'commit-publication',
+    'recover-publication',
+  ].includes(value);
+}
+
 async function readSnapshotFile(path: string): Promise<unknown> {
   return JSON.parse(await readFile(path, 'utf8')) as unknown;
 }
@@ -231,6 +311,19 @@ function validateSnapshot(value: unknown): SharedFormalResourceSnapshot {
   }
   requireText(snapshot.createdAt, 'createdAt');
   requireText(snapshot.updatedAt, 'updatedAt');
+  if (snapshot.commandReceipts !== undefined) {
+    if (!Array.isArray(snapshot.commandReceipts)) throw new Error('Shared resource command receipts are invalid.');
+    const commandIds = new Set<string>();
+    for (const receipt of snapshot.commandReceipts) {
+      requireText(receipt.commandId, 'commandReceipt.commandId');
+      requireText(receipt.fingerprint, 'commandReceipt.fingerprint');
+      if (!Number.isInteger(receipt.committedRevision) || receipt.committedRevision < 1) {
+        throw new Error('Shared resource command receipt Revision is invalid.');
+      }
+      if (commandIds.has(receipt.commandId)) throw new Error(`Duplicate command receipt: ${receipt.commandId}`);
+      commandIds.add(receipt.commandId);
+    }
+  }
   return cloneSharedFormalResourceValue({
     ...snapshot,
     initialized: snapshot.initialized === true,

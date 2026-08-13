@@ -119,6 +119,12 @@ import { resolveCandidateOptimizationFieldPolicy } from
   '../ai/schemas/questionCandidateOptimization.schema.ts';
 import { analyzeQuestionResponseLoad } from
   '../ai/agents/questionGenerationQualityPolicyAgent.ts';
+import { FormalResourceCommandQueue } from './formalResourceCommandQueue.ts';
+import {
+  subscribeFormalResourceRevisionUpdates,
+  subscribeFormalResourceWriteRuntime,
+} from
+  '../ai/repositories/localApiFormalResourceClient.ts';
 
 const secondaryButtonToneClass = 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50';
 const secondaryButtonFocusClass = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2';
@@ -208,6 +214,14 @@ export default function MaterialResourceProductionWorkbench() {
   const [groupCandidateSession, setGroupCandidateSession] = useState(null);
   const [taskWorkflowOperation, setTaskWorkflowOperation] = useState(null);
   const [taskWorkflowFeedback, setTaskWorkflowFeedback] = useState({});
+  const formalResourceCommandQueueRef = useRef(null);
+  if (!formalResourceCommandQueueRef.current) {
+    formalResourceCommandQueueRef.current = new FormalResourceCommandQueue();
+  }
+  const [formalResourceQueueState, setFormalResourceQueueState] = useState(
+    () => formalResourceCommandQueueRef.current.getSnapshot(),
+  );
+  const [formalResourceWriteRuntime, setFormalResourceWriteRuntime] = useState(null);
   const [postPublishNavigation, setPostPublishNavigation] = useState(null);
   const [generatorPreferences, setGeneratorPreferences] = useState({
     gradeRange: '初中',
@@ -227,6 +241,8 @@ export default function MaterialResourceProductionWorkbench() {
   const [baselinePreview, setBaselinePreview] = useState(null);
   const [materialPreviewExpanded, setMaterialPreviewExpanded] = useState(false);
   const pendingDiscardActionRef = useRef(null);
+  const pendingExternalRevisionRef = useRef(null);
+  const lastHandledExternalRevisionRef = useRef(-1);
   const generatorResultRef = useRef(null);
   const initialSelectionResolutionRef = useRef(true);
   const taskWorkflowInFlightRef = useRef(new Set());
@@ -243,6 +259,35 @@ export default function MaterialResourceProductionWorkbench() {
       .finally(() => setSnapshotReady(true));
     getMaterialObservationDraftGeneratorStatus().then(setGeneratorStatus);
   }, [routeSelection.materialVersionId, routeSelection.planId]);
+
+  useEffect(() => formalResourceCommandQueueRef.current.subscribe(setFormalResourceQueueState), []);
+  useEffect(() => subscribeFormalResourceWriteRuntime(setFormalResourceWriteRuntime), []);
+
+  useEffect(() => subscribeFormalResourceRevisionUpdates((event) => {
+    if (event.revision <= lastHandledExternalRevisionRef.current) return;
+    const queue = formalResourceCommandQueueRef.current.getSnapshot();
+    if (queue.activeKey || queue.queuedKeys.length > 0) {
+      pendingExternalRevisionRef.current = Math.max(
+        pendingExternalRevisionRef.current || -1,
+        event.revision,
+      );
+      return;
+    }
+    lastHandledExternalRevisionRef.current = event.revision;
+    refresh().catch((error) => setNotice(errorNotice(error)));
+  }), []);
+
+  useEffect(() => {
+    const pendingRevision = pendingExternalRevisionRef.current;
+    if (
+      pendingRevision === null
+      || formalResourceQueueState.activeKey
+      || formalResourceQueueState.queuedKeys.length > 0
+    ) return;
+    pendingExternalRevisionRef.current = null;
+    lastHandledExternalRevisionRef.current = pendingRevision;
+    refresh().catch((error) => setNotice(errorNotice(error)));
+  }, [formalResourceQueueState]);
 
   useEffect(() => {
     if (!snapshotReady) return;
@@ -747,20 +792,25 @@ export default function MaterialResourceProductionWorkbench() {
     return next;
   }
 
-  async function run(action, success, preferred) {
-    setBusy(true);
-    setNotice(null);
-    try {
-      const result = await action();
-      await refresh(typeof preferred === 'function' ? preferred(result) : preferred || {});
-      setNotice({ type: 'success', message: success(result) });
-      return result;
-    } catch (error) {
-      setNotice(errorNotice(error));
-      return null;
-    } finally {
-      setBusy(false);
-    }
+  async function run(action, success, preferred, formalCommandKey = null) {
+    const execute = async () => {
+      setBusy(true);
+      setNotice(null);
+      try {
+        const result = await action();
+        await refresh(typeof preferred === 'function' ? preferred(result) : preferred || {});
+        setNotice({ type: 'success', message: success(result) });
+        return result;
+      } catch (error) {
+        setNotice(errorNotice(error));
+        return null;
+      } finally {
+        setBusy(false);
+      }
+    };
+    return formalCommandKey
+      ? formalResourceCommandQueueRef.current.enqueue(formalCommandKey, execute)
+      : execute();
   }
 
   async function addMaterial() {
@@ -775,6 +825,7 @@ export default function MaterialResourceProductionWorkbench() {
       () => createProductionMaterial(materialForm),
       () => '素材已保存，可以由 AI 根据材料推荐 2–3 个独立训练任务。',
       (result) => ({ materialVersionId: result.materialVersionId }),
+      `material:create:${normalizeMaterialContent(materialForm.content)}`,
     );
     if (material) {
       setMaterialMode('existing');
@@ -825,6 +876,13 @@ export default function MaterialResourceProductionWorkbench() {
 
   async function confirmMaterialRemoval() {
     if (!materialAction) return;
+    return formalResourceCommandQueueRef.current.enqueue(
+      `material:${materialAction.action}:${materialAction.material.materialVersionId}`,
+      () => confirmMaterialRemovalCore(materialAction),
+    );
+  }
+
+  async function confirmMaterialRemovalCore(materialAction) {
     const { material, action } = materialAction;
     setBusy(true);
     setNotice(null);
@@ -851,6 +909,13 @@ export default function MaterialResourceProductionWorkbench() {
   }
 
   async function reactivateMaterial(material) {
+    return formalResourceCommandQueueRef.current.enqueue(
+      `material:reactivate:${material.materialVersionId}`,
+      () => reactivateMaterialCore(material),
+    );
+  }
+
+  async function reactivateMaterialCore(material) {
     setBusy(true);
     setNotice(null);
     try {
@@ -981,7 +1046,30 @@ export default function MaterialResourceProductionWorkbench() {
     withUnsavedChangesGuard(() => applyExistingMaterialSelection(materialId));
   }
 
-  async function runTaskWorkflowAction(lifecycle, options = {}) {
+  function runTaskWorkflowAction(lifecycle, options = {}) {
+    const observationTaskPlanId = lifecycle?.task?.observationTaskPlanId
+      || lifecycle?.item?.observationTaskPlanId;
+    if (!observationTaskPlanId) return Promise.resolve(false);
+    const operationKey = `${observationTaskPlanId}:publish_task`;
+    const beforeEnqueue = formalResourceCommandQueueRef.current.getSnapshot();
+    const alreadyPending = beforeEnqueue.activeKey === operationKey
+      || beforeEnqueue.queuedKeys.includes(operationKey);
+    const waitsForAnotherCommand = !alreadyPending
+      && Boolean(beforeEnqueue.activeKey || beforeEnqueue.queuedKeys.length);
+    const command = formalResourceCommandQueueRef.current.enqueue(
+      operationKey,
+      () => runTaskWorkflowActionCore(lifecycle, options),
+    );
+    if (waitsForAnotherCommand) {
+      setTaskWorkflowFeedback((current) => ({
+        ...current,
+        [observationTaskPlanId]: { type: 'info', message: '等待上一项操作完成…' },
+      }));
+    }
+    return command;
+  }
+
+  async function runTaskWorkflowActionCore(lifecycle, options = {}) {
     if (!lifecycle) return;
     const initialActionKind = lifecycle.cardPresentation?.primaryAction?.kind;
     const observationTaskPlanId = lifecycle.task?.observationTaskPlanId
@@ -1042,7 +1130,7 @@ export default function MaterialResourceProductionWorkbench() {
           ...current,
           [observationTaskPlanId]: { type: 'info', message: '正在保存任务修改…' },
         }));
-        const saved = await savePlanRevision();
+        const saved = await savePlanRevision({ skipQueue: true });
         if (!saved) return;
         currentSnapshot = await refresh({ materialVersionId: selectedMaterialId, planId: activePlanId });
         currentLifecycle = resolveTaskLifecycleFromSnapshot(currentSnapshot, lifecycle, activePlanId);
@@ -1219,6 +1307,7 @@ export default function MaterialResourceProductionWorkbench() {
       () => loadPhase17BatchAPlansForReview(),
       (result) => `Batch A 已载入 ${result.materialVersionIds.length} 篇素材和 ${result.materialObservationPlanIds.length} 份待审核观测计划。`,
       (result) => ({ materialVersionId: result.materialVersionIds[0] }),
+      'preset:load:phase17-batch-a',
     );
     if (result) setActiveLoadPreset('batch_a');
   }
@@ -1230,6 +1319,7 @@ export default function MaterialResourceProductionWorkbench() {
         ? '《潼关》校准案例已存在，六项真实观测任务已显示在当前工作区。'
         : '《潼关》校准案例已载入，六项真实观测任务已显示并等待最终确认。',
       (result) => ({ materialVersionId: result.materialVersionId, planId: result.materialObservationPlanId }),
+      'preset:load:tongguan-calibration',
     );
     if (result) setActiveLoadPreset('tongguan');
   }
@@ -1241,7 +1331,7 @@ export default function MaterialResourceProductionWorkbench() {
     return false;
   }
 
-  async function savePlanRevision() {
+  async function savePlanRevision({ skipQueue = false } = {}) {
     if (!requireAvailableCommand(MATERIAL_PRODUCTION_COMMANDS.savePlanRevision)) return null;
     const isWorkingDraftUpdate = Boolean(selectedPlan)
       && ['draft', 'revision_required'].includes(selectedPlan.status);
@@ -1260,6 +1350,7 @@ export default function MaterialResourceProductionWorkbench() {
           ? '工作草稿已更新，但仍有内容需要调整。'
           : '训练任务已保存，但仍有内容需要调整。',
       (result) => ({ materialVersionId: selectedMaterialId, planId: result.plan.materialObservationPlanId }),
+      skipQueue ? null : `plan:save:${selectedPlan?.materialObservationPlanId || selectedMaterialId}`,
     );
     if (result) {
       setTaskEditorDirty(false);
@@ -1564,7 +1655,29 @@ export default function MaterialResourceProductionWorkbench() {
     }
   }
 
-  async function adoptTaskCandidate(task, preferredCandidate = null) {
+  function adoptTaskCandidate(task, preferredCandidate = null) {
+    const observationTaskPlanId = task?.observationTaskPlanId || task?.localId;
+    if (!observationTaskPlanId) return Promise.resolve();
+    const operationKey = `${observationTaskPlanId}:publish_task`;
+    const beforeEnqueue = formalResourceCommandQueueRef.current.getSnapshot();
+    const alreadyPending = beforeEnqueue.activeKey === operationKey
+      || beforeEnqueue.queuedKeys.includes(operationKey);
+    const waitsForAnotherCommand = !alreadyPending
+      && Boolean(beforeEnqueue.activeKey || beforeEnqueue.queuedKeys.length);
+    const command = formalResourceCommandQueueRef.current.enqueue(
+      operationKey,
+      () => adoptTaskCandidateCore(task, preferredCandidate),
+    );
+    if (waitsForAnotherCommand) {
+      setTaskWorkflowFeedback((current) => ({
+        ...current,
+        [observationTaskPlanId]: { type: 'info', message: '等待上一项操作完成…' },
+      }));
+    }
+    return command;
+  }
+
+  async function adoptTaskCandidateCore(task, preferredCandidate = null) {
     if (!selectedMaterial || !selectedPlan) return;
     const trainingTaskId = taskWorkingIdentity(task);
     const observationTaskPlanId = task.observationTaskPlanId || task.localId;
@@ -1718,7 +1831,7 @@ export default function MaterialResourceProductionWorkbench() {
             structuredReason: 'selected_candidate_with_warning',
           }),
         );
-        await runTaskWorkflowAction(refreshedLifecycle, { warningAcknowledgements });
+        await runTaskWorkflowActionCore(refreshedLifecycle, { warningAcknowledgements });
         return;
       } else if ([
         'ready_for_confirmation',
@@ -1735,7 +1848,7 @@ export default function MaterialResourceProductionWorkbench() {
           lifecycle,
           selectedPlan.materialObservationPlanId,
         );
-        await runTaskWorkflowAction(refreshedLifecycle);
+        await runTaskWorkflowActionCore(refreshedLifecycle);
         return;
       } else {
         setTaskWorkflowFeedback((current) => ({
@@ -1901,7 +2014,12 @@ export default function MaterialResourceProductionWorkbench() {
     }
   }
 
-  async function adoptCandidates() {
+  function adoptCandidates() {
+    const commandKey = `plan:adopt-candidates:${selectedPlan?.materialObservationPlanId || selectedMaterialId}`;
+    return formalResourceCommandQueueRef.current.enqueue(commandKey, adoptCandidatesCore);
+  }
+
+  async function adoptCandidatesCore() {
     if (!requireAvailableCommand(MATERIAL_PRODUCTION_COMMANDS.adoptCandidates)) return;
     if (generatorResult?.status !== 'candidates_ready' || !groupCandidateSession) return;
     try {
@@ -1952,7 +2070,16 @@ export default function MaterialResourceProductionWorkbench() {
         });
         return;
       }
-      setTasks(adoption.tasks);
+      const authoritativeSnapshot = await refresh({
+        materialVersionId: selectedMaterialId,
+        planId: saved.plan.materialObservationPlanId,
+      });
+      const authoritativePlan = authoritativeSnapshot.plans.find(
+        (plan) => plan.materialObservationPlanId === saved.plan.materialObservationPlanId,
+      ) || saved.plan;
+      setTasks(authoritativePlan.taskPlans.map((task, index) => (
+        planTaskToEditableTask(task, index, authoritativeSnapshot.anchors)
+      )));
       setTaskEditorDirty(false);
       setGeneratorResult(null);
       setGroupCandidateSession(null);
@@ -2036,6 +2163,13 @@ export default function MaterialResourceProductionWorkbench() {
       '将当前浏览器导出的资源设为唯一共享基线？请确认其他浏览器的数据也已单独导出备份。初始化后，所有浏览器将读取这套共享资源。',
     );
     if (!confirmed) return;
+    return formalResourceCommandQueueRef.current.enqueue(
+      'shared-baseline:initialize',
+      () => initializeSharedBaselineCore(baselinePreview),
+    );
+  }
+
+  async function initializeSharedBaselineCore(baselinePreview) {
     setBusy(true);
     setNotice(null);
     try {
@@ -2115,6 +2249,28 @@ export default function MaterialResourceProductionWorkbench() {
       </header>
 
       <main className="mx-auto w-full max-w-[1200px] px-5 pb-7 pt-4 md:px-8 md:pb-9 md:pt-4">
+        {formalResourceWriteRuntime && ['lock_waiting', 'conflict_retrying', 'recovered'].includes(formalResourceWriteRuntime.state) && (
+          <div
+            role="status"
+            data-formal-resource-write-state={formalResourceWriteRuntime.state}
+            className="mb-5 border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          >
+            {{
+              lock_waiting: '正在等待共享数据写入…',
+              conflict_retrying: '检测到数据更新，正在自动接续…',
+              recovered: '操作已接续完成。',
+            }[formalResourceWriteRuntime.state]}
+          </div>
+        )}
+        {formalResourceQueueState.queuedKeys.length > 0 && (
+          <div
+            role="status"
+            data-formal-resource-queue-state="queued"
+            className="mb-5 border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          >
+            等待上一项操作完成… 已排队 {formalResourceQueueState.queuedKeys.length} 项。
+          </div>
+        )}
         {usesNonCanonicalLocalPort && (
           <div role="alert" className="mb-5 border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
             当前端口不是固定入口 5174。浏览器会分别保存不同端口的数据，请停止录入并改用
@@ -2472,7 +2628,10 @@ export default function MaterialResourceProductionWorkbench() {
                 const workflowOperationKey = workflowTargetId
                   ? `${workflowTargetId}:publish_task`
                   : '';
-                const workflowBusy = taskWorkflowOperation === workflowOperationKey;
+                const workflowQueued = formalResourceQueueState.queuedKeys.includes(workflowOperationKey);
+                const workflowBusy = taskWorkflowOperation === workflowOperationKey
+                  || formalResourceQueueState.activeKey === workflowOperationKey
+                  || workflowQueued;
                 const workflowFeedback = workflowTargetId
                   ? taskWorkflowFeedback[workflowTargetId]
                     || (questionLifecycle?.draft

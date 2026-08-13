@@ -181,7 +181,7 @@ implements QuestionQualityPersistenceRepository, QuestionQualityAssessmentReposi
   saveBundle(
     value: QuestionQualityAssessmentBundle,
   ): Promise<QuestionQualityAssessmentBundle> {
-    return this.saveImmutable('assessmentBundles', 'bundleId', value);
+    return this.saveImmutable('assessmentBundles', 'bundleId', value, 'save-quality-bundle');
   }
 
   async getBundle(
@@ -359,7 +359,7 @@ implements QuestionQualityPersistenceRepository, QuestionQualityAssessmentReposi
         trace: commit.trace,
         inserted: true,
       };
-    });
+    }, 'commit-publication');
   }
 
   async commitPublicationWithObservationLink(
@@ -430,7 +430,7 @@ implements QuestionQualityPersistenceRepository, QuestionQualityAssessmentReposi
         observationLink: records.observationLink || commit.observationLink,
         inserted: !records.version,
       };
-    });
+    }, 'commit-publication');
   }
 
   private async saveImmutable<
@@ -454,6 +454,7 @@ implements QuestionQualityPersistenceRepository, QuestionQualityAssessmentReposi
     collectionName: K,
     key: keyof T,
     value: T,
+    commandType: 'apply_collection_patch' | 'save-quality-bundle' = 'apply_collection_patch',
   ): Promise<T> {
     const state = (await this.client.read()).snapshot.data.questionQuality;
     const collection = state[collectionName] as T[];
@@ -467,7 +468,7 @@ implements QuestionQualityPersistenceRepository, QuestionQualityAssessmentReposi
     return this.client.mutate((data) => {
       (data.questionQuality[collectionName] as T[]).push(clone(value));
       return value;
-    });
+    }, commandType);
   }
 }
 

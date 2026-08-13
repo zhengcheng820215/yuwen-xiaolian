@@ -82,6 +82,12 @@
 
 “可以发布”不是只描述题目内容完整，而是对当前主操作可执行性的承诺。显示该状态和“采用并发布”前，统一 Resolver 必须确认 Material、Observation Plan、TrainingTask、Candidate 与 Draft 身份完整，Plan 结构检查通过，且 Plan 已审核或可由当前单人编排确定性提交并审核。点击后应用层先完成 Plan 前置编排，再采用 Candidate 并进入 Question Revision 与发布链。任何已知前置门禁不得在 Candidate 采用后才暴露。只有执行期基础设施故障或并发状态变化可以进入“发布未完成”。
 
+任务组候选保存成功后，页面必须立即以保存结果中的 `MaterialObservationPlan.taskPlans` 作为唯一工作对象，重新建立本地任务卡；不得继续保留候选阶段的 `localId`、`candidateId` 或其他临时身份作为 `TrainingTask` 身份。后续 QuestionCandidate 的生成、采用、Draft 创建、Freeze 与 Observation Link 必须绑定保存后返回的正式 `observationTaskPlanId`（修订链场景可同时保留正式 `taskRevisionRootId`），不得把临时候选身份写入正式题目的 `taskId`。
+
+“题目已经发布成功”属于端到端完成态，不得只依据 Frozen Version 或 Registry 单点成功。成功投影必须同时确认：当前 Draft 已形成 Frozen Version、Registry 的 current version 指向该版本、存在 active `ResourceObservationLink`、Link 指向当前 Plan 中的正式 `observationTaskPlanId`，并且正式资源解析器能够按该任务身份读取该版本。任一条件缺失时，任务保持“发布未完整完成 / 可恢复”，不得显示成功提示或计入已发布数量。已冻结但未关联正式任务的版本定义为孤立冻结版本；恢复程序只能在内容与当前任务一致时补建 Link，否则保留审计记录并阻止其进入 Learning。
+
+共享正式资源的页面内写入串行化、Revision Conflict 有界退避、多标签页 Web Lock、Revision 广播、幂等恢复和并发验收统一遵循[共享正式资源并发与写入恢复契约](./SHARED_FORMAL_RESOURCE_CONCURRENCY_CONTRACT.md)。这些技术运行状态不得增加用户确认步骤；自动冲突恢复期间不直接显示红色错误，只有有界重试耗尽后才进入“可继续发布”的恢复状态。
+
 ### 3.2 前台合并，领域命令保持独立
 
 统一页面不得把保存、检查、确认和发布实现为一个不可追溯的写入操作。

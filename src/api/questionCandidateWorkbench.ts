@@ -21,7 +21,10 @@ import { IndexedDBQuestionCandidateRepository } from
   '../ai/repositories/indexedDBQuestionCandidateRepository.ts';
 import { IndexedDBWorkingTaskContentRepository } from
   '../ai/repositories/indexedDBWorkingTaskContentRepository.ts';
-import { createBrowserQuestionResourceAdmissionRepository } from
+import {
+  createBrowserMaterialObservationRepository,
+  createBrowserQuestionResourceAdmissionRepository,
+} from
   '../ai/repositories/formalResourceRepositoryRouter.ts';
 import type {
   CandidateRuntimeContext,
@@ -49,6 +52,7 @@ import {
 
 const repository = new IndexedDBQuestionCandidateRepository();
 const questionRepository = createBrowserQuestionResourceAdmissionRepository();
+const observationRepository = createBrowserMaterialObservationRepository();
 const workingRepository = new IndexedDBWorkingTaskContentRepository();
 const correctionService = new QuestionCandidateCorrectionService(
   repository,
@@ -310,11 +314,30 @@ export async function adoptQuestionTaskCandidate(
     }),
     publish: freezeQuestionResourceWorkbenchDraft,
     isPublished: async (draftId) => {
+      const draft = await questionRepository.getDraft(draftId);
+      if (!draft) return false;
       const version = await questionRepository.getVersionByDraftId(draftId);
       if (!version || version.status !== 'frozen') return false;
       const registry = await questionRepository.getRegistryEntry(version.resourceId);
-      return registry?.status === 'active'
-        && registry.currentFrozenVersionId === version.resourceVersionId;
+      if (
+        registry?.status !== 'active'
+        || registry.currentFrozenVersionId !== version.resourceVersionId
+      ) return false;
+      const links = await observationRepository.listLinks(version.resourceId);
+      const activeLink = links.find((link) => (
+        link.status === 'active'
+        && link.resourceVersionId === version.resourceVersionId
+      ));
+      if (!activeLink) return false;
+      const plans = await observationRepository.listPlans(draft.materialVersionId || undefined);
+      return plans.some((plan) => plan.status === 'reviewed' && plan.taskPlans.some((task) => (
+        task.observationTaskPlanId === activeLink.observationTaskPlanId
+        && [
+          task.observationTaskPlanId,
+          task.taskRevisionRootId,
+          task.parentObservationTaskPlanId,
+        ].filter(Boolean).includes(input.trainingTaskId)
+      )));
     },
   });
 }

@@ -55,6 +55,11 @@ export type SharedFormalResourceSnapshot = {
   baselineSource?: string;
   createdAt: string;
   updatedAt: string;
+  commandReceipts?: Array<{
+    commandId: string;
+    fingerprint: string;
+    committedRevision: number;
+  }>;
   data: SharedFormalResourceData;
 };
 

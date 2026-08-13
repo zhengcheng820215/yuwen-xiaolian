@@ -3,9 +3,22 @@ import type { SharedFormalResourceData } from '../ai/schemas/sharedFormalResourc
 import {
   SharedFormalResourceConflictError,
   SharedFormalResourceStore,
+  type SharedFormalResourceAtomicCommand,
 } from './sharedFormalResourceStore.ts';
 
 const MAX_BODY_BYTES = 20 * 1024 * 1024;
+export const SHARED_FORMAL_RESOURCE_CAPABILITIES = {
+  atomicCollectionPatch: '1.0',
+  atomicCommands: [
+    'save-plan',
+    'save-draft',
+    'save-validation',
+    'save-quality-bundle',
+    'record-review',
+    'commit-publication',
+    'recover-publication',
+  ],
+} as const;
 
 export function createSharedFormalResourceBoundary(
   store = new SharedFormalResourceStore(),
@@ -19,7 +32,7 @@ export function createSharedFormalResourceBoundary(
         const snapshot = await store.read();
         const status = await store.getStatus();
         response.statusCode = 200;
-        response.end(JSON.stringify({ snapshot, status }));
+        response.end(JSON.stringify({ snapshot, status, capabilities: SHARED_FORMAL_RESOURCE_CAPABILITIES }));
         return;
       }
 
@@ -47,6 +60,25 @@ export function createSharedFormalResourceBoundary(
         );
         response.statusCode = 200;
         response.end(JSON.stringify({ snapshot, status: await store.getStatus() }));
+        return;
+      }
+
+      if (body.action === 'command') {
+        const snapshot = await store.applyCommand(
+          Number(body.expectedRevision),
+          body.command as SharedFormalResourceAtomicCommand,
+        );
+        response.statusCode = 200;
+        response.end(JSON.stringify({
+          snapshot,
+          status: await store.getStatus(),
+          capabilities: SHARED_FORMAL_RESOURCE_CAPABILITIES,
+          commandReceipt: {
+            commandId: (body.command as SharedFormalResourceAtomicCommand).commandId,
+            commandType: (body.command as SharedFormalResourceAtomicCommand).commandType,
+            committedRevision: snapshot.revision,
+          },
+        }));
         return;
       }
 

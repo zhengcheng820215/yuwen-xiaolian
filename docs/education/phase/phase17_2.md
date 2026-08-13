@@ -1636,6 +1636,8 @@ Product Acceptance: PENDING
 
 ## 2026-07-30 题目审核提交并发恢复与禁用态校准
 
+> 历史说明（2026-08-13）：本节记录 2026-07-30 当时的实现与验收事实，其中“最多 6 次”和对应短退避不再作为现行目标参数。当前页面写入串行化、8 次 / 8 秒有界退避、多标签页协调与幂等恢复要求，以[共享正式资源并发与写入恢复契约](../../product/SHARED_FORMAL_RESOURCE_CONCURRENCY_CONTRACT.md)为准；新实现完成验收前，契约状态为 `IMPLEMENTATION PENDING`。
+
 本轮修复“提交题目人工审核”时偶发显示
 `FORMAL_RESOURCE_REVISION_CONFLICT · 对象：expected`，以及“当前内容已保存”功能已经禁用但仍显示为深色主按钮的两个问题。
 

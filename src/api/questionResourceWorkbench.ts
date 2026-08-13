@@ -581,16 +581,13 @@ export async function freezeQuestionResourceWorkbenchDraft(
     ? await resolveObservationTaskReferenceForDraft(draft)
     : { planId: null, observationTaskPlanId: null };
   if (!planId || !observationTaskPlanId) {
-    const result = await freezeQuestionResourceDraftWithPersistedQuality(
-      repository,
-      qualityRepository,
-      draftId,
-    );
-    return {
-      ...result,
-      publicationStatus: 'completed' as const,
-      observationLinkIssues: [],
-    };
+    throw createStructuredRuntimeError({
+      code: 'PUBLICATION_PREFLIGHT_FAILED',
+      message: '当前题目尚未绑定正式训练任务，不能发布；请先保存任务方案并重新进入发布。',
+      operation: 'question_publication.freeze',
+      objectId: draftId,
+      recoverability: 'user_action_required',
+    });
   }
 
   const existingVersion = await repository.getVersionByDraftId(draftId);

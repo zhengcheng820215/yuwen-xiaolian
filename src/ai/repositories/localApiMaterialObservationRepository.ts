@@ -75,7 +75,7 @@ export class LocalApiMaterialObservationRepository implements MaterialObservatio
         });
       }
     }
-    return this.saveMutable('plans', 'materialObservationPlanId', value);
+    return this.saveMutable('plans', 'materialObservationPlanId', value, 'save-plan');
   }
   getPlan(id: string) { return this.get('plans', 'materialObservationPlanId', id); }
   listPlans(materialVersionId?: string) {
@@ -83,7 +83,7 @@ export class LocalApiMaterialObservationRepository implements MaterialObservatio
   }
 
   saveValidation(value: MaterialObservationPlanValidation) {
-    return this.saveImmutable('validations', 'validationId', value);
+    return this.saveImmutable('validations', 'validationId', value, 'save-validation');
   }
   getValidation(id: string) { return this.get('validations', 'validationId', id); }
   listValidations(planId?: string) {
@@ -91,7 +91,7 @@ export class LocalApiMaterialObservationRepository implements MaterialObservatio
   }
 
   saveReview(value: MaterialObservationReviewDecision) {
-    return this.saveImmutable('reviews', 'reviewId', value);
+    return this.saveImmutable('reviews', 'reviewId', value, 'record-review');
   }
   getReview(id: string) { return this.get('reviews', 'reviewId', id); }
 
@@ -122,21 +122,31 @@ export class LocalApiMaterialObservationRepository implements MaterialObservatio
     K extends keyof ObservationCollections,
     T extends ObservationCollections[K][number],
     P extends keyof T,
-  >(collectionName: K, key: P, value: T): Promise<T> {
+  >(
+    collectionName: K,
+    key: P,
+    value: T,
+    commandType: 'apply_collection_patch' | 'save-plan' | 'save-validation' | 'record-review' = 'apply_collection_patch',
+  ): Promise<T> {
     return this.client.mutate((data) => {
       const collection = data.materialObservations[collectionName] as T[];
       const index = collection.findIndex((item) => item[key] === value[key]);
       if (index >= 0) collection[index] = clone(value);
       else collection.push(clone(value));
       return value;
-    });
+    }, commandType);
   }
 
   private async saveImmutable<
     K extends keyof ObservationCollections,
     T extends ObservationCollections[K][number],
     P extends keyof T,
-  >(collectionName: K, key: P, value: T): Promise<T> {
+  >(
+    collectionName: K,
+    key: P,
+    value: T,
+    commandType: 'save-validation' | 'record-review' | 'apply_collection_patch' = 'apply_collection_patch',
+  ): Promise<T> {
     const existing = await this.get(collectionName, key, String(value[key]));
     if (existing) {
       if (JSON.stringify(existing) !== JSON.stringify(value)) {
@@ -150,7 +160,7 @@ export class LocalApiMaterialObservationRepository implements MaterialObservatio
       }
       return clone(existing as T);
     }
-    return this.saveMutable(collectionName, key, value);
+    return this.saveMutable(collectionName, key, value, commandType);
   }
 
   private async get<
