@@ -2,6 +2,8 @@ import {
   buildMaterialResourceWorkbenchDetails,
   isPlanFullyPublished,
   scopeMaterialResourceWorkbenchDetails,
+  selectUserRetiredMaterials,
+  selectCurrentMaterialPlan,
   selectCurrentPlanDrafts,
   summarizeCrossMaterialProductionProgress,
   summarizeMaterialResourceWorkbench,
@@ -260,47 +262,111 @@ const batchProgress = summarizeCrossMaterialProductionProgress({
   ],
   incompletePublications: [],
   publishedResources: [
-    { observationTaskPlanId: 'task-1' },
-    { observationTaskPlanId: 'task-retired' },
+    { observationTaskPlanId: 'task-1', materialObservationPlanId: 'plan-1', materialVersionId: 'material:v1' },
+    { observationTaskPlanId: 'task-retired', materialObservationPlanId: 'plan-3', materialVersionId: 'material:retired' },
   ],
-} as never, ['material:v1', 'material:v2'], 'material:v2');
+} as never, ['material:v1', 'material:v2']);
 check(
   '14 跨材料进度只统计活动素材当前任务身份',
   batchProgress.materialCount === 2
-    && batchProgress.currentMaterialNumber === 2
     && batchProgress.taskCount === 3
     && batchProgress.publishedTaskCount === 1
     && batchProgress.pendingTaskCount === 2,
-  `materials=${batchProgress.materialCount}, current=${batchProgress.currentMaterialNumber}, tasks=${batchProgress.taskCount}, published=${batchProgress.publishedTaskCount}, pending=${batchProgress.pendingTaskCount}`,
+  `materials=${batchProgress.materialCount}, tasks=${batchProgress.taskCount}, published=${batchProgress.publishedTaskCount}, pending=${batchProgress.pendingTaskCount}`,
 );
 check(
-  '15 需要关注是待处理附加指标且待处理材料可筛选',
+  '15 待处理材料身份可用于全量列表状态标注',
   batchProgress.attentionTaskCount === 1
     && batchProgress.pendingMaterialIds.join(',') === 'material:v1,material:v2',
   `attention=${batchProgress.attentionTaskCount}, pendingMaterials=${batchProgress.pendingMaterialIds.join(',')}`,
 );
-const overriddenBatchProgress = summarizeCrossMaterialProductionProgress({
-  materials: [],
+check(
+  '16 规范当前 Plan 按 revision 优先且不恢复历史 Plan',
+  selectCurrentMaterialPlan([
+    { ...planV2, materialObservationPlanId: 'plan-history', revision: 2, updatedAt: '2026-08-13T12:00:00.000Z' },
+    { ...planV2, materialObservationPlanId: 'plan-current', revision: 3, updatedAt: '2026-08-12T12:00:00.000Z' },
+  ] as never, 'material:v1')?.materialObservationPlanId === 'plan-current',
+  'revision 3 must remain canonical even when revision 2 has a later updatedAt',
+);
+const lineageAwareBatchProgress = summarizeCrossMaterialProductionProgress({
+  materials: [
+    { materialVersionId: 'material:lineage', title: '修订材料', plannedTaskCount: 2 },
+  ],
   learningTasks: [
-    { observationTaskPlanId: 'stale-task', materialObservationPlanId: 'newer-plan', materialVersionId: 'material:v1' },
-    { observationTaskPlanId: 'other-task', materialObservationPlanId: 'plan-2', materialVersionId: 'material:v2' },
+    {
+      observationTaskPlanId: 'task-successor',
+      taskRevisionRootId: 'task-root',
+      parentObservationTaskPlanId: 'task-parent',
+      materialObservationPlanId: 'plan-current',
+      materialVersionId: 'material:lineage',
+      materialTitle: '修订材料',
+      title: '继承题目',
+      abilityId: 'analysis',
+      taskRole: 'training',
+      difficulty: 'basic',
+    },
+    {
+      observationTaskPlanId: 'task-new',
+      materialObservationPlanId: 'plan-current',
+      materialVersionId: 'material:lineage',
+      materialTitle: '修订材料',
+      title: '新增题目',
+      abilityId: 'analysis',
+      taskRole: 'training',
+      difficulty: 'basic',
+    },
   ],
   pendingReviews: [],
   incompletePublications: [],
-  publishedResources: [],
-} as never, ['material:v1', 'material:v2'], 'material:v1', [{
-  materialVersionId: 'material:v1',
-  taskCount: 2,
-  publishedTaskCount: 2,
-  attentionTaskCount: 0,
-}]);
+  publishedResources: [
+    { observationTaskPlanId: 'task-root', materialObservationPlanId: 'plan-current', materialVersionId: 'material:lineage' },
+    { observationTaskPlanId: 'task-new', materialObservationPlanId: 'plan-current', materialVersionId: 'material:lineage' },
+  ],
+} as never, ['material:lineage']);
 check(
-  '16 当前页面已选择 Plan 覆盖同素材最新 Plan 的批次投影',
-  overriddenBatchProgress.taskCount === 3
-    && overriddenBatchProgress.publishedTaskCount === 2
-    && overriddenBatchProgress.pendingTaskCount === 1
-    && overriddenBatchProgress.pendingMaterialIds.join(',') === 'material:v2',
-  `tasks=${overriddenBatchProgress.taskCount}, published=${overriddenBatchProgress.publishedTaskCount}, pending=${overriddenBatchProgress.pendingTaskCount}, pendingMaterials=${overriddenBatchProgress.pendingMaterialIds.join(',')}`,
+  '17 批次统计按任务血缘识别既有正式资源',
+  lineageAwareBatchProgress.publishedTaskCount === 2
+    && lineageAwareBatchProgress.pendingTaskCount === 0
+    && lineageAwareBatchProgress.pendingMaterialIds.length === 0,
+  `published=${lineageAwareBatchProgress.publishedTaskCount}, pending=${lineageAwareBatchProgress.pendingTaskCount}, pendingMaterials=${lineageAwareBatchProgress.pendingMaterialIds.join(',') || 'none'}`,
+);
+const staleMaterialProgress = summarizeCrossMaterialProductionProgress({
+  ...lineageAwareBatchProgress,
+  materials: [{ materialVersionId: 'material:v2', title: '新版材料', plannedTaskCount: 1 }],
+  learningTasks: [{
+    observationTaskPlanId: 'task-v2',
+    materialObservationPlanId: 'plan-v2',
+    materialVersionId: 'material:v2',
+    materialTitle: '新版材料',
+    title: '新版题目',
+    abilityId: 'analysis',
+    taskRole: 'training',
+    difficulty: 'basic',
+  }],
+  pendingReviews: [],
+  incompletePublications: [],
+  publishedResources: [{
+    observationTaskPlanId: 'task-v2',
+    materialObservationPlanId: 'plan-v1',
+    materialVersionId: 'material:v1',
+  }],
+} as never, ['material:v2']);
+check(
+  '18 旧材料或旧 Plan 的活动资源不得计入新版发布数',
+  staleMaterialProgress.publishedTaskCount === 0 && staleMaterialProgress.pendingTaskCount === 1,
+  `published=${staleMaterialProgress.publishedTaskCount}, pending=${staleMaterialProgress.pendingTaskCount}`,
+);
+
+const retiredProjection = selectUserRetiredMaterials([
+  { materialId: 'material-a', materialVersionId: 'material-a:v1', versionNumber: 1, status: 'retired', title: '材料A', updatedAt: '2026-08-12T00:00:00.000Z' },
+  { materialId: 'material-a', materialVersionId: 'material-a:v2', versionNumber: 2, status: 'active', title: '材料A', updatedAt: '2026-08-13T00:00:00.000Z' },
+  { materialId: 'material-b', materialVersionId: 'material-b:v1', versionNumber: 1, status: 'retired', title: '材料B', updatedAt: '2026-08-11T00:00:00.000Z' },
+  { materialId: 'material-b', materialVersionId: 'material-b:v2', versionNumber: 2, status: 'retired', title: '材料B', updatedAt: '2026-08-12T00:00:00.000Z' },
+] as never);
+check(
+  '19 被新版替代的历史版本不计入停用素材',
+  retiredProjection.length === 1 && retiredProjection[0]?.materialVersionId === 'material-b:v2',
+  `retired=${retiredProjection.map((item) => item.materialVersionId).join(',')}`,
 );
 
 console.log('Phase 17.2 Material Resource Workbench State Debug');
@@ -351,8 +417,15 @@ function readiness(draftId: string, frozen: boolean, linked: boolean) {
     draftId,
     validation: null,
     review: null,
-    frozenVersion: frozen ? { resourceVersionId: `${draftId}:frozen` } : null,
-    observationLink: linked ? { status: 'active' } : null,
+    frozenVersion: frozen ? {
+      resourceVersionId: `${draftId}:frozen`,
+      materialVersionId: 'material:v1',
+    } : null,
+    observationLink: linked ? {
+      status: 'active',
+      materialVersionId: 'material:v1',
+      materialObservationPlanId: 'plan-v2',
+    } : null,
   };
 }
 

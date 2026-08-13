@@ -114,18 +114,18 @@ check(
 );
 
 check(
-  '10 material switch restores its remembered plan identity',
+  '10 material switch always enters the canonical first plan',
   resolveMaterialPlanSelection({
     materialVersionId: 'material-a:v1',
     plans: [
-      { materialObservationPlanId: 'plan-a-newer', materialVersionId: 'material-a:v1' },
-      { materialObservationPlanId: 'plan-a-published', materialVersionId: 'material-a:v1' },
+      { materialObservationPlanId: 'plan-a-published', materialVersionId: 'material-a:v1', revision: 1, updatedAt: '2026-08-13T12:00:00.000Z' },
+      { materialObservationPlanId: 'plan-a-newer', materialVersionId: 'material-a:v1', revision: 2, updatedAt: '2026-08-12T12:00:00.000Z' },
     ],
     rememberedPlanId: 'plan-a-published',
     routeMaterialVersionId: 'material-a:v1',
     routePlanId: 'plan-a-published',
-  }) === 'plan-a-published',
-  'remembered per-material plan should win over list fallback',
+  }) === 'plan-a-newer',
+  'canonical plan must win over remembered or route history',
 );
 
 check(

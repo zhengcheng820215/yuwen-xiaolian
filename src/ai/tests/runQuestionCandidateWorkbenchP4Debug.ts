@@ -48,6 +48,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '13 warnings interrupt before review', run: warningsInterruptBeforeReview },
   { name: '14 publication failure retains completed review', run: publicationFailureRetainsReview },
   { name: '15 compatibility candidate reuses matching revision', run: compatibilityCandidateReusesMatchingRevision },
+  { name: '16 published adoption retry skips completed workflow stages', run: publishedAdoptionRetryIsIdempotent },
 ];
 
 async function main(): Promise<void> {
@@ -402,6 +403,40 @@ async function publicationFailureRetainsReview(): Promise<void> {
     'review',
   ]);
   assert.equal((await fixture.resources.listDrafts()).length, 1);
+}
+
+async function publishedAdoptionRetryIsIdempotent(): Promise<void> {
+  const fixture = await createFixture();
+  const input = adoptInput(fixture.candidate, fixture.context.current);
+  const calls: string[] = [];
+  let published = false;
+  const dependencies = {
+    service: fixture.service,
+    async validate() { calls.push('validation'); return { passed: true }; },
+    async assess() { calls.push('assessment'); return { warningCodes: [] }; },
+    async submitReview() { calls.push('submit_review'); },
+    async approveReview() { calls.push('approve_review'); },
+    async publish() {
+      calls.push('publication');
+      published = true;
+      return { publicationStatus: 'completed' as const };
+    },
+    async isPublished() { return published; },
+  };
+
+  const first = await adoptQuestionCandidateAndPublish(input, dependencies);
+  const retry = await adoptQuestionCandidateAndPublish(input, dependencies);
+
+  assert.equal(first.visibleState, 'published');
+  assert.equal(retry.visibleState, 'published');
+  assert.equal(retry.nextAction, 'published');
+  assert.deepEqual(calls, [
+    'validation',
+    'assessment',
+    'submit_review',
+    'approve_review',
+    'publication',
+  ]);
 }
 
 async function createFixture() {

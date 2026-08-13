@@ -145,6 +145,7 @@ export async function resolveFormalResourceRuntimeSource(input: {
       registry.difficulty === version.abilityMetadata.difficulty
     ),
     materialExists: Boolean(material),
+    materialActive: Boolean(material && material.status !== 'retired'),
     materialVersionAligned: Boolean(
       material &&
       version.materialId &&
@@ -215,6 +216,7 @@ export async function resolveFormalResourceRuntimeSource(input: {
     .filter(([, passed]) => !passed)
     .map(([check]) => `formal_resource_source_check_failed:${check}`);
   const hardBlockingFailure = !checks.materialExists ||
+    !checks.materialActive ||
     !checks.materialVersionAligned ||
     !checks.frozenMaterialSnapshotAligned ||
     !checks.materialStructureAligned ||

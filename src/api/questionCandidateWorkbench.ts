@@ -189,6 +189,7 @@ export async function executeCandidateWorkbenchCommand(
         }
         return input.expectedContext;
       },
+      listPeerQuestionContents,
     },
     {
       async adoptCandidate() {
@@ -250,6 +251,7 @@ export async function createOptimizationCandidateFromFormalVersion(
         }
         return input.expectedContext;
       },
+      listPeerQuestionContents,
     },
     {
       async adoptCandidate() {
@@ -307,6 +309,13 @@ export async function adoptQuestionTaskCandidate(
       acceptedWarningCodes: [],
     }),
     publish: freezeQuestionResourceWorkbenchDraft,
+    isPublished: async (draftId) => {
+      const version = await questionRepository.getVersionByDraftId(draftId);
+      if (!version || version.status !== 'frozen') return false;
+      const registry = await questionRepository.getRegistryEntry(version.resourceId);
+      return registry?.status === 'active'
+        && registry.currentFrozenVersionId === version.resourceVersionId;
+    },
   });
 }
 
@@ -342,4 +351,24 @@ async function resolveCurrentCandidateContext(
       extractQuestionEditableFields(activeDraft),
     ),
   };
+}
+
+async function listPeerQuestionContents(
+  trainingTaskId: string,
+  context: CandidateRuntimeContext,
+): Promise<QuestionEditableFields[]> {
+  const drafts = (await questionRepository.listDrafts()).filter((draft) => (
+    draft.status !== 'archived'
+    && draft.taskId !== trainingTaskId
+    && draft.materialVersionId === context.materialVersionId
+  ));
+  const latestByResourceId = new Map<string, typeof drafts[number]>();
+  for (const draft of drafts) {
+    const current = latestByResourceId.get(draft.resourceId);
+    if (!current || draft.revision > current.revision
+      || (draft.revision === current.revision && draft.updatedAt > current.updatedAt)) {
+      latestByResourceId.set(draft.resourceId, draft);
+    }
+  }
+  return [...latestByResourceId.values()].map(extractQuestionEditableFields);
 }

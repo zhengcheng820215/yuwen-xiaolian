@@ -238,18 +238,9 @@ function sameMaterialVersion(
   left: QuestionMaterialVersion,
   right: QuestionMaterialVersion,
 ): boolean {
-  return left.materialId === right.materialId &&
-    left.materialVersionId === right.materialVersionId &&
-    left.versionNumber === right.versionNumber &&
-    left.title === right.title &&
-    left.content === right.content &&
-    left.source.sourceType === right.source.sourceType &&
-    left.source.description === right.source.description &&
-    left.source.copyrightNote === right.source.copyrightNote &&
-    left.source.externalReference === right.source.externalReference &&
-    left.createdAt === right.createdAt &&
-    left.updatedAt === right.updatedAt &&
-    left.schemaVersion === right.schemaVersion;
+  const { status: _leftStatus, ...leftValue } = left;
+  const { status: _rightStatus, ...rightValue } = right;
+  return JSON.stringify(leftValue) === JSON.stringify(rightValue);
 }
 
 function projectMaterialStatus(

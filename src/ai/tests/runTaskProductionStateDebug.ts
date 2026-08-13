@@ -175,7 +175,7 @@ assert.equal(checkRequired.primaryAction, 'run_check');
 assert.equal(checkRequired.presentation.primaryActionLabel, '检查题目');
 assert.deepEqual(resolveTaskProductionCardAction(checkRequired), {
   kind: 'run_check',
-  label: '检查题目',
+  label: '继续发布',
   busyLabel: '正在检查题目…',
 });
 
@@ -187,7 +187,7 @@ assert.equal(editing.state, 'editing');
 assert.equal(editing.primaryAction, 'save');
 assert.deepEqual(resolveTaskProductionCardAction(editing), {
   kind: 'save_plan',
-  label: '保存任务',
+  label: '继续发布',
   busyLabel: '正在保存任务修改…',
 });
 
@@ -213,9 +213,9 @@ const revisionRequired = resolveTaskProductionState({
 });
 assert.equal(revisionRequired.state, 'revision_required');
 assert.deepEqual(resolveTaskProductionCardAction(revisionRequired, { hasIssues: true }), {
-  kind: 'focus_issue',
-  label: '处理问题',
-  busyLabel: null,
+  kind: 'generate_candidate',
+  label: '重新生成题目',
+  busyLabel: '正在重新生成题目…',
 });
 
 const confirmationReady = resolveTaskProductionState({
@@ -228,7 +228,7 @@ const confirmationReady = resolveTaskProductionState({
 assert.equal(confirmationReady.state, 'pending_confirmation');
 assert.deepEqual(resolveTaskProductionCardAction(confirmationReady), {
   kind: 'open_confirmation',
-  label: '查看题目方案',
+  label: '继续发布',
   busyLabel: null,
 });
 

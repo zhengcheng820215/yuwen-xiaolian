@@ -28,6 +28,16 @@ export async function adoptQuestionCandidateAndRunChecks(
   },
 ): Promise<CandidateAdoptionWorkflowResult> {
   const adoption = await dependencies.service.adoptTaskCandidate(input);
+  return runChecksForAdoption(adoption, dependencies);
+}
+
+async function runChecksForAdoption(
+  adoption: CandidateAdoptionResult,
+  dependencies: {
+    validate(draftId: string, revision: number): Promise<{ passed: boolean }>;
+    assess(draftId: string, revision: number): Promise<unknown>;
+  },
+): Promise<CandidateAdoptionWorkflowResult> {
   let validation: { passed: boolean };
   try {
     validation = await dependencies.validate(adoption.draftId, adoption.revision);
@@ -105,9 +115,17 @@ export async function adoptQuestionCandidateAndPublish(
       draftId: string,
       revision: number,
     ): Promise<{ publicationStatus?: 'completed' | 'partially_completed' }>;
+    isPublished?(draftId: string, revision: number): Promise<boolean>;
   },
 ): Promise<CandidateAdoptionPublicationWorkflowResult> {
-  const checked = await adoptQuestionCandidateAndRunChecks(input, dependencies);
+  const adoption = await dependencies.service.adoptTaskCandidate(input);
+  if (dependencies.isPublished && await dependencies.isPublished(
+    adoption.draftId,
+    adoption.revision,
+  )) {
+    return recoveredPublishedResult(adoption);
+  }
+  const checked = await runChecksForAdoption(adoption, dependencies);
   const completedStages: CandidateAdoptionPublicationWorkflowResult['completedStages'] = [
     'adopt',
   ];
@@ -202,6 +220,21 @@ export async function adoptQuestionCandidateAndPublish(
       nextAction: 'retry_publication',
     };
   }
+}
+
+function recoveredPublishedResult(
+  adoption: CandidateAdoptionResult,
+): CandidateAdoptionPublicationWorkflowResult {
+  return {
+    adoption,
+    validation: { status: 'completed', passed: true },
+    assessment: { status: 'completed', warningCodes: [] },
+    review: { status: 'completed' },
+    publication: { status: 'completed' },
+    completedStages: ['adopt', 'validation', 'assessment', 'review', 'publication'],
+    visibleState: 'published',
+    nextAction: 'published',
+  };
 }
 
 function readWarningCodes(value: unknown): string[] {

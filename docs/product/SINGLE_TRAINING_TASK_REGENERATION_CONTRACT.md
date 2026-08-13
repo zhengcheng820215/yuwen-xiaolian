@@ -2,9 +2,11 @@
 
 英文名称：Single Training Task Regeneration Contract
 
-状态：ENGINEERING IMPLEMENTED / CANDIDATE BROWSER ACCEPTANCE PASSED / END-TO-END PRODUCT ACCEPTANCE PENDING
+状态：HISTORICAL DOMAIN REFERENCE / STANDARD UI SUPERSEDED
 契约版本：`single_training_task_regeneration_contract_v1`  
 更新日期：2026-08-06
+
+> 2026-08-13 现行交互说明：本文保留单个 `TrainingTaskCandidate` 的版本保护与历史实现证据，不再定义标准工作台交互。当前标准路径不提供 TrainingTask 编辑缓冲区、人工字段修改、删除任务或二次保存；用户只对完整 AI 任务方案执行“采用当前任务方案”或“重新生成任务方案”。现行规则以 [AI 训练任务、题目采用与真实作答校准契约](./AI_QUESTION_ADOPTION_AND_EMPIRICAL_CALIBRATION_CONTRACT.md) 和 [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) 为准。
 
 ## 一、用途
 

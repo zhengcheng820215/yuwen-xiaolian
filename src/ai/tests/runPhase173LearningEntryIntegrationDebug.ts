@@ -35,6 +35,7 @@ const reports: CaseResult[] = [];
 async function main(): Promise<void> {
   const environment = await createEnvironment();
   await genericRegistryRead(environment);
+  await retiredMaterialIsExcluded(environment);
   await genericFormalMatch(environment);
   await legacyHintPolicyCompatibility(environment);
   await dynamicBootstrapAbility(environment);
@@ -176,6 +177,24 @@ async function genericRegistryRead(environment: Environment): Promise<void> {
       item.resourceId.startsWith('formal-runtime-resource-')
     )),
     `formal=${allVersions.length}, batch=${batchVersions.length}, first=${allVersions[0]?.resourceId || 'none'}`,
+  );
+}
+
+async function retiredMaterialIsExcluded(environment: Environment): Promise<void> {
+  const version = environment.versions.find((item) => (
+    item.status === 'frozen' && Boolean(item.materialVersionId)
+  ));
+  expect(version?.materialVersionId, 'Current material-version fixture is missing.');
+  await environment.resources.setMaterialStatus(version.materialVersionId, 'retired');
+  const filtered = await loadCurrentFormalResourceVersions(
+    environment.resources,
+    environment.observations,
+  );
+  await environment.resources.setMaterialStatus(version.materialVersionId, 'active');
+  record(
+    '01B Learning 不消费已停用材料的活动 Registry',
+    filtered.every((item) => item.materialVersionId !== version.materialVersionId),
+    `retired=${version.materialVersionId}, remaining=${filtered.length}`,
   );
 }
 

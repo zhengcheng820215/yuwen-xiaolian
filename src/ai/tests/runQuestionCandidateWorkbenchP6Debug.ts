@@ -16,6 +16,11 @@ const API_PATH = fileURLToPath(new URL(
   import.meta.url,
 ));
 
+const MATERIAL_API_PATH = fileURLToPath(new URL(
+  '../../api/materialResourceProductionWorkbench.ts',
+  import.meta.url,
+));
+
 const forbiddenPageTokens = [
   'candidateWorkflowEnabled',
   'QUESTION_CANDIDATE_WORKFLOW_STORAGE_KEY',
@@ -53,12 +58,22 @@ const forbiddenPageTokens = [
   'hasCandidateDecision={hasCandidateDecision}',
   'data-quality-warning-decision-mode="candidate"',
   'data-quality-warning-decision-mode="fallback"',
+  '保存任务组修改',
+  '采用并保存',
+  '放弃候选',
+  'aria-label={`选择补充候选任务',
+  "reviewerId: 'local-reviewer'",
+  '请处理后重试',
+  '重新生成会替换当前尚未采用的候选训练任务，是否继续？',
+  'materialForm.description',
+  '>来源说明<',
 ];
 
 async function main(): Promise<void> {
-  const [source, apiSource] = await Promise.all([
+  const [source, apiSource, materialApiSource] = await Promise.all([
     readFile(PAGE_PATH, 'utf8'),
     readFile(API_PATH, 'utf8'),
+    readFile(MATERIAL_API_PATH, 'utf8'),
   ]);
 
   for (const token of forbiddenPageTokens) {
@@ -81,9 +96,15 @@ async function main(): Promise<void> {
     'candidateReadyForDecision',
     "reasonSource: 'fixed'",
     "structuredReason: 'selected_candidate_with_warning'",
-    '点击“生成优化题目”获得可比较方案；选择合适方案后，点击“确认并发布”完成确认。',
+    '可直接采用当前方案；如不满意，点击“重新生成题目”让 AI 继续优化。',
     'qualityWarningCandidateMissing',
-    '当前题目有质量提醒，请确认是否保留当前题目，或重新生成。',
+    '当前方案包含质量提醒；系统将按本次采用选择继续发布。',
+    '采用当前任务方案',
+    '重新生成任务方案',
+    "reviewerId: 'local-entry-operator'",
+    '系统会从中断位置自动重试',
+    '补充版权信息（可选）',
+    '仅在已有明确版权说明时填写；留空不会阻断素材保存和内部校准。',
   ]) {
     assert.equal(source.includes(token), true, `P6 canonical token is missing: ${token}`);
   }
@@ -100,6 +121,11 @@ async function main(): Promise<void> {
   ]) {
     assert.equal(apiSource.includes(token), true, `warning audit contract is missing: ${token}`);
   }
+  assert.match(
+    materialApiSource,
+    /description\?: string;[\s\S]*?description: input\.description\?\.trim\(\) \|\| '系统自动记录：人工录入'/,
+    '人工录入素材必须由系统自动形成来源记录，来源说明不得成为必填输入',
+  );
 
   assert.deepEqual(resolveLegacyWorkflowExitAudit(exitFixture()), {
     status: 'ready',

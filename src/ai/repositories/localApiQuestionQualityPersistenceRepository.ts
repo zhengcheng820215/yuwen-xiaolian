@@ -532,7 +532,11 @@ function assertPublicationRecordsMatch(
   if (records.version && !same(records.version, commit.resourceCommit.version)) {
     throw new Error(`identity_content_conflict: ${commit.resourceCommit.version.resourceVersionId}`);
   }
-  if (records.registryEntry && !same(records.registryEntry, commit.resourceCommit.registryEntry)) {
+  if (
+    records.registryEntry
+    && !same(records.registryEntry, commit.resourceCommit.registryEntry)
+    && !isExpectedRegistryHeadAdvance(records.registryEntry, commit)
+  ) {
     throw new Error(`identity_content_conflict: ${commit.resourceCommit.registryEntry.resourceId}`);
   }
   if (records.trace && !same(records.trace, commit.trace)) {
@@ -544,6 +548,19 @@ function assertPublicationRecordsMatch(
   ) {
     throw new Error(`identity_content_conflict: ${commit.observationLink.resourceObservationLinkId}`);
   }
+}
+
+function isExpectedRegistryHeadAdvance(
+  current: QualityTracedPublicationCommit['resourceCommit']['registryEntry'],
+  commit: QualityTracedPublicationCommit,
+): boolean {
+  return Boolean(
+    commit.resourceCommit.previousVersionId
+    && current.currentFrozenVersionId === commit.resourceCommit.previousVersionId
+    && commit.resourceCommit.registryEntry.resourceId === current.resourceId
+    && commit.resourceCommit.registryEntry.currentFrozenVersionId
+      === commit.resourceCommit.version.resourceVersionId,
+  );
 }
 
 function sameObservationLink(

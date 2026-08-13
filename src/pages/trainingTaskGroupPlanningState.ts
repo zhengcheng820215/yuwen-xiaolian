@@ -69,9 +69,7 @@ export function createTrainingTaskGroupCandidateSession<T extends TrainingTaskGr
     basedOnPlanRevision,
     generatedAt,
     candidateTasks,
-    selectedCandidateTaskIds: operationType === 'replace_group'
-      ? candidateTasks.map(candidateTaskId)
-      : [],
+    selectedCandidateTaskIds: candidateTasks.map(candidateTaskId),
   };
 }
 

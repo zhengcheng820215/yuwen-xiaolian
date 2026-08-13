@@ -5,7 +5,6 @@ import {
   MAX_TRAINING_TASK_COUNT,
   resolveTrainingTaskGenerationRequest,
   summarizeTrainingTaskGroupCoverage,
-  toggleSupplementCandidateSelection,
 } from '../../pages/trainingTaskGroupPlanningState.ts';
 
 assert.deepEqual(resolveTrainingTaskGenerationRequest('replace_group', 0), {
@@ -95,14 +94,13 @@ const supplementCandidates = [
   { localId: 'candidate-s1', abilityId: 'expression', primaryDimension: 'character', questionStem: '评价人物形象。' },
   { localId: 'candidate-s2', abilityId: 'analysis', primaryDimension: 'character', questionStem: '分析人物心理。' },
 ];
-let supplementSession = createTrainingTaskGroupCandidateSession({
+const supplementSession = createTrainingTaskGroupCandidateSession({
   candidateGroupId: 'group-supplement',
   operationType: 'supplement_group',
   basedOnPlanRevision: 2,
   candidateTasks: supplementCandidates,
 });
-supplementSession = toggleSupplementCandidateSelection(supplementSession, 'candidate-s1');
-supplementSession = toggleSupplementCandidateSelection(supplementSession, 'candidate-s2');
+assert.deepEqual(supplementSession.selectedCandidateTaskIds, ['candidate-s1', 'candidate-s2']);
 const supplementResult = adoptTrainingTaskGroupCandidate({
   session: supplementSession,
   currentTasks,

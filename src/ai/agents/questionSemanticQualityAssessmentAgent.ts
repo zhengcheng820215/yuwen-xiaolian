@@ -114,6 +114,7 @@ export async function runQuestionSemanticQualityAssessment(
     draft: input.draft,
     validation: input.validation,
     material: input.material,
+    deterministicAssessment: input.deterministicAssessment,
     provider: input.provider,
     promptVersion,
     semanticRuleVersion,
@@ -318,6 +319,7 @@ export function buildSemanticRequestKey(input: {
   draft: StructuredQuestionDraft;
   validation: ResourceValidationResult;
   material: QuestionMaterialVersion;
+  deterministicAssessment: Pick<QuestionQualityAssessment, 'assessmentId'>;
   provider: QuestionSemanticQualityProviderConfig;
   promptVersion: string;
   semanticRuleVersion: string;
@@ -328,6 +330,7 @@ export function buildSemanticRequestKey(input: {
     input.draft.revision,
     input.validation.validationId,
     input.material.materialVersionId,
+    input.deterministicAssessment.assessmentId,
     input.provider.providerId,
     input.provider.modelId,
     input.promptVersion,

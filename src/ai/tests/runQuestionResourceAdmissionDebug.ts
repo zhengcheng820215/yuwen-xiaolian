@@ -3,6 +3,7 @@ import {
   createRevisionFromRejectedQuestionResourceDraft,
   createNextQuestionResourceVersionDraft,
   createQuestionMaterial,
+  createQuestionMaterialRevision,
   createStructuredQuestionDraft,
   findActiveQuestionResourceRevisionDraft,
   freezeQuestionResourceDraft,
@@ -58,7 +59,41 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '26 stale expected revision is rejected', run: caseExpectedRevisionConflict },
   { name: '27 author warning handling and structured return stay distinct', run: caseReviewResponsibilityBoundary },
   { name: '28 review submission withdrawal and audit history stay consistent', run: caseReviewSubmissionAudit },
+  { name: '29 material revision is staged without overwriting the active source', run: caseMaterialRevisionIsStaged },
 ];
+
+async function caseMaterialRevisionIsStaged(): Promise<void> {
+  const repo = await repositoryWithMaterial();
+  const source = (await repo.listMaterials())[0];
+  const revision = await createQuestionMaterialRevision(repo, {
+    sourceMaterialVersionId: source.materialVersionId,
+    content: `${source.content}\n新增校准段落。`,
+    revisionNote: '修正正文分段并补充来源元数据。',
+    metadata: {
+      author: '测试作者',
+      genre: 'narrative_prose',
+      gradeRange: '七年级',
+      tags: [' 叙事 ', '叙事', '阅读'],
+      provenanceStatus: 'needs_verification',
+    },
+    now: LATER,
+  });
+  const unchangedSource = await repo.getMaterial(source.materialVersionId);
+  assert(revision.materialVersionId !== source.materialVersionId, 'Revision reused source identity.');
+  assert(revision.parentMaterialVersionId === source.materialVersionId, 'Revision parent is missing.');
+  assert(revision.status === 'retired', 'Unpublished material revision must stay staged.');
+  assert(unchangedSource?.content === source.content, 'Source Material Version was overwritten.');
+  assert(revision.metadata?.tags.join(',') === '叙事,阅读', 'Material metadata was not normalized.');
+  await assertRejects(
+    () => createQuestionMaterialRevision(repo, {
+      sourceMaterialVersionId: source.materialVersionId,
+      content: `${source.content}\n另一份冲突正文。`,
+      revisionNote: '与既有 v2 冲突的重试。',
+      now: LATER,
+    }),
+    'Material revision already exists with different content',
+  );
+}
 
 async function main(): Promise<void> {
   let passed = 0;

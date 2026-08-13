@@ -2,9 +2,9 @@
 
 英文名称：Training Task Group AI Planning Contract
 
-状态：P1 ENGINEERING IMPLEMENTED / V1.6 ADOPT-AND-SAVE ALIGNED / BROWSER ACCEPTANCE PASSED / TEN-MATERIAL CALIBRATION PENDING
-契约版本：`training_task_group_ai_planning_contract_v1.6`
-更新日期：2026-08-12
+状态：V1.7 SINGLE-DECISION CONTRACT ACTIVE / ENGINEERING ALIGNMENT IN PROGRESS
+契约版本：`training_task_group_ai_planning_contract_v1.7`
+更新日期：2026-08-13
 
 ## 一、用途
 
@@ -15,7 +15,7 @@
 
 两项能力只处理上游 `TrainingTaskCandidate`，不直接创建正式题目，也不替代下游 `QuestionCandidate` 的采用、质量检查、人工发布决定或正式发布。
 
-> 对象边界：本文的候选容器、编辑缓冲区和 Revision 均属于 Observation Plan 层。`TrainingTaskCandidate` 被采用后先进入 Plan 编辑缓冲区，确认任务组时形成 Plan Revision；下游 `QuestionCandidate` 被采用时才创建 Question Draft Revision。两类候选不得共享采用命令、状态字段或 Revision 语义。
+> 对象边界：本文的候选容器和 Revision 属于 Observation Plan 层。`TrainingTaskCandidate` 被采用后由系统自动保存为 Plan Revision；下游 `QuestionCandidate` 被采用时才创建 Question Draft Revision。两类候选不得共享采用命令、状态字段或 Revision 语义，但前台都遵循“一次采用决定，系统自动持久化”。
 
 本文与 [单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) 共同形成三个清晰作用域：
 
@@ -32,22 +32,21 @@
 
 ### 1.1 当前页面动作与历史术语
 
-本契约只负责 AI 候选生成、采用、任务组编辑缓冲区和 Observation Plan 工作草稿。当前单人统一工作台不得再提供任务组级`提交题目审核`、`提交人工审核`或独立`审核区`。
+本契约只负责 AI 候选生成、采用和 Observation Plan 自动持久化。当前单人统一工作台不得再提供任务组编辑缓冲区、任务删除、逐项人工改写、独立保存、任务组级`提交题目审核`、`提交人工审核`或独立`审核区`。
 
 当前页面动作冻结为：
 
 ```text
 任务组常驻：重新规划整组任务 / 补充生成训练任务
-候选决策：采用并保存 / 放弃候选
-任务组经人工增删或编辑后存在未保存变化时：保存任务组修改
-单任务：生成题目 / 采用题目 / 重新生成题目 / 处理问题
+候选决策：采用当前任务方案 / 重新生成任务方案
+单任务：生成题目 / 采用并发布 / 重新生成题目
 ```
 
 本文历史章节与验收记录中仍可能出现旧文案。读取规则如下：
 
 | 历史术语 | 当前解释 |
 | --- | --- |
-| `保存任务组并重新检查` / `确认任务并保存` | 旧页面文案；当前仅在任务组真实变化时显示`保存任务组修改` |
+| `保存任务组并重新检查` / `确认任务并保存` / `保存任务组修改` | 历史编辑缓冲区文案；当前页面不显示，采用时由系统自动保存 |
 | `提交题目审核` / `提交人工审核` | 兼容命令或历史流程证据；当前任务组页面不显示该按钮 |
 | `审核区` | 历史独立区域；当前质量结果、提醒处理和发布入口均归属对应任务卡 |
 | `pending_review` / `reviewed` | 兼容领域记录；当前页面主状态由统一工作台的`resolveTaskProductionState()`投影 |
@@ -60,13 +59,15 @@
 2. `采用题目`只作用于当前任务的 QuestionCandidate，并由单任务编排继续检查与发布；
 3. 页面不得在题目采用后再要求执行任务组级“确认任务并保存”；
 4. `重新规划整组任务`和`补充生成训练任务`只生成 TrainingTaskCandidate，不直接采用或发布题目；
-5. TrainingTaskCandidate 使用`采用并保存`：应用层顺序执行采用计算、Observation Plan 保存和结构检查；保存成功后候选才离开候选容器；
-6. 任务组没有未保存变化时，不显示保存按钮，更不得保留一个无法解释的禁用按钮；
-7. `保存任务组修改`只更新 Observation Plan 工作草稿或 Revision，不创建 Question Revision、Assessment、Human Review 或 Formal Resource。
-8. `采用并保存`失败时不得清空候选、不得改变当前已保存任务组，并必须提供可见错误与重试入口；
-9. `采用并保存`不等于发布，单任务仍需独立进入 QuestionCandidate 的采用与发布链。
-10. `采用并保存`完成后，只有 Plan 结构检查通过且单人模式可确定性完成提交与审核时，任务卡才可显示“可以发布”；
+5. TrainingTaskCandidate 前台使用`采用当前任务方案`：应用层顺序执行采用计算、Observation Plan 保存和结构检查；保存成功后候选才离开候选容器；
+6. Observation Plan 保存是采用命令的内部阶段，页面不得出现独立保存按钮；
+7. 标准路径不得提供删除、恢复或逐字段编辑训练任务；不满意时生成新的完整候选组；
+8. 采用失败时不得清空候选、不得改变当前已保存任务组；内容问题提供`重新生成任务方案`，技术中断由系统重试；
+9. 任务组采用不等于题目发布，单任务仍需独立进入 QuestionCandidate 的采用与发布链。
+10. 任务组采用完成后，只有 Plan 结构检查通过且单人模式可确定性完成提交与审核时，任务卡才可显示“可以发布”；
 11. 单任务点击“采用并发布”时，应用层必须先把当前 Plan 推进到 `reviewed`，再采用 QuestionCandidate，禁止采用后才返回 `plan_not_reviewed`。
+
+> 本文后续章节保留的“采用并保存”“放弃候选”“编辑缓冲区”“保存任务组修改”等表述仅用于解释历史领域实现和迁移证据，不再定义当前按钮、用户步骤或可达编辑能力。当前交互以本节及[AI 训练任务、题目采用与真实作答校准契约](./AI_QUESTION_ADOPTION_AND_EMPIRICAL_CALIBRATION_CONTRACT.md)为准。
 
 ## 二、核心对象与状态边界
 

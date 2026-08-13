@@ -9,7 +9,6 @@ import { InMemoryQuestionResourceAdmissionRepository } from '../repositories/inM
 import {
   adoptTrainingTaskGroupCandidate,
   createTrainingTaskGroupCandidateSession,
-  toggleSupplementCandidateSelection,
   type TrainingTaskGroupCandidate,
 } from '../../pages/trainingTaskGroupPlanningState.ts';
 
@@ -68,13 +67,12 @@ async function main() {
   }).tasks;
   assert.equal(await persistedRevisionCount(), 1, 'Adopting the first replacement group created a Revision.');
 
-  let supplement = createTrainingTaskGroupCandidateSession({
+  const supplement = createTrainingTaskGroupCandidateSession({
     candidateGroupId: 'supplement-cycle-2',
     operationType: 'supplement_group',
     basedOnPlanRevision: initialSave.plan.revision,
     candidateTasks: [supplementTask()],
   });
-  supplement = toggleSupplementCandidateSelection(supplement, 'supplement-expression');
   editBuffer = adoptTrainingTaskGroupCandidate({
     session: supplement,
     currentTasks: editBuffer,

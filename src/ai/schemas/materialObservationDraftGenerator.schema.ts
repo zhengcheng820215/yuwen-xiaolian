@@ -16,7 +16,9 @@ import type {
 
 export const MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION = 'material_observation_draft_generator_v1_2' as const;
 
-export type MaterialObservationGenerationMode = 'discover_new_observation';
+export type MaterialObservationGenerationMode =
+  | 'discover_new_observation'
+  | 'optimize_existing_observation';
 
 export type MaterialObservationCandidateDisposition =
   | 'new_observation_candidate'
@@ -47,6 +49,7 @@ export type MaterialObservationDraftGeneratorPreferences = {
   candidateCount?: number;
   planningIntent?: 'initial' | 'replacement' | 'supplement';
   requestedFocus?: string;
+  targetObservationId?: string;
 };
 
 export type MaterialObservationDraftGeneratorInput = {

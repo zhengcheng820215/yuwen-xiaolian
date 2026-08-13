@@ -18,6 +18,7 @@ import {
   type FrozenQuestionResourceVersion,
   type QuestionAbilityMetadata,
   type AuthorWarningAcknowledgement,
+  type QuestionMaterialMetadata,
   type QuestionMaterialVersion,
   type QuestionResourceDifficulty,
   type QuestionResourceRubricItem,
@@ -43,6 +44,16 @@ export type CreateQuestionMaterialInput = Omit<
 > & {
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type CreateQuestionMaterialRevisionInput = {
+  sourceMaterialVersionId: string;
+  title?: string;
+  content?: string;
+  source?: QuestionMaterialVersion['source'];
+  metadata?: QuestionMaterialMetadata;
+  revisionNote: string;
+  now?: string;
 };
 
 export type CreateStructuredQuestionDraftInput = {
@@ -94,9 +105,13 @@ export async function createQuestionMaterial(
     materialId: input.materialId,
     materialVersionId: input.materialVersionId,
     versionNumber: input.versionNumber,
+    status: input.status || 'active',
+    parentMaterialVersionId: input.parentMaterialVersionId,
+    revisionNote: input.revisionNote?.trim(),
     title: input.title.trim(),
     content: input.content.trim(),
     source: clone(input.source),
+    metadata: input.metadata ? normalizeMaterialMetadata(input.metadata) : undefined,
     createdAt: input.createdAt || now,
     updatedAt: input.updatedAt || now,
     schemaVersion: QUESTION_RESOURCE_ADMISSION_SCHEMA_VERSION,
@@ -119,6 +134,53 @@ export async function createQuestionMaterial(
   }
 
   return repository.saveMaterial(material);
+}
+
+export async function createQuestionMaterialRevision(
+  repository: QuestionResourceAdmissionRepository,
+  input: CreateQuestionMaterialRevisionInput,
+): Promise<QuestionMaterialVersion> {
+  const source = await repository.getMaterial(input.sourceMaterialVersionId);
+  if (!source) throw new Error(`Material Version not found: ${input.sourceMaterialVersionId}`);
+  if (!input.revisionNote.trim()) throw new Error('Material revisionNote is required.');
+  const siblings = (await repository.listMaterials())
+    .filter((material) => material.materialId === source.materialId);
+  const existing = siblings
+    .filter((material) => material.parentMaterialVersionId === source.materialVersionId)
+    .sort((left, right) => right.versionNumber - left.versionNumber)[0];
+  if (existing) {
+    const expectedMetadata = input.metadata
+      ? normalizeMaterialMetadata(input.metadata)
+      : source.metadata;
+    const sameRequestedRevision =
+      existing.parentMaterialVersionId === source.materialVersionId &&
+      existing.revisionNote === input.revisionNote.trim() &&
+      existing.title === (input.title ?? source.title).trim() &&
+      existing.content === (input.content ?? source.content).trim() &&
+      JSON.stringify(existing.source) === JSON.stringify(input.source ?? source.source) &&
+      JSON.stringify(existing.metadata) === JSON.stringify(expectedMetadata);
+    if (!sameRequestedRevision) {
+      throw new Error(`Material revision already exists with different content: ${existing.materialVersionId}`);
+    }
+    return existing;
+  }
+  const versionNumber = Math.max(...siblings.map((material) => material.versionNumber)) + 1;
+  const materialVersionId = `${source.materialId}:v${versionNumber}`;
+  const now = input.now || new Date().toISOString();
+  return createQuestionMaterial(repository, {
+    materialId: source.materialId,
+    materialVersionId,
+    versionNumber,
+    status: 'retired',
+    parentMaterialVersionId: source.materialVersionId,
+    revisionNote: input.revisionNote,
+    title: input.title ?? source.title,
+    content: input.content ?? source.content,
+    source: input.source ?? source.source,
+    metadata: input.metadata ?? source.metadata,
+    createdAt: now,
+    updatedAt: now,
+  });
 }
 
 export async function createStructuredQuestionDraft(
@@ -463,7 +525,28 @@ export async function reviewQuestionResourceDraft(
   const reviewId = `${draft.draftId}:review:r${draft.revision}`;
   const existing = await repository.getReview(reviewId);
   if (existing) {
-    if (reviewCommandMatchesExisting(existing, input)) return existing;
+    if (reviewOutcomeMatchesExisting(existing, input)) {
+      const expectedStatus = existing.action === 'approve'
+        ? 'reviewed'
+        : existing.action === 'revision_required'
+          ? 'revision_required'
+          : 'rejected';
+      if (draft.status !== expectedStatus || draft.latestReviewId !== existing.reviewId) {
+        await repository.saveDraft({
+          ...draft,
+          status: expectedStatus,
+          latestReviewId: existing.reviewId,
+          revisionRequestedAt: existing.action === 'revision_required'
+            ? existing.reviewedAt
+            : draft.revisionRequestedAt,
+          revisionRequestCount: existing.action === 'revision_required'
+            ? Math.max(1, draft.revisionRequestCount || 0)
+            : draft.revisionRequestCount,
+          updatedAt: existing.reviewedAt,
+        });
+      }
+      return existing;
+    }
     throw createStructuredRuntimeError({
       code: 'QUESTION_REVIEW_IMMUTABLE_CONFLICT',
       message: '当前修订版已经形成不同的人工审核决定，不能静默覆盖。',
@@ -524,12 +607,10 @@ export async function reviewQuestionResourceDraft(
   return clone(decision);
 }
 
-function reviewCommandMatchesExisting(
+function reviewOutcomeMatchesExisting(
   existing: ResourceReviewDecision,
   input: {
     action: ResourceReviewAction;
-    reviewerId: string;
-    notes: string;
     returnRequest?: ResourceReviewDecision['returnRequest'];
     warningDecisions?: ResourceReviewDecision['warningDecisions'];
     qualityAssessmentBundleId?: string;
@@ -540,8 +621,6 @@ function reviewCommandMatchesExisting(
 ): boolean {
   return (
     existing.action === input.action &&
-    existing.reviewerId === input.reviewerId.trim() &&
-    existing.notes === input.notes.trim() &&
     JSON.stringify(existing.returnRequest || null) ===
       JSON.stringify(input.returnRequest || null) &&
     existing.qualityAssessmentBundleId === input.qualityAssessmentBundleId &&
@@ -563,7 +642,6 @@ function comparableWarningDecisions(
     assessmentId: decision.assessmentId,
     warningCode: decision.warningCode,
     decision: decision.decision,
-    reviewedBy: decision.reviewedBy,
   }));
 }
 
@@ -1162,6 +1240,23 @@ function containsDiagnosisClaim(values: string[]): boolean {
 
 function unique(values: string[]): string[] {
   return [...new Set(values)];
+}
+
+function normalizeMaterialMetadata(
+  metadata: QuestionMaterialMetadata,
+): QuestionMaterialMetadata {
+  return {
+    ...(metadata.author?.trim() ? { author: metadata.author.trim() } : {}),
+    ...(metadata.translator?.trim() ? { translator: metadata.translator.trim() } : {}),
+    ...(metadata.genre ? { genre: metadata.genre } : {}),
+    ...(metadata.gradeRange?.trim() ? { gradeRange: metadata.gradeRange.trim() } : {}),
+    ...(metadata.curriculumUnit?.trim()
+      ? { curriculumUnit: metadata.curriculumUnit.trim() }
+      : {}),
+    ...(metadata.edition?.trim() ? { edition: metadata.edition.trim() } : {}),
+    tags: unique(metadata.tags.map((tag) => tag.trim()).filter(Boolean)).sort(),
+    provenanceStatus: metadata.provenanceStatus,
+  };
 }
 
 function nonEmpty(value: unknown): value is string {

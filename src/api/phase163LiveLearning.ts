@@ -400,7 +400,10 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
     : undefined;
   const plans = await loadPhase163DueRetestPlans();
   const retestPlan = plans[0];
-  const currentVersions = await loadCurrentFormalResourceVersions(formalResourceRepository);
+  const currentVersions = await loadCurrentFormalResourceVersions(
+    formalResourceRepository,
+    materialObservationRepository,
+  );
   const previousRoundId = roundId && number > 1
     ? replaceRoundNumber(roundId, number - 1)
     : undefined;
@@ -499,7 +502,10 @@ async function resolveNextFormalTask(
   previousResourceVersion: FrozenQuestionResourceVersion,
 ): Promise<NextFormalTaskResolution> {
   const records = await persistenceRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID);
-  const versions = await loadCurrentFormalResourceVersions(formalResourceRepository);
+  const versions = await loadCurrentFormalResourceVersions(
+    formalResourceRepository,
+    materialObservationRepository,
+  );
   const storedContext = await activityRepository.getByStudent(PHASE163_LEARNING_STUDENT_ID);
   const activeLearningSessionId = storedContext?.status !== 'ended'
     ? storedContext?.learningSessionId

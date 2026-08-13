@@ -66,14 +66,46 @@ export type QuestionSource = {
   externalReference?: string;
 };
 
+export type QuestionMaterialGenre =
+  | 'narrative_prose'
+  | 'scenic_prose'
+  | 'fairy_tale'
+  | 'fable'
+  | 'myth'
+  | 'modern_poetry'
+  | 'classical_prose'
+  | 'other';
+
+export type QuestionMaterialMetadata = {
+  author?: string;
+  translator?: string;
+  genre?: QuestionMaterialGenre;
+  gradeRange?: string;
+  curriculumUnit?: string;
+  edition?: string;
+  tags: string[];
+  provenanceStatus: 'verified' | 'needs_verification' | 'test_only';
+  provenanceReview?: {
+    textVerificationStatus: 'pending' | 'verified' | 'rejected';
+    rightsStatus: 'unknown' | 'cleared' | 'restricted' | 'public_domain';
+    sourceLocator?: string;
+    verifiedBy?: string;
+    verifiedAt?: string;
+    notes?: string;
+  };
+};
+
 export type QuestionMaterialVersion = {
   materialId: string;
   materialVersionId: string;
   versionNumber: number;
   status?: 'active' | 'retired';
+  parentMaterialVersionId?: string;
+  revisionNote?: string;
   title: string;
   content: string;
   source: QuestionSource;
+  metadata?: QuestionMaterialMetadata;
   createdAt: string;
   updatedAt: string;
   schemaVersion: typeof QUESTION_RESOURCE_ADMISSION_SCHEMA_VERSION;

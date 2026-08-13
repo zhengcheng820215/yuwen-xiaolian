@@ -407,8 +407,51 @@ export async function loadPhase173BatchACurrentVersions(
 
 export async function loadCurrentFormalResourceVersions(
   repository: QuestionResourceAdmissionRepository,
+  observationRepository?: MaterialObservationRepository,
 ): Promise<FrozenQuestionResourceVersion[]> {
-  return loadCurrentVersions(repository, () => true);
+  const versions = await loadCurrentVersions(repository, () => true);
+  if (!observationRepository) return versions;
+
+  const [materials, plans, links] = await Promise.all([
+    repository.listMaterials(),
+    observationRepository.listPlans(),
+    observationRepository.listLinks(),
+  ]);
+  const activeMaterialVersionIds = new Set(materials
+    .filter((material) => material.status !== 'retired')
+    .map((material) => material.materialVersionId));
+  const currentPlans = new Map<string, (typeof plans)[number]>();
+  for (const plan of plans) {
+    const current = currentPlans.get(plan.materialVersionId);
+    if (
+      !current ||
+      plan.revision > current.revision ||
+      (plan.revision === current.revision && plan.updatedAt > current.updatedAt)
+    ) {
+      currentPlans.set(plan.materialVersionId, plan);
+    }
+  }
+
+  return versions.filter((version) => {
+    if (!version.materialVersionId || !activeMaterialVersionIds.has(version.materialVersionId)) {
+      return false;
+    }
+    const plan = currentPlans.get(version.materialVersionId);
+    if (!plan || plan.status !== 'reviewed') return false;
+    const versionLinks = links.filter((link) => (
+      link.status === 'active' &&
+      link.resourceId === version.resourceId &&
+      link.resourceVersionId === version.resourceVersionId &&
+      link.materialVersionId === version.materialVersionId
+    ));
+    if (versionLinks.length !== 1) return false;
+    const taskIdentityIds = new Set(plan.taskPlans.flatMap((task) => [
+      task.observationTaskPlanId,
+      task.taskRevisionRootId,
+      task.parentObservationTaskPlanId,
+    ].filter((value): value is string => Boolean(value))));
+    return taskIdentityIds.has(versionLinks[0].observationTaskPlanId);
+  });
 }
 
 async function loadCurrentVersions(

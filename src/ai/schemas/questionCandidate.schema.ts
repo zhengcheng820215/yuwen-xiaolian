@@ -5,6 +5,8 @@ import {
   normalizeQuestionEditableFields,
   type QuestionEditableFields,
 } from './workingTaskContent.schema.ts';
+import type { QuestionGenerationQualityEvaluation } from
+  './questionGenerationQuality.schema.ts';
 
 export const QUESTION_CANDIDATE_SCHEMA_VERSION = 'question-candidate-v1' as const;
 
@@ -88,6 +90,7 @@ export type QuestionCandidate = {
   allowedFields: CandidateFieldKey[];
   lockedFields: CandidateFieldKey[];
   generationContext: CandidateGenerationContext;
+  generationQuality?: QuestionGenerationQualityEvaluation;
   status: QuestionCandidateStatus;
   createdAt: string;
   adoptedAt?: string;

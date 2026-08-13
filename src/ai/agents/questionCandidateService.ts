@@ -18,6 +18,12 @@ import {
   calculateQuestionEditableFieldsHash,
   type QuestionEditableFields,
 } from '../schemas/workingTaskContent.schema.ts';
+import {
+  QuestionCandidateGenerationQualityError,
+  evaluateQuestionGenerationQuality,
+} from './questionGenerationQualityPolicyAgent.ts';
+import type { QuestionGenerationQualityEvaluation } from
+  '../schemas/questionGenerationQuality.schema.ts';
 
 const OPTIMIZABLE_FIELDS: CandidateFieldKey[] = [
   'abilityTarget',
@@ -37,6 +43,7 @@ export type GeneratedQuestionCandidate = {
   generationReason: string;
   changedFields: CandidateFieldKey[];
   generationContext: CandidateGenerationContext;
+  generationQuality?: QuestionGenerationQualityEvaluation;
 };
 
 export interface QuestionCandidateGenerator {
@@ -56,6 +63,10 @@ export interface QuestionCandidateGenerator {
 
 export interface QuestionCandidateContextGateway {
   getCurrentContext(trainingTaskId: string): Promise<CandidateRuntimeContext>;
+  listPeerQuestionContents?(
+    trainingTaskId: string,
+    context: CandidateRuntimeContext,
+  ): Promise<QuestionEditableFields[]>;
 }
 
 export interface CandidateAdoptionGateway {
@@ -465,6 +476,28 @@ export class QuestionCandidateService {
       throw new Error(`Candidate generator returned ${generated.length}, expected ${count}.`);
     }
 
+    const peerQuestions = this.contextGateway.listPeerQuestionContents
+      ? await this.contextGateway.listPeerQuestionContents(trainingTaskId, context)
+      : [];
+    const generationQuality = generated.map((item, index) => {
+      const evaluation = evaluateQuestionGenerationQuality({
+        candidate: item.content,
+        baseContentHash: context.activeDraftContentHash,
+        peerQuestions: [
+          ...peerQuestions,
+          ...generated.slice(0, index).map((previous) => previous.content),
+        ],
+        portfolioQuestions: [
+          ...peerQuestions,
+          ...generated.map((candidate) => candidate.content),
+        ],
+      });
+      if (evaluation.status === 'blocked') {
+        throw new QuestionCandidateGenerationQualityError(evaluation);
+      }
+      return evaluation;
+    });
+
     const candidates: QuestionCandidate[] = [];
     for (let index = 0; index < generated.length; index += 1) {
       const item = generated[index]!;
@@ -495,6 +528,7 @@ export class QuestionCandidateService {
         allowedFields: input.allowedFields,
         lockedFields: input.lockedFields,
         generationContext: item.generationContext,
+        generationQuality: generationQuality[index],
         status: 'ready',
         createdAt: item.generationContext.generatedAt,
       });

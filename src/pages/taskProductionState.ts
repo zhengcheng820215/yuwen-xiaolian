@@ -334,9 +334,9 @@ export function resolveTaskProductionCardAction(
       };
     }
     return {
-      kind: options.hasIssues ? 'focus_issue' : 'open_repair',
-      label: '处理问题',
-      busyLabel: null,
+      kind: 'generate_candidate',
+      label: '重新生成题目',
+      busyLabel: '正在重新生成题目…',
     };
   }
 
@@ -354,9 +354,9 @@ export function resolveTaskProductionCardAction(
 
   if (action === 'return_for_revision') {
     return {
-      kind: 'open_repair',
-      label: '处理问题',
-      busyLabel: null,
+      kind: 'generate_candidate',
+      label: '重新生成题目',
+      busyLabel: '正在重新生成题目…',
     };
   }
 
@@ -379,12 +379,12 @@ export function resolveTaskProductionCardAction(
   return {
     ...orchestrationActions[action],
     label: action === 'open_confirmation'
-      ? '查看题目方案'
+      ? '继续发布'
       : action === 'confirm'
         ? '继续发布'
-        : action === 'save'
-          ? '保存任务'
-          : '检查题目',
+      : action === 'save'
+          ? '继续发布'
+          : '继续发布',
   };
 }
 

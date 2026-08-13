@@ -19,6 +19,8 @@ type MaterialOption = {
 type PlanOption = {
   materialObservationPlanId: string;
   materialVersionId: string;
+  revision?: number;
+  updatedAt?: string;
 };
 
 export function resolveMaterialPlanSelection(input: {
@@ -34,13 +36,14 @@ export function resolveMaterialPlanSelection(input: {
   const matchingPlanIds = new Set(
     matchingPlans.map((plan) => plan.materialObservationPlanId),
   );
+  const canonicalPlanId = selectCanonicalPlanId(matchingPlans);
   const routePlanId = input.routeMaterialVersionId === input.materialVersionId
     ? input.routePlanId
     : '';
   return [
+    canonicalPlanId,
     input.rememberedPlanId,
     routePlanId,
-    matchingPlans[0]?.materialObservationPlanId,
   ].find((candidate) => Boolean(candidate && matchingPlanIds.has(candidate))) || '';
 }
 
@@ -64,13 +67,21 @@ export function resolveMaterialWorkbenchSelection(input: {
   const matchingPlans = input.plans.filter((plan) => plan.materialVersionId === materialVersionId);
   const matchingPlanIds = new Set(matchingPlans.map((plan) => plan.materialObservationPlanId));
   const planId = [
+    selectCanonicalPlanId(matchingPlans),
     input.preferred?.planId,
     input.current?.planId,
     input.remembered?.planId,
-    matchingPlans[0]?.materialObservationPlanId,
   ].find((candidate) => Boolean(candidate && matchingPlanIds.has(candidate))) || '';
 
   return { materialVersionId, planId };
+}
+
+function selectCanonicalPlanId(plans: PlanOption[]): string {
+  return [...plans]
+    .sort((left, right) => (
+      (right.revision || 0) - (left.revision || 0)
+      || (right.updatedAt || '').localeCompare(left.updatedAt || '')
+    ))[0]?.materialObservationPlanId || '';
 }
 
 export function shouldOpenExistingMaterialMode(input: {

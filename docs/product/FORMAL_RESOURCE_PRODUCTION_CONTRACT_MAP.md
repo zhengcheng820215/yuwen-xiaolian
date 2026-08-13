@@ -3,12 +3,20 @@
 英文名称：Formal Resource Production Contract Map
 
 状态：ACTIVE CONTRACT INDEX / AI CANDIDATE P0-P7 COMPLETE / ACCEPTANCE RECORDED
-文档版本：`formal_resource_production_contract_map_v3.7`
-更新日期：2026-08-10
+文档版本：`formal_resource_production_contract_map_v4.0`
+更新日期：2026-08-13
 
 ## 一、目标与权威边界
 
 本文说明素材录入、训练任务规划、题目审核与正式发布相关契约的职责关系、阅读顺序和问题路由。
+
+材料正文、来源元数据、题组覆盖和历史质量证据的版本化校准，统一遵循 [MATERIAL_CORPUS_QUALITY_AND_VERSIONING_CONTRACT.md](./MATERIAL_CORPUS_QUALITY_AND_VERSIONING_CONTRACT.md)。该合同禁止原地覆盖 Material Version 或 Frozen Question Version，并定义生产端与 Learning 的共同当前资源口径。
+
+AI 题目的人工作业和真实样本观察遵循 [AI_QUESTION_ADOPTION_AND_EMPIRICAL_CALIBRATION_CONTRACT.md](./AI_QUESTION_ADOPTION_AND_EMPIRICAL_CALIBRATION_CONTRACT.md)。生产主链只有“采用并发布 / 不采用并重新优化”一次人工选择；真实作答校准只在 Learning 使用后后台运行，不增加审核步骤。
+
+AI 题目的完整生成、作答格式匹配、同篇去重、能力梯度与少量定向替换遵循 [AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md](./AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md)。该契约禁止整批覆盖正式题，并要求未采用候选不影响 Registry、Observation Link 或 Learning。
+
+阶段1—5已经完成十篇材料、34道正式题的基线、规则、候选、逐题采用发布和素材收口；最终执行状态见[阶段5收口计划与执行记录](./AI_QUESTION_OPTIMIZATION_STAGE5_CLOSURE_PLAN_2026-08-13.md)。真实作答校准已具备能力但仍等待真实 Learning 样本，不得以模拟样本提前宣称稳定。
 
 本文只是一份契约索引地图，不新增字段、状态、身份、版本或业务规则，也不替代被引用契约。
 
@@ -113,7 +121,10 @@ Material Version + Observation Plan Revision + Training Task
 | [单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md) | 单个候选任务重新生成、采用、身份和版本边界 | 整组任务规划和正式题目发布 |
 | [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) | 补充候选、整组替代方案、工作草稿和批量采用边界 | 单题审核与 Frozen Resource 状态 |
 | [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md) | Question Candidate 的身份、不可变规则、生成、优化、采用、异常纠错及旧 Working Content 退出边界 | 上游训练任务组规划和采用后的审核发布状态流 |
+| [AI 题目生成质量与定向优化契约](./AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md) | 完整题目方案、作答格式匹配、同篇去重、能力梯度、4道试点和逐题原子替换 | 材料正文换版、人工字段编辑和批量自动覆盖 |
+| [AI 题目采用与真实作答校准契约](./AI_QUESTION_ADOPTION_AND_EMPIRICAL_CALIBRATION_CONTRACT.md) | 单次采用发布、内部断点结果、失败恢复及 Learning 后台真实样本校准 | 人工字段编辑、第二次确认和模拟样本造数 |
 | [正式资源不可变性契约](./FORMAL_RESOURCE_IMMUTABILITY_CONTRACT.md) | Formal Resource 发布后的不可变边界、新版 Candidate、活动 Registry 切换和历史学习版本引用 | Candidate Prompt、Assessment 规则和 Runtime 选题策略 |
+| [材料语料质量与版本升级契约](./MATERIAL_CORPUS_QUALITY_AND_VERSIONING_CONTRACT.md) | 正文换版、材料元数据、Plan / Task / Formal Resource 接续、历史关系清理及 Learning 当前版本消费 | Candidate Prompt 与单题编辑字段 |
 | [统一资源生产工作台契约](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md) | TrainingTask 与 QuestionLineage 关系、统一任务状态、任务卡主操作、部分发布和分阶段迁移 | 不替代字段、Assessment、Human Review、Freeze 与 Registry 的领域契约 |
 | [录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md) | 编辑与检查、人工发布决定、正式化三类领域职责；这些职责不等于三个页面 | 每个页面字段和按钮的详细实现 |
 | [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md) | 任务卡内检查、人工发布决定、冻结、发布、部分失败与恢复的具体工作流 | 上游 AI 候选生成与任务组规划 |
@@ -146,9 +157,10 @@ Material Version + Observation Plan Revision + Training Task
 ### 5.4 开发 AI 候选与重新生成能力
 
 1. [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md)；
-2. [单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md)；
-3. [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md)；
-4. [录入字段契约](./AUTHORING_FIELD_CONTRACT.md)。
+2. [AI 题目生成质量与定向优化契约](./AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md)；
+3. [单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md)；
+4. [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md)；
+5. [录入字段契约](./AUTHORING_FIELD_CONTRACT.md)。
 
 ### 5.5 开发人工发布决定、冻结与恢复能力
 
@@ -157,7 +169,14 @@ Material Version + Observation Plan Revision + Training Task
 3. [正式资源不可变性契约](./FORMAL_RESOURCE_IMMUTABILITY_CONTRACT.md)；
 4. [产品颜色语义规范](./PRODUCT_COLOR_SEMANTICS.md)。
 
-### 5.6 执行 P7 最终端到端验收
+### 5.6 执行材料正文、任务覆盖或历史关系校准
+
+1. [材料语料质量与版本升级契约](./MATERIAL_CORPUS_QUALITY_AND_VERSIONING_CONTRACT.md)；
+2. [正式资源不可变性契约](./FORMAL_RESOURCE_IMMUTABILITY_CONTRACT.md)；
+3. [统一资源生产工作台契约](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md)；
+4. [题目审核与发布工作流契约](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md)。
+
+### 5.7 执行 P7 最终端到端验收
 
 1. [统一资源生产工作台契约 P7](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md#p7端到端验收与文档同步)；
 2. [录入、审核与发布职责边界契约](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md)；
@@ -183,6 +202,7 @@ P0-P7 最终串联验收已于 2026-08-03 完成，统一命令为 `pnpm run deb
 | 补充候选、整组规划或工作草稿冲突 | [TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) |
 | Question Candidate 身份、不可变性、生成、优化、采用、异常纠错或旧 Working Content 退出冲突 | [AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md) |
 | 已发布内容修改、新版候选、正式版本覆盖、活动 Registry 切换或历史学习版本引用冲突 | [FORMAL_RESOURCE_IMMUTABILITY_CONTRACT.md](./FORMAL_RESOURCE_IMMUTABILITY_CONTRACT.md) |
+| 材料正文修订、元数据、Plan 换代、历史活动关系或 Learning 当前版本消费冲突 | [MATERIAL_CORPUS_QUALITY_AND_VERSIONING_CONTRACT.md](./MATERIAL_CORPUS_QUALITY_AND_VERSIONING_CONTRACT.md) |
 | 统一入口、任务卡主状态、任务组汇总、部分发布或迁移顺序冲突 | [UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md) |
 | 编辑与检查、人工发布决定、正式化职责冲突 | [AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md](./AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md) |
 | Revision 绑定、内联检查、Human Review、冻结、发布或恢复冲突 | [QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md](./QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md) |

@@ -15,7 +15,10 @@ import {
   producePhase17BatchA,
 } from '../ai/agents/phase17BatchAProductionService.ts';
 import { preparePhase173BatchAPreflight } from '../ai/agents/phase173BatchAPreflightService.ts';
-import { createQuestionMaterial } from '../ai/agents/questionResourceAdmissionAgent.ts';
+import {
+  createQuestionMaterial,
+  createQuestionMaterialRevision,
+} from '../ai/agents/questionResourceAdmissionAgent.ts';
 import {
   createBrowserMaterialObservationRepository,
   createBrowserQuestionResourceAdmissionRepository,
@@ -216,7 +219,7 @@ async function hydrateDraftQualityReadiness(
 export async function createProductionMaterial(input: {
   title: string;
   content: string;
-  description: string;
+  description?: string;
   copyrightNote?: string;
 }): Promise<QuestionMaterialVersion> {
   const duplicate = (await resourceRepository.listMaterials()).find(
@@ -234,9 +237,36 @@ export async function createProductionMaterial(input: {
     content: input.content,
     source: {
       sourceType: 'manual',
-      description: input.description,
+      description: input.description?.trim() || '系统自动记录：人工录入',
       copyrightNote: input.copyrightNote,
     },
+  });
+}
+
+export async function stageProductionMaterialRevision(input: {
+  sourceMaterialVersionId: string;
+  title?: string;
+  content?: string;
+  description?: string;
+  copyrightNote?: string;
+  revisionNote: string;
+  metadata?: QuestionMaterialVersion['metadata'];
+}): Promise<QuestionMaterialVersion> {
+  const source = await resourceRepository.getMaterial(input.sourceMaterialVersionId);
+  if (!source) throw new Error(`未找到素材版本：${input.sourceMaterialVersionId}`);
+  return createQuestionMaterialRevision(resourceRepository, {
+    sourceMaterialVersionId: source.materialVersionId,
+    title: input.title,
+    content: input.content,
+    source: input.description === undefined && input.copyrightNote === undefined
+      ? undefined
+      : {
+          ...source.source,
+          description: input.description ?? source.source.description,
+          copyrightNote: input.copyrightNote ?? source.source.copyrightNote,
+        },
+    metadata: input.metadata,
+    revisionNote: input.revisionNote,
   });
 }
 
@@ -373,19 +403,34 @@ export async function completeProductionQuestionDraftQualityChecks(planId: strin
 export async function synchronizeProductionObservationLinks(planId: string) {
   const plan = await observationRepository.getPlan(planId);
   if (!plan) throw new Error(`Material Observation Plan not found: ${planId}`);
-  const drafts = await resourceRepository.listDrafts();
+  const [drafts, existingLinks] = await Promise.all([
+    resourceRepository.listDrafts(),
+    observationRepository.listLinks(),
+  ]);
   const results: Array<{ observationTaskPlanId: string; status: 'linked' | 'pending'; issues: string[] }> = [];
   for (const task of plan.taskPlans) {
     const draft = drafts.find((item) => item.tags.includes(`observation_task:${task.observationTaskPlanId}`));
     const version = draft ? await resourceRepository.getVersionByDraftId(draft.draftId) : null;
-    if (!version) {
+    const lineageIds = [
+      task.parentObservationTaskPlanId,
+      task.taskRevisionRootId,
+    ].filter((value): value is string => Boolean(value));
+    const inheritedLink = existingLinks
+      .filter((link) => (
+        link.status === 'active'
+        && link.materialId === plan.materialId
+        && lineageIds.includes(link.observationTaskPlanId)
+      ))
+      .sort((left, right) => right.linkedAt.localeCompare(left.linkedAt))[0];
+    const resourceVersionId = version?.resourceVersionId || inheritedLink?.resourceVersionId;
+    if (!resourceVersionId) {
       results.push({ observationTaskPlanId: task.observationTaskPlanId, status: 'pending', issues: ['frozen_resource_missing'] });
       continue;
     }
     const linked = await linkFrozenResourceToObservationTask(resourceRepository, observationRepository, {
       planId,
       observationTaskPlanId: task.observationTaskPlanId,
-      resourceVersionId: version.resourceVersionId,
+      resourceVersionId,
     });
     results.push({
       observationTaskPlanId: task.observationTaskPlanId,

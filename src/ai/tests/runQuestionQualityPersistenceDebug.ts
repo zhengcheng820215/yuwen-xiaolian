@@ -668,8 +668,8 @@ async function caseReviewRetryIdempotent(): Promise<void> {
       {
         draftId: fixture.draft.draftId,
         action: 'approve',
-        reviewerId: 'reviewer',
-        notes: existing.notes,
+        reviewerId: 'another-entry-operator',
+        notes: '重复提交只确认既有审核结果，不覆盖审计记录。',
         acceptedWarningCodes: fixture.deterministic.warnings.map(
           (warning) => warning.code,
         ),
@@ -678,7 +678,11 @@ async function caseReviewRetryIdempotent(): Promise<void> {
     );
     assert(
       retry.reviewId === fixture.draft.latestReviewId,
-      'Identical Human Review retry created another decision.',
+      'Equivalent approval retry created another Human Review decision.',
+    );
+    assert(
+      retry.reviewerId === existing.reviewerId && retry.notes === existing.notes,
+      'Equivalent approval retry overwrote the immutable Human Review audit record.',
     );
   });
 }

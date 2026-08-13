@@ -509,7 +509,9 @@ function evaluateProviderCandidates(
     ...(withheldCandidates.length ? [`${withheldCandidates.length} candidate(s) matched existing or same-batch observations and were withheld from import.`] : []),
     'Candidates are AI-assisted drafts and require human educational review.',
     'Evidence potential is not actual Evidence quality.',
-    'Only new observation candidates are importable in discover_new_observation mode.',
+    input.generationMode === 'optimize_existing_observation'
+      ? 'Candidates optimize one existing observation and remain non-formal until adoption.'
+      : 'Only new observation candidates are importable in discover_new_observation mode.',
   ]);
 
   return {
@@ -943,8 +945,15 @@ function validateInput(input: MaterialObservationDraftGeneratorInput): string[] 
   if ((input.preferences?.requestedFocus?.length || 0) > 160) {
     issues.push('requested_focus_too_long');
   }
-  if (input.generationMode && input.generationMode !== 'discover_new_observation') {
+  if (input.generationMode && ![
+    'discover_new_observation',
+    'optimize_existing_observation',
+  ].includes(input.generationMode)) {
     issues.push('generation_mode_invalid');
+  }
+  if (input.generationMode === 'optimize_existing_observation'
+    && !input.preferences?.targetObservationId?.trim()) {
+    issues.push('target_observation_id_missing');
   }
   if (input.existingInventory) {
     if ((input.existingInventory.observations?.length || 0) > 40) issues.push('existing_observation_inventory_too_large');

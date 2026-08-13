@@ -46,24 +46,24 @@ export function getMaterialProductionCommandAvailability(
     case MATERIAL_PRODUCTION_COMMANDS.regenerateSingleTask:
       if (!context.hasPlan) return unavailable('请先保存训练任务版本。');
       if (!context.aiServiceReady) return unavailable('AI 服务当前不可用。');
-      if (context.taskEditorDirty) return unavailable('请先保存当前任务组修改，再重新生成此任务。');
+      if (context.taskEditorDirty) return unavailable('检测到旧版未保存修改，请先按任务卡提示迁移或放弃旧修改。');
       return available();
 
     case MATERIAL_PRODUCTION_COMMANDS.planSupplementCandidates:
       if (!context.hasPlan) return unavailable('请先保存当前任务组。');
       if (!context.aiServiceReady) return unavailable('AI 服务当前不可用。');
-      if (context.taskEditorDirty) return unavailable('请先保存当前任务组修改，再补充候选任务。');
+      if (context.taskEditorDirty) return unavailable('检测到旧版未保存修改，请先按任务卡提示迁移或放弃旧修改。');
       if (context.taskCount >= context.taskLimit) return unavailable(`当前任务组已达到 ${context.taskLimit} 个任务。`);
       return available();
 
     case MATERIAL_PRODUCTION_COMMANDS.planReplacementGroup:
       if (!context.aiServiceReady) return unavailable('AI 服务当前不可用。');
-      if (context.taskEditorDirty) return unavailable('请先保存当前任务组修改，再重新规划候选任务组。');
+      if (context.taskEditorDirty) return unavailable('检测到旧版未保存修改，请先按任务卡提示迁移或放弃旧修改。');
       return available();
 
     case MATERIAL_PRODUCTION_COMMANDS.adoptCandidates:
       if (!context.candidateReady) return unavailable('当前没有可采用的候选任务。');
-      if (context.taskEditorDirty) return unavailable('当前编辑区已有未保存修改，请先保存或放弃修改。');
+      if (context.taskEditorDirty) return unavailable('检测到旧版未保存修改，请先按任务卡提示迁移或放弃旧修改。');
       return available();
 
     case MATERIAL_PRODUCTION_COMMANDS.savePlanRevision:

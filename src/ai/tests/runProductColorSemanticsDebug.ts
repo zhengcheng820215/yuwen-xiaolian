@@ -50,8 +50,6 @@ for (const [source, label, expectedClass] of aiActions) {
 }
 
 const ordinaryActionLabels = [
-  '保存任务组修改',
-  '采用并保存所选候选',
   '提交最终确认',
   '保存本次修改',
   '退回录入修改',
@@ -70,20 +68,11 @@ for (const label of ordinaryActionLabels) {
   }
 }
 
-const savePlanButton = findButton(materialWorkbenchSource, '保存任务组修改');
-assert.match(savePlanButton, /bg-blue-700/, '保存任务组修改应使用蓝色主操作样式');
-assert.doesNotMatch(savePlanButton, /bg-emerald-|border-emerald-|text-emerald-/, '保存任务组修改不得使用绿色操作样式');
-assert.match(
+assert.doesNotMatch(
   materialWorkbenchSource,
-  /\{taskEditorDirty && \([\s\S]*?保存任务组修改/,
-  '保存任务组修改仅应在任务组存在未保存变化时显示',
+  /保存任务组修改|删除任务|撤销删除/,
+  '标准生产路径不得保留任务组人工编辑与独立保存入口',
 );
-
-const removeTaskButton = findButton(materialWorkbenchSource, '删除任务');
-assert.match(removeTaskButton, /border-red-600/, '删除任务应使用标准红色线框');
-assert.match(removeTaskButton, /text-red-700/, '删除任务应使用标准危险操作字色');
-assert.match(removeTaskButton, /hover:bg-red-50/, '删除任务悬停时应使用浅红色背景');
-assert.match(removeTaskButton, /<Trash2 size=\{16\}/, '删除任务应保留删除图标');
 
 const taskWorkflowButton = buttonBlocks(materialWorkbenchSource)
   .find((candidate) => candidate.includes('taskCardAction.label'));
@@ -129,16 +118,18 @@ assert.ok(generatorPreviewStart >= 0 && generatorPreviewEnd > generatorPreviewSt
 const generatorPreviewSource = materialWorkbenchSource.slice(generatorPreviewStart, generatorPreviewEnd);
 assert.match(generatorPreviewSource, /result\.candidates\.map/, '生成结果必须渲染候选训练任务');
 assert.match(generatorPreviewSource, /onClick=\{onAdopt\}/, '生成结果必须提供采用候选入口');
-assert.match(generatorPreviewSource, /采用并保存这组候选/, '首批候选必须使用采用并保存语义');
-assert.match(generatorPreviewSource, /用候选组替换并保存当前任务组/, '替代候选组必须使用替换并保存语义');
-assert.match(generatorPreviewSource, /放弃新候选/, '整组替代的次操作必须明确表达放弃新候选');
-assert.doesNotMatch(generatorPreviewSource, /保留当前任务组/, '整组替代不得使用容易被误解为保存的保留文案');
+assert.match(generatorPreviewSource, /采用当前任务方案/, '任务组候选必须使用纯采用语义');
+assert.match(generatorPreviewSource, /重新生成任务方案/, '不采用时必须直接进入重新生成');
+assert.doesNotMatch(generatorPreviewSource, /采用并保存|放弃候选|放弃新候选/, '不得把保存或独立放弃暴露为用户步骤');
 assert.match(generatorPreviewSource, /待采用的补充候选/, '补充候选区必须使用待采用语义');
 assert.match(
   generatorPreviewSource,
-  /以下候选尚未加入当前任务组，采用并保存后才会进入任务列表。/,
-  '补充候选区必须说明候选尚未进入当前任务组',
+  /以下任务组成一个完整补充方案；采用后系统会自动保存/,
+  '补充候选区必须说明整组采用与自动保存语义',
 );
+assert.doesNotMatch(generatorPreviewSource, /type="checkbox"/, '补充方案不得要求逐项勾选任务');
+assertButtonUsesAiStyle(generatorPreviewSource, '重新生成任务方案', 'ai-button-outline');
+assertButtonUsesAiStyle(generatorPreviewSource, '采用当前任务方案', 'ai-button-solid');
 const taskListStart = materialWorkbenchSource.indexOf('<div className="mt-6 space-y-3">');
 const supplementSectionStart = materialWorkbenchSource.indexOf('data-supplement-candidate-section');
 const groupActionsStart = materialWorkbenchSource.indexOf(
@@ -150,8 +141,8 @@ assert.ok(
   '补充候选区必须位于任务列表之后、任务组操作区之前',
 );
 const adoptCandidatesStart = materialWorkbenchSource.indexOf('async function adoptCandidates');
-const adoptCandidatesEnd = materialWorkbenchSource.indexOf('function discardCandidates', adoptCandidatesStart);
-assert.ok(adoptCandidatesStart >= 0 && adoptCandidatesEnd > adoptCandidatesStart, '未找到候选采用并保存流程');
+const adoptCandidatesEnd = materialWorkbenchSource.indexOf('function regenerateGroupCandidates', adoptCandidatesStart);
+assert.ok(adoptCandidatesStart >= 0 && adoptCandidatesEnd > adoptCandidatesStart, '未找到候选采用与自动保存流程');
 const adoptCandidatesSource = materialWorkbenchSource.slice(adoptCandidatesStart, adoptCandidatesEnd);
 assert.match(adoptCandidatesSource, /executeSavePlanRevisionCommand/, '采用候选后必须自动保存 Observation Plan');
 assert.match(adoptCandidatesSource, /if \(!saved\)[\s\S]*?当前候选已保留/, '保存失败时必须保留当前候选');
@@ -189,13 +180,13 @@ assert.match(
 );
 assert.match(
   materialWorkbenchSource,
-  /重新生成候选训练任务/,
+  /重新生成任务方案/,
   '已有候选时必须使用明确的重新生成按钮文案',
 );
-assert.match(
+assert.doesNotMatch(
   materialWorkbenchSource,
   /重新生成会替换当前尚未采用的候选训练任务，是否继续？/,
-  '替换未采用候选前必须向用户确认',
+  '重新生成必须直接进入 AI 优化，不再追加一次确认',
 );
 assert.match(
   materialWorkbenchSource,
@@ -235,6 +226,26 @@ assert.ok(
   adoptTaskCandidateSource.indexOf('executeConfirmTrainingPlanForTaskProductionCommand')
     < adoptTaskCandidateSource.indexOf('adoptQuestionTaskCandidate'),
   '训练计划提交与审核必须发生在 Candidate Adopt 之前',
+);
+assert.match(
+  adoptTaskCandidateSource,
+  /candidateAdoptionInFlightRef\.current\.has\(operationKey\)[\s\S]*?candidateAdoptionInFlightRef\.current\.add\(operationKey\)[\s\S]*?setTaskWorkflowOperation\(operationKey\)/,
+  '候选采用必须登记同一任务的发布互斥状态，阻止重复提交',
+);
+assert.match(
+  adoptTaskCandidateSource,
+  /finally \{[\s\S]*?candidateAdoptionInFlightRef\.current\.delete\(operationKey\)[\s\S]*?setTaskWorkflowOperation/,
+  '候选采用结束后必须释放发布互斥状态',
+);
+assert.match(
+  materialWorkbenchSource,
+  /candidateReadyForDecision && !workflowBusy[\s\S]*?重新生成题目/,
+  '发布进行中必须隐藏重新生成入口',
+);
+assert.match(
+  materialWorkbenchSource,
+  /publishing=\{workflowBusy\}[\s\S]*?const busy = projection\.busy \|\| publishing/,
+  '折叠态与展开态候选区必须共用发布中状态',
 );
 assert.match(
   materialWorkbenchSource,
@@ -290,8 +301,8 @@ assert.doesNotMatch(
 );
 assert.match(
   warningSummarySource,
-  /点击“生成优化题目”获得可比较方案；选择合适方案后，点击“确认并发布”完成确认。/,
-  '质量提醒区必须说明如何完成确认',
+  /可直接采用当前方案；如不满意，点击“重新生成题目”让 AI 继续优化。/,
+  '质量提醒区必须说明采用或重新优化的唯一选择',
 );
 assert.match(
   materialWorkbenchSource,
@@ -321,8 +332,8 @@ assert.match(
 );
 assert.match(
   materialWorkbenchSource,
-  /qualityWarningCount > 0 \? \{[\s\S]*?visibleStatusLabel: '需要确认'[\s\S]*?candidateReady \? \{[\s\S]*?visibleStatusLabel: '可以发布'/,
-  '任务卡必须区分需要确认与可以发布，避免相同标签对应不同操作',
+  /candidateReady \? \{[\s\S]*?visibleStatusLabel: '可以发布'[\s\S]*?qualityWarningCount > 0 \? \{[\s\S]*?visibleStatusLabel: '建议优化'/,
+  '存在可采用候选时必须显示可以发布，质量提醒不得制造第二次确认状态',
 );
 assert.match(
   materialWorkbenchSource,
@@ -440,10 +451,10 @@ assert.match(
   /'生成新版方案'/,
   '已发布任务必须以独立新版 Candidate 入口替代直接编辑',
 );
-assert.match(
+assert.doesNotMatch(
   materialWorkbenchSource,
-  /\{!isPublishedTask && \([\s\S]*?aria-label=\{`删除\$\{taskEditorTitle\(index\)\}`\}/,
-  '已发布任务不得继续显示删除或编辑链入口',
+  /aria-label=\{`删除\$\{taskEditorTitle\(index\)\}`\}/,
+  '所有训练任务均不得继续显示删除或编辑链入口',
 );
 assert.match(
   materialWorkbenchSource,
@@ -531,7 +542,7 @@ assert.match(
 );
 assert.match(
   materialWorkbenchSource,
-  /const taskCardFeedback = workflowFeedback \|\|[\s\S]*?taskCandidatePanel\.error[\s\S]*?role=\{\(taskCardFeedback/,
+  /const visibleWorkflowFeedback = isCurrentTaskDraftPublished\(questionLifecycle\)[\s\S]*?const taskCardFeedback = visibleWorkflowFeedback \|\|[\s\S]*?taskCandidatePanel\.error[\s\S]*?role=\{\(taskCardFeedback/,
   'Candidate 主操作失败必须在任务卡摘要区外显',
 );
 assert.match(

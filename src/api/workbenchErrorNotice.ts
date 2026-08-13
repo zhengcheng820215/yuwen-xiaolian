@@ -22,13 +22,20 @@ export function createWorkbenchErrorNotice(
   const normalized = normalizeRuntimeError(error, context);
   return {
     type: 'error',
-    message: normalized.message,
+    message: userFacingMessage(normalized.message),
     errorCode: normalized.code,
     operation: normalized.operation,
     objectId: normalized.objectId,
     recoverability: normalized.recoverability,
     recoveryMessage: recoveryMessage(normalized.recoverability),
   };
+}
+
+function userFacingMessage(message: string): string {
+  if (message === 'Question quality assessments are not identity-aligned.') {
+    return '质量检查结果已更新，请重新检查后再确认发布。';
+  }
+  return message;
 }
 
 function recoveryMessage(recoverability: RuntimeErrorRecoverability): string {

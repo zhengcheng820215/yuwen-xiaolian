@@ -53,13 +53,14 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '09 illegal evidence reference is rejected', run: caseIllegalEvidenceRef },
   { name: '10 prompt version changes semantic request identity', run: casePromptIdentity },
   { name: '11 model version changes semantic request identity', run: caseModelIdentity },
-  { name: '12 completed semantic result is session-idempotent', run: caseCompletedIdempotency },
-  { name: '13 semantic failure never degrades to pass', run: caseFailureBundle },
-  { name: '14 merge keeps the most conservative check', run: caseConservativeMerge },
-  { name: '15 deterministic material fail cannot be offset', run: caseDeterministicFailDominates },
-  { name: '16 semantic strong warning recommends revision', run: caseStrongWarning },
-  { name: '17 semantic unavailable blocks approve and freeze', run: caseUnavailableBlocksFormalization },
-  { name: '18 semantic unavailable still allows revision or reject', run: caseUnavailableAllowsNegativeActions },
+  { name: '12 deterministic assessment changes semantic request identity', run: caseDeterministicIdentity },
+  { name: '13 completed semantic result is session-idempotent', run: caseCompletedIdempotency },
+  { name: '14 semantic failure never degrades to pass', run: caseFailureBundle },
+  { name: '15 merge keeps the most conservative check', run: caseConservativeMerge },
+  { name: '16 deterministic material fail cannot be offset', run: caseDeterministicFailDominates },
+  { name: '17 semantic strong warning recommends revision', run: caseStrongWarning },
+  { name: '18 semantic unavailable blocks approve and freeze', run: caseUnavailableBlocksFormalization },
+  { name: '19 semantic unavailable still allows revision or reject', run: caseUnavailableAllowsNegativeActions },
 ];
 
 async function main(): Promise<void> {
@@ -262,6 +263,39 @@ async function caseCompletedIdempotency(): Promise<void> {
   );
   assert(first.semanticAssessmentId === second.semanticAssessmentId, 'Completed result was not reused.');
   assert(provider.getCallCount() === 1, 'Idempotent call invoked Provider again.');
+}
+
+async function caseDeterministicIdentity(): Promise<void> {
+  const fixture = await validFixture('deterministic-identity');
+  const cache = new InMemoryQuestionSemanticQualityAssessmentSessionCache();
+  const provider = scripted([
+    response(validSemanticOutput()),
+    response(validSemanticOutput()),
+  ]);
+  const first = await runQuestionSemanticQualityAssessment(
+    baseInput(fixture, { requestId: 'deterministic-identity-first' }),
+    { provider, cache },
+  );
+  const nextDeterministic = {
+    ...fixture.deterministic,
+    assessmentId: `${fixture.deterministic.assessmentId}:next`,
+  };
+  const second = await runQuestionSemanticQualityAssessment(
+    {
+      ...baseInput(fixture, { requestId: 'deterministic-identity-second' }),
+      deterministicAssessment: nextDeterministic,
+    },
+    { provider, cache },
+  );
+  assert(
+    first.semanticRequestKey !== second.semanticRequestKey,
+    'Deterministic assessment did not change semantic request identity.',
+  );
+  assert(
+    second.deterministicAssessmentId === nextDeterministic.assessmentId,
+    'Semantic assessment reused a result bound to the previous deterministic assessment.',
+  );
+  assert(provider.getCallCount() === 2, 'Updated deterministic assessment reused the stale cache entry.');
 }
 
 async function caseFailureBundle(): Promise<void> {

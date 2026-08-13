@@ -3,6 +3,7 @@ import type {
   ResourceObservationLink,
 } from '../ai/schemas/materialObservation.schema.ts';
 import type {
+  QuestionMaterialVersion,
   QuestionResourceDraftStatus,
   StructuredQuestionDraft,
 } from '../ai/schemas/questionResourceAdmission.schema.ts';
@@ -41,6 +42,8 @@ export type MaterialResourceWorkbenchDetails = {
   }>;
   learningTasks: Array<{
     observationTaskPlanId: string;
+    taskRevisionRootId?: string;
+    parentObservationTaskPlanId?: string;
     materialObservationPlanId: string;
     materialVersionId: string;
     materialTitle: string;
@@ -98,7 +101,6 @@ export type MaterialResourceWorkbenchDetails = {
 
 export type CrossMaterialProductionProgress = {
   materialCount: number;
-  currentMaterialNumber: number | null;
   taskCount: number;
   pendingTaskCount: number;
   publishedTaskCount: number;
@@ -106,73 +108,96 @@ export type CrossMaterialProductionProgress = {
   pendingMaterialIds: string[];
 };
 
-export type CrossMaterialProductionProgressOverride = {
-  materialVersionId: string;
-  taskCount: number;
-  publishedTaskCount: number;
-  attentionTaskCount: number;
+type ObservationTaskIdentity = {
+  observationTaskPlanId: string;
+  taskRevisionRootId?: string;
+  parentObservationTaskPlanId?: string;
 };
+
+/**
+ * A retired version with an active successor is version history, not a
+ * user-disabled material. Only expose the latest retired version when the
+ * logical material currently has no active version.
+ */
+export function selectUserRetiredMaterials(
+  materials: QuestionMaterialVersion[],
+): QuestionMaterialVersion[] {
+  const activeMaterialIds = new Set(materials
+    .filter((material) => material.status !== 'retired')
+    .map((material) => material.materialId));
+  const latestByMaterialId = new Map<string, QuestionMaterialVersion>();
+  for (const material of materials) {
+    if (material.status !== 'retired' || activeMaterialIds.has(material.materialId)) continue;
+    const current = latestByMaterialId.get(material.materialId);
+    if (
+      !current ||
+      material.versionNumber > current.versionNumber ||
+      (
+        material.versionNumber === current.versionNumber &&
+        material.updatedAt > current.updatedAt
+      )
+    ) {
+      latestByMaterialId.set(material.materialId, material);
+    }
+  }
+  return [...latestByMaterialId.values()].sort((left, right) => (
+    right.updatedAt.localeCompare(left.updatedAt) ||
+    left.title.localeCompare(right.title)
+  ));
+}
 
 export function summarizeCrossMaterialProductionProgress(
   details: MaterialResourceWorkbenchDetails,
   activeMaterialIds: string[],
-  selectedMaterialId = '',
-  overrides: CrossMaterialProductionProgressOverride[] = [],
 ): CrossMaterialProductionProgress {
   const activeIds = new Set(activeMaterialIds);
   const currentTasks = details.learningTasks.filter((task) => activeIds.has(task.materialVersionId));
-  const currentTaskIds = new Set(currentTasks.map((task) => task.observationTaskPlanId));
-  const publishedTaskIds = new Set(details.publishedResources
-    .map((resource) => resource.observationTaskPlanId)
-    .filter((taskId) => currentTaskIds.has(taskId)));
-  const attentionTaskIds = new Set([
-    ...details.pendingReviews.map((item) => item.observationTaskPlanId),
-    ...details.incompletePublications.map((item) => item.observationTaskPlanId),
-  ].filter((taskId) => currentTaskIds.has(taskId) && !publishedTaskIds.has(taskId)));
+  const matchesTaskIdentity = (
+    task: MaterialResourceWorkbenchDetails['learningTasks'][number],
+    observationTaskPlanId: string,
+  ) => observationTaskIdentityIds(task).includes(observationTaskPlanId);
+  const publishedTaskIds = new Set(currentTasks
+    .filter((task) => details.publishedResources.some((resource) => (
+      resource.materialVersionId === task.materialVersionId &&
+      matchesTaskIdentity(task, resource.observationTaskPlanId)
+    )))
+    .map((task) => task.observationTaskPlanId));
+  const attentionItems = [
+    ...details.pendingReviews,
+    ...details.incompletePublications,
+  ];
+  const attentionTaskIds = new Set(currentTasks
+    .filter((task) => (
+      !publishedTaskIds.has(task.observationTaskPlanId)
+      && attentionItems.some((item) => (
+        item.materialVersionId === task.materialVersionId &&
+        matchesTaskIdentity(task, item.observationTaskPlanId)
+      ))
+    ))
+    .map((task) => task.observationTaskPlanId));
   const pendingMaterialIds = new Set(currentTasks
     .filter((task) => !publishedTaskIds.has(task.observationTaskPlanId))
     .map((task) => task.materialVersionId));
-  let taskCount = currentTasks.length;
-  let publishedTaskCount = publishedTaskIds.size;
-  let attentionTaskCount = attentionTaskIds.size;
-
-  for (const override of overrides) {
-    if (!activeIds.has(override.materialVersionId)) continue;
-    const materialTasks = currentTasks.filter((task) => task.materialVersionId === override.materialVersionId);
-    const materialTaskIds = new Set(materialTasks.map((task) => task.observationTaskPlanId));
-    const materialPublishedCount = [...publishedTaskIds]
-      .filter((taskId) => materialTaskIds.has(taskId)).length;
-    const materialAttentionCount = [...attentionTaskIds]
-      .filter((taskId) => materialTaskIds.has(taskId)).length;
-    const normalizedTaskCount = Math.max(0, override.taskCount);
-    const normalizedPublishedCount = Math.min(
-      normalizedTaskCount,
-      Math.max(0, override.publishedTaskCount),
-    );
-    const normalizedAttentionCount = Math.min(
-      normalizedTaskCount - normalizedPublishedCount,
-      Math.max(0, override.attentionTaskCount),
-    );
-    taskCount += normalizedTaskCount - materialTasks.length;
-    publishedTaskCount += normalizedPublishedCount - materialPublishedCount;
-    attentionTaskCount += normalizedAttentionCount - materialAttentionCount;
-    if (normalizedTaskCount > normalizedPublishedCount) {
-      pendingMaterialIds.add(override.materialVersionId);
-    } else {
-      pendingMaterialIds.delete(override.materialVersionId);
-    }
-  }
-  const currentMaterialIndex = activeMaterialIds.indexOf(selectedMaterialId);
+  const taskCount = currentTasks.length;
+  const publishedTaskCount = publishedTaskIds.size;
 
   return {
     materialCount: activeMaterialIds.length,
-    currentMaterialNumber: currentMaterialIndex >= 0 ? currentMaterialIndex + 1 : null,
     taskCount,
     pendingTaskCount: taskCount - publishedTaskCount,
     publishedTaskCount,
-    attentionTaskCount,
+    attentionTaskCount: attentionTaskIds.size,
     pendingMaterialIds: [...pendingMaterialIds],
   };
+}
+
+export function selectCurrentMaterialPlan(
+  plans: MaterialObservationPlan[],
+  materialVersionId: string,
+): MaterialObservationPlan | null {
+  return selectLatestPlansByMaterial(
+    plans.filter((plan) => plan.materialVersionId === materialVersionId),
+  )[0] || null;
 }
 
 export function selectCurrentPlanDrafts(
@@ -192,7 +217,7 @@ export function selectCurrentPlanDrafts(
 }
 
 export function observationTaskIdentityIds(
-  task: MaterialObservationPlan['taskPlans'][number],
+  task: ObservationTaskIdentity,
 ): string[] {
   return [...new Set([
     task.observationTaskPlanId,
@@ -230,7 +255,9 @@ export function isPlanFullyPublished(input: {
     const readiness = readinessByDraftId.get(draft.draftId);
     return Boolean(
       readiness?.frozenVersion &&
-      readiness.observationLink?.status === 'active',
+      readiness.frozenVersion.materialVersionId === input.plan?.materialVersionId &&
+      readiness.observationLink?.status === 'active' &&
+      readiness.observationLink?.materialVersionId === input.plan?.materialVersionId
     );
   });
 }
@@ -337,6 +364,8 @@ export function buildMaterialResourceWorkbenchDetails(
       const materialTitle = materialByVersionId.get(plan.materialVersionId)?.title || '未命名材料';
       return plan.taskPlans.map((task) => ({
         observationTaskPlanId: task.observationTaskPlanId,
+        taskRevisionRootId: task.taskRevisionRootId,
+        parentObservationTaskPlanId: task.parentObservationTaskPlanId,
         materialObservationPlanId: plan.materialObservationPlanId,
         materialVersionId: plan.materialVersionId,
         materialTitle,
