@@ -39,8 +39,8 @@ function assertButtonUsesAiStyle(source: string, label: string, expectedClass: s
 
 const aiActions = [
   [materialWorkbenchSource, 'AI根据素材生成训练任务', 'ai-button-solid'],
-  [materialWorkbenchSource, '重新规划整组任务', 'ai-button-outline'],
-  [materialWorkbenchSource, '补充生成训练任务', 'ai-button-solid'],
+  [materialWorkbenchSource, '生成整组替代方案', 'ai-button-outline'],
+  [materialWorkbenchSource, '生成补充候选', 'ai-button-solid'],
   [questionWorkbenchSource, 'AI 优化题干', 'ai-button-outline'],
   [questionWorkbenchSource, 'AI 优化本项', 'ai-button-outline'],
 ] as const;

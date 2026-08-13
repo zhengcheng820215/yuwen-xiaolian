@@ -241,6 +241,48 @@ function runTaskExecutionDebug(): void {
       expectedValidityStatus: 'irrelevant',
       expectedCanEnterDiagnosis: false,
     },
+    {
+      id: 'case_14_random_input_with_multiple_accidental_overlaps',
+      title: 'input-method noise with two accidental task overlaps',
+      result: runTaskExecutionAgent({
+        concreteTask: task,
+        readiness,
+        studentAnswer: {
+          answerText: '父亲喝酒完事瑞尔会哦还让我iuUI撒电话问候侨电视剧旧书还款日二回极速达作者',
+        },
+      }),
+      expectedResultStatus: 'submitted_invalid',
+      expectedValidityStatus: 'irrelevant',
+      expectedCanEnterDiagnosis: false,
+    },
+    {
+      id: 'case_15_pure_chinese_random_input',
+      title: 'pure Chinese random input without task anchors',
+      result: runTaskExecutionAgent({
+        concreteTask: task,
+        readiness,
+        studentAnswer: {
+          answerText: '南瓜铁路窗帘河岸纸箱雨伞台灯清晨晚霞轮流跳进玻璃杯里唱歌。',
+        },
+      }),
+      expectedResultStatus: 'submitted_invalid',
+      expectedValidityStatus: 'irrelevant',
+      expectedCanEnterDiagnosis: false,
+    },
+    {
+      id: 'case_16_valid_answer_with_english_term',
+      title: 'normal relevant answer containing an English term',
+      result: runTaskExecutionAgent({
+        concreteTask: task,
+        readiness,
+        studentAnswer: {
+          answerText: '父亲的 emotional attachment 表现为对往日亲子时光的珍惜和牵挂，这种情绪是真实而克制的。',
+        },
+      }),
+      expectedResultStatus: 'submitted_valid',
+      expectedValidityStatus: 'valid',
+      expectedCanEnterDiagnosis: true,
+    },
   ];
 
   const failures = validateCases(cases);

@@ -3,6 +3,7 @@ import {
   isPlanFullyPublished,
   scopeMaterialResourceWorkbenchDetails,
   selectCurrentPlanDrafts,
+  summarizeCrossMaterialProductionProgress,
   summarizeMaterialResourceWorkbench,
 } from '../../pages/materialResourceWorkbenchState.ts';
 
@@ -241,6 +242,65 @@ check(
   '13 计划继承任务按血缘恢复原有 Draft',
   lineageDrafts.length === 1 && lineageDrafts[0]?.draftId === currentDraftA.draftId,
   `selected=${lineageDrafts.map((item) => item.draftId).join(',')}`,
+);
+
+const batchProgress = summarizeCrossMaterialProductionProgress({
+  materials: [
+    { materialVersionId: 'material:v1', title: '材料一', plannedTaskCount: 2 },
+    { materialVersionId: 'material:v2', title: '材料二', plannedTaskCount: 2 },
+  ],
+  learningTasks: [
+    { observationTaskPlanId: 'task-1', materialObservationPlanId: 'plan-1', materialVersionId: 'material:v1', materialTitle: '材料一', title: '题目一', abilityId: 'analysis', taskRole: 'training', difficulty: 'basic' },
+    { observationTaskPlanId: 'task-2', materialObservationPlanId: 'plan-1', materialVersionId: 'material:v1', materialTitle: '材料一', title: '题目二', abilityId: 'analysis', taskRole: 'training', difficulty: 'basic' },
+    { observationTaskPlanId: 'task-3', materialObservationPlanId: 'plan-2', materialVersionId: 'material:v2', materialTitle: '材料二', title: '题目三', abilityId: 'analysis', taskRole: 'training', difficulty: 'basic' },
+    { observationTaskPlanId: 'task-retired', materialObservationPlanId: 'plan-3', materialVersionId: 'material:retired', materialTitle: '停用材料', title: '旧题', abilityId: 'analysis', taskRole: 'training', difficulty: 'basic' },
+  ],
+  pendingReviews: [
+    { draftId: 'draft-2', observationTaskPlanId: 'task-2', questionNumber: 2, materialObservationPlanId: 'plan-1', materialVersionId: 'material:v1', materialTitle: '材料一', title: '题目二', abilityId: 'analysis', status: 'pending_review' },
+  ],
+  incompletePublications: [],
+  publishedResources: [
+    { observationTaskPlanId: 'task-1' },
+    { observationTaskPlanId: 'task-retired' },
+  ],
+} as never, ['material:v1', 'material:v2'], 'material:v2');
+check(
+  '14 跨材料进度只统计活动素材当前任务身份',
+  batchProgress.materialCount === 2
+    && batchProgress.currentMaterialNumber === 2
+    && batchProgress.taskCount === 3
+    && batchProgress.publishedTaskCount === 1
+    && batchProgress.pendingTaskCount === 2,
+  `materials=${batchProgress.materialCount}, current=${batchProgress.currentMaterialNumber}, tasks=${batchProgress.taskCount}, published=${batchProgress.publishedTaskCount}, pending=${batchProgress.pendingTaskCount}`,
+);
+check(
+  '15 需要关注是待处理附加指标且待处理材料可筛选',
+  batchProgress.attentionTaskCount === 1
+    && batchProgress.pendingMaterialIds.join(',') === 'material:v1,material:v2',
+  `attention=${batchProgress.attentionTaskCount}, pendingMaterials=${batchProgress.pendingMaterialIds.join(',')}`,
+);
+const overriddenBatchProgress = summarizeCrossMaterialProductionProgress({
+  materials: [],
+  learningTasks: [
+    { observationTaskPlanId: 'stale-task', materialObservationPlanId: 'newer-plan', materialVersionId: 'material:v1' },
+    { observationTaskPlanId: 'other-task', materialObservationPlanId: 'plan-2', materialVersionId: 'material:v2' },
+  ],
+  pendingReviews: [],
+  incompletePublications: [],
+  publishedResources: [],
+} as never, ['material:v1', 'material:v2'], 'material:v1', [{
+  materialVersionId: 'material:v1',
+  taskCount: 2,
+  publishedTaskCount: 2,
+  attentionTaskCount: 0,
+}]);
+check(
+  '16 当前页面已选择 Plan 覆盖同素材最新 Plan 的批次投影',
+  overriddenBatchProgress.taskCount === 3
+    && overriddenBatchProgress.publishedTaskCount === 2
+    && overriddenBatchProgress.pendingTaskCount === 1
+    && overriddenBatchProgress.pendingMaterialIds.join(',') === 'material:v2',
+  `tasks=${overriddenBatchProgress.taskCount}, published=${overriddenBatchProgress.publishedTaskCount}, pending=${overriddenBatchProgress.pendingTaskCount}, pendingMaterials=${overriddenBatchProgress.pendingMaterialIds.join(',')}`,
 );
 
 console.log('Phase 17.2 Material Resource Workbench State Debug');

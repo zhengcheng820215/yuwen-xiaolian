@@ -38,6 +38,7 @@ import {
   observationTaskIdentityIds,
   scopeMaterialResourceWorkbenchDetails,
   selectCurrentPlanDrafts,
+  summarizeCrossMaterialProductionProgress,
 } from './materialResourceWorkbenchState.ts';
 import {
   clearMaterialWorkbenchSelection,
@@ -80,6 +81,7 @@ import {
   resolveTaskAssessmentStatus,
   resolveTaskGroupSummary,
   resolveTaskGroupTopLevelSummary,
+  resolveNextPendingTaskId,
   resolveInitialQuestionCandidateGapPresentation,
   resolveCandidateAwareTaskCardFallback,
   shouldShowInitialQuestionCandidateGap,
@@ -191,6 +193,7 @@ export default function MaterialResourceProductionWorkbench() {
   const [materialMode, setMaterialMode] = useState(() => (
     routeSelection.materialVersionId ? 'existing' : 'new'
   ));
+  const [onlyPendingMaterials, setOnlyPendingMaterials] = useState(false);
   const [activeLoadPreset, setActiveLoadPreset] = useState(null);
   const [selectedMaterialId, setSelectedMaterialId] = useState('');
   const [selectedPlanId, setSelectedPlanId] = useState('');
@@ -209,6 +212,7 @@ export default function MaterialResourceProductionWorkbench() {
   const [groupCandidateSession, setGroupCandidateSession] = useState(null);
   const [taskWorkflowOperation, setTaskWorkflowOperation] = useState(null);
   const [taskWorkflowFeedback, setTaskWorkflowFeedback] = useState({});
+  const [postPublishNavigation, setPostPublishNavigation] = useState(null);
   const [generatorPreferences, setGeneratorPreferences] = useState({
     gradeRange: '初中',
     preferredAbilityIds: [],
@@ -465,6 +469,69 @@ export default function MaterialResourceProductionWorkbench() {
     () => resolveTaskGroupTopLevelSummary(taskQuestionLifecycleSummary),
     [taskQuestionLifecycleSummary],
   );
+  const batchProgress = useMemo(
+    () => summarizeCrossMaterialProductionProgress(
+      workbenchDetails,
+      activeMaterials.map((material) => material.materialVersionId),
+      selectedMaterialId,
+      selectedMaterial && selectedPlan
+        ? [{
+            materialVersionId: selectedMaterialId,
+            taskCount: tasks.length,
+            publishedTaskCount: taskGroupTopLevelSummary.published,
+            attentionTaskCount: taskQuestionLifecycleSummary.actionRequired,
+          }]
+        : [],
+    ),
+    [
+      workbenchDetails,
+      activeMaterials,
+      selectedMaterialId,
+      selectedMaterial,
+      selectedPlan,
+      tasks.length,
+      taskGroupTopLevelSummary.published,
+      taskQuestionLifecycleSummary.actionRequired,
+    ],
+  );
+  const visibleActiveMaterials = useMemo(() => {
+    if (!onlyPendingMaterials) return activeMaterials;
+    const pendingIds = new Set(batchProgress.pendingMaterialIds);
+    return activeMaterials.filter((material) => (
+      pendingIds.has(material.materialVersionId)
+      || material.materialVersionId === selectedMaterialId
+    ));
+  }, [activeMaterials, batchProgress.pendingMaterialIds, onlyPendingMaterials, selectedMaterialId]);
+
+  useEffect(() => {
+    if (!postPublishNavigation) return;
+    const nextTaskId = resolveNextPendingTaskId(tasks.map((task) => {
+      const taskId = task.observationTaskPlanId || task.localId;
+      return {
+        taskId,
+        published: taskQuestionLifecycleById.get(taskId)?.productionView?.state === 'published',
+      };
+    }), postPublishNavigation.taskId);
+
+    setToast({
+      id: Date.now(),
+      message: nextTaskId
+        ? '题目已经发布成功，已定位到下一道待处理任务。'
+        : '题目已经发布成功，本篇任务已全部发布。',
+      tone: 'success',
+    });
+    setPostPublishNavigation(null);
+
+    if (!nextTaskId) return;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const nextCard = [...document.querySelectorAll('[data-task-identity]')]
+          .find((element) => element.getAttribute('data-task-identity') === nextTaskId);
+        nextCard?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        nextCard?.querySelector('summary')?.focus({ preventScroll: true });
+      });
+    });
+  }, [postPublishNavigation, taskQuestionLifecycleById, tasks]);
   const hasLocalUnsavedTaskChanges = useMemo(
     () => (
       tasks.some((task) => task.editorDirty || !task.observationTaskPlanId)
@@ -1087,6 +1154,7 @@ export default function MaterialResourceProductionWorkbench() {
         ...current,
         [observationTaskPlanId]: { type: 'success', message: successMessage },
       }));
+      setPostPublishNavigation({ taskId: observationTaskPlanId });
       setToast({ id: Date.now(), message: successMessage });
       return true;
     } catch (error) {
@@ -1591,6 +1659,7 @@ export default function MaterialResourceProductionWorkbench() {
           adoptionResult: null,
           error: null,
         });
+        setPostPublishNavigation({ taskId: observationTaskPlanId });
         setToast({ id: Date.now(), message: successMessage });
       } else if (adoptionResult.nextAction === 'resolve_warnings') {
         const refreshedSnapshot = await refresh({
@@ -2072,7 +2141,7 @@ export default function MaterialResourceProductionWorkbench() {
           <div className="flex items-center gap-3">
             <Link to="/internal" aria-label="返回内部入口" className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"><ArrowLeft size={18} /></Link>
             <div>
-              <h1 className="text-lg font-semibold">素材资源录入</h1>
+              <h1 className="text-lg font-semibold">素材与题目生产工作台</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -2159,11 +2228,57 @@ export default function MaterialResourceProductionWorkbench() {
             )}
             {materialMode === 'existing' && activeMaterials.length > 0 && (
               <div className="mt-5">
+                <section className="mb-5 rounded-md border border-slate-200 bg-white px-3 py-3 sm:px-4" aria-label="跨材料批次进度">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-sm font-semibold text-slate-950">全部材料进度</h2>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">
+                        {batchProgress.taskCount === 0
+                          ? `${batchProgress.materialCount} 篇材料，尚未生成训练任务。`
+                          : batchProgress.pendingTaskCount === 0
+                            ? `${batchProgress.materialCount} 篇材料，共 ${batchProgress.taskCount} 道题，已全部发布。`
+                            : `${batchProgress.materialCount} 篇材料，共 ${batchProgress.taskCount} 道题；已发布 ${batchProgress.publishedTaskCount} 道，还剩 ${batchProgress.pendingTaskCount} 道待处理。`}
+                      </p>
+                    </div>
+                    {(batchProgress.pendingTaskCount > 0 || onlyPendingMaterials) && (
+                      <button
+                        type="button"
+                        aria-pressed={onlyPendingMaterials}
+                        onClick={() => setOnlyPendingMaterials((current) => !current)}
+                        className={`h-9 rounded-md border px-3 text-sm font-medium transition ${onlyPendingMaterials ? 'border-blue-700 bg-blue-50 text-blue-700' : `${secondaryButtonToneClass} ${secondaryButtonFocusClass}`}`}
+                      >
+                        {onlyPendingMaterials ? '显示全部材料' : '只显示有待处理的材料'}
+                      </button>
+                    )}
+                  </div>
+                  {batchProgress.taskCount > 0 && (
+                    <div className="mt-3" aria-label={`已发布 ${batchProgress.publishedTaskCount}/${batchProgress.taskCount} 道题`}>
+                      <div className="h-[6px] overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-emerald-600 transition-[width]"
+                          style={{ width: `${Math.round((batchProgress.publishedTaskCount / batchProgress.taskCount) * 100)}%` }}
+                        />
+                      </div>
+                      <p className="mt-1.5 text-right text-xs text-slate-500">
+                        已发布 {batchProgress.publishedTaskCount}/{batchProgress.taskCount}
+                      </p>
+                    </div>
+                  )}
+                </section>
                 <label className="block text-sm font-semibold">
-                  已有素材（{activeMaterials.length}）
+                  已有素材（{onlyPendingMaterials ? `${visibleActiveMaterials.length}/${activeMaterials.length}` : activeMaterials.length}）
                   <select value={selectedMaterialId} onChange={(event) => selectExistingMaterial(event.target.value)} className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 font-normal">
                     <option value="">请选择一篇学习材料</option>
-                    {activeMaterials.map((material) => <option key={material.materialVersionId} value={material.materialVersionId}>{material.title}</option>)}
+                    {visibleActiveMaterials.map((material) => (
+                      <option key={material.materialVersionId} value={material.materialVersionId}>
+                        {material.title}
+                        {onlyPendingMaterials
+                          && material.materialVersionId === selectedMaterialId
+                          && !batchProgress.pendingMaterialIds.includes(material.materialVersionId)
+                          ? '（当前 · 已完成）'
+                          : ''}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 {selectedMaterial && (
@@ -2560,6 +2675,7 @@ export default function MaterialResourceProductionWorkbench() {
                 return (
                 <details
                   data-task-editor={task.localId}
+                  data-task-identity={workflowTargetId}
                   data-task-production-state={questionLifecycle?.productionView?.state || 'unknown'}
                   data-task-production-action={taskCardAction?.kind || 'none'}
                   key={task.localId}
@@ -2979,6 +3095,9 @@ export default function MaterialResourceProductionWorkbench() {
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               {selectedPlan && (
                 <>
+                  <p className="w-full text-center text-xs leading-5 text-slate-500">
+                    生成只创建候选，不立即修改当前任务。已审核或已发布任务受保护；采用并保存后才更新其余可编辑任务。
+                  </p>
                   <button
                     type="button"
                     onClick={planReplacementGroup}
@@ -2986,7 +3105,7 @@ export default function MaterialResourceProductionWorkbench() {
                     title={commandAvailability.planReplacementGroup.reason}
                     className="ai-button-outline inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {generatorOperation === 'replace_group' ? '正在重新规划…' : '重新规划整组任务'}
+                    {generatorOperation === 'replace_group' ? '正在生成替代方案…' : '生成整组替代方案'}
                   </button>
                   <button
                     type="button"
@@ -2995,7 +3114,7 @@ export default function MaterialResourceProductionWorkbench() {
                     title={commandAvailability.planSupplementCandidates.reason}
                     className="ai-button-solid inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-semibold transition focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {generatorOperation === 'supplement_group' ? '正在补充生成…' : '补充生成训练任务'}
+                    {generatorOperation === 'supplement_group' ? '正在生成补充候选…' : '生成补充候选'}
                   </button>
                 </>
               )}

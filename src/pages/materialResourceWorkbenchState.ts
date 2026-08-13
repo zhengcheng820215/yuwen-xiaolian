@@ -96,6 +96,85 @@ export type MaterialResourceWorkbenchDetails = {
   }>;
 };
 
+export type CrossMaterialProductionProgress = {
+  materialCount: number;
+  currentMaterialNumber: number | null;
+  taskCount: number;
+  pendingTaskCount: number;
+  publishedTaskCount: number;
+  attentionTaskCount: number;
+  pendingMaterialIds: string[];
+};
+
+export type CrossMaterialProductionProgressOverride = {
+  materialVersionId: string;
+  taskCount: number;
+  publishedTaskCount: number;
+  attentionTaskCount: number;
+};
+
+export function summarizeCrossMaterialProductionProgress(
+  details: MaterialResourceWorkbenchDetails,
+  activeMaterialIds: string[],
+  selectedMaterialId = '',
+  overrides: CrossMaterialProductionProgressOverride[] = [],
+): CrossMaterialProductionProgress {
+  const activeIds = new Set(activeMaterialIds);
+  const currentTasks = details.learningTasks.filter((task) => activeIds.has(task.materialVersionId));
+  const currentTaskIds = new Set(currentTasks.map((task) => task.observationTaskPlanId));
+  const publishedTaskIds = new Set(details.publishedResources
+    .map((resource) => resource.observationTaskPlanId)
+    .filter((taskId) => currentTaskIds.has(taskId)));
+  const attentionTaskIds = new Set([
+    ...details.pendingReviews.map((item) => item.observationTaskPlanId),
+    ...details.incompletePublications.map((item) => item.observationTaskPlanId),
+  ].filter((taskId) => currentTaskIds.has(taskId) && !publishedTaskIds.has(taskId)));
+  const pendingMaterialIds = new Set(currentTasks
+    .filter((task) => !publishedTaskIds.has(task.observationTaskPlanId))
+    .map((task) => task.materialVersionId));
+  let taskCount = currentTasks.length;
+  let publishedTaskCount = publishedTaskIds.size;
+  let attentionTaskCount = attentionTaskIds.size;
+
+  for (const override of overrides) {
+    if (!activeIds.has(override.materialVersionId)) continue;
+    const materialTasks = currentTasks.filter((task) => task.materialVersionId === override.materialVersionId);
+    const materialTaskIds = new Set(materialTasks.map((task) => task.observationTaskPlanId));
+    const materialPublishedCount = [...publishedTaskIds]
+      .filter((taskId) => materialTaskIds.has(taskId)).length;
+    const materialAttentionCount = [...attentionTaskIds]
+      .filter((taskId) => materialTaskIds.has(taskId)).length;
+    const normalizedTaskCount = Math.max(0, override.taskCount);
+    const normalizedPublishedCount = Math.min(
+      normalizedTaskCount,
+      Math.max(0, override.publishedTaskCount),
+    );
+    const normalizedAttentionCount = Math.min(
+      normalizedTaskCount - normalizedPublishedCount,
+      Math.max(0, override.attentionTaskCount),
+    );
+    taskCount += normalizedTaskCount - materialTasks.length;
+    publishedTaskCount += normalizedPublishedCount - materialPublishedCount;
+    attentionTaskCount += normalizedAttentionCount - materialAttentionCount;
+    if (normalizedTaskCount > normalizedPublishedCount) {
+      pendingMaterialIds.add(override.materialVersionId);
+    } else {
+      pendingMaterialIds.delete(override.materialVersionId);
+    }
+  }
+  const currentMaterialIndex = activeMaterialIds.indexOf(selectedMaterialId);
+
+  return {
+    materialCount: activeMaterialIds.length,
+    currentMaterialNumber: currentMaterialIndex >= 0 ? currentMaterialIndex + 1 : null,
+    taskCount,
+    pendingTaskCount: taskCount - publishedTaskCount,
+    publishedTaskCount,
+    attentionTaskCount,
+    pendingMaterialIds: [...pendingMaterialIds],
+  };
+}
+
 export function selectCurrentPlanDrafts(
   plan: MaterialObservationPlan | null,
   drafts: StructuredQuestionDraft[],

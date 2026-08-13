@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   resolveInitialQuestionCandidateGapPresentation,
+  resolveNextPendingTaskId,
   resolveCandidateAwareTaskCardFallback,
   shouldShowInitialQuestionCandidateGap,
   resolveTaskAssessmentStatus,
@@ -482,6 +483,21 @@ assert.equal(
   'in_progress',
 );
 assert.equal(resolveTaskGroupSummary([publicationFailed]).aggregateState, 'in_progress');
+
+assert.equal(resolveNextPendingTaskId([
+  { taskId: 'task-1', published: true },
+  { taskId: 'task-2', published: true },
+  { taskId: 'task-3', published: false },
+], 'task-2'), 'task-3');
+assert.equal(resolveNextPendingTaskId([
+  { taskId: 'task-1', published: false },
+  { taskId: 'task-2', published: true },
+  { taskId: 'task-3', published: true },
+], 'task-3'), 'task-1');
+assert.equal(resolveNextPendingTaskId([
+  { taskId: 'task-1', published: true },
+  { taskId: 'task-2', published: true },
+], 'task-2'), null);
 
 console.log('Task production state debug passed.');
 

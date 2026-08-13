@@ -236,6 +236,19 @@ export type TaskProductionVisibleSummaryItem = {
   actionRequired?: boolean;
 };
 
+export function resolveNextPendingTaskId(
+  items: Array<{ taskId: string; published: boolean }>,
+  currentTaskId: string,
+): string | null {
+  const currentIndex = items.findIndex((item) => item.taskId === currentTaskId);
+  const orderedItems = currentIndex >= 0
+    ? [...items.slice(currentIndex + 1), ...items.slice(0, currentIndex)]
+    : items;
+  return orderedItems.find((item) => (
+    item.taskId !== currentTaskId && !item.published
+  ))?.taskId || null;
+}
+
 export type TaskPublicationEligibilityReason =
   | 'ready'
   | 'retryable_failure'

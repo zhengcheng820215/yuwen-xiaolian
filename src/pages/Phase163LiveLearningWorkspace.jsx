@@ -215,7 +215,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
   return (
     <div className={`min-h-screen text-slate-950 ${completed || paused || recovering ? 'bg-[#f7f9fc]' : 'learning-workspace-split-background bg-[#f7f9fc] min-[1060px]:h-screen min-[1060px]:overflow-hidden'}`}>
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
-        <div className="mx-auto flex min-h-16 w-full max-w-[1400px] items-center justify-between gap-4 px-5 md:px-8">
+        <div className="mx-auto flex min-h-16 w-full max-w-[1680px] items-center justify-between gap-4 px-5 md:px-8">
           <button
             type="button"
             onClick={onReturnToEntry}

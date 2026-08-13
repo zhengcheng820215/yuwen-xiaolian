@@ -287,17 +287,30 @@ function isHighConfidenceTaskIrrelevantAnswer(value: string, task: ConcreteLearn
 
   if (matchedAnchors.length === 0) return true;
 
-  // One accidental two-character overlap is common in input-method noise.
-  // Only block that case deterministically when the response also contains a
-  // high-confidence mixture of fragmented Latin text and unrelated Chinese;
-  // ordinary short Chinese answers remain available to the semantic gate.
-  return matchedAnchors.length === 1 && isMixedInputMethodNoise(value);
+  // A small number of accidental two-character overlaps is common in
+  // input-method noise. Keep this deterministic gate conservative: the answer
+  // must also carry a high-confidence noise pattern and the matching anchors
+  // must account for only a tiny part of the response.
+  const matchedRatio = matchedAnchors.length / Math.max(answerAnchors.length, 1);
+  return (
+    matchedAnchors.length <= 2 &&
+    matchedRatio <= 0.08 &&
+    isMixedInputMethodNoise(value)
+  );
 }
 
 function isMixedInputMethodNoise(value: string): boolean {
   const latinRuns = value.match(/[a-z]{2,}/gi) || [];
   const hanCount = [...value].filter((char) => /\p{Script=Han}/u.test(char)).length;
-  return hanCount >= 12 && latinRuns.some((run) => run.length >= 2);
+  const hasSuspiciousMixedCaseRun = latinRuns.some((run) => (
+    run.length >= 3 && /[a-z]/.test(run) && /[A-Z]/.test(run)
+  ));
+  const hasFragmentedLatinRuns = latinRuns.filter((run) => run.length <= 4).length >= 3;
+
+  // A normal term such as “AI” or “emotional attachment” is not noise by
+  // itself. Require either an input-method-like mixed-case run or several
+  // short Latin fragments embedded in a sufficiently long Chinese response.
+  return hanCount >= 12 && (hasSuspiciousMixedCaseRun || hasFragmentedLatinRuns);
 }
 
 function meaningfulBigrams(value: string): Set<string> {

@@ -198,7 +198,7 @@ export default function Home() {
         />
         <PrimaryAction
           to="/material-resource-workbench"
-          title="素材资源录入"
+          title="素材与题目生产工作台"
           desc="从素材录入和训练任务规划开始，完成题目修改、检查、最终确认与正式发布。"
           action="进入工作台"
         />
