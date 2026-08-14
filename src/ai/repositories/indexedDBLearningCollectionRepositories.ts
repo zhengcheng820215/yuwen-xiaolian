@@ -1,20 +1,24 @@
 import type { LearningObservationEvent } from '../schemas/learningObservationEvent.schema.ts';
 import type { LearningObservationOutboxEntry } from '../schemas/learningObservationOutbox.schema.ts';
+import type { LearningTaskAttemptRecord } from '../schemas/learningFeedbackRevision.schema.ts';
 import type { QuestionCalibrationProjectionRecord } from '../schemas/questionCalibrationProjection.schema.ts';
 import {
   InMemoryLearningObservationOutboxRepository,
   InMemoryLearningObservationRepository,
   resolveQuestionCalibrationProjectionWrite,
 } from './inMemoryLearningCollectionRepositories.ts';
+import { resolveLearningTaskAttemptWrite } from './inMemoryLearningTaskAttemptRepository.ts';
+import type { LearningTaskAttemptRepository, LearningTaskAttemptWriteResult } from './learningTaskAttemptRepository.ts';
 import type { LearningObservationRepository, LearningObservationWriteResult } from './learningObservationRepository.ts';
 import type { LearningObservationOutboxRepository, LearningObservationOutboxWriteResult } from './learningObservationOutboxRepository.ts';
 import type { QuestionCalibrationProjectionRepository, QuestionCalibrationProjectionWriteResult } from './questionCalibrationProjectionRepository.ts';
 
 export const LEARNING_COLLECTION_DATABASE_NAME = 'yuwen_xiaolian_learning_collection';
-export const LEARNING_COLLECTION_DATABASE_VERSION = 3;
+export const LEARNING_COLLECTION_DATABASE_VERSION = 4;
 export const LEARNING_OBSERVATION_EVENT_STORE = 'learningObservationEvents';
 export const LEARNING_OBSERVATION_OUTBOX_STORE = 'learningObservationOutbox';
 export const QUESTION_CALIBRATION_PROJECTION_STORE = 'questionCalibrationProjections';
+export const LEARNING_TASK_ATTEMPT_STORE = 'learningTaskAttempts';
 
 const INDEXED_DB_TIMEOUT_MS = 3_000;
 
@@ -106,6 +110,11 @@ export class IndexedDBLearningObservationOutboxRepository implements LearningObs
     } finally { database.close(); }
   }
 
+  async listAll(): Promise<LearningObservationOutboxEntry[]> {
+    return (await getAll<LearningObservationOutboxEntry>(this.databaseName, LEARNING_OBSERVATION_OUTBOX_STORE))
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  }
+
   async delete(outboxId: string): Promise<void> {
     const database = await openLearningCollectionDatabase(this.databaseName);
     try {
@@ -180,6 +189,72 @@ export class IndexedDBQuestionCalibrationProjectionRepository implements Questio
   async clear(): Promise<void> { await clearStore(this.databaseName, QUESTION_CALIBRATION_PROJECTION_STORE); }
 }
 
+export class IndexedDBLearningTaskAttemptRepository implements LearningTaskAttemptRepository {
+  private readonly databaseName: string;
+
+  constructor(databaseName = LEARNING_COLLECTION_DATABASE_NAME) {
+    this.databaseName = databaseName;
+  }
+
+  async save(record: LearningTaskAttemptRecord): Promise<LearningTaskAttemptWriteResult> {
+    const database = await openLearningCollectionDatabase(this.databaseName);
+    try {
+      const transaction = database.transaction(LEARNING_TASK_ATTEMPT_STORE, 'readwrite');
+      const store = transaction.objectStore(LEARNING_TASK_ATTEMPT_STORE);
+      const [existingById, existingByInitialAttempt] = await Promise.all([
+        requestToPromise<LearningTaskAttemptRecord | undefined>(store.get(record.learningTaskAttemptId)),
+        requestToPromise<LearningTaskAttemptRecord | undefined>(store.index('initialAttemptId').get(record.initialAttemptId)),
+      ]);
+      const existing = [existingById, existingByInitialAttempt]
+        .filter((item, index, items): item is LearningTaskAttemptRecord => (
+          Boolean(item)
+          && items.findIndex((candidate) => (
+            candidate?.learningTaskAttemptId === item?.learningTaskAttemptId
+          )) === index
+        ));
+      const result = resolveLearningTaskAttemptWrite(existing, record);
+      if (result.status === 'created' || result.status === 'updated') {
+        await requestToPromise(store.put(result.record));
+        await transactionToPromise(transaction);
+      }
+      return result;
+    } finally { database.close(); }
+  }
+
+  async getById(learningTaskAttemptId: string): Promise<LearningTaskAttemptRecord | undefined> {
+    return getOne<LearningTaskAttemptRecord>(
+      this.databaseName, LEARNING_TASK_ATTEMPT_STORE, learningTaskAttemptId,
+    );
+  }
+
+  async getByInitialAttemptId(initialAttemptId: string): Promise<LearningTaskAttemptRecord | undefined> {
+    return getOneByIndex<LearningTaskAttemptRecord>(
+      this.databaseName, LEARNING_TASK_ATTEMPT_STORE, 'initialAttemptId', initialAttemptId,
+    );
+  }
+
+  async listByRound(studentId: string, learningRoundId: string): Promise<LearningTaskAttemptRecord[]> {
+    const records = await getAllByIndex<LearningTaskAttemptRecord>(
+      this.databaseName, LEARNING_TASK_ATTEMPT_STORE, 'studentRound', [studentId, learningRoundId],
+    );
+    return records.sort(byAttemptUpdatedAt);
+  }
+
+  async listByStudent(studentId: string): Promise<LearningTaskAttemptRecord[]> {
+    const records = await getAllByIndex<LearningTaskAttemptRecord>(
+      this.databaseName, LEARNING_TASK_ATTEMPT_STORE, 'studentId', studentId,
+    );
+    return records.sort(byAttemptUpdatedAt);
+  }
+
+  async listAll(): Promise<LearningTaskAttemptRecord[]> {
+    return (await getAll<LearningTaskAttemptRecord>(this.databaseName, LEARNING_TASK_ATTEMPT_STORE))
+      .sort(byAttemptUpdatedAt);
+  }
+
+  async clear(): Promise<void> { await clearStore(this.databaseName, LEARNING_TASK_ATTEMPT_STORE); }
+}
+
 export function openLearningCollectionDatabase(
   databaseName = LEARNING_COLLECTION_DATABASE_NAME,
 ): Promise<IDBDatabase> {
@@ -226,6 +301,12 @@ function upgradeDatabase(database: IDBDatabase, transaction: IDBTransaction | nu
   ensureIndex(projectionStore, 'resourceVersionStatus', ['resourceVersionId', 'status']);
   ensureIndex(projectionStore, 'status', 'status');
   ensureIndex(projectionStore, 'studentId', 'studentId');
+
+  const attemptStore = ensureStore(database, transaction, LEARNING_TASK_ATTEMPT_STORE, 'learningTaskAttemptId');
+  ensureIndex(attemptStore, 'initialAttemptId', 'initialAttemptId', true);
+  ensureIndex(attemptStore, 'studentRound', ['studentId', 'learningRoundId']);
+  ensureIndex(attemptStore, 'studentId', 'studentId');
+  ensureIndex(attemptStore, 'status', 'status');
 }
 
 function ensureStore(
@@ -304,4 +385,9 @@ function transactionToPromise(transaction: IDBTransaction): Promise<void> {
 
 function byOccurredAt(left: LearningObservationEvent, right: LearningObservationEvent): number {
   return left.occurredAt.localeCompare(right.occurredAt) || left.eventId.localeCompare(right.eventId);
+}
+
+function byAttemptUpdatedAt(left: LearningTaskAttemptRecord, right: LearningTaskAttemptRecord): number {
+  return left.updatedAt.localeCompare(right.updatedAt)
+    || left.learningTaskAttemptId.localeCompare(right.learningTaskAttemptId);
 }

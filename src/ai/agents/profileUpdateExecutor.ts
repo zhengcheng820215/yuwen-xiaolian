@@ -40,9 +40,10 @@ export function applyProfileUpdateDecision(input: {
   }
 
   if (input.decision.action === 'append_evidence_only') {
-    appendEvidenceIds(statusItem, input.decision.appendEvidenceIds);
+    appendEvidenceIds(statusItem, input.decision.appendEvidenceIds, input.decision.profileEvidenceLinks);
+    appendTopLevelEvidenceLinks(afterProfile, input.decision.profileEvidenceLinks || []);
     afterProfile.next_step_recommendation = buildRecommendation(input.decision, '继续收集有效证据，暂不改变长期能力状态。');
-    changedFields.push('ability_status.evidence_links', 'next_step_recommendation');
+    changedFields.push('ability_status.evidence_links', 'evidence_links', 'next_step_recommendation');
   }
 
   if (input.decision.action === 'update_confidence') {
@@ -90,16 +91,30 @@ export function applyProfileUpdateDecision(input: {
   return buildExecutionResult(input.decision, beforeProfile, afterProfile, unique(changedFields), unique(warnings));
 }
 
+function appendTopLevelEvidenceLinks(
+  profile: StudentAbilityProfile,
+  links: StudentAbilityProfile['evidence_links'],
+): void {
+  const existing = new Set(profile.evidence_links.map((link) => link.evidenceId));
+  for (const link of links) {
+    if (existing.has(link.evidenceId)) continue;
+    profile.evidence_links.push(structuredClone(link));
+    existing.add(link.evidenceId);
+  }
+}
+
 function appendEvidenceIds(
   statusItem: StudentAbilityProfile['ability_status'][number] | undefined,
   evidenceIds: string[],
+  suppliedLinks: StudentAbilityProfile['evidence_links'] = [],
 ): void {
   if (!statusItem) return;
 
   const existing = new Set(statusItem.evidence_links.map((link) => link.evidenceId));
   for (const evidenceId of evidenceIds) {
     if (existing.has(evidenceId)) continue;
-    statusItem.evidence_links.push({
+    const supplied = suppliedLinks.find((link) => link.evidenceId === evidenceId);
+    statusItem.evidence_links.push(supplied || {
       evidenceId,
       ability: statusItem.ability,
       evidenceType: 'insufficient',

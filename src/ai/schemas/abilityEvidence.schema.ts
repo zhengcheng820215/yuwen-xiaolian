@@ -28,6 +28,7 @@ export type AbilityEvidence = {
   observation: string;
   rootCause?: string;
   confidence: number;
+  supportLevel?: 'independent' | 'feedback_supported';
   createdAt: string;
   taskId?: string;
   diagnosisId?: string;
@@ -91,6 +92,7 @@ export function normalizeAbilityEvidence(value: Partial<AbilityEvidence>): Abili
     observation,
     rootCause: value.rootCause,
     confidence,
+    supportLevel: value.supportLevel,
     createdAt,
     taskId: value.taskId,
     diagnosisId: value.diagnosisId,
@@ -122,6 +124,7 @@ export function isAbilityEvidence(value: unknown): value is AbilityEvidence {
     !Number.isNaN(evidence.confidence) &&
     evidence.confidence >= 0 &&
     evidence.confidence <= 1 &&
+    (evidence.supportLevel === undefined || ['independent', 'feedback_supported'].includes(evidence.supportLevel)) &&
     typeof evidence.createdAt === 'string' &&
     evidence.createdAt.trim().length > 0
   );

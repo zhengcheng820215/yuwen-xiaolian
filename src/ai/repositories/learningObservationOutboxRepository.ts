@@ -10,6 +10,7 @@ export type LearningObservationOutboxRepository = {
   save(entry: LearningObservationOutboxEntry): Promise<LearningObservationOutboxWriteResult>;
   getById(outboxId: string): Promise<LearningObservationOutboxEntry | undefined>;
   listDue(now: string): Promise<LearningObservationOutboxEntry[]>;
+  listAll(): Promise<LearningObservationOutboxEntry[]>;
   delete(outboxId: string): Promise<void>;
   clear(): Promise<void>;
 };

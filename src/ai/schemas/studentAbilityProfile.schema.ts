@@ -13,6 +13,7 @@ export type StudentAbilityProfileEvidenceLink = {
   source: AbilityEvidenceSource;
   observation: string;
   confidence: number;
+  supportLevel?: 'independent' | 'feedback_supported';
 };
 
 export type AbilityStatusItem = {
@@ -60,6 +61,7 @@ export function toStudentAbilityProfileEvidenceLink(
     source: evidence.source,
     observation: evidence.observation,
     confidence: evidence.confidence,
+    supportLevel: evidence.supportLevel,
   };
 }
 
@@ -148,5 +150,6 @@ function isEvidenceLink(value: unknown): value is StudentAbilityProfileEvidenceL
     typeof link.observation === 'string' &&
     link.observation.trim().length > 0 &&
     typeof link.confidence === 'number'
+    && (link.supportLevel === undefined || ['independent', 'feedback_supported'].includes(link.supportLevel))
   );
 }

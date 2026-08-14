@@ -634,6 +634,21 @@ type TrainingSupportLevel =
 
 在强提示下完成训练，不等于独立掌握能力。
 
+### 反馈后一次修订
+
+Training 任务可以在首次有效回答形成正式 Diagnosis 与 Feedback 后提供一次反馈后修订，但必须遵循以下边界：
+
+- 首次回答是独立表现主证据，提交后不可覆盖；
+- 修订属于同一 `LearningTaskAttempt`，不增加完成题数；
+- Revised Response 独立保存，并记录其使用的 Revision Goal 和反馈支持程度；
+- Revision Evaluation 只判断是否响应反馈、解决原缺口、引入新问题和达到当前要求；
+- 修订改善只形成 `feedback_supported` evidence，不得提升为 independent training evidence；
+- Revision Evidence 接入 Profile 时只允许追加证据，不允许据此改变长期能力状态或置信度；Growth Memory 必须保留“反馈支持下完成”和“待独立验证”的限制；
+- Retest、Transfer、Maintenance 和 Formal Assessment 不开放即时修订；
+- 每题最多一次 Revision，未解决的问题进入后续训练，不通过无限重写处理。
+
+完整产品与工程边界遵循[Learning 反馈后修订契约](../product/LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md)。
+
 ## 九、AI 教练策略（AI Coaching）
 
 AI 在训练中的角色是教练和陪练，不是答案提供者。
@@ -713,6 +728,8 @@ Training Model 必须与 QUESTION_MODEL 中的 Question Role 对齐。
 
 训练题、复测题、迁移题不能混为同一种证据。
 
+`independent_practice` 的 Initial Response 可以形成 independent training evidence；如果学生读取本题反馈后提交 Revised Response，该 Revision 只能形成 feedback-supported evidence。两类证据必须同时保留，不得用修订结果回写首次独立证据。
+
 同一道题在不同阶段使用时，必须标记当次使用角色。
 
 ## 十一、训练输出（Training Output）
@@ -724,7 +741,7 @@ Training Result 至少应包含：
 - Training Plan
 - Training Execution Record
 - Hint History
-- Revision History
+- Revision History（包含不可变 Initial Response、可选一次 Revised Response、Revision Goal 与 Revision Evaluation）
 - Training Evidence
 - Retest Readiness
 - Next Training Decision

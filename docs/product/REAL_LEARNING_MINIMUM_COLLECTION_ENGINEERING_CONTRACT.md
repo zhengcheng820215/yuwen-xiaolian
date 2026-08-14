@@ -4,7 +4,7 @@
 
 状态：`DESIGN FROZEN / ENGINEERING WP0—WP7 PASS`
 
-文档版本：`real_learning_minimum_collection_engineering_v1.2`
+文档版本：`real_learning_minimum_collection_engineering_v1.3`
 
 生效日期：`2026-08-13`
 
@@ -22,7 +22,7 @@
 - 内部完整性报告的集合、公式与阻断等级；
 - 最低单元、集成、恢复和人工验收矩阵。
 
-本文不授权建设多用户、家长报告、行为埋点平台、云同步或长期能力新算法；也不改变现有 Learning 的任务、Diagnosis、Evidence、反馈和下一题语义。
+本文不授权建设多用户、家长报告、行为埋点平台、云同步或长期能力新算法。现有 WP0—WP7 的五事件和题目校准语义保持不变；未来反馈后一次修订必须通过[Learning 反馈后修订契约](./LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md)定义的独立扩展 Schema 接入，不得改写已验收的 Initial Attempt 事实。
 
 ## 二、当前事实与目标对象
 
@@ -209,6 +209,34 @@ export type AnonymousQuestionCalibrationAttempt = {
 - 在 `totalScoreStatus !== 'available_comparable_window'` 时计算高低组区分度；
 - 把同一 `subjectKey` 的重复作答计为多个独立使用者。
 
+### 3.5 反馈后 Revision 的兼容边界（设计已接受，工程待实施）
+
+当前 `attemptId`、五事件链和 `QuestionCalibrationProjectionRecord` 继续只描述 Initial Response。Revision 扩展采集必须满足：
+
+```text
+LearningTaskAttempt
+├── Initial attemptId
+│   ├── answer_submitted
+│   ├── diagnosis_completed
+│   ├── feedback_presented
+│   ├── learning_round_completed
+│   └── QuestionCalibrationProjectionRecord
+└── revisionId
+    ├── revision_started
+    ├── revision_submitted
+    └── revision_evaluation_completed
+```
+
+工程禁止：
+
+- 用 Revised Response 的内容重新生成 `submissionIntentId / attemptId`；
+- 为同一题的 Revision 再写一份 `QuestionCalibrationProjectionRecord`；
+- 用 Revision Outcome 修改已经形成的 Initial `itemScore`、Validity 或正式 Diagnosis；
+- 把 `revision_evaluation_failed` 投射成新的学生确认步骤；
+- 在 Revision Schema 和 Repository 未完成前，只通过页面状态增加修订按钮。
+
+Revision 扩展必须独立版本化 Event、Repository、Outbox、完整性公式和浏览器迁移测试。WP0—WP7 的 PASS 只覆盖 Initial Attempt，不代表 Revision 工程已经完成。
+
 ## 四、稳定身份算法
 
 ### 4.1 统一算法
@@ -243,7 +271,7 @@ projectionId = buildStableId(
 | `feedback_presented` | `ControlledFeedbackResult.feedbackRequestId` |
 | `learning_round_completed` | `LearningPersistenceRecord.recordId` |
 
-当前 `StudentResponse.responseId = response-${executionSessionId}` 在同一 Round 修改答案后不会变化，因此 P1 额外生成 `submissionIntentId = buildStableId('learning-answer-submission', [responseId, normalizedAnswerText])`。它只保留哈希结果，不复制答案原文：相同答案的刷新或重复点击复用身份，实质修改后的再次提交形成新身份。`answer_submitted.sourceEntityId` 使用 `submissionIntentId`，后续正式结果根据最终 Response 内容重新得到同一提交身份。不得靠时间戳区分提交。
+当前 `StudentResponse.responseId = response-${executionSessionId}` 在同一 Round 的 Initial 有效性恢复或普通重新提交中不会变化，因此 P1 额外生成 `submissionIntentId = buildStableId('learning-answer-submission', [responseId, normalizedAnswerText])`。它只保留哈希结果，不复制答案原文：相同答案的刷新或重复点击复用身份，Initial Response 正式冻结前的实质修改再次提交形成新身份。正式反馈后的 Revision 不适用本算法，必须使用第 3.5 节的独立 `revisionId`。`answer_submitted.sourceEntityId` 使用 `submissionIntentId`，后续正式结果根据最终 Initial Response 内容重新得到同一提交身份。不得靠时间戳区分提交。
 
 ### 4.3 冲突语义
 

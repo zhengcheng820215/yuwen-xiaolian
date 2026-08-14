@@ -43,6 +43,9 @@ const RECONCILABLE_EVENT_TYPES = new Set<LearningObservationEvent['eventType']>(
   'answer_submitted',
   'diagnosis_completed',
   'learning_round_completed',
+  'revision_started',
+  'revision_submitted',
+  'revision_evaluation_completed',
 ]);
 
 export class LearningObservationService {

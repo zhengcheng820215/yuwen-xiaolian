@@ -101,6 +101,8 @@ ResponseValidityResult
 
 五事件字段、稳定身份、IndexedDB Repository、Outbox 补写、Attempt 投影、开放题评分和 P3 一致性公式由[真实 Learning 最小采集工程契约](../product/REAL_LEARNING_MINIMUM_COLLECTION_ENGINEERING_CONTRACT.md)冻结。`WP0—WP7` 已完成代码、自动化与浏览器验收，当前可以进入固定单学生的真实 Learning 受控运行；单学生单轮数据仍不得伪造 `totalScore` 或高低组区分度。
 
+Training 首次反馈后的一次修订由[Learning 反馈后修订契约](../product/LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md)定义。该能力保持 Initial Response 与 Revised Response 分离、每题一个 LearningTaskAttempt、Revision 不新增题目校准 Attempt，并禁止在 Retest、Transfer、Maintenance 和 Formal Assessment 中提供即时修订。阶段 1–4 已完成 Schema、稳定身份、IndexedDB v4、草稿恢复、独立提交、Revision Evaluation、feedback-supported Evidence、受控 Profile / Growth Memory、扩展事件、Outbox 恢复、完整性审计和内部指标，且通过端到端联调。提交态只确认修订已独立保存；只有 Formal Evaluation 完成后才表述改善结果，真实教育效果仍需 Retest / Transfer 校准。
+
 跨 Session 的延迟验证链：
 
 ```text

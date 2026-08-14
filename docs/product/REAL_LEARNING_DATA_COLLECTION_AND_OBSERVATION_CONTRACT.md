@@ -4,7 +4,7 @@
 
 状态：`ACTIVE / P0—P3 IMPLEMENTED / P4—P5 PENDING`
 
-文档版本：`real_learning_data_collection_and_observation_v1.3`
+文档版本：`real_learning_data_collection_and_observation_v1.4`
 
 生效日期：`2026-08-13`
 
@@ -32,6 +32,7 @@
 - Diagnosis、Evidence、Evaluation 和 Profile 的教育含义继续由各自模型契约决定；
 - 本文只定义采集事实、观察口径和展示边界，不新增教育判断。
 - P0—P3 的字段、身份算法、Repository、评分、补写和测试要求遵循[真实 Learning 最小采集工程契约](./REAL_LEARNING_MINIMUM_COLLECTION_ENGINEERING_CONTRACT.md)。
+- Training 题首次反馈后的一次修订、Revision Evaluation 与证据解释遵循[Learning 反馈后修订契约](./LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md)。
 
 ## 二、当前工程基线与本轮边界
 
@@ -61,7 +62,8 @@ P0—P3 已进一步完成：
 以下内容属于 P4、P5 或后续基础设施，不得因 P0—P3 已完成而标记为工程完成：
 
 - 多使用者匿名档案与选择入口；
-- 首次输入、有效停留、返回修改和主动放弃等扩展观察；
+- 首次输入、有效停留和主动放弃等广泛扩展观察；
+- 反馈后一次修订已进入独立阶段 1—3 工程链路；Revision 扩展事件、完整性审计和指标由[Learning 反馈后修订观察、审计与指标契约](./LEARNING_FEEDBACK_REVISION_OBSERVATION_AND_AUDIT_CONTRACT.md)治理，接入时不得复用现有 `answer_submitted` 制造第二个校准 Attempt；
 - 成人帮助与家长简短观察；
 - 家长学习记录页与题目观察页的正式分层；
 - 数据导出、导入恢复、按使用者删除与保留期限控制；
@@ -173,7 +175,9 @@ schemaVersion
 | `answer_input_started` | 本轮答案从空变为首次非空 |
 | `answer_draft_saved` | 草稿持久化成功 |
 | `answer_rejected_invalid` | Validity 阻断进入 Diagnosis |
-| `answer_returned_for_revision` | 用户回到原答案继续修改 |
+| `revision_started` | 学生在允许即时学习干预的 Training 题中明确进入 Revision Mode |
+| `revision_submitted` | 同一 LearningTaskAttempt 内的 Revised Response 正式提交 |
+| `revision_evaluation_completed` | Revision Evaluation 正式持久化 |
 | `learning_round_abandoned` | 用户明确结束未完成轮次；仅在存在明确结束动作时记录 |
 | `learning_session_ended` | Session 以明确原因结束 |
 | `adult_observation_recorded` | 家长主动补充简短观察 |
@@ -225,7 +229,7 @@ P4 只保存聚合后的有效时长和关键时间戳，不保存高频活动�
 - `assistanceLevel`：`independent / light_prompt / substantial_help / unknown`；
 - 是否完成、放弃或技术中断。
 
-“修改次数”只统计提交后返回修改或一次稳定草稿与下一稳定草稿之间的有效内容变化，不记录按键数。
+一般草稿“修改次数”只统计稳定草稿之间的有效内容变化，不记录按键数。正式反馈后 Revision 不折算成普通修改次数，必须按独立 `revisionId`、Revised Response 与 Revision Evaluation 记录。
 
 完整性审计以每条 `answer_submitted` 的提交意图为准，不以 Round 最终 Checkpoint 中只保留的一份 Response 代替全部提交事实：
 
@@ -246,6 +250,20 @@ distinct answer_submitted attemptId
 ```
 
 若 Projection 因存储故障完全缺失，则公式不闭合并报告 `missing_projection`，不得静默忽略或把该提交计为有效样本。
+
+#### 7.1.1 反馈后 Revision 与 Attempt 的兼容口径
+
+上述“实质修改答案后形成新 `submissionIntentId / attemptId`”只适用于当前首次提交前后的有效性恢复、普通重新提交或未来 Retry，不适用于正式反馈后的一次 Revision。
+
+Revision 实施后：
+
+- 当前五事件链中的 `attemptId` 固定代表 Initial Response 及其题目校准身份；
+- Revision 使用独立 `revisionId` 引用原 `attemptId`，不得再次发出 `answer_submitted`；
+- Revised Response 不创建第二份 `QuestionCalibrationProjectionRecord`；
+- Revision 扩展事件使用独立 Schema 与身份算法，并由完整性报告单独核对；
+- 一道题仍计一个 LearningTaskAttempt，但 Initial Response 与 Revised Response 是两份独立、不可变的响应记录。
+
+完整定义以[Learning 反馈后修订契约](./LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md)为准。工程实现前，现有五事件与 Projection 行为保持不变。
 
 ### 7.2 家长简短观察
 
@@ -301,7 +319,7 @@ answer_submitted
 
 - 展示、有效提交、完成、无效和放弃数量；
 - 理解启动时间、有效作答时间和答案长度分布；
-- 返回修改率和成人帮助率；
+- 一般返回修改率、Revision Offer / Start / Completion / Issue Resolution 和成人帮助率；
 - Rubric 各项命中情况；
 - 同版本真实有效样本数与校准状态。
 
@@ -323,6 +341,8 @@ answer_submitted
 - 首次使用时一次简洁说明：“本次学习会在本机记录答题与学习进度，用于保存进度和安排后续练习”；
 - 草稿保存、提交、恢复和完成状态；
 - 学生能够理解的本轮反馈、进度和下一步。
+
+当 Revision 能力启用后，学生只额外看到由正式资格决策产生的“根据反馈修订 / 完善回答”、Revision Goal、修订输入区与简洁 Revision Evaluation；不得展示 revisionId、内部 Outcome 枚举、事件或数值反馈利用分数。
 
 不得展示 `learnerId / sessionId / resourceVersionId`、原始事件、停留时长、修改次数、校准样本数、后台评分日志或使用者比较。
 
@@ -408,9 +428,17 @@ answer_submitted
 
 ### P4：家长报告与扩展观察
 
-- 增加首次输入、有效时长、返回修改、成人帮助和家长观察；
+- 增加首次输入、有效时长、一般返回修改、成人帮助和家长观察；
 - 建设家长 Session、题目与纵向变化报告；
 - 增加 JSON 导出、校验和数据删除。
+
+### Revision 扩展：反馈后一次修订
+
+- 独立于完整 P4 家长报告实施，不要求先建设多使用者或完整行为分析；
+- 新增 `revision_started / revision_submitted / revision_evaluation_completed` 扩展事件；
+- Revision 只引用 Initial `attemptId`，不创建第二个题目校准 Attempt；
+- 内部报告分别核对 Revision 身份、提交、评价和待补状态；
+- 完成工程与产品验收前保持 `DESIGN ACCEPTED / ENGINEERING PENDING`。
 
 ### P5：多使用者与严格隔离
 

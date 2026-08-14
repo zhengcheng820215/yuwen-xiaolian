@@ -5,6 +5,7 @@ import {
   LEARNING_COLLECTION_DATABASE_VERSION,
   LEARNING_OBSERVATION_EVENT_STORE,
   LEARNING_OBSERVATION_OUTBOX_STORE,
+  LEARNING_TASK_ATTEMPT_STORE,
   QUESTION_CALIBRATION_PROJECTION_STORE,
   openLearningCollectionDatabase,
 } from '../repositories/indexedDBLearningCollectionRepositories.ts';
@@ -33,21 +34,24 @@ async function run(): Promise<{ status: string; passed: number; total: number; c
   try {
     await createVersionTwoDatabase(databaseName);
     const upgraded = await openLearningCollectionDatabase(databaseName);
-    check(upgraded.version === LEARNING_COLLECTION_DATABASE_VERSION, 'upgrade_v2_to_v3', checks);
+    check(upgraded.version === LEARNING_COLLECTION_DATABASE_VERSION, 'upgrade_v2_to_v4', checks);
     check(upgraded.objectStoreNames.contains('legacySentinel'), 'legacy_store_preserved', checks);
     check(upgraded.objectStoreNames.contains(LEARNING_OBSERVATION_EVENT_STORE), 'event_store_created', checks);
     check(upgraded.objectStoreNames.contains(LEARNING_OBSERVATION_OUTBOX_STORE), 'outbox_store_created', checks);
     check(upgraded.objectStoreNames.contains(QUESTION_CALIBRATION_PROJECTION_STORE), 'projection_store_created', checks);
+    check(upgraded.objectStoreNames.contains(LEARNING_TASK_ATTEMPT_STORE), 'learning_task_attempt_store_created', checks);
     const tx = upgraded.transaction([
       LEARNING_OBSERVATION_EVENT_STORE,
       LEARNING_OBSERVATION_OUTBOX_STORE,
       QUESTION_CALIBRATION_PROJECTION_STORE,
+      LEARNING_TASK_ATTEMPT_STORE,
     ], 'readonly');
     check(tx.objectStore(LEARNING_OBSERVATION_EVENT_STORE).indexNames.contains('studentRound'), 'event_compound_index', checks);
     check(tx.objectStore(LEARNING_OBSERVATION_OUTBOX_STORE).indexNames.contains('nextRetryAt'), 'outbox_due_index', checks);
     check(tx.objectStore(QUESTION_CALIBRATION_PROJECTION_STORE).indexNames.contains('attemptId'), 'projection_unique_attempt_index', checks);
     check(tx.objectStore(LEARNING_OBSERVATION_EVENT_STORE).indexNames.contains('studentId'), 'event_student_index_added', checks);
     check(tx.objectStore(QUESTION_CALIBRATION_PROJECTION_STORE).indexNames.contains('studentId'), 'projection_student_index_added', checks);
+    check(tx.objectStore(LEARNING_TASK_ATTEMPT_STORE).indexNames.contains('initialAttemptId'), 'attempt_unique_initial_index_added', checks);
     upgraded.close();
 
     const events = new IndexedDBLearningObservationRepository(databaseName);
@@ -90,7 +94,7 @@ async function run(): Promise<{ status: string; passed: number; total: number; c
     check(conflictResults.map((item) => item.status).sort().join('|') === 'conflict|created', 'projection_cross_tab_conflict_is_structured', checks);
     check((await projections.listAll()).filter((item) => item.attemptId === conflictAttempt.attemptId).length === 1, 'projection_cross_tab_attempt_unique', checks);
 
-    return { status: 'PASS', passed: checks.length, total: 28, checks };
+    return { status: 'PASS', passed: checks.length, total: checks.length, checks };
   } finally {
     await deleteDatabase(databaseName);
   }

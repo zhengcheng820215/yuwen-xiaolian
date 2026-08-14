@@ -74,6 +74,12 @@ export class InMemoryLearningObservationOutboxRepository implements LearningObse
       .map(clone);
   }
 
+  async listAll(): Promise<LearningObservationOutboxEntry[]> {
+    return [...this.records.values()]
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+      .map(clone);
+  }
+
   async delete(outboxId: string): Promise<void> { this.records.delete(outboxId); }
   async clear(): Promise<void> { this.records.clear(); }
 }

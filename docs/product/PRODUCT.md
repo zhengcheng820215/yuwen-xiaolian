@@ -330,6 +330,7 @@ PRODUCT.md 只负责：
 | 长期状态如何保存 | `STUDENT_PROFILE_MODEL.md` |
 | AI 如何陪伴学生 | `AI_COACH_MODEL.md` |
 | 整体流程如何编排 | `LEARNING_FLOW.md` |
+| 学生如何在正式反馈后完成一次受控修订 | [Learning Feedback-Guided Revision Contract](./LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md) |
 | Agent 如何协作 | `AGENT_PROTOCOL.md` |
 | PC / 平板学习工作台如何组织学生体验 | `PC_LEARNING_WORKSPACE_UX_CALIBRATION.md` |
 | 真实 Learning 如何识别匿名使用者、记录过程并形成观察与校准样本 | [Real Learning Data Collection and Observation Contract](./REAL_LEARNING_DATA_COLLECTION_AND_OBSERVATION_CONTRACT.md) |

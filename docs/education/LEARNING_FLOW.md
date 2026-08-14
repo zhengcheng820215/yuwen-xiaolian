@@ -264,9 +264,16 @@ AI 基于诊断结果给出反馈、追问或提示。
 
 ### Step 7：学生修正或重新作答
 
-学生基于反馈修改答案、补足依据，或在无效作答时重新完成最低有效作答。
+学生基于反馈完善原有思考，或在无效作答时重新完成最低有效作答。两者必须区分：
 
-修正过程本身形成能力证据。
+- `Revision`：首次回答有效、方向基本成立，学生在正式诊断反馈后针对一个可执行缺口进行一次修订；
+- `Retry`：首次回答无效、答非所问或完全误解任务，需要重新完成最低有效作答。
+
+Revision 不定义为覆盖原答案。首次提交形成不可变 `Initial Response`；修订形成同一 `LearningTaskAttempt` 内独立保存的 `Revised Response`。系统分别记录 Initial Evidence 与 feedback-supported Revision Evidence，不因修订改善而删除首次独立表现。
+
+Revision 只适用于允许即时学习干预的 Training 任务，每题最多一次。Retest、Transfer、Maintenance 和 Formal Assessment 不开放即时修订，以保持独立性和可比性。完整资格、状态、事件、失败恢复和统计口径遵循[Learning 反馈后修订契约](../product/LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md)。
+
+修订过程本身可以形成受支持的能力证据，但不能替代后续无提示复测或迁移证据。
 
 但学生修正不是每次流程都必须发生。
 
@@ -385,6 +392,9 @@ Profile Update Decision
 | 待诊断 | 已完成作答，等待能力诊断 |
 | 诊断待确认 | 已发现表面问题，但根因尚未确认 |
 | 待修正 | 已完成诊断，需要学生修正 |
+| 修订草稿 | 已进入 Revision Mode，首次回答保持不可变，修订尚未提交 |
+| 修订评价中 | Revised Response 已提交，等待比较首次缺口与修订变化 |
+| 修订评价待补 | Revised Response 已保存，评价暂时失败并等待后台补写 |
 | 待训练决策 | 已形成 evidence，等待决定训练、观察或复测 |
 | 训练中 | 学生正在进行能力训练 |
 | 待复测 | 已完成训练，需要验证迁移或保持 |
@@ -431,7 +441,8 @@ Profile Update Decision
 | --- | --- |
 | 本次能力诊断 | 学生本次作答暴露的能力表现和短板 |
 | 根因判断 / 根因假设 | 主要错误类型、候选原因和验证需求 |
-| 修正记录 | 学生修正前后的变化 |
+| 修正记录 | Initial Response、Revised Response、Revision Goal 与修订前后变化；两份回答不可互相覆盖 |
+| 修订评价 | 原缺口是否解决、是否响应反馈、是否引入新问题以及后续相似任务动作 |
 | 训练记录 | 训练目标、训练阶段和训练表现 |
 | 复测结果 | 学生迁移或复测表现 |
 | 能力证据 | 可进入画像的能力证据 |
@@ -522,6 +533,9 @@ STUDENT_PROFILE_MODEL 负责长期成长记录和 Profile Update Decision 的落
 
 - 无效作答不得进入具体能力诊断；
 - 根因未确认时，应进入追问或验证，不得强行训练；
+- Training 中的反馈后修订每题最多一次；Retest、Transfer、Maintenance 和 Formal Assessment 不开放即时修订；
+- Initial Response、Initial Evidence、Revised Response 与 Revision Evidence 必须分别保存；修订不得覆盖首次独立表现；
+- Revision Evidence 必须标记反馈支持程度，不能作为独立掌握或题目首次校准证据；
 - 训练表现必须记录提示依赖；
 - 复测必须尽量保持独立性和新情境；
 - 单次复测不得直接宣布长期能力提升；

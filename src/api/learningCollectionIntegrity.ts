@@ -13,6 +13,7 @@ import type { LearningObservationEvent } from '../ai/schemas/learningObservation
 import type { QuestionCalibrationProjectionRecord } from '../ai/schemas/questionCalibrationProjection.schema.ts';
 import type { RealLearningOperationCheckpoint } from '../ai/schemas/realLearningOperation.schema.ts';
 import { PHASE163_LEARNING_STUDENT_ID } from './phase163LearningIdentity.ts';
+import { loadPhase163FeedbackRevisionObservationReport } from './phase163LiveLearning.ts';
 
 const feedbackMarkerPrefix = 'qingzhou:feedback-presentation:';
 
@@ -22,11 +23,12 @@ export async function loadLearningCollectionIntegrityView(
   const operationRepository = new IndexedDBRealLearningOperationRepository();
   const eventRepository = new IndexedDBLearningObservationRepository();
   const projectionRepository = new IndexedDBQuestionCalibrationProjectionRepository();
-  const [checkpoints, persistenceRecords, events, projections] = await Promise.all([
+  const [checkpoints, persistenceRecords, events, projections, revisionObservation] = await Promise.all([
     operationRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID),
     new IndexedDBLearningPersistenceRepository().listByStudent(PHASE163_LEARNING_STUDENT_ID),
     eventRepository.listAll(),
     projectionRepository.listAll(),
+    loadPhase163FeedbackRevisionObservationReport({ recoverPending: false }),
   ]);
   const generatedAt = new Date().toISOString();
   const service = new LearningCollectionIntegrityService();
@@ -47,6 +49,7 @@ export async function loadLearningCollectionIntegrityView(
   const report = service.buildReport(input);
   return {
     report,
+    revisionObservation,
     rounds: scoped.input.checkpoints.map((checkpoint) => roundView(
       checkpoint,
       scoped.input.events,

@@ -15,6 +15,17 @@ import {
 } from '../ai/content/studentRuntimeMessages.ts';
 import { toStudentFeedbackSummary } from '../ai/content/studentFeedbackPresentation.ts';
 import { buildStudentThinkingReview } from '../ai/agents/studentThinkingReviewAgent.ts';
+import {
+  decideLearningFeedbackRevisionOffer,
+  type LearningFeedbackRevisionOfferDecision,
+} from '../ai/agents/learningFeedbackRevisionOfferPolicy.ts';
+import { evaluateLearningFeedbackRevision } from '../ai/agents/learningFeedbackRevisionEvaluationAgent.ts';
+import {
+  auditLearningFeedbackRevisionObservations,
+  buildLearningFeedbackRevisionMetrics,
+  type LearningFeedbackRevisionAuditReport,
+  type LearningFeedbackRevisionMetrics,
+} from '../ai/agents/learningFeedbackRevisionObservationAuditAgent.ts';
 import { buildStudentLearningNarrativeProjection } from '../ai/agents/studentLearningNarrativeAgent.ts';
 import { createFeedbackExpressionConfigSnapshot } from '../ai/agents/controlledFeedbackExpressionAgent.ts';
 import {
@@ -44,11 +55,13 @@ import { IndexedDBRealLearningOperationRepository } from '../ai/repositories/ind
 import {
   IndexedDBLearningObservationOutboxRepository,
   IndexedDBLearningObservationRepository,
+  IndexedDBLearningTaskAttemptRepository,
   IndexedDBQuestionCalibrationProjectionRepository,
 } from '../ai/repositories/indexedDBLearningCollectionRepositories.ts';
 import { LocalStorageUnifiedLearningEntryRepository } from '../ai/repositories/localStorageUnifiedLearningEntryRepository.ts';
 import { LearningObservationService } from '../ai/services/learningObservationService.ts';
 import { QuestionCalibrationProjectionService } from '../ai/services/questionCalibrationProjectionService.ts';
+import { LearningFeedbackRevisionPersistenceService } from '../ai/services/learningFeedbackRevisionPersistenceService.ts';
 import {
   buildLearningCalibrationAttemptId,
   buildLearningObservationEventId,
@@ -63,6 +76,12 @@ import {
 } from '../ai/schemas/learningObservationEvent.schema.ts';
 import { CURRENT_LEARNING_COLLECTION_GENERATION } from '../ai/schemas/learningCollectionGeneration.ts';
 import type { LearningPersistenceRecord } from '../ai/schemas/learningPersistence.schema.ts';
+import type {
+  LearningTaskAttemptRecord,
+  RevisionEvaluation,
+  RevisionEvaluationIssue,
+  RevisionGoal,
+} from '../ai/schemas/learningFeedbackRevision.schema.ts';
 import type { RealLearningOperationCheckpoint } from '../ai/schemas/realLearningOperation.schema.ts';
 import type { DelayedRetestPlan } from '../ai/schemas/delayedRetestScheduling.schema.ts';
 import type { CurrentLearningContext, TaskRequest } from '../ai/schemas/nextLearningStrategy.schema.ts';
@@ -96,12 +115,19 @@ const activityRepository = new LocalStorageUnifiedLearningEntryRepository();
 const multiDayRepository = new IndexedDBPhase163MultiDayRunRepository();
 const formalResourceRepository = createBrowserQuestionResourceAdmissionRepository();
 const materialObservationRepository = createBrowserMaterialObservationRepository();
+const learningObservationRepository = new IndexedDBLearningObservationRepository();
+const learningObservationOutboxRepository = new IndexedDBLearningObservationOutboxRepository();
+const questionCalibrationProjectionRepository = new IndexedDBQuestionCalibrationProjectionRepository();
 const observationService = new LearningObservationService(
-  new IndexedDBLearningObservationRepository(),
-  new IndexedDBLearningObservationOutboxRepository(),
+  learningObservationRepository,
+  learningObservationOutboxRepository,
 );
 const calibrationProjectionService = new QuestionCalibrationProjectionService(
-  new IndexedDBQuestionCalibrationProjectionRepository(),
+  questionCalibrationProjectionRepository,
+);
+const learningTaskAttemptRepository = new IndexedDBLearningTaskAttemptRepository();
+const feedbackRevisionPersistenceService = new LearningFeedbackRevisionPersistenceService(
+  learningTaskAttemptRepository,
 );
 const LEARNING_APP_VERSION = CURRENT_LEARNING_COLLECTION_GENERATION;
 
@@ -139,6 +165,25 @@ export type Phase163LiveWorkspaceState = {
   pauseReason?: StudentRuntimePauseReason;
   studentTitle?: string;
   studentMessage?: string;
+  revision?: {
+    learningTaskAttemptId: string;
+    status:
+      | 'offered'
+      | 'draft'
+      | 'submitted'
+      | 'evaluating'
+      | 'evaluated'
+      | 'evaluation_pending_retry';
+    offerLevel?: 'optional' | 'recommended';
+    actionLabel?: '根据反馈修订' | '完善回答';
+    revisionGoal: RevisionGoal;
+    initialAnswer: string;
+    draftAnswer?: string;
+    draftUpdatedAt?: string;
+    evaluation?: RevisionEvaluation;
+    evaluationIssue?: RevisionEvaluationIssue;
+    evaluationAttemptCount?: number;
+  };
 };
 
 export type Phase163LearningTaskAvailability = {
@@ -146,6 +191,29 @@ export type Phase163LearningTaskAvailability = {
   available: boolean;
   message: string;
 };
+
+export type Phase163FeedbackRevisionObservationReport = {
+  audit: LearningFeedbackRevisionAuditReport;
+  metrics: LearningFeedbackRevisionMetrics;
+};
+
+export async function loadPhase163FeedbackRevisionObservationReport(options: {
+  recoverPending?: boolean;
+} = {}): Promise<Phase163FeedbackRevisionObservationReport> {
+  if (options.recoverPending !== false) {
+    await observationService.retryDue().catch(() => undefined);
+  }
+  const [attempts, events, outboxEntries, projections] = await Promise.all([
+    learningTaskAttemptRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID),
+    learningObservationRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID),
+    learningObservationOutboxRepository.listAll(),
+    questionCalibrationProjectionRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID),
+  ]);
+  return {
+    audit: auditLearningFeedbackRevisionObservations({ attempts, events, outboxEntries, projections }),
+    metrics: buildLearningFeedbackRevisionMetrics({ attempts, events }),
+  };
+}
 
 export async function loadPhase163LiveWorkspace(): Promise<Phase163LiveWorkspaceState> {
   const descriptor = await buildCurrentRoundDescriptor();
@@ -162,7 +230,7 @@ export async function loadPhase163LiveWorkspace(): Promise<Phase163LiveWorkspace
     // Observation recovery is non-critical and must never block workspace loading.
   });
   if (!checkpoint) return readyState(descriptor, persisted?.answerDraft || '');
-  return stateFromCheckpoint(descriptor, checkpoint, persisted?.answerDraft || '');
+  return await stateFromCheckpoint(descriptor, checkpoint, persisted?.answerDraft || '');
 }
 
 export async function recordPhase163QuestionPresented(roundId: string): Promise<void> {
@@ -292,7 +360,7 @@ export async function submitPhase163LiveAnswer(answerText: string): Promise<Phas
   await observationService.retryDue().catch(() => undefined);
   if (persistence?.learningRoundResult) await appendRoundToCurrentSession(persistence);
   await recordNaturalDay(result, descriptor.retestPlan);
-  return stateFromCheckpoint(descriptor, result.checkpoint, answerText);
+  return await stateFromCheckpoint(descriptor, result.checkpoint, answerText);
 }
 
 async function recoverPhase163LearningObservations(
@@ -338,6 +406,8 @@ async function recoverPhase163LearningObservations(
     if (completed) events.push(completed);
   }
   await observationService.reconcileRound(descriptor.input.learningRoundId, events);
+  const revisionAttempt = await learningTaskAttemptRepository.getByInitialAttemptId(attemptId);
+  if (revisionAttempt) await synchronizeFeedbackRevisionObservations(descriptor, revisionAttempt);
   await projectPhase163CalibrationAttempt(descriptor, checkpoint.taskExecutionResult, checkpoint, persistence);
 }
 
@@ -427,6 +497,67 @@ async function recordObservation(
 ): Promise<void> {
   const event = buildObservation(descriptor, eventType, sourceEntityId, payload, occurredAt);
   if (event) await observationService.record(event);
+}
+
+async function synchronizeFeedbackRevisionObservations(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  attempt: LearningTaskAttemptRecord,
+): Promise<void> {
+  const revision = attempt.revision;
+  if (!revision) return;
+  const events: LearningObservationEvent[] = [];
+  const started = buildObservation(descriptor, 'revision_started', revision.revisionId, {
+    kind: 'revision_started',
+    responseId: attempt.initialResponse.responseId,
+    attemptId: attempt.initialAttemptId,
+    learningTaskAttemptId: attempt.learningTaskAttemptId,
+    revisionId: revision.revisionId,
+    startedAt: revision.createdAt,
+  }, revision.createdAt);
+  if (started) events.push(started);
+
+  if (revision.revisedResponse) {
+    const submitted = buildObservation(
+      descriptor,
+      'revision_submitted',
+      revision.revisedResponse.responseId,
+      {
+        kind: 'revision_submitted',
+        responseId: revision.revisedResponse.responseId,
+        attemptId: attempt.initialAttemptId,
+        learningTaskAttemptId: attempt.learningTaskAttemptId,
+        revisionId: revision.revisionId,
+        initialResponseId: attempt.initialResponse.responseId,
+        submittedAt: revision.revisedResponse.submittedAt,
+      },
+      revision.revisedResponse.submittedAt,
+    );
+    if (submitted) events.push(submitted);
+  }
+
+  if (revision.evaluation && revision.feedbackSupportedEvidence) {
+    const completed = buildObservation(
+      descriptor,
+      'revision_evaluation_completed',
+      revision.evaluation.revisionEvaluationId,
+      {
+        kind: 'revision_evaluation_completed',
+        responseId: revision.revisedResponse!.responseId,
+        attemptId: attempt.initialAttemptId,
+        learningTaskAttemptId: attempt.learningTaskAttemptId,
+        revisionId: revision.revisionId,
+        revisionEvaluationId: revision.evaluation.revisionEvaluationId,
+        feedbackSupportedEvidenceId: revision.feedbackSupportedEvidence.evidenceId,
+        outcome: revision.evaluation.outcome,
+        policyVersion: revision.evaluation.policyVersion,
+        completedAt: revision.evaluation.evaluatedAt,
+      },
+      revision.evaluation.evaluatedAt,
+    );
+    if (completed) events.push(completed);
+  }
+
+  await observationService.reconcileRound(descriptor.input.learningRoundId, events);
 }
 
 function buildObservation(
@@ -614,7 +745,16 @@ async function buildCurrentRoundDescriptor() {
     ...base.input.currentGrowthMemorySummary,
     studentId: PHASE163_LEARNING_STUDENT_ID,
   };
-  const existingGrowthMemoryRecords = records.flatMap((item) => item.growthMemoryRecord ? [item.growthMemoryRecord] : []);
+  const revisionAttempts = await learningTaskAttemptRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const latestRevisionProfile = [...revisionAttempts]
+    .reverse()
+    .find((item) => item.status === 'completed_with_revision' && item.revision?.profileAfterRevision)
+    ?.revision?.profileAfterRevision;
+  const controlledCurrentProfile = latestRevisionProfile || currentProfile;
+  const existingGrowthMemoryRecords = uniqueById([
+    ...records.flatMap((item) => item.growthMemoryRecord ? [item.growthMemoryRecord] : []),
+    ...revisionAttempts.flatMap((item) => item.revision?.growthMemoryRecord ? [item.revision.growthMemoryRecord] : []),
+  ], (item) => item.recordId);
   const previousEvidence = records.flatMap((item) => item.learningRoundResult?.taskEvidenceReturnResult?.abilityEvidence || []);
   const startedAt = new Date().toISOString();
   const currentLearningContext: CurrentLearningContext = {
@@ -640,7 +780,7 @@ async function buildCurrentRoundDescriptor() {
       answerText: '',
       startedAt,
       submittedAt: startedAt,
-      currentProfile,
+      currentProfile: controlledCurrentProfile,
       currentGrowthMemorySummary,
       existingGrowthMemoryRecords,
       previousEvidence,
@@ -964,11 +1104,21 @@ function uniqueStrings(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
 }
 
-function stateFromCheckpoint(
+function uniqueById<T>(values: T[], getId: (value: T) => string): T[] {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const id = getId(value);
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+async function stateFromCheckpoint(
   descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
   checkpoint: NonNullable<Awaited<ReturnType<IndexedDBRealLearningOperationRepository['getByOperationId']>>>,
   answerDraft: string,
-): Phase163LiveWorkspaceState {
+): Promise<Phase163LiveWorkspaceState> {
   const restoredAnswer = checkpoint.taskExecutionResult?.studentResponse?.answerText || answerDraft;
   const base = readyState(descriptor, restoredAnswer);
   const feedback = resolvePhase163LiveStudentFeedback(checkpoint);
@@ -1005,6 +1155,7 @@ function stateFromCheckpoint(
       hasFormalRoundResult: Boolean(checkpoint.learningPersistenceRecordId),
     })
     : undefined;
+  const revision = await resolveFeedbackRevisionState(descriptor, checkpoint, feedback);
   return {
     ...base,
     status: checkpoint.status === 'completed' ? 'completed' : checkpoint.status,
@@ -1042,6 +1193,311 @@ function stateFromCheckpoint(
               : '请补充回答后重新提交。'
             : '已提交的回答正在恢复处理，不需要重新作答。'
           : undefined,
+    revision,
+  };
+}
+
+export async function startPhase163FeedbackRevision(): Promise<Phase163LiveWorkspaceState> {
+  const context = await currentFeedbackRevisionContext();
+  const revision = context.state.revision;
+  if (!revision || revision.status !== 'offered') {
+    throw new Error('当前回答不满足反馈后修订条件。');
+  }
+  const attempt = await feedbackRevisionPersistenceService.startRevision(
+    revision.learningTaskAttemptId,
+    revision.revisionGoal,
+  );
+  await synchronizeFeedbackRevisionObservations(context.descriptor, attempt);
+  return await stateFromCheckpoint(
+    context.descriptor,
+    context.checkpoint,
+    context.checkpoint.taskExecutionResult?.studentResponse?.answerText || '',
+  );
+}
+
+export async function savePhase163FeedbackRevisionDraft(
+  draftAnswer: string,
+): Promise<Phase163LiveWorkspaceState> {
+  const context = await currentFeedbackRevisionContext();
+  const revision = context.state.revision;
+  if (!revision || revision.status !== 'draft') throw new Error('当前没有可保存的修订草稿。');
+  await feedbackRevisionPersistenceService.saveRevisionDraft(
+    revision.learningTaskAttemptId,
+    draftAnswer,
+  );
+  return await stateFromCheckpoint(context.descriptor, context.checkpoint, draftAnswer);
+}
+
+export async function submitPhase163FeedbackRevision(
+  revisedAnswer: string,
+): Promise<Phase163LiveWorkspaceState> {
+  const context = await currentFeedbackRevisionContext();
+  const revision = context.state.revision;
+  if (!revision || revision.status !== 'draft') throw new Error('当前没有可提交的修订。');
+  const preflight = buildRevisionTaskExecution(
+    context.descriptor,
+    revisedAnswer,
+    `revision-preflight-${revision.learningTaskAttemptId}`,
+    new Date().toISOString(),
+  );
+  if (!preflight.canEnterDiagnosisRuntime) {
+    throw new Error(preflight.responseValidity.reasons[0] || '修订内容还不足以进行评价，请补充后再提交。');
+  }
+  const submitted = await feedbackRevisionPersistenceService.submitRevision(
+    revision.learningTaskAttemptId,
+    revisedAnswer,
+  );
+  await synchronizeFeedbackRevisionObservations(context.descriptor, submitted);
+  return await evaluateSubmittedFeedbackRevision(
+    context.descriptor,
+    context.checkpoint,
+    revision.learningTaskAttemptId,
+    revisedAnswer,
+  );
+}
+
+async function evaluateSubmittedFeedbackRevision(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  checkpoint: RealLearningOperationCheckpoint,
+  learningTaskAttemptId: string,
+  fallbackAnswer: string,
+): Promise<Phase163LiveWorkspaceState> {
+  try {
+    const started = await feedbackRevisionPersistenceService.startRevisionEvaluation(learningTaskAttemptId);
+    const revision = started.revision;
+    const revisedResponse = revision?.revisedResponse;
+    const initialCommit = checkpoint.realDiagnosisRuntimeResult?.formalDiagnosisCommit;
+    if (!revision || !revisedResponse || !initialCommit?.diagnosisResult) {
+      throw new Error('revision_evaluation_formal_input_missing');
+    }
+    const execution = buildRevisionTaskExecution(
+      descriptor,
+      revisedResponse.answerText,
+      revisedResponse.responseId,
+      revisedResponse.submittedAt,
+    );
+    if (!execution.canEnterDiagnosisRuntime) {
+      throw new Error('revision_evaluation_response_not_diagnosable');
+    }
+    const runtime = await runDiagnosisThroughPhase163Boundary({
+      concreteTask: descriptor.concreteTask,
+      taskExecutionResult: execution,
+      executionMode: 'live',
+      requestId: `revision-diagnosis-${revision.revisionId}`,
+      providerConfig: descriptor.input.providerConfig,
+      commitOnSuccess: true,
+      evidenceReturnAlreadyCompleted: false,
+      startedAt: revisedResponse.submittedAt,
+    });
+    const revisedCommit = runtime.formalDiagnosisCommit;
+    if (
+      runtime.status !== 'formal_result_committed'
+      || !runtime.validation.passed
+      || revisedCommit?.status !== 'committed'
+      || !revisedCommit.diagnosisResult
+    ) {
+      throw new Error(`revision_evaluation_formal_diagnosis_unavailable:${runtime.status}`);
+    }
+    const bundle = evaluateLearningFeedbackRevision({
+      revisionId: revision.revisionId,
+      studentId: started.studentId,
+      taskId: started.taskId,
+      abilityId: descriptor.concreteTask.targetAbilityId,
+      abilityLabel: descriptor.concreteTask.targetAbilityName,
+      resourceVersionId: started.resourceVersionId,
+      rubricVersion: started.rubricVersion,
+      initialAnswer: started.initialResponse.answerText,
+      revisedAnswer: revisedResponse.answerText,
+      revisionGoal: revision.revisionGoal,
+      initialDiagnosisId: initialCommit.formalDiagnosisId,
+      initialDiagnosis: initialCommit.diagnosisResult,
+      revisedDiagnosisId: revisedCommit.formalDiagnosisId,
+      revisedDiagnosisSchemaVersion: runtime.runRecord.diagnosisSchemaVersion,
+      revisedDiagnosis: revisedCommit.diagnosisResult,
+      currentProfile: descriptor.input.currentProfile,
+    });
+    const completed = await feedbackRevisionPersistenceService.completeRevisionEvaluation(
+      learningTaskAttemptId,
+      bundle,
+    );
+    await synchronizeFeedbackRevisionObservations(descriptor, completed);
+  } catch (error) {
+    const issue = toRevisionEvaluationIssue(error);
+    await feedbackRevisionPersistenceService.markRevisionEvaluationPendingRetry(
+      learningTaskAttemptId,
+      issue,
+    );
+  }
+  return await stateFromCheckpoint(descriptor, checkpoint, fallbackAnswer);
+}
+
+function buildRevisionTaskExecution(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  answerText: string,
+  responseId: string,
+  submittedAt: string,
+) {
+  const result = runTaskExecutionAgent({
+    concreteTask: descriptor.concreteTask,
+    readiness: descriptor.readiness,
+    studentAnswer: {
+      answerText,
+      usedHint: true,
+      hintCount: 1,
+      submittedAt,
+    },
+    startedAt: submittedAt,
+    responseOverrides: { responseId },
+  }).taskExecutionResult;
+  if (!result) throw new Error('revision_evaluation_task_execution_unavailable');
+  return result;
+}
+
+function toRevisionEvaluationIssue(
+  error: unknown,
+): Omit<RevisionEvaluationIssue, 'attemptCount' | 'lastFailedAt'> {
+  const code = error instanceof Error
+    ? error.message.split(':')[0] || 'revision_evaluation_unavailable'
+    : 'revision_evaluation_unavailable';
+  return {
+    code,
+    message: '修订回答已经保存，评价暂时不可用；系统会在恢复后自动补充。',
+    retryable: true,
+  };
+}
+
+export async function resumePhase163FeedbackRevisionEvaluation(): Promise<Phase163LiveWorkspaceState> {
+  const context = await currentFeedbackRevisionContext();
+  const revision = context.state.revision;
+  if (!revision || !['submitted', 'evaluating', 'evaluation_pending_retry'].includes(revision.status)) {
+    return context.state;
+  }
+  return await evaluateSubmittedFeedbackRevision(
+    context.descriptor,
+    context.checkpoint,
+    revision.learningTaskAttemptId,
+    context.state.revision?.draftAnswer || context.state.revision?.initialAnswer || '',
+  );
+}
+
+export async function skipPhase163FeedbackRevision(): Promise<void> {
+  const context = await currentFeedbackRevisionContext();
+  const revision = context.state.revision;
+  if (!revision || (revision.status !== 'offered' && revision.status !== 'draft')) return;
+  const attempt = await learningTaskAttemptRepository.getById(revision.learningTaskAttemptId);
+  if (attempt?.status === 'feedback_presented') {
+    await feedbackRevisionPersistenceService.completeInitialOnly(attempt.learningTaskAttemptId);
+  } else if (attempt?.status === 'revision_draft') {
+    await feedbackRevisionPersistenceService.abandonRevision(attempt.learningTaskAttemptId);
+  }
+}
+
+async function currentFeedbackRevisionContext() {
+  const descriptor = await buildCurrentRoundDescriptor();
+  const checkpoint = await operationRepository.getByOperationId(descriptor.input.operationId);
+  if (!checkpoint) throw new Error('当前还没有可以修订的正式反馈。');
+  const state = await stateFromCheckpoint(
+    descriptor,
+    checkpoint,
+    checkpoint.taskExecutionResult?.studentResponse?.answerText || '',
+  );
+  return { descriptor, checkpoint, state };
+}
+
+async function resolveFeedbackRevisionState(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  checkpoint: RealLearningOperationCheckpoint,
+  feedback: StudentLearningFeedback | undefined,
+): Promise<Phase163LiveWorkspaceState['revision']> {
+  const response = checkpoint.taskExecutionResult?.studentResponse;
+  const commit = checkpoint.realDiagnosisRuntimeResult?.formalDiagnosisCommit;
+  const feedbackResult = checkpoint.controlledFeedbackResult;
+  if (!response || !commit?.diagnosisResult || !feedbackResult?.studentLearningFeedback) return undefined;
+
+  const submissionIntentId = buildLearningSubmissionIntentId({
+    responseId: response.responseId,
+    answerText: response.answerText,
+  });
+  const initialAttemptId = attemptIdFor(descriptor, submissionIntentId);
+  let attempt = await feedbackRevisionPersistenceService.createInitialAttempt({
+    initialAttemptId,
+    studentId: descriptor.input.studentId,
+    learningSessionId: descriptor.input.learningSessionId,
+    learningRoundId: descriptor.input.learningRoundId,
+    operationId: descriptor.input.operationId,
+    materialVersionId: descriptor.input.resourceVersion.materialVersionId || 'material-version-unavailable',
+    resourceId: descriptor.input.resourceVersion.resourceId,
+    resourceVersionId: descriptor.input.resourceVersion.resourceVersionId,
+    taskId: descriptor.input.resourceVersion.taskId,
+    taskRole: descriptor.concreteTask.taskRole,
+    rubricVersion: `${descriptor.input.resourceVersion.resourceVersionId}:rubric`,
+    initialResponse: response,
+    initialDiagnosisId: commit.formalDiagnosisId,
+    initialDiagnosisSchemaVersion: commit.schemaVersion,
+    initialFeedbackId: feedbackResult.feedbackRequestId,
+    initialFeedbackSchemaVersion: feedbackResult.schemaVersion,
+    createdAt: response.submittedAt,
+  });
+  const offer = decideLearningFeedbackRevisionOffer({
+    taskRole: descriptor.concreteTask.taskRole,
+    answerStatus: commit.diagnosisResult.answerStatus,
+    formalDiagnosisId: commit.formalDiagnosisId,
+    formalFeedbackId: feedbackResult.feedbackRequestId,
+    formalFeedbackReady: Boolean(
+      feedbackResult.validation.passed
+      && feedbackResult.studentLearningFeedback
+      && feedback,
+    ),
+    requirementCoverage: feedback?.thinkingReview?.requirementCoverage,
+    guidance: feedback?.guidance,
+  });
+  attempt = await feedbackRevisionPersistenceService.recordRevisionOfferDecision(
+    attempt.learningTaskAttemptId,
+    offer,
+    checkpoint.updatedAt,
+  );
+
+  if (attempt.status === 'completed_initial_only') return undefined;
+  if (offer.level === 'none' && attempt.status === 'feedback_presented') {
+    await feedbackRevisionPersistenceService.completeInitialOnly(attempt.learningTaskAttemptId);
+    return undefined;
+  }
+  return toFeedbackRevisionPresentation(attempt, offer);
+}
+
+function toFeedbackRevisionPresentation(
+  attempt: LearningTaskAttemptRecord,
+  offer: LearningFeedbackRevisionOfferDecision,
+): Phase163LiveWorkspaceState['revision'] {
+  if (attempt.revision) {
+    const statusMap: Record<NonNullable<LearningTaskAttemptRecord['revision']>['status'], NonNullable<Phase163LiveWorkspaceState['revision']>['status']> = {
+      draft: 'draft',
+      abandoned: 'submitted',
+      submitted: 'submitted',
+      evaluating: 'evaluating',
+      evaluated: 'evaluated',
+      evaluation_pending_retry: 'evaluation_pending_retry',
+    };
+    return {
+      learningTaskAttemptId: attempt.learningTaskAttemptId,
+      status: statusMap[attempt.revision.status],
+      revisionGoal: attempt.revision.revisionGoal,
+      initialAnswer: attempt.initialResponse.answerText,
+      draftAnswer: attempt.revision.draftAnswer,
+      draftUpdatedAt: attempt.revision.draftUpdatedAt,
+      evaluation: attempt.revision.evaluation,
+      evaluationIssue: attempt.revision.evaluationIssue,
+      evaluationAttemptCount: attempt.revision.evaluationAttemptCount,
+    };
+  }
+  if (offer.level === 'none' || !offer.revisionGoal || !offer.actionLabel) return undefined;
+  return {
+    learningTaskAttemptId: attempt.learningTaskAttemptId,
+    status: 'offered',
+    offerLevel: offer.level,
+    actionLabel: offer.actionLabel,
+    revisionGoal: offer.revisionGoal,
+    initialAnswer: attempt.initialResponse.answerText,
   };
 }
 

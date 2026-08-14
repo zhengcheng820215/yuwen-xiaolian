@@ -2,7 +2,7 @@
 
 **Status:** ENGINEERING BASELINE PASS / REAL STUDENT CALIBRATION PENDING
 **Scope:** 单学生正式学习入口与反馈连续性
-**Updated:** 2026-07-22
+**Updated:** 2026-08-14
 
 > **总设计原则：**一个教育 AI 的价值，不取决于它知道多少，而取决于学生能否感受到它知道、理解并持续帮助自己。
 
@@ -143,6 +143,22 @@ type TaskRequirementGapReasonCode =
 - `insufficient_to_judge` 表示当前信息不足，不能写成答案错误。
 
 `does_not_meet` 不得直接映射为 `conclusion_inconsistent`。正式结论未确认冲突时，应继续依据 Rubric 覆盖、可接受表达和已核验材料事实区分“需要重新判断 / 还需补充依据 / 还需说明联系 / 先补充回答”。页面只消费原因码，不重新解释 Diagnosis。
+
+#### 4.2.1 反馈后 Revision Narrative
+
+当正式策略允许一次反馈后修订时，Narrative 只负责把已成立的主要缺口转成一个学生可执行的 Revision Goal，不负责决定是否开放修订，也不重新诊断。
+
+Revision Goal 必须与 `outcome.primaryGap` 和 `nextAction` 同源，不能出现点评要求补证据、修订目标却要求改结论等逻辑断裂。学生进入 Revision Mode 后，Narrative 应压缩为一至两条修改目标，不重复展示全部首次反馈。
+
+Revised Response 提交后的学生表达必须来自正式 Revision Evaluation，只回答：
+
+- 本次具体改善了什么；
+- 主要缺口还有什么未解决；
+- 下一次遇到类似任务时先做什么。
+
+不得把修订后的达标描述为“已经独立掌握”，不得覆盖首次独立表现，也不得只写“回答更完整了”。Revision Evaluation 暂时不可用时，Narrative 只说明修改已经保存，不生成任何改善判断。
+
+完整资格、状态与证据边界遵循[Learning 反馈后修订契约](./LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md)。
 
 ### 4.3 outcome.progressMeaning
 
