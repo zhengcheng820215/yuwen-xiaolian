@@ -51,7 +51,7 @@ Debug / Acceptance Report
 | Phase 17.4 本机共享正式资源 | 让不同本机客户端读取同一份正式资源，并保护版本与冲突 | PASS | DEBUG 10 / 10 + BASELINE CUTOVER + FRESH INITIALIZATION PASS | CONTROLLED DUAL-CLIENT + INDEPENDENT BROWSER-KERNEL CHECK PASS | RESTART PERSISTENCE PASS |
 | Phase 17.5 题目生成质量评估 | 在发布前发现结构、语义和批次质量问题 | PASS | 17.5A / B / C1 / C2 / C3A / C3B RUNTIME PASS + REVIEW / PUBLICATION WORKFLOW P0 PASS | STAGE 1–5 TEN-MATERIAL / 34-QUESTION CALIBRATION PASS | REAL LEARNING SAMPLE CALIBRATION AWAITING DATA |
 | `/learning` 正式学习入口 | 让单学生从一个入口开始、恢复、作答、反馈并继续 | PASS | MAIN PATH PASS / SHARED FORMAL SNAPSHOT READ FIXED / CONSOLIDATION IN PROGRESS | UNIFIED ENTRY 20 / 20 + FORMAL ENTRY 10 / 10 PASS | `0 / 5` |
-| 真实 Learning 数据采集与观察 | 在不干扰学生的前提下记录匿名使用者、过程、答案与版本化校准样本 | PASS | EXISTING ANSWER / SESSION PERSISTENCE PASS; MINIMUM EVENT CHAIN PENDING | PENDING | AWAITING REAL DATA |
+| 真实 Learning 数据采集与观察 | 在不干扰学生的前提下记录匿名使用者、过程、答案与版本化校准样本 | PASS | WP0—WP7 + STAGE 4 ENGINEERING CLOSEOUT PASS | ISOLATED BROWSER ACCEPTANCE PASS / REAL USE PENDING | AWAITING REAL DATA |
 | 多能力调度 | 根据表现和正式资源决定下一步练什么 | PASS | RUNTIME PASS | LIMITED BY RESOURCE PACK | PENDING |
 | Student Learning Narrative | 把系统已有判断转化为学生可理解、可执行的表达 | PASS | BASELINE PASS | REAL STUDENT CALIBRATION PENDING | PENDING |
 | 跨 Session、复测与长期记忆 | 跨天记住学习历史并在合适时间复测 | PASS | PASS / FROZEN | CONTROLLED DEMO PASS | `0 / 5` |
@@ -99,11 +99,11 @@ Debug / Acceptance Report
 
 | 控制项 | 产品负责人视图 |
 | --- | --- |
-| 为什么需要 | 当前已保存答案、Diagnosis、Evidence 与 Session，但还没有五事件最小链和自动校准 Attempt 接续。若不先补齐，34道题虽能作答，却不能稳定形成题目版本级真实样本。 |
-| 使用者变化 | 第一阶段学生体验不增加步骤，只继续看到保存、提交、反馈和完成；内部人员可以核对每个完成 Round 是否形成唯一校准 Attempt。家长报告和多使用者后置。 |
-| 只做 | 当前优先只做固定单学生五个核心事件、稳定 attemptId、完成轮次后的匿名校准投影和内部完整性报告。 |
+| 为什么需要 | 五事件最小链和自动校准 Attempt 接续已经完成；当前需要在真实使用中持续核对链路完整率、版本级样本资格与失败恢复，避免把工程验收误当成真实样本已经充足。 |
+| 使用者变化 | 第一阶段学生体验不增加步骤，只继续看到保存、提交、反馈和完成；内部人员默认核对“当前采集链”，并可切换“全部历史”查看不补造、不删除的旧缺口。家长报告和多使用者后置。 |
+| 只做 | 当前维持固定单学生五个核心事件、稳定 attemptId、完成轮次后的匿名校准投影和内部完整性报告；进入真实运行，不增加学生操作步骤。 |
 | 不做 | 不记录逐键、鼠标轨迹、剪贴板、其他网页活动；不建立广告画像；不把单人重复作答解释为群体样本；不静默上传本地数据。 |
-| 产品级 PASS | ① 正常作答形成五事件；② 提交时创建稳定 attemptId；③ 只有完成且已评分的轮次投影一个 Attempt；④ 刷新恢复不重复；⑤ 内部报告能发现缺失、重复、错绑和 Demo 泄漏。 |
+| 产品级 PASS | ① 正常作答形成五事件；② 每次不同提交意图创建稳定 attemptId，相同提交重试保持幂等；③ 每个提交恰好对应 eligible、excluded 或 projection failed 之一；④ 只有完成且已评分的 Attempt 进入有效样本；⑤ 内部报告能发现缺失、重复、错绑和 Demo 泄漏；⑥ 旧历史 FAIL 与当前链健康状态分层展示，空当前范围不冒充 PASS。 |
 | 演示路径 | 固定产品学生完成一题 → 核对五事件 → 刷新恢复 → 核对同一 resourceVersionId 只有一个匿名 Attempt → 查看内部完整性报告。 |
 | FAIL 先查 | 身份、版本、幂等或时间：Runtime；学生被干扰：交互；家长观察被当成系统结论：表达 / Runtime；样本资格错误：数据治理。 |
 | 证据 | [真实 Learning 数据采集与观察契约](./REAL_LEARNING_DATA_COLLECTION_AND_OBSERVATION_CONTRACT.md) · [最小采集工程契约](./REAL_LEARNING_MINIMUM_COLLECTION_ENGINEERING_CONTRACT.md) · [AI 题目采用与真实作答校准契约](./AI_QUESTION_ADOPTION_AND_EMPIRICAL_CALIBRATION_CONTRACT.md) |

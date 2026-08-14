@@ -31,9 +31,9 @@ async function run(): Promise<{ status: string; passed: number; total: number; c
   const databaseName = `wp2_learning_collection_smoke_${Date.now()}`;
   const checks: string[] = [];
   try {
-    await createVersionOneDatabase(databaseName);
+    await createVersionTwoDatabase(databaseName);
     const upgraded = await openLearningCollectionDatabase(databaseName);
-    check(upgraded.version === LEARNING_COLLECTION_DATABASE_VERSION, 'upgrade_to_v2', checks);
+    check(upgraded.version === LEARNING_COLLECTION_DATABASE_VERSION, 'upgrade_v2_to_v3', checks);
     check(upgraded.objectStoreNames.contains('legacySentinel'), 'legacy_store_preserved', checks);
     check(upgraded.objectStoreNames.contains(LEARNING_OBSERVATION_EVENT_STORE), 'event_store_created', checks);
     check(upgraded.objectStoreNames.contains(LEARNING_OBSERVATION_OUTBOX_STORE), 'outbox_store_created', checks);
@@ -46,11 +46,16 @@ async function run(): Promise<{ status: string; passed: number; total: number; c
     check(tx.objectStore(LEARNING_OBSERVATION_EVENT_STORE).indexNames.contains('studentRound'), 'event_compound_index', checks);
     check(tx.objectStore(LEARNING_OBSERVATION_OUTBOX_STORE).indexNames.contains('nextRetryAt'), 'outbox_due_index', checks);
     check(tx.objectStore(QUESTION_CALIBRATION_PROJECTION_STORE).indexNames.contains('attemptId'), 'projection_unique_attempt_index', checks);
+    check(tx.objectStore(LEARNING_OBSERVATION_EVENT_STORE).indexNames.contains('studentId'), 'event_student_index_added', checks);
+    check(tx.objectStore(QUESTION_CALIBRATION_PROJECTION_STORE).indexNames.contains('studentId'), 'projection_student_index_added', checks);
     upgraded.close();
 
     const events = new IndexedDBLearningObservationRepository(databaseName);
     const outbox = new IndexedDBLearningObservationOutboxRepository(databaseName);
     const projections = new IndexedDBQuestionCalibrationProjectionRepository(databaseName);
+    check(Boolean(await events.getById('event-browser-v2')), 'v2_event_preserved', checks);
+    check(Boolean(await outbox.getById('outbox-browser-v2')), 'v2_outbox_preserved', checks);
+    check(Boolean(await projections.getByAttemptId('attempt-browser-v2')), 'v2_projection_preserved', checks);
     const sourceEvent = event();
     check((await events.save(sourceEvent)).status === 'created', 'event_created', checks);
     check((await events.save({ ...sourceEvent, recordedAt: '2026-08-13T12:01:00.000Z' })).status === 'unchanged', 'event_idempotent', checks);
@@ -69,7 +74,23 @@ async function run(): Promise<{ status: string; passed: number; total: number; c
     check((await projections.save({ ...record, projectionId: 'projection-duplicate' })).status === 'conflict', 'projection_attempt_unique', checks);
     check((await projections.listEligibleByResourceVersion(record.resourceVersionId)).length === 1, 'projection_version_query', checks);
 
-    return { status: 'PASS', passed: checks.length, total: 19, checks };
+    const concurrent = { ...record, projectionId: 'projection-concurrent', attemptId: 'attempt-concurrent', responseId: 'response-concurrent' };
+    const concurrentResults = await Promise.all([
+      new IndexedDBQuestionCalibrationProjectionRepository(databaseName).save(concurrent),
+      new IndexedDBQuestionCalibrationProjectionRepository(databaseName).save(concurrent),
+    ]);
+    check(concurrentResults.map((item) => item.status).sort().join('|') === 'created|unchanged', 'projection_cross_tab_idempotent', checks);
+    check((await projections.listAll()).filter((item) => item.attemptId === concurrent.attemptId).length === 1, 'projection_cross_tab_single_record', checks);
+
+    const conflictAttempt = { ...record, projectionId: 'projection-race-a', attemptId: 'attempt-race', responseId: 'response-race' };
+    const conflictResults = await Promise.all([
+      new IndexedDBQuestionCalibrationProjectionRepository(databaseName).save(conflictAttempt),
+      new IndexedDBQuestionCalibrationProjectionRepository(databaseName).save({ ...conflictAttempt, projectionId: 'projection-race-b' }),
+    ]);
+    check(conflictResults.map((item) => item.status).sort().join('|') === 'conflict|created', 'projection_cross_tab_conflict_is_structured', checks);
+    check((await projections.listAll()).filter((item) => item.attemptId === conflictAttempt.attemptId).length === 1, 'projection_cross_tab_attempt_unique', checks);
+
+    return { status: 'PASS', passed: checks.length, total: 28, checks };
   } finally {
     await deleteDatabase(databaseName);
   }
@@ -105,10 +126,55 @@ function projection(): QuestionCalibrationProjectionRecord {
   };
 }
 
-function createVersionOneDatabase(databaseName: string): Promise<void> {
+function createVersionTwoDatabase(databaseName: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(databaseName, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore('legacySentinel', { keyPath: 'id' });
+    const request = indexedDB.open(databaseName, 2);
+    request.onupgradeneeded = () => {
+      const legacy = request.result.createObjectStore('legacySentinel', { keyPath: 'id' });
+      legacy.put({ id: 'v2-record', value: 'preserve-me' });
+      const eventStore = request.result.createObjectStore(LEARNING_OBSERVATION_EVENT_STORE, { keyPath: 'eventId' });
+      eventStore.createIndex('studentRound', ['studentId', 'learningRoundId']);
+      eventStore.createIndex('resourceVersionId', 'resourceVersionId');
+      eventStore.createIndex('eventType', 'eventType');
+      const legacyEvent = {
+        ...event(),
+        eventId: 'event-browser-v2',
+        operationId: 'operation-browser-v2',
+        learningSessionId: 'session-browser-v2',
+        learningRoundId: 'round-browser-v2',
+        resourceVersionId: 'resource-version-browser-v2',
+        sourceEntityId: 'presentation-browser-v2',
+      };
+      eventStore.put(legacyEvent);
+      const outboxStore = request.result.createObjectStore(LEARNING_OBSERVATION_OUTBOX_STORE, { keyPath: 'outboxId' });
+      outboxStore.createIndex('eventId', 'eventId', { unique: true });
+      outboxStore.createIndex('learningRoundId', 'learningRoundId');
+      outboxStore.createIndex('nextRetryAt', 'nextRetryAt');
+      outboxStore.createIndex('status', 'status');
+      outboxStore.put({
+        ...outboxEntry(legacyEvent),
+        outboxId: 'outbox-browser-v2',
+        eventId: 'event-browser-v2',
+        learningRoundId: 'round-browser-v2',
+        nextRetryAt: '2099-01-01T00:00:00.000Z',
+        event: legacyEvent,
+      });
+      const projectionStore = request.result.createObjectStore(QUESTION_CALIBRATION_PROJECTION_STORE, { keyPath: 'projectionId' });
+      projectionStore.createIndex('attemptId', 'attemptId', { unique: true });
+      projectionStore.createIndex('studentRound', ['studentId', 'learningRoundId']);
+      projectionStore.createIndex('resourceVersionStatus', ['resourceVersionId', 'status']);
+      projectionStore.createIndex('status', 'status');
+      projectionStore.put({
+        ...projection(),
+        projectionId: 'projection-browser-v2',
+        attemptId: 'attempt-browser-v2',
+        operationId: 'operation-browser-v2',
+        learningSessionId: 'session-browser-v2',
+        learningRoundId: 'round-browser-v2',
+        responseId: 'response-browser-v2',
+        resourceVersionId: 'resource-version-browser-v2',
+      });
+    };
     request.onsuccess = () => { request.result.close(); resolve(); };
     request.onerror = () => reject(request.error);
   });

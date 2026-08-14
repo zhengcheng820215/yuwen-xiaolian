@@ -61,6 +61,7 @@ import {
   type LearningObservationEventPayload,
   type LearningObservationEventType,
 } from '../ai/schemas/learningObservationEvent.schema.ts';
+import { CURRENT_LEARNING_COLLECTION_GENERATION } from '../ai/schemas/learningCollectionGeneration.ts';
 import type { LearningPersistenceRecord } from '../ai/schemas/learningPersistence.schema.ts';
 import type { RealLearningOperationCheckpoint } from '../ai/schemas/realLearningOperation.schema.ts';
 import type { DelayedRetestPlan } from '../ai/schemas/delayedRetestScheduling.schema.ts';
@@ -102,7 +103,7 @@ const observationService = new LearningObservationService(
 const calibrationProjectionService = new QuestionCalibrationProjectionService(
   new IndexedDBQuestionCalibrationProjectionRepository(),
 );
-const LEARNING_APP_VERSION = 'phase16_3_live_learning_wp5';
+const LEARNING_APP_VERSION = CURRENT_LEARNING_COLLECTION_GENERATION;
 
 export type Phase163LiveWorkspaceState = {
   status: 'ready' | 'submitting' | 'completed' | 'retry_required' | 'review_required' | 'blocked';

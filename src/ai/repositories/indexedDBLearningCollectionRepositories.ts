@@ -4,7 +4,7 @@ import type { QuestionCalibrationProjectionRecord } from '../schemas/questionCal
 import {
   InMemoryLearningObservationOutboxRepository,
   InMemoryLearningObservationRepository,
-  InMemoryQuestionCalibrationProjectionRepository,
+  resolveQuestionCalibrationProjectionWrite,
 } from './inMemoryLearningCollectionRepositories.ts';
 import type { LearningObservationRepository, LearningObservationWriteResult } from './learningObservationRepository.ts';
 import type { LearningObservationOutboxRepository, LearningObservationOutboxWriteResult } from './learningObservationOutboxRepository.ts';
@@ -125,23 +125,22 @@ export class IndexedDBQuestionCalibrationProjectionRepository implements Questio
   }
 
   async save(record: QuestionCalibrationProjectionRecord): Promise<QuestionCalibrationProjectionWriteResult> {
-    const [existingById, existingByAttempt] = await Promise.all([
-      getOne<QuestionCalibrationProjectionRecord>(this.databaseName, QUESTION_CALIBRATION_PROJECTION_STORE, record.projectionId),
-      getOneByIndex<QuestionCalibrationProjectionRecord>(
-        this.databaseName, QUESTION_CALIBRATION_PROJECTION_STORE, 'attemptId', record.attemptId,
-      ),
-    ]);
-    const validator = new InMemoryQuestionCalibrationProjectionRepository();
-    if (existingById) await validator.save(existingById);
-    if (existingByAttempt && existingByAttempt.projectionId !== existingById?.projectionId) {
-      await validator.save(existingByAttempt);
-    }
-    const result = await validator.save(record);
-    if (result.status === 'conflict' || result.status === 'unchanged') return result;
     const database = await openLearningCollectionDatabase(this.databaseName);
     try {
-      await requestToPromise(database.transaction(QUESTION_CALIBRATION_PROJECTION_STORE, 'readwrite')
-        .objectStore(QUESTION_CALIBRATION_PROJECTION_STORE).put(result.record));
+      const transaction = database.transaction(QUESTION_CALIBRATION_PROJECTION_STORE, 'readwrite');
+      const store = transaction.objectStore(QUESTION_CALIBRATION_PROJECTION_STORE);
+      const [existingById, existingByAttempt] = await Promise.all([
+        requestToPromise<QuestionCalibrationProjectionRecord | undefined>(store.get(record.projectionId)),
+        requestToPromise<QuestionCalibrationProjectionRecord | undefined>(store.index('attemptId').get(record.attemptId)),
+      ]);
+      const existing = [existingById, existingByAttempt].filter((item, index, items): item is QuestionCalibrationProjectionRecord => (
+        Boolean(item) && items.findIndex((candidate) => candidate?.projectionId === item?.projectionId) === index
+      ));
+      const result = resolveQuestionCalibrationProjectionWrite(existing, record);
+      if (result.status === 'created' || result.status === 'updated') {
+        await requestToPromise(store.put(result.record));
+        await transactionToPromise(transaction);
+      }
       return result;
     } finally { database.close(); }
   }
@@ -291,6 +290,15 @@ function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
     const timer = setTimeout(() => reject(new Error('Learning collection database request timed out.')), INDEXED_DB_TIMEOUT_MS);
     request.onsuccess = () => { clearTimeout(timer); resolve(request.result); };
     request.onerror = () => { clearTimeout(timer); reject(request.error || new Error('Learning collection database request failed.')); };
+  });
+}
+
+function transactionToPromise(transaction: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Learning collection database transaction timed out.')), INDEXED_DB_TIMEOUT_MS);
+    transaction.oncomplete = () => { clearTimeout(timer); resolve(); };
+    transaction.onabort = () => { clearTimeout(timer); reject(transaction.error || new Error('Learning collection database transaction aborted.')); };
+    transaction.onerror = () => { clearTimeout(timer); reject(transaction.error || new Error('Learning collection database transaction failed.')); };
   });
 }
 

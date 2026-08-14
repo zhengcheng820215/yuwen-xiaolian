@@ -1,7 +1,20 @@
 import type { LearningObservationEventType } from './learningObservationEvent.schema.ts';
+import {
+  CURRENT_LEARNING_COLLECTION_GENERATION,
+  CURRENT_LEARNING_COLLECTION_STARTED_AT,
+} from './learningCollectionGeneration.ts';
+
+export {
+  CURRENT_LEARNING_COLLECTION_GENERATION,
+  CURRENT_LEARNING_COLLECTION_STARTED_AT,
+} from './learningCollectionGeneration.ts';
 
 export const LEARNING_COLLECTION_INTEGRITY_SCHEMA_VERSION =
-  'learning_collection_integrity_report_v1' as const;
+  'learning_collection_integrity_report_v2' as const;
+
+export type LearningCollectionIntegrityScope =
+  | 'current_collection'
+  | 'all_history';
 
 export type LearningCollectionIntegrityIssueSeverity = 'warning' | 'fail';
 
@@ -35,6 +48,14 @@ export type LearningCollectionIntegrityReport = {
   reportId: string;
   studentId: string;
   generatedAt: string;
+  scope: LearningCollectionIntegrityScope;
+  collectionGeneration: typeof CURRENT_LEARNING_COLLECTION_GENERATION;
+  currentCollectionStartedAt: typeof CURRENT_LEARNING_COLLECTION_STARTED_AT;
+  scopeTotals: {
+    includedRounds: number;
+    currentCollectionRounds: number;
+    legacyRounds: number;
+  };
   totals: {
     sessions: number;
     roundsWithFormalQuestion: number;
@@ -42,6 +63,7 @@ export type LearningCollectionIntegrityReport = {
     submittedAttempts: number;
     eligibleCalibrationAttempts: number;
     excludedCalibrationAttempts: number;
+    projectionFailedAttempts: number;
     independentSubjects: number;
   };
   eventCounts: Record<LearningObservationEventType, number>;

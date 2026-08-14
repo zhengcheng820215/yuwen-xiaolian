@@ -82,41 +82,11 @@ export class InMemoryQuestionCalibrationProjectionRepository implements Question
   private readonly records = new Map<string, QuestionCalibrationProjectionRecord>();
 
   async save(record: QuestionCalibrationProjectionRecord): Promise<QuestionCalibrationProjectionWriteResult> {
-    const duplicateAttempt = [...this.records.values()].find((item) => (
-      item.attemptId === record.attemptId && item.projectionId !== record.projectionId
-    ));
-    if (duplicateAttempt) {
-      return { status: 'conflict', record: clone(duplicateAttempt), issues: ['question_calibration_attempt_identity_conflict'] };
+    const result = resolveQuestionCalibrationProjectionWrite([...this.records.values()], record);
+    if (result.status === 'created' || result.status === 'updated') {
+      this.records.set(result.record.projectionId, clone(result.record));
     }
-    const existing = this.records.get(record.projectionId);
-    if (!existing) {
-      this.records.set(record.projectionId, clone(record));
-      return { status: 'created', record: clone(record), issues: [] };
-    }
-    if (stableStringify(existing) === stableStringify(record)) {
-      return { status: 'unchanged', record: clone(existing), issues: [] };
-    }
-    if (existing.status === 'eligible'
-      && record.status === 'eligible'
-      && stableStringify(withoutProjectionHistoryIssues(existing)) === stableStringify(withoutProjectionHistoryIssues(record))) {
-      return { status: 'unchanged', record: clone(existing), issues: [] };
-    }
-    if (existing.status === 'eligible' && record.status !== 'eligible') {
-      return { status: 'unchanged', record: clone(existing), issues: ['eligible_projection_is_terminal'] };
-    }
-    if (canUpgradeProjection(existing.status, record.status)) {
-      const upgraded = {
-        ...record,
-        issues: [...new Set([
-          ...existing.issues,
-          `resolved_previous_status:${existing.status}`,
-          ...record.issues,
-        ])],
-      };
-      this.records.set(record.projectionId, clone(upgraded));
-      return { status: 'updated', record: clone(upgraded), issues: [] };
-    }
-    return { status: 'conflict', record: clone(existing), issues: ['question_calibration_projection_conflict'] };
+    return result;
   }
 
   async getByAttemptId(attemptId: string): Promise<QuestionCalibrationProjectionRecord | undefined> {
@@ -145,6 +115,43 @@ export class InMemoryQuestionCalibrationProjectionRepository implements Question
   }
 
   async clear(): Promise<void> { this.records.clear(); }
+}
+
+export function resolveQuestionCalibrationProjectionWrite(
+  records: QuestionCalibrationProjectionRecord[],
+  record: QuestionCalibrationProjectionRecord,
+): QuestionCalibrationProjectionWriteResult {
+  const duplicateAttempt = records.find((item) => (
+    item.attemptId === record.attemptId && item.projectionId !== record.projectionId
+  ));
+  if (duplicateAttempt) {
+    return { status: 'conflict', record: clone(duplicateAttempt), issues: ['question_calibration_attempt_identity_conflict'] };
+  }
+  const existing = records.find((item) => item.projectionId === record.projectionId);
+  if (!existing) return { status: 'created', record: clone(record), issues: [] };
+  if (stableStringify(existing) === stableStringify(record)) {
+    return { status: 'unchanged', record: clone(existing), issues: [] };
+  }
+  if (existing.status === 'eligible'
+    && record.status === 'eligible'
+    && stableStringify(withoutProjectionHistoryIssues(existing)) === stableStringify(withoutProjectionHistoryIssues(record))) {
+    return { status: 'unchanged', record: clone(existing), issues: [] };
+  }
+  if (existing.status === 'eligible' && record.status !== 'eligible') {
+    return { status: 'unchanged', record: clone(existing), issues: ['eligible_projection_is_terminal'] };
+  }
+  if (canUpgradeProjection(existing.status, record.status)) {
+    const upgraded = {
+      ...record,
+      issues: [...new Set([
+        ...existing.issues,
+        `resolved_previous_status:${existing.status}`,
+        ...record.issues,
+      ])],
+    };
+    return { status: 'updated', record: clone(upgraded), issues: [] };
+  }
+  return { status: 'conflict', record: clone(existing), issues: ['question_calibration_projection_conflict'] };
 }
 
 function sameEvent(left: LearningObservationEvent, right: LearningObservationEvent): boolean {

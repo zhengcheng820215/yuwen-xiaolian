@@ -12,6 +12,10 @@ const ATTEMPT_ID = buildLearningCalibrationAttemptId({
   studentId: 'student-local-primary-v1', learningSessionId: 'session-1', learningRoundId: 'round-1',
   submissionIntentId: buildLearningSubmissionIntentId({ responseId: 'response-1', answerText: '有效回答' }),
 });
+const INVALID_ATTEMPT_ID = buildLearningCalibrationAttemptId({
+  studentId: 'student-local-primary-v1', learningSessionId: 'session-1', learningRoundId: 'round-1',
+  submissionIntentId: buildLearningSubmissionIntentId({ responseId: 'response-invalid', answerText: '无效回答' }),
+});
 
 function main(): void {
   const healthy = service.buildReport(fixture());
@@ -35,6 +39,40 @@ function main(): void {
   check('WP6-17 只有 UI marker 缺失时为 warning', warningOnly.status === 'warning' && warningOnly.issues.every((issue) => issue.severity === 'warning'), `${warningOnly.status}/${warningOnly.issues.map((issue) => issue.code).join('|')}`);
   const failPriority = service.buildReport(mutate((value) => { value.events = []; }));
   check('WP6-18 fail 优先于 warning', failPriority.status === 'fail' && failPriority.issues.some((issue) => issue.severity === 'warning'), failPriority.status);
+  const mixed = mixedHistoryFixture();
+  const currentOnly = service.buildReport({ ...mixed, scope: 'current_collection' });
+  check('WP6-19 当前范围不受旧历史 FAIL 污染', currentOnly.status === 'pass' && currentOnly.issues.length === 0, `${currentOnly.status}/${currentOnly.issues.length}`);
+  check('WP6-20 当前范围返回代际和范围计数', currentOnly.scope === 'current_collection' && currentOnly.scopeTotals.includedRounds === 1 && currentOnly.scopeTotals.currentCollectionRounds === 1 && currentOnly.scopeTotals.legacyRounds === 1, `${currentOnly.scope}/${JSON.stringify(currentOnly.scopeTotals)}`);
+  const allHistory = service.buildReport({ ...mixed, scope: 'all_history' });
+  check('WP6-21 全部历史继续保留旧轮次 FAIL', allHistory.status === 'fail' && allHistory.issues.some((issue) => issue.learningRoundId === 'round-legacy'), `${allHistory.status}/${allHistory.issues.map((issue) => issue.code).join('|')}`);
+  const emptyCurrent = service.buildReport({ ...legacyOnlyFixture(), scope: 'current_collection' });
+  check('WP6-22 当前范围为空时返回零纳入轮次', emptyCurrent.scopeTotals.includedRounds === 0 && emptyCurrent.totals.roundsWithFormalQuestion === 0, JSON.stringify(emptyCurrent.scopeTotals));
+  const brokenCurrent = currentFixture();
+  brokenCurrent.events = [];
+  brokenCurrent.projections = [];
+  const brokenCurrentReport = service.buildReport({ ...brokenCurrent, scope: 'current_collection' });
+  check('WP6-23 当前轮次采集失败不会被误归历史', brokenCurrentReport.status === 'fail' && brokenCurrentReport.scopeTotals.includedRounds === 1 && brokenCurrentReport.issues.some((issue) => issue.code === 'missing_answer_submitted'), `${brokenCurrentReport.status}/${brokenCurrentReport.scopeTotals.includedRounds}`);
+  const retried = invalidThenValidFixture();
+  const retriedReport = service.buildReport(retried);
+  check('WP6-24 同轮无效后有效提交分别闭合', retriedReport.status === 'pass' && retriedReport.totals.submittedAttempts === 2 && retriedReport.totals.eligibleCalibrationAttempts === 1 && retriedReport.totals.excludedCalibrationAttempts === 1, `${retriedReport.status}/${JSON.stringify(retriedReport.totals)}`);
+  const missingEarlyProjection = invalidThenValidFixture();
+  missingEarlyProjection.projections = missingEarlyProjection.projections.filter((record) => record.attemptId !== INVALID_ATTEMPT_ID);
+  const missingEarlyProjectionReport = service.buildReport(missingEarlyProjection);
+  check('WP6-25 早期提交缺少 Projection 可被发现', missingEarlyProjectionReport.status === 'fail' && missingEarlyProjectionReport.issues.some((issue) => issue.code === 'missing_projection' && issue.attemptId === INVALID_ATTEMPT_ID), missingEarlyProjectionReport.issues.map((issue) => `${issue.code}:${issue.attemptId}`).join('|'));
+  const earlierOnly = invalidThenValidFixture();
+  earlierOnly.events = earlierOnly.events.filter((event) => !(event.eventType === 'answer_submitted' && event.payload.kind === 'answer_submitted' && event.payload.attemptId === ATTEMPT_ID));
+  const earlierOnlyReport = service.buildReport(earlierOnly);
+  check('WP6-26 早期提交不能掩盖最终提交事件缺失', earlierOnlyReport.status === 'fail' && earlierOnlyReport.issues.some((issue) => issue.code === 'missing_answer_submitted' && issue.attemptId === ATTEMPT_ID), earlierOnlyReport.issues.map((issue) => `${issue.code}:${issue.attemptId}`).join('|'));
+  const failedProjection = invalidThenValidFixture();
+  failedProjection.projections = failedProjection.projections.map((record) => record.attemptId === INVALID_ATTEMPT_ID ? { ...record, status: 'projection_failed', issues: ['projection_identity_failure'] } : record);
+  const failedProjectionReport = service.buildReport(failedProjection);
+  check('WP6-27 projection_failed 计入闭合等式', failedProjectionReport.status === 'pass' && failedProjectionReport.totals.submittedAttempts === 2 && failedProjectionReport.totals.projectionFailedAttempts === 1 && failedProjectionReport.totals.excludedCalibrationAttempts === 0, `${failedProjectionReport.status}/${JSON.stringify(failedProjectionReport.totals)}`);
+  const orphanProjection = fixture();
+  orphanProjection.projections.push({ ...orphanProjection.projections[0], projectionId: 'projection-orphan', attemptId: 'attempt-orphan', responseId: 'response-orphan', status: 'excluded_invalid_response', itemScore: undefined, itemScorePolicyVersion: undefined, formalDiagnosisId: undefined, completedAt: undefined, valid: false, issues: ['excluded_invalid_response'] });
+  const orphanProjectionReport = service.buildReport(orphanProjection);
+  check('WP6-28 无提交事件的 Projection 触发身份错误', orphanProjectionReport.status === 'fail' && orphanProjectionReport.issues.some((issue) => issue.code === 'identity_mismatch' && issue.attemptId === 'attempt-orphan'), orphanProjectionReport.issues.map((issue) => `${issue.code}:${issue.attemptId}`).join('|'));
+  const repeatedSubjectReport = service.buildReport(repeatedSubjectFixture());
+  check('WP6-29 同一学生多轮只计一个独立对象', repeatedSubjectReport.status === 'pass' && repeatedSubjectReport.totals.completedRounds === 2 && repeatedSubjectReport.totals.eligibleCalibrationAttempts === 2 && repeatedSubjectReport.totals.independentSubjects === 1, `${repeatedSubjectReport.status}/${JSON.stringify(repeatedSubjectReport.totals)}`);
 
   console.log('\nReal Learning Minimum Collection WP6 Debug');
   console.log('='.repeat(78));
@@ -62,6 +100,149 @@ function fixture(): LearningCollectionIntegrityInput {
     checkpoints: [checkpoint()], persistenceRecords: [persistence()], events: eventChain(), projections: [projection()],
     questionPresentedRoundIds: ['round-1'], feedbackPresentedRoundIds: ['round-1'], claimedIndependentSampleCount: 1,
   };
+}
+
+function currentFixture(): LearningCollectionIntegrityInput {
+  const value = fixture();
+  value.checkpoints[0] = {
+    ...value.checkpoints[0],
+    createdAt: '2026-08-13T15:00:00.000Z',
+    updatedAt: '2026-08-13T15:05:00.000Z',
+  };
+  return value;
+}
+
+function legacyOnlyFixture(): LearningCollectionIntegrityInput {
+  const value = fixture();
+  const checkpointValue = value.checkpoints[0];
+  const legacyCheckpoint: RealLearningOperationCheckpoint = {
+    ...checkpointValue,
+    operationId: 'operation-legacy',
+    learningSessionId: 'session-legacy',
+    learningRoundId: 'round-legacy',
+    createdAt: '2026-08-13T12:00:00.000Z',
+    updatedAt: '2026-08-13T12:05:00.000Z',
+  };
+  return {
+    ...value,
+    checkpoints: [legacyCheckpoint],
+    persistenceRecords: [{ ...value.persistenceRecords[0], recordId: 'persistence-legacy', learningRoundId: 'round-legacy' }],
+    events: [],
+    projections: [],
+    questionPresentedRoundIds: [],
+    feedbackPresentedRoundIds: [],
+  };
+}
+
+function mixedHistoryFixture(): LearningCollectionIntegrityInput {
+  const current = currentFixture();
+  const legacy = legacyOnlyFixture();
+  return {
+    ...current,
+    checkpoints: [...legacy.checkpoints, ...current.checkpoints],
+    persistenceRecords: [...legacy.persistenceRecords, ...current.persistenceRecords],
+  };
+}
+
+function invalidThenValidFixture(): LearningCollectionIntegrityInput {
+  const value = fixture();
+  const finalAnswer = value.events.find((event) => event.eventType === 'answer_submitted')!;
+  const invalidEvent: LearningObservationEvent = {
+    ...finalAnswer,
+    eventId: 'event-answer-invalid',
+    occurredAt: '2026-08-13T12:00:30.000Z',
+    recordedAt: '2026-08-13T12:00:30.000Z',
+    sourceEntityId: 'source-answer-invalid',
+    payload: {
+      kind: 'answer_submitted',
+      responseId: 'response-invalid',
+      attemptId: INVALID_ATTEMPT_ID,
+      submittedAt: '2026-08-13T12:00:30.000Z',
+    },
+  };
+  value.events.splice(1, 0, invalidEvent);
+  value.projections.unshift({
+    ...value.projections[0],
+    projectionId: 'projection-invalid',
+    attemptId: INVALID_ATTEMPT_ID,
+    status: 'excluded_invalid_response',
+    responseId: 'response-invalid',
+    formalDiagnosisId: undefined,
+    itemScore: undefined,
+    itemScorePolicyVersion: undefined,
+    valid: false,
+    completedAt: undefined,
+    projectedAt: '2026-08-13T12:00:30.000Z',
+    issues: ['excluded_invalid_response'],
+  });
+  return value;
+}
+
+function repeatedSubjectFixture(): LearningCollectionIntegrityInput {
+  const value = fixture();
+  const secondCheckpoint = structuredClone(value.checkpoints[0]);
+  secondCheckpoint.operationId = 'operation-2';
+  secondCheckpoint.learningSessionId = 'session-2';
+  secondCheckpoint.learningRoundId = 'round-2';
+  secondCheckpoint.taskExecutionResult!.executionSessionId = 'execution-2';
+  secondCheckpoint.taskExecutionResult!.studentResponse!.responseId = 'response-2';
+  secondCheckpoint.taskExecutionResult!.studentResponse!.executionSessionId = 'execution-2';
+  secondCheckpoint.taskExecutionResult!.studentResponse!.answerText = '第二次有效回答';
+  secondCheckpoint.taskExecutionResult!.responseValidity!.responseId = 'response-2';
+  secondCheckpoint.realDiagnosisRuntimeResult!.requestId = 'request-2';
+  secondCheckpoint.realDiagnosisRuntimeResult!.runRecord.requestId = 'request-2';
+  secondCheckpoint.realDiagnosisRuntimeResult!.runRecord.responseId = 'response-2';
+  secondCheckpoint.realDiagnosisRuntimeResult!.formalDiagnosisCommit!.requestId = 'request-2';
+  secondCheckpoint.realDiagnosisRuntimeResult!.formalDiagnosisCommit!.formalDiagnosisId = 'diagnosis-2';
+  const secondAttemptId = buildLearningCalibrationAttemptId({
+    studentId: secondCheckpoint.studentId,
+    learningSessionId: secondCheckpoint.learningSessionId,
+    learningRoundId: secondCheckpoint.learningRoundId,
+    submissionIntentId: buildLearningSubmissionIntentId({ responseId: 'response-2', answerText: '第二次有效回答' }),
+  });
+  const secondEvents = value.events.map((event) => ({
+    ...event,
+    eventId: `${event.eventId}-round-2`,
+    operationId: 'operation-2',
+    learningSessionId: 'session-2',
+    learningRoundId: 'round-2',
+    sourceEntityId: `${event.sourceEntityId}-round-2`,
+    payload: secondRoundPayload(event.eventType, secondAttemptId),
+  }));
+  return {
+    ...value,
+    checkpoints: [...value.checkpoints, secondCheckpoint],
+    persistenceRecords: [...value.persistenceRecords, {
+      ...value.persistenceRecords[0],
+      recordId: 'persistence-2',
+      learningRoundId: 'round-2',
+    }],
+    events: [...value.events, ...secondEvents],
+    projections: [...value.projections, {
+      ...value.projections[0],
+      projectionId: 'projection-2',
+      attemptId: secondAttemptId,
+      operationId: 'operation-2',
+      learningSessionId: 'session-2',
+      learningRoundId: 'round-2',
+      responseId: 'response-2',
+      formalDiagnosisId: 'diagnosis-2',
+    }],
+    questionPresentedRoundIds: ['round-1', 'round-2'],
+    feedbackPresentedRoundIds: ['round-1', 'round-2'],
+    claimedIndependentSampleCount: 1,
+  };
+}
+
+function secondRoundPayload(
+  type: LearningObservationEventType,
+  attemptId: string,
+): LearningObservationEvent['payload'] {
+  if (type === 'question_presented') return { kind: type, presentationId: 'presentation-2' };
+  if (type === 'answer_submitted') return { kind: type, responseId: 'response-2', attemptId, submittedAt: '2026-08-13T12:01:00.000Z' };
+  if (type === 'diagnosis_completed') return { kind: type, responseId: 'response-2', attemptId, formalDiagnosisId: 'diagnosis-2', diagnosisSchemaVersion: 'v1' };
+  if (type === 'feedback_presented') return { kind: type, responseId: 'response-2', attemptId, feedbackRequestId: 'feedback-2', feedbackSchemaVersion: 'v1' };
+  return { kind: type, responseId: 'response-2', attemptId, persistenceRecordId: 'persistence-2', completedAt: '2026-08-13T12:04:00.000Z' };
 }
 
 function checkpoint(): RealLearningOperationCheckpoint {

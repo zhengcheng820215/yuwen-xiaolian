@@ -12,36 +12,46 @@ export default function LearningCollectionIntegrity() {
   const [view, setView] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(true);
-  const load = () => {
+  const [scope, setScope] = useState('current_collection');
+  const load = (nextScope) => {
     setBusy(true); setError('');
-    loadLearningCollectionIntegrityView().then(setView).catch((reason) => setError(reason instanceof Error ? reason.message : String(reason))).finally(() => setBusy(false));
+    loadLearningCollectionIntegrityView(nextScope).then(setView).catch((reason) => setError(reason instanceof Error ? reason.message : String(reason))).finally(() => setBusy(false));
   };
-  useEffect(load, []);
+  useEffect(() => { load(scope); }, [scope]);
   const report = view?.report;
+  const awaitingData = report?.scopeTotals.includedRounds === 0;
   return (
     <div className="min-h-screen bg-[#f7f9fc] text-slate-950">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex min-h-16 max-w-[1208px] items-center justify-between px-5 md:px-8">
           <div className="flex items-center gap-3"><Link to="/internal" aria-label="返回内部入口"><ArrowLeft size={19} /></Link><h1 className="text-lg font-semibold">学习采集完整性</h1></div>
-          <button type="button" onClick={load} disabled={busy} className="flex items-center gap-2 text-sm text-emerald-700"><RefreshCw size={16} className={busy ? 'animate-spin' : ''} />刷新报告</button>
+          <button type="button" onClick={() => load(scope)} disabled={busy} className="flex items-center gap-2 text-sm text-emerald-700"><RefreshCw size={16} className={busy ? 'animate-spin' : ''} />刷新报告</button>
         </div>
       </header>
       <main className="mx-auto max-w-[1208px] px-5 py-8 md:px-8">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex rounded-md border border-slate-200 bg-white p-1" role="group" aria-label="完整性报告范围">
+            <ScopeButton active={scope === 'current_collection'} disabled={busy} onClick={() => setScope('current_collection')}>当前采集链</ScopeButton>
+            <ScopeButton active={scope === 'all_history'} disabled={busy} onClick={() => setScope('all_history')}>全部历史</ScopeButton>
+          </div>
+          <p className="text-xs text-slate-500">切换范围只读取报告，不修改学习与采集数据。</p>
+        </div>
         {error ? <p className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p> : null}
         {!report ? <p className="text-sm text-slate-600">正在读取只读采集报告。</p> : (
           <>
             <section className="rounded-md border border-slate-200 bg-white p-6">
-              <div className="flex items-center gap-3">{statusIcon(report.status)}<div><p className="text-xs font-semibold uppercase text-slate-500">Integrity {report.status}</p><h2 className="text-xl font-semibold">{statusText(report.status)}</h2></div></div>
-              <div className="mt-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                {Object.entries({ 轮次: report.totals.roundsWithFormalQuestion, 已完成: report.totals.completedRounds, 提交: report.totals.submittedAttempts, 有效样本: report.totals.eligibleCalibrationAttempts, 排除样本: report.totals.excludedCalibrationAttempts, 独立使用者: report.totals.independentSubjects }).map(([label, value]) => <div key={label} className="rounded-md bg-slate-50 p-4"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-xl font-semibold">{value}</p></div>)}
+              <div className="flex items-center gap-3">{statusIcon(report.status, awaitingData)}<div><p className="text-xs font-semibold uppercase text-slate-500">{report.scope === 'current_collection' ? '当前采集链' : '全部历史'} · Integrity {awaitingData ? 'AWAITING DATA' : report.status}</p><h2 className="text-xl font-semibold">{statusText(report.status, awaitingData, report.scope)}</h2></div></div>
+              <div className="mt-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-7">
+                {Object.entries({ 轮次: report.totals.roundsWithFormalQuestion, 已完成: report.totals.completedRounds, 提交: report.totals.submittedAttempts, 有效样本: report.totals.eligibleCalibrationAttempts, 排除样本: report.totals.excludedCalibrationAttempts, 投影失败: report.totals.projectionFailedAttempts, 独立使用者: report.totals.independentSubjects }).map(([label, value]) => <div key={label} className="rounded-md bg-slate-50 p-4"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-xl font-semibold">{value}</p></div>)}
               </div>
-              <p className="mt-5 text-xs text-slate-500">本页只读取和核对现有事实，不自动补写或修改正式数据，也不表示题目已经完成群体校准。</p>
+              <p className="mt-5 text-sm text-slate-600">当前代际 {report.scopeTotals.currentCollectionRounds} 个轮次，旧历史 {report.scopeTotals.legacyRounds} 个轮次。{report.scope === 'current_collection' ? '旧历史问题不影响当前链健康判断。' : '此范围保留全部历史遗留问题。'}</p>
+              <p className="mt-2 text-xs text-slate-500">本页只读取和核对现有事实，不自动补写或修改正式数据，也不表示题目已经完成群体校准。</p>
             </section>
             <section className="mt-6 rounded-md border border-slate-200 bg-white p-6">
               <h2 className="text-base font-semibold">问题</h2>
-              {report.issues.length === 0 ? <p className="mt-3 text-sm text-slate-600">当前未发现完整性问题。</p> : <div className="mt-4 space-y-3">{report.issues.map((issue, index) => <div key={`${issue.code}-${index}`} className="rounded-md border border-slate-200 p-4"><div className="flex gap-2"><span className={issue.severity === 'fail' ? 'text-red-600' : 'text-amber-600'}>{issue.severity === 'fail' ? '失败' : '警告'}</span><code className="text-xs text-slate-500">{issue.code}</code></div><p className="mt-2 text-sm text-slate-700">{issue.message}</p></div>)}</div>}
+              {awaitingData ? <p className="mt-3 text-sm text-slate-600">{report.scope === 'current_collection' ? '当前采集代际尚无真实轮次，完成新一轮学习后再判断链路健康度。' : '全部历史范围尚无正式学习轮次。'}</p> : report.issues.length === 0 ? <p className="mt-3 text-sm text-slate-600">当前范围未发现完整性问题。</p> : <div className="mt-4 space-y-3">{report.issues.map((issue, index) => <div key={`${issue.code}-${index}`} className="rounded-md border border-slate-200 p-4"><div className="flex gap-2"><span className={issue.severity === 'fail' ? 'text-red-600' : 'text-amber-600'}>{issue.severity === 'fail' ? '失败' : '警告'}</span><code className="text-xs text-slate-500">{issue.code}</code></div><p className="mt-2 text-sm text-slate-700">{issue.message}</p></div>)}</div>}
             </section>
-            <section className="mt-6 space-y-3"><h2 className="text-base font-semibold">按轮次查看</h2>{view.rounds.length === 0 ? <p className="text-sm text-slate-600">尚无正式学习轮次。</p> : view.rounds.map((round) => <details key={round.learningRoundId} className="rounded-md border border-slate-200 bg-white p-5"><summary className="cursor-pointer text-sm font-semibold">{round.learningRoundId} · {round.status}</summary><p className="mt-3 text-xs text-slate-500">题目版本：{round.resourceVersionId}</p><div className="mt-4 flex flex-wrap gap-2">{round.events.map((event, index) => <span key={`${event.eventType}-${index}`} className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-800">{eventNames[event.eventType]}</span>)}</div><div className="mt-4 text-sm text-slate-700">Attempt：{round.projections.length ? round.projections.map((item) => `${item.status}${item.itemScore === undefined ? '' : ` · ${item.itemScore}`}`).join('；') : '无 Projection'}</div></details>)}</section>
+            <section className="mt-6 space-y-3"><h2 className="text-base font-semibold">按轮次查看</h2>{view.rounds.length === 0 ? <p className="text-sm text-slate-600">{scope === 'current_collection' ? '尚无当前采集代际的正式学习轮次。' : '尚无正式学习轮次。'}</p> : view.rounds.map((round) => <details key={round.learningRoundId} className="rounded-md border border-slate-200 bg-white p-5"><summary className="cursor-pointer text-sm font-semibold">{round.learningRoundId} · {round.status}</summary><p className="mt-3 text-xs text-slate-500">题目版本：{round.resourceVersionId}</p><div className="mt-4 flex flex-wrap gap-2">{round.events.map((event, index) => <span key={`${event.eventType}-${index}`} className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-800">{eventNames[event.eventType]}</span>)}</div><div className="mt-4 text-sm text-slate-700">Attempt：{round.projections.length ? round.projections.map((item) => `${item.attemptId} · ${item.status}${item.itemScore === undefined ? '' : ` · ${item.itemScore}`}`).join('；') : '无 Projection'}</div></details>)}</section>
           </>
         )}
       </main>
@@ -49,9 +59,13 @@ export default function LearningCollectionIntegrity() {
   );
 }
 
-function statusIcon(status) {
+function ScopeButton({ active, disabled, onClick, children }) {
+  return <button type="button" disabled={disabled} onClick={onClick} aria-pressed={active} className={`rounded px-4 py-2 text-sm font-medium ${active ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>{children}</button>;
+}
+function statusIcon(status, awaitingData) {
+  if (awaitingData) return <AlertTriangle size={28} className="text-slate-400" />;
   if (status === 'pass') return <CheckCircle2 size={28} className="text-emerald-600" />;
   if (status === 'warning') return <AlertTriangle size={28} className="text-amber-500" />;
   return <XCircle size={28} className="text-red-600" />;
 }
-function statusText(status) { return status === 'pass' ? '采集链完整' : status === 'warning' ? '存在需要留意的问题' : '存在阻断性完整性问题'; }
+function statusText(status, awaitingData, scope) { return awaitingData ? scope === 'current_collection' ? '尚无当前采集轮次' : '尚无历史学习轮次' : status === 'pass' ? '采集链完整' : status === 'warning' ? '存在需要留意的问题' : '存在阻断性完整性问题'; }

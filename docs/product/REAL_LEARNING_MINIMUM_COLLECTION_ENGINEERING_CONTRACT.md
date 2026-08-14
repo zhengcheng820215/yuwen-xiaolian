@@ -4,9 +4,11 @@
 
 状态：`DESIGN FROZEN / ENGINEERING WP0—WP7 PASS`
 
-文档版本：`real_learning_minimum_collection_engineering_v1.0`
+文档版本：`real_learning_minimum_collection_engineering_v1.2`
 
 生效日期：`2026-08-13`
+
+更新日期：`2026-08-14`
 
 ## 一、目的与工程边界
 
@@ -264,6 +266,8 @@ projectionId = buildStableId(
 
 `question_presented` 与 `feedback_presented` 是 UI 可见事实，其余三个是 Runtime 事实。UI 组件只调用 Application Service，不得直接写 IndexedDB。
 
+当前正式运行代际固定为 `real_learning_collection_v1`，五类事件的 `appVersion` 必须使用这一代际标识。不得继续沿用 `phase16_3_live_learning_wp5` 等工作包临时名称，避免当前采集链与运行时事件版本漂移。
+
 ## 六、事件服务与 Repository
 
 ### 6.1 Application Service
@@ -310,13 +314,17 @@ export interface QuestionCalibrationProjectionRepository {
 
 ### 6.4 本地存储
 
-实现使用独立 IndexedDB `yuwen_xiaolian_learning_collection`，当前版本为 `2`，不使用 LocalStorage 保存完整事件或投影。独立数据库避免升级采集能力时改变现有 Learning Persistence、Session、Operation 与多日运行数据库。Object Store 名称固定为：
+实现使用独立 IndexedDB `yuwen_xiaolian_learning_collection`，当前版本为 `3`，不使用 LocalStorage 保存完整事件或投影。v3 在保留既有 Event、Outbox 和 Projection 的基础上补充 `studentId` 索引；独立数据库避免升级采集能力时改变现有 Learning Persistence、Session、Operation 与多日运行数据库。Object Store 名称固定为：
 
 - `learningObservationEvents`，主键 `eventId`；
 - `learningObservationOutbox`，主键 `outboxId`；
 - `questionCalibrationProjections`，主键 `projectionId`。
 
 最低索引：`studentId + learningRoundId`、`resourceVersionId`、`eventType`、`attemptId`、`status`。数据库升级必须保留既有答案、Session、Checkpoint 与 Persistence Store；升级失败时 Learning 主链继续可用，采集进入明确降级状态。
+
+Projection 的重复检查、冲突判定和写入必须在同一个 IndexedDB `readwrite` Transaction 内完成。浏览器会按 Store 串行化不同标签页的写事务，因此并发写入同一 `attemptId` 时只能得到以下稳定结果：相同内容为一次 `created` 加一次 `unchanged`；不同 `projectionId` 为一次 `created` 加一次结构化 `conflict`。不得把唯一索引异常直接暴露给 Learning 主链，也不得用事务外“先查后写”制造竞态窗口。
+
+v2 → v3 Upgrade 的验收必须预置并保留 Event、Outbox、Projection 和无关旧 Store 的实际记录，不以空库成功升级代替数据兼容性证明。
 
 ## 七、补写、顺序与失败恢复
 
@@ -410,10 +418,12 @@ assessmentWindowId = undefined
 
 ```ts
 export type LearningCollectionIntegrityReport = {
-  schemaVersion: 'learning_collection_integrity_report_v1';
+  schemaVersion: 'learning_collection_integrity_report_v2';
   reportId: string;
   studentId: string;
   generatedAt: string;
+  scope: 'current_collection' | 'all_history';
+  collectionGeneration: 'real_learning_collection_v1';
   totals: {
     sessions: number;
     roundsWithFormalQuestion: number;
@@ -421,6 +431,7 @@ export type LearningCollectionIntegrityReport = {
     submittedAttempts: number;
     eligibleCalibrationAttempts: number;
     excludedCalibrationAttempts: number;
+    projectionFailedAttempts: number;
   };
   eventCounts: Record<LearningObservationEventType, number>;
   issues: LearningCollectionIntegrityIssue[];
@@ -434,24 +445,27 @@ export type LearningCollectionIntegrityReport = {
 
 - `R` = 固定产品学生的正式 Round；
 - `C` = `R` 中 Persistence 已保存且状态为 `completed` 的 Round；
-- `S` = `R` 中存在 `StudentResponse` 的稳定 `attemptId`；
+- `S` = `R` 中不同 `answer_submitted.payload.attemptId` 的集合；
 - `E` = Projection 状态为 `eligible` 的 Attempt；
 - `X` = Projection 状态为 `excluded_*` 的 Attempt。
+- `F` = Projection 状态为 `projection_failed` 的 Attempt。
+
+必须满足 `|S| = |E| + |X| + |F|`。`submittedAttempts` 取 `|S|`，不得继续按“Checkpoint 中存在最终 StudentResponse 的 Round 数”计算。Checkpoint 最终 Response 只用于确认当前正式结果的提交事件没有缺失，不代表同一 Round 之前没有发生其他无效或被排除的提交。
 
 报告必须检查：
 
 | Issue | 判定公式 | 等级 |
 | --- | --- | --- |
 | `missing_question_presented` | 正式题可交互 marker 存在但对应事件数为 0 | warning |
-| `missing_answer_submitted` | `attemptId ∈ S` 但提交事件数为 0 | fail |
+| `missing_answer_submitted` | Checkpoint 最终 Response 推导的 `attemptId` 不在 S | fail |
 | `missing_diagnosis_completed` | Formal Commit 已存在但诊断事件数为 0 | fail |
 | `missing_feedback_presented` | 反馈可见 marker 存在但事件数为 0 | warning |
 | `missing_round_completed` | `round ∈ C` 但完成事件数为 0 | fail |
-| `missing_projection` | `attemptId ∈ S` 且无 E、X 或 failed Projection | fail |
+| `missing_projection` | `attemptId ∈ S` 且无 E、X 或 F 中的唯一 Projection | fail |
 | `duplicate_event` | 同一规范 Event Key 的活动记录数大于 1 | fail |
 | `duplicate_projection` | 同一 `attemptId` 的 Projection 数大于 1 | fail |
 | `resource_version_mismatch` | Event/Projection 版本不等于本轮 Checkpoint 版本 | fail |
-| `identity_mismatch` | Session、Round、Response、Diagnosis 链不能闭合 | fail |
+| `identity_mismatch` | Event/Projection 的 Session、Round、Attempt、Response 或 Diagnosis 链不能按对应提交意图闭合 | fail |
 | `demo_scope_leak` | Product Repository 中存在非 Product 数据 | fail |
 | `occurred_at_inversion` | 可比较事实时间明显逆序 | warning；若影响归属则 fail |
 | `eligible_without_completed_round` | `attemptId ∈ E` 但所属 Round 不在 `C` | fail |
@@ -459,9 +473,33 @@ export type LearningCollectionIntegrityReport = {
 
 `status = fail` 当存在任一 fail Issue；否则有 warning 为 `warning`；无 Issue 为 `pass`。报告不得用事件存在替代权威完成事实，也不得自动修复后隐藏本次发现的 Issue。
 
+身份核对按 Attempt 分组：`answer_submitted` 建立 `attemptId -> responseId` 权威映射；同一 Attempt 的后续 Event 与 Projection 必须使用相同 Response。早期无效 Attempt 不要求等于 Checkpoint 最终 Response；最终正式 Diagnosis、Feedback 与 Round Completion 仍必须与 Checkpoint 当前正式结果闭合。Projection 存在但找不到对应 `answer_submitted` 时属于 `identity_mismatch`。
+
 ### 9.3 内部显示
 
-P3 只提供内部只读页面或 JSON，不进入学生默认界面。至少支持按 Round 展开五事件、Attempt 状态、版本绑定与 Issue；不显示群体百分位或“题目已验证”。
+P3 只提供内部只读页面或 JSON，不进入学生默认界面。至少支持按 Round 展开五事件、Attempt 状态、版本绑定与 Issue，并分别显示提交、eligible、excluded 和 projection failed 数量；不显示群体百分位或“题目已验证”。
+
+报告查询增加固定范围：
+
+```ts
+type LearningCollectionIntegrityScope =
+  | 'current_collection'
+  | 'all_history';
+
+const CURRENT_COLLECTION_GENERATION = 'real_learning_collection_v1';
+const CURRENT_COLLECTION_STARTED_AT = '2026-08-13T14:03:24.000Z';
+```
+
+范围判定以 `RealLearningOperationCheckpoint.createdAt` 为权威：
+
+- `current_collection` 只包含 `createdAt >= CURRENT_COLLECTION_STARTED_AT` 的 Round，并同步过滤其 Persistence、Event、Projection 与 UI marker；
+- `all_history` 保留固定产品学生的全部 Round 和全部真实 Issue；
+- 不得以 Event 或 Projection 是否存在作为当前代际判定条件；
+- 报告必须返回当前范围、代际、范围起点、纳入 Round 数、当前代际 Round 数和旧历史 Round 数；
+- 当前范围为零个 Round 时，页面显示等待真实数据，不把空集合投影为“采集链完整”；
+- 页面切换范围和刷新报告均为只读操作。
+
+默认内部页面使用 `current_collection`。`all_history` 的 FAIL 不改变当前范围的状态；当前范围的 FAIL 也不得被全量统计或旧历史说明降级隐藏。
 
 ## 十、模块落位
 
@@ -566,4 +604,4 @@ Schema v1 + ID helpers
 → 自动化回归 + 人工浏览器验收
 ```
 
-本轮不得先做家长页面或多用户。第一批 34 道题开始真实运行前，至少应完成 P1；若要把真实作答计入题目校准，则必须同时完成 P2。P3 应紧随 P2，用于防止采集链静默缺失。
+本轮不得先做家长页面或多用户。P1、P2、P3 及其对应的 `WP0—WP7` 工程与验收现已完成：第一批34道题可以进入固定单学生的受控真实运行，并自动形成版本化 Projection 与匿名 Attempt。该完成状态只证明采集、恢复和审计能力已经就绪；在缺少足量不同 `subjectKey` 时，仍不得宣称题目完成群体实证校准。

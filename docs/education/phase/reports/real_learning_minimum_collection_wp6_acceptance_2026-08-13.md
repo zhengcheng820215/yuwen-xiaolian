@@ -79,3 +79,47 @@ Event、Projection 和 Operation Repository 增加只读列表查询；Learning 
 WP6 已达到工程 `PASS`：内部系统能够只读识别完整链与不完整链，并准确暴露历史缺口，不会把已有事件误当作权威完成事实，也不会通过自动修复掩盖本次发现的问题。
 
 下一工作包 WP7：执行最终自动化回归、正式浏览器健康轮次、刷新恢复和内部报告闭环验收。
+
+## 四、2026-08-14 报告范围分层补充验收
+
+为避免 WP3—WP5 上线前的真实历史缺口永久污染新采集链健康状态，完整性报告 Schema 升级为 `learning_collection_integrity_report_v2`，新增：
+
+- 默认 `current_collection` 与只读 `all_history` 两种范围；
+- 固定采集代际 `real_learning_collection_v1`；
+- 以 Checkpoint `createdAt >= 2026-08-13T14:03:24.000Z` 判定当前代际；
+- 纳入 Round、当前代际 Round 与旧历史 Round 三项范围计数；
+- 当前范围无 Round 时的 `AWAITING DATA` 页面状态。
+
+范围只过滤报告输入，不改写 Checkpoint、Persistence、Event 或 Projection。旧历史继续在 `all_history` 中保留原有 FAIL；`current_collection` 独立判断新链健康度。
+
+补充 Debug 结果：`23 / 23 PASS`。新增覆盖：
+
+1. 旧历史 FAIL 与当前健康 Round 并存时，当前范围为 PASS；
+2. 全部历史范围继续显示旧 FAIL；
+3. 当前范围为空时纳入 Round 为 0；
+4. 当前 Round 五事件和 Projection 全部缺失时仍归入当前范围并正确 FAIL；
+5. 当前/历史范围计数和代际标识稳定。
+
+生产构建通过；内部页面实测默认当前范围、全部历史切换、空状态和刷新均正常，无页面控制台错误。
+
+## 五、2026-08-14 逐提交 Attempt 审计补充验收
+
+完整性审计已从“每个 Round 最终 Checkpoint Response”升级为“每个不同 `answer_submitted.payload.attemptId`”。当前公式为：
+
+```text
+submittedAttempts
+= eligibleCalibrationAttempts
++ excludedCalibrationAttempts
++ projectionFailedAttempts
+```
+
+实现结果：
+
+- `submittedAttempts` 按不同提交意图计数；
+- 每个 `answer_submitted` 必须存在唯一 Projection；
+- Checkpoint 最终 Response 仍用于检查最终正式提交事件没有缺失；
+- 同轮早期无效提交只与自己的 `attemptId -> responseId` 闭合，不再被错误要求等于最终 Response；
+- Projection 没有对应提交事件时报告 `identity_mismatch`；
+- 内部页面新增“投影失败”计数，并在 Round 详情显示各 Attempt 身份和状态。
+
+补充 Debug 结果更新为 `28 / 28 PASS`。新增覆盖同轮无效后有效提交、早期 Projection 缺失、早期提交不能掩盖最终提交事件缺失、`projection_failed` 闭合计数和孤立 Projection。WP7 最终闭环回归继续 `12 / 12 PASS`，生产构建与浏览器页面复验通过，页面无控制台错误。

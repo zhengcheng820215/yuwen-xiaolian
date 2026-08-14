@@ -4,7 +4,11 @@ import {
   IndexedDBLearningObservationRepository,
   IndexedDBQuestionCalibrationProjectionRepository,
 } from '../ai/repositories/indexedDBLearningCollectionRepositories.ts';
-import { LearningCollectionIntegrityService } from '../ai/services/learningCollectionIntegrityService.ts';
+import {
+  LearningCollectionIntegrityService,
+  selectLearningCollectionIntegrityScope,
+} from '../ai/services/learningCollectionIntegrityService.ts';
+import type { LearningCollectionIntegrityScope } from '../ai/schemas/learningCollectionIntegrity.schema.ts';
 import type { LearningObservationEvent } from '../ai/schemas/learningObservationEvent.schema.ts';
 import type { QuestionCalibrationProjectionRecord } from '../ai/schemas/questionCalibrationProjection.schema.ts';
 import type { RealLearningOperationCheckpoint } from '../ai/schemas/realLearningOperation.schema.ts';
@@ -12,7 +16,9 @@ import { PHASE163_LEARNING_STUDENT_ID } from './phase163LearningIdentity.ts';
 
 const feedbackMarkerPrefix = 'qingzhou:feedback-presentation:';
 
-export async function loadLearningCollectionIntegrityView() {
+export async function loadLearningCollectionIntegrityView(
+  scope: LearningCollectionIntegrityScope = 'current_collection',
+) {
   const operationRepository = new IndexedDBRealLearningOperationRepository();
   const eventRepository = new IndexedDBLearningObservationRepository();
   const projectionRepository = new IndexedDBQuestionCalibrationProjectionRepository();
@@ -24,7 +30,7 @@ export async function loadLearningCollectionIntegrityView() {
   ]);
   const generatedAt = new Date().toISOString();
   const service = new LearningCollectionIntegrityService();
-  const report = service.buildReport({
+  const input = {
     studentId: PHASE163_LEARNING_STUDENT_ID,
     generatedAt,
     checkpoints,
@@ -35,10 +41,18 @@ export async function loadLearningCollectionIntegrityView() {
     feedbackPresentedRoundIds: checkpoints
       .filter((checkpoint) => hasFeedbackMarker(checkpoint.learningRoundId))
       .map((checkpoint) => checkpoint.learningRoundId),
-  });
+    scope,
+  };
+  const scoped = selectLearningCollectionIntegrityScope(input);
+  const report = service.buildReport(input);
   return {
     report,
-    rounds: checkpoints.map((checkpoint) => roundView(checkpoint, events, projections, report.issues)),
+    rounds: scoped.input.checkpoints.map((checkpoint) => roundView(
+      checkpoint,
+      scoped.input.events,
+      scoped.input.projections,
+      report.issues,
+    )),
   };
 }
 
@@ -56,7 +70,7 @@ function roundView(
     resourceVersionId: checkpoint.sourceResourceVersionId,
     status: checkpoint.status,
     events: roundEvents.map((event) => ({ eventType: event.eventType, occurredAt: event.occurredAt })),
-    projections: roundProjections.map((record) => ({ status: record.status, itemScore: record.itemScore })),
+    projections: roundProjections.map((record) => ({ attemptId: record.attemptId, status: record.status, itemScore: record.itemScore })),
     issues: issues.filter((issue) => issue.learningRoundId === checkpoint.learningRoundId),
   };
 }

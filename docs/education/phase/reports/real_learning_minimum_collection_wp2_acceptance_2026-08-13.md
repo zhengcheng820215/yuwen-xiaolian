@@ -79,4 +79,14 @@ Build 保留既有动态导入和大 Chunk Warning，不属于 WP2 新失败。
 
 WP2 已达到工程 PASS。Repository、独立 IndexedDB Upgrade、索引、幂等、冲突和隔离验收均成立，且尚未采集任何正式事件。
 
+## 五、2026-08-14 第四阶段工程收口补充
+
+- 浏览器隔离验收更新为 `28 / 28 PASS`；
+- Upgrade 从空库结构检查增强为带实际 Event、Outbox、Projection 与无关旧 Store 的 v2 → v3 数据保留检查；
+- Projection 的重复检查、冲突判断和写入合并进同一个 `readwrite` Transaction；
+- 两个 Repository 实例并发写入同一 Attempt 时，相同记录稳定返回 `created + unchanged`，不同 Projection 身份稳定返回 `created + conflict`；
+- 唯一索引继续保留为最后一道数据库约束，但正常并发不再向调用方暴露原始 ConstraintError。
+
+第四阶段结论：`INDEXEDDB UPGRADE PASS / CROSS-TAB PROJECTION IDEMPOTENCY PASS`。
+
 下一工作包为 WP3：通过 Application Service 把五个事件逐项接入正式 `/learning`。WP3 前不得把 Repository 存在误报为真实数据已经开始采集。
