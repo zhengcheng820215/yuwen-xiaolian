@@ -1256,6 +1256,30 @@ function normalizeMaterialMetadata(
     ...(metadata.edition?.trim() ? { edition: metadata.edition.trim() } : {}),
     tags: unique(metadata.tags.map((tag) => tag.trim()).filter(Boolean)).sort(),
     provenanceStatus: metadata.provenanceStatus,
+    ...(metadata.provenanceReview ? {
+      provenanceReview: {
+        textVerificationStatus: metadata.provenanceReview.textVerificationStatus,
+        rightsStatus: metadata.provenanceReview.rightsStatus,
+        ...(metadata.provenanceReview.sourceLocator?.trim()
+          ? { sourceLocator: metadata.provenanceReview.sourceLocator.trim() }
+          : {}),
+        ...(metadata.provenanceReview.textSourceLocator?.trim()
+          ? { textSourceLocator: metadata.provenanceReview.textSourceLocator.trim() }
+          : {}),
+        ...(metadata.provenanceReview.rightsEvidenceLocator?.trim()
+          ? { rightsEvidenceLocator: metadata.provenanceReview.rightsEvidenceLocator.trim() }
+          : {}),
+        ...(metadata.provenanceReview.verifiedBy?.trim()
+          ? { verifiedBy: metadata.provenanceReview.verifiedBy.trim() }
+          : {}),
+        ...(metadata.provenanceReview.verifiedAt?.trim()
+          ? { verifiedAt: metadata.provenanceReview.verifiedAt.trim() }
+          : {}),
+        ...(metadata.provenanceReview.notes?.trim()
+          ? { notes: metadata.provenanceReview.notes.trim() }
+          : {}),
+      },
+    } : {}),
   };
 }
 

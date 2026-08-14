@@ -4,7 +4,7 @@
 
 状态：`ACTIVE`
 
-文档版本：`material_corpus_quality_and_versioning_v1.5`
+文档版本：`material_corpus_quality_and_versioning_v1.9`
 
 生效日期：`2026-08-13`
 
@@ -273,3 +273,109 @@ Material v2
 ### 14.1 阶段5执行记录
 
 Shared Store revision `915 → 916`。《走一步，再走一步》形成 v2，9处半角中文标点归零并补齐保守结构化元数据；其3道正式题同步形成 v2 Frozen Version。重复 apply 为 no-op。最终活动材料 `10`、当前正式题 `34`、Registry / Link / Trace / Learning `34 / 34`，素材审计可执行问题为 `0`。全部来源待核验状态仅作为后台治理信息保留。
+
+## 十五、P1-03 来源核验就绪度契约（2026-08-14）
+
+来源治理必须区分三种证据，不得复用一个链接替代全部判断：
+
+1. `sourceLocator`：篇目目录或来源线索，只证明目录归属；
+2. `textSourceLocator`：能够支持当前版本逐字比对的正文证据；
+3. `rightsEvidenceLocator`：支持 `cleared / public_domain` 判断的权利依据。
+
+内部真实 Learning 试运行与扩大生产使用两套门槛：
+
+- 内部试运行：材料正文非空，已有目录线索，正文未被核验为 `rejected`，权利状态未标记为 `restricted`；允许保持 `needs_verification / pending / unknown`，但必须在治理摘要中持续展示；
+- 扩大生产：`provenanceStatus = verified`，正文状态为 `verified`，权利状态为 `cleared / public_domain`，并同时具备版本、正文证据、权利证据、核验人和核验时间；任一项缺失均不得显示为已满足扩大生产条件。
+
+来源就绪度审计只读运行，不自动修改状态，也不因待核验事项阻断当前受控 Learning。标准 Material 创建和换版入口必须完整保留 `provenanceReview`，不得在元数据规范化时丢失证据字段。
+
+## 十六、P2-01 题组基础能力补充规划（2026-08-14）
+
+P2 的目标是为适合观察基础能力、但当前题组明显偏分析的材料补充少量理解、概括或事实确认题。能力分布只用于发现盲区，不要求材料之间或单篇内部比例平均。
+
+### 16.1 首批冻结范围
+
+首批最多新增4道，每篇最多1道：
+
+| 材料 | 目标能力 / 难度 | 新增观察价值 |
+| --- | --- | --- |
+| 《皇帝的新装》 | `comprehension / basic` | 辨认骗局揭露前后人物可见言行与事实关系，不要求分析社会主题 |
+| 《秋天的怀念》 | `summarization / basic` | 梳理母亲照顾并鼓励“我”的具体行为与直接结果，不分析象征或结构 |
+| 《散步》 | `comprehension / basic` | 确认散步分歧、人物选择与解决结果，不扩展家庭责任主题 |
+| 《狼》 | `summarization / basic` | 概括屠户行动链，不重复现有“两只狼如何配合围困”的证据对象 |
+
+《从百草园到三味书屋》《走一步，再走一步》已有理解、概括或基础题，本轮不补。《女娲造人》《天上的街市》暂缓，等待首批新增题和真实作答反馈后再判断，不把“暂无基础题”机械解释为必须补题。
+
+### 16.2 工程边界
+
+1. P2-01 只冻结规划，不生成 Candidate、不创建 Plan Revision、不发布、不修改 Shared Store；
+2. P2-02 如生成候选，必须读取当前 Material Version、现行题组和本节的观察边界；
+3. 新候选不得仅把现有分析题改写为低难度，也不得与现有题共享回答对象、证据范围和评分目标；
+4. 未采用候选不计入正式题数；实际采用少于4道属于合法结果；
+5. 每采用1道都必须完整新增 Plan Task、Question Revision、Assessment、Frozen Version、Registry、Observation Link 和 Frozen Quality Trace；
+6. 发布前后42道现有题保持不可变；发布完成后各消费链计数必须统一为 `42 + 实际采用数`，上限46。
+
+### 16.3 验收矩阵
+
+| 用例 | 预期 |
+| --- | --- |
+| 当前42题只读规划 | Shared Store revision和数据完全不变 |
+| 目标范围 | 恰为4篇，每篇1个不同观察点 |
+| 能力与难度 | 仅 `comprehension / summarization`，难度为 `basic` |
+| 当前题质量 | 四篇现行题均无 blocker |
+| 重复控制 | 新观察点与现有题的回答对象或行动线明确不同 |
+| 数量控制 | 首批新增上限4，总量上限46 |
+| 延后材料 | 延后不等于质量不合格，不产生待处理状态 |
+| P2-02/P2-03 接续 | 候选未采用不改统计；采用后全链路计数一致 |
+
+## 十七、P2-02 基础能力补充候选（2026-08-14）
+
+P2-02 依据第十六节冻结范围形成4个完整 Training Candidate。候选必须通过现有 Material Observation Draft Generator 的隔离校验，并同时转换为完整 Question Editable Fields 接受题目生成质量检查。
+
+| 材料 | 候选题干 | 能力 / 难度 |
+| --- | --- | --- |
+| 《皇帝的新装》 | 小孩子说出真相以前，皇帝、大臣和百姓是怎样对待这件“新衣服”的？请根据全文写出其中两类人物的具体表现。 | `comprehension / basic` |
+| 《秋天的怀念》 | 母亲为了照顾并鼓励“我”重新面对生活，做了哪些具体事情？请根据全文概括其中两件。 | `summarization / basic` |
+| 《散步》 | 请根据全文说明：一家人在田野散步时遇到了什么分歧？“我”最初怎样决定，最后一家人怎样解决？ | `comprehension / basic` |
+| 《狼》 | 请根据全文，按事情发展概括屠户面对两只狼时采取的三个关键行动。 | `summarization / basic` |
+
+每个候选均包含：材料范围、观察焦点、学生动作、题型与作答格式、最低要求、Rubric、答案接受范围、5类校准答案、Evidence Boundary 和 Training Candidate 安全边界。
+
+P2-02 禁止创建或修改 Plan、Draft、Frozen Version、Registry、Observation Link 与 Quality Trace。候选通过只表示可以进入后续采用判断，不等于正式发布或教育效果已经验证。
+
+### 17.1 P2-02 验收
+
+- 4/4 被现有库存判定为 `new_observation_candidate`；
+- 4/4 完整字段检查通过；
+- 4/4 题目质量结果为 `ready`，blocker和实质重复均为0；
+- 4/4 使用 `short_text + key_points`，不要求主题分析或深层解释；
+- 4/4 提供 fully meets、partially meets、typical error、reasonable alternative、irrelevant 校准答案；
+- Shared Store revision、42道正式题和全部当前资源关系保持不变。
+
+## 十八、P2-03 基础能力补充正式发布（2026-08-14）
+
+P2-03 只采用第十七节已经通过的4个完整候选，不重新生成题干，不替换原有42道正式题。每篇目标材料新增1个 Plan Task，并为该任务建立独立的 Draft、Validation、Human Review、Frozen Version、active Registry、active Observation Link、质量 Assessment Bundle 与 Frozen Quality Trace。
+
+### 18.1 发布与身份规则
+
+1. 四个候选必须作为一个完整受控批次进入发布准备；候选缺失、存在质量问题或只出现1—3个部分发布标记时，命令必须安全阻断；
+2. 每篇材料创建后继 reviewed Plan，保留原 Plan 的既有任务身份与正式资源关联，只追加1个新任务；原 Plan 转为 `superseded`；
+3. 新题使用独立 `resourceId / resourceVersionId / taskId`，并写入固定发布标记 `portfolio-supplement:p2-03-v1`；
+4. 发布必须通过 Shared Store revision compare-and-swap 原子提交，禁止逐题形成可见的半完成状态；
+5. 成功后再次执行同一发布命令必须返回 `apply-noop`，不得重复创建题目、Plan、Registry、Link 或质量记录；
+6. 发布完成后的正式计数以当前活动材料、当前 Plan、active Registry、active Observation Link、Frozen Version、Frozen Quality Trace 与 Learning 可消费资源的交集为准，所有链路必须统一为46；
+7. P2-01/P2-02 在发布后应把四篇目标识别为已满足，不再重复产出规划目标或候选；
+8. 发布通过只证明内容与工程准入成立，不证明真实学生学习效果；后者仍由 Learning 真实作答与校准链验证。
+
+### 18.2 发布结果
+
+- Shared Store revision：`1046 → 1047`；
+- 新增正式题：4道，分别属于《皇帝的新装》《秋天的怀念》《散步》《狼》；
+- 当前活动材料：12篇；当前正式题：46道；
+- Current Task / Registry / Observation Link / Frozen Version / Frozen Quality Trace / Learning 可消费题：`46 / 46`；
+- 新题能力与难度：2道 `comprehension / basic`、2道 `summarization / basic`；
+- 重复执行发布命令：`apply-noop`，revision保持1047；
+- P2-01发布后规划回归：4篇均识别为已满足；P2-02发布后候选回归：新增候选0、已发布4、问题0；
+- 浏览器工作台显示“12 篇材料，共 46 道题，已全部发布”，四篇目标材料均显示4个训练任务、已发布4个。
+
+详细记录见 [P2-03 基础能力补充正式发布验收记录](../education/phase/reports/question_portfolio_supplement_p2_03_acceptance_2026-08-14.md)。

@@ -32,6 +32,7 @@ import {
 } from '../schemas/questionSemanticQualityAssessment.schema.ts';
 import { assessQuestionDraftQuality } from './questionQualityAssessmentAgent.ts';
 import { mergeQuestionQualityAssessments } from './questionSemanticQualityAssessmentAgent.ts';
+import { inspectInitialCandidateCompleteness } from '../schemas/questionCandidate.schema.ts';
 import {
   buildMaterialObservationPlan,
   createMaterialSourceAnchor,
@@ -41,7 +42,11 @@ import {
 } from './materialObservationAgent.ts';
 import { buildStableId } from './reviewedResourceCandidateAdapter.ts';
 
-const OPTIMIZATION_MARKER = 'material-corpus-quality-governance-2026-08-13-v3';
+const OPTIMIZATION_MARKER = 'material-corpus-provenance-governance-2026-08-14-v4';
+const PEP_GRADE_SEVEN_VOLUME_ONE_CATALOG =
+  'https://bp.pep.com.cn/2018spring/gzhtbjc/sfkl/czywk/zyqs/index.html';
+const P002_RESOURCE_ID = 'question-observation-candidate-a5flmn';
+const P002_REPAIR_MARKER = 'material-scope-repair:p0-02';
 
 export type MaterialCorpusOptimizationReport = {
   alreadyApplied: boolean;
@@ -52,6 +57,196 @@ export type MaterialCorpusOptimizationReport = {
   currentQuestionCount: number;
   currentTraceCount: number;
 };
+
+export type QuestionMaterialScopeRepairReport = {
+  alreadyApplied: boolean;
+  resourceId: string;
+  previousResourceVersionId: string;
+  currentResourceVersionId: string;
+  observationTaskPlanId: string;
+  taskRevisionRootId: string;
+};
+
+export function prepareQuestionMaterialScopeRepair(
+  source: SharedFormalResourceData,
+  now: string,
+): { data: SharedFormalResourceData; report: QuestionMaterialScopeRepairReport } {
+  const data = cloneSharedFormalResourceValue(source);
+  const registryIndex = data.questionResources.registryEntries.findIndex((item) => (
+    item.resourceId === P002_RESOURCE_ID && item.status === 'active'
+  ));
+  if (registryIndex < 0) throw new Error(`Registry entry not found: ${P002_RESOURCE_ID}`);
+  const registry = data.questionResources.registryEntries[registryIndex];
+  const sourceVersion = data.questionResources.versions.find((item) => (
+    item.resourceVersionId === registry.currentFrozenVersionId && item.status === 'frozen'
+  ));
+  if (!sourceVersion) throw new Error(`Current frozen version not found: ${P002_RESOURCE_ID}`);
+  const activeLink = data.materialObservations.links.find((item) => (
+    item.resourceId === P002_RESOURCE_ID
+    && item.resourceVersionId === sourceVersion.resourceVersionId
+    && item.status === 'active'
+  ));
+  if (!activeLink) throw new Error(`Current active link not found: ${sourceVersion.resourceVersionId}`);
+  const material = data.questionResources.materials.find((item) => (
+    item.materialVersionId === sourceVersion.materialVersionId && item.status !== 'retired'
+  ));
+  if (!material) throw new Error(`Active material not found: ${sourceVersion.materialVersionId}`);
+  const plan = selectCurrentPlan(data, material.materialVersionId);
+  const task = plan.taskPlans.find((item) => new Set([
+    item.observationTaskPlanId,
+    item.taskRevisionRootId,
+    item.parentObservationTaskPlanId,
+  ].filter(Boolean)).has(activeLink.observationTaskPlanId));
+  if (!task) throw new Error(`Current task lineage not found: ${activeLink.observationTaskPlanId}`);
+  const taskRevisionRootId = task.taskRevisionRootId || task.observationTaskPlanId;
+  const report = (alreadyApplied: boolean, previousResourceVersionId: string) => ({
+    alreadyApplied,
+    resourceId: P002_RESOURCE_ID,
+    previousResourceVersionId,
+    currentResourceVersionId: sourceVersion.resourceVersionId,
+    observationTaskPlanId: task.observationTaskPlanId,
+    taskRevisionRootId,
+  });
+  if (
+    sourceVersion.tags.includes(P002_REPAIR_MARKER)
+    && inspectInitialCandidateCompleteness(sourceVersion).complete
+  ) {
+    return { data, report: report(true, sourceVersion.parentVersionId || sourceVersion.resourceVersionId) };
+  }
+  const sourceDraft = data.questionResources.drafts.find((item) => (
+    item.draftId === sourceVersion.sourceDraftId
+  ));
+  if (!sourceDraft) throw new Error(`Source draft not found: ${sourceVersion.sourceDraftId}`);
+
+  const artifact = createQuestionRevisionArtifacts({
+    data,
+    material,
+    plan,
+    task,
+    sourceVersion,
+    sourceDraft,
+    override: {},
+    now,
+  });
+  const repairedTags = [
+    ...artifact.draft.tags.filter((tag) => tag !== 'corpus-calibration:v3'),
+    P002_REPAIR_MARKER,
+  ].filter((value, index, all) => all.indexOf(value) === index).sort();
+  artifact.draft.tags = repairedTags;
+  artifact.draft.source = cloneSharedFormalResourceValue(sourceVersion.source);
+  artifact.draft.reviewSubmittedBy = 'codex-p0-02-repair';
+  artifact.draft.reviewSubmissionHistory = artifact.draft.reviewSubmissionHistory.map((item) => ({
+    ...item,
+    actorId: 'codex-p0-02-repair',
+  }));
+  artifact.review.reviewerId = 'codex-p0-02-reviewer';
+  artifact.review.notes = 'P0-02：仅补齐正式题目的当前任务与根任务作用域标签；题干、作答规则、Rubric 和材料内容保持不变。';
+  artifact.version.tags = [...repairedTags];
+  artifact.version.source = cloneSharedFormalResourceValue(sourceVersion.source);
+
+  const peerDrafts = data.materialObservations.links
+    .filter((item) => (
+      item.status === 'active'
+      && item.materialVersionId === material.materialVersionId
+      && item.resourceId !== P002_RESOURCE_ID
+    ))
+    .map((item) => data.questionResources.versions.find((value) => (
+      value.resourceVersionId === item.resourceVersionId
+    )))
+    .filter((item): item is FrozenQuestionResourceVersion => Boolean(item))
+    .map((item) => data.questionResources.drafts.find((value) => value.draftId === item.sourceDraftId))
+    .filter((item): item is StructuredQuestionDraft => Boolean(item));
+  const quality = createQualityArtifacts({
+    draft: artifact.draft,
+    validation: artifact.validation,
+    material,
+    peerDrafts,
+    review: artifact.review,
+    version: artifact.version,
+    now,
+  });
+  const previousTrace = data.questionQuality.frozenQualityTraces.find((item) => (
+    item.resourceVersionId === sourceVersion.resourceVersionId
+  ));
+  const previousSemantic = previousTrace && data.questionQuality.semanticAssessments.find((item) => (
+    item.semanticAssessmentId === previousTrace.semanticAssessmentId
+  ));
+  if (previousSemantic?.status === 'completed') {
+    quality.semantic.findings = cloneSharedFormalResourceValue(previousSemantic.findings);
+    quality.semantic.limitations = [
+      ...cloneSharedFormalResourceValue(previousSemantic.limitations),
+      'P0-02仅补齐结构化作用域标签；语义内容未改变，本次沿用V1已完成的语义证据并重新绑定V2身份。',
+    ];
+    quality.semantic.providerId = 'quality-evidence-inheritance';
+    quality.semantic.modelId = previousSemantic.semanticAssessmentId;
+  }
+  artifact.review.qualityAssessmentBundleId = quality.bundle.bundleId;
+  artifact.review.deterministicAssessmentId = quality.deterministic.assessmentId;
+  artifact.review.semanticAssessmentId = quality.semantic.semanticAssessmentId;
+  artifact.review.qualityMergeRuleVersion = quality.bundle.mergeRuleVersion;
+  artifact.review.warningDecisions = quality.deterministic.warnings.map((warning) => ({
+    warningDecisionId: `${artifact.draft.draftId}:${warning.code}:accepted`,
+    draftId: artifact.draft.draftId,
+    draftRevision: artifact.draft.revision,
+    assessmentId: quality.deterministic.assessmentId,
+    warningCode: warning.code,
+    decision: 'accepted',
+    reviewedBy: 'codex-p0-02-reviewer',
+    reviewedAt: now,
+  }));
+  if (!inspectInitialCandidateCompleteness(artifact.version).complete) {
+    throw new Error('P0-02 successor version is still missing materialScope.');
+  }
+
+  data.questionResources.drafts.push(artifact.draft);
+  data.questionResources.validations.push(artifact.validation);
+  data.questionResources.reviews.push(artifact.review);
+  data.questionResources.versions.push(artifact.version);
+  data.questionQuality.deterministicAssessments.push(quality.deterministic);
+  data.questionQuality.semanticAssessments.push(quality.semantic);
+  data.questionQuality.assessmentBundles.push(quality.bundle);
+  data.questionQuality.frozenQualityTraces.push(quality.trace);
+  data.questionResources.registryEntries[registryIndex] = createRegistryEntry(
+    registry,
+    artifact.version,
+    now,
+  );
+  const sourceVersionIndex = data.questionResources.versions.findIndex((item) => (
+    item.resourceVersionId === sourceVersion.resourceVersionId
+  ));
+  data.questionResources.versions[sourceVersionIndex] = {
+    ...data.questionResources.versions[sourceVersionIndex],
+    status: 'superseded',
+    updatedAt: now,
+  };
+  const sourceLinkIndex = data.materialObservations.links.findIndex((item) => (
+    item.resourceObservationLinkId === activeLink.resourceObservationLinkId
+  ));
+  data.materialObservations.links[sourceLinkIndex] = {
+    ...data.materialObservations.links[sourceLinkIndex],
+    status: 'superseded',
+  };
+  const linked = deriveResourceObservationLink({
+    plan,
+    task,
+    version: artifact.version,
+    registryEntry: data.questionResources.registryEntries[registryIndex],
+    validation: artifact.validation,
+    review: artifact.review,
+    linkedAt: now,
+  });
+  if (linked.issues.length > 0) {
+    throw new Error(`P0-02 successor link is invalid: ${linked.issues.join(', ')}`);
+  }
+  data.materialObservations.links.push(linked.link);
+  return {
+    data,
+    report: {
+      ...report(false, sourceVersion.resourceVersionId),
+      currentResourceVersionId: artifact.version.resourceVersionId,
+    },
+  };
+}
 
 type QuestionOverride = {
   questionStem?: string;
@@ -84,6 +279,14 @@ export function prepareMaterialCorpusOptimization(
 
   for (const oldMaterial of materialsToOptimize) {
     const oldPlan = selectCurrentPlan(data, oldMaterial.materialVersionId);
+    const provenanceOnlyUpgrade = Boolean(
+      oldMaterial.metadata
+      && normalizeMaterialContent(oldMaterial.title, oldMaterial.content) === oldMaterial.content
+      && oldMaterial.metadata.provenanceReview?.sourceLocator !== PEP_GRADE_SEVEN_VOLUME_ONE_CATALOG,
+    );
+    const resolveOverride = (index: number) => (
+      provenanceOnlyUpgrade ? {} : questionOverride(oldMaterial.title, index)
+    );
     const currentPairs = oldPlan.taskPlans.map((task, index) => {
       const identities = new Set([
         task.observationTaskPlanId,
@@ -114,7 +317,7 @@ export function prepareMaterialCorpusOptimization(
     const structure = deriveMaterialStructureSnapshot(newMaterial, now);
     data.materialObservations.structures.push(structure);
     const newAnchors = currentPairs.map(({ anchor }, index) => {
-      const override = questionOverride(oldMaterial.title, index);
+      const override = resolveOverride(index);
       return createMaterialSourceAnchor({
         material: newMaterial,
         structure,
@@ -131,7 +334,7 @@ export function prepareMaterialCorpusOptimization(
 
     const selectedDimensions = new Set<ObservationDimension>();
     const taskInputs = currentPairs.map(({ task, version }, index) => {
-      const override = questionOverride(oldMaterial.title, index);
+      const override = resolveOverride(index);
       const dimension = override.dimension || task.primaryDimension;
       const abilityId = override.abilityId || task.abilityId;
       const difficulty = override.difficulty || task.difficulty;
@@ -200,9 +403,15 @@ export function prepareMaterialCorpusOptimization(
       task,
       sourceVersion: currentPairs[index].version,
       sourceDraft: currentPairs[index].draft,
-      override: questionOverride(oldMaterial.title, index),
+      override: resolveOverride(index),
       now,
     }));
+    if (provenanceOnlyUpgrade) {
+      artifacts.forEach((artifact, index) => {
+        artifact.draft.source = cloneSharedFormalResourceValue(currentPairs[index].version.source);
+        artifact.version.source = cloneSharedFormalResourceValue(currentPairs[index].version.source);
+      });
+    }
     plan.taskPlans = plan.taskPlans.map((task, index) => ({
       ...task,
       linkedDraftId: artifacts[index].draft.draftId,
@@ -327,12 +536,14 @@ function createMaterialRevision(source: QuestionMaterialVersion, now: string): Q
       author: definition.author,
       genre: definition.genre,
       gradeRange: '七年级',
+      curriculumUnit: materialCurriculumUnit(source.title),
       tags: definition.tags,
       provenanceStatus: 'needs_verification',
       provenanceReview: {
         textVerificationStatus: 'pending',
         rightsStatus: 'unknown',
-        notes: '等待依据教材版本或权威来源完成人工核验；当前结构不得解释为版权已授权。',
+        sourceLocator: PEP_GRADE_SEVEN_VOLUME_ONE_CATALOG,
+        notes: '已核对人民教育出版社七年级上册课程目录，确认篇目及所在单元；尚未逐字比对本地正文，也未取得版权授权证明。',
       },
     },
     createdAt: now,
@@ -344,7 +555,10 @@ function createMaterialRevision(source: QuestionMaterialVersion, now: string): Q
 function needsMaterialOptimization(material: QuestionMaterialVersion): boolean {
   if (material.revisionNote === OPTIMIZATION_MARKER) return false;
   if (!hasMaterialDefinition(material.title)) return false;
-  return !material.metadata || normalizeMaterialContent(material.title, material.content) !== material.content;
+  return !material.metadata
+    || material.metadata.curriculumUnit !== materialCurriculumUnit(material.title)
+    || material.metadata.provenanceReview?.sourceLocator !== PEP_GRADE_SEVEN_VOLUME_ONE_CATALOG
+    || normalizeMaterialContent(material.title, material.content) !== material.content;
 }
 
 function hasMaterialDefinition(title: string): boolean {
@@ -362,6 +576,8 @@ const MATERIAL_DEFINITIONS: Record<string, { author: string; genre: QuestionMate
   '《女娲造人》': { author: '袁珂', genre: 'myth', tags: ['神话', '创造', '人类'] },
   '《济南的冬天》': { author: '老舍', genre: 'scenic_prose', tags: ['写景', '冬天', '散文'] },
   '《走一步，再走一步》': { author: '莫顿·亨特', genre: 'narrative_prose', tags: ['成长', '勇气', '散文'] },
+  '《春》': { author: '朱自清', genre: 'scenic_prose', tags: ['写景', '春天', '散文'] },
+  '《纪念白求恩》': { author: '毛泽东', genre: 'other', tags: ['议论', '人物', '责任'] },
 };
 
 function materialDefinition(title: string): { author: string; genre: QuestionMaterialGenre; tags: string[] } {
@@ -369,6 +585,27 @@ function materialDefinition(title: string): { author: string; genre: QuestionMat
   if (!value) throw new Error(`No material metadata definition for ${title}.`);
   return value;
 }
+
+function materialCurriculumUnit(title: string): string {
+  const unit = MATERIAL_CURRICULUM_UNITS[title];
+  if (!unit) throw new Error(`No curriculum unit definition for ${title}.`);
+  return `七年级上册第${unit}单元`;
+}
+
+const MATERIAL_CURRICULUM_UNITS: Record<string, string> = {
+  '《春》': '一',
+  '《济南的冬天》': '一',
+  '《秋天的怀念》': '二',
+  '《散步》': '二',
+  '《从百草园到三味书屋》': '三',
+  '《纪念白求恩》': '四',
+  '《走一步，再走一步》': '四',
+  '《猫》': '五',
+  '《狼》': '五',
+  '《皇帝的新装》': '六',
+  '《天上的街市》': '六',
+  '《女娲造人》': '六',
+};
 
 function normalizeMaterialContent(title: string, content: string): string {
   if (title === '《从百草园到三味书屋》') {
@@ -701,7 +938,7 @@ function createQuestionRevisionArtifacts(input: {
   return { draft, validation, review, version };
 }
 
-function createQualityArtifacts(input: {
+export function createQualityArtifacts(input: {
   draft: StructuredQuestionDraft;
   validation: ResourceValidationResult;
   material: QuestionMaterialVersion;
@@ -788,7 +1025,10 @@ function semanticFindingReason(
     materialGrounding: `${subject}已绑定当前材料版本和明确证据范围，题干中的引用可在正文中定位。`,
     observationClarity: `${subject}明确了回答对象、学生动作和需要解释的关系。`,
     observationDistinctness: `${subject}与同篇其他题目的核心回答对象和评分目标可区分。`,
-    discriminativePower: `${subject}要求组织文本证据并完成解释，不能仅靠抄录题干作答。`,
+    discriminativePower: draft.assessmentMode === 'key_points'
+      && !draft.minimumAnswerRequirement.requireExplanation
+      ? `${subject}要求准确识别并组织多个材料事实要点，不能靠无关套话完成作答。`
+      : `${subject}要求组织文本证据并完成解释，不能仅靠抄录题干作答。`,
     difficultyCoherence: `${subject}的步骤数量、证据跨度与当前难度标记一致。`,
     rubricAlignment: `${subject}的评分项覆盖题干要求的主要结论、证据和解释动作。`,
     scopeClarity: `${subject}提供了段落范围或全文比较维度，作答边界明确。`,

@@ -4,7 +4,7 @@
 
 状态：`ACTIVE`
 
-文档版本：`ai_question_adoption_and_empirical_calibration_v1.7`
+文档版本：`ai_question_adoption_and_empirical_calibration_v1.8`
 
 生效日期：`2026-08-13`
 
@@ -101,24 +101,39 @@ awaiting_data
 - 当前校准计算器已经实现，但 Learning 提交自动投影为匿名校准 Attempt 尚未完成；在接续验收通过前保持 `awaiting_data`，不得用已有答案记录推断已自动入池。
 - `answer_submitted` 只创建稳定 `attemptId` 和待定提交事实；必须在 Validity 通过、Diagnosis 与正式评分形成且 `learning_round_completed` 后，才自动投影有效 `AnonymousQuestionCalibrationAttempt`。无效或未完成提交不得入池。
 
-## 六、最低验收标准
+## 六、真实数据驱动的生成调整门槛（2026-08-14）
+
+当前题目生成与正式发布主链保持稳定。真实作答数据不得直接修改 Prompt、Rubric、Answer Acceptance 或 Frozen Version，而应先形成绑定题目版本的可解释治理信号。
+
+最低记录范围包括：
+
+- 生成、重新生成、采用与放弃事件及其 Prompt / Policy Version；
+- 有效作答、空答、明显跑题、返回修改、完成时长与 Diagnosis；
+- 作答绑定的 `resourceVersionId`、Attempt有效性及是否存在成人较多帮助；
+- 由数据支持的问题归因：题干不清、难度/证据负荷不当、区分潜力不足或评分接受边界失配。
+
+样本不足只进入观察队列。达到当前版本化阈值后，治理层可以提出后继候选建议，但仍须沿用“完整候选 → 质量检查 → 采用并发布”的标准路径。禁止依据单次异常自动改题，也禁止跨 Question Version 合并样本来制造调整依据。
+
+## 七、最低验收标准
 
 - 每个 AI 候选只提供“采用并发布”和“重新优化”两种结果；
 - 每个训练任务候选组只提供“采用当前任务方案”和“重新生成任务方案”两种结果；
 - 训练任务采用后自动保存，不显示删除任务、逐项勾选或“保存任务组修改”；
 - 采用时不要求审核人、审核意见或第二次确认；
 - 不采用不会改变当前正式版本和 Learning；
-- 当前正式题严格保持34道，无历史 Registry 泄漏；
+- 当前正式题严格保持46道，无历史 Registry 泄漏；
 - 自动质量检查通过不显示为“教师已审核”；
 - 空作答样本返回 `awaiting_data`，未达到当前版本化试运行阈值时返回 `insufficient_sample`；
 - 后台校准状态不阻断采用、发布或 Learning。
-- 定向优化只生成候选，未采用时不得改变当前34道正式题及 Learning 消费。
+- 定向优化只生成候选，未采用时不得改变当前46道正式题及 Learning 消费。
 
 阶段4真实采用发布已验证上述边界：四道试点均通过单次“采用并发布”形成 v4 后继版本，当前 Formal Version、Registry、Observation Link、Frozen Quality Trace 与 Learning 可消费题目仍为 `34 / 34`。内部断点与修复记录见[AI 题目优化阶段4采用发布报告](./AI_QUESTION_OPTIMIZATION_STAGE4_PUBLICATION_REPORT_2026-08-13.md)。
 
 阶段5再次验证材料换版不增加人工决定：《走一步，再走一步》v2 与3道正式题 v2 由一次原子维护命令完成接续，未要求用户填写来源说明、审核人或意见；来源待核验只作为治理信息，Learning 可消费仍为 `34 / 34`。
 
-## 七、禁止做法
+P2首批补题已经验证上述边界：四道基础理解/概括候选分别形成后继 Plan Task 与完整正式题链，当前 Formal Version、Registry、Observation Link、Frozen Quality Trace 与 Learning 可消费题统一为 `46 / 46`；重复发布为 `apply-noop`。详细记录见[P2-03 基础能力补充正式发布验收记录](../education/phase/reports/question_portfolio_supplement_p2_03_acceptance_2026-08-14.md)。
+
+## 八、禁止做法
 
 - 把教师盲审嵌入生产主链；
 - 要求用户先采用、再填写审核意见、再发布；

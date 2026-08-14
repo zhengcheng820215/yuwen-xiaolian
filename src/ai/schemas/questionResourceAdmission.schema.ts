@@ -89,6 +89,8 @@ export type QuestionMaterialMetadata = {
     textVerificationStatus: 'pending' | 'verified' | 'rejected';
     rightsStatus: 'unknown' | 'cleared' | 'restricted' | 'public_domain';
     sourceLocator?: string;
+    textSourceLocator?: string;
+    rightsEvidenceLocator?: string;
     verifiedBy?: string;
     verifiedAt?: string;
     notes?: string;

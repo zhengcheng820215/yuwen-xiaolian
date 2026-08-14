@@ -1,4 +1,8 @@
-import type { MaterialObservationPlan } from '../schemas/materialObservation.schema.ts';
+import type {
+  MaterialObservationPlan,
+  ObservationTaskPlan,
+  ResourceObservationLink,
+} from '../schemas/materialObservation.schema.ts';
 import type { SharedFormalResourceSnapshot } from '../schemas/sharedFormalResourcePersistence.schema.ts';
 
 export const QUESTION_OPTIMIZATION_BASELINE_SCHEMA_VERSION =
@@ -47,9 +51,8 @@ export function buildQuestionOptimizationBaseline(
   const plans = materials.map((material) => selectCurrentPlan(
     data.materialObservations.plans.filter((plan) => plan.materialId === material.materialId),
   )).filter((plan): plan is MaterialObservationPlan => Boolean(plan));
-  const linksByTaskId = new Map(data.materialObservations.links
-    .filter((link) => link.status === 'active' && activeMaterialIds.has(link.materialId))
-    .map((link) => [link.observationTaskPlanId, link]));
+  const activeLinks = data.materialObservations.links
+    .filter((link) => link.status === 'active' && activeMaterialIds.has(link.materialId));
   const registryByResourceId = new Map(data.questionResources.registryEntries
     .filter((entry) => entry.status === 'active')
     .map((entry) => [entry.resourceId, entry]));
@@ -60,14 +63,19 @@ export function buildQuestionOptimizationBaseline(
   const materialById = new Map(materials.map((material) => [material.materialId, material]));
   const issues: string[] = [];
   const items: QuestionOptimizationBaselineItem[] = [];
+  const resolvedLinkIds = new Set<string>();
 
   for (const plan of plans) {
     for (const task of plan.taskPlans.filter((item) => item.status !== 'cancelled')) {
-      const link = linksByTaskId.get(task.observationTaskPlanId);
+      const link = resolveActiveObservationLink(activeLinks, plan, task);
       if (!link) {
         issues.push(`current_task_without_active_link:${task.observationTaskPlanId}`);
         continue;
       }
+      if (resolvedLinkIds.has(link.resourceObservationLinkId)) {
+        issues.push(`active_link_reused_by_current_tasks:${link.resourceObservationLinkId}`);
+      }
+      resolvedLinkIds.add(link.resourceObservationLinkId);
       const registry = registryByResourceId.get(link.resourceId);
       if (!registry) {
         issues.push(`active_link_without_registry:${link.resourceObservationLinkId}`);
@@ -89,6 +97,7 @@ export function buildQuestionOptimizationBaseline(
         && plan.materialVersionId === material.materialVersionId
         && link.materialId === plan.materialId
         && link.materialVersionId === plan.materialVersionId
+        && taskLineageIds(task).has(link.observationTaskPlanId)
         && version.resourceId === link.resourceId
         && version.resourceVersionId === registry.currentFrozenVersionId
         && version.materialId === plan.materialId
@@ -124,10 +133,6 @@ export function buildQuestionOptimizationBaseline(
     }
   }
 
-  const currentTaskIds = new Set(items.map((item) => item.observationTaskPlanId));
-  const scopedActiveLinks = data.materialObservations.links.filter((link) => (
-    link.status === 'active' && currentTaskIds.has(link.observationTaskPlanId)
-  ));
   const scopedRegistryIds = new Set(items.map((item) => item.resourceId));
   const scopedRegistries = data.questionResources.registryEntries.filter((entry) => (
     entry.status === 'active' && scopedRegistryIds.has(entry.resourceId)
@@ -154,7 +159,7 @@ export function buildQuestionOptimizationBaseline(
       currentTasks: plans.reduce((sum, plan) => (
         sum + plan.taskPlans.filter((task) => task.status !== 'cancelled').length
       ), 0),
-      activeObservationLinks: scopedActiveLinks.length,
+      activeObservationLinks: resolvedLinkIds.size,
       activeRegistryEntries: scopedRegistries.length,
       currentFormalVersions: scopedVersions.length,
       frozenQualityTraces: scopedTraces.length,
@@ -170,6 +175,38 @@ export function buildQuestionOptimizationBaseline(
       qualityTraceId: item.qualityTraceId,
     }))),
   };
+}
+
+function resolveActiveObservationLink(
+  activeLinks: ResourceObservationLink[],
+  plan: MaterialObservationPlan,
+  task: ObservationTaskPlan,
+): ResourceObservationLink | null {
+  const lineageIds = taskLineageIds(task);
+  const priority = (link: ResourceObservationLink) => {
+    if (link.observationTaskPlanId === task.observationTaskPlanId) return 0;
+    if (link.observationTaskPlanId === task.taskRevisionRootId) return 1;
+    return 2;
+  };
+  return activeLinks
+    .filter((link) => (
+      link.materialId === plan.materialId
+      && link.materialVersionId === plan.materialVersionId
+      && lineageIds.has(link.observationTaskPlanId)
+    ))
+    .sort((left, right) => (
+      priority(left) - priority(right)
+      || right.linkedAt.localeCompare(left.linkedAt)
+      || left.resourceObservationLinkId.localeCompare(right.resourceObservationLinkId)
+    ))[0] || null;
+}
+
+function taskLineageIds(task: ObservationTaskPlan): Set<string> {
+  return new Set([
+    task.observationTaskPlanId,
+    task.taskRevisionRootId,
+    task.parentObservationTaskPlanId,
+  ].filter((value): value is string => Boolean(value)));
 }
 
 function selectCurrentPlan(plans: MaterialObservationPlan[]): MaterialObservationPlan | null {
