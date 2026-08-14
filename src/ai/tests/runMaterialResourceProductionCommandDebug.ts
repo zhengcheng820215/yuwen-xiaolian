@@ -119,6 +119,7 @@ const cases: Array<{ name: string; run: () => void | Promise<void> }> = [
         planId: 'plan-draft',
         currentStatus: 'draft',
       }, {
+        loadPlan: async () => ({ status: 'draft' }),
         submitPlan: async (planId) => {
           calls.push(`submit:${planId}`);
           return { status: 'pending_review' };
@@ -130,7 +131,9 @@ const cases: Array<{ name: string; run: () => void | Promise<void> }> = [
       });
 
       assert.deepEqual(calls, ['submit:plan-draft', 'approve:plan-draft']);
-      assert.deepEqual(result, { planId: 'plan-draft', status: 'reviewed' });
+      assert.equal(result.status, 'reviewed');
+      assert.equal(result.continuationCode, 'submitted_and_approved');
+      assert.deepEqual(result.completedStages, ['plan_submitted', 'plan_approved']);
     },
   },
   {
@@ -141,6 +144,7 @@ const cases: Array<{ name: string; run: () => void | Promise<void> }> = [
         planId: 'plan-pending',
         currentStatus: 'pending_review',
       }, {
+        loadPlan: async () => ({ status: 'pending_review' }),
         submitPlan: async () => {
           submitCalled = true;
           return { status: 'pending_review' };
@@ -149,7 +153,173 @@ const cases: Array<{ name: string; run: () => void | Promise<void> }> = [
       });
 
       assert.equal(submitCalled, false);
-      assert.deepEqual(result, { planId: 'plan-pending', status: 'reviewed' });
+      assert.equal(result.status, 'reviewed');
+      assert.equal(result.continuationCode, 'approved');
+      assert.deepEqual(result.completedStages, ['plan_approved']);
+    },
+  },
+  {
+    name: '排队期间计划已 reviewed 时按权威状态直接续接',
+    run: async () => {
+      let submitCalls = 0;
+      let approveCalls = 0;
+      const result = await confirmTrainingPlanForTaskProduction({
+        planId: 'plan-stale-reviewed',
+        currentStatus: 'draft',
+      }, {
+        loadPlan: async () => ({ status: 'reviewed' }),
+        submitPlan: async () => {
+          submitCalls += 1;
+          return { status: 'pending_review' };
+        },
+        approvePlan: async () => {
+          approveCalls += 1;
+        },
+      });
+
+      assert.equal(submitCalls, 0);
+      assert.equal(approveCalls, 0);
+      assert.equal(result.status, 'reviewed');
+      assert.equal(result.continuationCode, 'semantic_state_reloaded');
+      assert.equal(result.events.some((event) => event.type === 'stage_skipped'), true);
+    },
+  },
+  {
+    name: '提交竞态后重读为 reviewed 时安全续接',
+    run: async () => {
+      let reads = 0;
+      let approveCalls = 0;
+      const result = await confirmTrainingPlanForTaskProduction({
+        planId: 'plan-submit-race',
+        currentStatus: 'draft',
+      }, {
+        loadPlan: async () => ({ status: reads++ === 0 ? 'draft' : 'reviewed' }),
+        submitPlan: async () => {
+          throw new Error('Material Observation Plan cannot be submitted from status: reviewed');
+        },
+        approvePlan: async () => {
+          approveCalls += 1;
+        },
+      });
+
+      assert.equal(approveCalls, 0);
+      assert.equal(result.status, 'reviewed');
+      assert.equal(result.continuationCode, 'race_recovered');
+      assert.equal(result.events.some((event) => event.type === 'race_recovered'), true);
+    },
+  },
+  {
+    name: '同一计划连续发布只提交和批准一次',
+    run: async () => {
+      let authorityStatus = 'draft';
+      let submitCalls = 0;
+      let approveCalls = 0;
+      const dependencies = {
+        loadPlan: async () => ({ status: authorityStatus }),
+        submitPlan: async () => {
+          submitCalls += 1;
+          authorityStatus = 'pending_review';
+          return { status: authorityStatus };
+        },
+        approvePlan: async () => {
+          approveCalls += 1;
+          authorityStatus = 'reviewed';
+        },
+      };
+
+      const first = await confirmTrainingPlanForTaskProduction({
+        planId: 'plan-sequential',
+        currentStatus: 'draft',
+      }, dependencies);
+      const second = await confirmTrainingPlanForTaskProduction({
+        planId: 'plan-sequential',
+        currentStatus: 'draft',
+      }, dependencies);
+
+      assert.equal(first.continuationCode, 'submitted_and_approved');
+      assert.equal(second.continuationCode, 'semantic_state_reloaded');
+      assert.equal(submitCalls, 1);
+      assert.equal(approveCalls, 1);
+    },
+  },
+  {
+    name: '不兼容计划状态使用中文提示并阻断',
+    run: async () => {
+      await assert.rejects(
+        () => confirmTrainingPlanForTaskProduction({
+          planId: 'plan-superseded',
+          currentStatus: 'draft',
+        }, {
+          loadPlan: async () => ({ status: 'superseded' }),
+          submitPlan: async () => ({ status: 'pending_review' }),
+          approvePlan: async () => ({ action: 'approve' }),
+        }),
+        (error: any) => {
+          assert.equal(error.code, 'MATERIAL_OBSERVATION_PLAN_STATE_CHANGED');
+          assert.equal(error.recoverability, 'reload_required');
+          assert.equal(error.objectId, 'plan-superseded');
+          return /当前训练计划状态已经变化，请刷新后重试/.test(error.message);
+        },
+      );
+    },
+  },
+  {
+    name: '页面与权威计划均 reviewed 时返回结构化跳过结果',
+    run: async () => {
+      const result = await confirmTrainingPlanForTaskProduction({
+        planId: 'plan-already-reviewed',
+        currentStatus: 'reviewed',
+      }, {
+        loadPlan: async () => ({ status: 'reviewed' }),
+        submitPlan: async () => { throw new Error('submit should not run'); },
+        approvePlan: async () => { throw new Error('approve should not run'); },
+      });
+
+      assert.equal(result.continuationCode, 'already_reviewed');
+      assert.deepEqual(result.completedStages, []);
+      assert.deepEqual(result.events.map((event) => event.type), [
+        'authority_loaded',
+        'stage_skipped',
+        'stage_skipped',
+      ]);
+    },
+  },
+  {
+    name: '审批竞态后重读为 reviewed 时返回结构化恢复结果',
+    run: async () => {
+      let reads = 0;
+      const result = await confirmTrainingPlanForTaskProduction({
+        planId: 'plan-approve-race',
+        currentStatus: 'pending_review',
+      }, {
+        loadPlan: async () => ({ status: reads++ === 0 ? 'pending_review' : 'reviewed' }),
+        submitPlan: async () => ({ status: 'pending_review' }),
+        approvePlan: async () => { throw new Error('approval raced'); },
+      });
+
+      assert.equal(result.continuationCode, 'race_recovered');
+      assert.equal(result.events.at(-1)?.stage, 'approve_plan');
+    },
+  },
+  {
+    name: '权威计划缺失时返回固定结构化刷新错误',
+    run: async () => {
+      await assert.rejects(
+        () => confirmTrainingPlanForTaskProduction({
+          planId: 'plan-missing',
+          currentStatus: 'reviewed',
+        }, {
+          loadPlan: async () => null,
+          submitPlan: async () => ({ status: 'pending_review' }),
+          approvePlan: async () => ({ action: 'approve' }),
+        }),
+        (error: any) => {
+          assert.equal(error.code, 'MATERIAL_OBSERVATION_PLAN_STATE_CHANGED');
+          assert.equal(error.operation, 'material_observation_plan.continue_for_task_publication');
+          assert.equal(error.recoverability, 'reload_required');
+          return true;
+        },
+      );
     },
   },
 ];

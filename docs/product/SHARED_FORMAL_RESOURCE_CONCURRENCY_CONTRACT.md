@@ -61,6 +61,7 @@ Phase 17.2 中记载的“最多 6 次”属于当时工程事实和历史验收
 6. **已完成阶段不回滚**：发布编排中断后保留已经落盘且可验证的阶段结果，从第一个未完成阶段接续。
 7. **成功必须通过发布后置条件**：只有正式任务身份、Frozen Version、Registry、active Observation Link 和正式读取全部成立，页面才显示发布成功。
 8. **锁只协调执行，不改变业务状态**：排队、等待锁和冲突重试是运行状态，不进入领域生命周期，不增加 Revision 或审核记录。
+9. **排队闭包不是权威状态**：命令进入 FIFO 时可以保留目标身份和展示快照，但任何可能已被前序命令改变的 Plan、Draft、Review 或 Publication 状态，必须在命令取得执行权后按稳定 ID 重新读取；不得使用点击时捕获的 `selectedPlan.status` 决定正式状态迁移。
 
 ## 五、写入协调模型
 
@@ -85,6 +86,16 @@ Phase 17.2 中记载的“最多 6 次”属于当时工程事实和历史验收
 Provider 生成或其他尚未产生正式写入的计算应尽量在租约外完成；一旦正式写入开始，命令不得与另一个正式化命令交错。
 
 只读快照、候选预览和不写共享库的 UI 操作不进入写队列，但读取结果不得被用于绕过命令执行时的最新 Revision 校验。
+
+可能等待前序任务完成的“采用并发布”命令必须在真正执行时重新加载当前 `materialObservationPlanId`。状态续接规则冻结为：
+
+- 最新状态为 `reviewed`：Plan 前置阶段视为已完成，直接继续 Candidate 采用与发布；
+- 最新状态为 `pending_review`：只执行批准，不重复提交；
+- 最新状态为 `draft / revision_required`：执行一次提交，并消费提交返回状态决定是否批准；
+- Plan 不存在、身份已切换或已进入不兼容 Revision：结构化阻断并要求刷新，不得跨版本继续；
+- 领域层对 `submit(reviewed)` 的拒绝继续保留，上层不得以放宽状态机代替权威重读。
+
+前序命令完成后，后发命令不得仅依赖 React State 异步刷新。队列项至少以 `materialVersionId + materialObservationPlanId + observationTaskPlanId + candidateId` 标识目标；完整页面对象只可用于展示，不能作为执行时权威事实。
 
 ### 5.2 客户端 Mutation 安全队列
 
@@ -161,6 +172,8 @@ mode: exclusive
 | `recovered` | 操作已接续完成 | 通过权威快照和后置条件后显示成功 |
 | `conflict_exhausted` | 共享数据有更新，本次操作尚未完成。请继续发布。 | 保留已完成阶段，提供唯一安全恢复动作 |
 | `service_unavailable` | 共享资源服务暂时不可用，正式写入未完成。 | 不伪装成冲突，不显示发布成功 |
+| `semantic_state_reloaded` | 训练计划状态已经更新，正在继续发布… | 自动跳过已完成 Plan 阶段，不显示红色错误 |
+| `semantic_state_changed_incompatibly` | 当前训练计划已经更新，请刷新后重试。已有内容不会丢失。 | 阻断跨 Revision 续接，不暴露英文领域异常 |
 
 短暂 Revision Conflict 在自动恢复期间不得直接显示红色错误。只有重试耗尽、服务不可用或业务门禁失败后，页面才进入需要用户处理的状态。
 
@@ -273,6 +286,8 @@ POST /formal-resource-commands/recover-publication
 | WP-C2 | Web Locks、BroadcastChannel、降级路径 | P0 | 已完成（2026-08-13） |
 | WP-C3 | 并发、幂等、中断恢复、双标签页测试与人工验收 | P0 | 已完成（2026-08-13） |
 | WP-C4 | 服务端原子命令与整库 Replace 分阶段退出 | P1 | 已完成（2026-08-13） |
+| WP-C5 | 排队命令执行前权威业务状态重载、已完成阶段续接与中文错误投影 | P0 | 已完成（2026-08-14） |
+| WP-C6 | Plan 续接结构化结果、统一发布入口、页面反馈与可观测事件 | P1 | 已完成（2026-08-14） |
 
 各工作包应独立开发和 Debug；前一工作包验收通过后再把下一层能力作为正式依赖。WP-C0 至 WP-C3 全部完成前，不得宣称多标签页并发可靠性已经工程验收。
 
@@ -328,6 +343,62 @@ POST /formal-resource-commands/recover-publication
 - `initialize`、备份恢复和旧服务兼容仍保留整库边界，高频领域 Mutation 已退出整库传输；
 - `pnpm run debug:shared-formal-resource-atomic-command-wp-c4` 已通过 12/12；
 - 验收报告见 [WP-C4 共享正式资源原子命令验收报告](../education/phase/reports/shared_formal_resource_atomic_command_wp_c4_acceptance_2026-08-13.md)。
+
+### 12.6 WP-C5 实现与验收证据
+
+- 采用发布命令取得页面级串行队列执行权后，按稳定 `materialObservationPlanId` 绕过缓存重读权威 Observation Plan，不再把点击时捕获的页面状态作为提交依据；
+- 权威状态为 `reviewed` 时跳过 Plan 提交和审批并继续后续发布，状态为 `pending_review` 时只执行审批，状态为 `draft / revision_required` 时只执行尚未完成的提交与审批阶段；
+- 提交或审批发生竞争错误后立即重读权威状态；若另一命令已经完成目标阶段则安全续接，否则保留结构化失败；
+- Plan 缺失、身份不一致或进入不可续接状态时，以中文业务错误阻断并要求刷新，不向用户暴露底层英文状态机异常；
+- 领域层 `submit(reviewed)` 等非法转换继续保持严格失败，幂等续接只在应用命令编排层实现，没有放宽领域不变量；
+- Material Resource Production Commands 已通过 `13/13`，Formal Resource Command Queue 已通过 `5/5`，最终集成已通过 `26/26`；
+- Material Question Review Submission 已通过 `6/6`，Material Resource Workbench State 已通过 `20/20`，Question Candidate Workbench P4 已通过 `16/16`，生产构建通过；
+- 验收报告见 [WP-C5 权威业务状态重载与续接验收报告](../education/phase/reports/shared_formal_resource_semantic_state_reload_wp_c5_acceptance_2026-08-14.md)。
+
+### 12.7 WP-C6 P1 工程契约与验收矩阵
+
+WP-C6 不增加新的领域状态，不放宽 Plan 状态机，也不持久化页面运行态。它把 WP-C5 的安全续接从内部实现提升为所有发布入口共同消费的结构化应用契约。
+
+工程契约冻结如下：
+
+1. `confirmTrainingPlanForTaskProduction` 返回结构化续接结果，至少包含权威初始状态、最终状态、续接代码、已完成阶段和本次可观测事件；调用方不得解析提示字符串判断业务结果；
+2. 续接代码至少区分“状态未变化且已确认”“执行提交/审批”“执行前状态已变化”“竞争后恢复”；
+3. Plan 缺失或状态不可续接必须抛出结构化错误，固定错误码、操作名、对象 ID 与 `reload_required` 恢复语义；不得依赖英文领域异常映射；
+4. Candidate 采用发布和既有任务继续发布都必须调用同一续接命令，即使页面快照显示 `reviewed` 也不得绕过执行时权威读取；
+5. 页面收到“执行前状态已变化”或“竞争后恢复”时，在当前任务卡投影“训练计划状态已同步，正在继续发布…”，随后继续原用户意图，不增加确认步骤；
+6. 不可续接时页面刷新权威快照、保留 Candidate 与已完成阶段，并展示结构化中文错误和唯一刷新恢复语义；
+7. 可观测事件只记录 Plan ID、页面状态、权威状态、阶段与结果代码，不记录材料正文、题目正文或用户密钥；
+8. 同一用户意图中的状态重载与页面投影不得创建 Plan Revision、Review、Question Revision、Formal Resource 或 Registry Entry。
+
+验收矩阵：
+
+| 编号 | 场景 | 预期结果 | 层级 |
+| --- | --- | --- | --- |
+| P1-01 | 页面与权威状态均为 `reviewed` | 返回 `already_reviewed`，无提交、无审批 | 命令 |
+| P1-02 | 页面 `draft`，权威 `reviewed` | 返回 `semantic_state_reloaded`，跳过 Plan 阶段 | 命令 |
+| P1-03 | 权威 `draft` | 提交、审批各一次，返回完成阶段事件 | 命令 |
+| P1-04 | 权威 `pending_review` | 只审批一次 | 命令 |
+| P1-05 | 提交竞争后权威 `reviewed` | 返回 `race_recovered`，不暴露原始异常 | 命令 |
+| P1-06 | 审批竞争后权威 `reviewed` | 返回 `race_recovered`，继续发布 | 命令 |
+| P1-07 | Plan 缺失 | 结构化错误、中文提示、`reload_required` | 命令 / 页面 |
+| P1-08 | Plan 为不可续接状态 | 固定结构化错误码，不执行发布 | 命令 / 页面 |
+| P1-09 | 页面显示 `reviewed` 的 Candidate 采用入口 | 仍调用权威续接器 | 页面集成 |
+| P1-10 | 既有任务继续发布入口 | 与 Candidate 入口复用同一续接器 | 页面集成 |
+| P1-11 | 状态变化或竞争恢复 | 当前任务卡显示同步反馈后继续成功 | 页面 Smoke |
+| P1-12 | 重复点击或同 Plan 连续发布 | Plan 阶段不重复写，题目身份不串卡 | 队列 / 集成 |
+| P1-13 | 回归与生产构建 | P0、发布主链、工作台状态和构建全部通过 | 全量回归 |
+
+完成标准：P1-01 至 P1-13 均有自动化、静态集成约束或浏览器证据；无真实数据破坏、无英文状态机错误、无新增人工步骤，方可把 WP-C6 标记为完成。
+
+实现与验收证据：
+
+- 续接命令现返回 `already_reviewed / submitted_and_approved / approved / semantic_state_reloaded / race_recovered` 五类结构化结果，并携带最小阶段事件；
+- Plan 缺失或不可续接统一返回 `MATERIAL_OBSERVATION_PLAN_STATE_CHANGED`、`reload_required` 和稳定对象 ID；
+- Candidate 采用发布与既有任务继续发布均无条件调用同一权威续接器；任务卡支持结构化续接代码和错误恢复信息投影；
+- 命令专项 `16/16 PASS`，Candidate Workbench P6 静态集成约束通过，结构化错误 `9/9 PASS`，队列 `5/5 PASS`；
+- Candidate P4 `16/16 PASS`、Material Question Review Submission `6/6 PASS`、Material Resource Workbench State `20/20 PASS`、最终集成 `26/26 suites PASS`、生产构建通过；
+- 浏览器命令 Smoke `4/4 PASS`；正式工作台只读核验成功加载 `42/42` 已发布资源和任务卡，没有执行真实发布或修改正式数据；
+- 完整验收报告见 [WP-C6 Plan 续接结构化交互与可观测性验收报告](../education/phase/reports/shared_formal_resource_plan_continuation_wp_c6_acceptance_2026-08-14.md)。
 
 ## 十三、与其他契约的关系
 

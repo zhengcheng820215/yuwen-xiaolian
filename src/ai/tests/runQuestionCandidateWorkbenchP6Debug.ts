@@ -113,6 +113,23 @@ async function main(): Promise<void> {
     /if \(adoptionResult\.visibleState === 'published'\) \{\s*await refresh\(\{\s*materialVersionId: selectedMaterial\.materialVersionId,\s*planId: selectedPlan\.materialObservationPlanId,/,
     'published adoption must refresh the current material and plan snapshot before rendering success',
   );
+  assert.equal(
+    source.includes("if (selectedPlan.status !== 'reviewed')"),
+    false,
+    'candidate adoption must not bypass the authority continuation command when the page shows reviewed',
+  );
+  assert.equal(
+    (source.match(/executeConfirmTrainingPlanForTaskProductionCommand\(\{/g) || []).length >= 2,
+    true,
+    'candidate adoption and existing task publication must share the authority continuation command',
+  );
+  for (const token of [
+    '训练计划状态已同步，正在继续发布…',
+    'data-plan-continuation-code={taskCardFeedback.continuationCode || undefined}',
+    '错误码：{taskCardFeedback.errorCode}',
+  ]) {
+    assert.equal(source.includes(token), true, `P1 continuation projection is missing: ${token}`);
+  }
   for (const token of [
     "reasonSource?: 'fixed' | 'generated' | 'manual'",
     'structuredReason?: string',
@@ -164,6 +181,7 @@ async function main(): Promise<void> {
   console.log('PASS exit audit resolves ready, migration_required, and blocked');
   console.log('PASS historical working content exposes migration recovery');
   console.log('PASS published adoption refreshes the task-card formal resource state');
+  console.log('PASS both publication entries use authority continuation and structured feedback');
 }
 
 function exitFixture() {

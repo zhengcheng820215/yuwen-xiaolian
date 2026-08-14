@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WP-C6 Plan 续接浏览器 Smoke</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <style>
+      body { margin: 0; background: #f8fafc; color: #0f172a; font: 16px/1.6 system-ui, sans-serif; }
+      main { width: min(760px, calc(100% - 32px)); margin: 48px auto; }
+      button { border: 0; border-radius: 8px; background: #059669; color: white; padding: 12px 20px; font-weight: 700; cursor: pointer; }
+      button:disabled { cursor: wait; opacity: .6; }
+      #result { margin-top: 20px; border-left: 4px solid #94a3b8; background: white; padding: 16px; white-space: pre-wrap; }
+      #result[data-status="pass"] { border-color: #10b981; color: #047857; }
+      #result[data-status="fail"] { border-color: #ef4444; color: #b91c1c; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>WP-C6 Plan 续接浏览器 Smoke</h1>
+      <p>仅调用正式续接命令并注入模拟 Plan 依赖，不读取或修改真实材料数据。</p>
+      <section class="material-resource-workbench" aria-label="任务反馈动效预览">
+        <p class="workbench-task-feedback text-blue-700" data-feedback-motion="running">正在生成完整质量检查记录…</p>
+        <p class="workbench-task-feedback text-blue-700" data-feedback-motion="queued">等待上一项操作完成…</p>
+        <p class="workbench-task-feedback text-emerald-700">题目已经发布成功！</p>
+      </section>
+      <button id="run" type="button">运行 WP-C6 Smoke</button>
+      <pre id="result" role="status" data-status="ready">READY</pre>
+    </main>
+    <script type="module">
+      import { confirmTrainingPlanForTaskProduction } from '/src/pages/materialProductionCommands.ts';
+
+      const runButton = document.querySelector('#run');
+      const resultNode = document.querySelector('#result');
+
+      runButton.addEventListener('click', async () => {
+        runButton.disabled = true;
+        resultNode.dataset.status = 'running';
+        resultNode.textContent = 'RUNNING';
+        const results = [];
+        const check = (name, condition) => {
+          if (!condition) throw new Error(`FAIL ${name}`);
+          results.push(`PASS ${name}`);
+        };
+
+        try {
+          const reloaded = await confirmTrainingPlanForTaskProduction({
+            planId: 'smoke-reloaded', currentStatus: 'draft',
+          }, {
+            loadPlan: async () => ({ status: 'reviewed' }),
+            submitPlan: async () => { throw new Error('submit must be skipped'); },
+            approvePlan: async () => { throw new Error('approve must be skipped'); },
+          });
+          check('semantic_state_reloaded', reloaded.continuationCode === 'semantic_state_reloaded');
+
+          let raceReads = 0;
+          const recovered = await confirmTrainingPlanForTaskProduction({
+            planId: 'smoke-race', currentStatus: 'pending_review',
+          }, {
+            loadPlan: async () => ({ status: raceReads++ === 0 ? 'pending_review' : 'reviewed' }),
+            submitPlan: async () => ({ status: 'pending_review' }),
+            approvePlan: async () => { throw new Error('simulated approval race'); },
+          });
+          check('race_recovered', recovered.continuationCode === 'race_recovered');
+          check('observable_events', recovered.events.some((event) => event.type === 'race_recovered'));
+
+          let structuredError = null;
+          try {
+            await confirmTrainingPlanForTaskProduction({
+              planId: 'smoke-missing', currentStatus: 'reviewed',
+            }, {
+              loadPlan: async () => null,
+              submitPlan: async () => ({ status: 'pending_review' }),
+              approvePlan: async () => undefined,
+            });
+          } catch (error) {
+            structuredError = error;
+          }
+          check(
+            'structured_reload_error',
+            structuredError?.code === 'MATERIAL_OBSERVATION_PLAN_STATE_CHANGED'
+              && structuredError?.recoverability === 'reload_required',
+          );
+
+          resultNode.dataset.status = 'pass';
+          resultNode.textContent = `${results.join('\n')}\nRESULT 4/4 PASS`;
+        } catch (error) {
+          resultNode.dataset.status = 'fail';
+          resultNode.textContent = error instanceof Error ? error.message : String(error);
+        } finally {
+          runButton.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

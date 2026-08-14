@@ -137,6 +137,18 @@ export async function getMaterialResourceProductionSnapshot(): Promise<MaterialR
   }, sharedEnvelope.status));
 }
 
+export async function getCurrentProductionObservationPlan(
+  planId: string,
+): Promise<MaterialObservationPlan | null> {
+  const sharedEnvelope = await sharedResourceClient.read({ bypassCache: true });
+  if (sharedEnvelope.status.initialized) {
+    return sharedEnvelope.snapshot.data.materialObservations.plans.find(
+      (plan) => plan.materialObservationPlanId === planId,
+    ) || null;
+  }
+  return observationRepository.getPlan(planId);
+}
+
 type SnapshotCollections = {
   materials: QuestionMaterialVersion[];
   anchors: MaterialSourceAnchor[];

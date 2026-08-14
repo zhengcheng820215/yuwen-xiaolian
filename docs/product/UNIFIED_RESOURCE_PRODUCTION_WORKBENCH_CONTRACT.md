@@ -88,6 +88,10 @@
 
 共享正式资源的页面内写入串行化、Revision Conflict 有界退避、多标签页 Web Lock、Revision 广播、幂等恢复和并发验收统一遵循[共享正式资源并发与写入恢复契约](./SHARED_FORMAL_RESOURCE_CONCURRENCY_CONTRACT.md)。这些技术运行状态不得增加用户确认步骤；自动冲突恢复期间不直接显示红色错误，只有有界重试耗尽后才进入“可继续发布”的恢复状态。
 
+“可以发布”还要求执行时状态与可见状态能够安全收敛。多个任务共用同一 Observation Plan 时，前一任务可能在后一任务排队期间把 Plan 从 `draft / pending_review` 推进为 `reviewed`；后一任务取得执行权后必须按 `materialObservationPlanId` 重新加载权威状态。若 Plan 已为同一身份的 `reviewed`，系统直接跳过重复提交并继续当前 Candidate 的采用发布；不得把点击时捕获的旧状态再次提交，也不得向用户显示 `Material Observation Plan cannot be submitted from status: reviewed` 等英文领域异常。若最新 Plan 已切换为不兼容 Revision，则停止并提示刷新，禁止跨版本发布。
+
+该规则不把 `submitMaterialObservationPlanForReview()` 改为宽松接口。领域服务继续拒绝从 `reviewed` 重复提交；幂等续接由应用层的执行前权威重读承担，以同时保持状态机严格性和单人连续发布流畅度。
+
 ### 3.2 前台合并，领域命令保持独立
 
 统一页面不得把保存、检查、确认和发布实现为一个不可追溯的写入操作。
@@ -2605,3 +2609,21 @@ Debug 验收（2026-08-09）：初始 Candidate、Candidate Workflow、Workbench
 材料换版采用先建后切：新链路未完整可用时保留旧活动版本供现有 Learning 消费；新链路通过检查并正式发布后，才切换活动 Material / Registry / Link，并将旧 link 标记为 `superseded`、不再可操作的旧 Draft 标记为 `archived`。历史 Frozen Version 与既有 Learning Session 不删除、不改写。
 
 生产工作台、批次进度和 Learning 资源探测必须共用同一“当前可消费资源”解析器或同一组契约测试。至少覆盖正文换版、只换题、Plan 增题、旧 link 清理、中断恢复、重复执行幂等、旧 Session 固定版本与新 Session 读取新版本。
+
+### 22.23 连续发布执行态重载收口（2026-08-14）
+
+同一材料的多张任务卡连续采用发布时，页面级命令队列只保证正式写入顺序，不保证点击时闭包中的业务状态仍然有效。命令取得执行权后必须按稳定 `materialObservationPlanId` 绕过缓存重读权威 Plan，并从权威状态继续尚未完成的阶段：`reviewed` 直接进入题目采用与发布，`pending_review` 只完成审批，`draft / revision_required` 才提交并审批。
+
+提交或审批与其他排队命令发生阶段竞争时，应用层必须重读状态；目标阶段已经由前序命令完成则视为可续接，不得再次调用非法状态转换，也不得向用户显示 `Material Observation Plan cannot be submitted from status: reviewed` 等底层英文错误。Plan 缺失、身份不一致或状态不可续接时，必须以中文业务错误阻断并要求刷新。
+
+该收口不修改领域状态机：`submit(reviewed)` 仍然严格失败。幂等性由应用命令编排层的“执行前权威重读 + 已完成阶段跳过 + 竞争后重读”实现。专项命令测试通过 `13/13`，队列测试通过 `5/5`，最终集成通过 `26/26`，生产构建通过。完整证据见 [WP-C5 权威业务状态重载与续接验收报告](../education/phase/reports/shared_formal_resource_semantic_state_reload_wp_c5_acceptance_2026-08-14.md)。
+
+### 22.24 Plan 续接结果与页面反馈契约（2026-08-14）
+
+Candidate 采用发布和既有任务继续发布必须无条件进入同一个 Plan 续接命令；页面快照中的 `reviewed` 只用于展示，不得成为绕过执行时权威读取的条件。续接命令返回结构化结果，页面依据结果代码投影反馈，不解析异常文本，也不自行推导是否需要提交或审批。
+
+当执行前状态变化或竞争后恢复时，当前任务卡显示“训练计划状态已同步，正在继续发布…”，系统继续完成原发布意图；该反馈是瞬时运行态，不增加确认步骤。Plan 缺失或不可续接时，页面刷新权威快照，保留 Candidate 与已完成阶段，并展示固定中文错误码和刷新恢复说明。
+
+完整工程范围、事件最小字段和 P1-01 至 P1-13 验收矩阵以[共享正式资源并发与写入恢复契约 12.7](./SHARED_FORMAL_RESOURCE_CONCURRENCY_CONTRACT.md)为准。
+
+工程验收（2026-08-14）：命令专项 `16/16 PASS`，浏览器命令 Smoke `4/4 PASS`，最终集成 `26/26 suites PASS`，生产构建通过；正式工作台完成只读加载核验，未修改真实材料或发布数据。验收记录见 [WP-C6 Plan 续接结构化交互与可观测性验收报告](../education/phase/reports/shared_formal_resource_plan_continuation_wp_c6_acceptance_2026-08-14.md)。

@@ -17,6 +17,10 @@ const unifiedLearningEntrySource = readFileSync(
   new URL('../../pages/UnifiedLearningEntry.jsx', import.meta.url),
   'utf8',
 );
+const globalStylesSource = readFileSync(
+  new URL('../../styles.css', import.meta.url),
+  'utf8',
+);
 
 function buttonBlocks(source: string) {
   return source.match(/<button\b[\s\S]*?<\/button>/g) || [];
@@ -544,6 +548,26 @@ assert.match(
   materialWorkbenchSource,
   /const visibleWorkflowFeedback = isCurrentTaskDraftPublished\(questionLifecycle\)[\s\S]*?const taskCardFeedback = visibleWorkflowFeedback \|\|[\s\S]*?taskCandidatePanel\.error[\s\S]*?role=\{\(taskCardFeedback/,
   'Candidate 主操作失败必须在任务卡摘要区外显',
+);
+assert.match(
+  materialWorkbenchSource,
+  /const taskFeedbackMotion =[\s\S]*?workflowQueued[\s\S]*?'queued'[\s\S]*?workflowBusy[\s\S]*?'running'[\s\S]*?data-feedback-motion=\{taskFeedbackMotion\}/,
+  '任务卡必须把排队和正在执行投影为不同动效状态',
+);
+for (const token of [
+  '[data-feedback-motion="running"]',
+  '[data-feedback-motion="queued"]',
+  '@keyframes workbench-feedback-shimmer',
+  '@keyframes workbench-feedback-queued',
+  '@media (prefers-reduced-motion: reduce)',
+  'animation: none',
+]) {
+  assert.equal(globalStylesSource.includes(token), true, `任务反馈动效契约缺失：${token}`);
+}
+assert.doesNotMatch(
+  globalStylesSource,
+  /workbench-task-feedback[^}]*animation[^}]*steps\(/,
+  '任务反馈不得使用闪烁式 steps 动画',
 );
 assert.match(
   unifiedLearningEntrySource,

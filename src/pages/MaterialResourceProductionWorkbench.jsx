@@ -1139,18 +1139,23 @@ export default function MaterialResourceProductionWorkbench() {
       const currentPlan = currentSnapshot.plans.find(
         (plan) => plan.materialObservationPlanId === activePlanId,
       );
-      if (currentPlan && currentPlan.status !== 'reviewed') {
+      setTaskWorkflowFeedback((current) => ({
+        ...current,
+        [observationTaskPlanId]: { type: 'info', message: '正在核对训练计划状态…' },
+      }));
+      const planContinuation = await executeConfirmTrainingPlanForTaskProductionCommand({
+        planId: activePlanId,
+        currentStatus: currentPlan?.status || 'missing',
+      });
+      const continuationFeedback = planContinuationFeedback(planContinuation);
+      if (continuationFeedback) {
         setTaskWorkflowFeedback((current) => ({
           ...current,
-          [observationTaskPlanId]: { type: 'info', message: '正在确认训练计划…' },
+          [observationTaskPlanId]: continuationFeedback,
         }));
-        await executeConfirmTrainingPlanForTaskProductionCommand({
-          planId: activePlanId,
-          currentStatus: currentPlan.status,
-        });
-        currentSnapshot = await refresh({ materialVersionId: selectedMaterialId, planId: activePlanId });
-        currentLifecycle = resolveTaskLifecycleFromSnapshot(currentSnapshot, lifecycle, activePlanId);
       }
+      currentSnapshot = await refresh({ materialVersionId: selectedMaterialId, planId: activePlanId });
+      currentLifecycle = resolveTaskLifecycleFromSnapshot(currentSnapshot, lifecycle, activePlanId);
       if (createdAlignedPlanRevision) {
         await synchronizeProductionObservationLinks(activePlanId);
         currentSnapshot = await refresh({ materialVersionId: selectedMaterialId, planId: activePlanId });
@@ -1758,23 +1763,28 @@ export default function MaterialResourceProductionWorkbench() {
       if (!selectedValidation?.passed) {
         throw new Error('训练计划尚未通过结构检查，当前题目不能进入发布流程。');
       }
-      if (selectedPlan.status !== 'reviewed') {
+      setTaskWorkflowFeedback((current) => ({
+        ...current,
+        [task.observationTaskPlanId || task.localId]: {
+          type: 'info',
+          message: '正在核对训练计划状态并准备发布…',
+        },
+      }));
+      const planContinuation = await executeConfirmTrainingPlanForTaskProductionCommand({
+        planId: selectedPlan.materialObservationPlanId,
+        currentStatus: selectedPlan.status,
+      });
+      const continuationFeedback = planContinuationFeedback(planContinuation);
+      if (continuationFeedback) {
         setTaskWorkflowFeedback((current) => ({
           ...current,
-          [task.observationTaskPlanId || task.localId]: {
-            type: 'info',
-            message: '正在确认训练计划并准备发布…',
-          },
+          [task.observationTaskPlanId || task.localId]: continuationFeedback,
         }));
-        await executeConfirmTrainingPlanForTaskProductionCommand({
-          planId: selectedPlan.materialObservationPlanId,
-          currentStatus: selectedPlan.status,
-        });
-        await refresh({
-          materialVersionId: selectedMaterial.materialVersionId,
-          planId: selectedPlan.materialObservationPlanId,
-        });
       }
+      await refresh({
+        materialVersionId: selectedMaterial.materialVersionId,
+        planId: selectedPlan.materialObservationPlanId,
+      });
 
       const adoptionResult = await adoptQuestionTaskCandidate({
         trainingTaskId,
@@ -1864,14 +1874,15 @@ export default function MaterialResourceProductionWorkbench() {
         planId: selectedPlan.materialObservationPlanId,
       });
     } catch (error) {
-      const message = createWorkbenchErrorNotice(error).message;
+      const errorFeedback = createWorkbenchErrorNotice(error);
+      const message = errorFeedback.message;
       updateTaskCandidatePanel(trainingTaskId, {
         operation: 'failed',
         error: message,
       });
       setTaskWorkflowFeedback((current) => ({
         ...current,
-        [task.observationTaskPlanId || task.localId]: { type: 'error', message },
+        [task.observationTaskPlanId || task.localId]: errorFeedback,
       }));
       setToast({ id: Date.now(), message, tone: 'error' });
     } finally {
@@ -2762,6 +2773,13 @@ export default function MaterialResourceProductionWorkbench() {
                     ? { type: 'error', message: taskCandidatePanel.error }
                     : null
                 );
+                const taskFeedbackMotion = (taskCardFeedback?.type || taskCardFeedback?.tone) === 'info'
+                  ? workflowQueued
+                    ? 'queued'
+                    : workflowBusy
+                      ? 'running'
+                      : undefined
+                  : undefined;
                 return (
                 <details
                   data-task-editor={task.localId}
@@ -2914,7 +2932,9 @@ export default function MaterialResourceProductionWorkbench() {
                       {taskCardFeedback && (
                         <p
                           role={(taskCardFeedback.type || taskCardFeedback.tone) === 'error' ? 'alert' : 'status'}
-                          className={`col-span-2 row-start-5 text-xs leading-5 sm:row-start-4 ${
+                          data-plan-continuation-code={taskCardFeedback.continuationCode || undefined}
+                          data-feedback-motion={taskFeedbackMotion}
+                          className={`workbench-task-feedback col-span-2 row-start-5 text-xs leading-5 sm:row-start-4 ${
                             (taskCardFeedback.type || taskCardFeedback.tone) === 'success'
                               ? 'text-emerald-700'
                               : (taskCardFeedback.type || taskCardFeedback.tone) === 'info'
@@ -2925,6 +2945,13 @@ export default function MaterialResourceProductionWorkbench() {
                           }`}
                         >
                           {taskCardFeedback.message}
+                          {taskCardFeedback.errorCode && (
+                            <span className="block opacity-80">
+                              错误码：{taskCardFeedback.errorCode}
+                              {taskCardFeedback.objectId ? ` · 对象：${taskCardFeedback.objectId}` : ''}
+                              {taskCardFeedback.recoveryMessage ? ` · ${taskCardFeedback.recoveryMessage}` : ''}
+                            </span>
+                          )}
                         </p>
                       )}
                     </div>
@@ -5179,5 +5206,14 @@ function collapseWorkingDraftPlans(plans) {
     });
 }
 function splitParagraphs(content) { return content.replace(/\r\n/g, '\n').trim().split(/\n\s*\n|\n/).map((value) => value.trim()).filter(Boolean); }
+function planContinuationFeedback(result) {
+  if (!['semantic_state_reloaded', 'race_recovered'].includes(result?.continuationCode)) return null;
+  return {
+    type: 'info',
+    message: '训练计划状态已同步，正在继续发布…',
+    continuationCode: result.continuationCode,
+    continuationEvents: result.events,
+  };
+}
 function errorNotice(error) { return createWorkbenchErrorNotice(error, { operation: 'material_workbench.operation' }); }
 const emptySnapshot = { sharedStoreStatus: null, materials: [], anchors: [], plans: [], validations: [], drafts: [], frozenVersions: [], links: [], draftReadiness: [] };

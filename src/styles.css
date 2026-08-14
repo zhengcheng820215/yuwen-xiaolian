@@ -110,6 +110,57 @@ button {
   }
 }
 
+.material-resource-workbench .workbench-task-feedback[data-feedback-motion="running"] {
+  color: transparent;
+  background-image: linear-gradient(
+    105deg,
+    #1d4ed8 0%,
+    #1d4ed8 36%,
+    #60a5fa 48%,
+    #dbeafe 52%,
+    #2563eb 58%,
+    #1d4ed8 100%
+  );
+  background-size: 240% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: workbench-feedback-shimmer 1.8s ease-in-out infinite;
+  will-change: background-position;
+}
+
+.material-resource-workbench .workbench-task-feedback[data-feedback-motion="queued"] {
+  animation: workbench-feedback-queued 2.2s ease-in-out infinite;
+  will-change: opacity;
+}
+
+@keyframes workbench-feedback-shimmer {
+  0% {
+    background-position: 115% 0;
+  }
+  100% {
+    background-position: -115% 0;
+  }
+}
+
+@keyframes workbench-feedback-queued {
+  0%,
+  100% {
+    opacity: 0.62;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .material-resource-workbench .workbench-task-feedback[data-feedback-motion] {
+    color: #1d4ed8;
+    background: none;
+    animation: none;
+    will-change: auto;
+  }
+}
+
 .material-resource-workbench :where(a, button, input, select, textarea):focus-visible {
   outline: 2px solid #059669;
   outline-offset: 2px;
