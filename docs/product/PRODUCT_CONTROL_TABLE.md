@@ -51,7 +51,7 @@ Debug / Acceptance Report
 | Phase 17.4 本机共享正式资源 | 让不同本机客户端读取同一份正式资源，并保护版本与冲突 | PASS | DEBUG 10 / 10 + BASELINE CUTOVER + FRESH INITIALIZATION PASS | CONTROLLED DUAL-CLIENT + INDEPENDENT BROWSER-KERNEL CHECK PASS | RESTART PERSISTENCE PASS |
 | Phase 17.5 题目生成质量评估 | 在发布前发现结构、语义和批次质量问题 | PASS | 17.5A / B / C1 / C2 / C3A / C3B RUNTIME PASS + REVIEW / PUBLICATION WORKFLOW P0 PASS | STAGE 1–5 TEN-MATERIAL / 34-QUESTION CALIBRATION PASS | REAL LEARNING SAMPLE CALIBRATION AWAITING DATA |
 | `/learning` 正式学习入口 | 让单学生从一个入口开始、恢复、作答、反馈并继续 | PASS | MAIN PATH PASS / SHARED FORMAL SNAPSHOT READ FIXED / CONSOLIDATION IN PROGRESS | UNIFIED ENTRY 20 / 20 + FORMAL ENTRY 10 / 10 PASS | `0 / 5` |
-| Learning 反馈后一次修订 | 保留首次独立表现，并观察学生能否利用反馈完成一次改善 | PASS | STAGES 1–2 SCHEMA / POLICY / STUDENT INTERACTION / RECOVERY PASS；STAGES 3–4 PENDING | PENDING | PENDING |
+| Learning 反馈后一次修订 | 保留首次独立表现，并观察学生能否利用反馈完成一次改善 | PASS | STAGES 1–4 ENGINEERING + DEBUG + E2E PASS | ISOLATED BROWSER + E2E PASS / REAL STUDENT ACCEPTANCE PENDING | AWAITING REAL RETEST / TRANSFER DATA |
 | 真实 Learning 数据采集与观察 | 在不干扰学生的前提下记录匿名使用者、过程、答案与版本化校准样本 | PASS | WP0—WP7 + STAGE 4 ENGINEERING CLOSEOUT PASS | ISOLATED BROWSER ACCEPTANCE PASS / REAL USE PENDING | AWAITING REAL DATA |
 | 多能力调度 | 根据表现和正式资源决定下一步练什么 | PASS | RUNTIME PASS | LIMITED BY RESOURCE PACK | PENDING |
 | Student Learning Narrative | 把系统已有判断转化为学生可理解、可执行的表达 | PASS | BASELINE PASS | REAL STUDENT CALIBRATION PENDING | PENDING |
@@ -120,7 +120,7 @@ Debug / Acceptance Report
 | 产品级 PASS | ① 首答充分达标时不出现无意义修订；② 存在可修正缺口时显示明确 Revision Goal；③ Initial Response 不可变，Revised Response 独立保存；④ 每题最多一次且刷新、重复点击不重复；⑤ Revision Evaluation 说明已改善、未解决和新问题；⑥ Revision 不改变首次题目校准与独立 Evidence。 |
 | 演示路径 | Training 部分达标回答 → 查看正式反馈与 Revision Goal → 进入 Revision Mode → 在原答案基础上修改 → 提交 → 查看改善评价 → 继续下一题；随后对照内部 Initial / Revision 记录和唯一校准 Projection。 |
 | FAIL 先查 | 入口资格错误：Diagnosis / Policy；原答案或证据被覆盖：Runtime；反馈空泛或泄露答案：表达；重复 Revision、刷新丢失或校准数增加：Runtime / 数据治理。 |
-| 证据 | [Learning 反馈后修订契约](./LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md) · [学习流程模型](../education/LEARNING_FLOW.md) · [反馈行动转换模型](../education/FEEDBACK_ACTION_MODEL.md) · [训练模型](../education/TRAINING_MODEL.md) |
+| 证据 | [Learning 反馈后修订契约](./LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md) · [修订观察、审计与指标契约](./LEARNING_FEEDBACK_REVISION_OBSERVATION_AND_AUDIT_CONTRACT.md) · [端到端联调验收](../education/phase/reports/learning_feedback_revision_end_to_end_integration_debug_2026-08-14.md) · [学习流程模型](../education/LEARNING_FLOW.md) · [反馈行动转换模型](../education/FEEDBACK_ACTION_MODEL.md) · [训练模型](../education/TRAINING_MODEL.md) |
 
 > 阶段 1–4 已完成：稳定身份、Initial / Revised Response 不可变、单次 Revision、草稿恢复、差异评价、feedback-supported Evidence、Profile 只追加证据、扩展事件、Outbox 恢复、完整性审计和诚实指标均已落地。阶段回归 `88 / 88 PASS`，端到端联调 `13 / 13 PASS`，IndexedDB 恢复 `18 / 18 PASS`，Production Build PASS。系统只在正式 Evaluation 完成后表述修订结果，不把“已提交”直接解释为“已经改善”；真实教育效果仍需后续无提示 Retest / Transfer 校准。
 
@@ -200,13 +200,13 @@ Debug / Acceptance Report
 > 已完成10篇材料、34道正式题的资源生产校准，以及真实 Learning 最小采集 `WP0—WP7`；具备正式资源录入、AI生成、质量门禁、采用发布、版本治理、Learning消费、本机学习记录、五事件采集、失败恢复、校准 Projection 和内部完整性审计能力。当前进入固定单学生的受控真实运行，尚缺真实样本量、多轮连续 Session 和自然日稳定性证明。
 
 ```text
-1. 反馈后一次修订：按独立契约完成 Schema / Repository、资格决策、Revision Mode、Revision Evaluation、事件审计与恢复；不得先做孤立按钮
-2. 真实 Learning：由固定单学生使用当前10篇材料、34道题完成连续 Session，重点观察12道长文本提示题与4道 v4 试点题
-3. 每个新轮次后检查内部完整性页，记录五事件完整率、eligible/excluded 比例、Outbox 恢复和真实 Diagnosis 可用性；Revision 启用后单独核对其扩展事件
+1. 真实 Learning：由固定单学生使用当前10篇材料、34道题完成连续 Session，重点观察12道长文本提示题与4道 v4 试点题
+2. 每个新轮次后检查内部完整性页，记录五事件完整率、eligible / excluded / projection failed 闭合、Outbox 恢复、版本绑定和真实 Diagnosis 可用性
+3. 在真实 Training 轮次中观察 Revision Offer、开始、提交、评价完成和后续 Retest / Transfer；不得把反馈支持下改善直接解释为独立掌握
 4. 累积真实样本并按独立使用者口径解释；单一学生的重复作答和 Revision 均不得充当多人样本或群体校准
-5. 完成多轮连续 Session 与自然日稳定性证明，区分历史缺失记录和新链路数据
-6. P4 家长报告与广泛过程指标；P5 多使用者。二者不阻塞第一批真实数据
-7. 扩大试用前单独完成材料来源与版权核验，不把治理状态变成学生步骤或题目审核步骤
+5. 完成多轮连续 Session 与至少5个自然日稳定性证明，区分历史缺失记录和新链路数据
+6. 根据真实数据调整反馈、题目、Rubric 或调度策略；没有观察证据时不继续增加学生操作或第二次 Revision
+7. P4 家长报告与广泛过程指标、P5 多使用者继续后置；扩大试用前单独完成材料来源与版权核验
 ```
 
 产品负责人不需要重新掌握全部字段和对象。主要责任是守住目标、用户结果、PASS 标准、模块边界和问题分类。

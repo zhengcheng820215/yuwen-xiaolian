@@ -4,7 +4,7 @@
 
 状态：`ACTIVE / P0—P3 IMPLEMENTED / P4—P5 PENDING`
 
-文档版本：`real_learning_data_collection_and_observation_v1.4`
+文档版本：`real_learning_data_collection_and_observation_v1.5`
 
 生效日期：`2026-08-13`
 
@@ -55,7 +55,8 @@ P0—P3 已进一步完成：
 - Learning 完成轮次向匿名题目校准样本的自动投影；
 - 采集失败后的 Outbox 恢复与幂等补写；
 - 内部只读完整性报告及 Demo、Fixture 与 Product 数据隔离；
-- `WP0—WP7` 自动化、浏览器与最终端到端验收。
+- `WP0—WP7` 自动化、浏览器与最终端到端验收；
+- 反馈后一次修订的独立阶段 1—4 工程、Debug 与端到端联调；Revision 扩展事件、完整性审计和指标由[Learning 反馈后修订观察、审计与指标契约](./LEARNING_FEEDBACK_REVISION_OBSERVATION_AND_AUDIT_CONTRACT.md)治理，不复用现有 `answer_submitted` 制造第二个校准 Attempt。
 
 ### 2.2 后续阶段尚未实现
 
@@ -63,7 +64,6 @@ P0—P3 已进一步完成：
 
 - 多使用者匿名档案与选择入口；
 - 首次输入、有效停留和主动放弃等广泛扩展观察；
-- 反馈后一次修订已进入独立阶段 1—3 工程链路；Revision 扩展事件、完整性审计和指标由[Learning 反馈后修订观察、审计与指标契约](./LEARNING_FEEDBACK_REVISION_OBSERVATION_AND_AUDIT_CONTRACT.md)治理，接入时不得复用现有 `answer_submitted` 制造第二个校准 Attempt；
 - 成人帮助与家长简短观察；
 - 家长学习记录页与题目观察页的正式分层；
 - 数据导出、导入恢复、按使用者删除与保留期限控制；
@@ -438,7 +438,7 @@ answer_submitted
 - 新增 `revision_started / revision_submitted / revision_evaluation_completed` 扩展事件；
 - Revision 只引用 Initial `attemptId`，不创建第二个题目校准 Attempt；
 - 内部报告分别核对 Revision 身份、提交、评价和待补状态；
-- 完成工程与产品验收前保持 `DESIGN ACCEPTED / ENGINEERING PENDING`。
+- 阶段 1—4 工程、隔离浏览器与端到端联调已通过；当前保持 `ENGINEERING PASS / REAL USE CALIBRATION PENDING`，不得把工程 Fixture 或修订结果直接解释为真实教育效果。
 
 ### P5：多使用者与严格隔离
 

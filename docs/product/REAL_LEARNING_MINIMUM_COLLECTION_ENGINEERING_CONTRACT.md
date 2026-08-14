@@ -4,7 +4,7 @@
 
 状态：`DESIGN FROZEN / ENGINEERING WP0—WP7 PASS`
 
-文档版本：`real_learning_minimum_collection_engineering_v1.3`
+文档版本：`real_learning_minimum_collection_engineering_v1.4`
 
 生效日期：`2026-08-13`
 
@@ -209,9 +209,9 @@ export type AnonymousQuestionCalibrationAttempt = {
 - 在 `totalScoreStatus !== 'available_comparable_window'` 时计算高低组区分度；
 - 把同一 `subjectKey` 的重复作答计为多个独立使用者。
 
-### 3.5 反馈后 Revision 的兼容边界（设计已接受，工程待实施）
+### 3.5 反馈后 Revision 的兼容边界（独立扩展已实现并验收）
 
-当前 `attemptId`、五事件链和 `QuestionCalibrationProjectionRecord` 继续只描述 Initial Response。Revision 扩展采集必须满足：
+当前 `attemptId`、五事件链和 `QuestionCalibrationProjectionRecord` 继续只描述 Initial Response。Revision 扩展已经通过独立 Schema、Repository、Outbox、完整性审计和指标契约实现，并持续满足：
 
 ```text
 LearningTaskAttempt
@@ -235,7 +235,7 @@ LearningTaskAttempt
 - 把 `revision_evaluation_failed` 投射成新的学生确认步骤；
 - 在 Revision Schema 和 Repository 未完成前，只通过页面状态增加修订按钮。
 
-Revision 扩展必须独立版本化 Event、Repository、Outbox、完整性公式和浏览器迁移测试。WP0—WP7 的 PASS 只覆盖 Initial Attempt，不代表 Revision 工程已经完成。
+Revision 扩展使用独立版本化 Event、Repository、Outbox、完整性公式和浏览器迁移测试。WP0—WP7 的 PASS 仍只证明 Initial Attempt 最小采集链；Revision 工程完成状态由[Learning 反馈后修订契约](./LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md)、[修订观察、审计与指标契约](./LEARNING_FEEDBACK_REVISION_OBSERVATION_AND_AUDIT_CONTRACT.md)及对应阶段 1—4 验收共同证明，不得把两套验收口径相互替代。
 
 ## 四、稳定身份算法
 

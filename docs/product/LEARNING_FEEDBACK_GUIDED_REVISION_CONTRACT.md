@@ -2,9 +2,9 @@
 
 英文名称：Learning Feedback-Guided Revision Contract
 
-状态：`DESIGN ACCEPTED / STAGES 1–2 ENGINEERING PASS / STAGES 3–4 PENDING`
+状态：`DESIGN ACCEPTED / STAGES 1–4 ENGINEERING + DEBUG + E2E PASS / REAL USE CALIBRATION PENDING`
 
-文档版本：`learning_feedback_guided_revision_v1.0`
+文档版本：`learning_feedback_guided_revision_v1.1`
 
 生效日期：`2026-08-14`
 
