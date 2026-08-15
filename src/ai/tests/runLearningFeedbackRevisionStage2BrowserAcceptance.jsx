@@ -166,7 +166,6 @@ async function initialize() {
     materialVersionId: 'material-stage2-browser-v1',
     resourceId: 'resource-stage2-browser',
     resourceVersionId: 'resource-stage2-browser-v1',
-    taskId: 'task-stage2-browser',
     taskRole: 'training',
     rubricVersion: 'rubric-stage2-browser-v1',
     initialResponse: {

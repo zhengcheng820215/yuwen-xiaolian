@@ -5,6 +5,8 @@ import { applyProfileUpdateDecision } from '../agents/profileUpdateExecutor.ts';
 import { createTaskRequest } from '../agents/taskRequestAgent.ts';
 import { runTaskEvidenceReturnAgent } from '../agents/taskEvidenceReturnAgent.ts';
 import { runTaskExecutionAgent } from '../agents/taskExecutionAgent.ts';
+import { InMemoryLearningTaskAttemptRepository } from '../repositories/inMemoryLearningTaskAttemptRepository.ts';
+import { LearningFeedbackRevisionPersistenceService } from '../services/learningFeedbackRevisionPersistenceService.ts';
 import { validateNextLearningStrategy } from '../agents/strategyValidationAgent.ts';
 import type { DiagnosisResult } from '../schemas/diagnosis.schema.ts';
 import type { CurrentLearningContext } from '../schemas/nextLearningStrategy.schema.ts';
@@ -26,6 +28,7 @@ async function main(): Promise<void> {
     { name: 'E2E-003 Diagnosis failure does not create formal Evidence', run: caseDiagnosisFailure },
     { name: 'E2E-004 stale resource version cannot enter task execution', run: caseStaleResource },
     { name: 'E2E-005 repeated evidence return remains deterministic and idempotent', run: caseRepeatedReturn },
+    { name: 'E2E-006 feedback attempt keeps concrete execution task identity', run: caseFeedbackAttemptIdentity },
   ];
   let passed = 0;
   const failures: string[] = [];
@@ -162,6 +165,47 @@ function caseNormalChain(chain: PreparedChain): void {
   expect(taskRequest.taskRequest?.targetAbilityId === chain.concreteTask.targetAbilityId, 'Next TaskRequest ability changed unexpectedly.');
   expect(taskRequest.taskRequest?.evidenceLinks.includes(returned.abilityEvidence[0].id), 'Next TaskRequest is not grounded in the new Evidence.');
   expect(taskRequest.taskRequest?.growthMemoryRecordIds.includes(returned.growthMemoryRecord!.recordId), 'Next TaskRequest is not grounded in GrowthMemory.');
+}
+
+async function caseFeedbackAttemptIdentity(chain: PreparedChain): Promise<void> {
+  const response = chain.execution.taskExecutionResult?.studentResponse;
+  expect(response, 'StudentResponse is missing from the formal resource execution chain.');
+  expect(
+    chain.selectedVersion.taskId !== chain.concreteTask.taskId,
+    'The fixture must preserve distinct formal-resource and concrete execution task identities.',
+  );
+  expect(
+    response!.taskId === chain.concreteTask.taskId,
+    'StudentResponse is not bound to the ConcreteLearningTask identity.',
+  );
+  const repository = new InMemoryLearningTaskAttemptRepository();
+  const service = new LearningFeedbackRevisionPersistenceService(repository, () => SUBMITTED_AT);
+  const attempt = await service.createInitialAttempt({
+    initialAttemptId: 'attempt-phase1-16-feedback-identity',
+    studentId: response!.studentId,
+    learningSessionId: 'session-phase1-16-feedback-identity',
+    learningRoundId: 'round-phase1-16-feedback-identity',
+    operationId: 'operation-phase1-16-feedback-identity',
+    materialVersionId: chain.selectedVersion.materialVersionId!,
+    resourceId: chain.selectedVersion.resourceId,
+    resourceVersionId: chain.selectedVersion.resourceVersionId,
+    taskRole: chain.concreteTask.taskRole,
+    rubricVersion: `${chain.selectedVersion.resourceVersionId}:rubric`,
+    initialResponse: response!,
+    initialDiagnosisId: 'diagnosis-phase1-16-feedback-identity',
+    initialDiagnosisSchemaVersion: 'formal_diagnosis_commit_v1',
+    initialFeedbackId: 'feedback-phase1-16-feedback-identity',
+    initialFeedbackSchemaVersion: 'controlled_feedback_expression_v1',
+    createdAt: response!.submittedAt,
+  });
+  expect(
+    attempt.taskId === chain.concreteTask.taskId && attempt.taskId === response!.taskId,
+    'LearningTaskAttempt did not derive taskId from the frozen StudentResponse.',
+  );
+  expect(
+    attempt.resourceVersionId === chain.selectedVersion.resourceVersionId,
+    'LearningTaskAttempt lost the independent formal resource identity.',
+  );
 }
 
 function caseInvalidAnswer(chain: PreparedChain): void {

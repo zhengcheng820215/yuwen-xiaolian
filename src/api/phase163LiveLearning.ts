@@ -1428,7 +1428,6 @@ async function resolveFeedbackRevisionState(
     materialVersionId: descriptor.input.resourceVersion.materialVersionId || 'material-version-unavailable',
     resourceId: descriptor.input.resourceVersion.resourceId,
     resourceVersionId: descriptor.input.resourceVersion.resourceVersionId,
-    taskId: descriptor.input.resourceVersion.taskId,
     taskRole: descriptor.concreteTask.taskRole,
     rubricVersion: `${descriptor.input.resourceVersion.resourceVersionId}:rubric`,
     initialResponse: response,

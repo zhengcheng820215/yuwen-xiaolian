@@ -124,7 +124,6 @@ function attemptInput() {
     materialVersionId: 'material-stage1-browser-v1',
     resourceId: 'resource-stage1-browser',
     resourceVersionId: 'resource-stage1-browser-v1',
-    taskId: 'task-stage1-browser',
     taskRole: 'training' as const,
     rubricVersion: 'rubric-stage1-browser-v1',
     initialResponse: {

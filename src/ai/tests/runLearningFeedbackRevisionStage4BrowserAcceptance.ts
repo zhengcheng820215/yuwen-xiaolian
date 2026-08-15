@@ -172,7 +172,7 @@ async function createAttempt(service: LearningFeedbackRevisionPersistenceService
     studentId: STUDENT_ID, learningSessionId: `session-${suffix}`,
     learningRoundId: `round-${suffix}`, operationId: `operation-${suffix}`,
     materialVersionId: 'material-stage4-integration-v1', resourceId: 'resource-stage4-integration',
-    resourceVersionId: 'resource-stage4-integration-v1', taskId: `task-${suffix}`,
+    resourceVersionId: 'resource-stage4-integration-v1',
     taskRole: 'training', rubricVersion: 'rubric-stage4-integration-v1',
     initialResponse: {
       responseId: `response-${suffix}-initial`, executionSessionId: `execution-${suffix}`,

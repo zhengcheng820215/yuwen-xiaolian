@@ -144,7 +144,6 @@ async function completedAttempt(service: LearningFeedbackRevisionPersistenceServ
     materialVersionId: 'material-stage4-v1',
     resourceId: 'resource-stage4',
     resourceVersionId: 'resource-stage4-v1',
-    taskId: 'task-stage4',
     taskRole: 'training',
     rubricVersion: 'rubric-stage4-v1',
     initialResponse: {

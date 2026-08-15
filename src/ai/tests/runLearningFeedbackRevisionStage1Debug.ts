@@ -27,10 +27,11 @@ async function main(): Promise<void> {
   const repository = new InMemoryLearningTaskAttemptRepository();
   const service = new LearningFeedbackRevisionPersistenceService(repository, () => T4);
   const input = attemptInput('round-stage1-a', 'attempt-initial-a', 'response-initial-a');
+  const identityInput = { ...input, taskId: input.initialResponse.taskId };
 
-  const stableId = buildLearningTaskAttemptId(input);
-  check(stableId === buildLearningTaskAttemptId(input), 'stable_learning_task_attempt_id');
-  check(stableId !== buildLearningTaskAttemptId({ ...input, learningRoundId: 'round-stage1-b' }), 'round_changes_attempt_identity');
+  const stableId = buildLearningTaskAttemptId(identityInput);
+  check(stableId === buildLearningTaskAttemptId(identityInput), 'stable_learning_task_attempt_id');
+  check(stableId !== buildLearningTaskAttemptId({ ...identityInput, learningRoundId: 'round-stage1-b' }), 'round_changes_attempt_identity');
 
   const initial = await service.createInitialAttempt(input);
   check(isLearningTaskAttemptRecord(initial), 'initial_attempt_schema_valid');
@@ -190,7 +191,6 @@ function attemptInput(learningRoundId: string, initialAttemptId: string, respons
     materialVersionId: 'material-version-stage1',
     resourceId: 'resource-stage1',
     resourceVersionId: 'resource-version-stage1',
-    taskId: `task-${learningRoundId}`,
     taskRole: 'training' as const,
     rubricVersion: 'rubric-stage1-v1',
     initialResponse: {

@@ -4,7 +4,7 @@
 
 状态：`DESIGN ACCEPTED / STAGES 1–4 ENGINEERING + DEBUG + E2E PASS / REAL USE CALIBRATION PENDING`
 
-文档版本：`learning_feedback_guided_revision_v1.1`
+文档版本：`learning_feedback_guided_revision_v1.2`
 
 生效日期：`2026-08-14`
 
@@ -235,6 +235,23 @@ type FeedbackGuidedRevision = {
 ```
 
 `draftAnswer` 可以更新；`Initial Response` 和已提交的 `Revised Response` 不可变。任何 Repository 均不得用 Revised Response 覆盖 Initial Response 的记录、索引或内容签名。
+
+### 7.1 Attempt 任务身份唯一来源
+
+`LearningTaskAttempt.taskId` 必须等于冻结的 `Initial Response.taskId`，也就是本轮实际执行的 `ConcreteLearningTask.taskId`。创建 Attempt 时不得再由调用方传入第二份可独立变化的 `taskId`。
+
+正式资源生产侧的 `FrozenQuestionResourceVersion.taskId` 用于追溯资源所属的录入任务，可能与运行期 `ConcreteLearningTask.taskId` 不同。该身份只能通过 `resourceId / resourceVersionId / materialVersionId` 等资源字段保留，禁止覆盖运行期任务身份。必须满足：
+
+```text
+LearningTaskAttempt.taskId
+= Initial Response.taskId
+= ConcreteLearningTask.taskId
+
+Frozen Resource identity
+= resourceId + resourceVersionId + materialVersionId
+```
+
+如果上述等式不能成立，系统必须停止创建 Attempt；但已经冻结的 Initial Response、Diagnosis 和 Feedback 不得丢失，学生端应提供“重新分析”恢复入口，不得显示内部 Schema 错误或要求学生重新作答。
 
 ## 八、Revision Evaluation
 
@@ -520,6 +537,14 @@ learningTaskAttemptId
 验收记录见[Learning 反馈后修订阶段 4 工程与 Debug 验收](../education/phase/reports/learning_feedback_revision_stage4_engineering_debug_acceptance_2026-08-14.md)。阶段 1—4 工程链已收口；下一步是真实使用与 Retest / Transfer 校准，不是继续增加学生操作。
 
 正式使用前的正常修订、跳过修订、评价失败恢复、事件失败恢复、学生端草稿恢复和校准隔离已完成跨层联调，验收记录见[Learning 反馈后修订端到端联调 Debug 验收](../education/phase/reports/learning_feedback_revision_end_to_end_integration_debug_2026-08-14.md)。
+
+### 15.6 Attempt 任务身份 P0 修复（2026-08-15）
+
+真实 Learning 首次提交暴露了资源任务身份与运行期任务身份混用的问题：反馈修订持久化曾把 `FrozenQuestionResourceVersion.taskId` 写入 `LearningTaskAttempt.taskId`，而冻结的 `StudentResponse.taskId` 来自 `ConcreteLearningTask.taskId`，导致合法回答在反馈呈现阶段触发 `learning_task_attempt_input_invalid`。
+
+P0 已按第 7.1 节收口：Attempt 创建接口不再接受独立 `taskId`，统一从冻结 Initial Response 派生；资源身份继续独立追溯；学生端将相关内部失败映射为“回答已保留、可重新分析”的恢复表达。修订阶段 1—4 专项共 `88 / 88 PASS`，单对象端到端 `6 / 6 PASS`，Day 0 集成 `15 / 15 PASS`，统一入口 `24 / 24 PASS`，反馈呈现 `6 / 6 PASS`，Production Build PASS。既有真实学习记录未迁移、未删除、未重写。
+
+详细记录见[Learning Attempt 任务身份 P0 修复验收](../education/phase/reports/learning_attempt_task_identity_p0_fix_acceptance_2026-08-15.md)。
 
 ## 十六、冻结结论
 

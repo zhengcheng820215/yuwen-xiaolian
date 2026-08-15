@@ -179,7 +179,6 @@ async function prepareSubmitted(service: LearningFeedbackRevisionPersistenceServ
     materialVersionId: `material-version-${id}`,
     resourceId: `resource-${id}`,
     resourceVersionId: `resource-version-${id}`,
-    taskId: `task-${id}`,
     taskRole: 'training',
     rubricVersion: `rubric-${id}`,
     initialResponse: {

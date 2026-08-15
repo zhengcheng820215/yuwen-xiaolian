@@ -29,7 +29,6 @@ export type CreateLearningTaskAttemptInput = {
   materialVersionId: string;
   resourceId: string;
   resourceVersionId: string;
-  taskId: string;
   taskRole: RecommendedTaskRole;
   rubricVersion: string;
   initialResponse: StudentResponse;
@@ -67,9 +66,10 @@ export class LearningFeedbackRevisionPersistenceService {
 
   async createInitialAttempt(input: CreateLearningTaskAttemptInput): Promise<LearningTaskAttemptRecord> {
     const createdAt = input.createdAt || input.initialResponse.submittedAt;
+    const taskId = input.initialResponse.taskId;
     const record: LearningTaskAttemptRecord = {
       schemaVersion: LEARNING_FEEDBACK_REVISION_SCHEMA_VERSION,
-      learningTaskAttemptId: buildLearningTaskAttemptId(input),
+      learningTaskAttemptId: buildLearningTaskAttemptId({ ...input, taskId }),
       initialAttemptId: input.initialAttemptId,
       studentId: input.studentId,
       learningSessionId: input.learningSessionId,
@@ -78,7 +78,7 @@ export class LearningFeedbackRevisionPersistenceService {
       materialVersionId: input.materialVersionId,
       resourceId: input.resourceId,
       resourceVersionId: input.resourceVersionId,
-      taskId: input.taskId,
+      taskId,
       taskRole: input.taskRole,
       rubricVersion: input.rubricVersion,
       initialResponse: structuredClone(input.initialResponse),
