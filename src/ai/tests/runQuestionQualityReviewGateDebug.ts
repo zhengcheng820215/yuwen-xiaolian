@@ -42,6 +42,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '09 old rule assessment is replaced before consumption', run: caseRuleVersionRefresh },
   { name: '10 assessment state is calculated from one shared contract', run: caseAssessmentState },
   { name: '11 warning decisions are required and revision-bound', run: caseWarningDecisions },
+  { name: '12 review gate forwards the formal material anchor', run: caseReviewGateForwardsMaterialAnchor },
 ];
 
 async function main(): Promise<void> {
@@ -93,6 +94,35 @@ async function caseUnvalidatedDraft(): Promise<void> {
   );
 
   assert(assessment === null, 'Unvalidated draft unexpectedly received an assessment.');
+}
+
+async function caseReviewGateForwardsMaterialAnchor(): Promise<void> {
+  const fixture = await validatedFixture('formal-anchor', {
+    questionStem: '结合材料，分析父亲的心理。',
+  });
+  const assessment = await getOrAssessCurrentQuestionDraftQuality(
+    fixture.resources,
+    fixture.quality,
+    fixture.draft.draftId,
+    NOW,
+    {
+      sourceAnchorId: 'anchor-leaf-full-text',
+      materialId: 'material-leaf',
+      materialVersionId: 'material-leaf:v1',
+      anchorType: 'full_text',
+      contentHash: 'fixture-full-text-anchor',
+    },
+  );
+
+  assert(assessment, 'Formal-anchor assessment was not created.');
+  assert(
+    assessment.checks.materialGrounding === 'pass',
+    'The review gate did not forward the formal material anchor.',
+  );
+  assert(
+    !assessment.warnings.some((warning) => warning.code === 'quality.material.anchor_weak'),
+    'The review gate ignored the formal material anchor and emitted a generic-scope warning.',
+  );
 }
 
 async function caseSubmitRequiresAssessment(): Promise<void> {

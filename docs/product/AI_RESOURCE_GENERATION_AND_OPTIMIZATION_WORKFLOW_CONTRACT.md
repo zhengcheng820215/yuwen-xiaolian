@@ -3,7 +3,7 @@
 英文名称：AI Resource Generation and Optimization Workflow Contract
 
 状态：DESIGN FROZEN / P0-P7 ENGINEERING COMPLETE / SINGLE-OPERATOR ADOPTION ORCHESTRATION DEBUG ACCEPTED
-契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_15`
+契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_16`
 更新日期：2026-08-18
 
 产品确认日期：2026-08-05
@@ -30,6 +30,8 @@
 2026-08-18 单选进入层与顺序规划确认（同日完成持久化收口）：常规 Training 任务组默认采用 `entry_first`，优先将 `1–2` 道合格基础理解单选安排在首个高负荷文本任务之前；第 `3` 道及后续单选即使合格，也不得继续被当作进入层，存在文本任务时首个文本任务必须紧随进入层。当前 Observation Plan 要求先形成整体判断或保留独立文本表达基线时，可以使用 `holistic_first`，并由确定性 Planner 保证首个文本任务位于本轮新候选首位；单选承担 Retest / Transfer 时使用 `role_driven`。例外必须写入受控原因码。进入层具体 Candidate 身份、数量、策略、原因和序号必须写入正式任务标签，并在 Observation Plan 权威刷新后恢复，禁止仅凭题型或当前位置重新推断。初始或整组替代只排序新候选，补充生成只追加且不得重排已发布任务；Learning 只对尚未消费任务应用投放优先级，已完成任务和 Retest / Transfer 的时间依赖不得被改写。顺序不足或受控调整属于规划软结果，不新增人工审核，也不单独阻断高质量 Candidate。
 
 2026-08-18 单选质量提醒分流确认：质量评估必须以 `responseFormat` 为事实来源。`single_choice` 的可观察动作由题干选择语义、完整选项和单选交互共同确认，不得要求题干使用开放题动词；其区分度由唯一答案、选项集合、逐项干扰依据与可解释偏差建立，不得要求两个以上 Rubric 项来模拟“完整/部分/未达到”的开放作答分层。`quality.observation.unclear` 与 `quality.discrimination.weak` 只有在单选专用条件确实不成立时才可出现。文本题原有检查保持不变。题型错配产生的提醒属于系统误报，不得要求用户接受，也不得形成无效 warning acknowledgement。
+
+2026-08-18 单选真实表达与 Anchor 消费补强：选择动作检查必须覆盖“正确的一项是、最符合文意的一项是”等等价选择语义，不得依赖少量完整字符串。材料范围检查必须读取 Observation Plan 关联的正式 `MaterialSourceAnchor`；任务卡、质量检查与发布链必须使用同一范围来源。正式 Anchor 有效时，题干无需重复段落号；只有 Anchor 缺失、无效、与题干显式范围冲突或题目明显越界时才可提示范围问题。
 
 2026-08-12 “可以发布”承诺确认：任务卡显示“可以发布 / 采用并发布”即表示所有可预见发布前置条件已经满足，或可由同一次点击确定性自动完成。应用层必须在 Candidate Adopt 前完成 Observation Plan 校验、提交与单人模式审核确认，并让可见状态与执行命令消费同一前置检查结果。不得先采用 Candidate，再以 `plan_not_reviewed`、Plan 缺失、任务身份缺失或已知校验失败阻断用户。点击后仅网络、存储、Provider 或并发状态变化等不可预见运行时异常可以中断；中断时保留已完成领域阶段并显示唯一恢复动作，不得要求重新采用同一 Candidate。
 
@@ -1579,6 +1581,8 @@ Candidate 采用后的质量治理必须区分两类结果，页面不得仅根�
 2. `blocking`：结构、必填字段、Rubric、答案范围或发布前置条件不成立，必须生成优化题目或重新生成，不得显示保留并发布入口。
 
 质量提醒生成前必须完成题型分流：文本题使用开放作答可观察动作与多层 Rubric 标准；单选题使用选择语义、唯一答案、选项完整性和干扰项诊断价值标准。不得因单选题只有一个核心 Rubric，或题干使用“哪一项最准确”等选择表达，生成面向开放作答的两项误提醒。
+
+质量评估输入必须包含当前任务的正式材料 Anchor。结构化 Anchor 已明确时，`quality.material.anchor_weak` 不得仅因题干使用“文中、文章中”等概括性材料指代而出现；题干显式范围与 Anchor 冲突时则必须报告冲突，不得静默采用其中一方。
 
 单人模式普通提醒的现行标准交互为：
 

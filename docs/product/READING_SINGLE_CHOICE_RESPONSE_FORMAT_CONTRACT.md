@@ -4,7 +4,7 @@
 
 状态：`DESIGN ACCEPTED / STAGES 1–4 PASS / CAPABILITY GATE OPEN`
 
-文档版本：`reading_single_choice_response_format_v1.15`
+文档版本：`reading_single_choice_response_format_v1.16`
 
 生效日期：`2026-08-18`
 
@@ -431,6 +431,28 @@ type StudentSingleChoiceDelivery = {
 5. `short_text / long_text` 继续使用可观察动作和多层 Rubric 检查，单选规则不得降低文本题原有质量标准。
 
 质量提醒只报告当前题型真实存在的问题。由于检查器题型错配而产生的提醒属于误报，不得投射为用户需要判断或接受的质量风险。
+
+### 6.5 选择动作语义与正式材料 Anchor
+
+单选可观察动作必须按选择语义识别，不得只枚举少量固定句式。以下表达及其等价变体都属于明确选择动作：
+
+- “正确的一项是 / 不正确的一项是”；
+- “理解最准确的一项是 / 最符合文意的一项是”；
+- “下列哪项能够说明 / 不能说明”；
+- “请选择 / 选出”。
+
+判断依据应是题干是否要求学生从选项中完成一个明确判断，而不是是否恰好命中某个完整字符串。新增真实题干表达时，不得反复通过用户侧质量提醒暴露词面漏配。
+
+材料证据范围以 Observation Plan 关联的正式 `MaterialSourceAnchor` 为权威来源。若正式 Anchor 已明确为单段、段落范围或全文，质量评估必须消费该结构化范围；不得因为题干只写“文中”而要求题干重复“第 N 段”或“结合全文”。单选错误项的 `distractorRationale.evidenceBoundary` 可补充诊断依据，但不能替代正式 Anchor。
+
+只有以下情况才可产生材料范围提醒：
+
+1. 正式 Anchor 缺失或无效；
+2. 题干显式段落范围与正式 Anchor 冲突；
+3. 题干或选项要求的判断明显越过正式 Anchor；
+4. 题目没有任何可用的材料关联。
+
+任务卡展示的范围、质量评估消费的范围和发布链保存的范围必须来自同一正式 Anchor，禁止页面显示“第 2–4 段”而检查器仍按无范围题干生成提醒。
 
 ## 七、Answer Acceptance、Rubric 与 Diagnosis
 

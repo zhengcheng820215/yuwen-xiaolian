@@ -26,6 +26,9 @@ import type {
   ResourceReviewDecision,
   StructuredQuestionDraft,
 } from '../schemas/questionResourceAdmission.schema.ts';
+import type {
+  MaterialSourceAnchor,
+} from '../schemas/materialObservation.schema.ts';
 
 export type CurrentAssessmentState =
   | 'missing'
@@ -51,6 +54,7 @@ export async function getOrAssessCurrentQuestionDraftQuality(
   qualityRepository: QuestionQualityAssessmentRepository,
   draftId: string,
   assessedAt = new Date().toISOString(),
+  materialAnchor?: MaterialSourceAnchor | null,
 ): Promise<QuestionQualityAssessment | null> {
   const draft = await resourceRepository.getDraft(draftId);
   if (!draft?.latestValidationId) return null;
@@ -97,6 +101,7 @@ export async function getOrAssessCurrentQuestionDraftQuality(
     draft,
     validation,
     material,
+    materialAnchor,
     peerDrafts,
     assessedAt,
   });

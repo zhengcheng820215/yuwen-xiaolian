@@ -27,6 +27,9 @@ import {
   SINGLE_CHOICE_INTERACTION_SCHEMA_VERSION,
   type SingleChoiceInteraction,
 } from '../schemas/singleChoiceInteraction.schema.ts';
+import type {
+  MaterialSourceAnchor,
+} from '../schemas/materialObservation.schema.ts';
 
 type AdmissionRepository = InMemoryQuestionResourceAdmissionRepository;
 
@@ -59,6 +62,9 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '23 current assessment state has one canonical resolver', run: caseCurrentAssessmentStateResolver },
   { name: '24 valid single choice does not receive open-response warnings', run: caseValidSingleChoiceQuality },
   { name: '25 single choice without a selection action remains a warning', run: caseSingleChoiceMissingSelectionAction },
+  { name: '26 natural single-choice wording and formal anchor suppress false warnings', run: caseNaturalSingleChoiceWordingWithFormalAnchor },
+  { name: '27 explicit paragraph conflict with formal anchor is detected', run: caseExplicitParagraphAnchorConflict },
+  { name: '28 explicit whole-text conflict with ranged anchor is detected', run: caseExplicitWholeTextAnchorConflict },
 ];
 
 async function main(): Promise<void> {
@@ -439,6 +445,74 @@ async function caseSingleChoiceMissingSelectionAction(): Promise<void> {
   );
 }
 
+async function caseNaturalSingleChoiceWordingWithFormalAnchor(): Promise<void> {
+  const fixture = await validFixture(
+    'single-choice-natural-wording',
+    singleChoiceOverrides('下列对文中父亲心理变化的理解，正确的一项是？'),
+  );
+  const assessment = assessQuestionDraftQuality({
+    ...fixture,
+    materialAnchor: validMaterialAnchor(),
+  });
+
+  assert(
+    assessment.checks.observationClarity === 'pass',
+    '“正确的一项是” should be recognized as a clear selection action.',
+  );
+  assert(
+    assessment.checks.materialGrounding === 'pass',
+    'A valid formal material anchor should ground a stem that uses “文中”.',
+  );
+  assert(
+    !hasWarning(assessment, 'quality.observation.unclear'),
+    'Natural single-choice wording received a false observation warning.',
+  );
+  assert(
+    !hasWarning(assessment, 'quality.material.anchor_weak'),
+    'A formal paragraph range was ignored in favor of generic stem wording.',
+  );
+}
+
+async function caseExplicitParagraphAnchorConflict(): Promise<void> {
+  const fixture = await validFixture(
+    'single-choice-anchor-conflict',
+    singleChoiceOverrides('根据第1段，下列对父亲心理变化的理解，正确的一项是？'),
+  );
+  const assessment = assessQuestionDraftQuality({
+    ...fixture,
+    materialAnchor: validMaterialAnchor(),
+  });
+
+  assert(
+    assessment.checks.materialGrounding === 'fail',
+    'An explicit paragraph outside the formal anchor should fail grounding.',
+  );
+  assert(
+    hasWarning(assessment, 'quality.material.anchor_conflict'),
+    'The explicit paragraph and formal-anchor conflict was not reported.',
+  );
+}
+
+async function caseExplicitWholeTextAnchorConflict(): Promise<void> {
+  const fixture = await validFixture(
+    'single-choice-whole-text-conflict',
+    singleChoiceOverrides('结合全文，下列对父亲心理变化的理解，正确的一项是？'),
+  );
+  const assessment = assessQuestionDraftQuality({
+    ...fixture,
+    materialAnchor: validMaterialAnchor(),
+  });
+
+  assert(
+    assessment.checks.materialGrounding === 'fail',
+    'A whole-text instruction should conflict with a ranged formal anchor.',
+  );
+  assert(
+    hasWarning(assessment, 'quality.material.anchor_conflict'),
+    'The whole-text and ranged-anchor conflict was not reported.',
+  );
+}
+
 async function caseDifficultyIncoherence(): Promise<void> {
   const fixture = await validFixture('difficulty', {
     abilityMetadata: {
@@ -753,6 +827,18 @@ function singleChoiceOverrides(
       ...validAbilityMetadata(),
       difficulty: 'basic',
     },
+  };
+}
+
+function validMaterialAnchor(): MaterialSourceAnchor {
+  return {
+    sourceAnchorId: 'anchor-leaf-2-3',
+    materialId: 'material-leaf',
+    materialVersionId: 'material-leaf:v1',
+    anchorType: 'paragraph_range',
+    startParagraph: 2,
+    endParagraph: 3,
+    contentHash: 'fixture-anchor-content-hash',
   };
 }
 

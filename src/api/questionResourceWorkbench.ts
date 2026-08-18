@@ -64,6 +64,7 @@ import {
   createBrowserQuestionResourceAdmissionRepository,
 } from '../ai/repositories/formalResourceRepositoryRouter.ts';
 import type {
+  MaterialSourceAnchor,
   ResourceObservationLink,
 } from '../ai/schemas/materialObservation.schema.ts';
 import type {
@@ -248,11 +249,7 @@ async function buildQuestionReviewBatchObservability(
         : Promise.resolve(null),
       persistedQuality?.deterministic
         ? Promise.resolve(persistedQuality.deterministic)
-        : getOrAssessCurrentQuestionDraftQuality(
-          repository,
-          qualityRepository,
-          draft.draftId,
-        ),
+        : getOrAssessQuestionDraftQualityWithObservationAnchor(draft.draftId),
     ]);
     return {
       draft,
@@ -282,11 +279,7 @@ export async function getQuestionResourceWorkbenchContext(
     repository.listReviews(draft.resourceId),
     persistedQuality?.deterministic
       ? Promise.resolve(persistedQuality.deterministic)
-      : getOrAssessCurrentQuestionDraftQuality(
-        repository,
-        qualityRepository,
-        draft.draftId,
-      ),
+      : getOrAssessQuestionDraftQualityWithObservationAnchor(draft.draftId),
     getQuestionResourceWorkbenchPublicationPreflight(draft),
     repository.getVersionByDraftId(draft.draftId),
     repository.getRegistryEntry(draft.resourceId),
@@ -931,6 +924,39 @@ async function getObservationTaskForDraft(
   return findObservationTaskPlan(plan, reference);
 }
 
+async function getMaterialAnchorForDraft(
+  draft: StructuredQuestionDraft,
+): Promise<MaterialSourceAnchor | null> {
+  const reference = await resolveObservationTaskReferenceForDraft(draft);
+  if (!reference.planId || !reference.observationTaskPlanId) return null;
+  const plan = await observationRepository.getPlan(reference.planId);
+  const task = findObservationTaskPlan(plan, reference);
+  if (!task) return null;
+  const anchors = await Promise.all(
+    task.sourceAnchorIds.map((anchorId) => observationRepository.getAnchor(anchorId)),
+  );
+  return anchors.find((anchor): anchor is MaterialSourceAnchor => Boolean(
+    anchor &&
+    anchor.materialVersionId === draft.materialVersionId,
+  )) || null;
+}
+
+async function getOrAssessQuestionDraftQualityWithObservationAnchor(
+  draftId: string,
+) {
+  const draft = await repository.getDraft(draftId);
+  const materialAnchor = draft
+    ? await getMaterialAnchorForDraft(draft)
+    : null;
+  return getOrAssessCurrentQuestionDraftQuality(
+    repository,
+    qualityRepository,
+    draftId,
+    new Date().toISOString(),
+    materialAnchor,
+  );
+}
+
 async function resolveObservationTaskReferenceForDraft(
   draft: StructuredQuestionDraft,
 ): Promise<{ planId: string | null; observationTaskPlanId: string | null }> {
@@ -984,11 +1010,7 @@ async function ensureCurrentPersistedQualityBundle(
   const [validation, material, deterministic, boundary] = await Promise.all([
     repository.getValidation(draft.latestValidationId),
     repository.getMaterial(draft.materialVersionId),
-    getOrAssessCurrentQuestionDraftQuality(
-      repository,
-      qualityRepository,
-      draftId,
-    ),
+    getOrAssessQuestionDraftQualityWithObservationAnchor(draftId),
     getQuestionSemanticQualityBoundaryStatus(),
   ]);
   if (

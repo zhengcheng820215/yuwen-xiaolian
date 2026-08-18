@@ -6,6 +6,9 @@ import type {
   ResourceValidationResult,
   StructuredQuestionDraft,
 } from '../schemas/questionResourceAdmission.schema.ts';
+import type {
+  MaterialSourceAnchor,
+} from '../schemas/materialObservation.schema.ts';
 import {
   QUESTION_QUALITY_ASSESSMENT_VERSION,
   QUESTION_QUALITY_RULE_VERSION,
@@ -25,6 +28,7 @@ export type AssessQuestionDraftQualityInput = {
   validation: ResourceValidationResult;
   material: QuestionMaterialVersion | null;
   peerDrafts?: StructuredQuestionDraft[];
+  materialAnchor?: MaterialSourceAnchor | null;
   assessedAt?: string;
   ruleVersion?: string;
 };
@@ -100,6 +104,7 @@ export function assessQuestionDraftQuality(
   const materialGrounding = checkMaterialGrounding(
     input.draft,
     input.material,
+    input.materialAnchor,
     warnings,
   );
   const observationClarity = checkObservationClarity(input.draft, warnings);
@@ -217,6 +222,7 @@ export function requireCurrentQuestionQualityAssessment(
 function checkMaterialGrounding(
   draft: StructuredQuestionDraft,
   material: QuestionMaterialVersion | null,
+  materialAnchor: MaterialSourceAnchor | null | undefined,
   warnings: QuestionQualityWarning[],
 ): 'pass' | 'warning' | 'fail' {
   if (!draft.materialVersionId) return 'pass';
@@ -246,6 +252,31 @@ function checkMaterialGrounding(
       ['questionStem', 'materialVersionId'],
     );
     return 'fail';
+  }
+  if (materialAnchor) {
+    if (!isValidMaterialAnchor(materialAnchor, material, boundary.paragraphCount)) {
+      addWarning(
+        warnings,
+        'quality.material.anchor_invalid',
+        'materialGrounding',
+        'strong_warning',
+        '题目关联的正式材料范围无效或与当前材料版本不一致。',
+        ['materialVersionId', 'materialAnchor'],
+      );
+      return 'fail';
+    }
+    if (hasExplicitAnchorConflict(draft.questionStem, materialAnchor)) {
+      addWarning(
+        warnings,
+        'quality.material.anchor_conflict',
+        'materialGrounding',
+        'strong_warning',
+        '题干明确引用的段落与训练任务的正式材料范围不一致。',
+        ['questionStem', 'materialAnchor'],
+      );
+      return 'fail';
+    }
+    return 'pass';
   }
   if (['local', 'whole_text', 'open_evidence', 'mixed'].includes(boundary.kind)) {
     return 'pass';
@@ -279,7 +310,7 @@ function checkObservationClarity(
 ): 'pass' | 'warning' {
   const stem = normalizeText(draft.questionStem);
   if (draft.responseFormat === 'single_choice') {
-    const hasSelectionAction = /(选择|选出|哪(?:一)?项|哪种|最(?:准确|恰当|合理|符合|能)|正确的是|不正确的是|不能说明|能够说明|符合文意)/.test(stem);
+    const hasSelectionAction = hasSingleChoiceSelectionAction(stem);
     const hasValidChoiceInteraction = validateSingleChoiceInteraction(
       draft.choiceInteraction,
     ).passed;
@@ -309,6 +340,61 @@ function checkObservationClarity(
     return 'warning';
   }
   return 'pass';
+}
+
+function hasSingleChoiceSelectionAction(stem: string): boolean {
+  return (
+    /(选择|选出|请选择)/.test(stem) ||
+    /哪(?:一)?项|哪种/.test(stem) ||
+    /(?:正确|不正确|错误|不恰当|最准确|最恰当|最合理|最符合|符合文意|不能说明|能够说明)(?:的)?(?:一)?项(?:是|为)?/.test(stem) ||
+    /(?:正确|不正确|错误|不恰当)的是/.test(stem)
+  );
+}
+
+function isValidMaterialAnchor(
+  anchor: MaterialSourceAnchor,
+  material: QuestionMaterialVersion,
+  paragraphCount: number,
+): boolean {
+  if (
+    anchor.materialVersionId !== material.materialVersionId ||
+    anchor.materialId !== material.materialId
+  ) return false;
+  if (anchor.anchorType === 'full_text') return true;
+  if (!Number.isInteger(anchor.startParagraph) || Number(anchor.startParagraph) < 1) {
+    return false;
+  }
+  const endParagraph = anchor.anchorType === 'paragraph_range'
+    ? anchor.endParagraph
+    : anchor.startParagraph;
+  return Boolean(
+    Number.isInteger(endParagraph) &&
+    Number(endParagraph) >= Number(anchor.startParagraph) &&
+    Number(endParagraph) <= paragraphCount
+  );
+}
+
+function hasExplicitAnchorConflict(
+  stem: string,
+  anchor: MaterialSourceAnchor,
+): boolean {
+  if (anchor.anchorType === 'full_text') return false;
+  const normalizedStem = normalizeText(stem);
+  if (/(结合|根据|依据|通读)(全文|全篇|整篇|通篇|文章整体)/.test(normalizedStem)) {
+    return true;
+  }
+  const anchorStart = Number(anchor.startParagraph);
+  const anchorEnd = Number(
+    anchor.anchorType === 'paragraph_range'
+      ? anchor.endParagraph
+      : anchor.startParagraph,
+  );
+  const references = [...stem.matchAll(/第\s*(\d+)\s*(?:[-—–至到]\s*第?\s*(\d+)\s*)?段/g)]
+    .map((match) => ({
+      start: Number(match[1]),
+      end: Number(match[2] || match[1]),
+    }));
+  return references.some(({ start, end }) => start < anchorStart || end > anchorEnd);
 }
 
 function checkObservationDistinctness(
