@@ -1,4 +1,5 @@
 import {
+  buildDeterministicSingleChoiceOptionOrder,
   createStudentSingleChoiceDelivery,
   validateSingleChoiceInteraction,
   type SingleChoiceInteraction,
@@ -19,7 +20,10 @@ export function resolveSingleChoiceCandidatePreview(
   interaction: SingleChoiceInteraction | undefined,
 ): SingleChoiceCandidatePreview | null {
   if (!validateSingleChoiceInteraction(interaction).passed || !interaction) return null;
-  const delivery = createStudentSingleChoiceDelivery(interaction);
+  const delivery = createStudentSingleChoiceDelivery(
+    interaction,
+    buildDeterministicSingleChoiceOptionOrder(interaction, 'authoring-preview'),
+  );
   return {
     responseFormat: 'single_choice',
     options: delivery.options.map((option) => ({

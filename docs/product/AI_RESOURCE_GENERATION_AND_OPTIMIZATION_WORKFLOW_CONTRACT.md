@@ -3,7 +3,7 @@
 英文名称：AI Resource Generation and Optimization Workflow Contract
 
 状态：DESIGN FROZEN / P0-P7 ENGINEERING COMPLETE / SINGLE-OPERATOR ADOPTION ORCHESTRATION DEBUG ACCEPTED
-契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_16`
+契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_17`
 更新日期：2026-08-18
 
 产品确认日期：2026-08-05
@@ -32,6 +32,8 @@
 2026-08-18 单选质量提醒分流确认：质量评估必须以 `responseFormat` 为事实来源。`single_choice` 的可观察动作由题干选择语义、完整选项和单选交互共同确认，不得要求题干使用开放题动词；其区分度由唯一答案、选项集合、逐项干扰依据与可解释偏差建立，不得要求两个以上 Rubric 项来模拟“完整/部分/未达到”的开放作答分层。`quality.observation.unclear` 与 `quality.discrimination.weak` 只有在单选专用条件确实不成立时才可出现。文本题原有检查保持不变。题型错配产生的提醒属于系统误报，不得要求用户接受，也不得形成无效 warning acknowledgement。
 
 2026-08-18 单选真实表达与 Anchor 消费补强：选择动作检查必须覆盖“正确的一项是、最符合文意的一项是”等等价选择语义，不得依赖少量完整字符串。材料范围检查必须读取 Observation Plan 关联的正式 `MaterialSourceAnchor`；任务卡、质量检查与发布链必须使用同一范围来源。正式 Anchor 有效时，题干无需重复段落号；只有 Anchor 缺失、无效、与题干显式范围冲突或题目明显越界时才可提示范围问题。
+
+2026-08-18 单选正确位置去偏确认：Prompt 不得以“第一项恒为正确项”的唯一示例持续诱导 Provider；Candidate 预览与 Learning 投放不得直接使用 Provider 原始数组顺序。系统应基于稳定 optionId 生成确定性显示顺序，Learning 至少绑定正式资源版本与学生身份，保证刷新和恢复一致。A / B / C / D 仅是显示标签，答案、干扰项诊断和经验校准始终按 optionId 对齐。不得通过随机改写答案内容、重置 optionId 或机械字母循环实现位置均衡。
 
 2026-08-12 “可以发布”承诺确认：任务卡显示“可以发布 / 采用并发布”即表示所有可预见发布前置条件已经满足，或可由同一次点击确定性自动完成。应用层必须在 Candidate Adopt 前完成 Observation Plan 校验、提交与单人模式审核确认，并让可见状态与执行命令消费同一前置检查结果。不得先采用 Candidate，再以 `plan_not_reviewed`、Plan 缺失、任务身份缺失或已知校验失败阻断用户。点击后仅网络、存储、Provider 或并发状态变化等不可预见运行时异常可以中断；中断时保留已完成领域阶段并显示唯一恢复动作，不得要求重新采用同一 Candidate。
 

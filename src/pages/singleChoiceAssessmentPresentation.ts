@@ -1,6 +1,8 @@
-import type {
-  SingleChoiceInteraction,
-  SingleChoiceMisconceptionCode,
+import {
+  buildDeterministicSingleChoiceOptionOrder,
+  validateSingleChoiceInteraction,
+  type SingleChoiceInteraction,
+  type SingleChoiceMisconceptionCode,
 } from '../ai/schemas/singleChoiceInteraction.schema.ts';
 
 export type SingleChoiceOptionPresentation = {
@@ -23,7 +25,7 @@ export type SingleChoiceAssessmentPresentation = {
 export function resolveSingleChoiceAssessmentPresentation(
   interaction: SingleChoiceInteraction | null | undefined,
 ): SingleChoiceAssessmentPresentation {
-  const options = Array.isArray(interaction?.options) ? interaction.options : [];
+  const options = resolveAuthoringPreviewOptions(interaction);
   const correctOptionId = interaction?.correctOptionIds?.[0] || null;
   const rationaleByOptionId = new Map(
     (interaction?.distractorRationales || []).map((rationale) => [rationale.optionId, rationale]),
@@ -53,7 +55,7 @@ export function formatSingleChoiceAcceptedSignal(
   signal: string,
   interaction: SingleChoiceInteraction | null | undefined,
 ): string {
-  const options = Array.isArray(interaction?.options) ? interaction.options : [];
+  const options = resolveAuthoringPreviewOptions(interaction);
   const formatted = options.reduce((current, option, optionIndex) => (
     current.split(option.optionId).join(
       `${singleChoiceOptionMarker(optionIndex)}（${option.content}）`,
@@ -81,6 +83,19 @@ function optionPresentation(
     displayLabel: singleChoiceOptionMarker(optionIndex),
     content: option.content,
   };
+}
+
+function resolveAuthoringPreviewOptions(
+  interaction: SingleChoiceInteraction | null | undefined,
+): SingleChoiceInteraction['options'] {
+  const sourceOptions = Array.isArray(interaction?.options) ? interaction.options : [];
+  if (!interaction || !validateSingleChoiceInteraction(interaction).passed) return sourceOptions;
+  const optionsById = new Map(sourceOptions.map((option) => [option.optionId, option]));
+  return buildDeterministicSingleChoiceOptionOrder(interaction, 'authoring-preview')
+    .flatMap((optionId) => {
+      const option = optionsById.get(optionId);
+      return option ? [option] : [];
+    });
 }
 
 function singleChoiceMisconceptionLabel(

@@ -10,6 +10,7 @@ import {
 } from '../schemas/workingTaskContent.schema.ts';
 import {
   SINGLE_CHOICE_INTERACTION_SCHEMA_VERSION,
+  buildDeterministicSingleChoiceOptionOrder,
   createStudentSingleChoiceDelivery,
   isSingleChoiceMinimumResponseRequirement,
   validateSingleChoiceInteraction,
@@ -117,6 +118,25 @@ const cases: Case[] = [
         'option-over', 'option-correct', 'option-entity', 'option-surface',
       ]);
       assert.deepEqual(delivery.options.map((option) => option.displayOrder), [1, 2, 3, 4]);
+    },
+  },
+  {
+    name: 'deterministic display order is stable and distributes correct labels across resources',
+    run: () => {
+      const interaction = validInteraction();
+      const first = buildDeterministicSingleChoiceOptionOrder(interaction, 'resource-1|student-1');
+      const repeated = buildDeterministicSingleChoiceOptionOrder(interaction, 'resource-1|student-1');
+      assert.deepEqual(repeated, first);
+      assert.deepEqual([...first].sort(), interaction.options.map((option) => option.optionId).sort());
+      const correctPositions = new Set(
+        Array.from({ length: 16 }, (_, index) => (
+          buildDeterministicSingleChoiceOptionOrder(
+            interaction,
+            `resource-${index + 1}|student-1`,
+          ).indexOf(interaction.correctOptionIds[0])
+        )),
+      );
+      assert(correctPositions.size >= 3, 'Correct labels remained concentrated in one display position.');
     },
   },
   {

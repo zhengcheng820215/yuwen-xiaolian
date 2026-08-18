@@ -6,7 +6,10 @@ import type {
 import type { QuestionMetadataRubricItem } from '../schemas/diagnosis.schema.ts';
 import type { FrozenQuestionResourceVersion } from '../schemas/questionResourceAdmission.schema.ts';
 import type { QualityGatedExecutableTask } from '../schemas/resourceMatchQuality.schema.ts';
-import { createStudentSingleChoiceDelivery } from '../schemas/singleChoiceInteraction.schema.ts';
+import {
+  buildDeterministicSingleChoiceOptionOrder,
+  createStudentSingleChoiceDelivery,
+} from '../schemas/singleChoiceInteraction.schema.ts';
 
 export type FrozenQuestionResourceTaskPreparationResult = {
   status: 'prepared' | 'blocked';
@@ -31,7 +34,10 @@ export function prepareConcreteLearningTaskFromFrozenResource(input: {
   const concreteTaskResult = instantiateConcreteLearningTask({
     executableTask: input.qualityGatedTask.executableTask,
     createdAt: input.createdAt,
-    overrides: buildConcreteTaskOverrides(input.resourceVersion),
+    overrides: buildConcreteTaskOverrides(
+      input.resourceVersion,
+      input.qualityGatedTask.executableTask.studentId,
+    ),
   });
   if (!concreteTaskResult.concreteTask || !concreteTaskResult.readiness.canExecute) {
     return {
@@ -71,6 +77,7 @@ function validateIdentity(
 
 function buildConcreteTaskOverrides(
   version: FrozenQuestionResourceVersion,
+  studentId: string,
 ): Partial<ConcreteLearningTask> {
   const rubric: QuestionMetadataRubricItem[] = version.rubric.map((item) => ({
     id: item.itemId,
@@ -96,7 +103,13 @@ function buildConcreteTaskOverrides(
     readingText: version.materialSnapshot?.content,
     responseFormat: version.responseFormat === 'single_choice' ? 'single_choice' : 'text',
     singleChoiceDelivery: version.responseFormat === 'single_choice' && version.choiceInteraction
-      ? createStudentSingleChoiceDelivery(version.choiceInteraction)
+      ? createStudentSingleChoiceDelivery(
+        version.choiceInteraction,
+        buildDeterministicSingleChoiceOptionOrder(
+          version.choiceInteraction,
+          `${version.resourceVersionId}|${studentId}`,
+        ),
+      )
       : undefined,
     singleChoiceEvaluation: version.responseFormat === 'single_choice'
       ? version.choiceInteraction

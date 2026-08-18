@@ -219,6 +219,31 @@ export function createStudentSingleChoiceDelivery(
   };
 }
 
+export function buildDeterministicSingleChoiceOptionOrder(
+  interaction: SingleChoiceInteraction,
+  displaySeed = 'single-choice-default-display',
+): string[] {
+  const validation = validateSingleChoiceInteraction(interaction);
+  if (!validation.passed) {
+    throw new Error(`Single-choice interaction is invalid: ${validation.issues.map((issue) => issue.code).join(', ')}`);
+  }
+  const canonicalOptions = [...interaction.options]
+    .sort((left, right) => left.optionId.localeCompare(right.optionId));
+  const fingerprint = canonicalOptions
+    .map((option) => `${option.optionId}:${normalizeText(option.content)}`)
+    .join('|');
+  const optionIds = canonicalOptions.map((option) => option.optionId);
+  let state = stableHash(
+    `${displaySeed}|${interaction.optionSetVersion}|${fingerprint}`,
+  );
+  for (let index = optionIds.length - 1; index > 0; index -= 1) {
+    state = nextShuffleState(state);
+    const targetIndex = state % (index + 1);
+    [optionIds[index], optionIds[targetIndex]] = [optionIds[targetIndex], optionIds[index]];
+  }
+  return optionIds;
+}
+
 export function validateSingleChoiceStudentAnswerValue(
   value: unknown,
   delivery?: StudentSingleChoiceDelivery,
@@ -283,6 +308,22 @@ function nonEmpty(value: unknown): value is string {
 
 function normalizeText(value: string): string {
   return value.trim().replace(/\s+/g, '');
+}
+
+function stableHash(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function nextShuffleState(value: number): number {
+  let state = (value + 0x6d2b79f5) >>> 0;
+  state = Math.imul(state ^ (state >>> 15), state | 1);
+  state ^= state + Math.imul(state ^ (state >>> 7), state | 61);
+  return (state ^ (state >>> 14)) >>> 0;
 }
 
 function clone<T>(value: T): T {

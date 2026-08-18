@@ -4216,19 +4216,22 @@ function GeneratorCandidatePreview({
                 </div>
                 <p className="mt-1 text-sm font-medium leading-6 text-slate-900">{candidate.questionStem}</p>
                 {candidate.questionDraft.responseFormat === 'single_choice'
-                  && candidate.choiceInteraction?.options?.length > 0 && (
-                  <ol className="mt-3 grid gap-2 sm:grid-cols-2" aria-label="候选单项选择选项">
-                    {candidate.choiceInteraction.options.map((option, optionIndex) => (
-                      <li
-                        key={option.optionId}
-                        className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2 rounded bg-white px-3 py-2 text-xs leading-5 text-slate-700"
-                      >
-                        <span className="font-medium text-slate-500">{String.fromCharCode(65 + optionIndex)}.</span>
-                        <span>{option.content}</span>
-                      </li>
-                    ))}
-                  </ol>
-                )}
+                  && candidate.choiceInteraction?.options?.length > 0 && (() => {
+                  const preview = resolveSingleChoiceCandidatePreview(candidate.choiceInteraction);
+                  return preview ? (
+                    <ol className="mt-3 grid gap-2 sm:grid-cols-2" aria-label="候选单项选择选项">
+                      {preview.options.map((option) => (
+                        <li
+                          key={option.optionId}
+                          className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2 rounded bg-white px-3 py-2 text-xs leading-5 text-slate-700"
+                        >
+                          <span className="font-medium text-slate-500">{option.displayLabel}.</span>
+                          <span>{option.content}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : null;
+                })()}
               </div>
               <div className="px-4">
                 <p className="mt-1 text-sm leading-6 text-slate-600">作答要求：{formatExpectedStudentAction(candidate.expectedStudentAction)}</p>

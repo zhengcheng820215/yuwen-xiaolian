@@ -159,6 +159,28 @@ const cases: DebugCase[] = [
     },
   },
   {
+    name: 'S4-05A Learning option order is stable per student and varied across students',
+    run: async () => {
+      const choice = wolf.tasks.find((item) => item.version.responseFormat === 'single_choice')!;
+      const first = await prepare(wolf, choice.version, 'student-order-1');
+      const repeated = await prepare(wolf, choice.version, 'student-order-1');
+      const firstOrder = first.taskPreparation?.concreteTaskResult.concreteTask?.singleChoiceDelivery?.options
+        .map((option) => option.optionId);
+      const repeatedOrder = repeated.taskPreparation?.concreteTaskResult.concreteTask?.singleChoiceDelivery?.options
+        .map((option) => option.optionId);
+      assert.deepEqual(repeatedOrder, firstOrder);
+
+      const correctOptionId = choice.version.choiceInteraction!.correctOptionIds[0];
+      const positions = new Set<number>();
+      for (let index = 0; index < 12; index += 1) {
+        const prepared = await prepare(wolf, choice.version, `student-order-${index + 1}`);
+        const options = prepared.taskPreparation?.concreteTaskResult.concreteTask?.singleChoiceDelivery?.options || [];
+        positions.add(options.findIndex((option) => option.optionId === correctOptionId));
+      }
+      assert(positions.size >= 3, 'Learning kept the correct answer in one display position.');
+    },
+  },
+  {
     name: 'S4-06 wrong choice creates rationale-specific diagnosis and complete formal trace',
     run: async () => {
       const choice = wolf.tasks[0];
@@ -520,22 +542,29 @@ async function coverageSource(chains: MaterialChain[]) {
   return { registryEntries, frozenVersions, validations, reviews, materials: chains.map((chain) => chain.material) };
 }
 
-async function prepare(chain: MaterialChain, version: FrozenQuestionResourceVersion) {
+async function prepare(
+  chain: MaterialChain,
+  version: FrozenQuestionResourceVersion,
+  studentId = STUDENT_ID,
+) {
   return prepareFormalResourceRuntimeTask({
     resourceVersionId: version.resourceVersionId,
-    qualityGatedTask: qualityTask(version),
+    qualityGatedTask: qualityTask(version, studentId),
     resourceRepository: chain.resources,
     observationRepository: chain.observations,
     createdAt: NOW,
   });
 }
 
-function qualityTask(version: FrozenQuestionResourceVersion): QualityGatedExecutableTask {
+function qualityTask(
+  version: FrozenQuestionResourceVersion,
+  studentId = STUDENT_ID,
+): QualityGatedExecutableTask {
   return {
     traceId: `stage4-trace-${version.resourceVersionId}`,
     executableTask: {
       executableTaskId: `stage4-executable-${version.resourceVersionId}`,
-      studentId: STUDENT_ID,
+      studentId,
       sourceType: 'resource_match',
       sourceTaskId: version.taskId,
       taskRole: version.abilityMetadata.taskRole,

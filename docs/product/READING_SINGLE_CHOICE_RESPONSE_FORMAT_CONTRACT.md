@@ -4,7 +4,7 @@
 
 状态：`DESIGN ACCEPTED / STAGES 1–4 PASS / CAPABILITY GATE OPEN`
 
-文档版本：`reading_single_choice_response_format_v1.16`
+文档版本：`reading_single_choice_response_format_v1.17`
 
 生效日期：`2026-08-18`
 
@@ -453,6 +453,22 @@ type StudentSingleChoiceDelivery = {
 4. 题目没有任何可用的材料关联。
 
 任务卡展示的范围、质量评估消费的范围和发布链保存的范围必须来自同一正式 Anchor，禁止页面显示“第 2–4 段”而检查器仍按无范围题干生成提醒。
+
+### 6.6 正确答案位置与确定性展示顺序
+
+`optionId` 是答案、干扰项依据和诊断链使用的稳定身份；A / B / C / D 只是某次展示顺序生成的临时标签。系统不得把“正确答案总是第一个选项”作为生成模板或投放约定。
+
+必须同时满足：
+
+1. Prompt 示例不得持续把第一个 option 声明为正确答案；同批生成多道单选时，应主动变化正确 option 在返回数组中的位置；
+2. 生成器不得为追求字母均衡改写答案内容或干扰项，只能在完整结构生成后调整展示顺序；
+3. Candidate 预览和正式 Learning 投放必须使用稳定 optionId 构造确定性排列，不得默认照搬 Provider 返回顺序；
+4. Learning 排列至少绑定正式资源版本和学生身份；同一学生面对同一正式资源时，刷新、断点恢复和重复读取必须保持一致，不得在页面重渲染时随机跳动；
+5. 学生答案必须继续记录 `displayedOptionOrder`，评估与 Diagnosis 只按 optionId 判断，不按 A / B / C / D 判断；
+6. 正确答案标签应在真实题组中形成合理分布，不得长期集中于单一位置，也不得机械形成可预测的 A-B-C-D 循环；
+7. 内部查看正确答案时，必须基于当前展示顺序计算标签，禁止用 canonical options 数组位置直接推断字母。
+
+确定性排列只能改变显示位置，不能改变 `correctOptionIds`、`distractorRationales.optionId`、`answerAcceptance.acceptedOptionIds` 或 `optionSetVersion`。任何排列都必须完整包含每个 optionId 且恰好一次。
 
 ## 七、Answer Acceptance、Rubric 与 Diagnosis
 

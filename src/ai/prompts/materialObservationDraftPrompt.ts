@@ -7,7 +7,7 @@ import {
   STRUCTURED_QUESTION_TYPES,
 } from '../schemas/questionResourceAdmission.schema.ts';
 
-export const MATERIAL_OBSERVATION_DRAFT_PROMPT_VERSION = 'material_observation_draft_prompt_v1_10' as const;
+export const MATERIAL_OBSERVATION_DRAFT_PROMPT_VERSION = 'material_observation_draft_prompt_v1_11' as const;
 
 type MaterialObservationDraftRepairItem = {
   candidateIndex: number;
@@ -97,7 +97,7 @@ export function buildMaterialObservationDraftPrompt(
 26. 输出前逐候选自检：枚举合法、Anchor 在范围内、Supporting Ability 不重复 Primary Ability、Rubric 引用已声明能力、五类校准答案齐全、Safety Boundary 固定，并确认题目、学生任务和观察目标职责分离。
 27. 决定数量时，优先级固定为：材料依据 > 观察差异与价值 > 能力覆盖 > 任务数量。
 28. 作答形式必须由训练动作决定，单选数量目标只能在训练动作适配、干扰项质量和任务去重之后参考；不得为了题型丰富度机械转换任务。顺序必须服从上面的结构化策略：entry_first 是常规默认，holistic_first 和 role_driven 只能由已给出的受控原因触发。信息定位、基础理解、局部判断、证据边界明确的简单因果或初步辨认可以使用 single_choice；概括、多证据整合、推理链、人物/写法/主题分析和开放表达必须保留文本作答。
-29. 使用 single_choice 时，必须一次返回 choiceInteraction：3—5 个稳定 optionId、唯一 correctOptionIds，以及每个错误选项独立的 misconceptionCode、diagnosisMeaning 和 evidenceBoundary；禁止用明显荒诞、无关或措辞失衡的选项凑数。
+29. 使用 single_choice 时，必须一次返回 choiceInteraction：3—5 个稳定 optionId、唯一 correctOptionIds，以及每个错误选项独立的 misconceptionCode、diagnosisMeaning 和 evidenceBoundary；禁止用明显荒诞、无关或措辞失衡的选项凑数。同批多道单选不得持续把 options 数组第一项设为正确答案，应自然变化正确 option 的返回位置，但不得为了位置变化牺牲内容质量。
 30. single_choice 必须同时满足 questionType=multiple_choice、assessmentMode=exact_match、answerAcceptanceDraft.acceptedOptionIds 与正确 optionId 一致、minimumAnswerRequirement 为一次结构化选择；acceptedKeywords 必须为空，semanticEquivalentAllowed 必须为 false。
 31. 非 single_choice 候选不得返回 choiceInteraction 或 acceptedOptionIds。
 32. 同批包含多道 single_choice 时，逐题比较回答对象、材料依据和认知动作；三项均相同或只改写题干时必须减少数量，不得把重复观察计入单选目标。
@@ -238,21 +238,21 @@ export function buildMaterialObservationDraftPrompt(
     "schemaVersion": "single-choice-interaction-v1",
     "selectionMode": "single",
     "options": [
-      { "optionId": "option-1", "content": "完整选项内容" },
-      { "optionId": "option-2", "content": "完整选项内容" },
-      { "optionId": "option-3", "content": "完整选项内容" },
-      { "optionId": "option-4", "content": "完整选项内容" }
+      { "optionId": "option-1", "content": "完整干扰项内容" },
+      { "optionId": "option-2", "content": "完整干扰项内容" },
+      { "optionId": "option-3", "content": "完整正确项内容" },
+      { "optionId": "option-4", "content": "完整干扰项内容" }
     ],
-    "correctOptionIds": ["option-1"],
+    "correctOptionIds": ["option-3"],
     "distractorRationales": [
-      { "optionId": "option-2", "misconceptionCode": "surface_reading", "diagnosisMeaning": "具体说明学生为何可能停留在表面信息", "evidenceBoundary": "可核对的文本范围" },
-      { "optionId": "option-3", "misconceptionCode": "entity_confusion", "diagnosisMeaning": "具体说明混淆了哪个人物或对象", "evidenceBoundary": "可核对的文本范围" },
+      { "optionId": "option-1", "misconceptionCode": "surface_reading", "diagnosisMeaning": "具体说明学生为何可能停留在表面信息", "evidenceBoundary": "可核对的文本范围" },
+      { "optionId": "option-2", "misconceptionCode": "entity_confusion", "diagnosisMeaning": "具体说明混淆了哪个人物或对象", "evidenceBoundary": "可核对的文本范围" },
       { "optionId": "option-4", "misconceptionCode": "over_inference", "diagnosisMeaning": "具体说明哪一步推理超过文本证据", "evidenceBoundary": "可核对的文本范围" }
     ],
     "optionSetVersion": 1
   },
   "assessmentMode": "exact_match",
-  "answerAcceptanceDraft": { "acceptedKeywords": [], "semanticEquivalentAllowed": false, "acceptedOptionIds": ["option-1"] },
+  "answerAcceptanceDraft": { "acceptedKeywords": [], "semanticEquivalentAllowed": false, "acceptedOptionIds": ["option-3"] },
   "minimumAnswerRequirement": { "responseFormat": "single_choice", "minLength": 0, "requireTextEvidence": false, "requireExplanation": false, "minSelections": 1, "maxSelections": 1 }
 }
 

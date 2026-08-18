@@ -50,6 +50,8 @@ const cases: Case[] = [
       assert.match(prompt, /首个高负荷文本任务之前/);
       assert.match(prompt, /choiceInteraction/);
       assert.match(prompt, /acceptedOptionIds/);
+      assert.match(prompt, /不得持续把 options 数组第一项设为正确答案/);
+      assert.match(prompt, /"correctOptionIds": \["option-3"\]/);
     },
   },
   {
@@ -359,19 +361,49 @@ const cases: Case[] = [
     },
   },
   {
+    name: 'authoring previews do not keep the correct answer at one label',
+    run: () => {
+      const correctLabels = new Set(
+        Array.from({ length: 12 }, (_, index) => {
+          const interaction = choiceInteraction();
+          interaction.options = interaction.options.map((option) => ({
+            ...option,
+            content: `${option.content}（样本${index + 1}）`,
+          }));
+          const preview = resolveSingleChoiceCandidatePreview(interaction);
+          assert(preview);
+          return preview.options.find(
+            (option) => option.optionId === interaction.correctOptionIds[0],
+          )?.displayLabel;
+        }),
+      );
+      assert(correctLabels.size >= 3, 'Authoring previews kept the correct answer in one label.');
+    },
+  },
+  {
     name: 'production assessment renders option labels without exposing stable IDs',
     run: () => {
       const interaction = choiceInteraction();
+      const preview = resolveSingleChoiceCandidatePreview(interaction);
       const presentation = resolveSingleChoiceAssessmentPresentation(interaction);
+      assert(preview);
+      const correctPreview = preview.options.find(
+        (option) => option.optionId === interaction.correctOptionIds[0],
+      );
+      assert(correctPreview);
       assert.deepEqual(presentation.correctOption, {
-        displayLabel: 'A',
+        displayLabel: correctPreview.displayLabel,
         content: '舍不得孩子离开',
       });
       assert.deepEqual(
         presentation.distractors.map((item) => item.displayLabel),
-        ['B', 'C', 'D'],
+        preview.options
+          .filter((option) => option.optionId !== interaction.correctOptionIds[0])
+          .map((option) => option.displayLabel),
       );
-      assert.equal(presentation.distractors[0]?.misconceptionLabel, '停留在表面信息');
+      assert(
+        presentation.distractors.some((item) => item.misconceptionLabel === '停留在表面信息'),
+      );
       const serialized = JSON.stringify(presentation);
       assert.equal(serialized.includes('option-correct'), false);
       assert.equal(serialized.includes('option-surface'), false);
