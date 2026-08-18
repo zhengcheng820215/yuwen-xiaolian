@@ -25,6 +25,7 @@ import {
 } from '../schemas/controlledFeedbackExpression.schema.ts';
 import { DIAGNOSIS_QUALITY_POLICY_V21 } from '../schemas/diagnosisQualityPolicyV2.schema.ts';
 import type { StudentLearningFeedback } from '../schemas/studentLearningFeedback.schema.ts';
+import { validateSingleChoiceStudentAnswerValue } from '../schemas/singleChoiceInteraction.schema.ts';
 
 const LONG_TERM_CLAIM_PATTERN = /已经掌握|长期掌握|稳定提升|能力很差|能力退化|永久|天生/;
 const INTERNAL_FIELD_PATTERN = /evidenceType|confidence|provider|prompt|schema|raw\s*json|internal\s*id|formalDiagnosisId/i;
@@ -443,6 +444,17 @@ function validateAdmissionInput(input: ControlledFeedbackExpressionInput): strin
   const formalResponse = evidenceReturn.taskExecutionResult.studentResponse;
   if (!formalResponse || formalResponse.responseId !== input.responseId) {
     issues.push('Formal StudentResponse is missing or mismatched.');
+  } else if (formalResponse.responseFormat === 'single_choice') {
+    const choiceValidation = validateSingleChoiceStudentAnswerValue(
+      formalResponse.singleChoiceAnswer,
+      evidenceReturn.concreteTask.singleChoiceDelivery,
+    );
+    if (!choiceValidation.passed) {
+      issues.push(`Formal single-choice response is invalid: ${choiceValidation.issues.map((issue) => issue.code).join(', ')}.`);
+    }
+    if (!input.studentResponseText.trim()) {
+      issues.push('Single-choice response display text is missing.');
+    }
   } else if (formalResponse.answerText !== input.studentResponseText) {
     issues.push('studentResponseText does not match the Formal StudentResponse.');
   }

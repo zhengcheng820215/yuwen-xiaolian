@@ -29,6 +29,7 @@ import {
   FeedbackRevisionWorkspace,
 } from '../components/continuous-learning/FeedbackGuidedRevision.jsx';
 import {
+  resolveCompletedFeedbackFallback,
   shouldRenderThinkingReview,
   shouldStageFeedbackPresentation,
   synchronizeFeedbackPresentationStep,
@@ -498,6 +499,15 @@ function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus,
   const guidance = state.feedback?.guidance;
   const attention = guidance ? [] : state.feedback?.whatNeedsAttention?.slice(0, 1) || [];
   const hasLearningNarrative = hasOutcomeNarrative(state.learningPresentation);
+  const fallbackFeedback = resolveCompletedFeedbackFallback({
+    hasOutcomeNarrative: hasLearningNarrative,
+    hasThinkingReview: Boolean(thinkingReview),
+    positiveCount: positive.length,
+    hasGuidance: Boolean(guidance),
+    attentionCount: attention.length,
+    responseFormat: state.task?.responseFormat,
+    feedback: state.feedback,
+  });
   const hasReview = Boolean(thinkingReview || positive.length);
   const shouldStageFeedback = shouldStageFeedbackPresentation({
     correctionStatus: writingCorrectionStatus,
@@ -556,6 +566,7 @@ function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus,
           {hasLearningNarrative ? (
             <StudentLearningNarrativeOutcome
               presentation={state.learningPresentation}
+              responseFormat={state.task?.responseFormat}
               reviewVisible={presentationStep >= 1}
               actionVisible={presentationStep >= 2}
             />
@@ -577,6 +588,7 @@ function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus,
           {state.revision?.status === 'offered' ? (
             <FeedbackRevisionGoal revision={state.revision} />
           ) : null}
+          {fallbackFeedback ? <CompletedFeedbackNotice feedback={fallbackFeedback} /> : null}
         </section>
         <div className={`mt-8 grid min-h-11 gap-3 sm:grid-cols-2 ${feedbackRevealClass(presentationStep >= 3)}`}>
           {state.revision?.status === 'offered' ? (
@@ -620,6 +632,18 @@ function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus,
   );
 }
 
+function CompletedFeedbackNotice({ feedback }) {
+  return (
+    <section aria-live="polite">
+      <h1 className="text-lg font-semibold text-slate-900">{feedback.title}</h1>
+      <p className="mt-3 text-sm leading-7 text-slate-600">{feedback.summary}</p>
+      {feedback.nextAction ? (
+        <p className="mt-3 text-sm leading-7 text-slate-600">{feedback.nextAction}</p>
+      ) : null}
+    </section>
+  );
+}
+
 function PausedWorkspace({ state, writingCorrections, busy, onReturn, onStartRevision }) {
   const positive = state.feedback?.whatYouDidWell?.slice(0, 1) || [];
   const thinkingReview = state.feedback?.thinkingReview;
@@ -639,7 +663,10 @@ function PausedWorkspace({ state, writingCorrections, busy, onReturn, onStartRev
             <>
               {writingCorrections.length ? <WritingCorrections items={writingCorrections} /> : null}
               {hasLearningNarrative ? (
-                <StudentLearningNarrativeOutcome presentation={state.learningPresentation} />
+                <StudentLearningNarrativeOutcome
+                  presentation={state.learningPresentation}
+                  responseFormat={state.task?.responseFormat}
+                />
               ) : (
                 <>
                   {thinkingReview ? <ThinkingReview review={thinkingReview} /> : positive.length ? <FeedbackList title="已经完成的思考" items={positive} tone="positive" /> : null}
@@ -737,10 +764,11 @@ function NarrativeNote({ title, text }) {
   );
 }
 
-function StudentLearningNarrativeOutcome({ presentation, reviewVisible = true, actionVisible = true }) {
+function StudentLearningNarrativeOutcome({ presentation, responseFormat = 'text', reviewVisible = true, actionVisible = true }) {
   const outcome = presentation?.outcome || {};
   const hasReview = Boolean(outcome.achieved || outcome.primaryGap);
   const actions = splitNarrativeActions(presentation?.nextAction);
+  const isSingleChoice = responseFormat === 'single_choice';
   return (
     <>
       {hasReview ? (
@@ -748,14 +776,14 @@ function StudentLearningNarrativeOutcome({ presentation, reviewVisible = true, a
           <div className={feedbackRevealClass(reviewVisible)}>
             {outcome.achieved ? (
               <div>
-                <FeedbackSectionTitle icon="positive">已经完成的思考</FeedbackSectionTitle>
+                <FeedbackSectionTitle icon="positive">{isSingleChoice ? '本次选择' : '已经完成的思考'}</FeedbackSectionTitle>
                 <p className="mt-2 pl-[26px] text-base leading-7 text-slate-700">{outcome.achieved}</p>
               </div>
             ) : null}
             {outcome.primaryGap ? (
               <div className={outcome.achieved ? 'mt-5' : ''}>
                 <FeedbackSectionTitle icon="gap">
-                  {narrativeGapTitle(outcome.primaryGapMode, outcome.primaryGapReasonCode)}
+                  {isSingleChoice ? '需要核对' : narrativeGapTitle(outcome.primaryGapMode, outcome.primaryGapReasonCode)}
                 </FeedbackSectionTitle>
                 <p className="mt-2 pl-[26px] text-base leading-7 text-slate-700">{outcome.primaryGap}</p>
               </div>
@@ -765,7 +793,7 @@ function StudentLearningNarrativeOutcome({ presentation, reviewVisible = true, a
       ) : null}
       {actions.length > 0 ? (
         <section className={`mt-7 ${feedbackRevealClass(actionVisible)}`}>
-          <FeedbackSectionTitle icon="action">下一步训练</FeedbackSectionTitle>
+          <FeedbackSectionTitle icon="action">{isSingleChoice ? '回到材料看看' : '下一步训练'}</FeedbackSectionTitle>
           <ol className="mt-3 space-y-2 pl-[26px] text-base leading-7 text-slate-700">
             {actions.map((item, index) => (
               <li key={`${index}-${item}`}>{item}</li>

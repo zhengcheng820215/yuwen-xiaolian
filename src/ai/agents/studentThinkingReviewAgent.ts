@@ -29,6 +29,9 @@ export function buildStudentThinkingReview(
   const diagnosis = input.realDiagnosisRuntimeResult.formalDiagnosisCommit?.diagnosisResult;
   const answer = input.studentResponseText.trim();
   if (!task || !diagnosis || !answer || PROMPT_INJECTION_PATTERN.test(answer)) return undefined;
+  if (task.responseFormat === 'single_choice') {
+    return buildSingleChoiceThinkingReview(input, answer);
+  }
 
   const requirementsText = [
     task.question,
@@ -127,6 +130,63 @@ export function buildStudentThinkingReview(
     primaryGapRequirementId: primaryGapCoverage?.requirementId,
     primaryGap,
     missingPoints: primaryGap ? [primaryGap] : [],
+  };
+}
+
+function buildSingleChoiceThinkingReview(
+  input: ControlledFeedbackExpressionInput,
+  selectedOptionText: string,
+): StudentThinkingReview | undefined {
+  const task = input.taskEvidenceReturnResult.concreteTask;
+  const diagnosis = input.realDiagnosisRuntimeResult.formalDiagnosisCommit?.diagnosisResult;
+  const response = input.taskEvidenceReturnResult.taskExecutionResult.studentResponse;
+  const selectedOptionId = response?.singleChoiceAnswer?.selectedOptionIds[0];
+  const interaction = task.singleChoiceEvaluation;
+  if (!diagnosis || !selectedOptionId || !interaction) return undefined;
+
+  const requirementId = `${task.taskId}:choice_judgment`;
+  if (diagnosis.correct) {
+    const message = '这次选择符合材料和题意。';
+    return {
+      requirementCoverage: [{
+        requirementId,
+        requirementType: 'conclusion',
+        requirementText: '从选项中完成本题要求的判断',
+        required: true,
+        status: 'covered',
+        studentEvidence: [selectedOptionText],
+        taskEvidence: ['本次单选判断结果正确'],
+        source: 'formal_diagnosis',
+        studentMessage: message,
+      }],
+      coveredPoints: [message],
+      missingPoints: [],
+    };
+  }
+
+  const rationale = interaction.distractorRationales.find((item) => item.optionId === selectedOptionId);
+  const diagnosisMeaning = finishSentence(
+    rationale?.diagnosisMeaning || diagnosis.surfaceError || '这次选择与材料和题意不一致',
+  );
+  const evidenceBoundary = rationale?.evidenceBoundary?.trim();
+  const gapMessage = diagnosisMeaning;
+  return {
+    requirementCoverage: [{
+      requirementId,
+      requirementType: 'conclusion',
+      requirementText: '从选项中完成本题要求的判断',
+      required: true,
+      status: 'missing',
+      studentEvidence: [selectedOptionText],
+      taskEvidence: evidenceBoundary ? [evidenceBoundary] : ['本次单选判断结果需要核对'],
+      source: 'formal_diagnosis',
+      gapMessage,
+      gapReasonCode: 'conclusion_inconsistent',
+    }],
+    coveredPoints: [],
+    primaryGapRequirementId: requirementId,
+    primaryGap: gapMessage,
+    missingPoints: [gapMessage],
   };
 }
 
@@ -631,6 +691,12 @@ function hasRubricSignal(items: string[], pattern: RegExp): boolean {
 
 function uniqueStrings(items: string[]): string[] {
   return [...new Set(items.map((item) => item.trim()).filter(Boolean))];
+}
+
+function finishSentence(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return /[。！？!?]$/.test(trimmed) ? trimmed : `${trimmed}。`;
 }
 
 function isString(value: string | undefined): value is string {

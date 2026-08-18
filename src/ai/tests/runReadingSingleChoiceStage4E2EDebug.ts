@@ -26,6 +26,11 @@ import {
   generateResourceCoverage,
 } from '../agents/resourceCoverageAgent.ts';
 import { runSingleChoiceDiagnosis } from '../agents/singleChoiceDiagnosisAgent.ts';
+import { buildStudentLearningNarrativeProjection } from '../agents/studentLearningNarrativeAgent.ts';
+import {
+  createFeedbackExpressionConfigSnapshot,
+  runControlledFeedbackExpression,
+} from '../agents/controlledFeedbackExpressionAgent.ts';
 import {
   createFormalResourceBootstrapTaskRequest,
   matchCurrentFormalResource,
@@ -35,6 +40,7 @@ import { runTaskEvidenceReturnAgent } from '../agents/taskEvidenceReturnAgent.ts
 import { runTaskExecutionAgent } from '../agents/taskExecutionAgent.ts';
 import { createDiagnosisProviderConfigSnapshot } from '../agents/realLLMRuntimeFoundationAgent.ts';
 import { InMemoryMaterialObservationRepository } from '../repositories/inMemoryMaterialObservationRepository.ts';
+import { InMemoryControlledFeedbackRepository } from '../repositories/inMemoryControlledFeedbackRepository.ts';
 import { InMemoryQuestionResourceAdmissionRepository } from '../repositories/inMemoryQuestionResourceAdmissionRepository.ts';
 import type { DiagnosisResult } from '../schemas/diagnosis.schema.ts';
 import type { MaterialProductionTaskInput } from '../agents/materialObservationApplicationService.ts';
@@ -157,6 +163,18 @@ const cases: DebugCase[] = [
         assert.equal(prepared.status, 'prepared', prepared.issues.join(', '));
         assert.equal(prepared.sourceResolution.status, 'ready');
         assert.equal(prepared.taskPreparation?.concreteTaskResult.concreteTask?.responseFormat, 'single_choice');
+        assert.equal(
+          prepared.taskPreparation?.concreteTaskResult.concreteTask?.learningIntent?.sourceObservationTaskPlanId,
+          choice.observationTaskPlanId,
+        );
+        const narrative = buildStudentLearningNarrativeProjection({
+          studentId: STUDENT_ID,
+          currentTask: prepared.taskPreparation?.concreteTaskResult.concreteTask || undefined,
+        });
+        assert.equal(narrative.validation.passed, true, narrative.validation.issues.join(', '));
+        assert(narrative.taskReason?.text.includes('继续练习') === false);
+        assert(narrative.taskReason?.text.includes('阅读思路用在当前材料') === false);
+        assert(narrative.taskReason?.sourceLinks.includes(choice.observationTaskPlanId));
         const serializedDelivery = JSON.stringify(prepared.taskPreparation?.concreteTaskResult.concreteTask?.singleChoiceDelivery);
         assert.equal(serializedDelivery.includes('correctOptionIds'), false);
         assert.equal(serializedDelivery.includes('distractorRationales'), false);
@@ -708,6 +726,58 @@ async function executeChoice(chain: MaterialChain, version: FrozenQuestionResour
     returnedAt: SUBMITTED_AT,
   });
   assert.equal(evidence.status, 'evidence_returned');
+  const selectedOptionText = delivery.options.find((option) => option.optionId === selectedOptionId)?.content || '';
+  const feedback = await runControlledFeedbackExpression({
+    feedbackRequestId: `stage4-feedback-${version.taskId}-${selectedOptionId}`,
+    learningRoundId: `stage4-round-${version.taskId}`,
+    studentId: concrete.studentId,
+    taskId: concrete.taskId,
+    executionSessionId: execution.taskExecutionResult!.executionSessionId,
+    responseId: execution.studentResponse!.responseId,
+    studentResponseText: selectedOptionText,
+    taskContext: {
+      readingText: concrete.readingText,
+      questionText: concrete.question,
+      answerRequirements: concrete.answerRequirements,
+    },
+    realDiagnosisRuntimeResult: runtime,
+    taskEvidenceReturnResult: evidence,
+    expressionConfig: createFeedbackExpressionConfigSnapshot({
+      expressionPolicy: 'deterministic_only',
+      createdAt: SUBMITTED_AT,
+    }),
+    requestedAt: SUBMITTED_AT,
+  }, {
+    repository: new InMemoryControlledFeedbackRepository(),
+  });
+  assert.equal(feedback.admissionDecision.status, 'content_allowed', feedback.admissionDecision.validation.issues.join(', '));
+  assert.equal(feedback.validation.passed, true, feedback.validation.issues.join(', '));
+  assert.equal(feedback.studentLearningFeedback.resultStatus, 'completed');
+  assert.equal(feedback.teachingPlan?.revisionActions.length, 0, 'Single-choice feedback must not create text revision actions.');
+  const feedbackText = JSON.stringify(feedback.studentLearningFeedback);
+  assert.equal(
+    /解释没有写出来|补充文本依据|重新组织答案|修改本次选择/.test(feedbackText),
+    false,
+    feedbackText,
+  );
+  const narrative = buildStudentLearningNarrativeProjection({
+    studentId: concrete.studentId,
+    currentTask: concrete,
+    studentResponse: execution.studentResponse,
+    feedback: feedback.studentLearningFeedback,
+  });
+  assert.equal(narrative.validation.passed, true, narrative.validation.issues.join(', '));
+  const narrativeText = JSON.stringify(narrative);
+  assert.equal(/解释没有写出来|补充文本依据|重新组织答案|修改本次选择/.test(narrativeText), false, narrativeText);
+  if (runtime.formalDiagnosisCommit?.diagnosisResult.correct) {
+    assert(narrative.achieved?.text.includes('选择符合材料和题意'), narrativeText);
+    assert.equal(narrative.currentGap, undefined, narrativeText);
+    assert.equal(narrative.nextAction, undefined, narrativeText);
+  } else {
+    const rationale = concrete.singleChoiceEvaluation?.distractorRationales.find((item) => item.optionId === selectedOptionId);
+    assert(narrative.currentGap?.text.includes(rationale?.diagnosisMeaning || ''), narrativeText);
+    assert(narrative.nextAction?.text.includes(rationale?.evidenceBoundary || ''), narrativeText);
+  }
   const trace = validateFormalResourceLearningTrace({
     sourceContext: prepared.sourceResolution.sourceContext!,
     concreteTask: concrete,

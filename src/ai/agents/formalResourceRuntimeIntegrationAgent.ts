@@ -39,6 +39,7 @@ export type FormalResourceRuntimeSourceContext = {
   sourceAnchorIds: string[];
   observationGoal: string;
   expectedStudentAction: string;
+  designReason: string;
 };
 
 export type FormalResourceRuntimeSourceResolution = {
@@ -260,6 +261,7 @@ export async function resolveFormalResourceRuntimeSource(input: {
       sourceAnchorIds: [...observationTask.sourceAnchorIds],
       observationGoal: observationTask.observationGoal,
       expectedStudentAction: observationTask.expectedStudentAction,
+      designReason: observationTask.designReason,
     }
     : undefined;
 
@@ -293,6 +295,15 @@ export async function prepareFormalResourceRuntimeTask(input: {
   const taskPreparation = prepareConcreteLearningTaskFromFrozenResource({
     resourceVersion: sourceResolution.resourceVersion,
     qualityGatedTask: input.qualityGatedTask,
+    learningIntent: sourceResolution.sourceContext
+      ? {
+        sourceObservationTaskPlanId: sourceResolution.sourceContext.observationTaskPlanId,
+        observationGoal: sourceResolution.sourceContext.observationGoal,
+        expectedStudentAction: sourceResolution.sourceContext.expectedStudentAction,
+        designReason: sourceResolution.sourceContext.designReason,
+        isFoundationEntry: sourceResolution.resourceVersion.tags.includes('sequence-prelude:true'),
+      }
+      : undefined,
     createdAt: input.createdAt,
   });
   return {

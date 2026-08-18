@@ -31,13 +31,15 @@ export type StudentLearningNarrativeInput = {
 };
 
 const INTERNAL_LANGUAGE = /\b(?:Evidence|Diagnosis|Profile|GrowthMemory|Root Cause|confidence|evaluator|operationId|responseId|taskRole)\b/i;
+const UNSAFE_TASK_REASON_INTENT = /(?:正确答案|答案是|正确选项|应选|选择选项\s*[A-D0-9]|option[-_]?\d+|可接受观察信号|评分项|干扰项|acceptedSignal)/i;
 
 export function buildStudentLearningNarrativeProjection(
   input: StudentLearningNarrativeInput,
 ): StudentLearningNarrativeProjection {
   const issues: string[] = [];
   const identityAligned = validateIdentity(input, issues);
-  const feedbackGrounding = input.feedback
+  const isSingleChoiceFeedback = input.currentTask?.responseFormat === 'single_choice' && Boolean(input.feedback);
+  const feedbackGrounding = input.feedback && !isSingleChoiceFeedback
     ? buildStudentFeedbackGrounding(input.feedback)
     : undefined;
   if (feedbackGrounding && !feedbackGrounding.validation.passed) {
@@ -62,12 +64,20 @@ export function buildStudentLearningNarrativeProjection(
     issues.push(...feedbackActionPlan.validation.issues);
   }
   const taskReason = buildTaskReason(input.currentTask);
-  const responseAnchor = buildResponseAnchor(input);
-  const achieved = buildAchieved(feedbackActionPlan, feedbackGrounding);
-  const currentGap = buildCurrentGap(feedbackActionPlan, feedbackGrounding);
+  const responseAnchor = isSingleChoiceFeedback
+    ? buildSingleChoiceResponseAnchor(input)
+    : buildResponseAnchor(input);
+  const achieved = isSingleChoiceFeedback
+    ? buildSingleChoiceAchieved(input)
+    : buildAchieved(feedbackActionPlan, feedbackGrounding);
+  const currentGap = isSingleChoiceFeedback
+    ? buildSingleChoiceCurrentGap(input)
+    : buildCurrentGap(feedbackActionPlan, feedbackGrounding);
   const currentGapReasonCode = buildCurrentGapReasonCode(input.feedback);
   const currentGapMode = buildCurrentGapMode(input.feedback);
-  const nextAction = buildNextAction(feedbackActionPlan, feedbackGrounding, input.feedback);
+  const nextAction = isSingleChoiceFeedback
+    ? buildSingleChoiceNextAction(input)
+    : buildNextAction(feedbackActionPlan, feedbackGrounding, input.feedback);
   const progressMeaning = buildProgressMeaning(input);
   const nextTaskReason = buildNextTaskReason(input);
   const statements = [taskReason, responseAnchor, achieved, currentGap, nextAction, progressMeaning, nextTaskReason]
@@ -121,6 +131,61 @@ export function buildStudentLearningNarrativeProjection(
     };
   }
   return projection;
+}
+
+function buildSingleChoiceResponseAnchor(
+  input: StudentLearningNarrativeInput,
+): StudentLearningNarrativeStatement | undefined {
+  const task = input.currentTask;
+  const response = input.studentResponse;
+  const selectedOptionId = response?.singleChoiceAnswer?.selectedOptionIds[0];
+  const selectedOption = task?.singleChoiceDelivery?.options.find((option) => option.optionId === selectedOptionId);
+  if (!task || !response || !selectedOption) return undefined;
+  return statement(
+    `你选择了“${shortExcerpt(selectedOption.content)}”。`,
+    'current_response',
+    'student_response',
+    [response.responseId, task.taskId],
+  );
+}
+
+function buildSingleChoiceAchieved(
+  input: StudentLearningNarrativeInput,
+): StudentLearningNarrativeStatement | undefined {
+  const coverage = input.feedback?.thinkingReview?.requirementCoverage?.find((item) =>
+    item.status === 'covered' && item.requirementId.endsWith(':choice_judgment'));
+  const message = coverage?.studentMessage?.trim();
+  if (!coverage || !message) return undefined;
+  return statement(message, 'current_response', 'task_requirement_coverage', [coverage.requirementId]);
+}
+
+function buildSingleChoiceCurrentGap(
+  input: StudentLearningNarrativeInput,
+): StudentLearningNarrativeStatement | undefined {
+  const review = input.feedback?.thinkingReview;
+  const coverage = review?.requirementCoverage?.find((item) =>
+    item.requirementId === review.primaryGapRequirementId && item.requirementId.endsWith(':choice_judgment'));
+  if (!coverage || !review?.primaryGap) return undefined;
+  return statement(review.primaryGap, 'current_response', 'learning_gap', [coverage.requirementId]);
+}
+
+function buildSingleChoiceNextAction(
+  input: StudentLearningNarrativeInput,
+): StudentLearningNarrativeStatement | undefined {
+  const task = input.currentTask;
+  const response = input.studentResponse;
+  const selectedOptionId = response?.singleChoiceAnswer?.selectedOptionIds[0];
+  const hasGap = Boolean(input.feedback?.thinkingReview?.primaryGap);
+  if (!task || !response || !selectedOptionId || !hasGap) return undefined;
+  const rationale = task.singleChoiceEvaluation?.distractorRationales.find((item) => item.optionId === selectedOptionId);
+  const boundary = rationale?.evidenceBoundary?.trim();
+  const text = boundary
+    ? `回到材料核对：${finishSentence(boundary)}`
+    : '回到材料重新核对题目要求的关键信息。';
+  return statement(text, 'current_response', 'learning_gap', [
+    response.responseId,
+    input.feedback?.thinkingReview?.primaryGapRequirementId || task.taskId,
+  ]);
 }
 
 function buildResponseAnchor(input: StudentLearningNarrativeInput): StudentLearningNarrativeStatement | undefined {
@@ -178,14 +243,56 @@ function resolvePrimaryGapCoverage(feedback?: StudentLearningFeedback) {
 function buildTaskReason(task?: ConcreteLearningTask): StudentLearningNarrativeStatement | undefined {
   if (!task) return undefined;
   const ability = studentAbilityLabel(task.targetAbilityName);
+  const action = specificStudentTaskAction(task);
   const text = task.taskRole === 'retest'
-    ? `这项任务会在间隔一段时间后再次练习${ability}，看看你能否独立完成。`
+    ? action
+      ? `这道题会在间隔一段时间后再次练习${action}，看看你能否独立完成。`
+      : `这道题会在间隔一段时间后再次练习${ability}，看看你能否独立完成。`
     : task.taskRole === 'transfer'
-      ? `这项任务会换一份材料继续练习${ability}，看看你能否把之前的方法用到新内容中。`
+      ? action
+        ? `这道题会换一份材料练习${action}，看看你能否把之前的方法用到新内容中。`
+        : `这道题会换一份材料练习${ability}，看看你能否把之前的方法用到新内容中。`
       : task.taskRole === 'diagnosis' || task.taskRole === 'observation'
-        ? `这项任务先了解你目前怎样处理${ability}相关要求，后面的练习会根据这次回答继续安排。`
-        : `这项任务继续练习${ability}，重点是把阅读思路用在当前材料中。`;
-  return statement(text, 'current_task', 'formal_task', [task.taskId]);
+        ? action
+          ? `这道题先了解你目前怎样完成${action}，后面的练习会根据这次回答继续安排。`
+          : `这道题先了解你目前怎样处理${ability}相关要求，后面的练习会根据这次回答继续安排。`
+        : action
+          ? task.responseFormat === 'single_choice' && task.learningIntent?.isFoundationEntry
+            ? `这道题先练习${action}，为后面的解释和分析打基础。`
+            : `这道题练习${action}。`
+          : `这道题练习${ability}，重点是把阅读思路用在当前材料中。`;
+  return statement(text, 'current_task', 'formal_task', [
+    task.taskId,
+    task.learningIntent?.sourceObservationTaskPlanId,
+  ].filter((value): value is string => Boolean(value)));
+}
+
+function specificStudentTaskAction(task: ConcreteLearningTask): string | undefined {
+  const intent = task.learningIntent;
+  if (!intent) return undefined;
+  const candidates = [intent.expectedStudentAction, intent.observationGoal];
+  for (const candidate of candidates) {
+    const action = normalizeStudentTaskAction(candidate);
+    if (action && !UNSAFE_TASK_REASON_INTENT.test(action) && !INTERNAL_LANGUAGE.test(action)) {
+      return action;
+    }
+  }
+  return undefined;
+}
+
+function normalizeStudentTaskAction(value: string): string | undefined {
+  let action = value
+    .trim()
+    .replace(/^(?:要求)?(?:学生|学习者)(?:需要|应当|应该|应|需)\s*/, '')
+    .replace(/^请\s*/, '')
+    .replace(/选择最(符合|直接|准确|恰当)的/g, '判断最$1的')
+    .replace(/[。！？?]+$/g, '')
+    .trim();
+  if (!action || action.length > 88) return undefined;
+  if (/是因为什么$/.test(action)) {
+    action = `理解${action.replace(/，?是因为什么$/, '')}的直接原因`;
+  }
+  return action;
 }
 
 function buildAchieved(
@@ -346,6 +453,12 @@ function meaningfulAnchor(value: string): boolean {
 function shortExcerpt(value: string): string {
   const normalized = value.trim().replace(/\s+/g, ' ');
   return normalized.length <= 32 ? normalized : `${normalized.slice(0, 31)}…`;
+}
+
+function finishSentence(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return /[。！？!?]$/.test(trimmed) ? trimmed : `${trimmed}。`;
 }
 
 function safeAnswerAnchor(value: string): string | undefined {

@@ -32,7 +32,10 @@ export function buildStructuredFeedbackFacts(input: {
   const diagnosis = commit.diagnosisResult!;
   const issues: string[] = [];
   const identityAligned = validateIdentity(request, commit.formalDiagnosisId, issues);
-  const studentStatements = buildStudentStatements(request.studentResponseText, request.responseId);
+  const choiceContext = resolveSingleChoiceFeedbackContext(request);
+  const studentStatements = choiceContext
+    ? []
+    : buildStudentStatements(request.studentResponseText, request.responseId);
   const observedStrengths: StructuredFeedbackFact[] = [];
   const observedAttentionPoints: StructuredFeedbackFact[] = [];
   const taskFocus = deriveTaskFocus(
@@ -49,11 +52,13 @@ export function buildStructuredFeedbackFacts(input: {
       positiveContentAllowed &&
       (evidence.evidenceType === 'positive' || evidence.evidenceType === 'growth')
     ) {
-      const responseCommentary = buildTraceableThinkingCommentary(
-        request.studentResponseText,
-        taskFocus,
-        request.taskEvidenceReturnResult.supportContext.usedHint,
-      );
+      const responseCommentary = choiceContext
+        ? { text: '这次选择符合材料和题意。', exactQuote: undefined }
+        : buildTraceableThinkingCommentary(
+          request.studentResponseText,
+          taskFocus,
+          request.taskEvidenceReturnResult.supportContext.usedHint,
+        );
       const safeText = responseCommentary?.text || '';
       if (!safeText || UNSAFE_LONG_TERM_PATTERN.test(safeText)) continue;
       observedStrengths.push({
@@ -66,7 +71,9 @@ export function buildStructuredFeedbackFacts(input: {
         exactQuote: responseCommentary?.exactQuote,
       });
     } else if (evidence.evidenceType === 'weakness') {
-      const safeText = buildObservedExpression(evidence.detail || evidence.observation, 'attention');
+      const safeText = choiceContext?.rationale?.diagnosisMeaning?.trim()
+        ? finishSentence(choiceContext.rationale.diagnosisMeaning)
+        : buildObservedExpression(evidence.detail || evidence.observation, 'attention');
       if (!safeText || UNSAFE_LONG_TERM_PATTERN.test(safeText)) continue;
       observedAttentionPoints.push({
         factId: `feedback-fact-attention-${sanitizeId(evidence.id)}`,
@@ -135,6 +142,9 @@ export function buildStudentFeedbackTeachingPlan(input: {
   facts: StructuredFeedbackFacts;
   thinkingReview?: StudentThinkingReview;
 }): StudentFeedbackTeachingPlan {
+  const choiceContext = resolveSingleChoiceFeedbackContext(input.request);
+  if (choiceContext) return buildSingleChoiceTeachingPlan(input, choiceContext.correct);
+
   const diagnosis = input.request.realDiagnosisRuntimeResult.formalDiagnosisCommit!.diagnosisResult!;
   const attentionFacts = input.facts.observedAttentionPoints;
   const sourceFactIds = attentionFacts.map((fact) => fact.factId);
@@ -213,12 +223,80 @@ export function buildStudentFeedbackTeachingPlan(input: {
   };
 }
 
+function buildSingleChoiceTeachingPlan(
+  input: {
+    request: ControlledFeedbackExpressionInput;
+    facts: StructuredFeedbackFacts;
+    thinkingReview?: StudentThinkingReview;
+  },
+  correct: boolean,
+): StudentFeedbackTeachingPlan {
+  const attentionFacts = input.facts.observedAttentionPoints;
+  const sourceFactIds = attentionFacts.map((fact) => fact.factId);
+  const sourceLinks = attentionFacts.flatMap((fact) => fact.sourceLinks);
+  const primaryGap = resolvePrimaryGap(input.thinkingReview);
+  const understandingText = correct ? undefined : primaryGap?.gapMessage;
+  const understandingNotice = understandingText
+    ? teachingItem('choice-understanding', understandingText, sourceFactIds, sourceLinks)
+    : undefined;
+  const allText = understandingNotice?.text || '';
+  const noInternalLanguage = !INTERNAL_DIAGNOSIS_LANGUAGE_PATTERN.test(allText);
+  const noLongTermClaim = !UNSAFE_LONG_TERM_PATTERN.test(allText);
+  const issues: string[] = [];
+  if (!noInternalLanguage) issues.push('Teaching Plan exposes internal Diagnosis language.');
+  if (!noLongTermClaim) issues.push('Teaching Plan contains a long-term ability claim.');
+  return {
+    planId: `feedback-teaching-plan-${sanitizeId(input.request.feedbackRequestId)}`,
+    understandingNotice,
+    detailsToReview: [],
+    revisionActions: [],
+    validation: {
+      passed: noInternalLanguage && noLongTermClaim,
+      sourceFactsExist: true,
+      materialDetailsVerified: true,
+      noInternalLanguage,
+      noLongTermClaim,
+      issues,
+    },
+  };
+}
+
+function resolveSingleChoiceFeedbackContext(request: ControlledFeedbackExpressionInput) {
+  const task = request.taskEvidenceReturnResult.concreteTask;
+  const response = request.taskEvidenceReturnResult.taskExecutionResult.studentResponse;
+  if (task.responseFormat !== 'single_choice' || !response?.singleChoiceAnswer || !task.singleChoiceEvaluation) {
+    return undefined;
+  }
+  const selectedOptionId = response.singleChoiceAnswer.selectedOptionIds[0];
+  const diagnosis = request.realDiagnosisRuntimeResult.formalDiagnosisCommit?.diagnosisResult;
+  if (!selectedOptionId || !diagnosis) return undefined;
+  return {
+    correct: diagnosis.correct === true,
+    selectedOptionId,
+    rationale: task.singleChoiceEvaluation.distractorRationales.find((item) => item.optionId === selectedOptionId),
+  };
+}
+
 export function buildActionableSuggestions(input: {
   request: ControlledFeedbackExpressionInput;
   admissionDecision: FeedbackAdmissionDecision;
 }): ActionableSuggestion[] {
   if (input.admissionDecision.status !== 'content_allowed') return [];
   const commit = input.request.realDiagnosisRuntimeResult.formalDiagnosisCommit!;
+  const choiceContext = resolveSingleChoiceFeedbackContext(input.request);
+  if (choiceContext) {
+    const text = choiceContext.correct
+      ? '可以进入后续任务，继续观察解释和证据组织。'
+      : choiceContext.rationale?.evidenceBoundary?.trim()
+        ? `回到材料核对：${finishSentence(choiceContext.rationale.evidenceBoundary)}`
+        : '回到材料重新核对题目要求的关键信息。';
+    return [{
+      suggestionId: `feedback-suggestion-choice-${sanitizeId(commit.formalDiagnosisId)}`,
+      text,
+      sourceType: 'diagnosis_next_training',
+      sourceLinks: [`diagnosis:${commit.formalDiagnosisId}#nextTraining`],
+    }];
+  }
   const nextTraining = commit.diagnosisResult?.nextTraining.trim();
   if (nextTraining && !UNSAFE_LONG_TERM_PATTERN.test(nextTraining)) {
     return [{

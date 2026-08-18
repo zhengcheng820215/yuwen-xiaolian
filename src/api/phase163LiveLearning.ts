@@ -742,12 +742,16 @@ async function buildCurrentRoundDescriptor() {
   }
   const version = matched.resourceVersion;
   const qualityTask = matched.qualityGatedTask;
-  const preparation = prepareConcreteLearningTaskFromFrozenResource({
-    resourceVersion: version,
-    qualityGatedTask: qualityTask,
-    createdAt: new Date().toISOString(),
-  });
-  if (preparation.status !== 'prepared' || !preparation.concreteTaskResult.concreteTask) {
+  const fallbackPreparation = matched.concreteTask && matched.taskReadiness
+    ? undefined
+    : prepareConcreteLearningTaskFromFrozenResource({
+      resourceVersion: version,
+      qualityGatedTask: qualityTask,
+      createdAt: new Date().toISOString(),
+    });
+  const concreteTask = matched.concreteTask || fallbackPreparation?.concreteTaskResult.concreteTask;
+  const readiness = matched.taskReadiness || fallbackPreparation?.concreteTaskResult.readiness;
+  if (!concreteTask || !readiness?.canExecute) {
     throw new Error('当前正式任务尚未准备完成。');
   }
   const base = await import('./phase163RealLearningChainDemo.ts').then((module) => (
@@ -781,8 +785,8 @@ async function buildCurrentRoundDescriptor() {
   };
   return {
     retestPlan,
-    concreteTask: preparation.concreteTaskResult.concreteTask,
-    readiness: preparation.concreteTaskResult.readiness,
+    concreteTask,
+    readiness,
     roundNumber: number,
     input: {
       ...base.input,

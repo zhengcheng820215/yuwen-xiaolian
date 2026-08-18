@@ -18,9 +18,10 @@ type Report = { name: string; passed: boolean; detail: string };
 const reports: Report[] = [];
 
 function main(): void {
-  check('N1 Training 解释当前练习目的', {
+  check('N1 Training 解释当前练习目的且首轮不误写继续', {
     currentTask: task('training'),
-  }, (result) => result.taskReason?.text.includes('继续练习') === true);
+  }, (result) => result.taskReason?.text.includes('这道题练习') === true &&
+    !result.taskReason.text.includes('继续练习'));
 
   check('N2 Retest 解释间隔与独立完成', {
     currentTask: task('retest'),
@@ -240,6 +241,74 @@ function main(): void {
     })).join('|'),
   });
 
+  check('N25 基础进入层单选使用具体动作且不误写继续练习', {
+    currentTask: task('training', {
+      targetAbilityId: 'comprehension',
+      targetAbilityName: '理解',
+      responseFormat: 'single_choice',
+      learningIntent: learningIntent({
+        expectedStudentAction: '学生需要阅读第1-2段，定位描述女娲孤独的句子，并选择最直接的原因。',
+        isFoundationEntry: true,
+      }),
+    }),
+  }, (result) => result.taskReason?.text ===
+    '这道题先练习阅读第1-2段，定位描述女娲孤独的句子，并判断最直接的原因，为后面的解释和分析打基础。' &&
+    !result.taskReason.text.includes('继续练习'));
+
+  check('N26 普通文本 Training 使用本题具体阅读动作', {
+    currentTask: task('training', {
+      responseFormat: 'text',
+      learningIntent: learningIntent({
+        expectedStudentAction: '学生需要结合人物动作，解释动作与心理判断之间的关系。',
+        isFoundationEntry: false,
+      }),
+    }),
+  }, (result) => result.taskReason?.text ===
+    '这道题练习结合人物动作，解释动作与心理判断之间的关系。');
+
+  check('N27 Retest 保留间隔独立语义并使用具体动作', {
+    currentTask: task('retest', {
+      learningIntent: learningIntent({
+        expectedStudentAction: '学生需要根据两处动作独立判断人物心理。',
+        isFoundationEntry: false,
+      }),
+    }),
+  }, (result) => result.taskReason?.text.includes('间隔一段时间后再次练习根据两处动作独立判断人物心理') === true &&
+    result.taskReason.text.includes('独立完成'));
+
+  check('N28 Transfer 保留新材料迁移语义并使用具体动作', {
+    currentTask: task('transfer', {
+      learningIntent: learningIntent({
+        expectedStudentAction: '学生需要找出新材料中的动作依据并形成判断。',
+        isFoundationEntry: false,
+      }),
+    }),
+  }, (result) => result.taskReason?.text.includes('换一份材料练习找出新材料中的动作依据并形成判断') === true &&
+    result.taskReason.text.includes('新内容'));
+
+  check('N29 Diagnosis 使用具体任务了解当前处理方式', {
+    currentTask: task('diagnosis', {
+      learningIntent: learningIntent({
+        expectedStudentAction: '学生需要找出与人物心理有关的动作。',
+        isFoundationEntry: false,
+      }),
+    }),
+  }, (result) => result.taskReason?.text.includes('先了解你目前怎样完成找出与人物心理有关的动作') === true);
+
+  check('N30 疑似答案与内部字段不会进入说明并安全回退', {
+    currentTask: task('training', {
+      targetAbilityId: 'comprehension',
+      targetAbilityName: '理解',
+      responseFormat: 'single_choice',
+      learningIntent: learningIntent({
+        observationGoal: '正确答案是 option-1，因为天地间没有人类。',
+        expectedStudentAction: '学生应选择选项 A，正确答案是因为天地间没有人类。',
+        isFoundationEntry: true,
+      }),
+    }),
+  }, (result) => result.taskReason?.text === '这道题练习“理解”，重点是把阅读思路用在当前材料中。' &&
+    !/option-1|天地间没有人类|正确答案/.test(result.taskReason.text));
+
   console.log('\nStudent Learning Narrative Calibration Debug');
   console.log('='.repeat(76));
   for (const report of reports) {
@@ -268,13 +337,30 @@ function check(
   });
 }
 
-function task(taskRole: ConcreteLearningTask['taskRole']): ConcreteLearningTask {
+function task(
+  taskRole: ConcreteLearningTask['taskRole'],
+  overrides: Partial<ConcreteLearningTask> = {},
+): ConcreteLearningTask {
   return {
     taskId: `task-${taskRole}`,
     targetAbilityId: 'inference',
     targetAbilityName: '推理',
     taskRole,
+    ...overrides,
   } as ConcreteLearningTask;
+}
+
+function learningIntent(
+  overrides: Partial<NonNullable<ConcreteLearningTask['learningIntent']>> = {},
+): NonNullable<ConcreteLearningTask['learningIntent']> {
+  return {
+    sourceObservationTaskPlanId: 'observation-task-plan-narrative-debug',
+    observationGoal: '根据人物动作判断人物心理。',
+    expectedStudentAction: '学生需要根据人物动作判断人物心理。',
+    designReason: '用于观察学生能否建立动作与心理之间的联系。',
+    isFoundationEntry: false,
+    ...overrides,
+  };
 }
 
 function response(answerText: string, overrides: Partial<StudentResponse> = {}): StudentResponse {

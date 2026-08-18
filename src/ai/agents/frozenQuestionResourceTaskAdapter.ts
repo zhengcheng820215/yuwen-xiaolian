@@ -20,6 +20,7 @@ export type FrozenQuestionResourceTaskPreparationResult = {
 export function prepareConcreteLearningTaskFromFrozenResource(input: {
   resourceVersion: FrozenQuestionResourceVersion;
   qualityGatedTask: QualityGatedExecutableTask;
+  learningIntent?: ConcreteLearningTask['learningIntent'];
   createdAt?: string;
 }): FrozenQuestionResourceTaskPreparationResult {
   const issues = validateIdentity(input.resourceVersion, input.qualityGatedTask);
@@ -37,6 +38,7 @@ export function prepareConcreteLearningTaskFromFrozenResource(input: {
     overrides: buildConcreteTaskOverrides(
       input.resourceVersion,
       input.qualityGatedTask.executableTask.studentId,
+      input.learningIntent,
     ),
   });
   if (!concreteTaskResult.concreteTask || !concreteTaskResult.readiness.canExecute) {
@@ -78,6 +80,7 @@ function validateIdentity(
 function buildConcreteTaskOverrides(
   version: FrozenQuestionResourceVersion,
   studentId: string,
+  learningIntent?: ConcreteLearningTask['learningIntent'],
 ): Partial<ConcreteLearningTask> {
   const rubric: QuestionMetadataRubricItem[] = version.rubric.map((item) => ({
     id: item.itemId,
@@ -100,6 +103,7 @@ function buildConcreteTaskOverrides(
   return {
     targetAbilityId,
     targetAbilityName: abilityDisplayName(targetAbilityId),
+    learningIntent,
     readingText: version.materialSnapshot?.content,
     responseFormat: version.responseFormat === 'single_choice' ? 'single_choice' : 'text',
     singleChoiceDelivery: version.responseFormat === 'single_choice' && version.choiceInteraction

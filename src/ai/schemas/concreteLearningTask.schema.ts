@@ -14,6 +14,14 @@ export type ConcreteLearningTaskSourceType =
   | 'generated_request'
   | 'mock';
 
+export type ConcreteLearningTaskIntent = {
+  sourceObservationTaskPlanId: string;
+  observationGoal: string;
+  expectedStudentAction: string;
+  designReason: string;
+  isFoundationEntry: boolean;
+};
+
 export type ConcreteLearningTask = {
   taskId: string;
   studentId: string;
@@ -27,6 +35,7 @@ export type ConcreteLearningTask = {
   targetAbilityName: string;
   taskRole: RecommendedTaskRole;
   validationGoal: string;
+  learningIntent?: ConcreteLearningTaskIntent;
   readingText?: string;
   responseFormat?: 'text' | 'single_choice';
   singleChoiceDelivery?: StudentSingleChoiceDelivery;
@@ -105,6 +114,7 @@ export function isConcreteLearningTask(value: unknown): value is ConcreteLearnin
     isNonEmptyString(task.targetAbilityName) &&
     isNonEmptyString(task.taskRole) &&
     isNonEmptyString(task.validationGoal) &&
+    (!task.learningIntent || isConcreteLearningTaskIntent(task.learningIntent)) &&
     isNonEmptyString(task.question) &&
     (
       task.responseFormat !== 'single_choice' ||
@@ -121,6 +131,18 @@ export function isConcreteLearningTask(value: unknown): value is ConcreteLearnin
     task.expectedDiagnosisFocus.length > 0 &&
     task.expectedDiagnosisFocus.every(isNonEmptyString) &&
     isNonEmptyString(task.createdAt)
+  );
+}
+
+function isConcreteLearningTaskIntent(value: unknown): value is ConcreteLearningTaskIntent {
+  if (!value || typeof value !== 'object') return false;
+  const intent = value as ConcreteLearningTaskIntent;
+  return (
+    isNonEmptyString(intent.sourceObservationTaskPlanId) &&
+    isNonEmptyString(intent.observationGoal) &&
+    isNonEmptyString(intent.expectedStudentAction) &&
+    isNonEmptyString(intent.designReason) &&
+    typeof intent.isFoundationEntry === 'boolean'
   );
 }
 

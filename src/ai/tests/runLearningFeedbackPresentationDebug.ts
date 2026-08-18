@@ -1,4 +1,5 @@
 import {
+  resolveCompletedFeedbackFallback,
   shouldRenderThinkingReview,
   shouldStageFeedbackPresentation,
   synchronizeFeedbackPresentationStep,
@@ -90,6 +91,73 @@ const emptyReviewHidden = shouldRenderThinkingReview({
   missingPoints: [],
 });
 record('P6', '没有可靠点评内容时隐藏空区块', !emptyReviewHidden, `visible=${emptyReviewHidden}`);
+
+const normalFeedbackFallback = resolveCompletedFeedbackFallback({
+  hasOutcomeNarrative: true,
+  hasThinkingReview: false,
+  positiveCount: 0,
+  hasGuidance: false,
+  attentionCount: 0,
+  responseFormat: 'single_choice',
+});
+record(
+  'P7',
+  '已有学习叙事时不重复显示最低反馈兜底',
+  normalFeedbackFallback === undefined,
+  `fallback=${JSON.stringify(normalFeedbackFallback)}`,
+);
+
+const controlledFailureFallback = resolveCompletedFeedbackFallback({
+  hasOutcomeNarrative: false,
+  hasThinkingReview: false,
+  positiveCount: 0,
+  hasGuidance: false,
+  attentionCount: 0,
+  responseFormat: 'single_choice',
+  feedback: {
+    headline: '这次反馈暂时无法生成',
+    summary: '你的选择已经保存。',
+    nextActionText: '返回学习入口后可以继续。',
+  },
+});
+record(
+  'P8',
+  '受控反馈失败时完成页显示已有标题、摘要和下一步',
+  controlledFailureFallback?.title === '这次反馈暂时无法生成' &&
+    controlledFailureFallback.summary === '你的选择已经保存。' &&
+    controlledFailureFallback.nextAction === '返回学习入口后可以继续。',
+  `fallback=${JSON.stringify(controlledFailureFallback)}`,
+);
+
+const choiceMinimumFallback = resolveCompletedFeedbackFallback({
+  hasOutcomeNarrative: false,
+  hasThinkingReview: false,
+  positiveCount: 0,
+  hasGuidance: false,
+  attentionCount: 0,
+  responseFormat: 'single_choice',
+});
+record(
+  'P9',
+  '旧单选完成态没有反馈对象时仍显示选择已保存',
+  choiceMinimumFallback?.summary === '本轮选择已经记录，可以返回学习入口继续。',
+  `fallback=${JSON.stringify(choiceMinimumFallback)}`,
+);
+
+const textMinimumFallback = resolveCompletedFeedbackFallback({
+  hasOutcomeNarrative: false,
+  hasThinkingReview: false,
+  positiveCount: 0,
+  hasGuidance: false,
+  attentionCount: 0,
+  responseFormat: 'text',
+});
+record(
+  'P10',
+  '旧文本完成态没有反馈对象时仍显示回答已保存',
+  textMinimumFallback?.summary === '本轮回答已经记录，可以返回学习入口继续。',
+  `fallback=${JSON.stringify(textMinimumFallback)}`,
+);
 
 console.log('Learning Feedback Presentation Debug');
 console.log('='.repeat(72));

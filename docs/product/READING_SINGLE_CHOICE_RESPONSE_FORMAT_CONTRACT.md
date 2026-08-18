@@ -4,7 +4,7 @@
 
 状态：`DESIGN ACCEPTED / STAGES 1–4 PASS / CAPABILITY GATE OPEN`
 
-文档版本：`reading_single_choice_response_format_v1.20`
+文档版本：`reading_single_choice_response_format_v1.22`
 
 生效日期：`2026-08-18`
 
@@ -628,6 +628,59 @@ type SingleChoiceStudentAnswer = {
 - 提交后刷新应恢复同一个 Initial Response，不允许静默重置；
 - 发布版本和选项集合已变化时，当前 Session 继续绑定开始时的 Frozen Version。
 
+### 8.2.1 提交后反馈身份与最低展示
+
+单选 Initial Response 的正式身份由结构化作答决定：
+
+```text
+responseFormat
++ selectedOptionIds
++ optionSetVersion
++ displayedOptionOrder
++ responseId / taskId / executionSessionId
+```
+
+`answerText` 对单选可以保持空字符串，不得为了复用文本题校验而把选项内容或显示字母写入 `answerText`。反馈表达层可以把已选 `optionId` 解析为学生看到的选项内容，但该展示文本不是正式答案身份，也不得反向替代结构化作答。
+
+受控反馈校验必须按作答形式分流：
+
+- 文本作答继续校验 `formalResponse.answerText === studentResponseText`；
+- 单选作答校验正式 `singleChoiceAnswer`、选项集合版本、当次展示顺序以及 Response / Task / Session 身份，不得拿空 `answerText` 与选项展示文本比较；
+- Diagnosis、Evidence 与反馈必须继续引用同一个 `responseId`；
+- 选项展示文本只用于学生可读反馈，不参与正确答案身份和幂等键计算。
+
+单选提交后只要本轮进入 `completed / review_required / blocked` 等结果页面，反馈容器就必须至少展示一项可读结果。优先级为：
+
+1. 通过校验的 Narrative Outcome；
+2. 结构化 `thinkingReview / guidance`；
+3. 受控反馈的 `headline + summary + nextActionText`；
+4. 最低安全兜底“本轮选择已经记录，可以返回学习入口继续”。
+
+不得出现只有空白反馈容器和流程按钮的完成态。渐进动画只能延迟区块显现，不能把合法结果永久隐藏；刷新恢复后必须得到与首次完成相同的最低反馈内容。
+
+### 8.2.2 单选反馈语义
+
+单选反馈只评价学生完成的“选择判断”，不得把选项内容当作学生自主组织的文本答案。即使选项句子同时包含材料信息、人物心理、原因或关系词，也不能据此认定学生已经写出了“结论 + 依据”，更不能继续推断其“没有解释两者关系”。
+
+单选结果按以下语义生成：
+
+- 选择正确：说明“本次判断正确 / 符合材料和题意”，可以补充一条简短材料依据，但不得单次宣称已经掌握；
+- 选择错误：说明该选项对应的具体理解偏差，并使用正式 `distractorRationale.diagnosisMeaning` 与 `evidenceBoundary` 提示回到材料核对；
+- 当前单选没有要求书面解释时，不得生成 `missing_text_evidence`、`missing_reasoning_relation` 或“重新组织答案”等文本作答缺口；
+- 第一版不开放反馈后改选，因此不得要求学生修改本次选择；后续动作只能是核对材料、理解本次判断，或进入后续文本任务；
+- 单选的低输入观察不能替代后续文本题对解释、概括、证据组织和表达的观察。
+
+Learning 的单选结果页推荐使用：
+
+```text
+本次选择
++ 判断结果 / 需要核对的理解
++ 为什么（简短材料依据或偏差说明）
++ 返回学习入口 / 进入下一项任务
+```
+
+不得复用文本题的“思考缺口 → 修改当前答案 → 重新组织表达”结构。若后续文本任务用于继续观察解释能力，应在真正进入该任务时说明训练目的，而不是在本次单选反馈中假设学生漏写了解释。
+
 ### 8.3 反馈后修订边界
 
 第一版 `single_choice` 不开放即时重新选择。原因是正式反馈可能已经暴露判断方向，改选结果不能与首次独立表现等价。
@@ -831,6 +884,9 @@ AI 选择 `single_choice` 时必须同时生成题干、完整选项、正确答
 10. 新 Training 会话存在未消费的显式进入层单选时，顺序规划与正式资源匹配必须共同返回 `single_choice`，不得因统一要求 `open_response` 静默回退文本题。
 11. 单选匹配请求必须使用 `questionType = multiple_choice`、`responseMode = single_choice` 和 `single_choice_response`；文本题继续使用 `open_response / written`。
 12. 单选确因正式资源硬门禁不合格时允许回退，但必须保留可诊断原因；题型约束错配不属于合法回退理由。
+13. 单选反馈校验以结构化选择身份为准，不把空 `answerText` 与选项展示文本比较；正确选择和错误选择都能生成学生可读反馈。
+14. 反馈生成降级、校验阻断或旧记录恢复时，结果页至少展示受控提示或最低安全兜底，不出现空白卡片。
+15. 同一已提交单选刷新恢复后保持原 Attempt、原选择身份和原反馈结果，不要求学生再次提交。
 
 ### 14.3 数据端
 
