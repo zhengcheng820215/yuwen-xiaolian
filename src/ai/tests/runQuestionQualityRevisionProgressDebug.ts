@@ -6,7 +6,10 @@ import {
   parseQuestionQualityRevisionProgress,
   reconcileQuestionQualityRevisionProgress,
 } from '../../pages/questionQualityRevisionProgress.ts';
-import type { QuestionQualityAssessment } from '../schemas/questionQualityAssessment.schema.ts';
+import {
+  QUESTION_QUALITY_RULE_VERSION,
+  type QuestionQualityAssessment,
+} from '../schemas/questionQualityAssessment.schema.ts';
 
 function assessment(
   revision: number,
@@ -36,7 +39,7 @@ function assessment(
       evidenceRefs: ['question'],
     })),
     assessedAt: new Date().toISOString(),
-    ruleVersion: 'question_quality_rules_v3',
+    ruleVersion: QUESTION_QUALITY_RULE_VERSION,
     version: 'phase17_5a_v1',
   };
 }

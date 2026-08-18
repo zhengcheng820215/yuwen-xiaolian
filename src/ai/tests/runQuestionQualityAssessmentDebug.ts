@@ -23,6 +23,10 @@ import type {
   ResourceValidationResult,
   StructuredQuestionDraft,
 } from '../schemas/questionResourceAdmission.schema.ts';
+import {
+  SINGLE_CHOICE_INTERACTION_SCHEMA_VERSION,
+  type SingleChoiceInteraction,
+} from '../schemas/singleChoiceInteraction.schema.ts';
 
 type AdmissionRepository = InMemoryQuestionResourceAdmissionRepository;
 
@@ -53,6 +57,8 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '21 archived peers are ignored', run: caseArchivedPeerIgnored },
   { name: '22 peer changes invalidate comparison context', run: casePeerContextInvalidation },
   { name: '23 current assessment state has one canonical resolver', run: caseCurrentAssessmentStateResolver },
+  { name: '24 valid single choice does not receive open-response warnings', run: caseValidSingleChoiceQuality },
+  { name: '25 single choice without a selection action remains a warning', run: caseSingleChoiceMissingSelectionAction },
 ];
 
 async function main(): Promise<void> {
@@ -387,6 +393,52 @@ async function caseWeakDiscriminativePower(): Promise<void> {
   assert(hasWarning(assessment, 'quality.discrimination.weak'), 'Discrimination warning is missing.');
 }
 
+async function caseValidSingleChoiceQuality(): Promise<void> {
+  const fixture = await validFixture(
+    'valid-single-choice',
+    singleChoiceOverrides('父亲“小心地夹回原处”这一动作，以下哪项理解最准确？'),
+  );
+  const assessment = assessQuestionDraftQuality(fixture);
+
+  assert(
+    assessment.checks.observationClarity === 'pass',
+    'A complete single-choice selection action was treated as an unclear open response.',
+  );
+  assert(
+    assessment.checks.discriminativePower === 'pass',
+    'A valid option set was required to provide layered open-response rubrics.',
+  );
+  assert(
+    !hasWarning(assessment, 'quality.observation.unclear'),
+    'A valid single-choice stem received an observation-clarity warning.',
+  );
+  assert(
+    !hasWarning(assessment, 'quality.discrimination.weak'),
+    'A valid single-choice interaction received an open-response discrimination warning.',
+  );
+}
+
+async function caseSingleChoiceMissingSelectionAction(): Promise<void> {
+  const fixture = await validFixture(
+    'single-choice-missing-action',
+    singleChoiceOverrides('父亲“小心地夹回原处”这一动作。'),
+  );
+  const assessment = assessQuestionDraftQuality(fixture);
+
+  assert(
+    assessment.checks.observationClarity === 'warning',
+    'A single-choice stem without a selection action should remain unclear.',
+  );
+  assert(
+    hasWarning(assessment, 'quality.observation.unclear'),
+    'The single-choice-specific clarity warning is missing.',
+  );
+  assert(
+    assessment.checks.discriminativePower === 'pass',
+    'A complete option set should remain discriminative even when the stem is unclear.',
+  );
+}
+
 async function caseDifficultyIncoherence(): Promise<void> {
   const fixture = await validFixture('difficulty', {
     abilityMetadata: {
@@ -671,6 +723,71 @@ function validAbilityMetadata() {
     taskRole: 'training' as const,
     difficulty: 'intermediate' as const,
     gradeRange: '初中',
+  };
+}
+
+function singleChoiceOverrides(
+  questionStem: string,
+): Partial<CreateStructuredQuestionDraftInput> {
+  return {
+    title: '动作含义判断',
+    questionStem,
+    questionType: 'multiple_choice',
+    responseFormat: 'single_choice',
+    choiceInteraction: singleChoiceInteraction(),
+    assessmentMode: 'exact_match',
+    answerAcceptance: {
+      acceptedOptionIds: ['option-correct'],
+      semanticEquivalentAllowed: false,
+    },
+    rubric: [validRubric('inference')[0]],
+    minimumAnswerRequirement: {
+      responseFormat: 'single_choice',
+      minLength: 0,
+      requireTextEvidence: false,
+      requireExplanation: false,
+      minSelections: 1,
+      maxSelections: 1,
+    },
+    abilityMetadata: {
+      ...validAbilityMetadata(),
+      difficulty: 'basic',
+    },
+  };
+}
+
+function singleChoiceInteraction(): SingleChoiceInteraction {
+  return {
+    schemaVersion: SINGLE_CHOICE_INTERACTION_SCHEMA_VERSION,
+    selectionMode: 'single',
+    options: [
+      { optionId: 'option-correct', content: '父亲珍惜树叶承载的往事' },
+      { optionId: 'option-surface', content: '父亲担心树叶损坏旧书' },
+      { optionId: 'option-entity', content: '孩子要求父亲保存树叶' },
+      { optionId: 'option-over', content: '父亲准备把树叶送给别人' },
+    ],
+    correctOptionIds: ['option-correct'],
+    distractorRationales: [
+      {
+        optionId: 'option-surface',
+        misconceptionCode: 'surface_reading',
+        diagnosisMeaning: '只看到保存动作，没有联系父亲停留很久所体现的情感。',
+        evidenceBoundary: '第3段父亲连续动作。',
+      },
+      {
+        optionId: 'option-entity',
+        misconceptionCode: 'entity_confusion',
+        diagnosisMeaning: '混淆人物关系，材料没有写孩子提出要求。',
+        evidenceBoundary: '第3段动作主体是父亲。',
+      },
+      {
+        optionId: 'option-over',
+        misconceptionCode: 'over_inference',
+        diagnosisMeaning: '添加材料没有出现的赠送意图。',
+        evidenceBoundary: '材料只写父亲将树叶夹回原处。',
+      },
+    ],
+    optionSetVersion: 1,
   };
 }
 

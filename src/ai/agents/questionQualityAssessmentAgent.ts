@@ -16,6 +16,9 @@ import {
 import {
   assessMaterialEvidenceBoundary,
 } from '../patterns/materialEvidenceBoundary.ts';
+import {
+  validateSingleChoiceInteraction,
+} from '../schemas/singleChoiceInteraction.schema.ts';
 
 export type AssessQuestionDraftQualityInput = {
   draft: StructuredQuestionDraft;
@@ -275,6 +278,22 @@ function checkObservationClarity(
   warnings: QuestionQualityWarning[],
 ): 'pass' | 'warning' {
   const stem = normalizeText(draft.questionStem);
+  if (draft.responseFormat === 'single_choice') {
+    const hasSelectionAction = /(选择|选出|哪(?:一)?项|哪种|最(?:准确|恰当|合理|符合|能)|正确的是|不正确的是|不能说明|能够说明|符合文意)/.test(stem);
+    const hasValidChoiceInteraction = validateSingleChoiceInteraction(
+      draft.choiceInteraction,
+    ).passed;
+    if (hasSelectionAction && hasValidChoiceInteraction) return 'pass';
+    addWarning(
+      warnings,
+      'quality.observation.unclear',
+      'observationClarity',
+      'strong_warning',
+      '单选题干没有清楚说明学生需要从选项中完成什么判断。',
+      ['questionStem', 'choiceInteraction'],
+    );
+    return 'warning';
+  }
   const broadOnly = /^(分析|概括|理解|赏析|评价)(人物|文章|内容|主题|形象|作用)?[。？?]*$/.test(stem);
   const hasObservableAction = /(找出|写出|概括|说明|解释|分析|推断|比较|结合|根据|指出|补充|仿写|表达)/.test(stem);
 
@@ -345,6 +364,19 @@ function checkDiscriminativePower(
   draft: StructuredQuestionDraft,
   warnings: QuestionQualityWarning[],
 ): 'pass' | 'warning' {
+  if (draft.responseFormat === 'single_choice') {
+    const choiceValidation = validateSingleChoiceInteraction(draft.choiceInteraction);
+    if (choiceValidation.passed) return 'pass';
+    addWarning(
+      warnings,
+      'quality.discrimination.weak',
+      'discriminativePower',
+      'warning',
+      '当前单选的答案、选项或干扰项依据还不能形成可靠区分。',
+      ['choiceInteraction.options', 'choiceInteraction.correctOptionIds', 'choiceInteraction.distractorRationales'],
+    );
+    return 'warning';
+  }
   const criticalItems = draft.rubric.filter(
     (item) => item.required && item.importance === 'critical',
   );

@@ -4,7 +4,7 @@
 
 状态：`DESIGN ACCEPTED / STAGES 1–4 PASS / CAPABILITY GATE OPEN`
 
-文档版本：`reading_single_choice_response_format_v1.14`
+文档版本：`reading_single_choice_response_format_v1.15`
 
 生效日期：`2026-08-18`
 
@@ -417,6 +417,20 @@ type StudentSingleChoiceDelivery = {
 - 干扰项吸引力可能不足；
 - 题目只观察记忆而缺少阅读价值；
 - 单选题在同篇任务组中过多，可能挤压文本表达观察。
+
+### 6.4 单选专用质量评估与文本规则隔离
+
+质量评估必须先读取 `responseFormat`，不得把开放文本题的检查条件直接套用到 `single_choice`。
+
+对于单选题：
+
+1. “选择最准确、正确、符合文意或不能说明的一项”等选择语义，本身就是明确的可观察动作；只要题干、选项集合与选择模式完整，不得因为题干没有出现“找出、概括、分析”等文本作答动词而产生 `quality.observation.unclear`；
+2. 单选题不要求用两个或更多 Rubric 项区分“完整回答、部分回答和未达到要求”。它的区分度由唯一正确答案、有效选项集合、逐项干扰依据和错误选项对应的可解释偏差共同建立；不得仅因 Rubric 只有一个核心判断项而产生 `quality.discrimination.weak`；
+3. 单选专用区分度检查必须验证：`3–5` 个非空且稳定的选项、唯一且存在于选项集合中的正确项、每个错误项都有对应且非空的 `distractorRationale`，并且至少形成一个可解释的错误偏差；
+4. 题干没有选择语义、选项缺失、答案键冲突、错误项缺少诊断依据、多个干扰项实质相同或选项无法由材料解释时，继续产生对应提醒或阻断；
+5. `short_text / long_text` 继续使用可观察动作和多层 Rubric 检查，单选规则不得降低文本题原有质量标准。
+
+质量提醒只报告当前题型真实存在的问题。由于检查器题型错配而产生的提醒属于误报，不得投射为用户需要判断或接受的质量风险。
 
 ## 七、Answer Acceptance、Rubric 与 Diagnosis
 
