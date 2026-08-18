@@ -3,8 +3,8 @@
 英文名称：Shared Formal Resource Concurrency and Write Recovery Contract
 
 状态：ACTIVE ENGINEERING CONTRACT / WP-C0–C4 COMPLETE
-文档版本：`shared_formal_resource_concurrency_contract_v1.0`
-更新日期：2026-08-13
+文档版本：`shared_formal_resource_concurrency_contract_v1.1`
+更新日期：2026-08-18
 
 ## 一、目的
 
@@ -62,6 +62,7 @@ Phase 17.2 中记载的“最多 6 次”属于当时工程事实和历史验收
 7. **成功必须通过发布后置条件**：只有正式任务身份、Frozen Version、Registry、active Observation Link 和正式读取全部成立，页面才显示发布成功。
 8. **锁只协调执行，不改变业务状态**：排队、等待锁和冲突重试是运行状态，不进入领域生命周期，不增加 Revision 或审核记录。
 9. **排队闭包不是权威状态**：命令进入 FIFO 时可以保留目标身份和展示快照，但任何可能已被前序命令改变的 Plan、Draft、Review 或 Publication 状态，必须在命令取得执行权后按稳定 ID 重新读取；不得使用点击时捕获的 `selectedPlan.status` 决定正式状态迁移。
+10. **幂等回执不得复制业务载荷**：Command Receipt 只能保存固定长度的命令摘要、命令身份和提交 Revision，不得把完整 Patch、材料正文或整份集合序列化进 `fingerprint`。历史完整指纹在读取时必须等价转换为摘要；转换不得改变命令幂等语义、正式资源 Revision 或领域对象。
 
 ## 五、写入协调模型
 
@@ -171,6 +172,7 @@ mode: exclusive
 | `conflict_retrying` | 检测到数据更新，正在自动接续… | 自动恢复期间不要求用户刷新或再次点击 |
 | `recovered` | 操作已接续完成 | 通过权威快照和后置条件后显示成功 |
 | `conflict_exhausted` | 共享数据有更新，本次操作尚未完成。请继续发布。 | 保留已完成阶段，提供唯一安全恢复动作 |
+| `read_timeout` | 共享资源读取超时，已完成步骤不会丢失。请继续发布。 | 使用 `SHARED_STORE_TIMEOUT` 和 `retry_safe`，不得降级为需要人工检查的未知错误 |
 | `service_unavailable` | 共享资源服务暂时不可用，正式写入未完成。 | 不伪装成冲突，不显示发布成功 |
 | `semantic_state_reloaded` | 训练计划状态已经更新，正在继续发布… | 自动跳过已完成 Plan 阶段，不显示红色错误 |
 | `semantic_state_changed_incompatibly` | 当前训练计划已经更新，请刷新后重试。已有内容不会丢失。 | 阻断跨 Revision 续接，不暴露英文领域异常 |
@@ -339,6 +341,8 @@ POST /formal-resource-commands/recover-publication
 - 服务端声明 `atomicCollectionPatch=1.0`，领域 Mutation 改为提交变化集合而非完整共享快照；
 - 服务端在单一写队列中完成权威读取、Revision 校验、Patch 应用、全库校验与一次原子提交；
 - command receipt 持久化并在服务重启后继续提供幂等保护，同一 ID 不同内容被阻断；
+- command receipt 的 `fingerprint` 使用固定长度加密摘要；历史完整命令字符串允许在内存校验时兼容压缩，并在下一次正式提交中随快照原子持久化，避免回执随集合 Patch 重复放大共享文件；
+- 同一请求已经取得快照时，响应状态必须从该快照派生，不得为生成 `status` 再读取、解析和校验一次整库；
 - 客户端只在 capability 明确存在时使用新命令，命令失败禁止静默回退；旧服务未声明能力时保留受 WP-C0～C3 保护的兼容 Replace；
 - `initialize`、备份恢复和旧服务兼容仍保留整库边界，高频领域 Mutation 已退出整库传输；
 - `pnpm run debug:shared-formal-resource-atomic-command-wp-c4` 已通过 12/12；

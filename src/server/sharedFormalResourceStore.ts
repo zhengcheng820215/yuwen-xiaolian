@@ -1,4 +1,5 @@
 import {
+  access,
   copyFile,
   mkdir,
   readFile,
@@ -6,6 +7,7 @@ import {
   rm,
   writeFile,
 } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import {
   LEGACY_SHARED_FORMAL_RESOURCE_SCHEMA_VERSION,
@@ -90,8 +92,8 @@ export class SharedFormalResourceStore {
     this.failBeforeCommit = options.failBeforeCommit || (() => false);
   }
 
-  async getStatus(): Promise<SharedFormalResourceStatus> {
-    const snapshot = await this.read();
+  async getStatus(currentSnapshot?: SharedFormalResourceSnapshot): Promise<SharedFormalResourceStatus> {
+    const snapshot = currentSnapshot || await this.read();
     return {
       initialized: snapshot.initialized,
       revision: snapshot.revision,
@@ -181,7 +183,7 @@ export class SharedFormalResourceStore {
     return this.enqueueWrite(async () => {
       const current = await this.read();
       if (!current.initialized) throw new Error('Shared formal resource store is not initialized.');
-      const fingerprint = JSON.stringify(command);
+      const fingerprint = commandFingerprint(command);
       const receipt = current.commandReceipts?.find((item) => item.commandId === command.commandId);
       if (receipt) {
         if (receipt.fingerprint !== fingerprint) {
@@ -327,8 +329,26 @@ function validateSnapshot(value: unknown): SharedFormalResourceSnapshot {
   return cloneSharedFormalResourceValue({
     ...snapshot,
     initialized: snapshot.initialized === true,
+    commandReceipts: snapshot.commandReceipts?.map((receipt) => ({
+      ...receipt,
+      fingerprint: compactStoredCommandFingerprint(receipt.fingerprint),
+    })),
     data: validateData(snapshot.data),
   });
+}
+
+function commandFingerprint(command: SharedFormalResourceAtomicCommand): string {
+  return digestCommandFingerprint(JSON.stringify(command));
+}
+
+function compactStoredCommandFingerprint(fingerprint: string): string {
+  return /^sha256:[a-f0-9]{64}$/.test(fingerprint)
+    ? fingerprint
+    : digestCommandFingerprint(fingerprint);
+}
+
+function digestCommandFingerprint(value: string): string {
+  return `sha256:${createHash('sha256').update(value).digest('hex')}`;
 }
 
 function validateData(value: SharedFormalResourceData): SharedFormalResourceData {
@@ -477,7 +497,7 @@ function requireText(value: string | undefined, field: string): string {
 
 async function fileExists(path: string): Promise<boolean> {
   try {
-    await readFile(path);
+    await access(path);
     return true;
   } catch (error) {
     if (isMissingFileError(error)) return false;

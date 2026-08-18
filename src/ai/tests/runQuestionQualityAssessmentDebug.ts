@@ -65,6 +65,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '26 natural single-choice wording and formal anchor suppress false warnings', run: caseNaturalSingleChoiceWordingWithFormalAnchor },
   { name: '27 explicit paragraph conflict with formal anchor is detected', run: caseExplicitParagraphAnchorConflict },
   { name: '28 explicit whole-text conflict with ranged anchor is detected', run: caseExplicitWholeTextAnchorConflict },
+  { name: '29 natural causal single-choice wording is a clear selection action', run: caseNaturalCausalSingleChoiceWording },
 ];
 
 async function main(): Promise<void> {
@@ -470,6 +471,23 @@ async function caseNaturalSingleChoiceWordingWithFormalAnchor(): Promise<void> {
   assert(
     !hasWarning(assessment, 'quality.material.anchor_weak'),
     'A formal paragraph range was ignored in favor of generic stem wording.',
+  );
+}
+
+async function caseNaturalCausalSingleChoiceWording(): Promise<void> {
+  const fixture = await validFixture(
+    'single-choice-natural-causal-wording',
+    singleChoiceOverrides('女娲最初感到孤独，是因为什么？'),
+  );
+  const assessment = assessQuestionDraftQuality(fixture);
+
+  assert(
+    assessment.checks.observationClarity === 'pass',
+    'A natural causal question should be recognized as a clear single-choice judgment.',
+  );
+  assert(
+    !hasWarning(assessment, 'quality.observation.unclear'),
+    'A natural causal single-choice question received a false observation warning.',
   );
 }
 

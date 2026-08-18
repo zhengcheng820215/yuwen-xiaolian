@@ -4,7 +4,7 @@
 
 状态：`DESIGN ACCEPTED / STAGES 1–4 PASS / CAPABILITY GATE OPEN`
 
-文档版本：`reading_single_choice_response_format_v1.18`
+文档版本：`reading_single_choice_response_format_v1.19`
 
 生效日期：`2026-08-18`
 
@@ -453,6 +453,10 @@ type StudentSingleChoiceDelivery = {
 - “理解最准确的一项是 / 最符合文意的一项是”；
 - “下列哪项能够说明 / 不能说明”；
 - “请选择 / 选出”。
+- “为什么 / 因为什么 / 主要原因是什么”；
+- “说明了什么 / 表明了什么 / 意味着什么 / 指的是什么”。
+
+当 `responseFormat = single_choice`、`choiceInteraction` 完整有效且题干以明确疑问对象要求学生判断原因、含义、对象、关系或作用时，选项集合已经承载“从中选择”的交互约束，题干无需机械追加“请选择正确的一项”。例如“女娲最初感到孤独，是因为什么？”属于完整因果判断，不得产生 `quality.observation.unclear`。仅有名词、引文或陈述内容而没有疑问对象的题干仍应提醒。
 
 判断依据应是题干是否要求学生从选项中完成一个明确判断，而不是是否恰好命中某个完整字符串。新增真实题干表达时，不得反复通过用户侧质量提醒暴露词面漏配。
 

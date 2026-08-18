@@ -30,7 +30,7 @@ export function createSharedFormalResourceBoundary(
     try {
       if (request.method === 'GET') {
         const snapshot = await store.read();
-        const status = await store.getStatus();
+        const status = await store.getStatus(snapshot);
         response.statusCode = 200;
         response.end(JSON.stringify({ snapshot, status, capabilities: SHARED_FORMAL_RESOURCE_CAPABILITIES }));
         return;
@@ -49,7 +49,7 @@ export function createSharedFormalResourceBoundary(
           String(body.baselineSource || ''),
         );
         response.statusCode = 201;
-        response.end(JSON.stringify({ snapshot, status: await store.getStatus() }));
+        response.end(JSON.stringify({ snapshot, status: await store.getStatus(snapshot) }));
         return;
       }
 
@@ -59,7 +59,7 @@ export function createSharedFormalResourceBoundary(
           body.data as SharedFormalResourceData,
         );
         response.statusCode = 200;
-        response.end(JSON.stringify({ snapshot, status: await store.getStatus() }));
+        response.end(JSON.stringify({ snapshot, status: await store.getStatus(snapshot) }));
         return;
       }
 
@@ -71,7 +71,7 @@ export function createSharedFormalResourceBoundary(
         response.statusCode = 200;
         response.end(JSON.stringify({
           snapshot,
-          status: await store.getStatus(),
+          status: await store.getStatus(snapshot),
           capabilities: SHARED_FORMAL_RESOURCE_CAPABILITIES,
           commandReceipt: {
             commandId: (body.command as SharedFormalResourceAtomicCommand).commandId,
@@ -85,7 +85,7 @@ export function createSharedFormalResourceBoundary(
       if (body.action === 'restore_backup') {
         const snapshot = await store.restoreBackup();
         response.statusCode = 200;
-        response.end(JSON.stringify({ snapshot, status: await store.getStatus() }));
+        response.end(JSON.stringify({ snapshot, status: await store.getStatus(snapshot) }));
         return;
       }
 

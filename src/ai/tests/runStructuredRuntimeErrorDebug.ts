@@ -16,6 +16,7 @@ const cases: Array<{ name: string; run: () => void }> = [
   { name: '08 workbench notice exposes recovery contract', run: workbenchNotice },
   { name: '09 shared revision conflict is retryable and has no fake object id', run: sharedRevisionConflict },
   { name: '10 duplicate task stems use an actionable Chinese notice', run: duplicateTaskStemNotice },
+  { name: '11 shared store timeout remains a safe continuation', run: sharedStoreTimeout },
 ];
 
 function main() {
@@ -91,6 +92,16 @@ function sharedStoreFailure() {
   );
   assert(error.code === 'SHARED_STORE_UNAVAILABLE', 'shared store code mismatch');
   assert(error.recoverability === 'service_required', 'shared store recovery mismatch');
+}
+
+function sharedStoreTimeout() {
+  const notice = createWorkbenchErrorNotice(
+    new Error('共享资源服务读取超时，请重新尝试。'),
+  );
+  assert(notice.errorCode === 'SHARED_STORE_TIMEOUT', 'shared store timeout code mismatch');
+  assert(notice.recoverability === 'retry_safe', 'shared store timeout must remain retry-safe');
+  assert(notice.message.includes('请继续发布'), 'timeout notice must preserve the publishing intent');
+  assert(notice.recoveryMessage === '可以直接重试。', 'timeout notice must expose one safe retry action');
 }
 
 function unknownError() {

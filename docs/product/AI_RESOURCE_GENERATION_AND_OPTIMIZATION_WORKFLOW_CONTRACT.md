@@ -3,7 +3,7 @@
 英文名称：AI Resource Generation and Optimization Workflow Contract
 
 状态：DESIGN FROZEN / P0-P7 ENGINEERING COMPLETE / SINGLE-OPERATOR ADOPTION ORCHESTRATION DEBUG ACCEPTED
-契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_18`
+契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_19`
 更新日期：2026-08-18
 
 产品确认日期：2026-08-05
@@ -36,6 +36,8 @@
 2026-08-18 单选正确位置去偏确认：Prompt 不得以“第一项恒为正确项”的唯一示例持续诱导 Provider；Candidate 预览与 Learning 投放不得直接使用 Provider 原始数组顺序。系统应基于稳定 optionId 生成确定性显示顺序，Learning 至少绑定正式资源版本与学生身份，保证刷新和恢复一致。A / B / C / D 仅是显示标签，答案、干扰项诊断和经验校准始终按 optionId 对齐。不得通过随机改写答案内容、重置 optionId 或机械字母循环实现位置均衡。
 
 2026-08-18 部分成功批次修复与错误归因确认：当批次已保留至少一个合格 Candidate，但单选规划目标仍未达到，且被拒 Candidate 只包含可修复的结构或一致性问题时，系统仍必须在既有重试预算内执行一次候选级修复，不得因顶层状态已经是 `candidates_ready` 而跳过。修复只能替换被拒 Candidate，已经合格的 Candidate、现有正式任务与发布状态必须保持不变。每条错误必须由独立可判定的事实支持；前置对象因其他错误无法形成时，依赖该对象的后续检查应标记为未执行，而不得追加答案身份不一致等级联误报。自动修复仍未通过时允许质量优先地保持不足数量，并展示真实主因与“已自动修复仍未通过”，不得要求用户重新生成整个合格方案。
+
+2026-08-18 单选自然疑问与发布前提醒一致性确认：完整单选中的“为什么、因为什么、主要原因是什么、说明了什么、意味着什么”等有明确判断对象的自然问句，本身属于选择动作，不得要求机械补写“请选择正确的一项”。工作台显示“可以发布 / 采用并发布”前，必须先完成任务设置对齐并使用发布执行阶段同一 Draft、Material Anchor、规则版本和同伴集合生成最终质量评估；采用点击后不得因可预见的设置同步或常规重算新增用户此前不可见的 warning。若对齐会改变质量输入，入口状态只能显示“正在准备”或先完成预检，不能提前承诺“可以发布”。不可预见的外部状态变化仍按既有恢复机制处理。
 
 2026-08-12 “可以发布”承诺确认：任务卡显示“可以发布 / 采用并发布”即表示所有可预见发布前置条件已经满足，或可由同一次点击确定性自动完成。应用层必须在 Candidate Adopt 前完成 Observation Plan 校验、提交与单人模式审核确认，并让可见状态与执行命令消费同一前置检查结果。不得先采用 Candidate，再以 `plan_not_reviewed`、Plan 缺失、任务身份缺失或已知校验失败阻断用户。点击后仅网络、存储、Provider 或并发状态变化等不可预见运行时异常可以中断；中断时保留已完成领域阶段并显示唯一恢复动作，不得要求重新采用同一 Candidate。
 

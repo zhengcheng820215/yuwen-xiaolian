@@ -280,12 +280,22 @@ assert.match(
 );
 assert.match(
   materialWorkbenchSource,
+  /<TaskQuestionLifecycleBadge[\s\S]*?publishing=\{workflowBusy\}[\s\S]*?publishing \? \{[\s\S]*?visibleStatusLabel: '正在发布'/,
+  '发布进行中必须以“正在发布”覆盖发布前状态，不得同时显示“可以发布”',
+);
+assert.match(
+  materialWorkbenchSource,
+  /!workflowBusy && pendingQualityWarnings\.length > 0/,
+  '发布进行中不得把中间态质量结果投射为新的人工提醒',
+);
+assert.match(
+  materialWorkbenchSource,
   /const planCanPrepareForPublication = Boolean\([\s\S]*?selectedValidation\?\.passed[\s\S]*?const candidateReadyForAdoption = Boolean\([\s\S]*?planCanPrepareForPublication/,
   '“可以发布”状态必须消费训练计划发布准备门禁',
 );
 assert.match(
   materialWorkbenchSource,
-  /const formalResourcePublished = presentation\?\.visibleStatusTone === 'success'[\s\S]*?const resolvedPresentation = formalResourcePublished \? presentation : candidateGapLabel/,
+  /const formalResourcePublished = presentation\?\.visibleStatusTone === 'success'[\s\S]*?const resolvedPresentation = formalResourcePublished \? presentation : publishing \? \{/,
   '已发布状态必须优先于 Candidate 可用性，不得被“可以发布”覆盖',
 );
 assert.match(
@@ -358,7 +368,7 @@ assert.match(
 );
 assert.match(
   materialWorkbenchSource,
-  /<TaskQuestionLifecycleBadge[\s\S]*?presentation=\{taskCardPresentationWithPlanGate\}[\s\S]*?candidateReady=\{candidateReadyForAdoption\}/,
+  /<TaskQuestionLifecycleBadge[\s\S]*?presentation=\{taskCardPresentationWithPlanGate\}[\s\S]*?candidateReady=\{candidateReadyForAdoption && !workflowBusy\}/,
   '任务卡状态徽标必须消费统一展示投影及 Plan 发布准备门禁',
 );
 assert.match(
@@ -383,7 +393,7 @@ assert.match(
 );
 assert.match(
   materialWorkbenchSource,
-  /qualityWarningCount=\{pendingQualityWarnings\.length\}/,
+  /qualityWarningCount=\{workflowBusy \? 0 : pendingQualityWarnings\.length\}/,
   '任务卡状态标签必须读取当前质量提醒数量',
 );
 assert.match(
@@ -443,7 +453,7 @@ assert.doesNotMatch(
 );
 const publishedReadonlyStart = materialWorkbenchSource.indexOf('data-published-resource-readonly');
 const publishedReadonlyEnd = materialWorkbenchSource.indexOf(
-  '{pendingQualityWarnings.length > 0',
+  '{!workflowBusy && pendingQualityWarnings.length > 0',
   publishedReadonlyStart,
 );
 assert.ok(publishedReadonlyStart >= 0 && publishedReadonlyEnd > publishedReadonlyStart, '未找到已发布资源摘要区');

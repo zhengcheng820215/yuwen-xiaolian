@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { LocalApiFormalResourceClient } from '../repositories/localApiFormalResourceClient.ts';
@@ -41,13 +41,37 @@ async function caseStoreAtomicCommandAndIdempotency() {
     const committed = await store.applyCommand(1, command);
     assert.equal(committed.revision, 2);
     assert.equal(committed.data.questionResources.materials[0]?.materialVersionId, 'atomic-material');
+    assert.match(
+      committed.commandReceipts?.[0]?.fingerprint || '',
+      /^sha256:[a-f0-9]{64}$/,
+      'command receipt must store a fixed-length digest instead of the full command payload',
+    );
     const repeated = await store.applyCommand(1, command);
     assert.equal(repeated.revision, 2, 'same command must not increment Revision twice');
+
+    const persistedWithLegacyReceipt = JSON.parse(await readFile(store.storePath, 'utf8'));
+    persistedWithLegacyReceipt.commandReceipts[0].fingerprint = JSON.stringify(command);
+    await writeFile(store.storePath, `${JSON.stringify(persistedWithLegacyReceipt, null, 2)}\n`, 'utf8');
     const restartedStore = new SharedFormalResourceStore({ storePath: store.storePath });
     const afterRestart = await restartedStore.applyCommand(1, command);
     assert.equal(afterRestart.revision, 2, 'command receipt must survive service restart');
+    assert.match(
+      afterRestart.commandReceipts?.[0]?.fingerprint || '',
+      /^sha256:[a-f0-9]{64}$/,
+      'legacy full-command receipt must be compacted without losing idempotency',
+    );
+
+    const compacted = await restartedStore.applyCommand(2, {
+      ...command,
+      commandId: 'wp-c4:atomic:2',
+    });
+    assert.equal(compacted.revision, 3);
+    assert(
+      compacted.commandReceipts?.every((receipt) => /^sha256:[a-f0-9]{64}$/.test(receipt.fingerprint)),
+      'the next successful command must persist only compact receipt digests',
+    );
     await assert.rejects(
-      store.applyCommand(2, { ...command, patches: [{ ...command.patches[0], values: [] }] }),
+      store.applyCommand(3, { ...command, patches: [{ ...command.patches[0], values: [] }] }),
       /command identity conflict/,
     );
   });

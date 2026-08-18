@@ -16,6 +16,7 @@ export type StructuredRuntimeErrorCode =
   | 'PUBLICATION_PREFLIGHT_FAILED'
   | 'PUBLICATION_RECOVERY_REQUIRED'
   | 'SHARED_STORE_REVISION_CONFLICT'
+  | 'SHARED_STORE_TIMEOUT'
   | 'SHARED_STORE_UNAVAILABLE'
   | 'OPERATION_NOT_ALLOWED'
   | 'INPUT_INVALID'
@@ -118,6 +119,14 @@ function mapLegacyError(message: string): LegacyErrorMapping {
       code: 'SHARED_STORE_REVISION_CONFLICT',
       message: '共享数据仍在同步，本次操作尚未完成，请稍后重试。',
       operation: 'shared_store.replace',
+      recoverability: 'retry_safe',
+    };
+  }
+  if (message.includes('共享资源服务读取超时') || lower.includes('shared resource read timeout')) {
+    return {
+      code: 'SHARED_STORE_TIMEOUT',
+      message: '共享资源读取超时，已完成步骤不会丢失。请继续发布。',
+      operation: 'shared_store.read',
       recoverability: 'retry_safe',
     };
   }

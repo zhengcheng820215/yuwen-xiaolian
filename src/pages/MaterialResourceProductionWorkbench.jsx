@@ -2856,12 +2856,13 @@ export default function MaterialResourceProductionWorkbench() {
                         <h3 className="mr-1 text-sm font-bold">{formatTrainingTaskTitle(index, task.responseFormat)}</h3>
                         <TaskQuestionLifecycleBadge
                           presentation={taskCardPresentationWithPlanGate}
-                          candidateReady={candidateReadyForAdoption}
+                          candidateReady={candidateReadyForAdoption && !workflowBusy}
                           actionRequired={candidateActionRequired}
-                          qualityWarningCount={pendingQualityWarnings.length}
+                          qualityWarningCount={workflowBusy ? 0 : pendingQualityWarnings.length}
                           candidateGapLabel={initialCandidateGap?.stateLabel}
+                          publishing={workflowBusy}
                         />
-                        {pendingQualityWarnings.length > 0 && (
+                        {!workflowBusy && pendingQualityWarnings.length > 0 && (
                           <span className="text-xs font-medium text-amber-700">
                             {pendingQualityWarnings.length} 项质量提醒
                           </span>
@@ -3038,7 +3039,7 @@ export default function MaterialResourceProductionWorkbench() {
                       </div>
                     </div>
                   )}
-                  {pendingQualityWarnings.length > 0 && (
+                  {!workflowBusy && pendingQualityWarnings.length > 0 && (
                     <TaskQualityWarningSummary warnings={pendingQualityWarnings} />
                   )}
                   {showTaskCandidatePanel && <TaskCandidateDecisionPanel
@@ -3407,11 +3408,16 @@ function TaskQuestionLifecycleBadge({
   actionRequired = false,
   qualityWarningCount = 0,
   candidateGapLabel = null,
+  publishing = false,
 }) {
   const formalResourcePublished = presentation?.visibleStatusTone === 'success'
     || presentation?.visibleStatusLabel === '已发布'
     || presentation?.stateLabel === '已发布';
-  const resolvedPresentation = formalResourcePublished ? presentation : candidateGapLabel ? {
+  const resolvedPresentation = formalResourcePublished ? presentation : publishing ? {
+    visibleStatusLabel: '正在发布',
+    visibleStatusTone: 'action',
+    stateLabel: '正在同步训练设置并发布',
+  } : candidateGapLabel ? {
     visibleStatusLabel: candidateGapLabel,
     visibleStatusTone: 'warning',
     stateLabel: candidateGapLabel,
