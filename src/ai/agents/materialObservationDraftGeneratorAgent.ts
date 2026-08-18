@@ -1,5 +1,6 @@
 import {
   MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION,
+  SINGLE_CHOICE_TARGET_SHORTFALL_REASONS,
   type ExistingObservationInventoryItem,
   type ExistingQuestionInventoryItem,
   type MaterialObservationDraftCalibrationAnswer,
@@ -7,6 +8,7 @@ import {
   type MaterialObservationDraftGeneratorResult,
   type MaterialObservationPlanningCandidate,
   type RejectedMaterialObservationCandidate,
+  type SingleChoiceTargetShortfallReason,
 } from '../schemas/materialObservationDraftGenerator.schema.ts';
 import {
   OBSERVATION_DIMENSIONS,
@@ -43,6 +45,15 @@ import {
   evaluateGeneratedSingleChoiceOptions,
   evaluateSingleChoiceTrainingFit,
 } from './singleChoiceGenerationPolicy.ts';
+import {
+  createDefaultTrainingTaskSequencePreference,
+  planTrainingTaskSequence,
+} from './trainingTaskSequencePlanner.ts';
+import {
+  isTrainingTaskSequenceReason,
+  isTrainingTaskSequenceStrategy,
+  type TrainingTaskSequencePlanningPreference,
+} from '../schemas/trainingTaskSequencePlanning.schema.ts';
 
 const ASSESSMENT_MODES: AssessmentMode[] = [
   'exact_match',
@@ -492,15 +503,28 @@ function evaluateProviderCandidates(
   if (existingObservations.length > 0 && newObservationCandidates.length === 0) {
     batchIssues.push('no_new_observation_candidate');
   }
-  const singleChoiceCandidateTarget = input.preferences?.singleChoiceCandidateTarget || 0;
-  const singleChoiceCandidateCount = newObservationCandidates.filter(
+  const providerSequenceDecision = resolveProviderSequencePlanningDecision(
+    input,
+    payload.sequencePlanningDecision,
+    newObservationCandidates.length,
+  );
+  const sequencePlan = planTrainingTaskSequence({
+    tasks: newObservationCandidates,
+    preference: providerSequenceDecision.preference,
+  });
+  const orderedObservationCandidates = sequencePlan.tasks;
+  const singleChoiceCandidateCount = orderedObservationCandidates.filter(
     (candidate) => candidate.questionDraft.responseFormat === 'single_choice',
   ).length;
-  if (singleChoiceCandidateCount < singleChoiceCandidateTarget) {
-    batchIssues.push('single_choice_candidate_target_unmet');
-  }
+  const singleChoicePlanningResult = resolveSingleChoicePlanningResult({
+    input,
+    generatedCount: singleChoiceCandidateCount,
+    withheldCandidates,
+    rejectedCandidates,
+    materialLimitations,
+  });
   const status = batchIssues.length === 0 ? 'candidates_ready' : 'review_required';
-  const authoringContractLimitations = newObservationCandidates.flatMap((candidate, candidateIndex) => {
+  const authoringContractLimitations = orderedObservationCandidates.flatMap((candidate, candidateIndex) => {
     const validation = validateAuthoringAiOutput({
       authoringContractVersion: AUTHORING_FIELD_CONTRACT_VERSION,
       abilityId: candidate.primaryAbilityId,
@@ -520,6 +544,7 @@ function evaluateProviderCandidates(
   });
   const limitations = unique([
     ...materialLimitations,
+    ...(providerSequenceDecision.limitation ? [providerSequenceDecision.limitation] : []),
     ...authoringContractLimitations,
     ...(rejectedCandidates.length ? [`${rejectedCandidates.length} candidate(s) were rejected before import.`] : []),
     ...(withheldCandidates.length ? [`${withheldCandidates.length} candidate(s) matched existing or same-batch observations and were withheld from import.`] : []),
@@ -533,20 +558,22 @@ function evaluateProviderCandidates(
   return {
     requestId: input.requestId,
     status,
-    candidates: newObservationCandidates,
+    candidates: orderedObservationCandidates,
     withheldCandidates,
     rejectedCandidates,
+    singleChoicePlanningResult,
+    sequencePlanningResult: sequencePlan.result,
     coveragePreview: {
       surfaceCandidateCount: rawCandidates.length,
-      independentObservationCount: newObservationCandidates.length,
-      newObservationCount: newObservationCandidates.length,
+      independentObservationCount: orderedObservationCandidates.length,
+      newObservationCount: orderedObservationCandidates.length,
       alternateQuestionCount: withheldCandidates.filter((item) => item.inventoryRelation.disposition === 'alternate_question_for_existing_observation').length,
       likelyDuplicateCount: withheldCandidates.filter((item) => item.inventoryRelation.disposition === 'likely_duplicate').length,
       unsupportedByMaterialCount: rejectedCandidates.filter((item) => item.disposition === 'unsupported_by_material').length,
       existingObservationCount: existingObservations.length,
       existingQuestionCount: existingQuestions.length,
-      primaryAbilityIds: unique(newObservationCandidates.map((item) => item.primaryAbilityId)),
-      observationDimensions: unique(newObservationCandidates.map((item) => item.observationDimension)),
+      primaryAbilityIds: unique(orderedObservationCandidates.map((item) => item.primaryAbilityId)),
+      observationDimensions: unique(orderedObservationCandidates.map((item) => item.observationDimension)),
       possibleDuplicatePairs: duplicatePairs,
     },
     validation: {
@@ -563,6 +590,173 @@ function evaluateProviderCandidates(
     },
     limitations,
     version: MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION,
+  };
+}
+
+function resolveSequencePlanningPreference(
+  input: MaterialObservationDraftGeneratorInput,
+  generatedCandidateCount: number,
+) {
+  if (input.preferences?.sequencePlanning) return input.preferences.sequencePlanning;
+  const preference = createDefaultTrainingTaskSequencePreference(generatedCandidateCount);
+  const requestedChoiceCount = input.preferences?.singleChoiceCandidateTarget || 0;
+  return requestedChoiceCount > 0
+    ? {
+        ...preference,
+        preferredPreludeChoiceCount: Math.min(2, requestedChoiceCount),
+      }
+    : preference;
+}
+
+function resolveProviderSequencePlanningDecision(
+  input: MaterialObservationDraftGeneratorInput,
+  value: unknown,
+  generatedCandidateCount: number,
+): {
+  preference: TrainingTaskSequencePlanningPreference;
+  limitation?: string;
+} {
+  const inputPreference = resolveSequencePlanningPreference(input, generatedCandidateCount);
+  if (inputPreference.strategy !== 'entry_first' || value === undefined) {
+    return { preference: inputPreference };
+  }
+  if (!isRecord(value)) {
+    return {
+      preference: inputPreference,
+      limitation: 'sequence_planning_decision_invalid:fallback_to_entry_first',
+    };
+  }
+  const strategy = value.strategy;
+  const reason = value.reason;
+  const preferredPreludeChoiceCount = value.preferredPreludeChoiceCount;
+  const validCount = Number.isInteger(preferredPreludeChoiceCount) &&
+    Number(preferredPreludeChoiceCount) >= 0 &&
+    Number(preferredPreludeChoiceCount) <= 2;
+  if (
+    strategy === 'entry_first' &&
+    reason === 'default_foundation_entry' &&
+    validCount
+  ) {
+    return {
+      preference: {
+        strategy,
+        reason,
+        preferredPreludeChoiceCount: Number(preferredPreludeChoiceCount),
+      },
+    };
+  }
+  if (
+    strategy === 'holistic_first' &&
+    ['holistic_judgment_required', 'independent_expression_baseline'].includes(String(reason)) &&
+    validCount
+  ) {
+    return {
+      preference: {
+        strategy,
+        reason: reason as 'holistic_judgment_required' | 'independent_expression_baseline',
+        preferredPreludeChoiceCount: Number(preferredPreludeChoiceCount),
+      },
+    };
+  }
+  return {
+    preference: inputPreference,
+    limitation: 'sequence_planning_decision_invalid:fallback_to_entry_first',
+  };
+}
+
+function resolveSingleChoicePlanningResult({
+  input,
+  generatedCount,
+  withheldCandidates,
+  rejectedCandidates,
+  materialLimitations,
+}: {
+  input: MaterialObservationDraftGeneratorInput;
+  generatedCount: number;
+  withheldCandidates: MaterialObservationPlanningCandidate[];
+  rejectedCandidates: RejectedMaterialObservationCandidate[];
+  materialLimitations: string[];
+}): NonNullable<MaterialObservationDraftGeneratorResult['singleChoicePlanningResult']> {
+  const planning = input.preferences?.singleChoicePlanning;
+  const requestedSupplementCount = input.preferences?.singleChoiceCandidateTarget || 0;
+  const currentCount = planning?.currentSingleChoiceCount || 0;
+  const targetCount = planning?.targetSingleChoiceCount
+    ?? (currentCount + requestedSupplementCount);
+  const projectedTotalCount = currentCount + generatedCount;
+  const shortfallCount = Math.max(0, targetCount - projectedTotalCount);
+
+  if (targetCount === 0) {
+    return {
+      status: 'not_applicable',
+      targetCount,
+      actualCount: projectedTotalCount,
+      currentCount,
+      requestedSupplementCount,
+      generatedCount,
+      projectedTotalCount,
+      shortfallCount: 0,
+      reasons: [],
+    };
+  }
+  if (shortfallCount === 0) {
+    return {
+      status: 'met',
+      targetCount,
+      actualCount: projectedTotalCount,
+      currentCount,
+      requestedSupplementCount,
+      generatedCount,
+      projectedTotalCount,
+      shortfallCount,
+      reasons: [],
+    };
+  }
+
+  const reasons = new Set<SingleChoiceTargetShortfallReason>();
+  for (const limitation of materialLimitations) {
+    if (!limitation.startsWith('single_choice_target_unfilled:')) continue;
+    for (const reason of SINGLE_CHOICE_TARGET_SHORTFALL_REASONS) {
+      if (limitation.includes(reason)) reasons.add(reason);
+    }
+  }
+
+  const targetGapBeforeGeneration = Math.max(0, targetCount - currentCount);
+  if (requestedSupplementCount < targetGapBeforeGeneration) {
+    if ((planning?.availableTaskCapacity ?? requestedSupplementCount) < targetGapBeforeGeneration) {
+      reasons.add('insufficient_task_capacity');
+    } else {
+      reasons.add('insufficient_supplement_scope');
+    }
+  }
+  if (withheldCandidates.some((candidate) => (
+    candidate.questionDraft.responseFormat === 'single_choice'
+  ))) {
+    reasons.add('duplicate_with_existing_task');
+  }
+  if (rejectedCandidates.some((candidate) => (
+    candidate.diagnosticContext?.responseFormat === 'single_choice'
+      || candidate.issues.some((issue) => (
+        issue.startsWith('choice.')
+          || issue.includes('single_choice')
+          || issue.includes('answer_acceptance_option')
+      ))
+  ))) {
+    reasons.add('distractor_quality_insufficient');
+  }
+  if (reasons.size === 0) {
+    reasons.add('no_independent_observation');
+  }
+
+  return {
+    status: 'underfilled',
+    targetCount,
+    actualCount: projectedTotalCount,
+    currentCount,
+    requestedSupplementCount,
+    generatedCount,
+    projectedTotalCount,
+    shortfallCount,
+    reasons: [...reasons],
   };
 }
 
@@ -1052,6 +1246,66 @@ function validateInput(input: MaterialObservationDraftGeneratorInput): string[] 
   )) {
     issues.push('single_choice_candidate_target_invalid');
   }
+  const singleChoicePlanning = input.preferences?.singleChoicePlanning;
+  if (singleChoicePlanning) {
+    const planningValues = [
+      singleChoicePlanning.currentEffectiveTaskCount,
+      singleChoicePlanning.currentSingleChoiceCount,
+      singleChoicePlanning.intendedSupplementTaskCount,
+      singleChoicePlanning.targetEffectiveTaskCount,
+      singleChoicePlanning.defaultSingleChoiceTarget,
+      singleChoicePlanning.maximumSingleChoiceCount,
+      singleChoicePlanning.targetSingleChoiceCount,
+      singleChoicePlanning.availableTaskCapacity,
+      singleChoicePlanning.requestedSupplementSingleChoiceCount,
+    ];
+    const planningContextInvalid = planningValues.some(
+      (value) => !Number.isInteger(value) || value < 0,
+    )
+      || singleChoicePlanning.currentEffectiveTaskCount > 6
+      || singleChoicePlanning.currentSingleChoiceCount
+        > singleChoicePlanning.currentEffectiveTaskCount
+      || singleChoicePlanning.targetEffectiveTaskCount
+        < singleChoicePlanning.currentEffectiveTaskCount
+      || singleChoicePlanning.targetEffectiveTaskCount > 6
+      || singleChoicePlanning.maximumSingleChoiceCount > 3
+      || singleChoicePlanning.defaultSingleChoiceTarget
+        > singleChoicePlanning.maximumSingleChoiceCount
+      || singleChoicePlanning.targetSingleChoiceCount
+        > singleChoicePlanning.maximumSingleChoiceCount
+      || singleChoicePlanning.requestedSupplementSingleChoiceCount
+        > singleChoicePlanning.intendedSupplementTaskCount
+      || singleChoicePlanning.requestedSupplementSingleChoiceCount
+        > singleChoicePlanning.availableTaskCapacity
+      || singleChoicePlanning.requestedSupplementSingleChoiceCount
+        !== (singleChoiceCandidateTarget || 0);
+    if (planningContextInvalid) {
+      issues.push('single_choice_planning_context_invalid');
+    }
+  }
+  const sequencePlanning = input.preferences?.sequencePlanning;
+  if (sequencePlanning) {
+    const reasonMatchesStrategy = (
+      sequencePlanning.strategy === 'entry_first' &&
+        ['default_foundation_entry', 'no_qualified_single_choice'].includes(sequencePlanning.reason)
+    ) || (
+      sequencePlanning.strategy === 'holistic_first' &&
+        ['holistic_judgment_required', 'independent_expression_baseline'].includes(sequencePlanning.reason)
+    ) || (
+      sequencePlanning.strategy === 'role_driven' &&
+        ['retest_after_training', 'transfer_in_new_context'].includes(sequencePlanning.reason)
+    );
+    if (
+      !isTrainingTaskSequenceStrategy(sequencePlanning.strategy) ||
+      !isTrainingTaskSequenceReason(sequencePlanning.reason) ||
+      !Number.isInteger(sequencePlanning.preferredPreludeChoiceCount) ||
+      sequencePlanning.preferredPreludeChoiceCount < 0 ||
+      sequencePlanning.preferredPreludeChoiceCount > 2 ||
+      !reasonMatchesStrategy
+    ) {
+      issues.push('sequence_planning_context_invalid');
+    }
+  }
   if ((input.preferences?.requestedFocus?.length || 0) > 160) {
     issues.push('requested_focus_too_long');
   }
@@ -1095,12 +1349,17 @@ function emptyResult(
     tokenUsage?: MaterialObservationDraftGeneratorResult['provider']['tokenUsage'];
   },
 ): MaterialObservationDraftGeneratorResult {
+  const sequencePlan = planTrainingTaskSequence({
+    tasks: [],
+    preference: resolveSequencePlanningPreference(input, 0),
+  });
   return {
     requestId: input.requestId,
     status: details.status,
     candidates: [],
     withheldCandidates: [],
     rejectedCandidates: [],
+    sequencePlanningResult: sequencePlan.result,
     coveragePreview: {
       surfaceCandidateCount: 0,
       independentObservationCount: 0,

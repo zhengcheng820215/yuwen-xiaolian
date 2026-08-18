@@ -14,8 +14,24 @@ import type {
   OpenResponseAnswerStatus,
 } from './diagnosis.schema.ts';
 import type { SingleChoiceInteraction } from './singleChoiceInteraction.schema.ts';
+import type {
+  TrainingTaskSequencePlanningPreference,
+  TrainingTaskSequencePlanningResult,
+} from './trainingTaskSequencePlanning.schema.ts';
 
-export const MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION = 'material_observation_draft_generator_v1_4' as const;
+export const MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION = 'material_observation_draft_generator_v1_7' as const;
+
+export const SINGLE_CHOICE_TARGET_SHORTFALL_REASONS = [
+  'insufficient_task_capacity',
+  'insufficient_supplement_scope',
+  'no_independent_observation',
+  'duplicate_with_existing_task',
+  'distractor_quality_insufficient',
+  'would_displace_text_observation',
+] as const;
+
+export type SingleChoiceTargetShortfallReason =
+  typeof SINGLE_CHOICE_TARGET_SHORTFALL_REASONS[number];
 
 export type MaterialObservationGenerationMode =
   | 'discover_new_observation'
@@ -52,6 +68,18 @@ export type MaterialObservationDraftGeneratorPreferences = {
   requestedFocus?: string;
   targetObservationId?: string;
   singleChoiceCandidateTarget?: number;
+  singleChoicePlanning?: {
+    currentEffectiveTaskCount: number;
+    currentSingleChoiceCount: number;
+    intendedSupplementTaskCount: number;
+    targetEffectiveTaskCount: number;
+    defaultSingleChoiceTarget: number;
+    maximumSingleChoiceCount: number;
+    targetSingleChoiceCount: number;
+    availableTaskCapacity: number;
+    requestedSupplementSingleChoiceCount: number;
+  };
+  sequencePlanning?: TrainingTaskSequencePlanningPreference;
 };
 
 export type MaterialObservationDraftGeneratorInput = {
@@ -165,6 +193,18 @@ export type MaterialObservationDraftGeneratorResult = {
   candidates: MaterialObservationPlanningCandidate[];
   withheldCandidates: MaterialObservationPlanningCandidate[];
   rejectedCandidates: RejectedMaterialObservationCandidate[];
+  singleChoicePlanningResult?: {
+    status: 'not_applicable' | 'met' | 'underfilled';
+    targetCount: number;
+    actualCount: number;
+    currentCount: number;
+    requestedSupplementCount: number;
+    generatedCount: number;
+    projectedTotalCount: number;
+    shortfallCount: number;
+    reasons: SingleChoiceTargetShortfallReason[];
+  };
+  sequencePlanningResult: TrainingTaskSequencePlanningResult;
   coveragePreview: {
     surfaceCandidateCount: number;
     independentObservationCount: number;

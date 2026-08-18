@@ -9,6 +9,7 @@ import {
   loadResourceEligibilitySnapshot,
 } from './reviewedResourceCandidateAdapter.ts';
 import { createAdaptiveTaskFulfillmentRequest } from './taskFulfillmentRequestAgent.ts';
+import { orderFormalResourcesForLearningSequence } from './learningTaskSequenceScheduler.ts';
 import type { MaterialObservationRepository } from '../repositories/materialObservationRepository.ts';
 import type { QuestionResourceAdmissionRepository } from '../repositories/questionResourceAdmissionRepository.ts';
 import {
@@ -237,18 +238,19 @@ export function selectFormalResourceBootstrapVersion(
   const recentVersionIds = new Set(recentHistory.recentResourceVersionIds);
   const recentMaterialIds = new Set(recentHistory.recentMaterialIds);
   const requiresKnownContext = recentMaterialIds.size > 0;
-  return [...versions]
-    .filter((version) => (
+  return orderFormalResourcesForLearningSequence(
+    versions.filter((version) => (
       version.status === 'frozen' &&
       version.abilityMetadata.taskRole === 'training' &&
       !recentVersionIds.has(version.resourceVersionId) &&
       Boolean(version.materialId) &&
       (!requiresKnownContext || recentMaterialIds.has(version.materialId!))
-    ))
-    .sort((left, right) => (
-      left.abilityMetadata.abilityId.localeCompare(right.abilityMetadata.abilityId) ||
-      left.resourceVersionId.localeCompare(right.resourceVersionId)
-    ))[0];
+    )),
+    {
+      taskRole: 'training',
+      recentResourceVersionIds: recentHistory.recentResourceVersionIds,
+    },
+  )[0];
 }
 
 export async function resolveFormalResourceBootstrapMatch(input: {
@@ -267,18 +269,19 @@ export async function resolveFormalResourceBootstrapMatch(input: {
   const evaluatedAt = input.evaluatedAt || new Date().toISOString();
   const recentVersionIds = new Set(input.recentHistory.recentResourceVersionIds);
   const recentMaterialIds = new Set(input.recentHistory.recentMaterialIds);
-  const freshCandidates = [...input.versions]
-    .filter((version) => (
+  const freshCandidates = orderFormalResourcesForLearningSequence(
+    input.versions.filter((version) => (
       version.status === 'frozen' &&
       version.abilityMetadata.taskRole === 'training' &&
       !recentVersionIds.has(version.resourceVersionId) &&
       Boolean(version.materialId) &&
       (recentMaterialIds.size === 0 || recentMaterialIds.has(version.materialId!))
-    ))
-    .sort((left, right) => (
-      left.abilityMetadata.abilityId.localeCompare(right.abilityMetadata.abilityId) ||
-      left.resourceVersionId.localeCompare(right.resourceVersionId)
-    ));
+    )),
+    {
+      taskRole: 'training',
+      recentResourceVersionIds: input.recentHistory.recentResourceVersionIds,
+    },
+  );
   const activeTaskIds = new Set(input.recentHistory.recentTaskIds);
   const activeResourceIds = new Set(input.recentHistory.recentResourceIds);
   const reviewCandidates = input.reusePreviouslyUsedWhenExhausted
@@ -321,6 +324,7 @@ export async function resolveFormalResourceBootstrapMatch(input: {
       observationRepository: input.observationRepository,
       recentHistory: input.recentHistory,
       bootstrapMaterialId: candidate.materialId,
+      requiredResourceVersionId: candidate.resourceVersionId,
       evaluatedAt,
     });
     const attempt = { taskRequest, matched, bootstrapVersion: candidate };
@@ -342,6 +346,7 @@ export async function resolveFormalResourceBootstrapMatch(input: {
       observationRepository: input.observationRepository,
       recentHistory: reviewHistory,
       bootstrapMaterialId: candidate.materialId,
+      requiredResourceVersionId: candidate.resourceVersionId,
       evaluatedAt,
     });
     const attempt = { taskRequest, matched, bootstrapVersion: candidate };

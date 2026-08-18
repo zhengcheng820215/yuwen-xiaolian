@@ -7,7 +7,7 @@ import {
   STRUCTURED_QUESTION_TYPES,
 } from '../schemas/questionResourceAdmission.schema.ts';
 
-export const MATERIAL_OBSERVATION_DRAFT_PROMPT_VERSION = 'material_observation_draft_prompt_v1_8' as const;
+export const MATERIAL_OBSERVATION_DRAFT_PROMPT_VERSION = 'material_observation_draft_prompt_v1_10' as const;
 
 type MaterialObservationDraftRepairItem = {
   candidateIndex: number;
@@ -40,9 +40,23 @@ export function buildMaterialObservationDraftPrompt(
     : '无；请只选择材料真正支持的能力，不机械覆盖六项能力';
   const requestedFocus = input.preferences?.requestedFocus?.trim() || '无；优先发现材料中尚未覆盖的高价值认知动作';
   const singleChoiceCandidateTarget = input.preferences?.singleChoiceCandidateTarget || 0;
+  const singleChoicePlanning = input.preferences?.singleChoicePlanning;
+  const sequencePlanning = input.preferences?.sequencePlanning || {
+    strategy: 'entry_first',
+    reason: 'default_foundation_entry',
+    preferredPreludeChoiceCount: candidateCount >= 5 ? 2 : 1,
+  };
+  const singleChoicePlanningContext = singleChoicePlanning
+    ? `当前有效任务 ${singleChoicePlanning.currentEffectiveTaskCount} 道，其中单选 ${singleChoicePlanning.currentSingleChoiceCount} 道；本轮计划补充 ${singleChoicePlanning.intendedSupplementTaskCount} 道，完成后目标任务组 ${singleChoicePlanning.targetEffectiveTaskCount} 道；默认单选目标 ${singleChoicePlanning.defaultSingleChoiceTarget} 道，本轮采用的单选目标 ${singleChoicePlanning.targetSingleChoiceCount} 道，单选上限 ${singleChoicePlanning.maximumSingleChoiceCount} 道；本批次实际请求 ${singleChoicePlanning.requestedSupplementSingleChoiceCount} 道 single_choice。`
+    : '';
   const responseFormatInstruction = singleChoiceCandidateTarget > 0
-    ? `当前题组缺少单项选择形成的基础理解入口。本批次 ${candidateCount} 个候选中必须包含至少 ${singleChoiceCandidateTarget} 个符合规则的 single_choice 候选，候选顺序仍由 TrainingTask Role 决定。请优先寻找尚未覆盖的信息定位、对象关系、局部含义、简单因果或边界明确的初步辨认；不得复用已有题干，也不得仅改变已有任务的能力标签、训练方向或 responseFormat 来冒充新增观察。适合改成单选的观察已经存在时，不在补充模式中生成其替代题。不得把概括、多证据整合或开放分析机械改成单选。若材料确实无法形成具有诊断意义的新观察和干扰项，不得凑题，并在 materialLimitations 中以“single_choice_not_supported:”开头说明具体原因。`
+    ? `${singleChoicePlanningContext}单选数量是规划软目标，不是放宽质量门禁的题型配额。本批次优先生成 ${singleChoiceCandidateTarget} 个符合规则的 single_choice 候选。多道单选必须在观察对象、证据范围或认知动作至少一项上形成实质差异，优先覆盖信息/对象定位、基础含义/局部理解、简单关系/因果或典型误读辨析；不得连续改写同一事实定位。不得复用已有题干，也不得仅改变已有任务的能力标签、训练方向或 responseFormat 来冒充新增观察。适合改成单选的观察已经存在时，不在补充模式中生成其替代题。不得把概括、多证据整合或开放分析机械改成单选。若材料只能支持少于目标数的高质量单选，宁可少生成，不得凑题，并在 materialLimitations 中使用 single_choice_target_unfilled: 前缀说明 insufficient_task_capacity、insufficient_supplement_scope、no_independent_observation、duplicate_with_existing_task、distractor_quality_insufficient 或 would_displace_text_observation 等具体原因。`
     : '当前批次没有单项选择数量目标；继续完全按训练动作决定作答形式。';
+  const sequenceInstruction = sequencePlanning.strategy === 'entry_first'
+    ? `当前顺序策略为 entry_first（${sequencePlanning.reason}）：若存在合格基础理解单选，优先将最多 ${sequencePlanning.preferredPreludeChoiceCount} 道放在首个高负荷文本任务之前，形成阅读进入层。`
+    : sequencePlanning.strategy === 'holistic_first'
+      ? `当前顺序策略为 holistic_first（${sequencePlanning.reason}）：先保留整体判断或独立文本表达，再安排局部单选辨析；不得自行改回单选在前。`
+      : `当前顺序策略为 role_driven（${sequencePlanning.reason}）：顺序服从 Retest / Transfer 的角色和时间依赖，不得提前为初始阅读入口。`;
   const inventory = input.existingInventory || { observations: [], questions: [] };
   const paragraphs = splitParagraphs(input.material.content);
 
@@ -51,6 +65,8 @@ export function buildMaterialObservationDraftPrompt(
 当前生成模式为 ${generationMode}。${generationInstruction}
 
 作答形式规划：${responseFormatInstruction}
+
+任务顺序规划：${sequenceInstruction}
 
 硬规则：
 1. 只输出 JSON，不输出 Markdown、解释或代码围栏。
@@ -80,10 +96,12 @@ export function buildMaterialObservationDraftPrompt(
 25. questionStem、expectedStudentAction、observationFocus.displayName 和 observationFocus.definition 不得只是换词重复；若无法拆分职责，不要假装完成该候选。
 26. 输出前逐候选自检：枚举合法、Anchor 在范围内、Supporting Ability 不重复 Primary Ability、Rubric 引用已声明能力、五类校准答案齐全、Safety Boundary 固定，并确认题目、学生任务和观察目标职责分离。
 27. 决定数量时，优先级固定为：材料依据 > 观察差异与价值 > 能力覆盖 > 任务数量。
-28. 作答形式必须由训练动作决定，不得为了题型丰富度或配额生成单选题，也不得固定把单选题排第一。信息定位、基础理解、局部判断、证据边界明确的简单因果或初步辨认可以使用 single_choice；概括、多证据整合、推理链、人物/写法/主题分析和开放表达必须保留文本作答。
+28. 作答形式必须由训练动作决定，单选数量目标只能在训练动作适配、干扰项质量和任务去重之后参考；不得为了题型丰富度机械转换任务。顺序必须服从上面的结构化策略：entry_first 是常规默认，holistic_first 和 role_driven 只能由已给出的受控原因触发。信息定位、基础理解、局部判断、证据边界明确的简单因果或初步辨认可以使用 single_choice；概括、多证据整合、推理链、人物/写法/主题分析和开放表达必须保留文本作答。
 29. 使用 single_choice 时，必须一次返回 choiceInteraction：3—5 个稳定 optionId、唯一 correctOptionIds，以及每个错误选项独立的 misconceptionCode、diagnosisMeaning 和 evidenceBoundary；禁止用明显荒诞、无关或措辞失衡的选项凑数。
 30. single_choice 必须同时满足 questionType=multiple_choice、assessmentMode=exact_match、answerAcceptanceDraft.acceptedOptionIds 与正确 optionId 一致、minimumAnswerRequirement 为一次结构化选择；acceptedKeywords 必须为空，semanticEquivalentAllowed 必须为 false。
 31. 非 single_choice 候选不得返回 choiceInteraction 或 acceptedOptionIds。
+32. 同批包含多道 single_choice 时，逐题比较回答对象、材料依据和认知动作；三项均相同或只改写题干时必须减少数量，不得把重复观察计入单选目标。
+33. 输出组级 sequencePlanningDecision。常规使用 entry_first + default_foundation_entry；只有当前训练目标明确要求学生先形成整体判断，或必须先保留不受单选提示影响的独立文本表达基线时，才可分别使用 holistic_first + holistic_judgment_required / independent_expression_baseline。本生成器只生成 Training Candidate，不得输出 role_driven、retest_after_training 或 transfer_in_new_context。
 
 年级范围：${input.preferences?.gradeRange || '初中'}
 能力偏好：${preferredAbilities}
@@ -101,6 +119,11 @@ export function buildMaterialObservationDraftPrompt(
 
 输出结构：
 {
+  "sequencePlanningDecision": {
+    "strategy": "entry_first",
+    "reason": "default_foundation_entry",
+    "preferredPreludeChoiceCount": ${sequencePlanning.preferredPreludeChoiceCount}
+  },
   "candidates": [
     {
       "questionStem": "学生看到的题目",

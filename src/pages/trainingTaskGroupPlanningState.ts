@@ -2,8 +2,64 @@ export type TrainingTaskGroupOperationType = 'replace_group' | 'supplement_group
 
 export const INITIAL_TRAINING_TASK_RECOMMENDATION = 3;
 export const MIN_INITIAL_TRAINING_TASK_COUNT = 2;
-export const MAX_TRAINING_TASK_COUNT = 5;
+export const MAX_TRAINING_TASK_COUNT = 6;
 export const MAX_SUPPLEMENT_CANDIDATE_COUNT = 2;
+
+export type TrainingTaskSequenceMetadata = {
+  strategy?: 'entry_first' | 'holistic_first' | 'role_driven';
+  reason?: string;
+  rank?: number;
+  isPrelude: boolean;
+  preludeCount?: number;
+};
+
+export function readTrainingTaskSequenceMetadata(
+  tags: string[] = [],
+): TrainingTaskSequenceMetadata {
+  const strategy = tagValue(tags, 'sequence-strategy');
+  const rank = positiveIntegerTag(tags, 'sequence-rank');
+  const preludeCount = nonNegativeIntegerTag(tags, 'sequence-prelude-count');
+  return {
+    strategy: strategy === 'entry_first' ||
+      strategy === 'holistic_first' ||
+      strategy === 'role_driven'
+      ? strategy
+      : undefined,
+    reason: tagValue(tags, 'sequence-reason'),
+    rank,
+    isPrelude: tagValue(tags, 'sequence-prelude') === 'true',
+    preludeCount,
+  };
+}
+
+export function buildTrainingTaskSequenceTags(
+  metadata: TrainingTaskSequenceMetadata,
+): string[] {
+  if (!metadata.strategy) return [];
+  return [
+    `sequence-strategy:${metadata.strategy}`,
+    ...(metadata.reason ? [`sequence-reason:${metadata.reason}`] : []),
+    ...(metadata.rank ? [`sequence-rank:${metadata.rank}`] : []),
+    `sequence-prelude:${metadata.isPrelude === true}`,
+    ...(Number.isInteger(metadata.preludeCount)
+      ? [`sequence-prelude-count:${metadata.preludeCount}`]
+      : []),
+  ];
+}
+
+function tagValue(tags: string[], prefix: string): string | undefined {
+  return tags.find((tag) => tag.startsWith(`${prefix}:`))?.slice(prefix.length + 1);
+}
+
+function positiveIntegerTag(tags: string[], prefix: string): number | undefined {
+  const value = Number(tagValue(tags, prefix));
+  return Number.isInteger(value) && value > 0 ? value : undefined;
+}
+
+function nonNegativeIntegerTag(tags: string[], prefix: string): number | undefined {
+  const value = Number(tagValue(tags, prefix));
+  return Number.isInteger(value) && value >= 0 ? value : undefined;
+}
 
 export function resolveTrainingTaskGenerationRequest(
   operationType: TrainingTaskGroupOperationType,
@@ -36,12 +92,137 @@ export type TrainingTaskGroupCandidate = {
   responseFormat?: string;
 };
 
+export type SingleChoiceTargetPreference = 'default' | 'expanded';
+
+export type SingleChoiceTargetRange = {
+  defaultTarget: number;
+  maximum: number;
+};
+
+export type SingleChoiceQuantityPlan = {
+  currentEffectiveTaskCount: number;
+  currentSingleChoiceCount: number;
+  intendedSupplementTaskCount: number;
+  boundedSupplementTaskCount: number;
+  targetEffectiveTaskCount: number;
+  targetPreference: SingleChoiceTargetPreference;
+  defaultSingleChoiceTarget: number;
+  maximumSingleChoiceCount: number;
+  targetSingleChoiceCount: number;
+  singleChoiceGap: number;
+  availableTaskCapacity: number;
+  qualifiedIndependentSingleChoiceObservationCount: number;
+  requestedSupplementSingleChoiceCount: number;
+  singleChoiceLimitExceeded: boolean;
+};
+
+export function resolveSingleChoiceTargetRange(
+  targetEffectiveTaskCount: number,
+): SingleChoiceTargetRange {
+  assertNonNegativeInteger(targetEffectiveTaskCount, 'target_effective_task_count_invalid');
+  if (targetEffectiveTaskCount > MAX_TRAINING_TASK_COUNT) {
+    throw new Error('target_effective_task_count_exceeds_capacity');
+  }
+  if (targetEffectiveTaskCount <= 1) return { defaultTarget: 0, maximum: 0 };
+  if (targetEffectiveTaskCount === 2) return { defaultTarget: 0, maximum: 1 };
+  if (targetEffectiveTaskCount === 3) return { defaultTarget: 1, maximum: 2 };
+  if (targetEffectiveTaskCount === 4) return { defaultTarget: 1, maximum: 2 };
+  if (targetEffectiveTaskCount === 5) return { defaultTarget: 2, maximum: 3 };
+  return { defaultTarget: 2, maximum: 3 };
+}
+
+export function resolveSingleChoiceQuantityPlan({
+  currentEffectiveTaskCount,
+  currentSingleChoiceCount,
+  intendedSupplementTaskCount,
+  qualifiedIndependentSingleChoiceObservationCount,
+  targetPreference = 'default',
+}: {
+  currentEffectiveTaskCount: number;
+  currentSingleChoiceCount: number;
+  intendedSupplementTaskCount: number;
+  qualifiedIndependentSingleChoiceObservationCount: number;
+  targetPreference?: SingleChoiceTargetPreference;
+}): SingleChoiceQuantityPlan {
+  assertNonNegativeInteger(currentEffectiveTaskCount, 'current_effective_task_count_invalid');
+  assertNonNegativeInteger(currentSingleChoiceCount, 'current_single_choice_count_invalid');
+  assertNonNegativeInteger(intendedSupplementTaskCount, 'intended_supplement_task_count_invalid');
+  assertNonNegativeInteger(
+    qualifiedIndependentSingleChoiceObservationCount,
+    'qualified_single_choice_observation_count_invalid',
+  );
+  if (currentEffectiveTaskCount > MAX_TRAINING_TASK_COUNT) {
+    throw new Error('current_effective_task_count_exceeds_capacity');
+  }
+  if (currentSingleChoiceCount > currentEffectiveTaskCount) {
+    throw new Error('current_single_choice_count_exceeds_task_count');
+  }
+
+  const availableTaskCapacity = Math.max(
+    0,
+    MAX_TRAINING_TASK_COUNT - currentEffectiveTaskCount,
+  );
+  const boundedSupplementTaskCount = Math.min(
+    intendedSupplementTaskCount,
+    availableTaskCapacity,
+  );
+  const targetEffectiveTaskCount = currentEffectiveTaskCount + boundedSupplementTaskCount;
+  const targetRange = resolveSingleChoiceTargetRange(targetEffectiveTaskCount);
+  const targetSingleChoiceCount = targetPreference === 'expanded'
+    ? targetRange.maximum
+    : targetRange.defaultTarget;
+  const singleChoiceGap = Math.max(0, targetSingleChoiceCount - currentSingleChoiceCount);
+  const requestedSupplementSingleChoiceCount = Math.min(
+    singleChoiceGap,
+    intendedSupplementTaskCount,
+    availableTaskCapacity,
+    qualifiedIndependentSingleChoiceObservationCount,
+  );
+
+  return {
+    currentEffectiveTaskCount,
+    currentSingleChoiceCount,
+    intendedSupplementTaskCount,
+    boundedSupplementTaskCount,
+    targetEffectiveTaskCount,
+    targetPreference,
+    defaultSingleChoiceTarget: targetRange.defaultTarget,
+    maximumSingleChoiceCount: targetRange.maximum,
+    targetSingleChoiceCount,
+    singleChoiceGap,
+    availableTaskCapacity,
+    qualifiedIndependentSingleChoiceObservationCount,
+    requestedSupplementSingleChoiceCount,
+    singleChoiceLimitExceeded: currentSingleChoiceCount > targetRange.maximum,
+  };
+}
+
 export function resolveSupplementSingleChoiceCandidateTarget<T extends TrainingTaskGroupCandidate>(
   tasks: T[],
   candidateCount: number,
 ): number {
-  if (candidateCount <= 0) return 0;
-  return tasks.some((task) => task.responseFormat === 'single_choice') ? 0 : 1;
+  return resolveSupplementSingleChoiceQuantityPlan(tasks, candidateCount)
+    .requestedSupplementSingleChoiceCount;
+}
+
+export function resolveSupplementSingleChoiceQuantityPlan<T extends TrainingTaskGroupCandidate>(
+  tasks: T[],
+  intendedSupplementTaskCount: number,
+  targetPreference: SingleChoiceTargetPreference = 'default',
+): SingleChoiceQuantityPlan {
+  const currentSingleChoiceCount = tasks.filter(
+    (task) => task.responseFormat === 'single_choice',
+  ).length;
+  return resolveSingleChoiceQuantityPlan({
+    currentEffectiveTaskCount: tasks.length,
+    currentSingleChoiceCount,
+    intendedSupplementTaskCount,
+    // The generator is responsible for proving which requested observations are
+    // actually qualified. At request time the supplement batch size is only the
+    // deterministic upper bound; quality shortfall handling remains downstream.
+    qualifiedIndependentSingleChoiceObservationCount: intendedSupplementTaskCount,
+    targetPreference,
+  });
 }
 
 export type TrainingTaskGroupCandidateSession<T extends TrainingTaskGroupCandidate> = {
@@ -211,4 +392,10 @@ function sameTaskGroup<T extends TrainingTaskGroupCandidate>(left: T[], right: T
 
 function normalizeText(value: string): string {
   return value.trim().replace(/\s+/g, '').replace(/[，。！？；：、“”‘’]/g, '');
+}
+
+function assertNonNegativeInteger(value: number, errorCode: string): void {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(errorCode);
+  }
 }

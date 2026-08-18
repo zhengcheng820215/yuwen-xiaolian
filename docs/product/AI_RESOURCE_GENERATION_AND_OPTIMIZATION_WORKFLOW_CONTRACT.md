@@ -3,7 +3,7 @@
 英文名称：AI Resource Generation and Optimization Workflow Contract
 
 状态：DESIGN FROZEN / P0-P7 ENGINEERING COMPLETE / SINGLE-OPERATOR ADOPTION ORCHESTRATION DEBUG ACCEPTED
-契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_9`
+契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_14`
 更新日期：2026-08-18
 
 产品确认日期：2026-08-05
@@ -21,9 +21,13 @@
 
 2026-08-13 任务组候选采用收口确认：TrainingTaskCandidate 的人工采用动作在前台统一为“采用当前任务方案”。应用层必须先计算采用后的任务组，再自动调用 Observation Plan 保存与结构检查；保存成功后才关闭候选区并显示任务卡，保存失败时保留原候选。页面不再提供逐项勾选、删除任务、编辑缓冲或独立保存入口；不采用时直接“重新生成任务方案”。该动作不得创建 Question Revision、Assessment、Human Review、Formal Resource 或 Registry 记录，更不得直接发布；单任务 QuestionCandidate 的“采用并发布”边界保持不变。
 
-2026-08-18 补充候选与单选替代边界确认：补充生成只能增加尚未覆盖的新 Observation，不得把同一题干改成另一种 `responseFormat` 后作为新任务并存。题干完全重复必须在任何能力、训练方向、题型或 Observation 标签比较之前全局阻断；高度相似题干继续进入语义重复检查。当前题组缺少单选时，补充生成可以请求至少一个适合基础理解入口的单选候选，但该候选仍必须对应新的低负荷观察点；若适合单选的观察已经存在，应转入该 TrainingTask 的单题替代优化并形成后继 Revision，不得伪装成补充任务。采用前必须按最终任务组再次检查题干唯一性，并直接指出重复任务；不得等待 Repository 抛出英文异常后只显示通用失败。
+2026-08-18 补充候选与单选替代边界确认（同日由数量与分布规划进一步收敛）：补充生成只能增加尚未覆盖的新 Observation，不得把同一题干改成另一种 `responseFormat` 后作为新任务并存。题干完全重复必须在任何能力、训练方向、题型或 Observation 标签比较之前全局阻断；高度相似题干继续进入语义重复检查。当前题组存在单选基础理解入口缺口时，补充生成按本轮规划完成后的目标任务组规模请求合格单选候选；候选仍必须对应新的低负荷观察点。若适合单选的观察已经存在，应转入该 TrainingTask 的单题替代优化并形成后继 Revision，不得伪装成补充任务。采用前必须按最终任务组再次检查题干唯一性，并直接指出重复任务；不得等待 Repository 抛出英文异常后只显示通用失败。
 
 2026-08-18 补充计划发布继承确认：补充候选被采用时，新 Observation Plan 只能为新增任务建立新身份；当前任务组中已经发布的任务必须通过 `taskRevisionRootId / parentObservationTaskPlanId` 继承原 Formal Resource、Frozen Version、Registry 与 Active Link，不得因 Plan Revision、Draft 同步或 Candidate 后台恢复重新变成“可以发布”。单题“采用并发布”只能推进目标题的 Candidate、Draft、Assessment、Publication 与可见状态，不得修改相邻任务的 Active Link 或状态投影。发布完成后的权威刷新必须得到“原已发布数量 + 1”；若正式关联尚未同步完成，不得先显示发布成功。
+
+2026-08-18 单选数量与分布规划确认：单选数量采用“目标区间 + 质量约束”，不采用机械配额。常规 `5–6` 道有效任务默认规划 `2` 道单选，材料、独立观察和干扰项质量充分时可以增加到 `3` 道；`4` 道任务推荐 `1–2` 道，`3` 道任务默认 `1` 道。数量只统计当前规范 Active Plan 中仍有效的任务。补充生成的实际单选数量必须取“目标缺口、总任务剩余容量、合格独立观察数”的最小值；任务组总数不得超过 `6`，不得挤压必要文本观察。目标不足允许基于容量、重复、观察缺口、干扰项质量或文本覆盖原因解释放行，不得投射成新的人工审核步骤。
+
+2026-08-18 单选进入层与顺序规划确认（同日完成持久化收口）：常规 Training 任务组默认采用 `entry_first`，优先将 `1–2` 道合格基础理解单选安排在首个高负荷文本任务之前；第 `3` 道及后续单选即使合格，也不得继续被当作进入层，存在文本任务时首个文本任务必须紧随进入层。当前 Observation Plan 要求先形成整体判断或保留独立文本表达基线时，可以使用 `holistic_first`，并由确定性 Planner 保证首个文本任务位于本轮新候选首位；单选承担 Retest / Transfer 时使用 `role_driven`。例外必须写入受控原因码。进入层具体 Candidate 身份、数量、策略、原因和序号必须写入正式任务标签，并在 Observation Plan 权威刷新后恢复，禁止仅凭题型或当前位置重新推断。初始或整组替代只排序新候选，补充生成只追加且不得重排已发布任务；Learning 只对尚未消费任务应用投放优先级，已完成任务和 Retest / Transfer 的时间依赖不得被改写。顺序不足或受控调整属于规划软结果，不新增人工审核，也不单独阻断高质量 Candidate。
 
 2026-08-12 “可以发布”承诺确认：任务卡显示“可以发布 / 采用并发布”即表示所有可预见发布前置条件已经满足，或可由同一次点击确定性自动完成。应用层必须在 Candidate Adopt 前完成 Observation Plan 校验、提交与单人模式审核确认，并让可见状态与执行命令消费同一前置检查结果。不得先采用 Candidate，再以 `plan_not_reviewed`、Plan 缺失、任务身份缺失或已知校验失败阻断用户。点击后仅网络、存储、Provider 或并发状态变化等不可预见运行时异常可以中断；中断时保留已完成领域阶段并显示唯一恢复动作，不得要求重新采用同一 Candidate。
 
@@ -407,17 +411,82 @@ optimizeTaskCandidate({
 
 ### 6.5 补充任务、作答形式缺口与题干判重
 
-`supplement_group` 的唯一职责是补充新的 TrainingTask Observation。系统可以把“当前题组缺少单项选择形成的基础理解入口”作为生成目标，但不得因此放宽 Observation 与题干重复规则：
+`supplement_group` 的唯一职责是补充新的 TrainingTask Observation。系统可以把“当前题组缺少足够的单项选择基础理解入口”作为生成目标，但不得因此放宽 Observation、容量、文本覆盖与题干重复规则。
+
+数量计算只能基于同一材料当前规范 `Active Observation Plan Revision` 中仍有效的 TrainingTask：历史 Plan、已停用或被替代任务、未采用 Candidate 以及同一任务谱系的旧 Revision 均不计入当前总数。规划器必须向生成器提供或确定性推导以下上下文事实：
+
+- `currentEffectiveTaskCount`：当前有效任务总数；
+- `currentSingleChoiceCount`：当前有效单选数；
+- `maxEffectiveTaskCount = 6`：当前任务组容量上限；
+- `targetEffectiveTaskCount`：本轮 Plan 完成后预期的有效任务总数，必须位于当前有效任务数与 `6` 之间；
+- `targetSingleChoiceCount`：按 `targetEffectiveTaskCount` 推导的本轮软目标；
+- `availableTaskCapacity`：当前剩余任务容量；
+- `requestedSupplementSingleChoiceCount`：本轮实际请求补充的单选数。
+
+其中：
+
+```text
+targetEffectiveTaskCount = min(
+  6,
+  currentEffectiveTaskCount + intendedSupplementTaskCount
+)
+singleChoiceGap = max(0, targetSingleChoiceCount - currentSingleChoiceCount)
+availableTaskCapacity = max(0, 6 - currentEffectiveTaskCount)
+requestedSupplementSingleChoiceCount = min(
+  singleChoiceGap,
+  intendedSupplementTaskCount,
+  availableTaskCapacity,
+  qualifiedIndependentSingleChoiceObservationCount
+)
+```
+
+`intendedSupplementTaskCount` 由本轮 Observation 规划目标确定，不得超过剩余容量。`targetSingleChoiceCount` 的默认规划规则遵循[阅读训练单项选择作答契约 3.3 节](./READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md)：目标有效任务组为 `5–6` 道时默认 `2` 道、适合时最多 `3` 道；`4` 道任务推荐 `1–2` 道；`3` 道任务默认 `1` 道、特殊情况下最多 `2` 道。它是软目标，不是绕过质量门禁的发布条件。例如当前已有 `3` 道文本任务、本轮计划补充 `2` 道时，`targetEffectiveTaskCount = 5`，因此默认单选目标为 `2` 道，而不是按生成前的 `3` 道规模只请求 `1` 道。
+
+生成与采用必须遵守：
 
 1. 先对候选题干与同材料现有题干执行归一化全局精确比较，不受 `primaryAbilityId`、`observationDimension`、`responseFormat` 或模型重新标注影响；
 2. 精确重复直接归为 `likely_duplicate`，不得进入可采用候选；
 3. 精确比较通过后，再比较回答对象、材料依据、认知动作与评分目标，识别高度相似题或既有 Observation 的替代问法；
 4. 仅改变 `short_text / long_text / single_choice` 不会产生新的 Observation；
-5. 若当前题组尚无单选且材料存在新的基础理解观察点，本轮补充应包含至少一个完整、可诊断的 `single_choice` Candidate；
-6. 若合适的基础理解 Observation 已存在，系统不得复制题干来满足单选目标，而应提示从对应 TrainingTask 发起单题替代优化；
-7. 若材料无法形成新的合格单选观察，返回明确限制说明，不得用重复题或低质量干扰项凑数。
+5. 当目标有效任务组为 `5–6` 道时，当前为 `0` 道单选优先请求 `2` 道、当前为 `1` 道优先请求 `1` 道；较小目标组按数量矩阵收敛。当前为 `2` 道时仅在第 `3` 道具有独立价值且容量允许时继续；已有 `3` 道时默认不再增加；
+6. 实际生成数不得超过 `requestedSupplementSingleChoiceCount`，不得使有效任务总数超过 `6`，也不得突破不同任务规模对应的单选上限；
+7. 多道单选必须在观察对象、证据范围或认知动作至少一项上形成实质差异，不能连续改写同一事实定位；
+8. 若合适的基础理解 Observation 已存在，系统不得复制题干来满足单选目标，而应提示从对应 TrainingTask 发起单题替代优化；
+9. 当前任务组已满时不得通过补充生成突破容量。替代优化必须由用户从明确的单个 TrainingTask 发起，并形成同一谱系后继 Revision，不得批量覆盖正式资源；
+10. 若材料无法形成足量合格单选，返回结构化不足结果，不得用重复题、明显错误干扰项或低价值观察凑数。
+
+结构化不足结果至少包含 `targetCount`、`actualCount` 和一个或多个原因码：
+
+- `insufficient_task_capacity`；
+- `insufficient_supplement_scope`；
+- `no_independent_observation`；
+- `duplicate_with_existing_task`；
+- `distractor_quality_insufficient`；
+- `would_displace_text_observation`。
+
+该结果属于生成治理信息，不建立新的人工审批步骤。若已生成的任务均满足硬门禁，目标数量不足不得单独阻断“采用当前任务方案”；前台可以用一句受控说明解释为何少于目标，并继续保留“采用当前任务方案 / 重新生成任务方案”两个决策。
 
 “采用当前任务方案”执行 Repository 写入前，应用层必须对合并后的最终任务组再次执行同一归一化题干唯一性检查。检查失败时保留候选与当前任务组，错误信息必须指出重复的候选和现有任务，并提供“重新生成补充候选”这一唯一恢复动作。
+
+最低回归矩阵必须覆盖：
+
+1. `3 / 4 / 5 / 6` 道当前有效任务规模；
+2. 当前已有 `0 / 1 / 2 / 3` 道单选；
+3. 容量充足、容量仅剩 `1`、容量为 `0`；
+4. 合格观察数小于、等于和大于目标缺口；
+5. 第 `2` 或第 `3` 道单选与现有任务重复、干扰项不足或会挤压文本观察；
+6. 目标不足被解释放行，硬约束失败继续阻断；
+7. 补充采用后已发布任务身份和状态不变，发布新增单选只增加目标题的正式状态。
+
+工程任务 1 已于 `2026-08-18` 完成确定性数量规划基础：任务组容量统一为 `6`，新增默认/扩展目标区间、目标任务组规模、单选缺口、剩余容量、合格独立观察上限、实际请求数量和既有超限标记计算。专项 Debug `18 / 18 PASS`，任务组规划、规划 E2E、草稿生成、资源生产、工作台状态与 Production Build 回归通过。本阶段未把新计算结果接入生成 Prompt，也未改变“目标不足”的 Agent 校验与页面表达；这些边界继续由后续工程任务完成。执行证据见[单选数量与分布工程任务 1 Debug 验收](../education/phase/reports/reading_single_choice_quantity_planning_stage1_debug_acceptance_2026-08-18.md)。
+
+工程任务 2 已于 `2026-08-18` 完成 Prompt 与生成接入：工作台补充生成请求使用工程任务 1 的规划结果，并向 Generator 传递当前有效任务数、当前单选数、本轮补充数、目标任务组规模、默认/实际单选目标、单选上限、剩余容量与本批次实际请求数。Prompt 明确数量只是后置软目标，要求多道单选形成独立观察，禁止为凑数降低干扰项质量，并要求不足时返回受控原因。典型“3 道文本任务 + 补充 2 道”已验证能够请求并接纳 2 道独立单选；上下文与请求目标不一致时在 Provider 调用前阻断。单选专项 Debug `21 / 21 PASS`，数量规划、任务组规划、草稿生成和 Production Build 回归通过。目标不足的结构化结果、可解释放行和页面表达仍属于工程任务 3。执行证据见[单选数量与分布工程任务 2 Debug 验收](../education/phase/reports/reading_single_choice_quantity_planning_stage2_debug_acceptance_2026-08-18.md)。
+
+工程任务 3 已于 `2026-08-18` 完成目标不足治理：Generator 使用 `singleChoicePlanningResult` 保存目标数、实际数、当前数、本次生成数、缺口数和受控原因码；单选数量目标不足从批次硬错误改为规划软结果。只要已生成 Candidate 均满足结构、去重、干扰项质量、任务容量和文本观察边界，当前方案继续保持可采用；结构非法、没有任何新观察或其他硬门禁失败仍保持阻断。工作台用一句受控说明展示目标、预计数量和不足原因，不新增确认、审核或人工填写步骤。执行证据见[单选数量与分布工程任务 3 Debug 验收](../education/phase/reports/reading_single_choice_quantity_planning_stage3_debug_acceptance_2026-08-18.md)。
+
+单选进入层顺序工程已于 `2026-08-18` 完成最终收口：`training_task_sequence_planning_v2`、确定性 Planner、Generator / Prompt、五项顺序标签恢复和 Learning 未消费任务调度已经串联。默认规划只将显式选中的 `1–2` 道基础单选作为进入层，第 `3` 道单选不会继续压在首个文本任务之前；`holistic_first` 确定性文本优先，Retest 与 Transfer 按角色顺序执行。补充生成只追加，已发布顺序和学生已消费历史均不可变。旧版无显式进入层标记的正式资源按同材料最多 `2` 道保守兼容；历史整体判断意图无法安全反推，不自动改写旧资源。顺序调整或不足保持规划软结果，不引入新的人工动作。执行证据见[单选进入层顺序规划与 Learning 调度验收报告](../education/phase/reports/reading_single_choice_sequence_planning_learning_scheduling_acceptance_2026-08-18.md)。
+
+工程任务 4 已于 `2026-08-18` 完成整体联调收口：统一回归入口覆盖数量规划、双单选生成、软目标不足放行、Candidate 采用与正式发布、补充计划发布状态隔离、Learning 作答、确定性 Diagnosis、Evidence、恢复与页面交互语义。真实浏览器只读冒烟确认工作台与 Learning 页面可恢复、无控制台错误和横向溢出；既有已发布材料不会因为新数量目标被自动回填或覆盖，只有后续新规划、补充生成或明确的单题替代优化才应用新规则。执行证据见[单选数量与分布工程任务 4 联调验收](../education/phase/reports/reading_single_choice_quantity_planning_stage4_integration_acceptance_2026-08-18.md)。
 
 ## 七、采用与 Revision
 

@@ -131,6 +131,21 @@ assert.match(
   /以下任务组成一个完整补充方案；采用后系统会自动保存/,
   '补充候选区必须说明整组采用与自动保存语义',
 );
+assert.match(
+  generatorPreviewSource,
+  /result\.singleChoicePlanningResult\.status !== 'not_applicable'/,
+  '补充候选区必须读取结构化单选数量规划结果',
+);
+assert.match(
+  materialWorkbenchSource,
+  /当前合格方案仍可采用/,
+  '单选软目标不足时必须明确说明合法方案仍可采用',
+);
+assert.doesNotMatch(
+  materialWorkbenchSource,
+  /本次也未生成合格单选；该方案不可采用/,
+  '单选数量软目标不足不得继续投射为整批不可采用',
+);
 assert.doesNotMatch(generatorPreviewSource, /type="checkbox"/, '补充方案不得要求逐项勾选任务');
 assertButtonUsesAiStyle(generatorPreviewSource, '重新生成任务方案', 'ai-button-outline');
 assertButtonUsesAiStyle(generatorPreviewSource, '采用当前任务方案', 'ai-button-solid');

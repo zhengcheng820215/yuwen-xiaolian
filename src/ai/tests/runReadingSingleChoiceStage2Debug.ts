@@ -41,26 +41,68 @@ type Case = { name: string; run: () => void | Promise<void> };
 
 const cases: Case[] = [
   {
-    name: 'prompt freezes action-driven format without quota or fixed ordering',
+    name: 'prompt freezes action-driven format with a controlled entry sequence',
     run: () => {
       const prompt = buildMaterialObservationDraftPrompt(generatorInput());
-      assert.match(prompt, /不得为了题型丰富度或配额生成单选题/);
-      assert.match(prompt, /不得固定把单选题排第一/);
+      assert.match(prompt, /单选数量目标只能在训练动作适配、干扰项质量和任务去重之后参考/);
+      assert.match(prompt, /不得为了题型丰富度机械转换任务/);
+      assert.match(prompt, /entry_first 是常规默认/);
+      assert.match(prompt, /首个高负荷文本任务之前/);
       assert.match(prompt, /choiceInteraction/);
       assert.match(prompt, /acceptedOptionIds/);
     },
   },
   {
-    name: 'supplement prompt requests one bounded choice when the current group lacks a choice entry',
+    name: 'supplement prompt receives a two-choice target with complete planning context',
     run: () => {
       const prompt = buildMaterialObservationDraftPrompt(generatorInput({
         candidateCount: 2,
-        singleChoiceCandidateTarget: 1,
+        singleChoiceCandidateTarget: 2,
+        singleChoicePlanning: singleChoicePlanningContext(),
       }));
-      assert.match(prompt, /必须包含至少 1 个符合规则的 single_choice 候选/);
-      assert.match(prompt, /候选顺序仍由 TrainingTask Role 决定/);
+      assert.match(prompt, /当前有效任务 3 道，其中单选 0 道/);
+      assert.match(prompt, /完成后目标任务组 5 道/);
+      assert.match(prompt, /本批次实际请求 2 道 single_choice/);
+      assert.match(prompt, /本批次优先生成 2 个符合规则的 single_choice 候选/);
+      assert.match(prompt, /单选数量是规划软目标/);
+      assert.match(prompt, /当前顺序策略为 entry_first/);
+      assert.match(prompt, /观察对象、证据范围或认知动作至少一项上形成实质差异/);
       assert.match(prompt, /不得复用已有题干/);
-      assert.match(prompt, /single_choice_not_supported:/);
+      assert.match(prompt, /single_choice_target_unfilled:/);
+    },
+  },
+  {
+    name: 'two independent single-choice candidates satisfy the supplement target',
+    run: async () => {
+      const result = await runGenerator({
+        candidates: [choicePlanningCandidate(), factChoicePlanningCandidate()],
+        materialLimitations: [],
+      }, generatorInput({
+        candidateCount: 2,
+        singleChoiceCandidateTarget: 2,
+        singleChoicePlanning: singleChoicePlanningContext(),
+      }));
+      assert.equal(result.status, 'candidates_ready', JSON.stringify(result.validation));
+      assert.equal(result.candidates.length, 2);
+      assert.deepEqual(result.candidates.map((candidate) => (
+        candidate.questionDraft.responseFormat
+      )), ['single_choice', 'single_choice']);
+    },
+  },
+  {
+    name: 'mismatched planning context is rejected before generation',
+    run: async () => {
+      const result = await runGenerator({
+        candidates: [choicePlanningCandidate(), factChoicePlanningCandidate()],
+        materialLimitations: [],
+      }, generatorInput({
+        candidateCount: 2,
+        singleChoiceCandidateTarget: 1,
+        singleChoicePlanning: singleChoicePlanningContext(),
+      }));
+      assert.equal(result.status, 'insufficient_material_for_observation_planning');
+      assert(result.validation.issues.includes('single_choice_planning_context_invalid'));
+      assert.equal(result.provider.attemptCount, 0);
     },
   },
   {
@@ -84,21 +126,71 @@ const cases: Case[] = [
     },
   },
   {
-    name: 'text-only supplement cannot be adopted when a missing choice entry was requested',
+    name: 'valid text-only supplement is explainably underfilled instead of blocked',
     run: async () => {
       const result = await runGenerator(
         { candidates: [textPlanningCandidate()], materialLimitations: [] },
         generatorInput({ singleChoiceCandidateTarget: 1 }),
       );
-      assert.equal(result.status, 'review_required');
-      assert(result.validation.issues.includes('single_choice_candidate_target_unmet'));
+      assert.equal(result.status, 'candidates_ready');
+      assert.equal(result.validation.passed, true);
+      assert.equal(result.singleChoicePlanningResult?.status, 'underfilled');
+      assert.equal(result.singleChoicePlanningResult?.targetCount, 1);
+      assert.equal(result.singleChoicePlanningResult?.actualCount, 0);
+      assert.equal(result.singleChoicePlanningResult?.generatedCount, 0);
+      assert.equal(result.singleChoicePlanningResult?.projectedTotalCount, 0);
+      assert.equal(result.singleChoicePlanningResult?.shortfallCount, 1);
+      assert.deepEqual(result.singleChoicePlanningResult?.reasons, ['no_independent_observation']);
+      assert(!result.validation.issues.includes('single_choice_candidate_target_unmet'));
     },
   },
   {
-    name: 'candidate ordering is not rewritten to put choice first',
+    name: 'provider shortfall reason is preserved while valid candidates remain adoptable',
+    run: async () => {
+      const result = await runGenerator({
+        candidates: [choicePlanningCandidate(), textPlanningCandidate()],
+        materialLimitations: [
+          'single_choice_target_unfilled:distractor_quality_insufficient',
+        ],
+      }, generatorInput({
+        candidateCount: 2,
+        singleChoiceCandidateTarget: 2,
+        singleChoicePlanning: singleChoicePlanningContext(),
+      }));
+      assert.equal(result.status, 'candidates_ready', JSON.stringify(result.validation));
+      assert.equal(result.candidates.length, 2);
+      assert.equal(result.singleChoicePlanningResult?.status, 'underfilled');
+      assert.equal(result.singleChoicePlanningResult?.targetCount, 2);
+      assert.equal(result.singleChoicePlanningResult?.actualCount, 1);
+      assert.equal(result.singleChoicePlanningResult?.generatedCount, 1);
+      assert.equal(result.singleChoicePlanningResult?.projectedTotalCount, 1);
+      assert.equal(result.singleChoicePlanningResult?.shortfallCount, 1);
+      assert(result.singleChoicePlanningResult?.reasons.includes('distractor_quality_insufficient'));
+    },
+  },
+  {
+    name: 'structurally invalid generation remains hard-blocked',
+    run: async () => {
+      const result = await runGenerator({
+        candidates: [{ questionStem: '只有题干，没有完整候选结构。' }],
+        materialLimitations: [],
+      }, generatorInput({ singleChoiceCandidateTarget: 1 }));
+      assert.equal(result.status, 'review_required');
+      assert.equal(result.validation.passed, false);
+      assert.equal(result.candidates.length, 0);
+      assert(result.rejectedCandidates.length > 0);
+    },
+  },
+  {
+    name: 'default sequence moves a qualified choice before text candidates',
     run: async () => {
       const input = generatorInput({ planningIntent: 'initial', candidateCount: 3 });
       const payload = {
+        sequencePlanningDecision: {
+          strategy: 'entry_first',
+          reason: 'default_foundation_entry',
+          preferredPreludeChoiceCount: 1,
+        },
         candidates: [
           textPlanningCandidate({ questionStem: '请概括父亲送别孩子时的表现。' }),
           choicePlanningCandidate(),
@@ -115,8 +207,54 @@ const cases: Case[] = [
       };
       const result = await runGenerator(payload, input);
       assert.deepEqual(result.candidates.map((item) => item.questionDraft.responseFormat), [
+        'single_choice', 'long_text',
+      ]);
+      assert.equal(result.sequencePlanningResult.strategy, 'entry_first');
+      assert.equal(result.sequencePlanningResult.status, 'met');
+    },
+  },
+  {
+    name: 'holistic-first exception preserves an independent text baseline',
+    run: async () => {
+      const result = await runGenerator({
+        sequencePlanningDecision: {
+          strategy: 'holistic_first',
+          reason: 'independent_expression_baseline',
+          preferredPreludeChoiceCount: 1,
+        },
+        candidates: [
+          textPlanningCandidate({ questionStem: '请先概括父亲送别孩子时的整体表现。' }),
+          choicePlanningCandidate(),
+        ],
+        materialLimitations: [],
+      }, generatorInput({
+        candidateCount: 2,
+      }));
+      assert.deepEqual(result.candidates.map((item) => item.questionDraft.responseFormat), [
         'long_text', 'single_choice',
       ]);
+      assert.equal(result.sequencePlanningResult.status, 'adjusted');
+    },
+  },
+  {
+    name: 'invalid provider sequence decision falls back to the default entry layer',
+    run: async () => {
+      const result = await runGenerator({
+        sequencePlanningDecision: {
+          strategy: 'role_driven',
+          reason: 'transfer_in_new_context',
+          preferredPreludeChoiceCount: 1,
+        },
+        candidates: [textPlanningCandidate(), choicePlanningCandidate()],
+        materialLimitations: [],
+      }, generatorInput({ candidateCount: 2 }));
+      assert.equal(result.sequencePlanningResult.strategy, 'entry_first');
+      assert.deepEqual(result.candidates.map((item) => item.questionDraft.responseFormat), [
+        'single_choice', 'long_text',
+      ]);
+      assert(result.limitations.includes(
+        'sequence_planning_decision_invalid:fallback_to_entry_first',
+      ));
     },
   },
   {
@@ -375,6 +513,37 @@ function choicePlanningCandidate() {
   };
 }
 
+function factChoicePlanningCandidate() {
+  const rubricName = '关键动作定位';
+  return {
+    questionStem: '列车启动后，父亲紧接着做了什么？',
+    questionDraft: { questionType: 'multiple_choice', responseFormat: 'single_choice' },
+    choiceInteraction: factChoiceInteraction(),
+    primaryAbilityId: 'extraction',
+    supportingAbilityIds: [],
+    observationDimension: 'fact',
+    observationFocus: { displayName: '关键动作定位', definition: '观察学生能否定位列车启动后的明确人物动作。' },
+    materialAnchor: { anchorType: 'paragraph', startParagraph: 2, endParagraph: 2 },
+    expectedStudentAction: '定位第二段信息，选择父亲紧接着完成的动作。',
+    designRationale: '以低输入负担观察学生是否准确定位事件后的直接行为。',
+    difficultySuggestion: 'basic',
+    assessmentMode: 'exact_match',
+    rubricDraft: [rubric(rubricName, 'extraction')],
+    answerAcceptanceDraft: { acceptedKeywords: [], semanticEquivalentAllowed: false, acceptedOptionIds: ['fact-correct'] },
+    minimumAnswerRequirement: choiceMinimum(),
+    calibrationAnswers: [
+      calibration('fully_meets', 'fact-correct', 'fully_meets', rubricName, 'completed', 'eligible'),
+      calibration('partially_meets', 'fact-surface', 'partially_meets', rubricName, 'partial', 'eligible_but_weak'),
+      calibration('typical_error', 'fact-entity', 'does_not_meet', rubricName, 'missing', 'eligible'),
+      calibration('reasonable_alternative', 'fact-correct', 'fully_meets', rubricName, 'completed', 'eligible'),
+      calibration('irrelevant', '未作答', 'insufficient_evidence', rubricName, 'missing', 'ineligible'),
+    ],
+    evidencePotential: 'moderate',
+    evidenceBoundary: { canObserve: '本次选择能否定位列车启动后的直接动作。', cannotConclude: '不能据此宣布信息提取能力已经稳定掌握。' },
+    safetyBoundary: { taskRole: 'training_candidate', requiresHumanReview: true },
+  };
+}
+
 function textPlanningCandidate(overrides: Record<string, unknown> = {}) {
   const rubricName = '送别表现概括';
   return {
@@ -417,6 +586,40 @@ function choiceInteraction(): SingleChoiceInteraction {
       { optionId: 'option-over', misconceptionCode: 'over_inference', diagnosisMeaning: '把向前走过度推断为追赶列车，超过文本证据。', evidenceBoundary: '第2段只写向前走了几步。' },
     ],
     optionSetVersion: 1,
+  };
+}
+
+function factChoiceInteraction(): SingleChoiceInteraction {
+  return {
+    schemaVersion: SINGLE_CHOICE_INTERACTION_SCHEMA_VERSION,
+    selectionMode: 'single',
+    options: [
+      { optionId: 'fact-correct', content: '仍向前走了几步' },
+      { optionId: 'fact-surface', content: '继续整理孩子衣领' },
+      { optionId: 'fact-entity', content: '跟着孩子登上列车' },
+      { optionId: 'fact-sequence', content: '立即转身离开站台' },
+    ],
+    correctOptionIds: ['fact-correct'],
+    distractorRationales: [
+      { optionId: 'fact-surface', misconceptionCode: 'surface_reading', diagnosisMeaning: '停留在第一段动作，没有定位列车启动后的信息。', evidenceBoundary: '整理衣领发生在列车启动前。' },
+      { optionId: 'fact-entity', misconceptionCode: 'entity_confusion', diagnosisMeaning: '混淆父亲与孩子的行动位置。', evidenceBoundary: '材料没有写父亲登上列车。' },
+      { optionId: 'fact-sequence', misconceptionCode: 'evidence_omission', diagnosisMeaning: '忽略第二段明确动作，用没有出现的离开行为替代。', evidenceBoundary: '第二段明确写父亲仍向前走了几步。' },
+    ],
+    optionSetVersion: 1,
+  };
+}
+
+function singleChoicePlanningContext() {
+  return {
+    currentEffectiveTaskCount: 3,
+    currentSingleChoiceCount: 0,
+    intendedSupplementTaskCount: 2,
+    targetEffectiveTaskCount: 5,
+    defaultSingleChoiceTarget: 2,
+    maximumSingleChoiceCount: 3,
+    targetSingleChoiceCount: 2,
+    availableTaskCapacity: 3,
+    requestedSupplementSingleChoiceCount: 2,
   };
 }
 

@@ -22,20 +22,29 @@ assert.deepEqual(resolveTrainingTaskGenerationRequest('supplement_group', 3), {
   planningIntent: 'supplement',
 });
 assert.deepEqual(resolveTrainingTaskGenerationRequest('supplement_group', 4), {
-  candidateCount: 1,
+  candidateCount: 2,
   planningIntent: 'supplement',
 });
 assert.deepEqual(resolveTrainingTaskGenerationRequest('supplement_group', 5), {
+  candidateCount: 1,
+  planningIntent: 'supplement',
+});
+assert.deepEqual(resolveTrainingTaskGenerationRequest('supplement_group', 6), {
   candidateCount: 0,
   planningIntent: 'supplement',
 });
-assert.equal(resolveSupplementSingleChoiceCandidateTarget([], 2), 1);
+assert.equal(resolveSupplementSingleChoiceCandidateTarget([], 2), 0);
 assert.equal(resolveSupplementSingleChoiceCandidateTarget([
   { localId: 'text-task', responseFormat: 'long_text' },
 ], 2), 1);
 assert.equal(resolveSupplementSingleChoiceCandidateTarget([
   { localId: 'choice-task', responseFormat: 'single_choice' },
 ], 2), 0);
+assert.equal(resolveSupplementSingleChoiceCandidateTarget([
+  { localId: 'text-task-1', responseFormat: 'long_text' },
+  { localId: 'text-task-2', responseFormat: 'long_text' },
+  { localId: 'text-task-3', responseFormat: 'long_text' },
+], 2), 2);
 assert.equal(resolveSupplementSingleChoiceCandidateTarget([], 0), 0);
 assert.deepEqual(findDuplicateTrainingTaskStems([
   { localId: 'task-1', questionStem: '文中母亲“挡在窗前”有什么作用？' },
@@ -131,7 +140,16 @@ assert.deepEqual(supplementResult.adoptedCandidateTaskIds, ['candidate-s1']);
 const capacityResult = adoptTrainingTaskGroupCandidate({
   session: {
     ...supplementSession,
-    selectedCandidateTaskIds: ['candidate-s1', 'candidate-s2'],
+    candidateTasks: [
+      supplementCandidates[0],
+      {
+        localId: 'candidate-s3',
+        abilityId: 'comprehension',
+        primaryDimension: 'fact',
+        questionStem: '辨认关键事实。',
+      },
+    ],
+    selectedCandidateTaskIds: ['candidate-s1', 'candidate-s3'],
   },
   currentTasks: [
     ...currentTasks,
@@ -142,7 +160,7 @@ const capacityResult = adoptTrainingTaskGroupCandidate({
   maxTasks: MAX_TRAINING_TASK_COUNT,
 });
 assert.equal(capacityResult.tasks.length, MAX_TRAINING_TASK_COUNT);
-assert.equal(capacityResult.adoptedCandidateTaskIds.length, 1);
+assert.equal(capacityResult.adoptedCandidateTaskIds.length, 2);
 
 assert.throws(
   () => adoptTrainingTaskGroupCandidate({

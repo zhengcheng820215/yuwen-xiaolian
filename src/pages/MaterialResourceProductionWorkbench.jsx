@@ -53,10 +53,12 @@ import {
 } from './materialResourceWorkbenchSelectionState.ts';
 import {
   adoptTrainingTaskGroupCandidate,
+  buildTrainingTaskSequenceTags,
   createTrainingTaskGroupCandidateSession,
   findDuplicateTrainingTaskStems,
   MAX_TRAINING_TASK_COUNT,
-  resolveSupplementSingleChoiceCandidateTarget,
+  readTrainingTaskSequenceMetadata,
+  resolveSupplementSingleChoiceQuantityPlan,
   resolveTrainingTaskGenerationRequest,
   summarizeTrainingTaskGroupCoverage,
 } from './trainingTaskGroupPlanningState.ts';
@@ -1424,9 +1426,16 @@ export default function MaterialResourceProductionWorkbench() {
         .map((focusId) => trainingDirectionLabels[focusId])
         .join('；');
       const currentCoverage = summarizeTrainingTaskGroupCoverage(tasks);
-      const singleChoiceCandidateTarget = operationType === 'supplement_group'
-        ? resolveSupplementSingleChoiceCandidateTarget(tasks, generationRequest.candidateCount)
-        : 0;
+      const singleChoiceQuantityPlan = operationType === 'supplement_group'
+        ? resolveSupplementSingleChoiceQuantityPlan(tasks, generationRequest.candidateCount)
+        : null;
+      const singleChoiceCandidateTarget = singleChoiceQuantityPlan
+        ?.requestedSupplementSingleChoiceCount || 0;
+      const sequenceTargetTaskCount = singleChoiceQuantityPlan
+        ?.targetEffectiveTaskCount || generationRequest.candidateCount;
+      const preferredPreludeChoiceCount = singleChoiceCandidateTarget > 0
+        ? Math.min(2, singleChoiceCandidateTarget)
+        : sequenceTargetTaskCount >= 5 ? 2 : 1;
       const currentCoverageContext = operationType === 'supplement_group'
         ? `当前已覆盖能力：${currentCoverage.abilityIds.map((id) => abilityLabels[id] || id).join('、') || '无'}；当前已覆盖方向：${currentCoverage.dimensionIds.map((id) => dimensionLabels[id] || id).join('、') || '无'}`
         : '';
@@ -1446,6 +1455,25 @@ export default function MaterialResourceProductionWorkbench() {
           planningIntent: generationRequest.planningIntent,
           preferredAbilityIds: generatorPreferences.preferredAbilityIds,
           singleChoiceCandidateTarget,
+          singleChoicePlanning: singleChoiceQuantityPlan
+            ? {
+              currentEffectiveTaskCount: singleChoiceQuantityPlan.currentEffectiveTaskCount,
+              currentSingleChoiceCount: singleChoiceQuantityPlan.currentSingleChoiceCount,
+              intendedSupplementTaskCount: singleChoiceQuantityPlan.intendedSupplementTaskCount,
+              targetEffectiveTaskCount: singleChoiceQuantityPlan.targetEffectiveTaskCount,
+              defaultSingleChoiceTarget: singleChoiceQuantityPlan.defaultSingleChoiceTarget,
+              maximumSingleChoiceCount: singleChoiceQuantityPlan.maximumSingleChoiceCount,
+              targetSingleChoiceCount: singleChoiceQuantityPlan.targetSingleChoiceCount,
+              availableTaskCapacity: singleChoiceQuantityPlan.availableTaskCapacity,
+              requestedSupplementSingleChoiceCount:
+                singleChoiceQuantityPlan.requestedSupplementSingleChoiceCount,
+            }
+            : undefined,
+          sequencePlanning: {
+            strategy: 'entry_first',
+            reason: 'default_foundation_entry',
+            preferredPreludeChoiceCount,
+          },
           requestedFocus: [
             operationType === 'replace_group'
               ? '重新规划完整候选任务组，覆盖方向应形成互补'
@@ -1458,7 +1486,13 @@ export default function MaterialResourceProductionWorkbench() {
       });
       setGeneratorResult(result);
       if (result.candidates.length > 0) {
-        const candidateTasks = result.candidates.map(generatorCandidateToEditableTask);
+        const candidateTasks = result.candidates.map((candidate, index) => (
+          generatorCandidateToEditableTask(
+            candidate,
+            index,
+            result.sequencePlanningResult,
+          )
+        ));
         setGroupCandidateSession(createTrainingTaskGroupCandidateSession({
           candidateGroupId: `task-group-${result.requestId || createGeneratorRequestId(selectedMaterial.materialVersionId)}`,
           operationType,
@@ -1466,6 +1500,9 @@ export default function MaterialResourceProductionWorkbench() {
           candidateTasks,
         }));
       }
+      const singleChoicePlanningMessage = formatSingleChoicePlanningResult(
+        result.singleChoicePlanningResult,
+      );
       setNotice(result.status === 'candidates_ready'
         ? {
           type: 'success',
@@ -1473,16 +1510,11 @@ export default function MaterialResourceProductionWorkbench() {
             ? tasks.length === 0
               ? `已生成 ${result.candidates.length} 个首批候选训练任务，请确认后采用。`
               : `已生成包含 ${result.candidates.length} 个任务的替代候选组。当前任务组尚未改变。`
-            : `已生成包含 ${result.candidates.length} 个任务的补充方案，请整体判断是否采用。`,
+            : `已生成包含 ${result.candidates.length} 个任务的补充方案，请整体判断是否采用。${singleChoicePlanningMessage ? ` ${singleChoicePlanningMessage}` : ''}`,
         }
-        : result.status === 'provider_failed'
+          : result.status === 'provider_failed'
           ? { type: 'error', message: 'AI 服务本次调用未完成，没有生成候选，也没有写入任何正式记录。请查看具体原因后重试。' }
-          : {
-            type: 'error',
-            message: result.validation.issues.includes('single_choice_candidate_target_unmet')
-              ? '当前题组还没有单项选择，本次也未生成合格单选；该方案不可采用，请重新生成。'
-              : '本次候选不足或存在结构问题，未导入也未写入任何正式记录。',
-          });
+          : { type: 'error', message: '本次候选不足或存在结构问题，未导入也未写入任何正式记录。' });
     } catch (error) {
       setNotice(errorNotice(error));
     } finally {
@@ -4092,11 +4124,14 @@ function GeneratorCandidatePreview({
           以下任务组成一个完整补充方案；采用后系统会自动保存，重新生成不会改变当前任务组。
         </p>
       )}
-      {supplementMode && currentTasks.every((task) => task.responseFormat !== 'single_choice') && (
-        <p className={`mt-2 text-sm leading-6 ${result.candidates.some((candidate) => candidate.questionDraft.responseFormat === 'single_choice') ? 'text-emerald-700' : 'text-amber-700'}`}>
-          {result.candidates.some((candidate) => candidate.questionDraft.responseFormat === 'single_choice')
-            ? `本次补充包含 ${result.candidates.filter((candidate) => candidate.questionDraft.responseFormat === 'single_choice').length} 道单项选择，用于低负荷确认基础理解。`
-            : '当前题组尚无单项选择，本次也未生成合格单选，因此该方案不可采用；请重新生成。'}
+      {supplementMode
+        && result.singleChoicePlanningResult
+        && result.singleChoicePlanningResult.status !== 'not_applicable' && (
+        <p
+          role="status"
+          className={`mt-2 text-sm leading-6 ${result.singleChoicePlanningResult.status === 'met' ? 'text-emerald-700' : 'text-amber-700'}`}
+        >
+          {formatSingleChoicePlanningResult(result.singleChoicePlanningResult)}
         </p>
       )}
       {result.status === 'candidates_ready' && session?.operationType === 'replace_group' && !initialPlanningMode && (
@@ -4319,6 +4354,7 @@ function taskWorkingIdentity(task) {
 function planTaskToEditableTask(task, index, anchors) {
   const specification = task.resourceDraftSpecification;
   const tags = specification?.tags || [];
+  const sequenceMetadata = readTrainingTaskSequenceMetadata(tags);
   const manuallyAdjustedFields = readAdjustedFieldTags(tags);
   const sourceType = tags.includes('ai-assisted') ? 'ai_assisted' : 'manual';
   const anchor = anchors.find((item) => task.sourceAnchorIds.includes(item.sourceAnchorId));
@@ -4362,6 +4398,11 @@ function planTaskToEditableTask(task, index, anchors) {
     designReason: task.designReason,
     taskRole: task.taskRole,
     difficulty: task.difficulty,
+    sequenceStrategy: sequenceMetadata.strategy,
+    sequenceReason: sequenceMetadata.reason,
+    sequenceRank: sequenceMetadata.rank,
+    sequencePrelude: sequenceMetadata.isPrelude,
+    sequencePreludeCount: sequenceMetadata.preludeCount,
     anchorType: anchor?.anchorType || 'paragraph',
     startParagraph: anchor?.startParagraph || 1,
     endParagraph: anchor?.endParagraph || anchor?.startParagraph || 1,
@@ -4406,7 +4447,7 @@ function buildWorkingQuestionEditableFields(task, draft) {
   };
 }
 
-function generatorCandidateToEditableTask(candidate, index) {
+function generatorCandidateToEditableTask(candidate, index, sequencePlanningResult) {
   return {
     localId: candidate.candidateId,
     sourceType: 'ai_assisted',
@@ -4423,6 +4464,11 @@ function generatorCandidateToEditableTask(candidate, index) {
     designReason: candidate.designRationale,
     taskRole: 'training',
     difficulty: candidate.difficultySuggestion,
+    sequenceStrategy: sequencePlanningResult?.strategy,
+    sequenceReason: sequencePlanningResult?.reason,
+    sequenceRank: index + 1,
+    sequencePrelude: sequencePlanningResult?.preludeCandidateIds?.includes(candidate.candidateId) || false,
+    sequencePreludeCount: sequencePlanningResult?.actualPreludeChoiceCount || 0,
     anchorType: candidate.materialAnchor.anchorType,
     startParagraph: candidate.materialAnchor.startParagraph || 1,
     endParagraph: candidate.materialAnchor.endParagraph || candidate.materialAnchor.startParagraph || 1,
@@ -4748,6 +4794,13 @@ function toTaskInput(task) {
         `content-origin:${task.contentOrigin || (task.sourceType === 'ai_assisted' ? 'ai_generated' : 'human_created')}`,
         ...(task.manuallyAdjustedFields || []).map((field) => `human-adjusted-field:${field}`),
         task.abilityId,
+        ...buildTrainingTaskSequenceTags({
+          strategy: task.sequenceStrategy,
+          reason: task.sequenceReason,
+          rank: task.sequenceRank,
+          isPrelude: task.sequencePrelude === true,
+          preludeCount: task.sequencePreludeCount,
+        }),
       ],
     },
     calibrationCases,
@@ -5209,10 +5262,28 @@ function generatorIssueAction(issue) {
   if (issue === 'question_type_invalid' || issue === 'response_format_invalid') {
     return '点击上方“再次生成训练任务”，系统会重新按当前支持的题型和作答形式生成。';
   }
-  if (issue === 'single_choice_candidate_target_unmet') {
-    return '点击“生成补充候选”重新生成；系统会继续要求至少一道符合质量规则的单项选择，不会采用本轮纯文本方案。';
-  }
   return '点击上方“再次生成训练任务”；若连续失败，可将任务数量调整为 3，并选择更明确的训练方向后重试。';
+}
+function formatSingleChoicePlanningResult(result) {
+  if (!result || result.status === 'not_applicable') return '';
+  if (result.status === 'met') {
+    return `本次生成 ${result.generatedCount} 道单项选择，采用后当前题组预计达到 ${result.projectedTotalCount} 道单选。`;
+  }
+  const reasonText = result.reasons
+    .map(singleChoiceShortfallReasonLabel)
+    .filter(Boolean)
+    .join('、');
+  return `单选目标 ${result.targetCount} 道，当前题组预计达到 ${result.projectedTotalCount} 道（本次生成 ${result.generatedCount} 道）；${reasonText || '当前材料没有形成更多合格的独立单选观察'}，当前合格方案仍可采用。`;
+}
+function singleChoiceShortfallReasonLabel(reason) {
+  return {
+    insufficient_task_capacity: '任务组剩余容量不足',
+    insufficient_supplement_scope: '本轮补充任务数量不足以一次补齐目标',
+    no_independent_observation: '没有更多独立且适合单选的观察目标',
+    duplicate_with_existing_task: '其他单选会与已有任务实质重复',
+    distractor_quality_insufficient: '其他单选无法形成高质量干扰项',
+    would_displace_text_observation: '继续增加会挤压必要的文本训练',
+  }[reason] || '';
 }
 function formatRejectedAnchor(anchor) {
   if (!anchor) return '未提供';
@@ -5250,7 +5321,6 @@ function generatorIssueLabel(issue) {
     provider_failed: '模型服务本次调用失败，尚未产生任何候选。',
     provider_output_not_valid_json: '模型输出不是完整的结构化 JSON，无法进入候选校验。',
     candidate_count_outside_planning_range: '模型返回的候选数量超出本次规划范围。',
-    single_choice_candidate_target_unmet: '当前题组缺少单项选择，但本次没有生成符合质量要求的单选候选。',
     fewer_than_2_valid_independent_candidates: '通过校验且彼此独立的候选不足 2 个。',
     candidate_count_must_be_3_to_6: '模型没有返回 3–6 个表面候选。',
     fewer_than_3_valid_independent_candidates: '通过校验且彼此独立的候选不足 3 个。',

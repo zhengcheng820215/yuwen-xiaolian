@@ -42,6 +42,7 @@ import {
   resolveFormalResourceBootstrapMatch,
 } from '../ai/agents/phase173FormalResourceMatchingService.ts';
 import { buildScopedFormalResourceHistory } from '../ai/agents/formalResourceHistoryScope.ts';
+import { selectFormalResourceForLearningSequence } from '../ai/agents/learningTaskSequenceScheduler.ts';
 import { REAL_AI_DIAGNOSIS_PROMPT_V4_VERSION } from '../ai/prompts/buildRealAIDiagnosisPromptV4.ts';
 import { InMemoryControlledFeedbackRepository } from '../ai/repositories/inMemoryControlledFeedbackRepository.ts';
 import { InMemoryFormalDiagnosisRepository } from '../ai/repositories/inMemoryFormalDiagnosisRepository.ts';
@@ -962,6 +963,20 @@ async function resolveNextFormalTask(
     activeLearningSessionId,
     historyWindowEndedAt: new Date().toISOString(),
   });
+  const effectiveRecentVersionIds = uniqueStrings([
+    ...history.recentResourceVersionIds,
+    previousResourceVersion.resourceVersionId,
+  ]);
+  const preferredVersion = selectFormalResourceForLearningSequence(versions, {
+    taskRole: taskRequest.taskRole,
+    targetAbilityId: taskRequest.targetAbilityId,
+    recentResourceVersionIds: effectiveRecentVersionIds,
+    materialId: previousResourceVersion.materialId,
+  }) || selectFormalResourceForLearningSequence(versions, {
+    taskRole: taskRequest.taskRole,
+    targetAbilityId: taskRequest.targetAbilityId,
+    recentResourceVersionIds: effectiveRecentVersionIds,
+  });
   return matchCurrentFormalResource({
     taskRequest,
     studentId: PHASE163_LEARNING_STUDENT_ID,
@@ -980,6 +995,8 @@ async function resolveNextFormalTask(
         ...(previousResourceVersion.materialId ? [previousResourceVersion.materialId] : []),
       ]),
     },
+    bootstrapMaterialId: preferredVersion?.materialId,
+    requiredResourceVersionId: preferredVersion?.resourceVersionId,
     evaluatedAt: new Date().toISOString(),
   });
 }
@@ -989,13 +1006,11 @@ function selectBootstrapMaterialId(
   taskRequest: TaskRequest,
   recentResourceVersionIds: string[],
 ): string | undefined {
-  const recentVersions = new Set(recentResourceVersionIds);
-  return versions.find((version) => (
-    version.abilityMetadata.abilityId === taskRequest.targetAbilityId &&
-    version.abilityMetadata.taskRole === taskRequest.taskRole &&
-    !recentVersions.has(version.resourceVersionId) &&
-    Boolean(version.materialId)
-  ))?.materialId;
+  return selectFormalResourceForLearningSequence(versions, {
+    taskRole: taskRequest.taskRole,
+    targetAbilityId: taskRequest.targetAbilityId,
+    recentResourceVersionIds,
+  })?.materialId;
 }
 
 async function appendRoundToCurrentSession(record: LearningPersistenceRecord): Promise<void> {
