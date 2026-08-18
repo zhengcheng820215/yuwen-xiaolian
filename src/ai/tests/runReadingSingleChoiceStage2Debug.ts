@@ -92,6 +92,55 @@ const cases: Case[] = [
     },
   },
   {
+    name: 'partial supplement success repairs only the rejected choice candidate',
+    run: async () => {
+      const admitted = choicePlanningCandidate();
+      const rejected = factChoicePlanningCandidate();
+      rejected.choiceInteraction.distractorRationales[1].misconceptionCode =
+        rejected.choiceInteraction.distractorRationales[0].misconceptionCode;
+      const repaired = {
+        ...factChoicePlanningCandidate(),
+        repairOfCandidateIndex: 1,
+      };
+      const provider = new ScriptedDiagnosisProviderAdapter([
+        {
+          type: 'response',
+          rawOutput: JSON.stringify({ candidates: [admitted, rejected], materialLimitations: [] }),
+        },
+        {
+          type: 'response',
+          rawOutput: JSON.stringify({ candidates: [repaired], materialLimitations: [] }),
+        },
+      ]);
+      const result = await generateMaterialObservationDraftCandidates(
+        generatorInput({
+          candidateCount: 2,
+          singleChoiceCandidateTarget: 2,
+          singleChoicePlanning: singleChoicePlanningContext(),
+        }),
+        {
+          provider,
+          config: createMaterialObservationDraftGeneratorConfig({
+            providerName: provider.providerName,
+            model: 'stage2-repair-provider',
+            maxAttempts: 2,
+          }),
+        },
+      );
+      const repairPrompt = provider.getRequests()[1]?.prompt || '';
+      assert.equal(result.status, 'candidates_ready', JSON.stringify(result.validation));
+      assert.equal(result.candidates.length, 2);
+      assert.equal(result.rejectedCandidates.length, 0);
+      assert.equal(result.provider.repair?.requestedCandidateCount, 1);
+      assert.equal(result.provider.repair?.recoveredCandidateCount, 1);
+      assert.equal(provider.getCallCount(), 2);
+      assert(result.candidates.some((candidate) => candidate.questionStem === admitted.questionStem));
+      assert.match(repairPrompt, /choice\.misconception_duplicate/);
+      assert.match(repairPrompt, /每个错误选项必须对应不同的 misconceptionCode/);
+      assert.doesNotMatch(repairPrompt, /answer_acceptance_option_mismatch/);
+    },
+  },
+  {
     name: 'mismatched planning context is rejected before generation',
     run: async () => {
       const result = await runGenerator({
@@ -290,6 +339,18 @@ const cases: Case[] = [
       interaction.distractorRationales[1].misconceptionCode = 'surface_reading';
       const result = evaluateGeneratedSingleChoiceOptions(interaction);
       assert(result.issues.some((issue) => issue.code === 'choice.misconception_duplicate'));
+    },
+  },
+  {
+    name: 'invalid distractor structure does not cascade into an answer identity mismatch',
+    run: async () => {
+      const candidate = choicePlanningCandidate();
+      candidate.choiceInteraction.distractorRationales[1].misconceptionCode =
+        candidate.choiceInteraction.distractorRationales[0].misconceptionCode;
+      const result = await runGenerator({ candidates: [candidate], materialLimitations: [] });
+      const issues = result.rejectedCandidates[0]?.issues || [];
+      assert(issues.includes('choice.misconception_duplicate'));
+      assert.equal(issues.includes('answer_acceptance_option_mismatch'), false);
     },
   },
   {

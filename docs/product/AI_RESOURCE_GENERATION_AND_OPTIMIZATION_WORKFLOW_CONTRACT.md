@@ -3,7 +3,7 @@
 英文名称：AI Resource Generation and Optimization Workflow Contract
 
 状态：DESIGN FROZEN / P0-P7 ENGINEERING COMPLETE / SINGLE-OPERATOR ADOPTION ORCHESTRATION DEBUG ACCEPTED
-契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_17`
+契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_18`
 更新日期：2026-08-18
 
 产品确认日期：2026-08-05
@@ -34,6 +34,8 @@
 2026-08-18 单选真实表达与 Anchor 消费补强：选择动作检查必须覆盖“正确的一项是、最符合文意的一项是”等等价选择语义，不得依赖少量完整字符串。材料范围检查必须读取 Observation Plan 关联的正式 `MaterialSourceAnchor`；任务卡、质量检查与发布链必须使用同一范围来源。正式 Anchor 有效时，题干无需重复段落号；只有 Anchor 缺失、无效、与题干显式范围冲突或题目明显越界时才可提示范围问题。
 
 2026-08-18 单选正确位置去偏确认：Prompt 不得以“第一项恒为正确项”的唯一示例持续诱导 Provider；Candidate 预览与 Learning 投放不得直接使用 Provider 原始数组顺序。系统应基于稳定 optionId 生成确定性显示顺序，Learning 至少绑定正式资源版本与学生身份，保证刷新和恢复一致。A / B / C / D 仅是显示标签，答案、干扰项诊断和经验校准始终按 optionId 对齐。不得通过随机改写答案内容、重置 optionId 或机械字母循环实现位置均衡。
+
+2026-08-18 部分成功批次修复与错误归因确认：当批次已保留至少一个合格 Candidate，但单选规划目标仍未达到，且被拒 Candidate 只包含可修复的结构或一致性问题时，系统仍必须在既有重试预算内执行一次候选级修复，不得因顶层状态已经是 `candidates_ready` 而跳过。修复只能替换被拒 Candidate，已经合格的 Candidate、现有正式任务与发布状态必须保持不变。每条错误必须由独立可判定的事实支持；前置对象因其他错误无法形成时，依赖该对象的后续检查应标记为未执行，而不得追加答案身份不一致等级联误报。自动修复仍未通过时允许质量优先地保持不足数量，并展示真实主因与“已自动修复仍未通过”，不得要求用户重新生成整个合格方案。
 
 2026-08-12 “可以发布”承诺确认：任务卡显示“可以发布 / 采用并发布”即表示所有可预见发布前置条件已经满足，或可由同一次点击确定性自动完成。应用层必须在 Candidate Adopt 前完成 Observation Plan 校验、提交与单人模式审核确认，并让可见状态与执行命令消费同一前置检查结果。不得先采用 Candidate，再以 `plan_not_reviewed`、Plan 缺失、任务身份缺失或已知校验失败阻断用户。点击后仅网络、存储、Provider 或并发状态变化等不可预见运行时异常可以中断；中断时保留已完成领域阶段并显示唯一恢复动作，不得要求重新采用同一 Candidate。
 

@@ -4170,7 +4170,11 @@ function GeneratorCandidatePreview({
           {result.rejectedCandidates.length > 0 && (
             <details className="border-l-2 border-amber-300 pl-3">
               <summary className="cursor-pointer text-xs font-semibold text-amber-800">查看 {result.rejectedCandidates.length} 道未通过任务</summary>
-              <p className="mt-2 text-xs leading-5 text-amber-900">AI 生成的是待确认内容，可能出现段落或字段偏差。系统已在导入前隔离这些任务，不会写入正式资源。</p>
+              <p className="mt-2 text-xs leading-5 text-amber-900">
+                {result.provider.repair?.attempted
+                  ? '系统已对这些候选自动修复一次，剩余问题仍未通过。当前合格候选不受影响，未通过任务不会写入正式资源。'
+                  : 'AI 生成的是待确认内容，可能出现段落或字段偏差。系统已在导入前隔离这些任务，不会写入正式资源。'}
+              </p>
               <ol className="mt-2 space-y-2 text-xs leading-5 text-amber-950">
                 {result.rejectedCandidates.map((candidate) => (
                   <li key={`${candidate.candidateIndex}-${candidate.issues.join('|')}`} className="border-l-2 border-amber-300 pl-3">
@@ -4180,7 +4184,7 @@ function GeneratorCandidatePreview({
                         <li key={issue}>
                           <p>{generatorIssueLabel(issue)}</p>
                           {generatorIssueDetail(issue, candidate.diagnosticContext)}
-                          <p className="mt-1 text-amber-900"><strong>操作：</strong>{generatorIssueAction(issue)}</p>
+                          <p className="mt-1 text-amber-900"><strong>操作：</strong>{generatorIssueAction(issue, result.provider.repair?.attempted)}</p>
                         </li>
                       ))}
                     </ul>
@@ -5255,7 +5259,10 @@ function generatorIssueDetail(issue, context) {
   }
   return null;
 }
-function generatorIssueAction(issue) {
+function generatorIssueAction(issue, repairAttempted = false) {
+  if (repairAttempted) {
+    return '系统已自动修复一次但仍未通过；当前合格候选可以继续采用，本题保持隔离，无需重新生成整个方案。';
+  }
   if (issue === 'material_anchor_out_of_range') {
     return '先检查素材是否按自然段正确分段；确认后点击上方“再次生成训练任务”。该候选不会被导入。';
   }

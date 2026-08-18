@@ -211,17 +211,17 @@ export async function generateMaterialObservationDraftCandidates(
         return finalizeRepairResult(result, pendingRepair);
       }
 
-      const repairItems = buildRepairItems(parsed, result.rejectedCandidates);
+      const rejectedCandidatesForRepair = selectRejectedCandidatesForRepair(result);
+      const repairItems = buildRepairItems(parsed, rejectedCandidatesForRepair);
       if (
-        result.status === 'review_required' &&
         repairItems.length > 0 &&
         attempt < dependencies.config.maxAttempts
       ) {
         pendingRepair = {
           originalPayload: parsed,
           initialResult: result,
-          rejectedCandidates: result.rejectedCandidates,
-          issueCounts: countRejectedIssues(result.rejectedCandidates),
+          rejectedCandidates: rejectedCandidatesForRepair,
+          issueCounts: countRejectedIssues(rejectedCandidatesForRepair),
         };
         prompt = buildMaterialObservationDraftRepairPrompt(input, repairItems);
         continue;
@@ -279,6 +279,32 @@ function buildRepairItems(
   });
 }
 
+function selectRejectedCandidatesForRepair(
+  result: MaterialObservationDraftGeneratorResult,
+): RejectedMaterialObservationCandidate[] {
+  if (result.status === 'review_required') return result.rejectedCandidates;
+  if (result.singleChoicePlanningResult?.status !== 'underfilled') return [];
+  return result.rejectedCandidates.filter((candidate) => (
+    candidate.diagnosticContext?.responseFormat === 'single_choice'
+      && candidate.disposition !== 'unsupported_by_material'
+      && candidate.issues.length > 0
+      && candidate.issues.every(isRepairableSingleChoiceCandidateIssue)
+  ));
+}
+
+function isRepairableSingleChoiceCandidateIssue(issue: string): boolean {
+  if (
+    issue === 'choice.training_action_requires_text'
+    || issue === 'choice.training_action_requires_constructed_response'
+    || issue === 'choice.rubric_too_dense'
+    || issue === 'choice.high_order_action_not_bounded'
+  ) return false;
+  return issue.startsWith('choice.')
+    || issue === 'answer_acceptance_option_mismatch'
+    || issue === 'answer_acceptance_choice_keywords_not_allowed'
+    || issue === 'choice_minimum_answer_requirement_invalid';
+}
+
 function getDeclaredCandidateAbilities(candidate: Record<string, unknown>): PrimaryAbilityId[] {
   const declared = [
     candidate.primaryAbilityId,
@@ -300,6 +326,17 @@ function buildCandidateRepairInstructions(
   if (issues.some((issue) => /^rubric_\d+_ability_undeclared$/.test(issue))) {
     instructions.push(
       `Rubric 的 abilityId 只能使用：${allowedRubricAbilityIds.join(', ') || '当前候选没有合法已声明能力'}。保持 primaryAbilityId 和 supportingAbilityIds 不变，不得新增辅助能力。`,
+    );
+  }
+  if (issues.includes('choice.misconception_duplicate')
+    || issues.includes('choice.diagnosis_meaning_duplicate')) {
+    instructions.push(
+      '每个错误选项必须对应不同的 misconceptionCode 和不同的 diagnosisMeaning；保留正确答案与 optionId，只重写重复的干扰项偏差依据及其必要内容。',
+    );
+  }
+  if (issues.includes('answer_acceptance_option_mismatch')) {
+    instructions.push(
+      'answerAcceptanceDraft.acceptedOptionIds 必须且只能等于 choiceInteraction.correctOptionIds；以正确答案身份为准，不得反向改变正确答案来迁就接受范围。',
     );
   }
   return instructions;
@@ -789,10 +826,14 @@ function parseCandidate(
     questionDraft?.responseFormat,
     issues,
   );
+  const declaredCorrectOptionId = readSingleChoiceCorrectOptionId(
+    value.choiceInteraction,
+    questionDraft?.responseFormat,
+  );
   const answerAcceptanceDraft = readAnswerAcceptance(
     value.answerAcceptanceDraft,
     questionDraft?.responseFormat,
-    choiceInteraction,
+    declaredCorrectOptionId,
     issues,
   );
   const minimumAnswerRequirement = readMinimumAnswerRequirement(
@@ -974,7 +1015,7 @@ function readChoiceInteraction(
 function readAnswerAcceptance(
   value: unknown,
   responseFormat: string | undefined,
-  choiceInteraction: SingleChoiceInteraction | undefined,
+  declaredCorrectOptionId: string | undefined,
   issues: string[],
 ) {
   if (!isRecord(value)) {
@@ -984,7 +1025,8 @@ function readAnswerAcceptance(
   if (responseFormat === 'single_choice') {
     const acceptedOptionIds = readStringArray(value.acceptedOptionIds);
     if (acceptedOptionIds.length !== 1
-      || acceptedOptionIds[0] !== choiceInteraction?.correctOptionIds[0]) {
+      || (declaredCorrectOptionId !== undefined
+        && acceptedOptionIds[0] !== declaredCorrectOptionId)) {
       issues.push('answer_acceptance_option_mismatch');
     }
     if (readStringArray(value.acceptedKeywords).length > 0) {
@@ -1003,6 +1045,15 @@ function readAnswerAcceptance(
     acceptedKeywords,
     semanticEquivalentAllowed: value.semanticEquivalentAllowed === true,
   };
+}
+
+function readSingleChoiceCorrectOptionId(
+  value: unknown,
+  responseFormat: string | undefined,
+): string | undefined {
+  if (responseFormat !== 'single_choice' || !isRecord(value)) return undefined;
+  const correctOptionIds = readStringArray(value.correctOptionIds);
+  return correctOptionIds.length === 1 ? correctOptionIds[0] : undefined;
 }
 
 function readMinimumAnswerRequirement(

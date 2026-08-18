@@ -7,7 +7,7 @@ import {
   STRUCTURED_QUESTION_TYPES,
 } from '../schemas/questionResourceAdmission.schema.ts';
 
-export const MATERIAL_OBSERVATION_DRAFT_PROMPT_VERSION = 'material_observation_draft_prompt_v1_11' as const;
+export const MATERIAL_OBSERVATION_DRAFT_PROMPT_VERSION = 'material_observation_draft_prompt_v1_12' as const;
 
 type MaterialObservationDraftRepairItem = {
   candidateIndex: number;
