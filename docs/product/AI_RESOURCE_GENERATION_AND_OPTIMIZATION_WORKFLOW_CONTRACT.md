@@ -3,8 +3,8 @@
 英文名称：AI Resource Generation and Optimization Workflow Contract
 
 状态：DESIGN FROZEN / P0-P7 ENGINEERING COMPLETE / SINGLE-OPERATOR ADOPTION ORCHESTRATION DEBUG ACCEPTED
-契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_6`
-更新日期：2026-08-12
+契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_7`
+更新日期：2026-08-18
 
 产品确认日期：2026-08-05
 产品确认结论：同意以不可变 `QuestionCandidate` 作为 AI 生成、重新生成、优化和异常纠错的统一承载对象；只有采用 Candidate 才进入 Question Revision、检查、确认和发布链。P1-P5 已依次完成 Candidate 基础能力、页面接入、正式 Revision 采用、优化与异常纠错；P6 已将 Candidate 设为唯一正式生产主链，并把历史 Working Content 降级为只读迁移兼容数据。已发布资源读取链路保持不变。
@@ -26,6 +26,8 @@
 ## 一、目的
 
 本文定义统一资源生产工作台中 AI 生成、重新生成、优化、采用和异常纠错的职责边界。
+
+当完整 Candidate 使用 `responseFormat = single_choice` 时，选择交互仍属于 `content` 的不可变组成部分，并遵循[阅读训练单项选择作答契约](./READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md)。选项、答案键或干扰项依据变化都必须形成新 Candidate 和新内容哈希；不得把它们拆成采用后的人工编辑步骤。
 
 本契约的目标不是把现有题库编辑器更换一组按钮，而是把标准生产模式冻结为：
 

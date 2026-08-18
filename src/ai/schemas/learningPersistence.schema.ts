@@ -5,6 +5,7 @@ import type { StudentLearningFeedback } from './studentLearningFeedback.schema.t
 import type { StudentRoundSummary } from './studentRoundSummary.schema.ts';
 import type { ConcreteLearningTask } from './concreteLearningTask.schema.ts';
 import type { StudentResponse } from './taskExecution.schema.ts';
+import type { SingleChoiceStudentAnswerValue } from './singleChoiceInteraction.schema.ts';
 
 export const LEARNING_PERSISTENCE_VERSION = 'phase12_1_v1';
 export const LEARNING_PERSISTENCE_SCHEMA_VERSION = 'learning_persistence_v1';
@@ -35,6 +36,7 @@ export type LearningPersistenceRecord = {
   learningRoundResult?: LearningRoundResult;
   concreteTask?: ConcreteLearningTask;
   answerDraft?: string;
+  singleChoiceDraft?: SingleChoiceStudentAnswerValue;
   studentResponse?: StudentResponse;
   studentLearningFeedback?: StudentLearningFeedback;
   studentRoundSummary?: StudentRoundSummary;
@@ -78,6 +80,7 @@ export type LearningPersistenceInput = {
   learningRoundResult?: LearningRoundResult;
   concreteTask?: ConcreteLearningTask;
   answerDraft?: string;
+  singleChoiceDraft?: SingleChoiceStudentAnswerValue;
   studentResponse?: StudentResponse;
   studentLearningFeedback?: StudentLearningFeedback;
   studentRoundSummary?: StudentRoundSummary;

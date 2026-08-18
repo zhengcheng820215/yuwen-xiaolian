@@ -12,6 +12,10 @@ import {
   calculateQuestionEditableFieldsHash,
   type QuestionEditableFields,
 } from '../schemas/workingTaskContent.schema.ts';
+import {
+  evaluateGeneratedSingleChoiceOptions,
+  evaluateSingleChoiceTrainingFit,
+} from './singleChoiceGenerationPolicy.ts';
 
 const ACTION_PATTERNS: Array<[string, RegExp]> = [
   ['extract', /找出|写出|指出|摘录|识别/u],
@@ -195,6 +199,36 @@ export function evaluateQuestionGenerationQuality(input: {
       details: { missingFields: completeness.missingFields },
     });
   }
+  if (input.candidate.responseFormat === 'single_choice') {
+    const optionQuality = evaluateGeneratedSingleChoiceOptions(
+      input.candidate.choiceInteraction,
+    );
+    if (!optionQuality.passed) {
+      findings.push({
+        code: 'choice_option_quality_invalid',
+        severity: 'blocker',
+        message: '单选候选的选项、答案键或干扰项依据未达到生成质量要求。',
+        details: { issueCodes: optionQuality.issues.map((issue) => issue.code) },
+      });
+    }
+    const trainingFit = evaluateSingleChoiceTrainingFit({
+      primaryAbilityId: input.candidate.abilityMetadata.abilityId,
+      observationDimension: readObservationDimension(input.candidate.tags),
+      questionStem: input.candidate.questionStem,
+      expectedStudentAction: input.candidate.rubric
+        .map((item) => `${item.name} ${item.description || ''}`)
+        .join(' '),
+      requiredRubricCount: input.candidate.rubric.filter((item) => item.required).length,
+    });
+    if (!trainingFit.passed) {
+      findings.push({
+        code: 'choice_training_action_mismatch',
+        severity: 'blocker',
+        message: '当前训练动作需要学生组织文本答案，不适合生成单项选择。',
+        details: { issueCodes: trainingFit.issues.map((issue) => issue.code) },
+      });
+    }
+  }
   if (input.baseContentHash
     && calculateQuestionEditableFieldsHash(input.candidate) === input.baseContentHash) {
     findings.push({
@@ -279,6 +313,11 @@ function extractEvidenceScopes(content: QuestionEditableFields): string[] {
   return /全文|整篇|结合文章|结合上下文|联系全文/u.test(content.questionStem)
     ? ['full_text']
     : [];
+}
+
+function readObservationDimension(tags: string[]): string {
+  return tags.find((tag) => tag.startsWith('observation_dimension:'))
+    ?.slice('observation_dimension:'.length) || '';
 }
 
 function meaningfulTokens(text: string): string[] {

@@ -4,6 +4,10 @@ import type {
   TaskGenerationRequest,
 } from './taskFulfillment.schema.ts';
 import type { RecommendedTaskRole } from './nextLearningStrategy.schema.ts';
+import type {
+  SingleChoiceInteraction,
+  StudentSingleChoiceDelivery,
+} from './singleChoiceInteraction.schema.ts';
 
 export type ConcreteLearningTaskSourceType =
   | 'matched_resource'
@@ -24,6 +28,10 @@ export type ConcreteLearningTask = {
   taskRole: RecommendedTaskRole;
   validationGoal: string;
   readingText?: string;
+  responseFormat?: 'text' | 'single_choice';
+  singleChoiceDelivery?: StudentSingleChoiceDelivery;
+  /** Internal evaluation basis. Never expose this field in the student workspace projection. */
+  singleChoiceEvaluation?: SingleChoiceInteraction;
   question: string;
   answerRequirements: string[];
   referenceAnswer?: string;
@@ -98,6 +106,10 @@ export function isConcreteLearningTask(value: unknown): value is ConcreteLearnin
     isNonEmptyString(task.taskRole) &&
     isNonEmptyString(task.validationGoal) &&
     isNonEmptyString(task.question) &&
+    (
+      task.responseFormat !== 'single_choice' ||
+      Boolean(task.singleChoiceDelivery && task.singleChoiceEvaluation)
+    ) &&
     Array.isArray(task.answerRequirements) &&
     task.answerRequirements.length > 0 &&
     task.answerRequirements.every(isNonEmptyString) &&

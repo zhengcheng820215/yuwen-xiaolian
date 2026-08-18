@@ -170,6 +170,7 @@ function toCompleteContent(
     questionStem: candidate.questionStem,
     questionType: candidate.questionDraft.questionType,
     responseFormat: candidate.questionDraft.responseFormat,
+    choiceInteraction: candidate.choiceInteraction,
     assessmentMode: candidate.assessmentMode,
     answerAcceptance: {
       ...candidate.answerAcceptanceDraft,

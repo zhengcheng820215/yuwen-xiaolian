@@ -2,6 +2,7 @@ import type {
   ConcreteLearningTask,
   TaskReadinessValidation,
 } from './concreteLearningTask.schema.ts';
+import type { SingleChoiceStudentAnswerValue } from './singleChoiceInteraction.schema.ts';
 
 export type TaskExecutionSessionStatus =
   | 'started'
@@ -28,6 +29,8 @@ export type StudentResponse = {
   studentId: string;
   taskId: string;
   answerText: string;
+  responseFormat?: 'text' | 'single_choice';
+  singleChoiceAnswer?: SingleChoiceStudentAnswerValue;
   submittedAt: string;
   usedHint: boolean;
   hintCount: number;
@@ -66,7 +69,8 @@ export type TaskExecutionResult = {
 };
 
 export type StudentAnswerInput = {
-  answerText: string;
+  answerText?: string;
+  singleChoiceAnswer?: SingleChoiceStudentAnswerValue;
   usedHint?: boolean;
   hintCount?: number;
   submittedAt?: string;
@@ -114,6 +118,10 @@ export function isStudentResponse(value: unknown): value is StudentResponse {
     isNonEmptyString(response.studentId) &&
     isNonEmptyString(response.taskId) &&
     typeof response.answerText === 'string' &&
+    (
+      response.responseFormat !== 'single_choice' ||
+      Boolean(response.singleChoiceAnswer)
+    ) &&
     isNonEmptyString(response.submittedAt) &&
     typeof response.usedHint === 'boolean' &&
     typeof response.hintCount === 'number'

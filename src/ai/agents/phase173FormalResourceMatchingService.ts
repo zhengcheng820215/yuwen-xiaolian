@@ -41,6 +41,7 @@ export type Phase173FormalResourceMatchInput = {
   recentHistory?: Partial<ResourceMatchRecentHistory>;
   evaluatedAt?: string;
   bootstrapMaterialId?: string;
+  requiredResourceVersionId?: string;
 };
 
 type FormalResourceMatchScope = 'all_active' | 'phase173_batch_a';
@@ -80,9 +81,15 @@ async function matchFormalResource(
     input.resourceRepository,
     evaluatedAt,
   );
-  const snapshot = scope === 'phase173_batch_a'
+  const scopedSnapshot = scope === 'phase173_batch_a'
     ? batchASnapshot(completeSnapshot)
     : completeSnapshot;
+  const snapshot = input.requiredResourceVersionId
+    ? resourceVersionSnapshot(scopedSnapshot, input.requiredResourceVersionId)
+    : scopedSnapshot;
+  if (input.requiredResourceVersionId && snapshot.frozenVersions.length === 0) {
+    return blocked(input.taskRequest.taskRequestId, 'required_resource_version_unavailable');
+  }
   if (snapshot.registryEntries.length === 0) {
     return noMatch(
       input.taskRequest.taskRequestId,
@@ -491,6 +498,33 @@ function batchASnapshot(snapshot: ResourceEligibilitySnapshot): ResourceEligibil
       ...registryEntries.map((entry) => (
         `${entry.resourceId}:${entry.currentFrozenVersionId || 'none'}:${entry.status}`
       )),
+    ]),
+    registryEntries,
+    frozenVersions,
+    validations: snapshot.validations.filter((item) => validationIds.has(item.validationId)),
+    reviews: snapshot.reviews.filter((item) => reviewIds.has(item.reviewId)),
+  };
+}
+
+function resourceVersionSnapshot(
+  snapshot: ResourceEligibilitySnapshot,
+  resourceVersionId: string,
+): ResourceEligibilitySnapshot {
+  const frozenVersions = snapshot.frozenVersions.filter((version) => (
+    version.resourceVersionId === resourceVersionId
+  ));
+  const resourceIds = new Set(frozenVersions.map((version) => version.resourceId));
+  const validationIds = new Set(frozenVersions.map((version) => version.validationId));
+  const reviewIds = new Set(frozenVersions.map((version) => version.reviewId));
+  const registryEntries = snapshot.registryEntries.filter((entry) => (
+    resourceIds.has(entry.resourceId) &&
+    entry.currentFrozenVersionId === resourceVersionId
+  ));
+  return {
+    ...snapshot,
+    snapshotId: buildStableId('formal-resource-version-snapshot', [
+      snapshot.snapshotId,
+      resourceVersionId,
     ]),
     registryEntries,
     frozenVersions,

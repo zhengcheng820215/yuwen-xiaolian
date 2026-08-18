@@ -426,6 +426,7 @@ function allowedEvidenceRefPrefixes(): string[] {
     'draft.questionType',
     'draft.responseFormat',
     'draft.options',
+    'draft.choiceInteraction',
     'draft.answerAcceptance',
     'draft.rubric',
     'draft.minimumAnswerRequirement',

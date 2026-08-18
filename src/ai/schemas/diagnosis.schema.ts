@@ -52,6 +52,7 @@ export type QuestionMetadataRubricItem = {
 export type AnswerAcceptance = {
   acceptedAnswers?: string[];
   acceptedKeywords?: string[];
+  acceptedOptionIds?: string[];
   semanticEquivalentAllowed?: boolean;
   normalizationRules?: Array<
     | 'trim'

@@ -2,6 +2,7 @@ import type {
   RealLLMDiagnosisRuntimeResult,
 } from '../ai/schemas/diagnosisRunRecord.schema.ts';
 import type { RealLLMRuntimeFoundationInput } from '../ai/agents/realLLMRuntimeFoundationAgent.ts';
+import { runSingleChoiceDiagnosis } from '../ai/agents/singleChoiceDiagnosisAgent.ts';
 
 const ENDPOINT = '/__runtime/phase16-3/diagnose';
 
@@ -46,6 +47,9 @@ export function isPhase163DiagnosisBoundaryUnavailable(error: unknown): boolean 
 export async function runDiagnosisThroughPhase163Boundary(
   input: RealLLMRuntimeFoundationInput,
 ): Promise<RealLLMDiagnosisRuntimeResult> {
+  if (input.concreteTask.responseFormat === 'single_choice') {
+    return runSingleChoiceDiagnosis(input);
+  }
   const response = await fetch(ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

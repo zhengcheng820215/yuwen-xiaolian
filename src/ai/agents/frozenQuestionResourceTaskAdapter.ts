@@ -6,6 +6,7 @@ import type {
 import type { QuestionMetadataRubricItem } from '../schemas/diagnosis.schema.ts';
 import type { FrozenQuestionResourceVersion } from '../schemas/questionResourceAdmission.schema.ts';
 import type { QualityGatedExecutableTask } from '../schemas/resourceMatchQuality.schema.ts';
+import { createStudentSingleChoiceDelivery } from '../schemas/singleChoiceInteraction.schema.ts';
 
 export type FrozenQuestionResourceTaskPreparationResult = {
   status: 'prepared' | 'blocked';
@@ -93,9 +94,16 @@ function buildConcreteTaskOverrides(
     targetAbilityId,
     targetAbilityName: abilityDisplayName(targetAbilityId),
     readingText: version.materialSnapshot?.content,
+    responseFormat: version.responseFormat === 'single_choice' ? 'single_choice' : 'text',
+    singleChoiceDelivery: version.responseFormat === 'single_choice' && version.choiceInteraction
+      ? createStudentSingleChoiceDelivery(version.choiceInteraction)
+      : undefined,
+    singleChoiceEvaluation: version.responseFormat === 'single_choice'
+      ? version.choiceInteraction
+      : undefined,
     question: version.questionStem,
     answerRequirements: buildAnswerRequirements(version),
-    referenceAnswer: acceptedAnswers[0] ||
+    referenceAnswer: version.responseFormat === 'single_choice' ? undefined : acceptedAnswers[0] ||
       (scoringPoints.length > 0 ? scoringPoints.join('；') : acceptedKeywords.join('、')) ||
       undefined,
     scoringPoints: scoringPoints.length > 0 ? scoringPoints : rubric.map((item) => item.description || item.name),
@@ -119,6 +127,9 @@ function buildConcreteTaskOverrides(
 }
 
 function buildAnswerRequirements(version: FrozenQuestionResourceVersion): string[] {
+  if (version.responseFormat === 'single_choice') {
+    return ['请选择一个最符合材料和题意的答案。'];
+  }
   const requirements = [`至少作答 ${version.minimumAnswerRequirement.minLength} 个字。`];
   if (version.minimumAnswerRequirement.requireTextEvidence) requirements.push('需要提供文本依据。');
   if (version.minimumAnswerRequirement.requireExplanation) requirements.push('需要说明依据与结论的关系。');

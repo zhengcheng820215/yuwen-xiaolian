@@ -123,6 +123,8 @@ export function buildQuestionOptimizationBaseline(
           title: version.title,
           questionStem: version.questionStem,
           responseFormat: version.responseFormat,
+          choiceInteraction: version.choiceInteraction,
+          answerAcceptance: version.answerAcceptance,
           rubric: version.rubric,
           minimumAnswerRequirement: version.minimumAnswerRequirement,
           abilityMetadata: version.abilityMetadata,

@@ -4,9 +4,9 @@
 
 状态：`ACTIVE`
 
-文档版本：`ai_question_generation_quality_and_targeted_optimization_v1.6`
+文档版本：`ai_question_generation_quality_and_targeted_optimization_v1.7`
 
-生效日期：`2026-08-13`
+生效日期：`2026-08-18`
 
 ## 一、目标与适用范围
 
@@ -19,6 +19,8 @@
 5. 采用失败或系统中断时继续保护当前正式题和 Learning 消费。
 
 本文不授权 AI 修改材料正文、原位覆盖 Frozen Question Version、批量替换全部题目，也不增加人工改题、审核人、审核意见或第二次确认。
+
+阅读训练单项选择的对象结构、适用边界、干扰项质量、学生投影、Diagnosis、真实数据和分阶段验收统一遵循[阅读训练单项选择作答契约](./READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md)。Schema 中预留 `single_choice` 枚举不等于工程能力已经可执行；在该契约阶段1—4完成前，不得将其标记为正式覆盖能力。
 
 ## 二、当前基线与优化边界
 
@@ -88,7 +90,17 @@
 
 Rubric 数量本身不是格式阻断规则。有些题虽然评分点较多，但每个评分点都能通过简短、明确且互不冲突的答案表达，此时仍可以使用 `short_text`。系统必须结合题干动作、回答对象、证据范围和预计回答负荷完成一致性检查，不能仅按评分项数量机械切换格式。
 
-### 4.3 一致性检查
+### 4.3 单项选择适用条件
+
+`single_choice` 只适用于能够通过一次明确选择观察的训练动作，例如信息定位、基础理解、局部判断、简单因果和语句作用的初步辨认。生成器不得为了题型丰富度或固定配额把概括、多证据整合、推理、人物分析和主题理解改造成单选题。
+
+选择题必须作为独立 `QuestionCandidate` 生成，不嵌入文本题内部。AI 必须一次生成完整题干、稳定选项身份、唯一正确答案、逐项干扰依据、Answer Acceptance 和 Rubric。任一错误选项缺少可解释偏差时，候选不得进入“可以发布”。详细规则以[阅读训练单项选择作答契约](./READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md)为准。
+
+同篇任务推荐由低输入负荷向高输入负荷组织，但选择题不固定排第一。实际顺序由 Observation Plan 的教学意图和任务依赖决定，`taskRole` 只约束任务用途。
+
+第一版只允许 `single_choice`，不实现 `multiple_choice`、选择后追问或反馈后立即改选。
+
+### 4.4 一致性检查
 
 系统必须同时检查：
 

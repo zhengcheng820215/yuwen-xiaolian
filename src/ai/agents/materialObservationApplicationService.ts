@@ -708,6 +708,7 @@ function buildProductionQuestionDraftContent(
     questionStem: task.observationGoal,
     questionType: task.resourceDraftSpecification?.questionType || 'reading_comprehension',
     responseFormat: task.resourceDraftSpecification?.responseFormat || 'long_text',
+    choiceInteraction: task.resourceDraftSpecification?.choiceInteraction,
     assessmentMode: task.resourceDraftSpecification?.assessmentMode || 'reasoning_chain',
     answerAcceptance: task.resourceDraftSpecification?.answerAcceptance
       || { semanticEquivalentAllowed: true, normalizationRules: ['trim', 'ignore_punctuation'] },
@@ -798,6 +799,7 @@ async function synchronizeEditableQuestionDraft(
     questionType: desired.questionType,
     responseFormat: desired.responseFormat,
     options: desired.options,
+    choiceInteraction: desired.choiceInteraction,
     assessmentMode: desired.assessmentMode,
     answerAcceptance: desired.answerAcceptance,
     rubric: desired.rubric,

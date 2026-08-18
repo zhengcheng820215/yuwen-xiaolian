@@ -6,6 +6,7 @@ import {
   isPrimaryAbilityId,
   isQuestionResourceDifficulty,
   isQuestionResourceTaskRole,
+  isMinimumAnswerRequirement,
   type FrozenQuestionResourceVersion,
   type PrimaryAbilityId,
   type QuestionMaterialVersion,
@@ -14,6 +15,10 @@ import {
   type ResourceValidationResult,
   type StructuredQuestionDraft,
 } from '../schemas/questionResourceAdmission.schema.ts';
+import {
+  isSingleChoiceInteraction,
+  isSingleChoiceMinimumResponseRequirement,
+} from '../schemas/singleChoiceInteraction.schema.ts';
 import type { RecommendedTaskRole } from '../schemas/nextLearningStrategy.schema.ts';
 import type { CreateStructuredQuestionDraftInput } from './questionResourceAdmissionAgent.ts';
 import {
@@ -475,8 +480,27 @@ function validateResourceDraftSpecification(
       error(issues, 'task.rubric_ability_undeclared', `${prefix}.rubric.${rubricIndex}.abilityId`, 'Rubric Ability must be the primary or a declared supporting Ability.');
     }
   });
-  if (specification.minimumAnswerRequirement.minLength < 1) {
+  if (!isMinimumAnswerRequirement(specification.minimumAnswerRequirement)) {
+    error(issues, 'task.minimum_answer_invalid', `${prefix}.minimumAnswerRequirement`, 'Minimum answer requirement is invalid for its response format.');
+  } else if (specification.responseFormat !== 'single_choice' && specification.minimumAnswerRequirement.minLength < 1) {
     error(issues, 'task.minimum_answer_invalid', `${prefix}.minimumAnswerRequirement.minLength`, 'Minimum answer length must be positive.');
+  }
+  if (specification.responseFormat === 'single_choice') {
+    if (!isSingleChoiceInteraction(specification.choiceInteraction)) {
+      error(issues, 'task.choice_interaction_invalid', `${prefix}.choiceInteraction`, 'Single-choice task requires a complete choice interaction.');
+    }
+    if (!isSingleChoiceMinimumResponseRequirement(specification.minimumAnswerRequirement)) {
+      error(issues, 'task.choice_minimum_invalid', `${prefix}.minimumAnswerRequirement`, 'Single-choice task requires exactly one structured selection.');
+    }
+    if (specification.assessmentMode !== 'exact_match') {
+      error(issues, 'task.choice_assessment_invalid', `${prefix}.assessmentMode`, 'Single-choice task must use exact_match.');
+    }
+    if (specification.answerAcceptance?.acceptedOptionIds?.[0]
+      !== specification.choiceInteraction?.correctOptionIds?.[0]) {
+      error(issues, 'task.choice_answer_mismatch', `${prefix}.answerAcceptance.acceptedOptionIds`, 'Accepted option must match the correct option identity.');
+    }
+  } else if (specification.choiceInteraction !== undefined) {
+    error(issues, 'task.choice_interaction_unused', `${prefix}.choiceInteraction`, 'Choice interaction is only valid for single_choice.');
   }
   if (specification.supportingAbilityIds.includes(task.abilityId)) {
     error(issues, 'task.supporting_ability_duplicates_primary', `${prefix}.supportingAbilityIds`, 'Primary Ability cannot also be a supporting Ability.');

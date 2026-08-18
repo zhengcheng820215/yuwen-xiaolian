@@ -174,11 +174,15 @@ function caseDifferentMaterials(): void {
 }
 
 function caseResourceOnlyQuestionType(): void {
+  const capability = createPhase17ProductCapabilitySnapshot({
+    createdAt: NOW,
+    questionTypes: { multiple_choice: 'resource_only' },
+  });
   const result = run([{
     id: 'choice',
     questionType: 'multiple_choice',
     responseFormat: 'single_choice',
-  }]);
+  }], undefined, capability);
   expect(hasGap(result, 'question_type_not_product_executable'), 'Resource-only question type entered coverage.');
   expect(result.summary.executableResourceCount === 0, 'Resource-only question became product executable.');
 }
@@ -278,8 +282,8 @@ function caseCapabilityVersionedResult(): void {
   const first = requireReport(generateResourceCoverage(input));
   const changed = createPhase17ProductCapabilitySnapshot({
     createdAt: NOW,
-    questionTypes: { multiple_choice: 'accepted' },
-    responseFormats: { single_choice: 'accepted' },
+    questionTypes: { multiple_choice: 'blocked' },
+    responseFormats: { single_choice: 'blocked' },
   });
   const second = requireReport(generateResourceCoverage({ ...input, capabilitySnapshot: changed }));
   expect(first.capabilitySnapshotId !== second.capabilitySnapshotId, 'Capability Snapshot identity did not change.');

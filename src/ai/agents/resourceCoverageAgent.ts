@@ -96,7 +96,7 @@ export function createPhase17ProductCapabilitySnapshot(
   const questionTypes = mapRecord(
     STRUCTURED_QUESTION_TYPES,
     (questionType) => input.questionTypes?.[questionType] || (
-      ['open_short_answer', 'reading_comprehension'].includes(questionType)
+      ['multiple_choice', 'open_short_answer', 'reading_comprehension'].includes(questionType)
         ? 'accepted'
         : 'resource_only'
     ),
@@ -104,7 +104,7 @@ export function createPhase17ProductCapabilitySnapshot(
   const responseFormats = mapRecord(
     QUESTION_RESPONSE_FORMATS,
     (format) => input.responseFormats?.[format] || (
-      ['short_text', 'long_text'].includes(format) ? 'accepted' : 'resource_only'
+      ['single_choice', 'short_text', 'long_text'].includes(format) ? 'accepted' : 'resource_only'
     ),
   );
   const capabilitySnapshotId = buildStableId('product-executable-capability', [
@@ -182,7 +182,7 @@ function defaultTarget(
       minimumMaterialClusterCount: 2,
       minimumIndependentContextCount: 2,
       requiredDifficulties: ['basic', 'intermediate'],
-      allowedQuestionTypes: ['open_short_answer', 'reading_comprehension'],
+      allowedQuestionTypes: ['multiple_choice', 'open_short_answer', 'reading_comprehension'],
     };
   }
   if (taskRole === 'retest' || taskRole === 'transfer') {
@@ -194,7 +194,7 @@ function defaultTarget(
       minimumMaterialClusterCount: 1,
       minimumIndependentContextCount: 1,
       requiredDifficulties: ['intermediate'],
-      allowedQuestionTypes: ['open_short_answer', 'reading_comprehension'],
+      allowedQuestionTypes: ['multiple_choice', 'open_short_answer', 'reading_comprehension'],
     };
   }
   return {
@@ -205,7 +205,7 @@ function defaultTarget(
     minimumMaterialClusterCount: 0,
     minimumIndependentContextCount: 0,
     requiredDifficulties: [],
-    allowedQuestionTypes: ['open_short_answer', 'reading_comprehension'],
+    allowedQuestionTypes: ['multiple_choice', 'open_short_answer', 'reading_comprehension'],
   };
 }
 
@@ -606,8 +606,20 @@ function rubricAndAnswerRequirementComplete(version: FrozenQuestionResourceVersi
   const primaryItems = version.rubric.filter((item) => (
     item.abilityId === version.abilityMetadata.abilityId &&
     item.required &&
-    item.acceptedSignals.some((signal) => signal.trim().length > 0)
+      item.acceptedSignals.some((signal) => signal.trim().length > 0)
   ));
+  if (version.responseFormat === 'single_choice') {
+    const minimum = version.minimumAnswerRequirement;
+    return (
+      primaryItems.length > 0 &&
+      minimum.responseFormat === 'single_choice' &&
+      minimum.minLength === 0 &&
+      minimum.minSelections === 1 &&
+      minimum.maxSelections === 1 &&
+      minimum.requireTextEvidence === false &&
+      minimum.requireExplanation === false
+    );
+  }
   return (
     primaryItems.length > 0 &&
     Number.isInteger(version.minimumAnswerRequirement.minLength) &&

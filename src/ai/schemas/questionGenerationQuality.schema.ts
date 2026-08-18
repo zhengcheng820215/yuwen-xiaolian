@@ -1,7 +1,7 @@
 import type { QuestionResponseFormat } from './questionResourceAdmission.schema.ts';
 
 export const QUESTION_GENERATION_QUALITY_POLICY_VERSION =
-  'question_generation_quality_v1' as const;
+  'question_generation_quality_v2' as const;
 
 export type QuestionGenerationQualitySeverity = 'blocker' | 'strong_hint' | 'advisory';
 
@@ -14,7 +14,10 @@ export type QuestionGenerationQualityCode =
   | 'substantive_duplicate'
   | 'ability_concentration'
   | 'difficulty_concentration'
-  | 'foundational_gap';
+  | 'foundational_gap'
+  | 'choice_structure_invalid'
+  | 'choice_training_action_mismatch'
+  | 'choice_option_quality_invalid';
 
 export type QuestionResponseLoadAnalysis = {
   actionCount: number;

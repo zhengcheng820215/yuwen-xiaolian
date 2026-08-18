@@ -4,9 +4,9 @@
 
 状态：`DESIGN ACCEPTED / STAGES 1–4 ENGINEERING + DEBUG + E2E PASS / REAL USE CALIBRATION PENDING`
 
-文档版本：`learning_feedback_guided_revision_v1.2`
+文档版本：`learning_feedback_guided_revision_v1.3`
 
-生效日期：`2026-08-14`
+生效日期：`2026-08-18`
 
 ## 一、目的
 
@@ -28,6 +28,7 @@
 - 训练证据权重遵循[训练模型](../education/TRAINING_MODEL.md)；
 - 当前事件、校准 Attempt 和完整性审计遵循[真实 Learning 最小采集工程契约](./REAL_LEARNING_MINIMUM_COLLECTION_ENGINEERING_CONTRACT.md)；
 - 学生端表达不得新增正式诊断结论，继续遵循[学生学习叙事校准](./STUDENT_LEARNING_NARRATIVE_CALIBRATION.md)。
+- 阅读训练单项选择的作答、反馈和改选边界遵循[阅读训练单项选择作答契约](./READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md)。
 
 ## 二、核心原则
 
@@ -66,6 +67,7 @@
 - 不把 Revision 单独计为一道题或新的校准样本；
 - 不用修订后的正确结果覆盖 Initial Evidence；
 - 不在本功能中实现无效回答的 `Retry`；Retry 继续属于有效性恢复边界，后续单独设计。
+- 第一版不对 `single_choice` 开放即时改选。正式反馈可能已经暴露判断方向，反馈后的正确改选不能与首次独立选择等价；若以后支持，必须作为独立 Revision 保存且不得进入首次题目校准。
 
 ## 四、修订资格决策
 

@@ -4,9 +4,9 @@
 
 状态：`ACTIVE`
 
-文档版本：`ai_question_adoption_and_empirical_calibration_v1.8`
+文档版本：`ai_question_adoption_and_empirical_calibration_v1.9`
 
-生效日期：`2026-08-13`
+生效日期：`2026-08-18`
 
 ## 一、适用边界
 
@@ -16,6 +16,8 @@
 2. `QuestionCandidate`：针对单项训练任务生成的完整题目方案。
 
 QuestionCandidate 的生成完整性、作答格式匹配、题组去重、梯度提醒和定向试点范围，遵循[AI 题目生成质量与定向优化契约](./AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md)。
+
+当 QuestionCandidate 使用 `single_choice` 时，稳定选项身份、答案键隔离、逐项干扰依据、Learning 结构化响应和真实数据口径遵循[阅读训练单项选择作答契约](./READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md)。单选题不增加新的人工决定，仍只允许“采用并发布 / 不采用并重新优化”。
 
 素材标题和正文仍属于人工录入的原始输入，不属于“人工改题”。标准录入页不要求用户填写“来源说明”：系统根据录入动作自动记录 `sourceType = manual` 和创建时间，版权备注仅作为折叠的可选信息。进入 AI 生产阶段后，标准工作台不再提供训练任务删除、字段级改写、任务组编辑缓冲或独立保存步骤。
 
@@ -111,6 +113,8 @@ awaiting_data
 - 有效作答、空答、明显跑题、返回修改、完成时长与 Diagnosis；
 - 作答绑定的 `resourceVersionId`、Attempt有效性及是否存在成人较多帮助；
 - 由数据支持的问题归因：题干不清、难度/证据负荷不当、区分潜力不足或评分接受边界失配。
+
+`single_choice` 还必须记录绑定 Question Version 的稳定 `optionId`、`optionSetVersion`、当次显示顺序、命中的干扰项偏差和作答时长。选项显示字母不得作为持久化答案；不同 Question Version 或选项集合版本的数据不得合并。单次选择正确只表示本次结果与答案键一致，不能直接解释为能力掌握。
 
 样本不足只进入观察队列。达到当前版本化阈值后，治理层可以提出后继候选建议，但仍须沿用“完整候选 → 质量检查 → 采用并发布”的标准路径。禁止依据单次异常自动改题，也禁止跨 Question Version 合并样本来制造调整依据。
 

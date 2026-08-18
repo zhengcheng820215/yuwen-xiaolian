@@ -1,4 +1,5 @@
 import { buildStableId } from './reviewedResourceCandidateAdapter.ts';
+import type { SingleChoiceStudentAnswerValue } from '../schemas/singleChoiceInteraction.schema.ts';
 
 export function buildLearningCalibrationAttemptId(input: {
   studentId: string;
@@ -16,11 +17,19 @@ export function buildLearningCalibrationAttemptId(input: {
 
 export function buildLearningSubmissionIntentId(input: {
   responseId: string;
-  answerText: string;
+  answerText?: string;
+  singleChoiceAnswer?: SingleChoiceStudentAnswerValue;
 }): string {
   return buildStableId('learning-answer-submission', [
     input.responseId,
-    input.answerText.trim(),
+    input.singleChoiceAnswer
+      ? [
+        input.singleChoiceAnswer.responseFormat,
+        input.singleChoiceAnswer.optionSetVersion,
+        ...input.singleChoiceAnswer.selectedOptionIds,
+        ...input.singleChoiceAnswer.displayedOptionOrder,
+      ].join(':')
+      : (input.answerText || '').trim(),
   ]);
 }
 

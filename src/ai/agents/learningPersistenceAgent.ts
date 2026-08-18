@@ -26,6 +26,7 @@ export function createLearningPersistenceRecord(
     learningRoundResult: input.learningRoundResult,
     concreteTask: input.concreteTask,
     answerDraft: input.answerDraft,
+    singleChoiceDraft: input.singleChoiceDraft,
     studentResponse: input.studentResponse,
     studentLearningFeedback: input.studentLearningFeedback,
     studentRoundSummary: input.studentRoundSummary,
@@ -114,7 +115,7 @@ export function validatePersistenceRecord(record: LearningPersistenceRecord): st
   if (record.learningRoundResult?.status === 'completed' && !record.studentRoundSummary) {
     issues.push('Completed learning round is missing StudentRoundSummary.');
   }
-  if (!record.learningRoundResult && !record.concreteTask && !record.answerDraft) {
+  if (!record.learningRoundResult && !record.concreteTask && !record.answerDraft && !record.singleChoiceDraft) {
     issues.push('Record has no restorable learning state.');
   }
 
@@ -140,6 +141,19 @@ export function validateRestoreRecord(
   return uniqueStrings(issues);
 }
 
+export function resolveRestoredFormalResourceVersionId(input: {
+  checkpointSourceResourceVersionId?: string;
+  persistenceRecord?: LearningPersistenceRecord | null;
+}): string | undefined {
+  const checkpointVersionId = input.checkpointSourceResourceVersionId?.trim();
+  if (checkpointVersionId) return checkpointVersionId;
+
+  const task = input.persistenceRecord?.concreteTask;
+  if (task?.sourceType !== 'matched_resource') return undefined;
+  const persistedVersionId = task.questionMetadata?.questionId?.trim();
+  return persistedVersionId || undefined;
+}
+
 function determineResumeMode(record: LearningPersistenceRecord): LearningResumeMode {
   if (record.learningRoundResult?.status === 'completed') {
     return record.growthMemorySummary ? 'start_next_round' : 'view_completed_round';
@@ -147,7 +161,7 @@ function determineResumeMode(record: LearningPersistenceRecord): LearningResumeM
   if (record.learningRoundResult && record.studentRoundSummary) {
     return 'view_completed_round';
   }
-  if (record.concreteTask || typeof record.answerDraft === 'string') {
+  if (record.concreteTask || typeof record.answerDraft === 'string' || record.singleChoiceDraft) {
     return 'continue_unfinished_round';
   }
 

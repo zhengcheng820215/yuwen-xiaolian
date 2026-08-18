@@ -18,7 +18,12 @@ export type AnonymousQuestionCalibrationAttempt = {
   subjectKey: string;
   resourceVersionId: string;
   itemScore: number;
-  itemScorePolicyVersion: 'rubric_required_equal_weight_v1';
+  itemScorePolicyVersion: 'rubric_required_equal_weight_v1' | 'single_choice_correctness_v1';
+  responseFormat?: 'text' | 'single_choice';
+  selectedOptionIds?: string[];
+  optionSetVersion?: number;
+  displayedOptionOrder?: string[];
+  misconceptionCode?: string;
   totalScore?: number;
   totalScoreStatus: 'unavailable_single_round' | 'available_comparable_window';
   assessmentWindowId?: string;
@@ -51,7 +56,7 @@ export function normalizeQuestionCalibrationAttempt(
   if ('subjectKey' in attempt) {
     if (
       !isNonEmpty(attempt.subjectKey)
-      || attempt.itemScorePolicyVersion !== 'rubric_required_equal_weight_v1'
+      || !['rubric_required_equal_weight_v1', 'single_choice_correctness_v1'].includes(attempt.itemScorePolicyVersion)
       || !['unavailable_single_round', 'available_comparable_window'].includes(attempt.totalScoreStatus)
     ) return undefined;
     if (

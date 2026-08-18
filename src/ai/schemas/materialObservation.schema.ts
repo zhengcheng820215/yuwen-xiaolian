@@ -12,6 +12,7 @@ import {
   type QuestionResponseFormat,
   type StructuredQuestionType,
 } from './questionResourceAdmission.schema.ts';
+import type { SingleChoiceInteraction } from './singleChoiceInteraction.schema.ts';
 import type {
   AnswerAcceptance,
   AssessmentMode,
@@ -62,6 +63,7 @@ export type ObservationResourceDraftSpecification = {
   title?: string;
   questionType: StructuredQuestionType;
   responseFormat: QuestionResponseFormat;
+  choiceInteraction?: SingleChoiceInteraction;
   assessmentMode: AssessmentMode;
   answerAcceptance?: AnswerAcceptance;
   rubric: QuestionResourceRubricItem[];

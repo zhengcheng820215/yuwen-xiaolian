@@ -7,6 +7,10 @@ import {
 } from './workingTaskContent.schema.ts';
 import type { QuestionGenerationQualityEvaluation } from
   './questionGenerationQuality.schema.ts';
+import {
+  isSingleChoiceMinimumResponseRequirement,
+  validateSingleChoiceInteraction,
+} from './singleChoiceInteraction.schema.ts';
 
 export const QUESTION_CANDIDATE_SCHEMA_VERSION = 'question-candidate-v1' as const;
 
@@ -194,6 +198,77 @@ export type InitialCandidateCompleteness = {
   missingFields: CandidateFieldKey[];
 };
 
+export type QuestionCandidateContentValidationIssue = {
+  code: string;
+  field: 'studentTask' | 'answerAcceptance';
+  message: string;
+};
+
+export type QuestionCandidateContentValidation = {
+  passed: boolean;
+  issues: QuestionCandidateContentValidationIssue[];
+};
+
+export function validateQuestionCandidateContent(
+  content: QuestionEditableFields,
+): QuestionCandidateContentValidation {
+  const issues: QuestionCandidateContentValidationIssue[] = [];
+  if (content.responseFormat === 'single_choice') {
+    const choiceValidation = validateSingleChoiceInteraction(content.choiceInteraction);
+    choiceValidation.issues.forEach((issue) => {
+      issues.push({ code: issue.code, field: 'studentTask', message: issue.message });
+    });
+    if (content.questionType !== 'multiple_choice') {
+      issues.push({
+        code: 'choice.question_type',
+        field: 'studentTask',
+        message: 'Single-choice Candidate must use the multiple_choice question type.',
+      });
+    }
+    if (content.options && content.options.length > 0) {
+      issues.push({
+        code: 'choice.legacy_options_not_allowed',
+        field: 'studentTask',
+        message: 'Single-choice Candidate must use stable option objects.',
+      });
+    }
+    if (content.assessmentMode !== 'exact_match') {
+      issues.push({
+        code: 'choice.assessment_mode',
+        field: 'studentTask',
+        message: 'Single-choice Candidate must use exact_match.',
+      });
+    }
+    if (!isSingleChoiceMinimumResponseRequirement(content.minimumAnswerRequirement)) {
+      issues.push({
+        code: 'choice.minimum_response_requirement',
+        field: 'studentTask',
+        message: 'Single-choice Candidate requires exactly one structured selection.',
+      });
+    }
+    const acceptedOptionIds = content.answerAcceptance?.acceptedOptionIds || [];
+    const correctOptionIds = content.choiceInteraction?.correctOptionIds || [];
+    if (
+      acceptedOptionIds.length !== 1 ||
+      correctOptionIds.length !== 1 ||
+      acceptedOptionIds[0] !== correctOptionIds[0]
+    ) {
+      issues.push({
+        code: 'choice.answer_acceptance_mismatch',
+        field: 'answerAcceptance',
+        message: 'Accepted option ID must match the single correct option ID.',
+      });
+    }
+  } else if (content.choiceInteraction !== undefined) {
+    issues.push({
+      code: 'choice.interaction_unused',
+      field: 'studentTask',
+      message: 'Choice interaction requires responseFormat single_choice.',
+    });
+  }
+  return { passed: issues.length === 0, issues };
+}
+
 export function inspectInitialCandidateCompleteness(
   content: QuestionEditableFields,
 ): InitialCandidateCompleteness {
@@ -211,6 +286,7 @@ export function inspectInitialCandidateCompleteness(
   if (!content.rubric.length) missingFields.push('rubric');
   if (!content.answerAcceptance || (
     !Array.isArray(content.answerAcceptance.acceptedKeywords)
+    && !Array.isArray(content.answerAcceptance.acceptedOptionIds)
     && typeof content.answerAcceptance.semanticEquivalentAllowed !== 'boolean'
   )) {
     missingFields.push('answerAcceptance');
@@ -219,6 +295,8 @@ export function inspectInitialCandidateCompleteness(
     (tag) => tag.startsWith('observation_task:'),
   );
   if (!hasMaterialScope) missingFields.push('materialScope');
+  const contentValidation = validateQuestionCandidateContent(content);
+  contentValidation.issues.forEach((issue) => missingFields.push(issue.field));
   return {
     complete: missingFields.length === 0,
     missingFields: uniqueFields(missingFields),
@@ -230,6 +308,12 @@ export function createQuestionCandidate(input: Omit<
   'content' | 'contentHash' | 'schemaVersion'
 > & { content: QuestionEditableFields }): QuestionCandidate {
   const content = normalizeQuestionEditableFields(input.content);
+  const contentValidation = validateQuestionCandidateContent(content);
+  if (!contentValidation.passed) {
+    throw new Error(
+      `Question Candidate content is invalid: ${contentValidation.issues.map((issue) => issue.code).join(', ')}`,
+    );
+  }
   const contentHash = calculateQuestionEditableFieldsHash(content);
   return {
     ...cloneQuestionCandidate(input),
@@ -335,6 +419,7 @@ export function readCandidateField(
     case 'studentTask':
       return {
         responseFormat: content.responseFormat,
+        choiceInteraction: content.choiceInteraction,
         minimumAnswerRequirement: content.minimumAnswerRequirement,
       };
     case 'observationTarget':

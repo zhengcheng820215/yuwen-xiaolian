@@ -362,6 +362,7 @@ export function prepareMaterialCorpusOptimization(
           ...(task.resourceDraftSpecification || {
             questionType: version.questionType,
             responseFormat: version.responseFormat,
+            choiceInteraction: version.choiceInteraction,
             assessmentMode: version.assessmentMode,
             minimumAnswerRequirement: version.minimumAnswerRequirement,
             supportingAbilityIds: version.abilityMetadata.supportingAbilityIds,

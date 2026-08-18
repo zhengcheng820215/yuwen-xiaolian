@@ -5,6 +5,7 @@ import type { OpenResponseRubricItem } from '../schemas/diagnosis.schema.ts';
 import type { AnonymousQuestionCalibrationAttempt } from '../schemas/questionEmpiricalCalibration.schema.ts';
 import {
   QUESTION_CALIBRATION_ITEM_SCORE_POLICY_VERSION,
+  SINGLE_CHOICE_CALIBRATION_ITEM_SCORE_POLICY_VERSION,
   QUESTION_CALIBRATION_PROJECTION_SCHEMA_VERSION,
   validateQuestionCalibrationProjectionRecord,
   type QuestionCalibrationProjectionRecord,
@@ -25,6 +26,14 @@ export type QuestionCalibrationProjectionInput = {
   formalDiagnosisId?: string;
   formalDiagnosisCommitted: boolean;
   rubricItems?: OpenResponseRubricItem[];
+  responseFormat?: 'text' | 'single_choice';
+  choiceOutcome?: {
+    correct: boolean;
+    selectedOptionIds: string[];
+    optionSetVersion: number;
+    displayedOptionOrder: string[];
+    misconceptionCode?: string;
+  };
   resourceVersionId: string;
   projectedAt: string;
   identityIssues?: string[];
@@ -62,10 +71,17 @@ export class QuestionCalibrationProjectionService {
       responseId: input.responseId,
       formalDiagnosisId: input.formalDiagnosisId,
       resourceVersionId: input.resourceVersionId,
+      responseFormat: input.responseFormat,
+      selectedOptionIds: input.choiceOutcome?.selectedOptionIds,
+      optionSetVersion: input.choiceOutcome?.optionSetVersion,
+      displayedOptionOrder: input.choiceOutcome?.displayedOptionOrder,
+      misconceptionCode: input.choiceOutcome?.correct ? undefined : input.choiceOutcome?.misconceptionCode,
       itemScore: decision.itemScore,
       itemScorePolicyVersion: decision.itemScore === undefined
         ? undefined
-        : QUESTION_CALIBRATION_ITEM_SCORE_POLICY_VERSION,
+        : input.responseFormat === 'single_choice'
+          ? SINGLE_CHOICE_CALIBRATION_ITEM_SCORE_POLICY_VERSION
+          : QUESTION_CALIBRATION_ITEM_SCORE_POLICY_VERSION,
       totalScoreStatus: 'unavailable_single_round',
       valid: input.responseValidityStatus === 'valid',
       completedAt: input.roundCompleted ? input.completedAt : undefined,
@@ -97,7 +113,7 @@ export function toAnonymousAttempt(
     record.status !== 'eligible'
     || record.itemScore === undefined
     || !record.completedAt
-    || record.itemScorePolicyVersion !== QUESTION_CALIBRATION_ITEM_SCORE_POLICY_VERSION
+    || !record.itemScorePolicyVersion
   ) return undefined;
   return {
     attemptId: record.attemptId,
@@ -105,6 +121,11 @@ export function toAnonymousAttempt(
     resourceVersionId: record.resourceVersionId,
     itemScore: record.itemScore,
     itemScorePolicyVersion: record.itemScorePolicyVersion,
+    responseFormat: record.responseFormat,
+    selectedOptionIds: record.selectedOptionIds,
+    optionSetVersion: record.optionSetVersion,
+    displayedOptionOrder: record.displayedOptionOrder,
+    misconceptionCode: record.misconceptionCode,
     totalScoreStatus: 'unavailable_single_round',
     valid: true,
     completedAt: record.completedAt,
@@ -120,6 +141,11 @@ function decide(input: QuestionCalibrationProjectionInput): {
   if (input.responseValidityStatus !== 'valid') return excluded('excluded_invalid_response');
   if (!input.roundCompleted || !input.completedAt) return excluded('excluded_incomplete_round');
   if (!input.formalDiagnosisCommitted || !input.formalDiagnosisId) return excluded('excluded_missing_formal_diagnosis');
+  if (input.responseFormat === 'single_choice') {
+    if (!input.choiceOutcome) return excluded('excluded_unscorable');
+    if (input.identityIssues?.length) return { status: 'projection_failed', issues: input.identityIssues };
+    return { status: 'eligible', itemScore: input.choiceOutcome.correct ? 1 : 0, issues: [] };
+  }
   const required = (input.rubricItems || []).filter((item) => item.required);
   if (required.length === 0) return excluded('excluded_unscorable');
   if (input.identityIssues?.length) return { status: 'projection_failed', issues: input.identityIssues };

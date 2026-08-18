@@ -37,6 +37,8 @@ async function main(): Promise<void> {
   await genericRegistryRead(environment);
   await retiredMaterialIsExcluded(environment);
   await genericFormalMatch(environment);
+  await pinnedFormalResourceResume(environment);
+  await unavailablePinnedFormalResourceIsBlocked(environment);
   await legacyHintPolicyCompatibility(environment);
   await dynamicBootstrapAbility(environment);
   await exhaustedPoolFallsBackToReview(environment);
@@ -215,6 +217,47 @@ async function genericFormalMatch(environment: Environment): Promise<void> {
       result.resourceVersion.abilityMetadata.taskRole === 'training' &&
       result.taskReadiness?.canExecute === true,
     `status=${result.status}, resource=${result.resourceVersion?.resourceId || 'none'}, executable=${result.taskReadiness?.canExecute || false}`,
+  );
+}
+
+async function pinnedFormalResourceResume(environment: Environment): Promise<void> {
+  const pinned = environment.versions.find((item) => (
+    item.status === 'frozen' &&
+    item.abilityMetadata.abilityId === 'analysis' &&
+    item.abilityMetadata.taskRole === 'training'
+  ));
+  expect(pinned, 'Pinned formal resource fixture is missing.');
+  const result = await matchCurrentFormalResource({
+    taskRequest: createPhase173BatchABootstrapTaskRequest(STUDENT_ID, NOW),
+    studentId: STUDENT_ID,
+    resourceRepository: environment.resources,
+    observationRepository: environment.observations,
+    bootstrapMaterialId: pinned.materialId,
+    requiredResourceVersionId: pinned.resourceVersionId,
+    evaluatedAt: NOW,
+  });
+  record(
+    '02C 草稿恢复严格锁定原正式资源版本',
+    result.status === 'matched' &&
+      result.resourceVersion?.resourceVersionId === pinned.resourceVersionId,
+    `status=${result.status}, expected=${pinned.resourceVersionId}, actual=${result.resourceVersion?.resourceVersionId || 'none'}`,
+  );
+}
+
+async function unavailablePinnedFormalResourceIsBlocked(environment: Environment): Promise<void> {
+  const request = createPhase173BatchABootstrapTaskRequest(STUDENT_ID, NOW);
+  const result = await matchCurrentFormalResource({
+    taskRequest: request,
+    studentId: STUDENT_ID,
+    resourceRepository: environment.resources,
+    observationRepository: environment.observations,
+    requiredResourceVersionId: 'missing-formal-resource:v1',
+    evaluatedAt: NOW,
+  });
+  record(
+    '02D 原正式版本不可用时明确阻断且不静默换题',
+    result.status === 'blocked' && result.issues.includes('required_resource_version_unavailable'),
+    `status=${result.status}, issues=${result.issues.join('|') || 'none'}`,
   );
 }
 

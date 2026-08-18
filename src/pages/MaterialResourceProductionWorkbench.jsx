@@ -120,6 +120,7 @@ import { resolveCandidateOptimizationFieldPolicy } from
 import { analyzeQuestionResponseLoad } from
   '../ai/agents/questionGenerationQualityPolicyAgent.ts';
 import { FormalResourceCommandQueue } from './formalResourceCommandQueue.ts';
+import { resolveSingleChoiceCandidatePreview } from './singleChoiceCandidatePresentation.ts';
 import {
   subscribeFormalResourceRevisionUpdates,
   subscribeFormalResourceWriteRuntime,
@@ -3032,7 +3033,9 @@ export default function MaterialResourceProductionWorkbench() {
                         <TaskReadOnlyFact label="题目类型">{questionTypeDisplay(task.questionType)}</TaskReadOnlyFact>
                         <TaskReadOnlyFact label="作答形式">{responseFormatDisplay(task.responseFormat)}</TaskReadOnlyFact>
                         <TaskReadOnlyFact label="作答要求">
-                          {Number(task.minLength) > 0 ? `不少于 ${task.minLength} 字` : '未设置'}
+                          {task.responseFormat === 'single_choice'
+                            ? '选择 1 个答案'
+                            : Number(task.minLength) > 0 ? `不少于 ${task.minLength} 字` : '未设置'}
                         </TaskReadOnlyFact>
                       </dl>
                       {commaValues(task.supportingAbilityIdsText).length > 0 && (
@@ -3787,10 +3790,27 @@ function candidateAdoptionRecoveryMessage(result) {
 function CandidateContentPreview({ candidate }) {
   const content = candidate.content;
   const minimumAnswerLength = Number(content.minimumAnswerRequirement?.minLength || 0);
+  const choicePreview = content.responseFormat === 'single_choice'
+    ? resolveSingleChoiceCandidatePreview(content.choiceInteraction)
+    : null;
+  const choiceOptions = choicePreview?.options || [];
   return (
     <article className="min-w-0 border-l-2 border-violet-500 bg-white px-4 py-3">
       <p className="text-sm font-semibold text-slate-950">{content.title || '未命名候选'}</p>
       <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-800">{content.questionStem}</p>
+      {choiceOptions.length > 0 && (
+        <ol className="mt-3 space-y-2" aria-label="单项选择选项">
+          {choiceOptions.map((option) => (
+            <li
+              key={option.optionId}
+              className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-700"
+            >
+              <span className="font-medium text-slate-500">{option.displayLabel}.</span>
+              <span>{option.content}</span>
+            </li>
+          ))}
+        </ol>
+      )}
       {minimumAnswerLength > 0 && (
         <p className="mt-3 text-xs leading-5 text-slate-600">
           <span className="font-medium text-slate-800">作答要求：</span>
@@ -4063,6 +4083,20 @@ function GeneratorCandidatePreview({
                   <p className="inline-flex rounded bg-blue-50 px-2 py-1 text-xs font-normal text-blue-700">候选训练任务 {index + 1}</p>
                 </div>
                 <p className="mt-1 text-sm font-medium leading-6 text-slate-900">{candidate.questionStem}</p>
+                {candidate.questionDraft.responseFormat === 'single_choice'
+                  && candidate.choiceInteraction?.options?.length > 0 && (
+                  <ol className="mt-3 grid gap-2 sm:grid-cols-2" aria-label="候选单项选择选项">
+                    {candidate.choiceInteraction.options.map((option, optionIndex) => (
+                      <li
+                        key={option.optionId}
+                        className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2 rounded bg-white px-3 py-2 text-xs leading-5 text-slate-700"
+                      >
+                        <span className="font-medium text-slate-500">{String.fromCharCode(65 + optionIndex)}.</span>
+                        <span>{option.content}</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
               </div>
               <div className="px-4">
                 <p className="mt-1 text-sm leading-6 text-slate-600">作答要求：{formatExpectedStudentAction(candidate.expectedStudentAction)}</p>
@@ -4239,9 +4273,11 @@ function planTaskToEditableTask(task, index, anchors) {
     assessmentMode: specification?.assessmentMode || (task.abilityId === 'extraction' ? 'key_points' : 'reasoning_chain'),
     questionType: specification?.questionType || 'reading_comprehension',
     responseFormat: specification?.responseFormat || 'long_text',
+    choiceInteraction: specification?.choiceInteraction,
+    acceptedOptionIds: specification?.answerAcceptance?.acceptedOptionIds || [],
     acceptedKeywordsText: acceptedKeywords.join('\n'),
     semanticEquivalentAllowed: specification?.answerAcceptance?.semanticEquivalentAllowed !== false,
-    minLength: specification?.minimumAnswerRequirement?.minLength || (task.abilityId === 'extraction' ? 6 : 12),
+    minLength: specification?.minimumAnswerRequirement?.minLength ?? (task.abilityId === 'extraction' ? 6 : 12),
     rubric,
     calibrationCases,
   };
@@ -4257,6 +4293,7 @@ function buildWorkingQuestionEditableFields(task, draft) {
     questionStem: task.questionStem,
     questionType: specification.questionType,
     responseFormat: specification.responseFormat,
+    choiceInteraction: specification.choiceInteraction,
     assessmentMode: specification.assessmentMode,
     answerAcceptance: specification.answerAcceptance,
     rubric: specification.rubric,
@@ -4297,6 +4334,8 @@ function generatorCandidateToEditableTask(candidate, index) {
     assessmentMode: candidate.assessmentMode,
     questionType: candidate.questionDraft.questionType,
     responseFormat: candidate.questionDraft.responseFormat,
+    choiceInteraction: candidate.choiceInteraction,
+    acceptedOptionIds: candidate.answerAcceptanceDraft.acceptedOptionIds || [],
     acceptedKeywordsText: candidate.answerAcceptanceDraft.acceptedKeywords.join('\n'),
     semanticEquivalentAllowed: candidate.answerAcceptanceDraft.semanticEquivalentAllowed,
     minLength: candidate.minimumAnswerRequirement.minLength,
@@ -4559,12 +4598,20 @@ function toTaskInput(task) {
       title: `${abilityLabels[task.abilityId]} · ${task.focusDisplayName.trim()}`,
       questionType: task.questionType,
       responseFormat: task.responseFormat,
+      choiceInteraction: task.responseFormat === 'single_choice'
+        ? task.choiceInteraction
+        : undefined,
       assessmentMode: task.assessmentMode,
-      answerAcceptance: {
-        acceptedKeywords: lineValues(task.acceptedKeywordsText),
-        semanticEquivalentAllowed: task.semanticEquivalentAllowed,
-        normalizationRules: ['trim', 'ignore_punctuation', 'ignore_whitespace'],
-      },
+      answerAcceptance: task.responseFormat === 'single_choice'
+        ? {
+          acceptedOptionIds: task.acceptedOptionIds || task.choiceInteraction?.correctOptionIds || [],
+          normalizationRules: [],
+        }
+        : {
+          acceptedKeywords: lineValues(task.acceptedKeywordsText),
+          semanticEquivalentAllowed: task.semanticEquivalentAllowed,
+          normalizationRules: ['trim', 'ignore_punctuation', 'ignore_whitespace'],
+        },
       rubric: task.rubric.map((item, index) => ({
         itemId: `rubric-${index + 1}`,
         name: item.name.trim(),
@@ -4581,11 +4628,20 @@ function toTaskInput(task) {
           ? commaValues(item.acceptedSignalsText)
           : [item.description.trim()],
       })),
-      minimumAnswerRequirement: {
-        minLength: task.minLength,
-        requireTextEvidence: true,
-        requireExplanation: task.abilityId !== 'extraction',
-      },
+      minimumAnswerRequirement: task.responseFormat === 'single_choice'
+        ? {
+          responseFormat: 'single_choice',
+          minLength: 0,
+          requireTextEvidence: false,
+          requireExplanation: false,
+          minSelections: 1,
+          maxSelections: 1,
+        }
+        : {
+          minLength: task.minLength,
+          requireTextEvidence: true,
+          requireExplanation: task.abilityId !== 'extraction',
+        },
       supportingAbilityIds,
       prerequisiteAbilityIds: [],
       gradeRange: '七至九年级',
@@ -4608,6 +4664,8 @@ function taskPlanNeedsDraftAlignment(task, draft) {
     || task.difficulty !== draft.abilityMetadata?.difficulty
     || task.taskRole !== draft.abilityMetadata?.taskRole
     || task.responseFormat !== draft.responseFormat
+    || JSON.stringify(task.choiceInteraction || null) !== JSON.stringify(draft.choiceInteraction || null)
+    || JSON.stringify(task.acceptedOptionIds || []) !== JSON.stringify(draft.answerAcceptance?.acceptedOptionIds || [])
     || task.assessmentMode !== draft.assessmentMode;
 }
 
@@ -4621,8 +4679,10 @@ function alignEditableTaskToDraft(task, draft) {
     supportingAbilityIdsText: (draft.abilityMetadata.supportingAbilityIds || []).join(', '),
     questionType: draft.questionType,
     responseFormat: draft.responseFormat,
+    choiceInteraction: draft.choiceInteraction,
     assessmentMode: draft.assessmentMode,
     acceptedKeywordsText: (draft.answerAcceptance.acceptedKeywords || []).join('\n'),
+    acceptedOptionIds: draft.answerAcceptance.acceptedOptionIds || [],
     semanticEquivalentAllowed: draft.answerAcceptance.semanticEquivalentAllowed !== false,
     minLength: draft.minimumAnswerRequirement.minLength,
     rubric: draft.rubric.map((item, index) => ({
@@ -4650,6 +4710,7 @@ function buildQuestionCandidateContent(task, draft, selectedMaterial) {
     questionType: specification.questionType,
     responseFormat: specification.responseFormat,
     options: specification.options || [],
+    choiceInteraction: specification.choiceInteraction,
     assessmentMode: specification.assessmentMode,
     answerAcceptance: specification.answerAcceptance,
     rubric: specification.rubric,
@@ -4697,6 +4758,7 @@ function mergeCandidateContentByPolicy(baseContent, generatedContent, allowedFie
     merged.questionStem = generatedContent.questionStem;
     merged.responseFormat = generatedContent.responseFormat;
     merged.options = generatedContent.options;
+    merged.choiceInteraction = generatedContent.choiceInteraction;
     merged.minimumAnswerRequirement = generatedContent.minimumAnswerRequirement;
   }
   if (allowed.has('observationTarget')) merged.rubric = generatedContent.rubric;
@@ -5117,6 +5179,25 @@ function generatorIssueLabel(issue) {
     answer_acceptance_missing: '缺少可接受的作答范围',
     answer_acceptance_keywords_missing: '可接受的作答范围中缺少关键要点',
     semantic_equivalent_must_be_allowed: '未允许合理异表述',
+    answer_acceptance_option_mismatch: '正确答案与选项身份不一致',
+    answer_acceptance_choice_keywords_not_allowed: '单选题错误使用了文本关键词作为答案',
+    choice_interaction_unused: '非单选题包含了多余的选项结构',
+    choice_minimum_answer_requirement_invalid: '单选题作答要求不是“选择一个答案”',
+    'choice.interaction_required': '单选题缺少完整选项',
+    'choice.option_count': '单选题必须包含 3—5 个完整选项',
+    'choice.option_id_duplicate': '单选题选项身份重复',
+    'choice.option_content_duplicate': '单选题存在重复选项',
+    'choice.correct_option_count': '单选题必须且只能有一个正确答案',
+    'choice.distractor_coverage': '每个错误选项都必须有独立、可解释的偏差依据',
+    'choice.misconception_duplicate': '两个错误选项表达了相同的理解偏差',
+    'choice.distractor_evidence_boundary_missing': '错误选项缺少可核对的文本证据边界',
+    'choice.distractor_diagnosis_too_vague': '错误选项的偏差说明过于笼统',
+    'choice.correct_option_length_cue': '正确答案与其他选项长度差异过大，可能形成提示',
+    'choice.option_too_thin': '选项内容过于残缺，无法形成有效判断',
+    'choice.training_action_requires_text': '当前训练能力必须由学生组织文本作答',
+    'choice.training_action_requires_constructed_response': '当前训练动作要求组织或整合答案，不适合单选',
+    'choice.rubric_too_dense': '当前评分目标过多，不适合单选',
+    'choice.high_order_action_not_bounded': '当前分析或推理任务的观察边界不够明确，不适合单选',
     minimum_answer_requirement_missing: '缺少最低作答要求',
     minimum_answer_length_invalid: '最低字数不合法',
     minimum_answer_flags_invalid: '最低作答条件不完整',

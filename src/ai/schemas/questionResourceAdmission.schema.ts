@@ -3,6 +3,12 @@ import type {
   AssessmentMode,
 } from './diagnosis.schema.ts';
 import type { RecommendedTaskRole } from './nextLearningStrategy.schema.ts';
+import {
+  isSingleChoiceInteraction,
+  isSingleChoiceMinimumResponseRequirement,
+  type SingleChoiceInteraction,
+  type SingleChoiceMinimumResponseRequirement,
+} from './singleChoiceInteraction.schema.ts';
 
 export const QUESTION_RESOURCE_ADMISSION_VERSION = 'phase16_1a_v1';
 export const QUESTION_RESOURCE_ADMISSION_SCHEMA_VERSION = 'question_resource_admission_v1';
@@ -130,11 +136,16 @@ export type QuestionResourceRubricItem = {
   acceptedSignals: string[];
 };
 
-export type MinimumAnswerRequirement = {
+export type TextMinimumAnswerRequirement = {
+  responseFormat?: 'boolean' | 'short_text' | 'long_text';
   minLength: number;
   requireTextEvidence: boolean;
   requireExplanation: boolean;
 };
+
+export type MinimumAnswerRequirement =
+  | TextMinimumAnswerRequirement
+  | SingleChoiceMinimumResponseRequirement;
 
 export type QuestionAbilityMetadata = {
   abilityId: PrimaryAbilityId;
@@ -203,6 +214,7 @@ export type StructuredQuestionDraft = {
   questionType: StructuredQuestionType;
   responseFormat: QuestionResponseFormat;
   options?: string[];
+  choiceInteraction?: SingleChoiceInteraction;
   assessmentMode: AssessmentMode;
   answerAcceptance?: AnswerAcceptance;
   rubric: QuestionResourceRubricItem[];
@@ -339,6 +351,7 @@ export type FrozenQuestionResourceVersion = {
   questionType: StructuredQuestionType;
   responseFormat: QuestionResponseFormat;
   options?: string[];
+  choiceInteraction?: SingleChoiceInteraction;
   assessmentMode: AssessmentMode;
   answerAcceptance?: AnswerAcceptance;
   rubric: QuestionResourceRubricItem[];
@@ -434,6 +447,26 @@ export function isQuestionResponseFormat(value: unknown): value is QuestionRespo
   return typeof value === 'string' && QUESTION_RESPONSE_FORMATS.includes(value as QuestionResponseFormat);
 }
 
+export function isTextMinimumAnswerRequirement(
+  value: unknown,
+): value is TextMinimumAnswerRequirement {
+  if (!value || typeof value !== 'object') return false;
+  const requirement = value as TextMinimumAnswerRequirement;
+  const responseFormat = (value as { responseFormat?: unknown }).responseFormat;
+  return responseFormat !== 'single_choice' &&
+    Number.isInteger(requirement.minLength) &&
+    requirement.minLength > 0 &&
+    typeof requirement.requireTextEvidence === 'boolean' &&
+    typeof requirement.requireExplanation === 'boolean';
+}
+
+export function isMinimumAnswerRequirement(
+  value: unknown,
+): value is MinimumAnswerRequirement {
+  return isTextMinimumAnswerRequirement(value) ||
+    isSingleChoiceMinimumResponseRequirement(value);
+}
+
 export function isStructuredQuestionDraft(value: unknown): value is StructuredQuestionDraft {
   if (!value || typeof value !== 'object') return false;
   const draft = value as StructuredQuestionDraft;
@@ -450,8 +483,9 @@ export function isStructuredQuestionDraft(value: unknown): value is StructuredQu
     isStructuredQuestionType(draft.questionType) &&
     isQuestionResponseFormat(draft.responseFormat) &&
     (draft.options === undefined || Array.isArray(draft.options)) &&
+    (draft.choiceInteraction === undefined || isSingleChoiceInteraction(draft.choiceInteraction)) &&
     Array.isArray(draft.rubric) &&
-    Boolean(draft.minimumAnswerRequirement) &&
+    isMinimumAnswerRequirement(draft.minimumAnswerRequirement) &&
     Boolean(draft.abilityMetadata) &&
     Boolean(draft.source) &&
     Array.isArray(draft.tags) &&

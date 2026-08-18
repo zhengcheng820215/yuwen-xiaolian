@@ -3,6 +3,11 @@ export const QUESTION_CALIBRATION_PROJECTION_SCHEMA_VERSION =
 
 export const QUESTION_CALIBRATION_ITEM_SCORE_POLICY_VERSION =
   'rubric_required_equal_weight_v1' as const;
+export const SINGLE_CHOICE_CALIBRATION_ITEM_SCORE_POLICY_VERSION =
+  'single_choice_correctness_v1' as const;
+export type QuestionCalibrationItemScorePolicyVersion =
+  | typeof QUESTION_CALIBRATION_ITEM_SCORE_POLICY_VERSION
+  | typeof SINGLE_CHOICE_CALIBRATION_ITEM_SCORE_POLICY_VERSION;
 
 export type QuestionCalibrationProjectionStatus =
   | 'eligible'
@@ -26,8 +31,13 @@ export type QuestionCalibrationProjectionRecord = {
   responseId: string;
   formalDiagnosisId?: string;
   resourceVersionId: string;
+  responseFormat?: 'text' | 'single_choice';
+  selectedOptionIds?: string[];
+  optionSetVersion?: number;
+  displayedOptionOrder?: string[];
+  misconceptionCode?: string;
   itemScore?: number;
-  itemScorePolicyVersion?: typeof QUESTION_CALIBRATION_ITEM_SCORE_POLICY_VERSION;
+  itemScorePolicyVersion?: QuestionCalibrationItemScorePolicyVersion;
   totalScore?: number;
   totalScoreStatus: 'unavailable_single_round' | 'available_comparable_window';
   assessmentWindowId?: string;
@@ -82,11 +92,19 @@ export function validateQuestionCalibrationProjectionRecord(
     if (record.runtimeScope !== 'product') issues.push('eligible_non_product_scope');
     if (record.valid !== true) issues.push('eligible_not_valid');
     if (!Number.isFinite(record.itemScore)) issues.push('eligible_missing_item_score');
-    if (record.itemScorePolicyVersion !== QUESTION_CALIBRATION_ITEM_SCORE_POLICY_VERSION) {
+    if (![
+      QUESTION_CALIBRATION_ITEM_SCORE_POLICY_VERSION,
+      SINGLE_CHOICE_CALIBRATION_ITEM_SCORE_POLICY_VERSION,
+    ].includes(record.itemScorePolicyVersion as QuestionCalibrationItemScorePolicyVersion)) {
       issues.push('eligible_invalid_item_score_policy');
     }
     if (!isNonEmpty(record.formalDiagnosisId)) issues.push('eligible_missing_formal_diagnosis_id');
     if (!isTimestamp(record.completedAt)) issues.push('eligible_invalid_completed_at');
+  }
+  if (record.responseFormat === 'single_choice') {
+    if (!Array.isArray(record.selectedOptionIds) || record.selectedOptionIds.length !== 1) issues.push('invalid_choice_selection');
+    if (!Number.isInteger(record.optionSetVersion) || Number(record.optionSetVersion) < 1) issues.push('invalid_choice_option_set_version');
+    if (!Array.isArray(record.displayedOptionOrder) || record.displayedOptionOrder.length < 3) issues.push('invalid_choice_display_order');
   }
   return { passed: issues.length === 0, issues };
 }

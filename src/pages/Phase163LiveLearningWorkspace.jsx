@@ -21,6 +21,7 @@ import { requestStudentWritingCorrections } from '../api/studentWritingCorrectio
 import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
 import ReadingMaterialText from '../components/continuous-learning/ReadingMaterialText.jsx';
 import AnswerLengthIndicator from '../components/continuous-learning/AnswerLengthIndicator.jsx';
+import SingleChoiceResponseInput from '../components/continuous-learning/SingleChoiceResponseInput.jsx';
 import {
   FeedbackRevisionGoal,
   FeedbackRevisionEvaluated,
@@ -39,8 +40,10 @@ const FEEDBACK_PRESENTATION_KEY_PREFIX = 'qingzhou:feedback-presentation:';
 export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRetryResource = false }) {
   const [state, setState] = useState(null);
   const [answer, setAnswer] = useState('');
+  const [selectedOptionId, setSelectedOptionId] = useState('');
   const [revisionAnswer, setRevisionAnswer] = useState('');
   const [busy, setBusy] = useState(true);
+  const [activeOperation, setActiveOperation] = useState(null);
   const [toast, setToast] = useState(null);
   const [analysisRetry, setAnalysisRetry] = useState(false);
   const [runtimeAvailability, setRuntimeAvailability] = useState('checking');
@@ -63,7 +66,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
         if (!active) return;
         applyState(next);
         setRuntimeAvailability(runtime.status);
-        if (runtime.status === 'unavailable' && (next.status === 'ready' || next.status === 'retry_required')) {
+        if (runtime.status === 'unavailable' && next.task.responseFormat !== 'single_choice' && (next.status === 'ready' || next.status === 'retry_required')) {
           showMessage(RUNTIME_UNAVAILABLE_MESSAGE, 'error');
         }
       })
@@ -106,7 +109,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
   }, [busy, runtimeAvailability, state?.revision?.learningTaskAttemptId, state?.revision?.status]);
 
   useEffect(() => {
-    if (!state?.feedback || !answer.trim()) {
+    if (state?.task?.responseFormat === 'single_choice' || !state?.feedback || !answer.trim()) {
       setWritingCorrections([]);
       setWritingCorrectionStatus('idle');
       return undefined;
@@ -145,6 +148,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
   function applyState(next) {
     setState(next);
     setAnswer(next.answerDraft || '');
+    setSelectedOptionId(next.singleChoiceDraft?.selectedOptionIds?.[0] || '');
     setRevisionAnswer(next.revision?.draftAnswer || next.revision?.initialAnswer || '');
     setToast(null);
     setAnalysisRetry(false);
@@ -169,38 +173,42 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
   }
 
   async function saveDraft() {
-    if (!answer.trim() || busy) {
+    const choiceAnswer = buildChoiceAnswer(state, selectedOptionId);
+    if ((state?.task?.responseFormat === 'single_choice' ? !choiceAnswer : !answer.trim()) || busy) {
       showMessage('当前没有可保存的内容。');
       return;
     }
     const requestId = ++saveRequest.current;
+    setActiveOperation('save_draft');
     setBusy(true);
     try {
-      await savePhase163LiveDraft(answer);
+      await savePhase163LiveDraft(answer, choiceAnswer);
       if (requestId === saveRequest.current) showMessage('草稿已保存。', 'success');
     } catch (error) {
       if (requestId === saveRequest.current) showMessage(toMessage(error), 'error');
     } finally {
       if (requestId === saveRequest.current) setBusy(false);
+      if (requestId === saveRequest.current) setActiveOperation(null);
     }
   }
 
   async function submitAnswer() {
     if (busy) return;
-    if (!answer.trim()) {
-      showMessage('请先输入回答再提交。');
+    const choiceAnswer = buildChoiceAnswer(state, selectedOptionId);
+    if (state.task.responseFormat === 'single_choice' ? !choiceAnswer : !answer.trim()) {
+      showMessage(state.task.responseFormat === 'single_choice' ? '请先选择一个答案。' : '请先输入回答再提交。');
       return;
     }
-    if (runtimeAvailability !== 'ready') {
+    if (state.task.responseFormat !== 'single_choice' && runtimeAvailability !== 'ready') {
       showMessage(RUNTIME_UNAVAILABLE_MESSAGE, 'error');
       return;
     }
     saveRequest.current += 1;
+    setActiveOperation('submit_answer');
     setBusy(true);
     setAnalysisRetry(false);
-    showMessage('正在分析本次回答，请稍候。');
     try {
-      const nextState = await submitPhase163LiveAnswer(answer);
+      const nextState = await submitPhase163LiveAnswer(choiceAnswer || answer);
       applyState(nextState);
       if (
         nextState.status === 'retry_required' &&
@@ -220,20 +228,22 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
       }
     } finally {
       setBusy(false);
+      setActiveOperation(null);
     }
   }
 
   async function resumeProcessing() {
-    if (busy || !answer.trim()) return;
+    const choiceAnswer = buildChoiceAnswer(state, selectedOptionId) || state?.singleChoiceDraft;
+    if (busy || (state?.task?.responseFormat === 'single_choice' ? !choiceAnswer : !answer.trim())) return;
     const resourceOnlyRetry = state?.primaryAction === 'retry_resource';
-    if (!resourceOnlyRetry && runtimeAvailability !== 'ready') {
+    if (!resourceOnlyRetry && state?.task?.responseFormat !== 'single_choice' && runtimeAvailability !== 'ready') {
       showMessage(RUNTIME_UNAVAILABLE_MESSAGE, 'error');
       return;
     }
     setBusy(true);
     showMessage(resourceOnlyRetry ? '正在检查符合要求的下一任务。' : '正在恢复已经提交的结果，请稍候。');
     try {
-      applyState(await submitPhase163LiveAnswer(answer));
+      applyState(await submitPhase163LiveAnswer(choiceAnswer || answer));
     } catch (error) {
       if (isPhase163DiagnosisBoundaryUnavailable(error)) {
         setRuntimeAvailability('unavailable');
@@ -401,6 +411,18 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
               <h1 className="mt-7 text-lg font-semibold">题目</h1>
               <p className="mt-3 text-base leading-8 text-slate-800">{state.task.questionText}</p>
 
+              {state.task.responseFormat === 'single_choice' ? (
+                <SingleChoiceResponseInput
+                  options={state.task.singleChoice?.options || []}
+                  selectedOptionId={selectedOptionId}
+                  onSelect={(optionId) => {
+                    setSelectedOptionId(optionId);
+                    if (toast) showMessage('');
+                  }}
+                  disabled={busy || analysisRetry}
+                  groupId={state.roundId}
+                />
+              ) : (
               <textarea
                 ref={answerInputRef}
                 value={answer}
@@ -413,34 +435,46 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
                 placeholder="请在这里输入你的回答。"
                 className="mt-7 min-h-[240px] max-h-[400px] w-full resize-none rounded-md border border-slate-300 bg-[#f8fafc] px-4 py-4 text-base leading-7 text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:cursor-wait disabled:opacity-70"
               />
+              )}
+              {state.task.responseFormat !== 'single_choice' ? (
               <AnswerLengthIndicator
                 answer={answer}
                 minimumLength={state.task.minimumAnswerLength}
               />
+              ) : null}
 
+              {activeOperation === 'submit_answer' ? (
+                <div className="mt-5 flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-50 px-4 text-sm font-medium text-emerald-800" role="status" aria-live="polite">
+                  <RefreshCw size={16} className="animate-spin" />
+                  正在提交并分析本次回答…
+                </div>
+              ) : (
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || (state.task.responseFormat === 'single_choice' && !selectedOptionId)}
                   onClick={analysisRetry ? () => {
                     setAnalysisRetry(false);
                     showMessage('可以修改回答，完成后重新提交。');
                   } : saveDraft}
-                  className="flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-4 text-sm text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+                  className={`flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-4 text-sm text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 ${activeOperation === 'save_draft' ? 'col-span-2' : ''}`}
                 >
-                  {analysisRetry ? <Pencil size={16} /> : <Save size={16} />}
-                  {analysisRetry ? '返回修改' : '保存草稿'}
+                  {activeOperation === 'save_draft' ? <RefreshCw size={16} className="animate-spin" /> : analysisRetry ? <Pencil size={16} /> : <Save size={16} />}
+                  {activeOperation === 'save_draft' ? '正在保存…' : analysisRetry ? '返回修改' : state.task.responseFormat === 'single_choice' ? '保存选择' : '保存草稿'}
                 </button>
+                {activeOperation !== 'save_draft' ? (
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || (state.task.responseFormat === 'single_choice' && !selectedOptionId)}
                   onClick={submitAnswer}
                   className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 text-sm text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {busy || analysisRetry || runtimeAvailability === 'checking' ? <RefreshCw size={16} className={busy || runtimeAvailability === 'checking' ? 'animate-spin' : ''} /> : <ArrowRight size={16} />}
-                  {analysisRetry ? '重新分析' : '提交本轮回答'}
+                  {analysisRetry || (state.task.responseFormat !== 'single_choice' && runtimeAvailability === 'checking') ? <RefreshCw size={16} className={runtimeAvailability === 'checking' ? 'animate-spin' : ''} /> : <ArrowRight size={16} />}
+                  {analysisRetry ? '重新分析' : state.task.responseFormat === 'single_choice' ? '提交选择' : '提交本轮回答'}
                 </button>
+                ) : null}
               </div>
+              )}
             </div>
           </section>
         </main>
@@ -640,14 +674,14 @@ function PausedWorkspace({ state, writingCorrections, busy, onReturn, onStartRev
 }
 
 function RecoveringWorkspace({ state, busy, runtimeAvailability, onResume, onReturn }) {
-  const unavailable = runtimeAvailability === 'unavailable';
+  const unavailable = runtimeAvailability === 'unavailable' && state.task.responseFormat !== 'single_choice';
   return (
     <main className="mx-auto flex min-h-[calc(100vh-65px)] max-w-[720px] flex-col justify-center px-6 py-12">
       <RefreshCw size={24} className={busy ? 'animate-spin text-emerald-600' : 'text-slate-500'} />
       <h1 className="mt-4 text-lg font-semibold">{unavailable ? '分析服务尚未就绪' : '恢复本次提交'}</h1>
       <p className="mt-3 text-base leading-7 text-slate-600">{unavailable ? RUNTIME_UNAVAILABLE_MESSAGE : state.studentMessage}</p>
       <div className="mt-8 flex flex-wrap gap-3">
-        <button type="button" disabled={busy || runtimeAvailability !== 'ready'} onClick={onResume} className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-600 px-5 text-sm text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40">
+        <button type="button" disabled={busy || (state.task.responseFormat !== 'single_choice' && runtimeAvailability !== 'ready')} onClick={onResume} className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-600 px-5 text-sm text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40">
           {busy ? <RefreshCw size={16} className="animate-spin" /> : <ArrowRight size={16} />}
           {unavailable ? '分析服务尚未就绪' : '继续处理'}
         </button>
@@ -758,6 +792,16 @@ function splitNarrativeActions(value) {
     .split(/\r?\n/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function buildChoiceAnswer(state, selectedOptionId) {
+  if (state?.task?.responseFormat !== 'single_choice' || !selectedOptionId || !state.task.singleChoice) return undefined;
+  return {
+    responseFormat: 'single_choice',
+    selectedOptionIds: [selectedOptionId],
+    optionSetVersion: state.task.singleChoice.optionSetVersion,
+    displayedOptionOrder: state.task.singleChoice.options.map((option) => option.optionId),
+  };
 }
 
 function narrativeGapTitle() {

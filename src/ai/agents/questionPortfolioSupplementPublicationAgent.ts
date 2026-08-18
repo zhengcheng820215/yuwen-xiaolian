@@ -120,6 +120,7 @@ export function prepareQuestionPortfolioSupplementPublication(
         title: candidateResult.completeContent.title,
         questionType: newCandidate.questionDraft.questionType,
         responseFormat: newCandidate.questionDraft.responseFormat,
+        choiceInteraction: newCandidate.choiceInteraction,
         assessmentMode: newCandidate.assessmentMode,
         answerAcceptance: candidateResult.completeContent.answerAcceptance,
         rubric: candidateResult.completeContent.rubric,

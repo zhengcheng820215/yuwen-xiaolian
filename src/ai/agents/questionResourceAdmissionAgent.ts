@@ -37,6 +37,11 @@ import {
   type StructuredQuestionType,
 } from '../schemas/questionResourceAdmission.schema.ts';
 import type { AnswerAcceptance, AssessmentMode } from '../schemas/diagnosis.schema.ts';
+import {
+  isSingleChoiceMinimumResponseRequirement,
+  validateSingleChoiceInteraction,
+  type SingleChoiceInteraction,
+} from '../schemas/singleChoiceInteraction.schema.ts';
 
 export type CreateQuestionMaterialInput = Omit<
   QuestionMaterialVersion,
@@ -68,6 +73,7 @@ export type CreateStructuredQuestionDraftInput = {
   questionType: StructuredQuestionType;
   responseFormat: QuestionResponseFormat;
   options?: string[];
+  choiceInteraction?: SingleChoiceInteraction;
   assessmentMode: AssessmentMode;
   answerAcceptance?: AnswerAcceptance;
   rubric: QuestionResourceRubricItem[];
@@ -86,6 +92,7 @@ export type StructuredQuestionDraftPatch = Partial<Pick<
   | 'questionType'
   | 'responseFormat'
   | 'options'
+  | 'choiceInteraction'
   | 'assessmentMode'
   | 'answerAcceptance'
   | 'rubric'
@@ -204,6 +211,7 @@ export async function createStructuredQuestionDraft(
     questionType: input.questionType,
     responseFormat: input.responseFormat,
     options: input.options ? [...input.options] : undefined,
+    choiceInteraction: input.choiceInteraction ? clone(input.choiceInteraction) : undefined,
     assessmentMode: input.assessmentMode,
     answerAcceptance: input.answerAcceptance ? clone(input.answerAcceptance) : undefined,
     rubric: clone(input.rubric),
@@ -258,6 +266,7 @@ export async function createRevisionFromRejectedQuestionResourceDraft(
     questionType: source.questionType,
     responseFormat: source.responseFormat,
     options: source.options,
+    choiceInteraction: source.choiceInteraction,
     assessmentMode: source.assessmentMode,
     answerAcceptance: source.answerAcceptance,
     rubric: source.rubric,
@@ -380,7 +389,7 @@ export async function validateStructuredQuestionDraft(
 
   const checks: ResourceValidationChecks = {
     identityValid: !hasErrorFor(issues, ['draftId', 'resourceId', 'taskId', 'proposedVersionNumber']),
-    contentValid: !hasErrorPrefix(issues, ['title', 'questionStem', 'questionType', 'responseFormat', 'options', 'minimumAnswerRequirement']),
+    contentValid: !hasErrorPrefix(issues, ['title', 'questionStem', 'questionType', 'responseFormat', 'options', 'choiceInteraction', 'assessmentMode', 'minimumAnswerRequirement']),
     answerAcceptanceValid: !hasErrorPrefix(issues, ['answerAcceptance']),
     rubricValid: !hasErrorPrefix(issues, ['rubric']),
     abilityAndRoleValid: !hasErrorPrefix(issues, ['abilityMetadata']),
@@ -737,6 +746,7 @@ export async function prepareQuestionResourceFreezeCommit(
     questionType: draft.questionType,
     responseFormat: draft.responseFormat,
     options: draft.options ? [...draft.options] : undefined,
+    choiceInteraction: draft.choiceInteraction ? clone(draft.choiceInteraction) : undefined,
     assessmentMode: draft.assessmentMode,
     answerAcceptance: draft.answerAcceptance ? clone(draft.answerAcceptance) : undefined,
     rubric: clone(draft.rubric),
@@ -791,6 +801,7 @@ export async function createNextQuestionResourceVersionDraft(
     questionType: current.questionType,
     responseFormat: current.responseFormat,
     options: current.options,
+    choiceInteraction: current.choiceInteraction,
     assessmentMode: current.assessmentMode,
     answerAcceptance: current.answerAcceptance,
     rubric: current.rubric,
@@ -853,6 +864,7 @@ export async function createEditableSuccessorQuestionResourceDraft(
     questionType: source.questionType,
     responseFormat: source.responseFormat,
     options: source.options,
+    choiceInteraction: source.choiceInteraction,
     assessmentMode: source.assessmentMode,
     answerAcceptance: source.answerAcceptance,
     rubric: source.rubric,
@@ -979,18 +991,60 @@ function validateContent(draft: StructuredQuestionDraft, issues: ResourceValidat
     error(issues, 'content.response_mismatch', 'responseFormat', 'Response format does not match question type.');
   }
 
-  if (draft.questionType === 'multiple_choice') {
-    const normalizedOptions = (draft.options || []).map((item) => item.trim()).filter(Boolean);
-    if (normalizedOptions.length < 2 || new Set(normalizedOptions).size !== normalizedOptions.length) {
-      error(issues, 'content.options_required', 'options', 'Multiple choice requires at least two unique options.');
+  if (draft.responseFormat === 'single_choice') {
+    if (!draft.choiceInteraction && (!draft.options || draft.options.length === 0)) {
+      error(
+        issues,
+        'content.options_required',
+        'choiceInteraction.options',
+        'Single-choice options are required.',
+      );
     }
+    const choiceValidation = validateSingleChoiceInteraction(draft.choiceInteraction);
+    choiceValidation.issues.forEach((issue) => {
+      error(issues, issue.code, issue.field, issue.message);
+    });
+    if (draft.options && draft.options.length > 0) {
+      error(
+        issues,
+        'choice.legacy_options_not_allowed',
+        'options',
+        'New single-choice resources must use stable option objects instead of legacy string options.',
+      );
+    }
+    if (draft.assessmentMode !== 'exact_match') {
+      error(
+        issues,
+        'choice.assessment_mode',
+        'assessmentMode',
+        'Single-choice assessment mode must be exact_match.',
+      );
+    }
+    if (!isSingleChoiceMinimumResponseRequirement(draft.minimumAnswerRequirement)) {
+      error(
+        issues,
+        'choice.minimum_response_requirement',
+        'minimumAnswerRequirement',
+        'Single-choice requires one structured selection and no text-length requirement.',
+      );
+    }
+  } else if (draft.choiceInteraction !== undefined) {
+    error(
+      issues,
+      'choice.interaction_unused',
+      'choiceInteraction',
+      'Choice interaction is only valid when responseFormat is single_choice.',
+    );
   }
   if (draft.questionType !== 'multiple_choice' && draft.options && draft.options.length > 0) {
     warning(issues, 'content.options_unused', 'options', 'Options are ignored for this question type.');
   }
 
   const minimum = draft.minimumAnswerRequirement;
-  if (!minimum || !Number.isInteger(minimum.minLength) || minimum.minLength < 1) {
+  if (
+    draft.responseFormat !== 'single_choice' &&
+    (!minimum || !Number.isInteger(minimum.minLength) || minimum.minLength < 1)
+  ) {
     error(issues, 'content.minimum_answer', 'minimumAnswerRequirement.minLength', 'Minimum answer length must be a positive integer.');
   }
   if (!['manual', 'imported', 'ai_assisted', 'ocr_assisted'].includes(draft.source?.sourceType)) {
@@ -1005,15 +1059,49 @@ function validateAnswerAcceptance(draft: StructuredQuestionDraft, issues: Resour
   const objective = ['multiple_choice', 'true_false', 'fill_blank'].includes(draft.questionType);
   const acceptedAnswers = normalizedStrings(draft.answerAcceptance?.acceptedAnswers || []);
   const acceptedKeywords = normalizedStrings(draft.answerAcceptance?.acceptedKeywords || []);
+  const acceptedOptionIds = normalizedStrings(draft.answerAcceptance?.acceptedOptionIds || []);
 
-  if (objective && acceptedAnswers.length === 0) {
+  if (objective && draft.responseFormat !== 'single_choice' && acceptedAnswers.length === 0) {
     error(issues, 'answer_acceptance.answers_required', 'answerAcceptance.acceptedAnswers', 'Objective question requires accepted answers.');
+  }
+  if (draft.responseFormat === 'single_choice') {
+    const correctOptionIds = draft.choiceInteraction?.correctOptionIds || [];
+    if (
+      acceptedOptionIds.length !== 1 ||
+      correctOptionIds.length !== 1 ||
+      acceptedOptionIds[0] !== correctOptionIds[0]
+    ) {
+      error(
+        issues,
+        'answer_acceptance.choice_option_mismatch',
+        'answerAcceptance.acceptedOptionIds',
+        'Accepted option ID must match the single correct option ID.',
+      );
+    }
+    if (acceptedAnswers.length > 0) {
+      error(
+        issues,
+        'answer_acceptance.choice_legacy_answer',
+        'answerAcceptance.acceptedAnswers',
+        'Single-choice answer acceptance must use stable option IDs, not display letters or option text.',
+      );
+    }
+  } else if (acceptedOptionIds.length > 0) {
+    error(
+      issues,
+      'answer_acceptance.option_ids_unused',
+      'answerAcceptance.acceptedOptionIds',
+      'Accepted option IDs are only valid for single-choice responses.',
+    );
   }
   if (acceptedAnswers.length !== new Set(acceptedAnswers).size) {
     error(issues, 'answer_acceptance.duplicate_answers', 'answerAcceptance.acceptedAnswers', 'Accepted answers contain duplicates.');
   }
   if (acceptedKeywords.length !== new Set(acceptedKeywords).size) {
     error(issues, 'answer_acceptance.duplicate_keywords', 'answerAcceptance.acceptedKeywords', 'Accepted keywords contain duplicates.');
+  }
+  if (acceptedOptionIds.length !== new Set(acceptedOptionIds).size) {
+    error(issues, 'answer_acceptance.duplicate_option_ids', 'answerAcceptance.acceptedOptionIds', 'Accepted option IDs contain duplicates.');
   }
 
   const openQuestion = ['open_short_answer', 'reading_comprehension'].includes(draft.questionType);

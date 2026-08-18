@@ -3,8 +3,8 @@
 英文名称：Formal Resource Production Contract Map
 
 状态：ACTIVE CONTRACT INDEX / AI CANDIDATE P0-P7 COMPLETE / ACCEPTANCE RECORDED
-文档版本：`formal_resource_production_contract_map_v4.1`
-更新日期：2026-08-13
+文档版本：`formal_resource_production_contract_map_v4.2`
+更新日期：2026-08-18
 
 ## 一、目标与权威边界
 
@@ -17,6 +17,8 @@ AI 题目的人工作业和真实样本观察遵循 [AI_QUESTION_ADOPTION_AND_EM
 真实 Learning 如何形成匿名使用者、过程事件与版本化校准 Attempt，属于生产后的跨边界输入，遵循[真实 Learning 数据采集与观察契约](./REAL_LEARNING_DATA_COLLECTION_AND_OBSERVATION_CONTRACT.md)。本文不接管其 Session、隐私、展示或存储规则；生产端只消费去标识化、已通过资格检查的题目版本级校准结果。
 
 AI 题目的完整生成、作答格式匹配、同篇去重、能力梯度与少量定向替换遵循 [AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md](./AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md)。该契约禁止整批覆盖正式题，并要求未采用候选不影响 Registry、Observation Link 或 Learning。
+
+阅读训练中的单项选择不是独立生产模块，而是 QuestionCandidate 的一种完整作答格式。其稳定选项身份、干扰项诊断、学生投影隔离、Learning 响应和真实数据规则遵循[阅读训练单项选择作答契约](./READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md)。第一版只实现 `single_choice`，不改变 Candidate → Adopt → Revision → Publish 主链。
 
 共享正式资源写入的页面内串行化、Revision Conflict 重试、多标签页协调、幂等恢复与服务端原子命令演进遵循[共享正式资源并发与写入恢复契约](./SHARED_FORMAL_RESOURCE_CONCURRENCY_CONTRACT.md)。该契约不改变业务对象和人工步骤，只负责保证正式写入可靠完成或安全进入可恢复状态。
 
@@ -126,6 +128,7 @@ Material Version + Observation Plan Revision + Training Task
 | [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) | 补充候选、整组替代方案、工作草稿和批量采用边界 | 单题审核与 Frozen Resource 状态 |
 | [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md) | Question Candidate 的身份、不可变规则、生成、优化、采用、异常纠错及旧 Working Content 退出边界 | 上游训练任务组规划和采用后的审核发布状态流 |
 | [AI 题目生成质量与定向优化契约](./AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md) | 完整题目方案、作答格式匹配、同篇去重、能力梯度、4道试点和逐题原子替换 | 材料正文换版、人工字段编辑和批量自动覆盖 |
+| [阅读训练单项选择作答契约](./READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md) | 单选 Candidate、稳定选项身份、干扰项质量、学生交互、Diagnosis、数据与分阶段验收 | 多选、复合题、题型配额和高阶能力选择题化 |
 | [AI 题目采用与真实作答校准契约](./AI_QUESTION_ADOPTION_AND_EMPIRICAL_CALIBRATION_CONTRACT.md) | 单次采用发布、内部断点结果、失败恢复及 Learning 后台真实样本校准 | 人工字段编辑、第二次确认和模拟样本造数 |
 | [正式资源不可变性契约](./FORMAL_RESOURCE_IMMUTABILITY_CONTRACT.md) | Formal Resource 发布后的不可变边界、新版 Candidate、活动 Registry 切换和历史学习版本引用 | Candidate Prompt、Assessment 规则和 Runtime 选题策略 |
 | [共享正式资源并发与写入恢复契约](./SHARED_FORMAL_RESOURCE_CONCURRENCY_CONTRACT.md) | 页面写入队列、Revision Conflict 退避、多标签页协调、幂等恢复和原子命令演进 | Candidate 内容、审核结论和 Learning 选题策略 |
@@ -166,6 +169,8 @@ Material Version + Observation Plan Revision + Training Task
 3. [单训练任务重新生成契约](./SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md)；
 4. [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md)；
 5. [录入字段契约](./AUTHORING_FIELD_CONTRACT.md)。
+
+如开发 `single_choice`，还必须继续阅读[阅读训练单项选择作答契约](./READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md)，并以其答案键隔离、干扰项门禁和 Learning 结构化响应为专项验收边界。
 
 ### 5.5 开发人工发布决定、冻结与恢复能力
 

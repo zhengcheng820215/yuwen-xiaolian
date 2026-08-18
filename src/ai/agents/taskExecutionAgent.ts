@@ -7,6 +7,7 @@ import type {
   TaskExecutionResult,
   TaskExecutionSession,
 } from '../schemas/taskExecution.schema.ts';
+import { validateSingleChoiceStudentAnswerValue } from '../schemas/singleChoiceInteraction.schema.ts';
 
 const DEFAULT_STARTED_AT = '2026-07-13T09:15:00.000Z';
 const DEFAULT_SUBMITTED_AT = '2026-07-13T09:18:00.000Z';
@@ -47,7 +48,9 @@ export function runTaskExecutionAgent(
     executionSessionId,
     studentId: input.concreteTask.studentId,
     taskId: input.concreteTask.taskId,
-    answerText: input.studentAnswer.answerText,
+    answerText: input.studentAnswer.answerText || '',
+    responseFormat: input.concreteTask.responseFormat === 'single_choice' ? 'single_choice' : 'text',
+    singleChoiceAnswer: input.studentAnswer.singleChoiceAnswer,
     submittedAt,
     usedHint,
     hintCount,
@@ -86,6 +89,26 @@ export function evaluateResponseValidity(
       canDiagnose: false,
       reasons: consistencyIssues,
     };
+  }
+
+  if (task.responseFormat === 'single_choice') {
+    const validation = validateSingleChoiceStudentAnswerValue(
+      response.singleChoiceAnswer,
+      task.singleChoiceDelivery,
+    );
+    return validation.passed
+      ? {
+        responseId: response.responseId,
+        status: 'valid',
+        canDiagnose: true,
+        reasons: ['已记录一个有效的单项选择作答。'],
+      }
+      : {
+        responseId: response.responseId,
+        status: 'insufficient',
+        canDiagnose: false,
+        reasons: validation.issues.map((issue) => issue.message),
+      };
   }
 
   const answer = response.answerText.trim();

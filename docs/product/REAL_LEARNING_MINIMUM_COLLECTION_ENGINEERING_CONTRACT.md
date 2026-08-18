@@ -4,11 +4,11 @@
 
 状态：`DESIGN FROZEN / ENGINEERING WP0—WP7 PASS`
 
-文档版本：`real_learning_minimum_collection_engineering_v1.4`
+文档版本：`real_learning_minimum_collection_engineering_v1.5`
 
 生效日期：`2026-08-13`
 
-更新日期：`2026-08-14`
+更新日期：`2026-08-18`
 
 ## 一、目的与工程边界
 
@@ -23,6 +23,8 @@
 - 最低单元、集成、恢复和人工验收矩阵。
 
 本文不授权建设多用户、家长报告、行为埋点平台、云同步或长期能力新算法。现有 WP0—WP7 的五事件和题目校准语义保持不变；未来反馈后一次修订必须通过[Learning 反馈后修订契约](./LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md)定义的独立扩展 Schema 接入，不得改写已验收的 Initial Attempt 事实。
+
+WP0—WP7 当前工程验收基于文本 `answerText`。阅读训练单项选择将按[阅读训练单项选择作答契约](./READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md)扩展结构化响应、稳定提交身份和校准字段；该专项尚未实现，不反向撤销文本题既有 PASS，也不得在工程完成前把 Schema 中预留的 `single_choice` 解释为可执行产品能力。
 
 ## 二、当前事实与目标对象
 
@@ -236,6 +238,29 @@ LearningTaskAttempt
 - 在 Revision Schema 和 Repository 未完成前，只通过页面状态增加修订按钮。
 
 Revision 扩展使用独立版本化 Event、Repository、Outbox、完整性公式和浏览器迁移测试。WP0—WP7 的 PASS 仍只证明 Initial Attempt 最小采集链；Revision 工程完成状态由[Learning 反馈后修订契约](./LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md)、[修订观察、审计与指标契约](./LEARNING_FEEDBACK_REVISION_OBSERVATION_AND_AUDIT_CONTRACT.md)及对应阶段 1—4 验收共同证明，不得把两套验收口径相互替代。
+
+### 3.6 单项选择结构化响应扩展（设计已冻结 / 工程待实施）
+
+单项选择不得把选项字母或选项文本拼接为 `answerText`。工程阶段必须把 `StudentResponse` 扩展为由 `responseFormat` 区分的结构化响应，并保持现有文本记录只读兼容：
+
+```text
+text submission fingerprint
+= normalizedAnswerText
+
+single-choice submission fingerprint
+= responseFormat + selectedOptionIds + optionSetVersion
+```
+
+`submissionIntentId` 必须基于对应格式的稳定内容指纹生成。选项显示顺序可以作为受控 Payload 记录，但不得参与正误判断，也不得把同一选择因显示顺序不同计成两个独立提交意图。
+
+单选专项完成前：
+
+- 当前五事件 Envelope、Attempt 和 Projection 身份算法保持不变；
+- 不修改既有文本 Answer、Initial Attempt 或 Revision；
+- 不把预留枚举解释为 Learning 已支持单选；
+- 单选题不得进入 Active Registry 的 Learning 可消费集合。
+
+详细字段、答案键隔离和验收顺序以[阅读训练单项选择作答契约](./READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md)为准。
 
 ## 四、稳定身份算法
 

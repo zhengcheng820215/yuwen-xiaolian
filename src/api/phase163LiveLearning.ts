@@ -15,6 +15,7 @@ import {
 } from '../ai/content/studentRuntimeMessages.ts';
 import { toStudentFeedbackSummary } from '../ai/content/studentFeedbackPresentation.ts';
 import { buildStudentThinkingReview } from '../ai/agents/studentThinkingReviewAgent.ts';
+import { resolveRestoredFormalResourceVersionId } from '../ai/agents/learningPersistenceAgent.ts';
 import {
   decideLearningFeedbackRevisionOffer,
   type LearningFeedbackRevisionOfferDecision,
@@ -86,6 +87,11 @@ import type { RealLearningOperationCheckpoint } from '../ai/schemas/realLearning
 import type { DelayedRetestPlan } from '../ai/schemas/delayedRetestScheduling.schema.ts';
 import type { CurrentLearningContext, TaskRequest } from '../ai/schemas/nextLearningStrategy.schema.ts';
 import type { FrozenQuestionResourceVersion } from '../ai/schemas/questionResourceAdmission.schema.ts';
+import type {
+  SingleChoiceStudentAnswerValue,
+  StudentSingleChoiceDelivery,
+} from '../ai/schemas/singleChoiceInteraction.schema.ts';
+import type { StudentResponse } from '../ai/schemas/taskExecution.schema.ts';
 import type { NextFormalTaskResolution } from '../ai/schemas/realLearningOperation.schema.ts';
 import type {
   QualityGatedExecutableTask,
@@ -141,9 +147,12 @@ export type Phase163LiveWorkspaceState = {
     focus: string;
     readingText: string;
     questionText: string;
+    responseFormat: 'text' | 'single_choice';
     minimumAnswerLength: number;
+    singleChoice?: StudentSingleChoiceDelivery;
   };
   answerDraft: string;
+  singleChoiceDraft?: SingleChoiceStudentAnswerValue;
   feedback?: {
     headline: string;
     summary: string;
@@ -229,8 +238,8 @@ export async function loadPhase163LiveWorkspace(): Promise<Phase163LiveWorkspace
   await recoverPhase163LearningObservations(descriptor, checkpoint, persisted).catch(() => {
     // Observation recovery is non-critical and must never block workspace loading.
   });
-  if (!checkpoint) return readyState(descriptor, persisted?.answerDraft || '');
-  return await stateFromCheckpoint(descriptor, checkpoint, persisted?.answerDraft || '');
+  if (!checkpoint) return readyState(descriptor, persisted?.answerDraft || '', persisted?.singleChoiceDraft);
+  return await stateFromCheckpoint(descriptor, checkpoint, persisted?.answerDraft || '', persisted?.singleChoiceDraft);
 }
 
 export async function recordPhase163QuestionPresented(roundId: string): Promise<void> {
@@ -254,10 +263,7 @@ export async function recordPhase163FeedbackPresented(roundId: string): Promise<
   const response = checkpoint?.taskExecutionResult?.studentResponse;
   const feedback = checkpoint?.controlledFeedbackResult;
   if (!checkpoint || !response || !feedback?.studentLearningFeedback) return;
-  const submissionIntentId = buildLearningSubmissionIntentId({
-    responseId: response.responseId,
-    answerText: response.answerText,
-  });
+  const submissionIntentId = submissionIntentForResponse(response);
   const attemptId = attemptIdFor(descriptor, submissionIntentId);
   await recordObservation(descriptor, 'feedback_presented', feedback.feedbackRequestId, {
     kind: 'feedback_presented',
@@ -268,7 +274,10 @@ export async function recordPhase163FeedbackPresented(roundId: string): Promise<
   }, checkpoint.updatedAt);
 }
 
-export async function savePhase163LiveDraft(answerDraft: string): Promise<void> {
+export async function savePhase163LiveDraft(
+  answerDraft: string,
+  singleChoiceDraft?: SingleChoiceStudentAnswerValue,
+): Promise<void> {
   const descriptor = await buildCurrentRoundDescriptor();
   const existing = await persistenceRepository.loadByRound(PHASE163_LEARNING_STUDENT_ID, descriptor.input.learningRoundId);
   await persistenceRepository.save({
@@ -281,34 +290,40 @@ export async function savePhase163LiveDraft(answerDraft: string): Promise<void> 
     schemaVersion: 'learning_persistence_v1',
     concreteTask: descriptor.concreteTask,
     answerDraft,
+    singleChoiceDraft,
     status: 'saved',
     issues: [],
   });
 }
 
-export async function submitPhase163LiveAnswer(answerText: string): Promise<Phase163LiveWorkspaceState> {
+export async function submitPhase163LiveAnswer(
+  answer: string | SingleChoiceStudentAnswerValue,
+): Promise<Phase163LiveWorkspaceState> {
   const descriptor = await buildCurrentRoundDescriptor();
+  const answerText = typeof answer === 'string' ? answer : '';
+  const singleChoiceAnswer = typeof answer === 'string' ? undefined : answer;
   const existingCheckpoint = await operationRepository.getByOperationId(descriptor.input.operationId);
   const submittedAt = existingCheckpoint?.taskExecutionResult?.studentResponse?.submittedAt
     || new Date().toISOString();
   const validityPreflight = runTaskExecutionAgent({
     concreteTask: descriptor.concreteTask,
     readiness: descriptor.readiness,
-    studentAnswer: { answerText: answerText.trim(), submittedAt },
+    studentAnswer: { answerText: answerText.trim(), singleChoiceAnswer, submittedAt },
     startedAt: submittedAt,
   });
   const preflightResponse = validityPreflight.taskExecutionResult?.studentResponse;
   if (preflightResponse) {
-    const submissionIntentId = buildLearningSubmissionIntentId({
-      responseId: preflightResponse.responseId,
-      answerText: preflightResponse.answerText,
-    });
+    const submissionIntentId = submissionIntentForResponse(preflightResponse);
     const attemptId = attemptIdFor(descriptor, submissionIntentId);
     await recordObservation(descriptor, 'answer_submitted', submissionIntentId, {
       kind: 'answer_submitted',
       responseId: preflightResponse.responseId,
       attemptId,
       submittedAt: preflightResponse.submittedAt,
+      responseFormat: preflightResponse.responseFormat || 'text',
+      selectedOptionIds: preflightResponse.singleChoiceAnswer?.selectedOptionIds,
+      optionSetVersion: preflightResponse.singleChoiceAnswer?.optionSetVersion,
+      displayedOptionOrder: preflightResponse.singleChoiceAnswer?.displayedOptionOrder,
     }, preflightResponse.submittedAt);
     if (!validityPreflight.taskExecutionResult?.canEnterDiagnosisRuntime) {
       await projectPhase163CalibrationAttempt(
@@ -322,10 +337,10 @@ export async function submitPhase163LiveAnswer(answerText: string): Promise<Phas
   if (!validityPreflight.taskExecutionResult?.canEnterDiagnosisRuntime) {
     const validity = validityPreflight.taskExecutionResult?.responseValidity;
     const copiedMaterial = validity?.reasons.some((reason) => reason.includes('复制阅读材料'));
-    await savePhase163LiveDraft(answerText);
+    await savePhase163LiveDraft(answerText, singleChoiceAnswer);
     await observationService.retryDue().catch(() => undefined);
     return {
-      ...readyState(descriptor, answerText),
+      ...readyState(descriptor, answerText, singleChoiceAnswer),
       status: 'retry_required',
       canRetry: true,
       studentMessage: validity?.status === 'empty'
@@ -338,6 +353,7 @@ export async function submitPhase163LiveAnswer(answerText: string): Promise<Phas
   const input = {
     ...descriptor.input,
     answerText: answerText.trim(),
+    singleChoiceAnswer,
     submittedAt,
   };
   const result = await runPhase163RealLearningChain(input, {
@@ -351,7 +367,7 @@ export async function submitPhase163LiveAnswer(answerText: string): Promise<Phas
   });
 
   if (result.checkpoint.nextAction === 'submit_answer') {
-    await savePhase163LiveDraft(answerText);
+    await savePhase163LiveDraft(answerText, singleChoiceAnswer);
   }
 
   const persistence = await persistenceRepository.loadByRound(PHASE163_LEARNING_STUDENT_ID, input.learningRoundId);
@@ -360,7 +376,7 @@ export async function submitPhase163LiveAnswer(answerText: string): Promise<Phas
   await observationService.retryDue().catch(() => undefined);
   if (persistence?.learningRoundResult) await appendRoundToCurrentSession(persistence);
   await recordNaturalDay(result, descriptor.retestPlan);
-  return await stateFromCheckpoint(descriptor, result.checkpoint, answerText);
+  return await stateFromCheckpoint(descriptor, result.checkpoint, answerText, singleChoiceAnswer);
 }
 
 async function recoverPhase163LearningObservations(
@@ -371,10 +387,7 @@ async function recoverPhase163LearningObservations(
   await observationService.retryDue();
   const response = checkpoint?.taskExecutionResult?.studentResponse;
   if (!checkpoint || !response) return;
-  const submissionIntentId = buildLearningSubmissionIntentId({
-    responseId: response.responseId,
-    answerText: response.answerText,
-  });
+  const submissionIntentId = submissionIntentForResponse(response);
   const attemptId = attemptIdFor(descriptor, submissionIntentId);
   const events: LearningObservationEvent[] = [];
   const submitted = buildObservation(descriptor, 'answer_submitted', submissionIntentId, {
@@ -419,10 +432,7 @@ async function projectPhase163CalibrationAttempt(
 ): Promise<void> {
   const response = execution?.studentResponse;
   if (!response) return;
-  const submissionIntentId = buildLearningSubmissionIntentId({
-    responseId: response.responseId,
-    answerText: response.answerText,
-  });
+  const submissionIntentId = submissionIntentForResponse(response);
   const formalCommit = checkpoint?.realDiagnosisRuntimeResult?.formalDiagnosisCommit;
   const version = descriptor.input.resourceVersion;
   const identityIssues = [
@@ -449,6 +459,14 @@ async function projectPhase163CalibrationAttempt(
     formalDiagnosisId: formalCommit?.formalDiagnosisId,
     formalDiagnosisCommitted: formalCommit?.status === 'committed',
     rubricItems: formalCommit?.diagnosisResult?.rubricItems,
+    responseFormat: response.responseFormat || 'text',
+    choiceOutcome: response.singleChoiceAnswer ? {
+      correct: formalCommit?.diagnosisResult?.correct === true,
+      selectedOptionIds: response.singleChoiceAnswer.selectedOptionIds,
+      optionSetVersion: response.singleChoiceAnswer.optionSetVersion,
+      displayedOptionOrder: response.singleChoiceAnswer.displayedOptionOrder,
+      misconceptionCode: formalCommit?.diagnosisResult?.strategyUsed.replace('single_choice_distractor_', ''),
+    } : undefined,
     resourceVersionId: version.resourceVersionId,
     projectedAt: persistence?.updatedAt || formalCommit?.committedAt || response.submittedAt,
     identityIssues,
@@ -462,10 +480,7 @@ async function recordRuntimeCompletionObservations(
 ): Promise<void> {
   const response = checkpoint.taskExecutionResult?.studentResponse;
   if (!response) return;
-  const submissionIntentId = buildLearningSubmissionIntentId({
-    responseId: response.responseId,
-    answerText: response.answerText,
-  });
+  const submissionIntentId = submissionIntentForResponse(response);
   const attemptId = attemptIdFor(descriptor, submissionIntentId);
   const formalCommit = checkpoint.realDiagnosisRuntimeResult?.formalDiagnosisCommit;
   if (formalCommit?.status === 'committed' && formalCommit.committedAt) {
@@ -829,14 +844,24 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
   const previousCheckpoint = previousRoundId
     ? await operationRepository.getByOperationId(`phase16-3-live-operation-${previousRoundId}`)
     : undefined;
+  const currentPersistenceRecord = roundId
+    ? records.find((item) => item.learningRoundId === roundId)
+    : undefined;
   const plannedResolution = previousCheckpoint?.nextTaskResolution?.status === 'matched'
     ? previousCheckpoint.nextTaskResolution
     : undefined;
-  const currentVersion = currentCheckpoint?.sourceResourceVersionId
+  const pinnedResourceVersionId = resolveRestoredFormalResourceVersionId({
+    checkpointSourceResourceVersionId: currentCheckpoint?.sourceResourceVersionId,
+    persistenceRecord: currentPersistenceRecord,
+  });
+  const currentVersion = pinnedResourceVersionId
     ? currentVersions.find((item) => (
-      item.resourceVersionId === currentCheckpoint.sourceResourceVersionId
+      item.resourceVersionId === pinnedResourceVersionId
     ))
     : undefined;
+  if (pinnedResourceVersionId && !currentVersion) {
+    throw new Error('上次学习任务的正式版本已不可用，请结束本次学习后重新开始。');
+  }
   const recentHistory = buildScopedFormalResourceHistory({
     studentId: PHASE163_LEARNING_STUDENT_ID,
     records,
@@ -877,6 +902,7 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
       taskRequest,
       effectiveHistory.recentResourceVersionIds,
     ),
+    requiredResourceVersionId: currentVersion?.resourceVersionId,
     evaluatedAt: descriptorAt,
   });
   if (
@@ -1007,7 +1033,11 @@ async function requireActiveContext() {
   return context;
 }
 
-function readyState(descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>, answerDraft: string): Phase163LiveWorkspaceState {
+function readyState(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  answerDraft: string,
+  singleChoiceDraft?: SingleChoiceStudentAnswerValue,
+): Phase163LiveWorkspaceState {
   const task = descriptor.concreteTask;
   const learningPresentation = toStudentLearningPresentation(buildStudentLearningNarrativeProjection({
     studentId: descriptor.input.studentId,
@@ -1024,9 +1054,12 @@ function readyState(descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescr
       focus: task.targetAbilityName,
       readingText: task.readingText || '',
       questionText: task.question,
+      responseFormat: task.responseFormat === 'single_choice' ? 'single_choice' : 'text',
       minimumAnswerLength: descriptor.input.resourceVersion.minimumAnswerRequirement.minLength,
+      singleChoice: task.singleChoiceDelivery,
     },
     answerDraft,
+    singleChoiceDraft,
     learningPresentation,
     canAdvance: false,
     canRetry: false,
@@ -1118,9 +1151,11 @@ async function stateFromCheckpoint(
   descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
   checkpoint: NonNullable<Awaited<ReturnType<IndexedDBRealLearningOperationRepository['getByOperationId']>>>,
   answerDraft: string,
+  singleChoiceDraft?: SingleChoiceStudentAnswerValue,
 ): Promise<Phase163LiveWorkspaceState> {
   const restoredAnswer = checkpoint.taskExecutionResult?.studentResponse?.answerText || answerDraft;
-  const base = readyState(descriptor, restoredAnswer);
+  const restoredChoice = checkpoint.taskExecutionResult?.studentResponse?.singleChoiceAnswer || singleChoiceDraft;
+  const base = readyState(descriptor, restoredAnswer, restoredChoice);
   const feedback = resolvePhase163LiveStudentFeedback(checkpoint);
   const learningPresentation = toStudentLearningPresentation(buildStudentLearningNarrativeProjection({
     studentId: checkpoint.studentId,
@@ -1414,10 +1449,11 @@ async function resolveFeedbackRevisionState(
   const feedbackResult = checkpoint.controlledFeedbackResult;
   if (!response || !commit?.diagnosisResult || !feedbackResult?.studentLearningFeedback) return undefined;
 
-  const submissionIntentId = buildLearningSubmissionIntentId({
-    responseId: response.responseId,
-    answerText: response.answerText,
-  });
+  // Single-choice feedback remains a diagnosis and next-task signal. It must not
+  // be projected as a text revision workflow.
+  if (descriptor.concreteTask.responseFormat === 'single_choice') return undefined;
+
+  const submissionIntentId = submissionIntentForResponse(response);
   const initialAttemptId = attemptIdFor(descriptor, submissionIntentId);
   let attempt = await feedbackRevisionPersistenceService.createInitialAttempt({
     initialAttemptId,
@@ -1523,7 +1559,7 @@ export function resolvePhase163LiveStudentFeedback(
     taskId: task.taskId,
     executionSessionId: checkpoint.taskExecutionResult.executionSessionId,
     responseId: response.responseId,
-    studentResponseText: response.answerText,
+    studentResponseText: responseDisplayText(task, response),
     taskContext: {
       readingText: task.readingText,
       questionText: task.question,
@@ -1582,4 +1618,22 @@ function replaceRoundNumber(roundId: string, number: number): string {
 
 function localDayKey(iso: string): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
+}
+
+function submissionIntentForResponse(response: StudentResponse): string {
+  return buildLearningSubmissionIntentId({
+    responseId: response.responseId,
+    answerText: response.answerText,
+    singleChoiceAnswer: response.singleChoiceAnswer,
+  });
+}
+
+function responseDisplayText(
+  task: { responseFormat?: 'text' | 'single_choice'; singleChoiceDelivery?: StudentSingleChoiceDelivery },
+  response: StudentResponse,
+): string {
+  if (task.responseFormat !== 'single_choice' || !response.singleChoiceAnswer) return response.answerText;
+  const selectedOptionId = response.singleChoiceAnswer.selectedOptionIds[0];
+  return task.singleChoiceDelivery?.options.find((option) => option.optionId === selectedOptionId)?.content
+    || '已完成单项选择作答';
 }

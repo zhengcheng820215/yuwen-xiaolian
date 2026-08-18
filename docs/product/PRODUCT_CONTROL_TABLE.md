@@ -3,7 +3,7 @@
 英文名称：Product Owner Control Table
 
 状态：ACTIVE  
-更新日期：2026-08-14
+更新日期：2026-08-18
 
 ## 一、用途
 
@@ -52,6 +52,7 @@ Debug / Acceptance Report
 | Phase 17.5 题目生成质量评估 | 在发布前发现结构、语义和批次质量问题 | PASS | 17.5A / B / C1 / C2 / C3A / C3B RUNTIME PASS + REVIEW / PUBLICATION WORKFLOW P0 PASS | STAGE 1–5 TEN-MATERIAL / 34-QUESTION CALIBRATION PASS | REAL LEARNING SAMPLE CALIBRATION AWAITING DATA |
 | `/learning` 正式学习入口 | 让单学生从一个入口开始、恢复、作答、反馈并继续 | PASS | MAIN PATH PASS / SHARED FORMAL SNAPSHOT READ FIXED / CONSOLIDATION IN PROGRESS | UNIFIED ENTRY 20 / 20 + FORMAL ENTRY 10 / 10 PASS | `0 / 5` |
 | Learning 反馈后一次修订 | 保留首次独立表现，并观察学生能否利用反馈完成一次改善 | PASS | STAGES 1–4 ENGINEERING + DEBUG + E2E PASS | ISOLATED BROWSER + E2E PASS / REAL STUDENT ACCEPTANCE PENDING | AWAITING REAL RETEST / TRANSFER DATA |
+| 阅读训练单项选择作答 | 用低输入成本观察基础理解，并通过可解释干扰项形成具体诊断 | PASS | STAGES 1–4 65 / 65 PASS；FINAL RESUME REGRESSION 89 / 89 PASS | REAL-MATERIAL E2E + CONTROLLED PC / TABLET + FINAL BROWSER RESUME SMOKE PASS；CAPABILITY GATE OPEN | AWAITING REAL STUDENT DATA |
 | 真实 Learning 数据采集与观察 | 在不干扰学生的前提下记录匿名使用者、过程、答案与版本化校准样本 | PASS | WP0—WP7 + STAGE 4 ENGINEERING CLOSEOUT PASS | ISOLATED BROWSER ACCEPTANCE PASS / REAL USE PENDING | AWAITING REAL DATA |
 | 多能力调度 | 根据表现和正式资源决定下一步练什么 | PASS | RUNTIME PASS | LIMITED BY RESOURCE PACK | PENDING |
 | Student Learning Narrative | 把系统已有判断转化为学生可理解、可执行的表达 | PASS | BASELINE PASS | REAL STUDENT CALIBRATION PENDING | PENDING |
@@ -123,6 +124,19 @@ Debug / Acceptance Report
 | 证据 | [Learning 反馈后修订契约](./LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md) · [修订观察、审计与指标契约](./LEARNING_FEEDBACK_REVISION_OBSERVATION_AND_AUDIT_CONTRACT.md) · [端到端联调验收](../education/phase/reports/learning_feedback_revision_end_to_end_integration_debug_2026-08-14.md) · [学习流程模型](../education/LEARNING_FLOW.md) · [反馈行动转换模型](../education/FEEDBACK_ACTION_MODEL.md) · [训练模型](../education/TRAINING_MODEL.md) |
 
 > 阶段 1–4 已完成：稳定身份、Initial / Revised Response 不可变、单次 Revision、草稿恢复、差异评价、feedback-supported Evidence、Profile 只追加证据、扩展事件、Outbox 恢复、完整性审计和诚实指标均已落地。阶段回归 `88 / 88 PASS`，端到端联调 `13 / 13 PASS`，IndexedDB 恢复 `18 / 18 PASS`，Production Build PASS。系统只在正式 Evaluation 完成后表述修订结果，不把“已提交”直接解释为“已经改善”；真实教育效果仍需后续无提示 Retest / Transfer 校准。
+
+### 6.3 阅读训练单项选择作答
+
+| 控制项 | 产品负责人视图 |
+| --- | --- |
+| 为什么需要 | 信息定位、基础理解和局部判断不一定需要学生反复输入长文本；稳定干扰项还能提供比单纯判错更具体的理解偏差信号。 |
+| 使用者变化 | 单选题作为阅读任务组中的独立任务出现，与短文本、长文本并列；学生选择一个答案后提交并获得针对所选偏差的反馈。两类任务形成互补观察，用于区分基础理解缺口与概括、证据组织、分析、推理或表达缺口。 |
+| 只做 | 第一版只做 `single_choice`；稳定 optionId、唯一正确答案、逐项干扰依据、答案键隔离、Learning恢复、Diagnosis与真实数据采集；任务顺序由 Observation Plan 决定；互补任务保持独立 Attempt、Diagnosis 与 Evidence，只形成可追溯的联合解释。 |
+| 不做 | 不做多选、部分得分、选择后追问、反馈后立即改选、固定“选择题排第一”、每篇题型配额或高阶能力选择题化。 |
+| 产品级 PASS | ① 每个错误选项都对应独立可解释偏差；② 学生投影不含答案键；③ 刷新、重复提交和中断恢复不重复 Attempt；④ 错误选择形成具体但不过度推断的 Diagnosis；⑤ 文本题和现有生产发布链无回归；⑥ 单选与文本联合解释能区分前置理解、文本组织和证据冲突，但不生成不可追溯总分。 |
+| 演示路径 | 选择一篇材料中的独立单选任务 → 选择错误干扰项并提交 → 查看对应理解偏差反馈 → 刷新确认结果恢复 → 再完成同篇文本任务；生产端对照 Candidate 采用发布和 Frozen Version。 |
+| FAIL 先查 | 选项、答案键或干扰项：内容 / Schema；提交恢复或版本绑定：Runtime；反馈空泛：Diagnosis / 表达；题序或按钮状态：交互。 |
+| 证据 | [阅读训练单项选择作答契约](READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md) · [阶段 1 工程与 Debug 验收](../education/phase/reports/reading_single_choice_stage1_engineering_debug_acceptance_2026-08-18.md) · [阶段 2 工程实施与验收清单](READING_SINGLE_CHOICE_STAGE2_ENGINEERING_PLAN.md) · [阶段 2 工程与 Debug 验收](../education/phase/reports/reading_single_choice_stage2_engineering_debug_acceptance_2026-08-18.md) · [阶段 3 工程实施与验收清单](READING_SINGLE_CHOICE_STAGE3_ENGINEERING_PLAN.md) · [阶段 3 工程与 Debug 验收](../education/phase/reports/reading_single_choice_stage3_engineering_debug_acceptance_2026-08-18.md) · [阶段 4 端到端联调与产品验收清单](READING_SINGLE_CHOICE_STAGE4_E2E_AND_PRODUCT_ACCEPTANCE_PLAN.md) · [阶段 4 端到端与产品验收报告](../education/phase/reports/reading_single_choice_stage4_e2e_product_acceptance_2026-08-18.md) · [AI 题目生成质量与定向优化契约](AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md) · [AI 题目采用与真实作答校准契约](AI_QUESTION_ADOPTION_AND_EMPIRICAL_CALIBRATION_CONTRACT.md) |
 
 ## 七、多能力调度
 
@@ -207,6 +221,7 @@ Debug / Acceptance Report
 5. 完成多轮连续 Session 与至少5个自然日稳定性证明，区分历史缺失记录和新链路数据
 6. 根据真实数据调整反馈、题目、Rubric 或调度策略；没有观察证据时不继续增加学生操作或第二次 Revision
 7. P4 家长报告与广泛过程指标、P5 多使用者继续后置；扩大试用前单独完成材料来源与版权核验
+8. 单项选择按独立四阶段方案实施，第一版只做 `single_choice`；它不阻塞当前文本题真实试用，也不得在完整端到端验收前进入正式 Learning 库
 ```
 
 产品负责人不需要重新掌握全部字段和对象。主要责任是守住目标、用户结果、PASS 标准、模块边界和问题分类。

@@ -13,7 +13,7 @@ import type {
 
 export const RESOURCE_COVERAGE_SCHEMA_VERSION = 'resource_coverage_v1' as const;
 export const RESOURCE_COVERAGE_POLICY_VERSION = 'phase17_1_policy_v1' as const;
-export const PRODUCT_EXECUTABLE_CAPABILITY_VERSION = 'phase17_1_product_capability_v1' as const;
+export const PRODUCT_EXECUTABLE_CAPABILITY_VERSION = 'phase17_1_product_capability_v2' as const;
 
 export const RESOURCE_COVERAGE_STATUSES = [
   'covered',

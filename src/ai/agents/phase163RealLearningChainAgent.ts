@@ -46,6 +46,7 @@ import {
 } from '../schemas/realLearningOperation.schema.ts';
 import type { QualityGatedExecutableTask } from '../schemas/resourceMatchQuality.schema.ts';
 import type { StudentAbilityProfile } from '../schemas/studentAbilityProfile.schema.ts';
+import type { SingleChoiceStudentAnswerValue } from '../schemas/singleChoiceInteraction.schema.ts';
 
 export type Phase163RealLearningChainInput = {
   operationId: string;
@@ -56,6 +57,7 @@ export type Phase163RealLearningChainInput = {
   resourceVersion: FrozenQuestionResourceVersion;
   qualityGatedTask: QualityGatedExecutableTask;
   answerText: string;
+  singleChoiceAnswer?: SingleChoiceStudentAnswerValue;
   usedHint?: boolean;
   hintCount?: number;
   startedAt: string;
@@ -130,6 +132,7 @@ export async function runPhase163RealLearningChain(
       readiness: checkpoint.taskReadiness,
       studentAnswer: {
         answerText: input.answerText,
+        singleChoiceAnswer: input.singleChoiceAnswer,
         usedHint: input.usedHint,
         hintCount: input.hintCount,
         submittedAt: input.submittedAt,
@@ -296,7 +299,10 @@ export async function runPhase163RealLearningChain(
       taskId: checkpoint.concreteTask.taskId,
       executionSessionId: checkpoint.taskExecutionResult.executionSessionId,
       responseId: checkpoint.taskExecutionResult.studentResponse!.responseId,
-      studentResponseText: checkpoint.taskExecutionResult.studentResponse!.answerText,
+      studentResponseText: responseDisplayText(
+        checkpoint.concreteTask,
+        checkpoint.taskExecutionResult.studentResponse!,
+      ),
       taskContext: {
         readingText: checkpoint.concreteTask.readingText,
         questionText: checkpoint.concreteTask.question,
@@ -643,8 +649,8 @@ function validateOperationIdentity(
   ];
   const issues = pairs.filter(([, actual, expected]) => actual !== expected).map(([key]) => `operation_identity_mismatch:${key}`);
   const storedResponse = checkpoint.taskExecutionResult?.studentResponse;
-  if (storedResponse && storedResponse.answerText !== input.answerText) {
-    issues.push('operation_identity_mismatch:answerText');
+  if (storedResponse && responseIdentity(storedResponse.answerText, storedResponse.singleChoiceAnswer) !== responseIdentity(input.answerText, input.singleChoiceAnswer)) {
+    issues.push('operation_identity_mismatch:studentResponse');
   }
   if (storedResponse && storedResponse.usedHint !== Boolean(input.usedHint)) {
     issues.push('operation_identity_mismatch:usedHint');
@@ -653,6 +659,22 @@ function validateOperationIdentity(
     issues.push('operation_identity_mismatch:hintCount');
   }
   return issues;
+}
+
+function responseIdentity(answerText: string, choice?: SingleChoiceStudentAnswerValue): string {
+  return choice
+    ? `${choice.optionSetVersion}:${choice.selectedOptionIds.join(',')}:${choice.displayedOptionOrder.join(',')}`
+    : answerText.trim();
+}
+
+function responseDisplayText(
+  task: NonNullable<RealLearningOperationCheckpoint['concreteTask']>,
+  response: NonNullable<NonNullable<RealLearningOperationCheckpoint['taskExecutionResult']>['studentResponse']>,
+): string {
+  if (task.responseFormat !== 'single_choice' || !response.singleChoiceAnswer) return response.answerText;
+  const selected = response.singleChoiceAnswer.selectedOptionIds[0];
+  return task.singleChoiceDelivery?.options.find((option) => option.optionId === selected)?.content
+    || '已完成单项选择作答';
 }
 
 function resultFromCheckpoint(

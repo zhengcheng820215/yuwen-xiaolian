@@ -44,6 +44,7 @@ import Phase175QuestionQualityDemo from './pages/Phase175QuestionQualityDemo.jsx
 import Phase175C1SemanticQualityDemo from './pages/Phase175C1SemanticQualityDemo.jsx';
 import Phase175C2QualityPersistenceDemo from './pages/Phase175C2QualityPersistenceDemo.jsx';
 import Phase175C3ABatchQualitySummaryDemo from './pages/Phase175C3ABatchQualitySummaryDemo.jsx';
+import ReadingSingleChoiceStage4Acceptance from './pages/ReadingSingleChoiceStage4Acceptance.jsx';
 
 export default function App() {
   return (
@@ -83,6 +84,7 @@ export default function App() {
         <Route path="/learning" element={<UnifiedLearningEntry />} />
         <Route path="/internal" element={<InternalHub />} />
         <Route path="/internal/acceptance" element={<InternalAcceptanceHub />} />
+        <Route path="/internal/acceptance/reading-single-choice" element={<ReadingSingleChoiceStage4Acceptance />} />
         <Route path="/internal/learning-review" element={<InternalLearningReview />} />
         <Route path="/internal/learning-collection" element={<LearningCollectionIntegrity />} />
         <Route path="/phase16-3-unified-entry-demo" element={<Phase163UnifiedEntryDemo />} />

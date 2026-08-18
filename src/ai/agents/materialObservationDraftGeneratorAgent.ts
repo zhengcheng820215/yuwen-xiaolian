@@ -35,8 +35,17 @@ import {
   AUTHORING_FIELD_CONTRACT_VERSION,
   validateAuthoringAiOutput,
 } from '../contracts/authoringFieldContract.ts';
+import {
+  isSingleChoiceMinimumResponseRequirement,
+  type SingleChoiceInteraction,
+} from '../schemas/singleChoiceInteraction.schema.ts';
+import {
+  evaluateGeneratedSingleChoiceOptions,
+  evaluateSingleChoiceTrainingFit,
+} from './singleChoiceGenerationPolicy.ts';
 
 const ASSESSMENT_MODES: AssessmentMode[] = [
+  'exact_match',
   'key_points',
   'reasoning_chain',
   'expression_quality',
@@ -574,12 +583,38 @@ function parseCandidate(
   const supportingAbilityIds = readEnumArray(value.supportingAbilityIds, PRIMARY_ABILITY_IDS, 'supporting_ability_invalid', issues);
   if (primaryAbilityId && supportingAbilityIds.includes(primaryAbilityId)) issues.push('supporting_ability_duplicates_primary');
   const rubricDraft = readRubric(value.rubricDraft, primaryAbilityId, supportingAbilityIds, issues);
-  const answerAcceptanceDraft = readAnswerAcceptance(value.answerAcceptanceDraft, issues);
-  const minimumAnswerRequirement = readMinimumAnswerRequirement(value.minimumAnswerRequirement, issues);
+  const choiceInteraction = readChoiceInteraction(
+    value.choiceInteraction,
+    questionDraft?.responseFormat,
+    issues,
+  );
+  const answerAcceptanceDraft = readAnswerAcceptance(
+    value.answerAcceptanceDraft,
+    questionDraft?.responseFormat,
+    choiceInteraction,
+    issues,
+  );
+  const minimumAnswerRequirement = readMinimumAnswerRequirement(
+    value.minimumAnswerRequirement,
+    questionDraft?.responseFormat,
+    issues,
+  );
   const calibrationAnswers = readCalibrationAnswers(value.calibrationAnswers, rubricDraft.map((item) => item.name), issues);
   const evidencePotential = readEnum(value.evidencePotential, EVIDENCE_POTENTIAL, 'evidence_potential_invalid', issues);
   const evidenceBoundary = readEvidenceBoundary(value.evidenceBoundary, issues);
   const safetyBoundary = readSafetyBoundary(value.safetyBoundary, issues);
+
+  if (questionDraft?.responseFormat === 'single_choice' && primaryAbilityId
+    && observationDimension && questionStem && expectedStudentAction) {
+    const fit = evaluateSingleChoiceTrainingFit({
+      primaryAbilityId,
+      observationDimension,
+      questionStem,
+      expectedStudentAction,
+      requiredRubricCount: rubricDraft.length,
+    });
+    issues.push(...fit.issues.map((issue) => issue.code));
+  }
 
   if (issues.length > 0 || !questionStem || !primaryAbilityId || !observationDimension || !difficultySuggestion ||
     !assessmentMode || !expectedStudentAction || !designRationale || !observationFocus || !materialAnchor ||
@@ -593,6 +628,7 @@ function parseCandidate(
       candidateId: `observation-candidate-${stableHash(`${input.material.materialVersionId}|${questionStem}|${candidateIndex}`)}`,
       questionStem,
       questionDraft,
+      choiceInteraction,
       primaryAbilityId,
       supportingAbilityIds,
       observationDimension,
@@ -718,10 +754,46 @@ function readRubric(
   });
 }
 
-function readAnswerAcceptance(value: unknown, issues: string[]) {
+function readChoiceInteraction(
+  value: unknown,
+  responseFormat: string | undefined,
+  issues: string[],
+): SingleChoiceInteraction | undefined {
+  if (responseFormat !== 'single_choice') {
+    if (value !== undefined && value !== null) issues.push('choice_interaction_unused');
+    return undefined;
+  }
+  const evaluation = evaluateGeneratedSingleChoiceOptions(
+    isRecord(value) ? value as SingleChoiceInteraction : undefined,
+  );
+  issues.push(...evaluation.issues.map((issue) => issue.code));
+  return evaluation.passed ? value as SingleChoiceInteraction : undefined;
+}
+
+function readAnswerAcceptance(
+  value: unknown,
+  responseFormat: string | undefined,
+  choiceInteraction: SingleChoiceInteraction | undefined,
+  issues: string[],
+) {
   if (!isRecord(value)) {
     issues.push('answer_acceptance_missing');
     return undefined;
+  }
+  if (responseFormat === 'single_choice') {
+    const acceptedOptionIds = readStringArray(value.acceptedOptionIds);
+    if (acceptedOptionIds.length !== 1
+      || acceptedOptionIds[0] !== choiceInteraction?.correctOptionIds[0]) {
+      issues.push('answer_acceptance_option_mismatch');
+    }
+    if (readStringArray(value.acceptedKeywords).length > 0) {
+      issues.push('answer_acceptance_choice_keywords_not_allowed');
+    }
+    return {
+      acceptedKeywords: [],
+      semanticEquivalentAllowed: false,
+      acceptedOptionIds,
+    };
   }
   const acceptedKeywords = readStringArray(value.acceptedKeywords);
   if (acceptedKeywords.length === 0) issues.push('answer_acceptance_keywords_missing');
@@ -732,10 +804,21 @@ function readAnswerAcceptance(value: unknown, issues: string[]) {
   };
 }
 
-function readMinimumAnswerRequirement(value: unknown, issues: string[]) {
+function readMinimumAnswerRequirement(
+  value: unknown,
+  responseFormat: string | undefined,
+  issues: string[],
+) {
   if (!isRecord(value)) {
     issues.push('minimum_answer_requirement_missing');
     return undefined;
+  }
+  if (responseFormat === 'single_choice') {
+    if (!isSingleChoiceMinimumResponseRequirement(value)) {
+      issues.push('choice_minimum_answer_requirement_invalid');
+      return undefined;
+    }
+    return value;
   }
   const minLength = readPositiveInteger(value.minLength);
   if (!minLength || minLength > 500) issues.push('minimum_answer_length_invalid');

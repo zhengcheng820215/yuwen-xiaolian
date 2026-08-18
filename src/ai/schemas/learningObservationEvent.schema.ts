@@ -23,6 +23,10 @@ export type AnswerSubmittedPayload = {
   responseId: string;
   attemptId: string;
   submittedAt: string;
+  responseFormat?: 'text' | 'single_choice';
+  selectedOptionIds?: string[];
+  optionSetVersion?: number;
+  displayedOptionOrder?: string[];
 };
 
 export type DiagnosisCompletedPayload = {

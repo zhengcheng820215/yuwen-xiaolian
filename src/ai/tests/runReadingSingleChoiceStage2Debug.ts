@@ -1,0 +1,400 @@
+import assert from 'node:assert/strict';
+import {
+  createMaterialObservationDraftGeneratorConfig,
+  generateMaterialObservationDraftCandidates,
+} from '../agents/materialObservationDraftGeneratorAgent.ts';
+import {
+  evaluateGeneratedSingleChoiceOptions,
+  evaluateSingleChoiceTrainingFit,
+} from '../agents/singleChoiceGenerationPolicy.ts';
+import { evaluateQuestionGenerationQuality } from
+  '../agents/questionGenerationQualityPolicyAgent.ts';
+import {
+  createQuestionMaterial,
+  createStructuredQuestionDraft,
+  freezeQuestionResourceDraft,
+  reviewQuestionResourceDraft,
+  submitQuestionResourceForReview,
+  validateStructuredQuestionDraft,
+} from '../agents/questionResourceAdmissionAgent.ts';
+import { buildMaterialObservationDraftPrompt } from
+  '../prompts/materialObservationDraftPrompt.ts';
+import { ScriptedDiagnosisProviderAdapter } from
+  '../providers/diagnosisProviderAdapter.ts';
+import { InMemoryQuestionResourceAdmissionRepository } from
+  '../repositories/inMemoryQuestionResourceAdmissionRepository.ts';
+import {
+  SINGLE_CHOICE_INTERACTION_SCHEMA_VERSION,
+  type SingleChoiceInteraction,
+} from '../schemas/singleChoiceInteraction.schema.ts';
+import type { QuestionEditableFields } from '../schemas/workingTaskContent.schema.ts';
+import { resolveSingleChoiceCandidatePreview } from
+  '../../pages/singleChoiceCandidatePresentation.ts';
+
+const NOW = '2026-08-18T12:00:00.000Z';
+type Case = { name: string; run: () => void | Promise<void> };
+
+const cases: Case[] = [
+  {
+    name: 'prompt freezes action-driven format without quota or fixed ordering',
+    run: () => {
+      const prompt = buildMaterialObservationDraftPrompt(generatorInput());
+      assert.match(prompt, /不得为了题型丰富度或配额生成单选题/);
+      assert.match(prompt, /不得固定把单选题排第一/);
+      assert.match(prompt, /choiceInteraction/);
+      assert.match(prompt, /acceptedOptionIds/);
+    },
+  },
+  {
+    name: 'complete single-choice provider output becomes a candidate',
+    run: async () => {
+      const result = await runGenerator({ candidates: [choicePlanningCandidate()], materialLimitations: [] });
+      assert.equal(result.status, 'candidates_ready', JSON.stringify({
+        validation: result.validation,
+        rejected: result.rejectedCandidates,
+      }));
+      assert.equal(result.candidates[0]?.questionDraft.responseFormat, 'single_choice');
+      assert.equal(result.candidates[0]?.choiceInteraction?.options.length, 4);
+    },
+  },
+  {
+    name: 'text-only generation is accepted without a choice quota',
+    run: async () => {
+      const result = await runGenerator({ candidates: [textPlanningCandidate()], materialLimitations: [] });
+      assert.equal(result.status, 'candidates_ready');
+      assert.equal(result.candidates[0]?.questionDraft.responseFormat, 'long_text');
+    },
+  },
+  {
+    name: 'candidate ordering is not rewritten to put choice first',
+    run: async () => {
+      const input = generatorInput({ planningIntent: 'initial', candidateCount: 3 });
+      const payload = {
+        candidates: [
+          textPlanningCandidate({ questionStem: '请概括父亲送别孩子时的表现。' }),
+          choicePlanningCandidate(),
+          textPlanningCandidate({
+            questionStem: '请分析第二段动作描写对情感表达的作用。',
+            primaryAbilityId: 'analysis',
+            observationDimension: 'language',
+            observationFocus: { displayName: '动作描写作用', definition: '观察学生能否分析动作描写与情感表达的关系。' },
+            expectedStudentAction: '结合第二段动作描写，分析其情感表达作用。',
+            rubricDraft: [rubric('动作描写作用', 'analysis')],
+          }),
+        ],
+        materialLimitations: [],
+      };
+      const result = await runGenerator(payload, input);
+      assert.deepEqual(result.candidates.map((item) => item.questionDraft.responseFormat), [
+        'long_text', 'single_choice',
+      ]);
+    },
+  },
+  {
+    name: 'summarization cannot be converted to single choice',
+    run: () => {
+      const result = evaluateSingleChoiceTrainingFit({
+        primaryAbilityId: 'summarization',
+        observationDimension: 'structure',
+        questionStem: '下列哪项最能概括全文？',
+        expectedStudentAction: '概括全文主要内容。',
+        requiredRubricCount: 1,
+      });
+      assert.equal(result.passed, false);
+      assert(result.issues.some((issue) => issue.code === 'choice.training_action_requires_text'));
+    },
+  },
+  {
+    name: 'missing distractor rationale is blocked',
+    run: () => {
+      const interaction = choiceInteraction();
+      interaction.distractorRationales.pop();
+      const result = evaluateGeneratedSingleChoiceOptions(interaction);
+      assert.equal(result.passed, false);
+      assert(result.issues.some((issue) => issue.code === 'choice.distractor_coverage'));
+    },
+  },
+  {
+    name: 'duplicate misconception categories are blocked',
+    run: () => {
+      const interaction = choiceInteraction();
+      interaction.distractorRationales[1].misconceptionCode = 'surface_reading';
+      const result = evaluateGeneratedSingleChoiceOptions(interaction);
+      assert(result.issues.some((issue) => issue.code === 'choice.misconception_duplicate'));
+    },
+  },
+  {
+    name: 'answer acceptance must match the correct stable option ID',
+    run: async () => {
+      const candidate = choicePlanningCandidate();
+      candidate.answerAcceptanceDraft.acceptedOptionIds = ['option-surface'];
+      const result = await runGenerator({ candidates: [candidate], materialLimitations: [] });
+      assert.equal(result.status, 'review_required');
+      assert(result.rejectedCandidates[0]?.issues.includes('answer_acceptance_option_mismatch'));
+    },
+  },
+  {
+    name: 'choice uses structured one-selection minimum instead of text length',
+    run: async () => {
+      const candidate = choicePlanningCandidate();
+      candidate.minimumAnswerRequirement = {
+        minLength: 1,
+        requireTextEvidence: false,
+        requireExplanation: false,
+      };
+      const result = await runGenerator({ candidates: [candidate], materialLimitations: [] });
+      assert(result.rejectedCandidates[0]?.issues.includes('choice_minimum_answer_requirement_invalid'));
+    },
+  },
+  {
+    name: 'obvious correct-option length cue is blocked',
+    run: () => {
+      const interaction = choiceInteraction();
+      interaction.options[0].content = '父亲通过反复整理衣领以及列车启动后继续向前走等一连串动作，完整地表现了非常复杂而深沉且无比强烈的离别不舍。';
+      const result = evaluateGeneratedSingleChoiceOptions(interaction);
+      assert(result.issues.some((issue) => issue.code === 'choice.correct_option_length_cue'));
+    },
+  },
+  {
+    name: 'generation quality accepts a bounded complete choice candidate',
+    run: () => {
+      const result = evaluateQuestionGenerationQuality({
+        candidate: choiceEditableContent(),
+        includePortfolioGuidance: false,
+      });
+      assert.notEqual(result.status, 'blocked', result.blockerCodes.join(','));
+    },
+  },
+  {
+    name: 'generation quality blocks dense choice rubric',
+    run: () => {
+      const content = choiceEditableContent();
+      content.rubric = [
+        rubricResource('判断人物心理', 'comprehension', 'r1'),
+        rubricResource('说明动作依据', 'comprehension', 'r2'),
+        rubricResource('分析表达效果', 'comprehension', 'r3'),
+      ];
+      const result = evaluateQuestionGenerationQuality({ candidate: content, includePortfolioGuidance: false });
+      assert.equal(result.status, 'blocked');
+      assert(result.blockerCodes.includes('choice_training_action_mismatch'));
+    },
+  },
+  {
+    name: 'workbench preview exposes options but strips answer and rationale',
+    run: () => {
+      const preview = resolveSingleChoiceCandidatePreview(choiceInteraction());
+      assert(preview);
+      assert.deepEqual(preview.options.map((item) => item.displayLabel), ['A', 'B', 'C', 'D']);
+      const serialized = JSON.stringify(preview);
+      assert.equal(serialized.includes('correctOptionIds'), false);
+      assert.equal(serialized.includes('distractorRationales'), false);
+      assert.equal(serialized.includes('surface_reading'), false);
+    },
+  },
+  {
+    name: 'adopted choice content validates and freezes through the existing resource chain',
+    run: async () => {
+      const repository = new InMemoryQuestionResourceAdmissionRepository();
+      await createQuestionMaterial(repository, {
+        materialId: 'material-stage2',
+        materialVersionId: 'material-stage2:v1',
+        versionNumber: 1,
+        title: '雨后的站台',
+        content: generatorInput().material.content,
+        source: source(),
+        createdAt: NOW,
+      });
+      const draft = await createStructuredQuestionDraft(repository, {
+        ...choiceEditableContent(),
+        draftId: 'draft-stage2-choice',
+        resourceId: 'resource-stage2-choice',
+        taskId: 'task-stage2-choice',
+        now: NOW,
+      });
+      const validation = await validateStructuredQuestionDraft(repository, draft.draftId, NOW);
+      assert.equal(validation.passed, true, validation.issues.map((item) => item.code).join(','));
+      await submitQuestionResourceForReview(repository, draft.draftId, NOW);
+      await reviewQuestionResourceDraft(repository, {
+        draftId: draft.draftId,
+        action: 'approve',
+        reviewerId: 'single-operator',
+        notes: '采用完整 AI Candidate。',
+        now: NOW,
+      });
+      const frozen = await freezeQuestionResourceDraft(repository, draft.draftId, NOW);
+      assert.deepEqual(frozen.version.choiceInteraction, choiceInteraction());
+    },
+  },
+];
+
+let passed = 0;
+for (const testCase of cases) {
+  try {
+    await testCase.run();
+    passed += 1;
+    console.log(`PASS ${testCase.name}`);
+  } catch (error) {
+    console.error(`FAIL ${testCase.name}`);
+    throw error;
+  }
+}
+console.log(`Reading single-choice Stage 2 debug: ${passed}/${cases.length} passed.`);
+
+function generatorInput(preferences: Record<string, unknown> = {}) {
+  return {
+    requestId: 'single-choice-stage2-request',
+    material: {
+      materialVersionId: 'material-stage2:v1',
+      title: '雨后的站台',
+      content: '父亲站在站台边，反复整理孩子的衣领。\n列车启动后，他仍向前走了几步，直到看不清车窗。',
+      sourceDescription: '工程验收原创材料',
+    },
+    preferences: {
+      gradeRange: '初中',
+      planningIntent: 'supplement' as const,
+      candidateCount: 1,
+      ...preferences,
+    },
+    existingInventory: {
+      observations: [{
+        observationId: 'existing-unrelated',
+        primaryAbilityId: 'extraction' as const,
+        observationDimension: 'fact' as const,
+        focusDisplayName: '站台环境信息',
+        focusDefinition: '识别站台场景中的明确环境信息。',
+        expectedStudentAction: '找出材料中的站台环境信息。',
+      }],
+      questions: [],
+    },
+  };
+}
+
+async function runGenerator(payload: unknown, input = generatorInput()) {
+  const provider = new ScriptedDiagnosisProviderAdapter([{ type: 'response', rawOutput: JSON.stringify(payload) }]);
+  return generateMaterialObservationDraftCandidates(input, {
+    provider,
+    config: createMaterialObservationDraftGeneratorConfig({
+      providerName: provider.providerName,
+      model: 'stage2-scripted-provider',
+      maxAttempts: 1,
+    }),
+  });
+}
+
+function choicePlanningCandidate() {
+  const rubricName = '人物心理判断';
+  return {
+    questionStem: '下列哪项最能说明父亲在列车启动后的心情？',
+    questionDraft: { questionType: 'multiple_choice', responseFormat: 'single_choice' },
+    choiceInteraction: choiceInteraction(),
+    primaryAbilityId: 'comprehension',
+    supportingAbilityIds: [],
+    observationDimension: 'character',
+    observationFocus: { displayName: '人物心理判断', definition: '观察学生能否根据动作判断人物的主要心理。' },
+    materialAnchor: { anchorType: 'full_text' },
+    expectedStudentAction: '根据父亲的动作选择最恰当的心理判断。',
+    designRationale: '以低输入负担观察学生能否建立动作与人物心理之间的直接联系。',
+    difficultySuggestion: 'basic',
+    assessmentMode: 'exact_match',
+    rubricDraft: [rubric(rubricName, 'comprehension')],
+    answerAcceptanceDraft: { acceptedKeywords: [], semanticEquivalentAllowed: false, acceptedOptionIds: ['option-correct'] },
+    minimumAnswerRequirement: choiceMinimum(),
+    calibrationAnswers: calibrationAnswers(rubricName),
+    evidencePotential: 'moderate',
+    evidenceBoundary: { canObserve: '本次选择能否依据动作理解父亲的不舍。', cannotConclude: '不能据此宣布人物理解能力已经稳定掌握。' },
+    safetyBoundary: { taskRole: 'training_candidate', requiresHumanReview: true },
+  };
+}
+
+function textPlanningCandidate(overrides: Record<string, unknown> = {}) {
+  const rubricName = '送别表现概括';
+  return {
+    questionStem: '请概括父亲送别孩子时的表现。',
+    questionDraft: { questionType: 'reading_comprehension', responseFormat: 'long_text' },
+    primaryAbilityId: 'summarization',
+    supportingAbilityIds: [],
+    observationDimension: 'structure',
+    observationFocus: { displayName: '送别表现概括', definition: '观察学生能否整合两段中的人物动作。' },
+    materialAnchor: { anchorType: 'full_text' },
+    expectedStudentAction: '整合两段动作并形成简洁概括。',
+    designRationale: '观察跨段信息整合，不以单项判断替代文本组织。',
+    difficultySuggestion: 'intermediate',
+    assessmentMode: 'key_points',
+    rubricDraft: [rubric(rubricName, 'summarization')],
+    answerAcceptanceDraft: { acceptedKeywords: ['整理衣领', '向前走'], semanticEquivalentAllowed: true },
+    minimumAnswerRequirement: { minLength: 12, requireTextEvidence: true, requireExplanation: false },
+    calibrationAnswers: calibrationAnswers(rubricName),
+    evidencePotential: 'moderate',
+    evidenceBoundary: { canObserve: '本次概括是否覆盖两处主要动作。', cannotConclude: '不能据此宣布概括能力已经稳定掌握。' },
+    safetyBoundary: { taskRole: 'training_candidate', requiresHumanReview: true },
+    ...overrides,
+  };
+}
+
+function choiceInteraction(): SingleChoiceInteraction {
+  return {
+    schemaVersion: SINGLE_CHOICE_INTERACTION_SCHEMA_VERSION,
+    selectionMode: 'single',
+    options: [
+      { optionId: 'option-correct', content: '舍不得孩子离开' },
+      { optionId: 'option-surface', content: '担心衣领不够整齐' },
+      { optionId: 'option-entity', content: '孩子不愿登上列车' },
+      { optionId: 'option-over', content: '准备追赶已经开走的列车' },
+    ],
+    correctOptionIds: ['option-correct'],
+    distractorRationales: [
+      { optionId: 'option-surface', misconceptionCode: 'surface_reading', diagnosisMeaning: '只看到整理衣领的表面动作，忽略列车启动后仍向前走。', evidenceBoundary: '第1—2段父亲的连续动作。' },
+      { optionId: 'option-entity', misconceptionCode: 'entity_confusion', diagnosisMeaning: '混淆人物对象，材料没有写孩子不愿登车。', evidenceBoundary: '材料动作主体始终是父亲。' },
+      { optionId: 'option-over', misconceptionCode: 'over_inference', diagnosisMeaning: '把向前走过度推断为追赶列车，超过文本证据。', evidenceBoundary: '第2段只写向前走了几步。' },
+    ],
+    optionSetVersion: 1,
+  };
+}
+
+function choiceEditableContent(): QuestionEditableFields {
+  return {
+    materialVersionId: 'material-stage2:v1',
+    title: '人物心理判断',
+    questionStem: '下列哪项最能说明父亲在列车启动后的心情？',
+    questionType: 'multiple_choice',
+    responseFormat: 'single_choice',
+    choiceInteraction: choiceInteraction(),
+    assessmentMode: 'exact_match',
+    answerAcceptance: { acceptedOptionIds: ['option-correct'] },
+    rubric: [rubricResource('人物心理判断', 'comprehension', 'rubric-choice')],
+    minimumAnswerRequirement: choiceMinimum(),
+    abilityMetadata: { abilityId: 'comprehension', supportingAbilityIds: [], prerequisiteAbilityIds: [], taskRole: 'training', difficulty: 'basic' },
+    source: source(),
+    tags: ['observation_task:stage2-choice', 'observation_dimension:character', 'reading'],
+  };
+}
+
+function choiceMinimum() {
+  return { responseFormat: 'single_choice' as const, minLength: 0 as const, requireTextEvidence: false as const, requireExplanation: false as const, minSelections: 1 as const, maxSelections: 1 as const };
+}
+
+function rubric(name: string, abilityId: string) {
+  return { name, description: `准确完成${name}。`, abilityId, acceptedSignals: ['依据材料作出判断'] };
+}
+
+function rubricResource(name: string, abilityId: string, itemId: string) {
+  return { itemId, name, description: `准确完成${name}。`, abilityId, importance: 'critical' as const, required: true, acceptedSignals: ['依据材料作出判断'] };
+}
+
+function calibrationAnswers(rubricName: string) {
+  return [
+    calibration('fully_meets', 'option-correct', 'fully_meets', rubricName, 'completed', 'eligible'),
+    calibration('partially_meets', 'option-surface', 'partially_meets', rubricName, 'partial', 'eligible_but_weak'),
+    calibration('typical_error', 'option-entity', 'does_not_meet', rubricName, 'missing', 'eligible'),
+    calibration('reasonable_alternative', 'option-correct', 'fully_meets', rubricName, 'completed', 'eligible'),
+    calibration('irrelevant', '未作答', 'insufficient_evidence', rubricName, 'missing', 'ineligible'),
+  ];
+}
+
+function calibration(category: string, answerText: string, expectedAnswerStatus: string, rubricName: string, status: string, expectedEvidenceEligibility: string) {
+  return { category, answerText, expectedAnswerStatus, expectedRubricCoverage: [{ rubricName, status }], expectedDiagnosisBoundary: '仅描述本次作答表现。', expectedEvidenceEligibility };
+}
+
+function source() {
+  return { sourceType: 'ai_assisted' as const, description: '阶段2工程验收原创材料。', copyrightNote: '内部原创测试材料。' };
+}

@@ -2,6 +2,7 @@ import type {
   StructuredQuestionDraft,
 } from './questionResourceAdmission.schema.ts';
 import { normalizeQuestionRuntimePolicyTags } from './questionResourceAdmission.schema.ts';
+import type { SingleChoiceInteraction } from './singleChoiceInteraction.schema.ts';
 
 export const WORKING_TASK_CONTENT_SCHEMA_VERSION = 'working-task-content-v2' as const;
 
@@ -13,6 +14,7 @@ export type QuestionEditableFields = Pick<
   | 'questionType'
   | 'responseFormat'
   | 'options'
+  | 'choiceInteraction'
   | 'assessmentMode'
   | 'answerAcceptance'
   | 'rubric'
@@ -40,7 +42,9 @@ export type TrainingTaskEditableFields = {
   assessmentMode: string;
   questionType: string;
   responseFormat: string;
+  choiceInteraction?: SingleChoiceInteraction;
   acceptedKeywordsText: string;
+  acceptedOptionIds?: string[];
   semanticEquivalentAllowed: boolean;
   minLength: number;
   rubric: Array<{
@@ -100,6 +104,7 @@ export function extractQuestionEditableFields(
     questionType: draft.questionType,
     responseFormat: draft.responseFormat,
     options: draft.options,
+    choiceInteraction: draft.choiceInteraction,
     assessmentMode: draft.assessmentMode,
     answerAcceptance: draft.answerAcceptance,
     rubric: draft.rubric,

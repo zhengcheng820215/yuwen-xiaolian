@@ -812,7 +812,7 @@ function candidateTopLevelFields(field: CandidateFieldKey): Array<keyof Question
     case 'abilityTarget': return ['abilityMetadata'];
     case 'specificTrainingPoint': return ['title'];
     case 'questionStem': return ['questionStem'];
-    case 'studentTask': return ['questionStem', 'responseFormat', 'options', 'minimumAnswerRequirement'];
+    case 'studentTask': return ['questionStem', 'responseFormat', 'options', 'choiceInteraction', 'minimumAnswerRequirement'];
     case 'observationTarget': return ['rubric'];
     case 'answerAcceptance': return ['answerAcceptance'];
     case 'rubric': return ['rubric'];

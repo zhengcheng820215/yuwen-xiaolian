@@ -3,6 +3,13 @@ import { Link } from 'react-router-dom';
 
 const acceptanceItems = [
   {
+    to: '/internal/acceptance/reading-single-choice',
+    title: '阅读单项选择学习端验收',
+    description: '验证选项保护、未选禁用、保存、唯一提交运行态、反馈和 PC / Tablet 布局。',
+    provider: '确定性诊断呈现',
+    data: '不写 Shared Store',
+  },
+  {
     to: '/phase17-5c3a-batch-quality-summary-demo',
     title: '批次题目质量汇总验收',
     description: '验证完整、缺项、版本混杂、冲突阻断与零分母五类批次边界。',
