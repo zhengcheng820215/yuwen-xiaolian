@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import {
   adoptTrainingTaskGroupCandidate,
   createTrainingTaskGroupCandidateSession,
+  findDuplicateTrainingTaskStems,
   MAX_TRAINING_TASK_COUNT,
   resolveTrainingTaskGenerationRequest,
+  resolveSupplementSingleChoiceCandidateTarget,
   summarizeTrainingTaskGroupCoverage,
 } from '../../pages/trainingTaskGroupPlanningState.ts';
 
@@ -27,6 +29,23 @@ assert.deepEqual(resolveTrainingTaskGenerationRequest('supplement_group', 5), {
   candidateCount: 0,
   planningIntent: 'supplement',
 });
+assert.equal(resolveSupplementSingleChoiceCandidateTarget([], 2), 1);
+assert.equal(resolveSupplementSingleChoiceCandidateTarget([
+  { localId: 'text-task', responseFormat: 'long_text' },
+], 2), 1);
+assert.equal(resolveSupplementSingleChoiceCandidateTarget([
+  { localId: 'choice-task', responseFormat: 'single_choice' },
+], 2), 0);
+assert.equal(resolveSupplementSingleChoiceCandidateTarget([], 0), 0);
+assert.deepEqual(findDuplicateTrainingTaskStems([
+  { localId: 'task-1', questionStem: '文中母亲“挡在窗前”有什么作用？' },
+  { localId: 'task-2', questionStem: '文中母亲挡在窗前有什么作用' },
+  { localId: 'task-3', questionStem: '请分析结尾景物描写。' },
+]), [{
+  normalizedStem: '文中母亲挡在窗前有什么作用',
+  firstIndex: 0,
+  duplicateIndex: 1,
+}]);
 
 const currentTasks = [
   { localId: 'task-a', abilityId: 'analysis', primaryDimension: 'character', questionStem: '分析人物心理。' },

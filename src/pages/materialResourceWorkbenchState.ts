@@ -48,6 +48,7 @@ export type MaterialResourceWorkbenchDetails = {
     materialVersionId: string;
     materialTitle: string;
     title: string;
+    questionStem?: string;
     abilityId: string;
     taskRole: string;
     difficulty: string;
@@ -77,6 +78,8 @@ export type MaterialResourceWorkbenchDetails = {
     title: string;
     abilityId: string;
     taskRole: string;
+    difficulty?: string;
+    responseFormat?: string;
     versionNumber: number | null;
     frozenAt: string;
   }>;
@@ -94,6 +97,8 @@ export type MaterialResourceWorkbenchDetails = {
     title: string;
     abilityId: string;
     taskRole: string;
+    difficulty?: string;
+    responseFormat?: string;
     versionNumber: number | null;
     frozenAt: string;
   }>;
@@ -158,8 +163,7 @@ export function summarizeCrossMaterialProductionProgress(
   ) => observationTaskIdentityIds(task).includes(observationTaskPlanId);
   const publishedTaskIds = new Set(currentTasks
     .filter((task) => details.publishedResources.some((resource) => (
-      resource.materialVersionId === task.materialVersionId &&
-      matchesTaskIdentity(task, resource.observationTaskPlanId)
+      matchesPublishedResourceToObservationTask(resource, task)
     )))
     .map((task) => task.observationTaskPlanId));
   const attentionItems = [
@@ -224,6 +228,90 @@ export function observationTaskIdentityIds(
     task.taskRevisionRootId,
     task.parentObservationTaskPlanId,
   ].filter((value): value is string => Boolean(value)))];
+}
+
+export function matchesPublishedResourceToObservationTask(
+  resource: MaterialResourceWorkbenchDetails['publishedResources'][number],
+  task: ObservationTaskIdentity & {
+    materialVersionId?: string;
+    abilityId?: string;
+    taskRole?: string;
+    observationGoal?: string;
+    questionStem?: string;
+    title?: string;
+    difficulty?: string;
+    responseFormat?: string;
+  },
+): boolean {
+  if (
+    resource.materialVersionId
+    && task.materialVersionId
+    && resource.materialVersionId !== task.materialVersionId
+  ) return false;
+  if (observationTaskIdentityIds(task).includes(resource.observationTaskPlanId)) return true;
+
+  // Compatibility repair for supplement Plans created before stable task-id
+  // inheritance: exact same-material stem + ability + role resolves the old link.
+  if (!publishedResourceContentMatchesObservationTask(resource, task)) return false;
+  return true;
+}
+
+export function publishedResourceContentMatchesObservationTask(
+  resource: MaterialResourceWorkbenchDetails['publishedResources'][number],
+  task: {
+    abilityId?: string;
+    taskRole?: string;
+    observationGoal?: string;
+    questionStem?: string;
+    title?: string;
+    difficulty?: string;
+    responseFormat?: string;
+  },
+): boolean {
+  const taskStem = task.observationGoal || task.questionStem || task.title || '';
+  if (!taskStem || normalizeIdentityText(resource.title) !== normalizeIdentityText(taskStem)) return false;
+  if (resource.abilityId && task.abilityId && resource.abilityId !== task.abilityId) return false;
+  if (resource.taskRole && task.taskRole && resource.taskRole !== task.taskRole) return false;
+  if (resource.difficulty && task.difficulty && resource.difficulty !== task.difficulty) return false;
+  if (resource.responseFormat && task.responseFormat && resource.responseFormat !== task.responseFormat) return false;
+  return true;
+}
+
+export function findPublishedResourceForObservationTask(
+  details: MaterialResourceWorkbenchDetails,
+  task: ObservationTaskIdentity & {
+    materialVersionId?: string;
+    abilityId?: string;
+    taskRole?: string;
+    observationGoal?: string;
+    questionStem?: string;
+    title?: string;
+    difficulty?: string;
+    responseFormat?: string;
+  },
+): MaterialResourceWorkbenchDetails['publishedResources'][number] | null {
+  const direct = details.publishedResources.find((resource) => (
+    matchesPublishedResourceToObservationTask(resource, task)
+  ));
+  if (direct) return direct;
+
+  const taskStem = task.observationGoal || task.questionStem || task.title || '';
+  const authoritativeTask = details.learningTasks.find((candidate) => {
+    const sharesIdentity = observationTaskIdentityIds(candidate).some((id) => (
+      observationTaskIdentityIds(task).includes(id)
+    ));
+    if (sharesIdentity) return true;
+    return Boolean(
+      taskStem
+      && normalizeIdentityText(candidate.questionStem || candidate.title) === normalizeIdentityText(taskStem)
+      && (!task.abilityId || candidate.abilityId === task.abilityId)
+      && (!task.taskRole || candidate.taskRole === task.taskRole)
+    );
+  });
+  if (!authoritativeTask) return null;
+  return details.publishedResources.find((resource) => (
+    matchesPublishedResourceToObservationTask(resource, authoritativeTask)
+  )) || null;
 }
 
 export function matchesDraftToObservationTask(
@@ -347,6 +435,8 @@ export function buildMaterialResourceWorkbenchDetails(
       title: version?.questionStem || version?.title || '未命名练习',
       abilityId: version?.abilityMetadata.abilityId || link.abilityId || '',
       taskRole: version?.abilityMetadata.taskRole || link.taskRole || '',
+      difficulty: version?.abilityMetadata.difficulty || '',
+      responseFormat: version?.responseFormat || '',
       versionNumber: version?.versionNumber || null,
       frozenAt: version?.frozenAt || '',
     };
@@ -370,9 +460,11 @@ export function buildMaterialResourceWorkbenchDetails(
         materialVersionId: plan.materialVersionId,
         materialTitle,
         title: task.resourceDraftSpecification?.title || task.observationGoal,
+        questionStem: task.observationGoal,
         abilityId: task.abilityId,
         taskRole: task.taskRole,
         difficulty: task.difficulty,
+        responseFormat: task.resourceDraftSpecification?.responseFormat,
       }));
     }),
     pendingReviews: currentDrafts
@@ -475,6 +567,10 @@ function compareMostRecent(
 
 function tagValue(tags: string[], prefix: string): string {
   return tags.find((tag) => tag.startsWith(prefix))?.slice(prefix.length) || '';
+}
+
+function normalizeIdentityText(value?: string): string {
+  return String(value || '').trim().replace(/\s+/g, '').replace(/[，。！？；：、“”‘’]/g, '').toLowerCase();
 }
 
 export function activeLinksForPlan(

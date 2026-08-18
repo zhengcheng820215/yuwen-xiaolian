@@ -195,11 +195,13 @@ export async function createMaterialProductionPlan(
     createdAt: mutableSourcePlan?.createdAt,
     dimensionReviews,
     taskPlans: input.tasks.map((task, index) => ({
-      observationTaskPlanId: mutableSourcePlan ? task.observationTaskPlanId : undefined,
+      // ObservationTask identity is stable across group-level Plan revisions. Existing
+      // tasks keep their id so an adopted supplement cannot detach already-published
+      // Formal Resources; newly generated tasks arrive without an id and still receive
+      // a fresh identity in buildMaterialObservationPlan.
+      observationTaskPlanId: task.observationTaskPlanId,
       taskRevisionRootId: task.taskRevisionRootId || task.observationTaskPlanId,
-      parentObservationTaskPlanId: mutableSourcePlan
-        ? task.parentObservationTaskPlanId
-        : task.observationTaskPlanId,
+      parentObservationTaskPlanId: task.parentObservationTaskPlanId,
       primaryDimension: task.primaryDimension,
       observationFocus: task.observationFocus,
       abilityId: task.abilityId,

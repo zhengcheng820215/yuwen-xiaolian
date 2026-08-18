@@ -35,6 +35,9 @@ function userFacingMessage(message: string): string {
   if (message === 'Question quality assessments are not identity-aligned.') {
     return '质量检查结果已更新，请重新检查后再确认发布。';
   }
+  if (message === 'Observation Tasks in one batch require distinct question stems.') {
+    return '当前任务方案包含重复题干，不能保存。原任务与候选均已保留，请重新生成补充候选。';
+  }
   return message;
 }
 

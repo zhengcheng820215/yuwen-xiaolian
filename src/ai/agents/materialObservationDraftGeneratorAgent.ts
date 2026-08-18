@@ -492,6 +492,13 @@ function evaluateProviderCandidates(
   if (existingObservations.length > 0 && newObservationCandidates.length === 0) {
     batchIssues.push('no_new_observation_candidate');
   }
+  const singleChoiceCandidateTarget = input.preferences?.singleChoiceCandidateTarget || 0;
+  const singleChoiceCandidateCount = newObservationCandidates.filter(
+    (candidate) => candidate.questionDraft.responseFormat === 'single_choice',
+  ).length;
+  if (singleChoiceCandidateCount < singleChoiceCandidateTarget) {
+    batchIssues.push('single_choice_candidate_target_unmet');
+  }
   const status = batchIssues.length === 0 ? 'candidates_ready' : 'review_required';
   const authoringContractLimitations = newObservationCandidates.flatMap((candidate, candidateIndex) => {
     const validation = validateAuthoringAiOutput({
@@ -925,6 +932,18 @@ function classifyAgainstInventory(
   observations: ExistingObservationInventoryItem[],
   questions: ExistingQuestionInventoryItem[],
 ): MaterialObservationPlanningCandidate['inventoryRelation'] {
+  const exactQuestionMatch = questions.find(
+    (item) => normalize(item.questionStem) === normalize(candidate.questionStem),
+  );
+  if (exactQuestionMatch) {
+    return {
+      disposition: 'likely_duplicate',
+      matchedObservationId: exactQuestionMatch.observationId,
+      matchedQuestionId: exactQuestionMatch.questionId,
+      reason: '题干与同材料已有题目完全相同；改变能力、训练方向或作答形式不能形成新增任务。',
+    };
+  }
+
   const matchedObservation = observations
     .filter((item) => (
       item.primaryAbilityId === candidate.primaryAbilityId &&
@@ -1024,6 +1043,14 @@ function validateInput(input: MaterialObservationDraftGeneratorInput): string[] 
   }
   if (input.preferences?.preferredAbilityIds?.some((ability) => !PRIMARY_ABILITY_IDS.includes(ability))) {
     issues.push('preferred_ability_invalid');
+  }
+  const singleChoiceCandidateTarget = input.preferences?.singleChoiceCandidateTarget;
+  if (singleChoiceCandidateTarget !== undefined && (
+    !Number.isInteger(singleChoiceCandidateTarget)
+    || singleChoiceCandidateTarget < 0
+    || singleChoiceCandidateTarget > (requestedCount || maximumCandidateCount)
+  )) {
+    issues.push('single_choice_candidate_target_invalid');
   }
   if ((input.preferences?.requestedFocus?.length || 0) > 160) {
     issues.push('requested_focus_too_long');

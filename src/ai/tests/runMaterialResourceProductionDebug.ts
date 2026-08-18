@@ -170,13 +170,24 @@ async function caseNoAutomaticFormalization() {
 async function casePlanRevisionLineage() {
   const fixture = await createFixture();
   await reviewPlan(fixture);
+  const sourceTaskIds = fixture.plan.taskPlans.map((task) => task.observationTaskPlanId);
   const second = await createMaterialProductionPlan(fixture.resources, fixture.observations, {
     materialVersionId: fixture.material.materialVersionId,
     sourcePlanId: fixture.plan.materialObservationPlanId,
-    tasks: tasks().map((task, index) => ({ ...task, questionStem: `${task.questionStem}（修订 ${index + 1}）` })),
+    tasks: tasks().map((task, index) => ({
+      ...task,
+      observationTaskPlanId: fixture.plan.taskPlans[index].observationTaskPlanId,
+      taskRevisionRootId: fixture.plan.taskPlans[index].taskRevisionRootId,
+      parentObservationTaskPlanId: fixture.plan.taskPlans[index].parentObservationTaskPlanId,
+      questionStem: `${task.questionStem}（修订 ${index + 1}）`,
+    })),
     now: '2026-07-22T11:00:00.000Z',
   });
   expect(second.plan.revision === 2 && second.plan.parentPlanId === fixture.plan.materialObservationPlanId, 'Plan revision lineage is incomplete.');
+  expect(
+    second.plan.taskPlans.map((task) => task.observationTaskPlanId).join(',') === sourceTaskIds.join(','),
+    'Group-level Plan revision detached stable TrainingTask identities from published resources.',
+  );
 }
 
 async function caseWorkingDraftDoesNotStack() {

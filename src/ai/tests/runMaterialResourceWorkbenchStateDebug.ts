@@ -1,6 +1,8 @@
 import {
   buildMaterialResourceWorkbenchDetails,
+  findPublishedResourceForObservationTask,
   isPlanFullyPublished,
+  publishedResourceContentMatchesObservationTask,
   scopeMaterialResourceWorkbenchDetails,
   selectUserRetiredMaterials,
   selectCurrentMaterialPlan,
@@ -357,6 +359,135 @@ check(
   `published=${staleMaterialProgress.publishedTaskCount}, pending=${staleMaterialProgress.pendingTaskCount}`,
 );
 
+const supplementedPlanProgress = summarizeCrossMaterialProductionProgress({
+  materials: [
+    { materialVersionId: 'material:supplement', title: '补充任务材料', plannedTaskCount: 5 },
+  ],
+  learningTasks: [
+    ...['a', 'b', 'c'].map((suffix) => ({
+      observationTaskPlanId: `task-${suffix}-current`,
+      taskRevisionRootId: suffix === 'a' ? 'task-a-lost-root' : `task-${suffix}-published`,
+      parentObservationTaskPlanId: suffix === 'a' ? 'task-a-lost-parent' : `task-${suffix}-published`,
+      materialObservationPlanId: 'plan-supplemented',
+      materialVersionId: 'material:supplement',
+      materialTitle: '补充任务材料',
+      title: `既有题目 ${suffix}`,
+      abilityId: 'analysis',
+      taskRole: 'training',
+      difficulty: 'intermediate',
+    })),
+    {
+      observationTaskPlanId: 'task-choice-new',
+      materialObservationPlanId: 'plan-supplemented',
+      materialVersionId: 'material:supplement',
+      materialTitle: '补充任务材料',
+      title: '新增单选',
+      abilityId: 'comprehension',
+      taskRole: 'training',
+      difficulty: 'basic',
+    },
+    {
+      observationTaskPlanId: 'task-text-new',
+      materialObservationPlanId: 'plan-supplemented',
+      materialVersionId: 'material:supplement',
+      materialTitle: '补充任务材料',
+      title: '新增文本题',
+      abilityId: 'comprehension',
+      taskRole: 'training',
+      difficulty: 'basic',
+    },
+  ],
+  pendingReviews: [],
+  incompletePublications: [],
+  publishedResources: [
+    ...['a', 'b', 'c'].map((suffix) => ({
+      observationTaskPlanId: `task-${suffix}-published`,
+      materialObservationPlanId: 'plan-before-supplement',
+      materialVersionId: 'material:supplement',
+      title: `既有题目 ${suffix}`,
+      abilityId: 'analysis',
+      taskRole: 'training',
+    })),
+    {
+      observationTaskPlanId: 'task-choice-new',
+      materialObservationPlanId: 'plan-supplemented',
+      materialVersionId: 'material:supplement',
+    },
+  ],
+} as never, ['material:supplement']);
+check(
+  '19 补充计划发布单选后只增加目标题且继承原三题',
+  supplementedPlanProgress.taskCount === 5
+    && supplementedPlanProgress.publishedTaskCount === 4
+    && supplementedPlanProgress.pendingTaskCount === 1
+    && supplementedPlanProgress.pendingMaterialIds.join(',') === 'material:supplement',
+  `tasks=${supplementedPlanProgress.taskCount}, published=${supplementedPlanProgress.publishedTaskCount}, pending=${supplementedPlanProgress.pendingTaskCount}; task-a uses exact-stem compatibility repair`,
+);
+check(
+  '20 正式版本仅在当前任务定义未变化时保持已发布',
+  publishedResourceContentMatchesObservationTask({
+    title: '母亲为什么挡在窗前？',
+    abilityId: 'comprehension',
+    taskRole: 'training',
+    difficulty: 'basic',
+    responseFormat: 'single_choice',
+  } as never, {
+    questionStem: '母亲为什么挡在窗前？',
+    abilityId: 'comprehension',
+    taskRole: 'training',
+    difficulty: 'basic',
+    responseFormat: 'single_choice',
+  })
+    && !publishedResourceContentMatchesObservationTask({
+      title: '母亲为什么挡在窗前？',
+      abilityId: 'comprehension',
+      taskRole: 'training',
+      difficulty: 'basic',
+      responseFormat: 'single_choice',
+    } as never, {
+      questionStem: '母亲为什么挡在窗前？',
+      abilityId: 'analysis',
+      taskRole: 'training',
+      difficulty: 'basic',
+      responseFormat: 'long_text',
+    }),
+  'same definition remains published; changed ability/format requires a successor publication',
+);
+check(
+  '21 卡片使用权威任务身份恢复补充计划前的正式资源',
+  findPublishedResourceForObservationTask({
+    materials: [],
+    learningTasks: [{
+      observationTaskPlanId: 'task-current',
+      taskRevisionRootId: 'task-published',
+      materialObservationPlanId: 'plan-current',
+      materialVersionId: 'material:card',
+      materialTitle: '卡片材料',
+      title: '分析母亲挡在窗前的作用',
+      questionStem: '分析母亲挡在窗前的作用',
+      abilityId: 'analysis',
+      taskRole: 'training',
+      difficulty: 'intermediate',
+    }],
+    pendingReviews: [],
+    incompletePublications: [],
+    publishedResources: [{
+      observationTaskPlanId: 'task-published',
+      materialObservationPlanId: 'plan-before-supplement',
+      materialVersionId: 'material:card',
+      title: '分析母亲挡在窗前的作用',
+      abilityId: 'analysis',
+      taskRole: 'training',
+    }],
+  } as never, {
+    observationTaskPlanId: 'editable-card-id',
+    questionStem: '分析母亲挡在窗前的作用',
+    abilityId: 'analysis',
+    taskRole: 'training',
+  })?.observationTaskPlanId === 'task-published',
+  'editable card resolves through the canonical learning-task lineage',
+);
+
 const retiredProjection = selectUserRetiredMaterials([
   { materialId: 'material-a', materialVersionId: 'material-a:v1', versionNumber: 1, status: 'retired', title: '材料A', updatedAt: '2026-08-12T00:00:00.000Z' },
   { materialId: 'material-a', materialVersionId: 'material-a:v2', versionNumber: 2, status: 'active', title: '材料A', updatedAt: '2026-08-13T00:00:00.000Z' },
@@ -364,7 +495,7 @@ const retiredProjection = selectUserRetiredMaterials([
   { materialId: 'material-b', materialVersionId: 'material-b:v2', versionNumber: 2, status: 'retired', title: '材料B', updatedAt: '2026-08-12T00:00:00.000Z' },
 ] as never);
 check(
-  '19 被新版替代的历史版本不计入停用素材',
+  '22 被新版替代的历史版本不计入停用素材',
   retiredProjection.length === 1 && retiredProjection[0]?.materialVersionId === 'material-b:v2',
   `retired=${retiredProjection.map((item) => item.materialVersionId).join(',')}`,
 );

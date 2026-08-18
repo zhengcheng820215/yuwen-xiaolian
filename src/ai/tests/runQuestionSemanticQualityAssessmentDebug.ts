@@ -51,6 +51,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '07 malformed output receives one structural repair', run: caseRepairSuccess },
   { name: '08 second malformed output becomes invalid_output', run: caseRepairFailure },
   { name: '09 illegal evidence reference is rejected', run: caseIllegalEvidenceRef },
+  { name: '09a single-choice nested evidence reference is accepted', run: caseSingleChoiceNestedEvidenceRef },
   { name: '10 prompt version changes semantic request identity', run: casePromptIdentity },
   { name: '11 model version changes semantic request identity', run: caseModelIdentity },
   { name: '12 deterministic assessment changes semantic request identity', run: caseDeterministicIdentity },
@@ -215,6 +216,20 @@ async function caseIllegalEvidenceRef(): Promise<void> {
     response(invalid),
   ]);
   assert(assessment.status === 'invalid_output', 'Illegal evidence ref was accepted.');
+}
+
+async function caseSingleChoiceNestedEvidenceRef(): Promise<void> {
+  const fixture = await validFixture('single-choice-nested-evidence');
+  const valid = validSemanticOutput({
+    check: 'rubricAlignment',
+    evidenceRefs: [
+      'draft.choiceInteraction.correctOptionIds',
+      'draft.options[0]:正确选项',
+    ],
+  });
+  const { assessment, provider } = await execute(fixture, [response(valid)]);
+  assert(assessment.status === 'completed', 'Legal single-choice field paths were rejected.');
+  assert(provider.getCallCount() === 1, 'Legal single-choice evidence should not trigger repair.');
 }
 
 async function casePromptIdentity(): Promise<void> {

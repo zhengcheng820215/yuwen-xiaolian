@@ -3,7 +3,7 @@
 英文名称：AI Resource Generation and Optimization Workflow Contract
 
 状态：DESIGN FROZEN / P0-P7 ENGINEERING COMPLETE / SINGLE-OPERATOR ADOPTION ORCHESTRATION DEBUG ACCEPTED
-契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_7`
+契约版本：`ai_resource_generation_and_optimization_workflow_contract_v1_9`
 更新日期：2026-08-18
 
 产品确认日期：2026-08-05
@@ -20,6 +20,10 @@
 2026-08-06 组级操作收口确认：任务卡直接展示当前可执行动作，不再添加“下一步：”前缀。题目采用属于单任务动作，采用后不需要任务组级再次确认。页面底部常驻区只保留“重新规划整组任务”和“补充生成训练任务”两项组级 AI 生成动作；旧“确认任务并保存”不得常驻或以禁用态出现。只有训练任务组本身发生候选组采用、增删等未保存变化时，才临时显示“保存任务组修改”，该动作只维护 Observation Plan，不确认题目、不创建 Question Revision，也不进入题目发布链。
 
 2026-08-13 任务组候选采用收口确认：TrainingTaskCandidate 的人工采用动作在前台统一为“采用当前任务方案”。应用层必须先计算采用后的任务组，再自动调用 Observation Plan 保存与结构检查；保存成功后才关闭候选区并显示任务卡，保存失败时保留原候选。页面不再提供逐项勾选、删除任务、编辑缓冲或独立保存入口；不采用时直接“重新生成任务方案”。该动作不得创建 Question Revision、Assessment、Human Review、Formal Resource 或 Registry 记录，更不得直接发布；单任务 QuestionCandidate 的“采用并发布”边界保持不变。
+
+2026-08-18 补充候选与单选替代边界确认：补充生成只能增加尚未覆盖的新 Observation，不得把同一题干改成另一种 `responseFormat` 后作为新任务并存。题干完全重复必须在任何能力、训练方向、题型或 Observation 标签比较之前全局阻断；高度相似题干继续进入语义重复检查。当前题组缺少单选时，补充生成可以请求至少一个适合基础理解入口的单选候选，但该候选仍必须对应新的低负荷观察点；若适合单选的观察已经存在，应转入该 TrainingTask 的单题替代优化并形成后继 Revision，不得伪装成补充任务。采用前必须按最终任务组再次检查题干唯一性，并直接指出重复任务；不得等待 Repository 抛出英文异常后只显示通用失败。
+
+2026-08-18 补充计划发布继承确认：补充候选被采用时，新 Observation Plan 只能为新增任务建立新身份；当前任务组中已经发布的任务必须通过 `taskRevisionRootId / parentObservationTaskPlanId` 继承原 Formal Resource、Frozen Version、Registry 与 Active Link，不得因 Plan Revision、Draft 同步或 Candidate 后台恢复重新变成“可以发布”。单题“采用并发布”只能推进目标题的 Candidate、Draft、Assessment、Publication 与可见状态，不得修改相邻任务的 Active Link 或状态投影。发布完成后的权威刷新必须得到“原已发布数量 + 1”；若正式关联尚未同步完成，不得先显示发布成功。
 
 2026-08-12 “可以发布”承诺确认：任务卡显示“可以发布 / 采用并发布”即表示所有可预见发布前置条件已经满足，或可由同一次点击确定性自动完成。应用层必须在 Candidate Adopt 前完成 Observation Plan 校验、提交与单人模式审核确认，并让可见状态与执行命令消费同一前置检查结果。不得先采用 Candidate，再以 `plan_not_reviewed`、Plan 缺失、任务身份缺失或已知校验失败阻断用户。点击后仅网络、存储、Provider 或并发状态变化等不可预见运行时异常可以中断；中断时保留已完成领域阶段并显示唯一恢复动作，不得要求重新采用同一 Candidate。
 
@@ -400,6 +404,20 @@ optimizeTaskCandidate({
 优化结果必须提供预览、修改字段、前后差异、优化原因和锁定字段自检结果。
 
 未经授权的字段不得改变。若 AI 输出改变锁定字段，该 Candidate 生成失败，不得展示为可采用结果。
+
+### 6.5 补充任务、作答形式缺口与题干判重
+
+`supplement_group` 的唯一职责是补充新的 TrainingTask Observation。系统可以把“当前题组缺少单项选择形成的基础理解入口”作为生成目标，但不得因此放宽 Observation 与题干重复规则：
+
+1. 先对候选题干与同材料现有题干执行归一化全局精确比较，不受 `primaryAbilityId`、`observationDimension`、`responseFormat` 或模型重新标注影响；
+2. 精确重复直接归为 `likely_duplicate`，不得进入可采用候选；
+3. 精确比较通过后，再比较回答对象、材料依据、认知动作与评分目标，识别高度相似题或既有 Observation 的替代问法；
+4. 仅改变 `short_text / long_text / single_choice` 不会产生新的 Observation；
+5. 若当前题组尚无单选且材料存在新的基础理解观察点，本轮补充应包含至少一个完整、可诊断的 `single_choice` Candidate；
+6. 若合适的基础理解 Observation 已存在，系统不得复制题干来满足单选目标，而应提示从对应 TrainingTask 发起单题替代优化；
+7. 若材料无法形成新的合格单选观察，返回明确限制说明，不得用重复题或低质量干扰项凑数。
+
+“采用当前任务方案”执行 Repository 写入前，应用层必须对合并后的最终任务组再次执行同一归一化题干唯一性检查。检查失败时保留候选与当前任务组，错误信息必须指出重复的候选和现有任务，并提供“重新生成补充候选”这一唯一恢复动作。
 
 ## 七、采用与 Revision
 
@@ -1615,6 +1633,20 @@ Candidate 与发布状态的页面投影必须绑定明确的 `materialVersionId
 禁止仅依赖 `visibleState = published` 写入临时成功文案，同时继续使用采用前的 `publishedResources` 缓存。刷新操作不得重放采用或发布命令；它只负责读取正式结果，因此不会产生重复 Formal Version 或 Registry Entry。
 
 专项回归已覆盖“发布成功分支必须刷新当前素材和 Plan 快照”。浏览器真实数据验收显示《狼》三个训练任务均恢复为已发布，顶部为“待发布 0 / 已发布 3”，控制台无异常。
+
+## 补充计划修订的发布状态继承与单题隔离（2026-08-18）
+
+采用 `supplement_group` 后形成新 Observation Plan Revision 时，应用层必须以稳定 TrainingTask 谱系而非当前 Plan ID 判断既有正式资源：
+
+1. 原任务的 `taskRevisionRootId` 必须保持不变，新 Plan 中的任务可以拥有新的 `observationTaskPlanId`，但必须保留父任务身份；
+2. 原 Active Link 可以继续指向谱系中的旧任务身份，也可以幂等同步到新任务身份；两种形式在读取投影中都必须解析为同一个已发布任务；
+3. Draft 同步只更新仍可编辑的 Draft，不得把已冻结或已发布 Draft 复制成“当前未发布草稿”，也不得用 Draft 身份差异覆盖已成立的正式资源；
+4. 新增任务不得复用现有任务的 TrainingTask、QuestionLineage、Formal Resource 或 Active Link 身份；
+5. Candidate 后台加载、初始 Candidate 恢复和单题发布运行态必须按稳定 TrainingTask 身份隔离，不得触发相邻卡片状态变化；
+6. 卡片与顶部统计必须消费同一个权威发布投影。只要谱系中存在当前 Active Formal Resource，状态必须优先显示“已发布”，Candidate 可用性不得覆盖该状态；
+7. 单题发布成功必须在权威刷新后确认目标题形成 Active Link，再显示成功并更新统计。其余任务的发布状态和正式版本不得变化。
+
+最低回归场景固定为：某材料已有 3 道已发布任务，补充采用 2 道新任务（其中至少 1 道为 `single_choice`）。补充采用完成后必须保持“已发布 3 / 待发布 2”；发布该单选题后必须变为“已发布 4 / 待发布 1”。旧三题始终保持已发布，另一道新增题保持待处理，不得出现整组“可以发布”、发布数量回退或多道题共同进入运行态。
 
 ## 初始 Candidate 上下文恢复一致性（2026-08-09）
 

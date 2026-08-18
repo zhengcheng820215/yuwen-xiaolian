@@ -35,6 +35,7 @@ import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
 import { formatMaterialTitle } from '../ui/materialTitle.ts';
 import {
   buildMaterialResourceWorkbenchDetails,
+  findPublishedResourceForObservationTask,
   matchesDraftToObservationTask,
   observationTaskIdentityIds,
   scopeMaterialResourceWorkbenchDetails,
@@ -53,7 +54,9 @@ import {
 import {
   adoptTrainingTaskGroupCandidate,
   createTrainingTaskGroupCandidateSession,
+  findDuplicateTrainingTaskStems,
   MAX_TRAINING_TASK_COUNT,
+  resolveSupplementSingleChoiceCandidateTarget,
   resolveTrainingTaskGenerationRequest,
   summarizeTrainingTaskGroupCoverage,
 } from './trainingTaskGroupPlanningState.ts';
@@ -121,6 +124,11 @@ import { analyzeQuestionResponseLoad } from
   '../ai/agents/questionGenerationQualityPolicyAgent.ts';
 import { FormalResourceCommandQueue } from './formalResourceCommandQueue.ts';
 import { resolveSingleChoiceCandidatePreview } from './singleChoiceCandidatePresentation.ts';
+import {
+  formatSingleChoiceAcceptedSignal,
+  formatTrainingTaskTitle,
+  resolveSingleChoiceAssessmentPresentation,
+} from './singleChoiceAssessmentPresentation.ts';
 import {
   subscribeFormalResourceRevisionUpdates,
   subscribeFormalResourceWriteRuntime,
@@ -561,18 +569,19 @@ export default function MaterialResourceProductionWorkbench() {
     .join('|');
   const protectedTaskIds = useMemo(() => {
     if (!selectedPlan) return [];
-    const protectedIds = new Set(
-      selectedMaterialResourceDetails.publishedResources
-        .filter((resource) => resource.materialObservationPlanId === selectedPlan.materialObservationPlanId)
-        .map((resource) => resource.observationTaskPlanId),
-    );
+    const protectedIds = new Set();
+    for (const task of tasks) {
+      if (findPublishedTaskFormalResource(selectedMaterialResourceDetails, task)) {
+        protectedIds.add(task.localId || task.observationTaskPlanId);
+      }
+    }
     for (const draft of planDrafts) {
       if (draft.status !== 'reviewed') continue;
-      const taskTag = draft.tags.find((tag) => tag.startsWith('observation_task:'));
-      if (taskTag) protectedIds.add(taskTag.slice('observation_task:'.length));
+      const task = tasks.find((item) => matchesDraftToObservationTask(draft, item));
+      if (task) protectedIds.add(task.localId || task.observationTaskPlanId);
     }
     return [...protectedIds];
-  }, [planDrafts, selectedMaterialResourceDetails.publishedResources, selectedPlan]);
+  }, [planDrafts, selectedMaterialResourceDetails, selectedPlan, tasks]);
   const generatorInventory = useMemo(
     () => buildGeneratorInventory({
       materialVersionId: selectedMaterialId,
@@ -1093,7 +1102,6 @@ export default function MaterialResourceProductionWorkbench() {
     try {
       let currentLifecycle = lifecycle;
       let currentSnapshot = snapshot;
-      let createdAlignedPlanRevision = false;
 
       if (
         currentLifecycle.draft
@@ -1114,7 +1122,6 @@ export default function MaterialResourceProductionWorkbench() {
           tasks: alignedTasks.map(toTaskInput),
         });
         activePlanId = alignedPlan.plan.materialObservationPlanId;
-        createdAlignedPlanRevision = true;
         currentSnapshot = await refresh({
           materialVersionId: selectedMaterialId,
           planId: activePlanId,
@@ -1155,13 +1162,12 @@ export default function MaterialResourceProductionWorkbench() {
           [observationTaskPlanId]: continuationFeedback,
         }));
       }
+      // A reviewed successor Plan must inherit every already-frozen sibling link before
+      // the target task continues. This is idempotent and prevents one task publication
+      // from making the rest of the group look unpublished after a supplement revision.
+      await synchronizeProductionObservationLinks(activePlanId);
       currentSnapshot = await refresh({ materialVersionId: selectedMaterialId, planId: activePlanId });
       currentLifecycle = resolveTaskLifecycleFromSnapshot(currentSnapshot, lifecycle, activePlanId);
-      if (createdAlignedPlanRevision) {
-        await synchronizeProductionObservationLinks(activePlanId);
-        currentSnapshot = await refresh({ materialVersionId: selectedMaterialId, planId: activePlanId });
-        currentLifecycle = resolveTaskLifecycleFromSnapshot(currentSnapshot, lifecycle, activePlanId);
-      }
 
       for (let stageCount = 0; stageCount < 7; stageCount += 1) {
         const { draft, readiness } = currentLifecycle;
@@ -1418,6 +1424,9 @@ export default function MaterialResourceProductionWorkbench() {
         .map((focusId) => trainingDirectionLabels[focusId])
         .join('；');
       const currentCoverage = summarizeTrainingTaskGroupCoverage(tasks);
+      const singleChoiceCandidateTarget = operationType === 'supplement_group'
+        ? resolveSupplementSingleChoiceCandidateTarget(tasks, generationRequest.candidateCount)
+        : 0;
       const currentCoverageContext = operationType === 'supplement_group'
         ? `当前已覆盖能力：${currentCoverage.abilityIds.map((id) => abilityLabels[id] || id).join('、') || '无'}；当前已覆盖方向：${currentCoverage.dimensionIds.map((id) => dimensionLabels[id] || id).join('、') || '无'}`
         : '';
@@ -1436,6 +1445,7 @@ export default function MaterialResourceProductionWorkbench() {
           candidateCount: generationRequest.candidateCount,
           planningIntent: generationRequest.planningIntent,
           preferredAbilityIds: generatorPreferences.preferredAbilityIds,
+          singleChoiceCandidateTarget,
           requestedFocus: [
             operationType === 'replace_group'
               ? '重新规划完整候选任务组，覆盖方向应形成互补'
@@ -1447,7 +1457,7 @@ export default function MaterialResourceProductionWorkbench() {
         existingInventory,
       });
       setGeneratorResult(result);
-      if (result.status === 'candidates_ready') {
+      if (result.candidates.length > 0) {
         const candidateTasks = result.candidates.map(generatorCandidateToEditableTask);
         setGroupCandidateSession(createTrainingTaskGroupCandidateSession({
           candidateGroupId: `task-group-${result.requestId || createGeneratorRequestId(selectedMaterial.materialVersionId)}`,
@@ -1467,7 +1477,12 @@ export default function MaterialResourceProductionWorkbench() {
         }
         : result.status === 'provider_failed'
           ? { type: 'error', message: 'AI 服务本次调用未完成，没有生成候选，也没有写入任何正式记录。请查看具体原因后重试。' }
-          : { type: 'error', message: '本次候选不足或存在结构问题，未导入也未写入任何正式记录。' });
+          : {
+            type: 'error',
+            message: result.validation.issues.includes('single_choice_candidate_target_unmet')
+              ? '当前题组还没有单项选择，本次也未生成合格单选；该方案不可采用，请重新生成。'
+              : '本次候选不足或存在结构问题，未导入也未写入任何正式记录。',
+          });
     } catch (error) {
       setNotice(errorNotice(error));
     } finally {
@@ -1782,6 +1797,7 @@ export default function MaterialResourceProductionWorkbench() {
           [task.observationTaskPlanId || task.localId]: continuationFeedback,
         }));
       }
+      await synchronizeProductionObservationLinks(selectedPlan.materialObservationPlanId);
       await refresh({
         materialVersionId: selectedMaterial.materialVersionId,
         planId: selectedPlan.materialObservationPlanId,
@@ -1806,6 +1822,7 @@ export default function MaterialResourceProductionWorkbench() {
         error: null,
       });
       if (adoptionResult.visibleState === 'published') {
+        await synchronizeProductionObservationLinks(selectedPlan.materialObservationPlanId);
         await refresh({
           materialVersionId: selectedMaterial.materialVersionId,
           planId: selectedPlan.materialObservationPlanId,
@@ -2048,6 +2065,17 @@ export default function MaterialResourceProductionWorkbench() {
           message: groupCandidateSession.operationType === 'supplement_group'
             ? `所选候选与当前任务重复，或任务组已达到 ${MAX_TRAINING_TASK_COUNT} 个任务，未加入编辑区。`
             : '替代候选组与当前任务组没有实质差异。',
+        });
+        return;
+      }
+      const duplicateTaskStems = findDuplicateTrainingTaskStems(adoption.tasks);
+      if (duplicateTaskStems.length > 0) {
+        const duplicateLabels = duplicateTaskStems.map(
+          ({ firstIndex, duplicateIndex }) => `训练任务 ${firstIndex + 1} 与训练任务 ${duplicateIndex + 1}`,
+        );
+        setNotice({
+          type: 'error',
+          message: `${duplicateLabels.join('、')}题干重复，当前补充方案不能采用。原任务和候选均已保留，请重新生成补充候选。`,
         });
         return;
       }
@@ -2793,7 +2821,7 @@ export default function MaterialResourceProductionWorkbench() {
                   <summary className="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-2">
                     <div className="contents">
                       <div className="col-start-1 row-start-1 flex min-w-0 flex-wrap items-center gap-2" aria-label="训练任务标题与状态">
-                        <h3 className="mr-1 text-sm font-bold">{taskEditorTitle(index)}</h3>
+                        <h3 className="mr-1 text-sm font-bold">{formatTrainingTaskTitle(index, task.responseFormat)}</h3>
                         <TaskQuestionLifecycleBadge
                           presentation={taskCardPresentationWithPlanGate}
                           candidateReady={candidateReadyForAdoption}
@@ -3048,7 +3076,7 @@ export default function MaterialResourceProductionWorkbench() {
                           </div>
                         </div>
                       )}
-                      {lineValues(task.acceptedKeywordsText).length > 0 && (
+                      {task.responseFormat !== 'single_choice' && lineValues(task.acceptedKeywordsText).length > 0 && (
                         <div>
                           <p className="text-xs font-medium text-slate-500">可接受要点</p>
                           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-slate-700">
@@ -3056,9 +3084,11 @@ export default function MaterialResourceProductionWorkbench() {
                           </ul>
                         </div>
                       )}
-                      <p className="text-sm text-slate-700">
-                        {task.semanticEquivalentAllowed ? '接受语义等价表达' : '按明确要点判定'}
-                      </p>
+                      {task.responseFormat !== 'single_choice' && (
+                        <p className="text-sm text-slate-700">
+                          {task.semanticEquivalentAllowed ? '接受语义等价表达' : '按明确要点判定'}
+                        </p>
+                      )}
                       <div>
                         <p className="text-sm font-semibold text-slate-900">评分要点</p>
                         <div id={taskFieldId(task, 'rubric')} tabIndex={-1} className="mt-2 space-y-3 outline-none">
@@ -3067,13 +3097,23 @@ export default function MaterialResourceProductionWorkbench() {
                               <p className="font-semibold text-slate-900">评分项{rubricIndex + 1} · {item.name || '未命名'}</p>
                               {item.description && <p className="mt-1">{item.description}</p>}
                               {commaValues(item.acceptedSignalsText || '').length > 0 && (
-                                <p className="mt-1 text-slate-600">可接受表达：{commaValues(item.acceptedSignalsText).join('、')}</p>
+                                <p className="mt-1 text-slate-600">
+                                  {task.responseFormat === 'single_choice' ? '判定依据：' : '可接受表达：'}
+                                  {commaValues(item.acceptedSignalsText)
+                                    .map((signal) => task.responseFormat === 'single_choice'
+                                      ? formatSingleChoiceAcceptedSignal(signal, task.choiceInteraction)
+                                      : signal)
+                                    .join('、')}
+                                </p>
                               )}
                             </div>
                           ))}
                         </div>
                       </div>
-                      {task.calibrationCases.some((item) => item.answerText?.trim()) && (
+                      {task.responseFormat === 'single_choice' && (
+                        <SingleChoiceAssessmentDetails interaction={task.choiceInteraction} />
+                      )}
+                      {task.responseFormat !== 'single_choice' && task.calibrationCases.some((item) => item.answerText?.trim()) && (
                         <div>
                           <p className="text-sm font-semibold text-slate-900">答案示例</p>
                           <div className="mt-2 space-y-3">
@@ -3336,7 +3376,10 @@ function TaskQuestionLifecycleBadge({
   qualityWarningCount = 0,
   candidateGapLabel = null,
 }) {
-  const resolvedPresentation = candidateGapLabel ? {
+  const formalResourcePublished = presentation?.visibleStatusTone === 'success'
+    || presentation?.visibleStatusLabel === '已发布'
+    || presentation?.stateLabel === '已发布';
+  const resolvedPresentation = formalResourcePublished ? presentation : candidateGapLabel ? {
     visibleStatusLabel: candidateGapLabel,
     visibleStatusTone: 'warning',
     stateLabel: candidateGapLabel,
@@ -3412,9 +3455,7 @@ function resolveTaskQuestionLifecycle({
   }
 
   const taskIdentityIds = observationTaskIdentityIds(task);
-  const published = details.publishedResources.find(
-    (item) => taskIdentityIds.includes(item.observationTaskPlanId),
-  );
+  const published = findPublishedResourceForObservationTask(details, task);
   const incomplete = details.incompletePublications.find(
     (item) => taskIdentityIds.includes(item.observationTaskPlanId),
   );
@@ -3458,10 +3499,11 @@ function resolveTaskQuestionLifecycle({
   const incompleteSourceDraftId = hasLocalRevision
     ? `previous:${incomplete?.sourceDraftId || observationTaskPlanId}`
     : incomplete?.sourceDraftId;
-  const publishedMatchesCurrentDraft = Boolean(
-    published
-    && (!draft || published.sourceDraftId === draft.draftId),
-  );
+  // An Active Formal Resource remains the learning-consumed version until a
+  // successor is actually frozen and linked. A pending/confirmed Draft may be
+  // shown as an optimization candidate, but it must not turn the task back into
+  // an unpublished task or reduce the published counter.
+  const publishedMatchesCurrentDraft = Boolean(published);
   const productionView = resolveTaskProductionState({
     trainingTaskId: observationTaskPlanId,
     questionLineageId: draft?.resourceId || published?.resourceId || incomplete?.resourceId,
@@ -3916,6 +3958,51 @@ function TaskReadOnlyFact({ label, children }) {
   );
 }
 
+function SingleChoiceAssessmentDetails({ interaction }) {
+  const presentation = resolveSingleChoiceAssessmentPresentation(interaction);
+
+  if (!presentation.correctOption) {
+    return (
+      <div data-single-choice-assessment-details>
+        <p className="text-sm font-semibold text-slate-900">选项判定</p>
+        <p className="mt-2 text-sm leading-6 text-amber-700">选项判定尚未形成，当前题目不能进入正式发布。</p>
+      </div>
+    );
+  }
+
+  return (
+    <div data-single-choice-assessment-details>
+      <p className="text-sm font-semibold text-slate-900">选项判定</p>
+      <div className="mt-2 space-y-3">
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+          <p className="text-xs font-medium text-emerald-700">正确答案</p>
+          <p className="mt-1 text-sm leading-6 text-slate-800">
+            {presentation.correctOption.displayLabel}．{presentation.correctOption.content}
+          </p>
+        </div>
+        {presentation.distractors.map((option) => (
+            <div key={`${option.displayLabel}:${option.content}`} className="rounded-md border border-slate-200 bg-white px-3 py-2.5">
+              <p className="text-xs font-medium text-slate-500">
+                选择 {option.displayLabel} · {option.misconceptionLabel}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-slate-800">{option.content}</p>
+              {option.diagnosisMeaning && (
+                <p className="mt-1 text-sm leading-6 text-slate-600">典型偏差：{option.diagnosisMeaning}</p>
+              )}
+              {option.evidenceBoundary && (
+                <p className="mt-1 text-xs leading-5 text-slate-500">核对范围：{option.evidenceBoundary}</p>
+              )}
+            </div>
+        ))}
+        <div className="rounded-md border border-slate-200 bg-white px-3 py-2.5">
+          <p className="text-xs font-medium text-slate-500">未作答</p>
+          <p className="mt-1 text-sm leading-6 text-slate-600">{presentation.unansweredMessage}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AutoGrowingTextarea({ id, value, onChange, placeholder }) {
   const textareaRef = useRef(null);
 
@@ -4005,6 +4092,13 @@ function GeneratorCandidatePreview({
           以下任务组成一个完整补充方案；采用后系统会自动保存，重新生成不会改变当前任务组。
         </p>
       )}
+      {supplementMode && currentTasks.every((task) => task.responseFormat !== 'single_choice') && (
+        <p className={`mt-2 text-sm leading-6 ${result.candidates.some((candidate) => candidate.questionDraft.responseFormat === 'single_choice') ? 'text-emerald-700' : 'text-amber-700'}`}>
+          {result.candidates.some((candidate) => candidate.questionDraft.responseFormat === 'single_choice')
+            ? `本次补充包含 ${result.candidates.filter((candidate) => candidate.questionDraft.responseFormat === 'single_choice').length} 道单项选择，用于低负荷确认基础理解。`
+            : '当前题组尚无单项选择，本次也未生成合格单选，因此该方案不可采用；请重新生成。'}
+        </p>
+      )}
       {result.status === 'candidates_ready' && session?.operationType === 'replace_group' && !initialPlanningMode && (
         <section className="mt-4 grid gap-3 rounded-md bg-slate-50 p-4 sm:grid-cols-2" aria-label="新旧任务组覆盖对比">
           <CoverageSummary title="当前任务组" coverage={currentCoverage} />
@@ -4079,8 +4173,11 @@ function GeneratorCandidatePreview({
           {result.candidates.map((candidate, index) => (
             <article key={candidate.candidateId}>
               <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <p className="inline-flex rounded bg-blue-50 px-2 py-1 text-xs font-normal text-blue-700">候选训练任务 {index + 1}</p>
+                  <span className="inline-flex rounded bg-slate-100 px-2 py-1 text-xs font-normal text-slate-600">
+                    {responseFormatDisplay(candidate.questionDraft.responseFormat)}
+                  </span>
                 </div>
                 <p className="mt-1 text-sm font-medium leading-6 text-slate-900">{candidate.questionStem}</p>
                 {candidate.questionDraft.responseFormat === 'single_choice'
@@ -4805,10 +4902,7 @@ function buildTaskCandidateRuntimeContext({
 }
 
 function findPublishedTaskFormalResource(details, task) {
-  const taskIdentityIds = observationTaskIdentityIds(task);
-  return details?.publishedResources?.find(
-    (item) => taskIdentityIds.includes(item.observationTaskPlanId),
-  ) || null;
+  return details ? findPublishedResourceForObservationTask(details, task) : null;
 }
 
 function buildTaskCandidateRequestedFocus(task, operation, goals, isFormalOptimization = false) {
@@ -5115,6 +5209,9 @@ function generatorIssueAction(issue) {
   if (issue === 'question_type_invalid' || issue === 'response_format_invalid') {
     return '点击上方“再次生成训练任务”，系统会重新按当前支持的题型和作答形式生成。';
   }
+  if (issue === 'single_choice_candidate_target_unmet') {
+    return '点击“生成补充候选”重新生成；系统会继续要求至少一道符合质量规则的单项选择，不会采用本轮纯文本方案。';
+  }
   return '点击上方“再次生成训练任务”；若连续失败，可将任务数量调整为 3，并选择更明确的训练方向后重试。';
 }
 function formatRejectedAnchor(anchor) {
@@ -5153,6 +5250,7 @@ function generatorIssueLabel(issue) {
     provider_failed: '模型服务本次调用失败，尚未产生任何候选。',
     provider_output_not_valid_json: '模型输出不是完整的结构化 JSON，无法进入候选校验。',
     candidate_count_outside_planning_range: '模型返回的候选数量超出本次规划范围。',
+    single_choice_candidate_target_unmet: '当前题组缺少单项选择，但本次没有生成符合质量要求的单选候选。',
     fewer_than_2_valid_independent_candidates: '通过校验且彼此独立的候选不足 2 个。',
     candidate_count_must_be_3_to_6: '模型没有返回 3–6 个表面候选。',
     fewer_than_3_valid_independent_candidates: '通过校验且彼此独立的候选不足 3 个。',
@@ -5261,9 +5359,6 @@ function createSingleTaskRegenerationAttemptId(observationTaskPlanId) {
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   return `single-task-regeneration-${observationTaskPlanId}-${suffix}`;
-}
-function taskEditorTitle(index) {
-  return `训练任务${index + 1}`;
 }
 function createEmptyMaterialForm() {
   return {

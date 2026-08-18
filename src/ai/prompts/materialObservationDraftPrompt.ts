@@ -7,7 +7,7 @@ import {
   STRUCTURED_QUESTION_TYPES,
 } from '../schemas/questionResourceAdmission.schema.ts';
 
-export const MATERIAL_OBSERVATION_DRAFT_PROMPT_VERSION = 'material_observation_draft_prompt_v1_7' as const;
+export const MATERIAL_OBSERVATION_DRAFT_PROMPT_VERSION = 'material_observation_draft_prompt_v1_8' as const;
 
 type MaterialObservationDraftRepairItem = {
   candidateIndex: number;
@@ -39,12 +39,18 @@ export function buildMaterialObservationDraftPrompt(
     ? input.preferences.preferredAbilityIds.join(', ')
     : '无；请只选择材料真正支持的能力，不机械覆盖六项能力';
   const requestedFocus = input.preferences?.requestedFocus?.trim() || '无；优先发现材料中尚未覆盖的高价值认知动作';
+  const singleChoiceCandidateTarget = input.preferences?.singleChoiceCandidateTarget || 0;
+  const responseFormatInstruction = singleChoiceCandidateTarget > 0
+    ? `当前题组缺少单项选择形成的基础理解入口。本批次 ${candidateCount} 个候选中必须包含至少 ${singleChoiceCandidateTarget} 个符合规则的 single_choice 候选，候选顺序仍由 TrainingTask Role 决定。请优先寻找尚未覆盖的信息定位、对象关系、局部含义、简单因果或边界明确的初步辨认；不得复用已有题干，也不得仅改变已有任务的能力标签、训练方向或 responseFormat 来冒充新增观察。适合改成单选的观察已经存在时，不在补充模式中生成其替代题。不得把概括、多证据整合或开放分析机械改成单选。若材料确实无法形成具有诊断意义的新观察和干扰项，不得凑题，并在 materialLimitations 中以“single_choice_not_supported:”开头说明具体原因。`
+    : '当前批次没有单项选择数量目标；继续完全按训练动作决定作答形式。';
   const inventory = input.existingInventory || { observations: [], questions: [] };
   const paragraphs = splitParagraphs(input.material.content);
 
   return `你是初中语文材料观测任务设计助手。你的输出只是待人工审核的教学资源候选，不是正式题目，不得写入正式状态。
 
 当前生成模式为 ${generationMode}。${generationInstruction}
+
+作答形式规划：${responseFormatInstruction}
 
 硬规则：
 1. 只输出 JSON，不输出 Markdown、解释或代码围栏。

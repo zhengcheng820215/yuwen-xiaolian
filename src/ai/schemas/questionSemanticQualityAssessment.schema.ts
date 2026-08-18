@@ -10,9 +10,9 @@ import {
 export const QUESTION_SEMANTIC_QUALITY_OUTPUT_SCHEMA_VERSION =
   'question_semantic_quality_output_v1';
 export const QUESTION_SEMANTIC_QUALITY_PROMPT_VERSION =
-  'question_semantic_quality_prompt_v1';
+  'question_semantic_quality_prompt_v2';
 export const QUESTION_SEMANTIC_QUALITY_RULE_VERSION =
-  'question_semantic_quality_rules_v1';
+  'question_semantic_quality_rules_v2';
 export const QUESTION_QUALITY_MERGE_RULE_VERSION =
   'question_quality_merge_rules_v1';
 
@@ -172,7 +172,10 @@ export function validateSemanticFindings(
   if (!findings.every((finding) => (
     finding.evidenceRefs.every((ref) => (
       allowedEvidenceRefPrefixes.some((prefix) => (
-        ref === prefix || ref.startsWith(`${prefix}:`)
+        ref === prefix ||
+        ref.startsWith(`${prefix}:`) ||
+        ref.startsWith(`${prefix}.`) ||
+        ref.startsWith(`${prefix}[`)
       ))
     )) &&
     (

@@ -514,6 +514,31 @@ await check('C41 补充规划一次允许返回一个新增观察任务', async 
     && result.validation.passed;
 });
 
+await check('C42 完全相同题干跨能力和训练方向仍被全局阻断', async () => {
+  const existing = validPayload().candidates[0];
+  const payload = validPayload();
+  payload.candidates[0] = {
+    ...payload.candidates[0],
+    primaryAbilityId: 'comprehension',
+    observationDimension: 'language',
+    observationFocus: {
+      displayName: '动作含义判断',
+      definition: '观察学生能否理解人物动作的局部含义。',
+    },
+    expectedStudentAction: '选择最符合人物动作含义的判断。',
+    rubricDraft: payload.candidates[0].rubricDraft.map((item: Record<string, unknown>) => ({
+      ...item,
+      abilityId: 'comprehension',
+    })),
+  };
+  const result = await run(withInventory([existing]), providerWith(payload));
+  return result.status === 'candidates_ready'
+    && result.candidates.length === 2
+    && result.withheldCandidates.length === 1
+    && result.withheldCandidates[0].inventoryRelation.disposition === 'likely_duplicate'
+    && result.withheldCandidates[0].inventoryRelation.reason.includes('题干与同材料已有题目完全相同');
+});
+
 console.log('\nPhase 17.2 Material Observation Draft Generator Debug');
 console.log('='.repeat(78));
 for (const report of reports) {

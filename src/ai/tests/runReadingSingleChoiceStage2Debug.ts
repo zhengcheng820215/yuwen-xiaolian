@@ -30,6 +30,11 @@ import {
 import type { QuestionEditableFields } from '../schemas/workingTaskContent.schema.ts';
 import { resolveSingleChoiceCandidatePreview } from
   '../../pages/singleChoiceCandidatePresentation.ts';
+import {
+  formatSingleChoiceAcceptedSignal,
+  formatTrainingTaskTitle,
+  resolveSingleChoiceAssessmentPresentation,
+} from '../../pages/singleChoiceAssessmentPresentation.ts';
 
 const NOW = '2026-08-18T12:00:00.000Z';
 type Case = { name: string; run: () => void | Promise<void> };
@@ -43,6 +48,19 @@ const cases: Case[] = [
       assert.match(prompt, /不得固定把单选题排第一/);
       assert.match(prompt, /choiceInteraction/);
       assert.match(prompt, /acceptedOptionIds/);
+    },
+  },
+  {
+    name: 'supplement prompt requests one bounded choice when the current group lacks a choice entry',
+    run: () => {
+      const prompt = buildMaterialObservationDraftPrompt(generatorInput({
+        candidateCount: 2,
+        singleChoiceCandidateTarget: 1,
+      }));
+      assert.match(prompt, /必须包含至少 1 个符合规则的 single_choice 候选/);
+      assert.match(prompt, /候选顺序仍由 TrainingTask Role 决定/);
+      assert.match(prompt, /不得复用已有题干/);
+      assert.match(prompt, /single_choice_not_supported:/);
     },
   },
   {
@@ -63,6 +81,17 @@ const cases: Case[] = [
       const result = await runGenerator({ candidates: [textPlanningCandidate()], materialLimitations: [] });
       assert.equal(result.status, 'candidates_ready');
       assert.equal(result.candidates[0]?.questionDraft.responseFormat, 'long_text');
+    },
+  },
+  {
+    name: 'text-only supplement cannot be adopted when a missing choice entry was requested',
+    run: async () => {
+      const result = await runGenerator(
+        { candidates: [textPlanningCandidate()], materialLimitations: [] },
+        generatorInput({ singleChoiceCandidateTarget: 1 }),
+      );
+      assert.equal(result.status, 'review_required');
+      assert(result.validation.issues.includes('single_choice_candidate_target_unmet'));
     },
   },
   {
@@ -189,6 +218,46 @@ const cases: Case[] = [
       assert.equal(serialized.includes('correctOptionIds'), false);
       assert.equal(serialized.includes('distractorRationales'), false);
       assert.equal(serialized.includes('surface_reading'), false);
+    },
+  },
+  {
+    name: 'production assessment renders option labels without exposing stable IDs',
+    run: () => {
+      const interaction = choiceInteraction();
+      const presentation = resolveSingleChoiceAssessmentPresentation(interaction);
+      assert.deepEqual(presentation.correctOption, {
+        displayLabel: 'A',
+        content: '舍不得孩子离开',
+      });
+      assert.deepEqual(
+        presentation.distractors.map((item) => item.displayLabel),
+        ['B', 'C', 'D'],
+      );
+      assert.equal(presentation.distractors[0]?.misconceptionLabel, '停留在表面信息');
+      const serialized = JSON.stringify(presentation);
+      assert.equal(serialized.includes('option-correct'), false);
+      assert.equal(serialized.includes('option-surface'), false);
+      assert.equal(serialized.includes('部分完成'), false);
+      assert.equal(serialized.includes('合理异表述'), false);
+    },
+  },
+  {
+    name: 'production rubric replaces stable option ID with label and content',
+    run: () => {
+      const display = formatSingleChoiceAcceptedSignal(
+        '选择option-correct',
+        choiceInteraction(),
+      );
+      assert.equal(display, '选择A（舍不得孩子离开）');
+      assert.equal(display.includes('option-'), false);
+    },
+  },
+  {
+    name: 'task title identifies single choice without changing text task titles',
+    run: () => {
+      assert.equal(formatTrainingTaskTitle(3, 'single_choice'), '训练任务4（单项选择）');
+      assert.equal(formatTrainingTaskTitle(0, 'short_text'), '训练任务1');
+      assert.equal(formatTrainingTaskTitle(1, 'long_text'), '训练任务2');
     },
   },
   {

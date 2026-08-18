@@ -231,6 +231,18 @@ assert.ok(
     < adoptTaskCandidateSource.indexOf('adoptQuestionTaskCandidate'),
   '训练计划提交与审核必须发生在 Candidate Adopt 之前',
 );
+assert.ok(
+  adoptTaskCandidateSource.indexOf('synchronizeProductionObservationLinks')
+    > adoptTaskCandidateSource.indexOf('executeConfirmTrainingPlanForTaskProductionCommand')
+    && adoptTaskCandidateSource.indexOf('synchronizeProductionObservationLinks')
+      < adoptTaskCandidateSource.indexOf('adoptQuestionTaskCandidate'),
+  'Candidate Adopt 前必须先恢复补充 Plan 中既有任务的正式资源关联',
+);
+assert.match(
+  adoptTaskCandidateSource,
+  /adoptionResult\.visibleState === 'published'[\s\S]*?synchronizeProductionObservationLinks[\s\S]*?await refresh/,
+  '单题发布成功后必须同步 Active Link 并刷新权威快照',
+);
 assert.match(
   adoptTaskCandidateSource,
   /candidateAdoptionInFlightRef\.current\.has\(operationKey\)[\s\S]*?candidateAdoptionInFlightRef\.current\.add\(operationKey\)[\s\S]*?setTaskWorkflowOperation\(operationKey\)/,
@@ -255,6 +267,11 @@ assert.match(
   materialWorkbenchSource,
   /const planCanPrepareForPublication = Boolean\([\s\S]*?selectedValidation\?\.passed[\s\S]*?const candidateReadyForAdoption = Boolean\([\s\S]*?planCanPrepareForPublication/,
   '“可以发布”状态必须消费训练计划发布准备门禁',
+);
+assert.match(
+  materialWorkbenchSource,
+  /const formalResourcePublished = presentation\?\.visibleStatusTone === 'success'[\s\S]*?const resolvedPresentation = formalResourcePublished \? presentation : candidateGapLabel/,
+  '已发布状态必须优先于 Candidate 可用性，不得被“可以发布”覆盖',
 );
 assert.match(
   materialWorkbenchSource,

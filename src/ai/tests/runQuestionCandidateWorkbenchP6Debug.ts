@@ -110,8 +110,8 @@ async function main(): Promise<void> {
   }
   assert.match(
     source,
-    /if \(adoptionResult\.visibleState === 'published'\) \{\s*await refresh\(\{\s*materialVersionId: selectedMaterial\.materialVersionId,\s*planId: selectedPlan\.materialObservationPlanId,/,
-    'published adoption must refresh the current material and plan snapshot before rendering success',
+    /if \(adoptionResult\.visibleState === 'published'\) \{\s*await synchronizeProductionObservationLinks\(selectedPlan\.materialObservationPlanId\);\s*await refresh\(\{\s*materialVersionId: selectedMaterial\.materialVersionId,\s*planId: selectedPlan\.materialObservationPlanId,/,
+    'published adoption must synchronize Active Links and refresh the current material and plan snapshot before rendering success',
   );
   assert.equal(
     source.includes("if (selectedPlan.status !== 'reviewed')"),

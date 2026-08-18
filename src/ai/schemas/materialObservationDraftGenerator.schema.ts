@@ -15,7 +15,7 @@ import type {
 } from './diagnosis.schema.ts';
 import type { SingleChoiceInteraction } from './singleChoiceInteraction.schema.ts';
 
-export const MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION = 'material_observation_draft_generator_v1_3' as const;
+export const MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION = 'material_observation_draft_generator_v1_4' as const;
 
 export type MaterialObservationGenerationMode =
   | 'discover_new_observation'
@@ -51,6 +51,7 @@ export type MaterialObservationDraftGeneratorPreferences = {
   planningIntent?: 'initial' | 'replacement' | 'supplement';
   requestedFocus?: string;
   targetObservationId?: string;
+  singleChoiceCandidateTarget?: number;
 };
 
 export type MaterialObservationDraftGeneratorInput = {

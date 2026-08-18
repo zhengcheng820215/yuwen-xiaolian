@@ -33,7 +33,16 @@ export type TrainingTaskGroupCandidate = {
   abilityId?: string;
   primaryDimension?: string;
   questionStem?: string;
+  responseFormat?: string;
 };
+
+export function resolveSupplementSingleChoiceCandidateTarget<T extends TrainingTaskGroupCandidate>(
+  tasks: T[],
+  candidateCount: number,
+): number {
+  if (candidateCount <= 0) return 0;
+  return tasks.some((task) => task.responseFormat === 'single_choice') ? 0 : 1;
+}
 
 export type TrainingTaskGroupCandidateSession<T extends TrainingTaskGroupCandidate> = {
   candidateGroupId: string;
@@ -49,6 +58,30 @@ export type TrainingTaskGroupCoverage = {
   abilityIds: string[];
   dimensionIds: string[];
 };
+
+export type DuplicateTrainingTaskStem = {
+  normalizedStem: string;
+  firstIndex: number;
+  duplicateIndex: number;
+};
+
+export function findDuplicateTrainingTaskStems<T extends TrainingTaskGroupCandidate>(
+  tasks: T[],
+): DuplicateTrainingTaskStem[] {
+  const firstIndexByStem = new Map<string, number>();
+  const duplicates: DuplicateTrainingTaskStem[] = [];
+  tasks.forEach((task, index) => {
+    const normalizedStem = normalizeText(task.questionStem || '');
+    if (!normalizedStem) return;
+    const firstIndex = firstIndexByStem.get(normalizedStem);
+    if (firstIndex === undefined) {
+      firstIndexByStem.set(normalizedStem, index);
+      return;
+    }
+    duplicates.push({ normalizedStem, firstIndex, duplicateIndex: index });
+  });
+  return duplicates;
+}
 
 export function createTrainingTaskGroupCandidateSession<T extends TrainingTaskGroupCandidate>({
   candidateGroupId,
