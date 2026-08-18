@@ -140,6 +140,7 @@ Capability Gate = CLOSED
 
 | 编号 | 场景 | 预期结果 |
 | --- | --- | --- |
+| L0 | 新 Training 会话存在显式进入层单选 | 调度与正式匹配共同返回单选；请求使用 `multiple_choice / single_choice / single_choice_response`，不得因 `open_response` 错配回退文本题 |
 | L1 | 首次打开单选任务 | 只显示题干和选项，不显示答案键、干扰依据或内部状态 |
 | L2 | 未选择 | 提交不可用，并明确提示选择一个答案 |
 | L3 | 选择后保存 | 保存稳定 optionId、Option Set Version 和展示顺序 |
@@ -232,6 +233,7 @@ Capability Gate = CLOSED
 阶段 4 必须同时验证：
 
 - `short_text / long_text` 任务生成、发布和 Learning 不变；
+- 正式资源匹配按冻结版本 `responseFormat` 区分单选与文本能力约束，单选优先命中与合法文本回退均有自动化证据；
 - 文本反馈后单次 Revision 不变；
 - 单选不错误进入文本 Revision；
 - Phase 16.3 断点恢复和 Provider 幂等不变；

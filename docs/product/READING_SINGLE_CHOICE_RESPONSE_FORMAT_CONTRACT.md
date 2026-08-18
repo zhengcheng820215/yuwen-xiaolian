@@ -4,7 +4,7 @@
 
 状态：`DESIGN ACCEPTED / STAGES 1–4 PASS / CAPABILITY GATE OPEN`
 
-文档版本：`reading_single_choice_response_format_v1.19`
+文档版本：`reading_single_choice_response_format_v1.20`
 
 生效日期：`2026-08-18`
 
@@ -275,6 +275,26 @@ type TrainingTaskSequenceReason =
 2. **Learning 投放顺序**：只对尚未消费的任务应用当前顺序策略。已完成、已提交或已进入反馈/修订链的任务保持原历史顺序；`retest / transfer` 继续服从到期时间、任务角色和材料迁移条件。
 
 因此，补充发布一个新的基础单选，不会改写正式资源历史，也不会把学生已经完成的文本任务移到后面；它只允许在后续尚未消费的同组 Training 候选中获得入口优先级。
+
+### 4.3.1 正式资源匹配必须识别作答形式
+
+Learning 顺序规划命中某个候选后，正式资源匹配请求必须继续携带并校验该 Resource Version 的 `responseFormat`。不得只根据 `abilityId / taskRole` 生成统一的开放文本约束，否则会出现“顺序层优先选中单选，但匹配层因要求 `open_response` 将其过滤，最终静默回退文本题”的跨层错配。
+
+匹配契约冻结为：
+
+| Resource Version `responseFormat` | `questionType` | `responseMode` | 必需交互能力 |
+| --- | --- | --- | --- |
+| `single_choice` | `multiple_choice` | `single_choice` | `single_choice_response`、`ability_observation` |
+| `short_text / long_text` | `open_response` | `written` | `open_response`、`ability_observation`；其余证据与推理能力按任务要求增加 |
+
+约束还必须满足：
+
+1. `single_choice` 不得被要求提供 `open_response`，其 Rubric 可观察性由结构有效的 `choiceInteraction`、唯一答案和核心判断项建立，不得继续强制要求文本证据、解释或结论；文本题不得因单选接入而移除原有 `open_response`、文本证据或推理链门禁；
+2. 显式按 Resource Version 匹配时，`responseFormat` 以及文本证据、解释、结论和推理链要求必须来自该冻结版本与 Rubric，不得由能力名称猜测；
+3. 单选因身份、版本、干扰项、答案键或正式链不完整而不合格时可以回退其他任务，但不得因为题型错配而静默回退；
+4. 新会话无更高优先级 Retest / Transfer 且存在未消费的显式基础进入层单选时，资源匹配必须实际返回该单选，而不只是排序结果位于前列；
+5. 显式锁定 `requiredResourceVersionId` 时，若该冻结版本难度仍位于当前允许区间内，Fulfillment 的难度软偏好必须与该版本对齐；不得仅因基础入口单选为 `basic / lower`、默认偏好为 `same`，将可执行资源降级为 `partial_match` 或人工复核；
+6. 断点恢复仍锁定原 Resource Version，不能用新发布单选替换已开始轮次。
 
 ### 4.4 规划结果与放行规则
 
@@ -767,6 +787,8 @@ AI 选择 `single_choice` 时必须同时生成题干、完整选项、正确答
 
 2026-08-18 顺序规划工程最终收口：`training_task_sequence_planning_v2` 将进入层身份从位置推断升级为显式的 `preludeCandidateIds`，正式资源保存并恢复 `sequence-strategy / sequence-reason / sequence-rank / sequence-prelude / sequence-prelude-count`。默认 `entry_first` 最多只提前 `1–2` 道合格基础单选；即使题组包含第 `3` 道单选，只要存在文本任务，首个文本任务也必须紧随进入层，其余单选留在后续训练。`holistic_first` 必须确定性把首个文本任务置于本轮新候选首位，不能只依赖 Provider 原始返回顺序；`role_driven` 与 Retest / Transfer 保持时间依赖。Learning 优先级只作用于显式进入层，旧版无标记资源按同材料最多前置 `2` 道的保守兼容规则处理。顺序元数据必须在保存、权威刷新和再次保存后保持不变；补充采用继续追加，不重排已发布任务。执行证据见[单选进入层顺序规划与 Learning 调度验收报告](../education/phase/reports/reading_single_choice_sequence_planning_learning_scheduling_acceptance_2026-08-18.md)。
 
+2026-08-18 正式匹配题型收口：显式 Resource Version 匹配已按冻结 `responseFormat` 生成 `questionType / responseMode / requiredCapabilities`，并按冻结 Rubric 推导文本证据与推理链要求；单选可观察性不再依赖文本型 Rubric 字段，允许区间内的锁定版本难度软偏好同步对齐。当前真实正式资源只读验收已从 `39` 个可消费版本中正确命中 `single_choice`，Stage 4 E2E `13 / 13 PASS`。执行证据见[单选正式资源匹配与 Learning 投放修复验收](../education/phase/reports/reading_single_choice_formal_matching_response_format_acceptance_2026-08-18.md)。
+
 门禁开启仅表示正式发布的合格单选资源可以被 Learning 消费，不表示真实教育效果已经成立。后续仍需按 Resource Version 与 Option Set Version 分组采集真实 Attempt，并用文本互补任务、Retest 或 Transfer 校准解释边界。
 
 ## 十四、最低验收标准
@@ -806,6 +828,9 @@ AI 选择 `single_choice` 时必须同时生成题干、完整选项、正确答
 7. 第一版不出现立即改选入口；
 8. 旧 Session 和历史文本题行为不变。
 9. 互补任务保持独立 Attempt / Diagnosis，联合解释能区分前置理解缺口、文本组织缺口和证据冲突。
+10. 新 Training 会话存在未消费的显式进入层单选时，顺序规划与正式资源匹配必须共同返回 `single_choice`，不得因统一要求 `open_response` 静默回退文本题。
+11. 单选匹配请求必须使用 `questionType = multiple_choice`、`responseMode = single_choice` 和 `single_choice_response`；文本题继续使用 `open_response / written`。
+12. 单选确因正式资源硬门禁不合格时允许回退，但必须保留可诊断原因；题型约束错配不属于合法回退理由。
 
 ### 14.3 数据端
 

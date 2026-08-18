@@ -114,6 +114,9 @@ export function mapResourceDifficulty(
 
 function deriveCapabilities(version: FrozenQuestionResourceVersion): string[] {
   const capabilities = ['ability_observation'];
+  if (version.responseFormat === 'single_choice') {
+    capabilities.push('single_choice_response');
+  }
   if (['open_short_answer', 'reading_comprehension'].includes(version.questionType)) {
     capabilities.push('open_response');
   }

@@ -26,6 +26,11 @@ import {
   generateResourceCoverage,
 } from '../agents/resourceCoverageAgent.ts';
 import { runSingleChoiceDiagnosis } from '../agents/singleChoiceDiagnosisAgent.ts';
+import {
+  createFormalResourceBootstrapTaskRequest,
+  matchCurrentFormalResource,
+  resolveFormalResourceBootstrapMatch,
+} from '../agents/phase173FormalResourceMatchingService.ts';
 import { runTaskEvidenceReturnAgent } from '../agents/taskEvidenceReturnAgent.ts';
 import { runTaskExecutionAgent } from '../agents/taskExecutionAgent.ts';
 import { createDiagnosisProviderConfigSnapshot } from '../agents/realLLMRuntimeFoundationAgent.ts';
@@ -178,6 +183,68 @@ const cases: DebugCase[] = [
         positions.add(options.findIndex((option) => option.optionId === correctOptionId));
       }
       assert(positions.size >= 3, 'Learning kept the correct answer in one display position.');
+    },
+  },
+  {
+    name: 'S4-05B formal matching uses the frozen response format instead of forcing open response',
+    run: async () => {
+      const choice = wolf.tasks.find((item) => item.version.responseFormat === 'single_choice')!;
+      const request = createFormalResourceBootstrapTaskRequest(
+        STUDENT_ID,
+        NOW,
+        choice.version.abilityMetadata.abilityId,
+        choice.version.abilityMetadata.taskRole,
+      );
+      const matched = await matchCurrentFormalResource({
+        taskRequest: request,
+        studentId: STUDENT_ID,
+        resourceRepository: wolf.resources,
+        observationRepository: wolf.observations,
+        recentHistory: emptyHistory(),
+        bootstrapMaterialId: choice.version.materialId,
+        requiredResourceVersionId: choice.version.resourceVersionId,
+        evaluatedAt: NOW,
+      });
+      assert.equal(matched.status, 'matched', JSON.stringify(matched));
+      assert.equal(matched.resourceVersion?.responseFormat, 'single_choice');
+      assert(matched.matchEvaluation?.existingMatchResult?.matchReasons.includes('responseMode matches.'));
+      assert(matched.matchEvaluation?.existingMatchResult?.matchReasons.includes('questionType matches.'));
+    },
+  },
+  {
+    name: 'S4-05C a fresh training session selects the entry choice and can still fall back to text',
+    run: async () => {
+      const versions = await wolf.resources.listVersions();
+      const fresh = await resolveFormalResourceBootstrapMatch({
+        studentId: STUDENT_ID,
+        versions,
+        resourceRepository: wolf.resources,
+        observationRepository: wolf.observations,
+        recentHistory: emptyHistory(),
+        evaluatedAt: NOW,
+        reusePreviouslyUsedWhenExhausted: true,
+      });
+      assert.equal(fresh.matched.status, 'matched', JSON.stringify(fresh.matched));
+      assert.equal(fresh.matched.resourceVersion?.responseFormat, 'single_choice');
+
+      const choice = fresh.matched.resourceVersion!;
+      const fallback = await resolveFormalResourceBootstrapMatch({
+        studentId: STUDENT_ID,
+        versions,
+        resourceRepository: wolf.resources,
+        observationRepository: wolf.observations,
+        recentHistory: {
+          ...emptyHistory(),
+          recentTaskIds: [choice.taskId],
+          recentResourceIds: [choice.resourceId],
+          recentResourceVersionIds: [choice.resourceVersionId],
+        },
+        evaluatedAt: NOW,
+        reusePreviouslyUsedWhenExhausted: true,
+      });
+      assert.equal(fallback.matched.status, 'matched', JSON.stringify(fallback.matched));
+      assert.notEqual(fallback.matched.resourceVersion?.resourceVersionId, choice.resourceVersionId);
+      assert.notEqual(fallback.matched.resourceVersion?.responseFormat, 'single_choice');
     },
   },
   {
@@ -438,6 +505,18 @@ function task(
     questionStem,
     expectedStudentAction,
     designReason,
+  };
+}
+
+function emptyHistory() {
+  return {
+    studentId: STUDENT_ID,
+    recentTaskIds: [],
+    recentResourceIds: [],
+    recentResourceVersionIds: [],
+    recentMaterialIds: [],
+    recentExecutionSessionIds: [],
+    historyWindowEndedAt: NOW,
   };
 }
 

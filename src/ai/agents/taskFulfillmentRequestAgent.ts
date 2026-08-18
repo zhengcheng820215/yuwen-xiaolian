@@ -96,6 +96,7 @@ export function createAdaptiveTaskFulfillmentRequest(
     .concat(adaptiveConstraints.softPreferences)
     .filter((rule) => rule.code === 'exclude_task')
     .flatMap((rule) => Array.isArray(rule.value) ? rule.value : [String(rule.value)]);
+  const singleChoice = adaptiveConstraints.requiredCapabilities.includes('single_choice_response');
 
   return {
     request: {
@@ -104,8 +105,8 @@ export function createAdaptiveTaskFulfillmentRequest(
       taskRole: taskRequest.taskRole,
       targetAbilityId: taskRequest.targetAbilityId,
       contentType: mapAdaptiveContentType(adaptiveConstraints.materialNovelty),
-      questionType: 'open_response',
-      responseMode: 'written',
+      questionType: singleChoice ? 'multiple_choice' : 'open_response',
+      responseMode: singleChoice ? 'single_choice' : 'written',
       difficultyRange: mapAdaptiveDifficulty(adaptiveConstraints.difficultyDirection),
       validationGoal: taskRequest.validationGoal,
       requiredCapabilities: unique(adaptiveConstraints.requiredCapabilities),

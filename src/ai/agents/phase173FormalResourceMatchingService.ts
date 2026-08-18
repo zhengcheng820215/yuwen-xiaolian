@@ -7,6 +7,7 @@ import {
 import {
   buildStableId,
   loadResourceEligibilitySnapshot,
+  mapResourceDifficulty,
 } from './reviewedResourceCandidateAdapter.ts';
 import { createAdaptiveTaskFulfillmentRequest } from './taskFulfillmentRequestAgent.ts';
 import { orderFormalResourcesForLearningSequence } from './learningTaskSequenceScheduler.ts';
@@ -68,16 +69,6 @@ async function matchFormalResource(
     return blocked(input.taskRequest.taskRequestId, 'student_identity_mismatch');
   }
 
-  const envelope = buildEnvelope(input.taskRequest, evaluatedAt);
-  const fulfillment = createAdaptiveTaskFulfillmentRequest({
-    adaptiveTaskRequestEnvelope: envelope,
-    recentTaskIds: input.recentHistory?.recentTaskIds || [],
-    createdAt: evaluatedAt,
-  }).request;
-  if (!fulfillment) {
-    return blocked(input.taskRequest.taskRequestId, 'adaptive_fulfillment_request_blocked');
-  }
-
   const completeSnapshot = await loadResourceEligibilitySnapshot(
     input.resourceRepository,
     evaluatedAt,
@@ -97,6 +88,28 @@ async function matchFormalResource(
       scope === 'phase173_batch_a' ? 'batch_a_registry_empty' : 'active_registry_empty',
     );
   }
+  const requiredVersion = input.requiredResourceVersionId
+    ? snapshot.frozenVersions.find((version) => (
+        version.resourceVersionId === input.requiredResourceVersionId
+      ))
+    : undefined;
+  const envelope = buildEnvelope(
+    input.taskRequest,
+    evaluatedAt,
+    requiredVersion,
+  );
+  const generatedFulfillment = createAdaptiveTaskFulfillmentRequest({
+    adaptiveTaskRequestEnvelope: envelope,
+    recentTaskIds: input.recentHistory?.recentTaskIds || [],
+    createdAt: evaluatedAt,
+  }).request;
+  if (!generatedFulfillment) {
+    return blocked(input.taskRequest.taskRequestId, 'adaptive_fulfillment_request_blocked');
+  }
+  const fulfillment = alignPinnedResourceDifficultyPreference(
+    generatedFulfillment,
+    requiredVersion,
+  );
 
   const recentMaterialIds = [...(input.recentHistory?.recentMaterialIds || [])];
   const bootstrapMaterialId = input.bootstrapMaterialId || (
@@ -541,6 +554,7 @@ function resourceVersionSnapshot(
 function buildEnvelope(
   taskRequest: TaskRequest,
   generatedAt: string,
+  requiredVersion?: FrozenQuestionResourceVersion,
 ): AdaptiveTaskRequestEnvelope {
   const constraintsId = `phase17-3-live-constraints-${taskRequest.taskRequestId}`;
   const materialNovelty = noveltyFor(taskRequest.taskRole);
@@ -548,6 +562,7 @@ function buildEnvelope(
   const requiredCapabilities = capabilitiesFor(
     taskRequest.targetAbilityId,
     taskRequest.taskRole,
+    requiredVersion,
   );
   const difficultyDirection = taskRequest.action === 'lower_difficulty_training'
     ? 'decrease'
@@ -649,13 +664,49 @@ function noveltyFor(taskRole: RecommendedTaskRole): AdaptiveMaterialNovelty {
 function capabilitiesFor(
   abilityId: string,
   taskRole: RecommendedTaskRole,
+  requiredVersion?: FrozenQuestionResourceVersion,
 ): string[] {
-  const values = ['open_response', 'ability_observation', 'text_evidence'];
-  if (abilityId !== 'extraction') values.push('inference_chain');
+  const singleChoice = requiredVersion?.responseFormat === 'single_choice';
+  const values = [
+    singleChoice ? 'single_choice_response' : 'open_response',
+    'ability_observation',
+  ];
+  if (!singleChoice) {
+    const requiresTextEvidence = requiredVersion
+      ? requiredVersion.rubric.some((item) => item.evidenceRequirement?.requireTextEvidence)
+      : true;
+    const requiresInferenceChain = requiredVersion
+      ? requiredVersion.rubric.some((item) => (
+          item.evidenceRequirement?.requireExplanation &&
+          item.evidenceRequirement?.requireConclusion
+        ))
+      : abilityId !== 'extraction';
+    if (requiresTextEvidence) values.push('text_evidence');
+    if (requiresInferenceChain) values.push('inference_chain');
+  }
   if (taskRole === 'training') values.push('focused_practice');
   if (taskRole === 'retest') values.push('independent_answer');
   if (taskRole === 'transfer') values.push('new_context_transfer');
   return unique(values);
+}
+
+function alignPinnedResourceDifficultyPreference(
+  fulfillment: NonNullable<ReturnType<typeof createAdaptiveTaskFulfillmentRequest>['request']>,
+  requiredVersion?: FrozenQuestionResourceVersion,
+): NonNullable<ReturnType<typeof createAdaptiveTaskFulfillmentRequest>['request']> {
+  if (!requiredVersion) return fulfillment;
+  const preferred = mapResourceDifficulty(requiredVersion.abilityMetadata.difficulty);
+  const order = { lower: 0, same: 1, higher: 2 } as const;
+  const minimum = fulfillment.difficultyRange.minimum || fulfillment.difficultyRange.preferred;
+  const maximum = fulfillment.difficultyRange.maximum || fulfillment.difficultyRange.preferred;
+  if (order[preferred] < order[minimum] || order[preferred] > order[maximum]) return fulfillment;
+  return {
+    ...fulfillment,
+    difficultyRange: {
+      ...fulfillment.difficultyRange,
+      preferred,
+    },
+  };
 }
 
 function noMatch(taskRequestId: string, issue: string): NextFormalTaskResolution {

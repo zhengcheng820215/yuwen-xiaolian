@@ -15,6 +15,7 @@ import {
   type ReviewedResourceMatchCandidate,
 } from '../schemas/resourceMatchQuality.schema.ts';
 import { isTaskFulfillmentRequest } from '../schemas/taskFulfillment.schema.ts';
+import { isSingleChoiceInteraction } from '../schemas/singleChoiceInteraction.schema.ts';
 import {
   adaptReviewedResourceCandidate,
   buildStableId,
@@ -262,6 +263,9 @@ function rubricSupportsObservation(version: FrozenQuestionResourceVersion, valid
     item.acceptedSignals.some((signal) => signal.trim().length > 0)
   ));
   if (primaryItems.length === 0) return false;
+  if (version.responseFormat === 'single_choice') {
+    return isSingleChoiceInteraction(version.choiceInteraction);
+  }
   const hasObservableRequirement = primaryItems.some((item) => Boolean(
     item.evidenceRequirement?.requireTextEvidence ||
     item.evidenceRequirement?.requireExplanation ||
