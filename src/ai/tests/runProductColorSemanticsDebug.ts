@@ -222,6 +222,16 @@ assert.match(
   /<WorkspaceToast[\s\S]*?tone=\{toast\.tone\}/,
   '工作台 Toast 必须呈现保存结果语义',
 );
+assert.match(
+  materialWorkbenchSource,
+  /if \(notice\?\.type !== 'error'\) return;[\s\S]*?tone: 'error'/,
+  '页面级错误必须同步投射为当前视口可见的固定 Toast',
+);
+assert.match(
+  materialWorkbenchSource,
+  /toast\.tone === 'operation' \|\| toast\.tone === 'error' \? undefined : 3000/,
+  '错误 Toast 必须持续显示到用户主动关闭，不能在阅读前自动消失',
+);
 const adoptTaskCandidateStart = materialWorkbenchSource.indexOf('async function adoptTaskCandidate');
 const adoptTaskCandidateEnd = materialWorkbenchSource.indexOf('async function correctTaskCandidate', adoptTaskCandidateStart);
 assert.ok(adoptTaskCandidateStart >= 0 && adoptTaskCandidateEnd > adoptTaskCandidateStart, '未找到题目采用并发布流程');

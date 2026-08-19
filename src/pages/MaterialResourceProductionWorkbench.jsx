@@ -42,6 +42,7 @@ import {
   selectUserRetiredMaterials,
   selectCurrentMaterialPlan,
   selectCurrentPlanDrafts,
+  resolveEditableRubricDescription,
   summarizeCrossMaterialProductionProgress,
 } from './materialResourceWorkbenchState.ts';
 import {
@@ -265,6 +266,14 @@ export default function MaterialResourceProductionWorkbench() {
     || materialForm.content.trim()
     || materialForm.copyrightNote.trim(),
   );
+
+  useEffect(() => {
+    if (notice?.type !== 'error') return;
+    setToast((current) => {
+      if (current?.tone === 'error' && current.message === notice.message) return current;
+      return { id: Date.now(), message: notice.message, tone: 'error' };
+    });
+  }, [notice]);
 
   useEffect(() => {
     refresh(routeSelection)
@@ -2118,9 +2127,10 @@ export default function MaterialResourceProductionWorkbench() {
       }
       const adoptionIssues = adoption.tasks.flatMap((task, index) => collectEditableTaskIssues(task, index));
       if (adoptionIssues.length > 0) {
+        const blockedFields = [...new Set(adoptionIssues.map((issue) => issue.displayField))].slice(0, 3);
         setNotice({
           type: 'error',
-          message: '本轮任务方案未通过内容检查，请重新生成任务方案。当前任务组未改变。',
+          message: `本轮任务方案未通过内容检查：${blockedFields.join('、')}。当前任务组未改变，请按提示检查后重试。`,
         });
         return;
       }
@@ -3280,7 +3290,7 @@ export default function MaterialResourceProductionWorkbench() {
           key={toast.id}
           message={toast.message}
           tone={toast.tone}
-          duration={toast.tone === 'operation' ? undefined : 3000}
+          duration={toast.tone === 'operation' || toast.tone === 'error' ? undefined : 3000}
           onDismiss={() => setToast((current) => current?.id === toast.id ? null : current)}
         />
       )}
@@ -4381,7 +4391,7 @@ function planTaskToEditableTask(task, index, anchors) {
       localId: `${task.observationTaskPlanId}-${item.itemId || rubricIndex}`,
       name: item.name,
       abilityId: item.abilityId,
-      description: item.description || '',
+      description: resolveEditableRubricDescription(item),
       acceptedSignalsText: (item.acceptedSignals || []).join('，'),
     }))
     : [createRubricItem(task.abilityId, 0)];

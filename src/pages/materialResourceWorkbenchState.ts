@@ -113,6 +113,27 @@ export type CrossMaterialProductionProgress = {
   pendingMaterialIds: string[];
 };
 
+/**
+ * Older published plans can predate the rubric-description field. Reusing one
+ * of those protected tasks in a supplement revision must not make an otherwise
+ * valid candidate group impossible to adopt. Build an editable compatibility
+ * description only from facts already present in the frozen rubric; do not
+ * invent a new judging rule or mutate the historical resource.
+ */
+export function resolveEditableRubricDescription(item: {
+  description?: string;
+  name?: string;
+  acceptedSignals?: string[];
+}): string {
+  const explicitDescription = String(item.description || '').trim();
+  if (explicitDescription) return explicitDescription;
+  const acceptedSignals = (item.acceptedSignals || [])
+    .map((signal) => String(signal || '').trim())
+    .filter(Boolean);
+  if (acceptedSignals.length > 0) return `观察是否包含：${acceptedSignals.join('、')}`;
+  return String(item.name || '').trim();
+}
+
 type ObservationTaskIdentity = {
   observationTaskPlanId: string;
   taskRevisionRootId?: string;

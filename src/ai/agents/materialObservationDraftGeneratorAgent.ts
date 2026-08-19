@@ -335,7 +335,27 @@ function buildCandidateRepairInstructions(
   if (issues.includes('choice.misconception_duplicate')
     || issues.includes('choice.diagnosis_meaning_duplicate')) {
     instructions.push(
-      '每个错误选项必须对应不同的 misconceptionCode 和不同的 diagnosisMeaning；保留正确答案与 optionId，只重写重复的干扰项偏差依据及其必要内容。',
+      '逐一重检全部错误选项：每项必须使用互不重复、且与选项语义一致的 misconceptionCode 和 diagnosisMeaning。可从 surface_reading、entity_confusion、evidence_omission、over_inference、causal_reversal、scope_shift、other_explainable_bias 中重新分配；必要时同步重写错误选项内容。保留正确答案身份与所有 optionId，不得只给重复偏差换同义词。',
+    );
+  }
+  if (issues.includes('choice.option_too_thin')) {
+    instructions.push(
+      '重写残缺选项，使每个选项都成为语法完整、脱离题干后仍可理解的判断陈述；每项至少包含四个有效中文语义字符，并保持正确项与错误项长度大致均衡。保留 optionId 和正确答案身份。',
+    );
+  }
+  if (issues.includes('choice.distractor_evidence_boundary_missing')) {
+    instructions.push(
+      '为每个错误选项补充可在当前材料中核对的 evidenceBoundary，必须说明应检查的段落、对象或事实范围，不能只写“原文不支持”。',
+    );
+  }
+  if (issues.includes('choice.distractor_diagnosis_too_vague')) {
+    instructions.push(
+      '逐项改写 diagnosisMeaning，明确学生选择该项体现的是哪一种具体表面理解、对象混淆、证据遗漏、因果倒置、范围偏移或过度推断，不能只写“错误”或“不符合原文”。',
+    );
+  }
+  if (issues.includes('choice.correct_option_length_cue')) {
+    instructions.push(
+      '在不改变正确答案身份和语义的前提下平衡各选项长度，避免正确项明显更长或更短；错误选项仍必须保持独立、可解释的偏差。',
     );
   }
   if (issues.includes('answer_acceptance_option_mismatch')) {
@@ -856,6 +876,7 @@ function parseCandidate(
   const safetyBoundary = readSafetyBoundary(value.safetyBoundary, issues);
 
   if (questionStem && rubricDraft.length > 0) {
+    const isSingleChoice = questionDraft?.responseFormat === 'single_choice';
     const alignment = assessQuestionStemRubricAlignment(
       questionStem,
       rubricDraft.map((item, index) => ({
@@ -866,9 +887,12 @@ function parseCandidate(
         importance: 'critical' as const,
         required: true,
         evidenceRequirement: {
-          requireTextEvidence: true,
-          requireExplanation: item.abilityId !== 'extraction',
-          requireConclusion: item.abilityId !== 'extraction',
+          // A single-choice response demonstrates the bounded judgment through
+          // the selected option. It must not inherit open-response requirements
+          // to quote evidence, explain reasoning, or write a conclusion.
+          requireTextEvidence: !isSingleChoice,
+          requireExplanation: !isSingleChoice && item.abilityId !== 'extraction',
+          requireConclusion: !isSingleChoice && item.abilityId !== 'extraction',
         },
         acceptedSignals: item.acceptedSignals,
       })),

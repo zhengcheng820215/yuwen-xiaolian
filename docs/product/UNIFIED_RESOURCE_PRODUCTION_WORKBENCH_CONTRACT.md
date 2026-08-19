@@ -5,8 +5,8 @@
 英文名称：Unified Resource Production Workbench Contract
 
 状态：DESIGN FROZEN / P0-P7 ENGINEERING COMPLETE / ACCEPTANCE RECORDED
-文档版本：`unified_resource_production_workbench_v1.9`
-更新日期：2026-08-12
+文档版本：`unified_resource_production_workbench_v1.10`
+更新日期：2026-08-19
 
 ## 一、文档目标
 
@@ -679,6 +679,7 @@ AI 规划区的产品行为统一为：
 6. 错误码默认折叠到技术信息，不直接替代用户可理解文案；
 7. 刷新恢复后必须继续显示真实状态，不依赖内存中的临时 Loading。
 8. 异常返回后应用层必须重新读取权威 Draft、Formal Version 与 Active Registry；若目标 Revision 已完整发布，前台收敛为成功并清除旧错误，不得出现“已发布”与红色发布失败同时存在。只有错误属于尚未发布的新活动 Revision 时才保留失败反馈。
+9. 页面跨度较大的全局操作失败时，顶部持久错误详情必须同时投射为当前视口可见的固定错误 Toast；错误 Toast 保持到用户主动关闭。不得要求用户滚动回页面顶部才能发现失败，也不得以自动滚动打断当前操作位置。
 
 阶段化操作示例：
 

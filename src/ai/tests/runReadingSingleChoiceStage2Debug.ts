@@ -136,8 +136,53 @@ const cases: Case[] = [
       assert.equal(provider.getCallCount(), 2);
       assert(result.candidates.some((candidate) => candidate.questionStem === admitted.questionStem));
       assert.match(repairPrompt, /choice\.misconception_duplicate/);
-      assert.match(repairPrompt, /每个错误选项必须对应不同的 misconceptionCode/);
+      assert.match(repairPrompt, /逐一重检全部错误选项/);
+      assert.match(repairPrompt, /必须逐条执行每个候选的 repairInstructions/);
       assert.doesNotMatch(repairPrompt, /answer_acceptance_option_mismatch/);
+    },
+  },
+  {
+    name: 'thin choice option receives an executable candidate-level repair instruction',
+    run: async () => {
+      const admitted = choicePlanningCandidate();
+      const rejected = factChoicePlanningCandidate();
+      rejected.choiceInteraction.options[1].content = '错';
+      const repaired = {
+        ...factChoicePlanningCandidate(),
+        repairOfCandidateIndex: 1,
+      };
+      const provider = new ScriptedDiagnosisProviderAdapter([
+        {
+          type: 'response',
+          rawOutput: JSON.stringify({ candidates: [admitted, rejected], materialLimitations: [] }),
+        },
+        {
+          type: 'response',
+          rawOutput: JSON.stringify({ candidates: [repaired], materialLimitations: [] }),
+        },
+      ]);
+      const result = await generateMaterialObservationDraftCandidates(
+        generatorInput({
+          candidateCount: 2,
+          singleChoiceCandidateTarget: 2,
+          singleChoicePlanning: singleChoicePlanningContext(),
+        }),
+        {
+          provider,
+          config: createMaterialObservationDraftGeneratorConfig({
+            providerName: provider.providerName,
+            model: 'stage2-thin-option-repair-provider',
+            maxAttempts: 2,
+          }),
+        },
+      );
+      const repairPrompt = provider.getRequests()[1]?.prompt || '';
+      assert.equal(result.status, 'candidates_ready', JSON.stringify(result.validation));
+      assert.equal(result.candidates.length, 2);
+      assert.equal(result.provider.repair?.recoveredCandidateCount, 1);
+      assert.match(repairPrompt, /choice\.option_too_thin/);
+      assert.match(repairPrompt, /语法完整、脱离题干后仍可理解的判断陈述/);
+      assert.match(repairPrompt, /每项至少包含四个有效中文语义字符/);
     },
   },
   {
@@ -243,7 +288,7 @@ const cases: Case[] = [
           preferredPreludeChoiceCount: 1,
         },
         candidates: [
-          textPlanningCandidate({ questionStem: '请概括父亲送别孩子时的表现。' }),
+          textPlanningCandidate({ questionStem: '请结合材料，概括父亲送别孩子时的表现。' }),
           choicePlanningCandidate(),
           textPlanningCandidate({
             questionStem: '请分析第二段动作描写对情感表达的作用。',
@@ -274,7 +319,7 @@ const cases: Case[] = [
           preferredPreludeChoiceCount: 1,
         },
         candidates: [
-          textPlanningCandidate({ questionStem: '请先概括父亲送别孩子时的整体表现。' }),
+          textPlanningCandidate({ questionStem: '请先结合材料，概括父亲送别孩子时的整体表现。' }),
           choicePlanningCandidate(),
         ],
         materialLimitations: [],
@@ -640,7 +685,7 @@ function factChoicePlanningCandidate() {
 function textPlanningCandidate(overrides: Record<string, unknown> = {}) {
   const rubricName = '送别表现概括';
   return {
-    questionStem: '请概括父亲送别孩子时的表现。',
+    questionStem: '请结合材料，概括父亲送别孩子时的表现。',
     questionDraft: { questionType: 'reading_comprehension', responseFormat: 'long_text' },
     primaryAbilityId: 'summarization',
     supportingAbilityIds: [],

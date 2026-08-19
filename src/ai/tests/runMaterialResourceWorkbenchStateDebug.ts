@@ -7,6 +7,7 @@ import {
   selectUserRetiredMaterials,
   selectCurrentMaterialPlan,
   selectCurrentPlanDrafts,
+  resolveEditableRubricDescription,
   summarizeCrossMaterialProductionProgress,
   summarizeMaterialResourceWorkbench,
 } from '../../pages/materialResourceWorkbenchState.ts';
@@ -498,6 +499,24 @@ check(
   '22 被新版替代的历史版本不计入停用素材',
   retiredProjection.length === 1 && retiredProjection[0]?.materialVersionId === 'material-b:v2',
   `retired=${retiredProjection.map((item) => item.materialVersionId).join(',')}`,
+);
+
+check(
+  '23 历史评分项缺少描述时使用既有接受信号兼容补全',
+  resolveEditableRubricDescription({
+    name: '内容概括',
+    acceptedSignals: ['新绿', '嫩芽', '生命'],
+  }) === '观察是否包含：新绿、嫩芽、生命',
+  'legacy published rubric can join a supplement revision without changing its judging facts',
+);
+check(
+  '24 新版评分项的明确描述保持原样',
+  resolveEditableRubricDescription({
+    name: '内容概括',
+    description: '学生能够概括春日景物共同呈现的生命感。',
+    acceptedSignals: ['新绿'],
+  }) === '学生能够概括春日景物共同呈现的生命感。',
+  'explicit rubric description remains authoritative',
 );
 
 console.log('Phase 17.2 Material Resource Workbench State Debug');
