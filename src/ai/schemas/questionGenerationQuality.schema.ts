@@ -1,7 +1,7 @@
 import type { QuestionResponseFormat } from './questionResourceAdmission.schema.ts';
 
 export const QUESTION_GENERATION_QUALITY_POLICY_VERSION =
-  'question_generation_quality_v2' as const;
+  'question_generation_quality_v3' as const;
 
 export type QuestionGenerationQualitySeverity = 'blocker' | 'strong_hint' | 'advisory';
 
@@ -11,6 +11,7 @@ export type QuestionGenerationQualityCode =
   | 'response_format_underloaded'
   | 'response_format_overprovisioned'
   | 'rubric_density_long_text_hint'
+  | 'rubric_requirement_not_in_stem'
   | 'substantive_duplicate'
   | 'ability_concentration'
   | 'difficulty_concentration'

@@ -19,7 +19,7 @@ import type {
   TrainingTaskSequencePlanningResult,
 } from './trainingTaskSequencePlanning.schema.ts';
 
-export const MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION = 'material_observation_draft_generator_v1_8' as const;
+export const MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION = 'material_observation_draft_generator_v1_9' as const;
 
 export const SINGLE_CHOICE_TARGET_SHORTFALL_REASONS = [
   'insufficient_task_capacity',
@@ -67,6 +67,19 @@ export type MaterialObservationDraftGeneratorPreferences = {
   planningIntent?: 'initial' | 'replacement' | 'supplement';
   requestedFocus?: string;
   targetObservationId?: string;
+  targetQuestionContext?: {
+    questionStem: string;
+    expectedStudentAction: string;
+    observationFocus: {
+      displayName: string;
+      definition: string;
+    };
+    hiddenRequiredDimensions: string[];
+    rubric: Array<{
+      name: string;
+      description: string;
+    }>;
+  };
   singleChoiceCandidateTarget?: number;
   singleChoicePlanning?: {
     currentEffectiveTaskCount: number;

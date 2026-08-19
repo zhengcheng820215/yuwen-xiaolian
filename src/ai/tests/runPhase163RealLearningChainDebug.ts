@@ -65,7 +65,7 @@ const STUDENT_ID = 'student-phase16-integration-demo';
 const VALID_ANSWER = '父亲捏着褪色的树叶站了很久，又小心地夹回原处，说明他想起过去，因此感到怀念和不舍。';
 
 type CaseResult = { name: string; passed: boolean; detail: string };
-type NextResolverMode = 'matched' | 'no_resource' | 'superseded' | 'ability_mismatch';
+type NextResolverMode = 'matched' | 'no_resource' | 'superseded' | 'ability_mismatch' | 'session_complete';
 
 const reports: CaseResult[] = [];
 
@@ -86,6 +86,7 @@ async function main(): Promise<void> {
   await caseA14(success);
   await caseA15();
   await caseA16();
+  await caseA17();
 
   console.log('\nPhase 16.3A Real Learning Chain Debug');
   console.log('='.repeat(78));
@@ -209,6 +210,17 @@ async function caseA10(): Promise<void> {
   record('A10 下一正式资源不存在时输出 no_match 并停止',
     result.status === 'blocked' && result.checkpoint.nextTaskResolution?.status === 'no_match' && result.checkpoint.nextAction === 'prepare_resource',
     `status=${result.status}, match=${result.checkpoint.nextTaskResolution?.status}`);
+}
+
+async function caseA17(): Promise<void> {
+  const env = await createEnvironment('a17', [responseStep(validDiagnosis())], 'session_complete');
+  const result = await runPhase163RealLearningChain(env.input, env.dependencies);
+  record('A17 题组最后一题完成后正常结束且不误报资源缺口',
+    result.status === 'completed' &&
+      result.checkpoint.stage === 'persisted' &&
+      result.checkpoint.nextTaskResolution?.status === 'session_complete' &&
+      result.checkpoint.nextAction === 'stop',
+    `status=${result.status}, stage=${result.checkpoint.stage}, next=${result.checkpoint.nextTaskResolution?.status}, action=${result.checkpoint.nextAction}`);
 }
 
 async function caseA11(): Promise<void> {
@@ -359,6 +371,13 @@ function buildNextResolver(mode: NextResolverMode, suffix: string) {
     taskRequest: TaskRequest;
     previousResourceVersion: FrozenQuestionResourceVersion;
   }): Promise<NextFormalTaskResolution> => {
+    if (mode === 'session_complete') {
+      return {
+        status: 'session_complete',
+        taskRequestId: taskRequest.taskRequestId,
+        issues: [],
+      };
+    }
     const repository = new InMemoryQuestionResourceAdmissionRepository();
     if (mode === 'no_resource') {
       return runResourcePipeline(repository, taskRequest, previousResourceVersion, mode);

@@ -103,7 +103,8 @@ async function caseValidOptimization(): Promise<void> {
   assert.equal(candidate.basedOnCandidateId, fixture.base.candidateId);
   assert.deepEqual(candidate.changedFields, ['questionStem']);
   assert.match(candidate.generationReason, /questionStem:/);
-  assert.equal(candidate.generationContext.promptVersion, 'question_candidate_optimization_prompt_v1');
+  assert.equal(candidate.generationContext.promptVersion, 'question_candidate_optimization_prompt_v2');
+  assert.match(fixture.provider.getRequests()[0]?.prompt || '', /不得保留隐藏失分项/);
   assert.equal(fixture.provider.getCallCount(), 1);
   const events = await fixture.repository.listDecisionEvents(fixture.base.candidateId);
   assert.equal(events.length, 1);
@@ -405,7 +406,7 @@ function contentFixture(): QuestionEditableFields {
   return {
     materialVersionId: 'material:v1',
     title: '人物心理分析',
-    questionStem: '请分析人物选择沉默的原因。',
+    questionStem: '请结合文本分析人物选择沉默的原因。',
     questionType: 'reading_comprehension',
     responseFormat: 'long_text',
     options: [],

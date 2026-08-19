@@ -201,7 +201,7 @@ await check('C22 同 Observation 的不同题目入口被识别为替代题', as
   const payload = validPayload();
   payload.candidates[0] = {
     ...payload.candidates[0],
-    questionStem: '请按事情发生的先后顺序整理父亲在站台上的行为。',
+    questionStem: '请根据材料，按事情发生的先后顺序整理父亲在站台上的行为。',
   };
   const result = await run(withInventory([validPayload().candidates[0]], false), providerWith(payload));
   return result.status === 'candidates_ready'
@@ -515,10 +515,15 @@ await check('C41 补充规划一次允许返回一个新增观察任务', async 
 });
 
 await check('C42 完全相同题干跨能力和训练方向仍被全局阻断', async () => {
-  const existing = validPayload().candidates[0];
+  const duplicateStem = '请结合材料，找出父亲在站台上的两个动作，并说明这些动作表现了什么。';
+  const existing = {
+    ...validPayload().candidates[0],
+    questionStem: duplicateStem,
+  };
   const payload = validPayload();
   payload.candidates[0] = {
     ...payload.candidates[0],
+    questionStem: duplicateStem,
     primaryAbilityId: 'comprehension',
     observationDimension: 'language',
     observationFocus: {
@@ -537,6 +542,75 @@ await check('C42 完全相同题干跨能力和训练方向仍被全局阻断', 
     && result.withheldCandidates.length === 1
     && result.withheldCandidates[0].inventoryRelation.disposition === 'likely_duplicate'
     && result.withheldCandidates[0].inventoryRelation.reason.includes('题干与同材料已有题目完全相同');
+});
+
+await check('C43 定向优化 Prompt 携带目标题干、学生动作和评分项', async () => {
+  const provider = providerWith(validPayload());
+  await run({
+    ...input,
+    generationMode: 'optimize_existing_observation',
+    preferences: {
+      ...input.preferences,
+      targetObservationId: 'target-observation-1',
+      targetQuestionContext: {
+        questionStem: '请结合第2段具体描写，说明春天刚睡醒的特点。',
+        expectedStudentAction: '提取具体描写并概括共同特点。',
+        observationFocus: {
+          displayName: '理解春天刚睡醒的特点',
+          definition: '观察学生能否根据具体描写理解春天苏醒的状态。',
+        },
+        hiddenRequiredDimensions: ['structure'],
+        rubric: [
+          { name: '提取具体描写', description: '至少找出两处具体描写。' },
+          { name: '说明结构关系', description: '说明总起句与分述内容的关系。' },
+        ],
+      },
+    },
+  }, provider);
+  const prompt = provider.getRequests()[0]?.prompt || '';
+  return prompt.includes('<target_question_context>')
+    && prompt.includes('说明总起句与分述内容的关系')
+    && prompt.includes('系统已确认旧题存在这些隐藏必答维度：structure')
+    && prompt.includes('原 Rubric 本身不能证明某维度属于核心训练意图')
+    && prompt.includes('不得通过把隐藏要求补进题干来保留旧缺陷');
+});
+
+await check('C44 隐藏评分要求在导入前触发候选级受控修复', async () => {
+  const firstPayload = validPayload();
+  const hiddenRubricName = '总起与分述关系';
+  firstPayload.candidates[2] = {
+    ...firstPayload.candidates[2],
+    rubricDraft: [
+      ...firstPayload.candidates[2].rubricDraft,
+      {
+        name: hiddenRubricName,
+        description: '说明总起句与分述描写之间的结构关系。',
+        abilityId: 'summarization',
+        acceptedSignals: ['总起', '分述'],
+      },
+    ],
+    calibrationAnswers: firstPayload.candidates[2].calibrationAnswers.map((item: any) => ({
+      ...item,
+      expectedRubricCoverage: [
+        ...item.expectedRubricCoverage,
+        { rubricName: hiddenRubricName, status: item.expectedRubricCoverage[0].status },
+      ],
+    })),
+  };
+  const repairedCandidate = {
+    ...validPayload().candidates[2],
+    repairOfCandidateIndex: 2,
+  };
+  const provider = new ScriptedDiagnosisProviderAdapter([
+    { type: 'response', rawOutput: JSON.stringify(firstPayload) },
+    { type: 'response', rawOutput: JSON.stringify({ candidates: [repairedCandidate], materialLimitations: [] }) },
+  ]);
+  const result = await run(input, provider);
+  const repairPrompt = provider.getRequests()[1]?.prompt || '';
+  return result.status === 'candidates_ready'
+    && result.provider.repair?.recoveredCandidateCount === 1
+    && repairPrompt.includes('rubric_requirement_not_in_stem:结构关系')
+    && repairPrompt.includes('优先删除题干未要求的 Rubric');
 });
 
 console.log('\nPhase 17.2 Material Observation Draft Generator Debug');
@@ -602,16 +676,16 @@ function validPayload() {
   return {
     candidates: [
       candidate('动作信息提取', 'extraction', 'fact', {
-        questionStem: '父亲在站台上做了哪两个动作？',
+        questionStem: '请根据材料，找出父亲在站台上做的两个动作。',
         materialAnchor: { anchorType: 'full_text' },
       }),
       candidate('动作与心理关系', 'inference', 'character', {
-        questionStem: '从父亲的动作可以推断出怎样的心理？请说明理由。',
+        questionStem: '请结合材料，从父亲的动作推断他的心理，并说明理由。',
         supportingAbilityIds: ['analysis'],
         materialAnchor: { anchorType: 'paragraph', startParagraph: 1 },
       }),
       candidate('整体事件概括', 'summarization', 'structure', {
-        questionStem: '请概括父亲送别孩子时的表现。',
+        questionStem: '请结合全文，概括父亲送别孩子时的表现。',
         materialAnchor: { anchorType: 'full_text' },
       }),
     ],

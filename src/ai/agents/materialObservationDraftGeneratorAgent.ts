@@ -54,6 +54,10 @@ import {
   isTrainingTaskSequenceStrategy,
   type TrainingTaskSequencePlanningPreference,
 } from '../schemas/trainingTaskSequencePlanning.schema.ts';
+import {
+  assessQuestionStemRubricAlignment,
+  formatHiddenRubricDimensions,
+} from '../patterns/questionStemRubricAlignment.ts';
 
 const ASSESSMENT_MODES: AssessmentMode[] = [
   'exact_match',
@@ -337,6 +341,11 @@ function buildCandidateRepairInstructions(
   if (issues.includes('answer_acceptance_option_mismatch')) {
     instructions.push(
       'answerAcceptanceDraft.acceptedOptionIds 必须且只能等于 choiceInteraction.correctOptionIds；以正确答案身份为准，不得反向改变正确答案来迁就接受范围。',
+    );
+  }
+  if (issues.some((issue) => issue.startsWith('rubric_requirement_not_in_stem:'))) {
+    instructions.push(
+      '逐项核对 questionStem 与 rubricDraft。优先删除题干未要求的 Rubric；只有该维度属于原 Observation 的核心训练意图时，才同步改写题干明确要求。短段落只保留一个主要认知动作和一至两个相互依赖的核心评分项。',
     );
   }
   return instructions;
@@ -845,6 +854,31 @@ function parseCandidate(
   const evidencePotential = readEnum(value.evidencePotential, EVIDENCE_POTENTIAL, 'evidence_potential_invalid', issues);
   const evidenceBoundary = readEvidenceBoundary(value.evidenceBoundary, issues);
   const safetyBoundary = readSafetyBoundary(value.safetyBoundary, issues);
+
+  if (questionStem && rubricDraft.length > 0) {
+    const alignment = assessQuestionStemRubricAlignment(
+      questionStem,
+      rubricDraft.map((item, index) => ({
+        itemId: `draft-rubric-${index + 1}`,
+        name: item.name,
+        description: item.description,
+        abilityId: item.abilityId,
+        importance: 'critical' as const,
+        required: true,
+        evidenceRequirement: {
+          requireTextEvidence: true,
+          requireExplanation: item.abilityId !== 'extraction',
+          requireConclusion: item.abilityId !== 'extraction',
+        },
+        acceptedSignals: item.acceptedSignals,
+      })),
+    );
+    if (!alignment.aligned) {
+      issues.push(
+        `rubric_requirement_not_in_stem:${formatHiddenRubricDimensions(alignment.hiddenDimensions)}`,
+      );
+    }
+  }
 
   if (questionDraft?.responseFormat === 'single_choice' && primaryAbilityId
     && observationDimension && questionStem && expectedStudentAction) {
@@ -1369,6 +1403,20 @@ function validateInput(input: MaterialObservationDraftGeneratorInput): string[] 
   if (input.generationMode === 'optimize_existing_observation'
     && !input.preferences?.targetObservationId?.trim()) {
     issues.push('target_observation_id_missing');
+  }
+  const targetQuestionContext = input.preferences?.targetQuestionContext;
+  if (targetQuestionContext && (
+    !targetQuestionContext.questionStem?.trim()
+    || !targetQuestionContext.expectedStudentAction?.trim()
+    || !targetQuestionContext.observationFocus?.displayName?.trim()
+    || !targetQuestionContext.observationFocus?.definition?.trim()
+    || !Array.isArray(targetQuestionContext.hiddenRequiredDimensions)
+    || !Array.isArray(targetQuestionContext.rubric)
+    || targetQuestionContext.rubric.some((item) => (
+      !item?.name?.trim() || !item?.description?.trim()
+    ))
+  )) {
+    issues.push('target_question_context_invalid');
   }
   if (input.existingInventory) {
     if ((input.existingInventory.observations?.length || 0) > 40) issues.push('existing_observation_inventory_too_large');

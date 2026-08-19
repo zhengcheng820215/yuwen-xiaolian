@@ -14,11 +14,23 @@ export type UnifiedLearningActivityStatus =
   | 'blocked'
   | 'ended';
 
+export const LEARNING_SESSION_TASK_QUEUE_VERSION =
+  'learning_session_task_queue_v1' as const;
+
+export type LearningSessionTaskQueue = {
+  queueVersion: typeof LEARNING_SESSION_TASK_QUEUE_VERSION;
+  materialId: string;
+  resourceVersionIds: string[];
+  targetTaskCount: number;
+  createdAt: string;
+};
+
 export type UnifiedLearningActivityContext = {
   schemaVersion: typeof UNIFIED_LEARNING_ENTRY_SCHEMA_VERSION;
   studentId: string;
   learningSessionId: string;
   currentLearningRoundId?: string;
+  taskQueue?: LearningSessionTaskQueue;
   status: UnifiedLearningActivityStatus;
   createdAt: string;
   updatedAt: string;
@@ -51,7 +63,8 @@ export type UnifiedLearningTaskAvailabilityState =
   | 'available'
   | 'no_formal_resource'
   | 'no_eligible_match'
-  | 'already_used';
+  | 'already_used'
+  | 'stale_session';
 
 export type UnifiedLearningEntryState = {
   schemaVersion: typeof UNIFIED_LEARNING_ENTRY_SCHEMA_VERSION;
@@ -135,9 +148,27 @@ export function isUnifiedLearningActivityContext(
   return context.schemaVersion === UNIFIED_LEARNING_ENTRY_SCHEMA_VERSION &&
     nonEmpty(context.studentId) &&
     nonEmpty(context.learningSessionId) &&
+    (context.taskQueue === undefined || isLearningSessionTaskQueue(context.taskQueue)) &&
     ['active', 'review_required', 'blocked', 'ended'].includes(context.status) &&
     timestamp(context.createdAt) &&
     timestamp(context.updatedAt);
+}
+
+export function isLearningSessionTaskQueue(
+  value: unknown,
+): value is LearningSessionTaskQueue {
+  if (!value || typeof value !== 'object') return false;
+  const queue = value as LearningSessionTaskQueue;
+  return queue.queueVersion === LEARNING_SESSION_TASK_QUEUE_VERSION &&
+    nonEmpty(queue.materialId) &&
+    Array.isArray(queue.resourceVersionIds) &&
+    queue.resourceVersionIds.length >= 1 &&
+    queue.resourceVersionIds.length <= 6 &&
+    queue.resourceVersionIds.every(nonEmpty) &&
+    new Set(queue.resourceVersionIds).size === queue.resourceVersionIds.length &&
+    Number.isInteger(queue.targetTaskCount) &&
+    queue.targetTaskCount === queue.resourceVersionIds.length &&
+    timestamp(queue.createdAt);
 }
 
 export function isUnifiedLearningEntryState(value: unknown): value is UnifiedLearningEntryState {
@@ -156,7 +187,7 @@ export function isUnifiedLearningEntryState(value: unknown): value is UnifiedLea
     typeof state.hasDraft === 'boolean' &&
     typeof state.hasUnviewedFeedback === 'boolean' &&
     Number.isInteger(state.completedRoundCount) &&
-    (state.taskAvailabilityState === undefined || ['available', 'no_formal_resource', 'no_eligible_match', 'already_used'].includes(state.taskAvailabilityState)) &&
+    (state.taskAvailabilityState === undefined || ['available', 'no_formal_resource', 'no_eligible_match', 'already_used', 'stale_session'].includes(state.taskAvailabilityState)) &&
     (state.learningPresentation === undefined || isStudentLearningPresentation(state.learningPresentation)) &&
     Array.isArray(state.studentVisibleIssues) &&
     Boolean(state.validation) &&

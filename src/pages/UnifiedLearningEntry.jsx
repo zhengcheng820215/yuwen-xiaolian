@@ -61,6 +61,20 @@ export default function UnifiedLearningEntry() {
     }
   }
 
+  async function completeSessionFromWorkspace() {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      setEntry(await endUnifiedLearningSession());
+      setView('entry');
+    } catch (endError) {
+      setError(toMessage(endError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const canFinishReviewedSession = entry?.status === 'review_required' &&
     entry?.hasActiveSession &&
     entry?.validation?.passed;
@@ -70,6 +84,7 @@ export default function UnifiedLearningEntry() {
     return (
       <Phase163LiveLearningWorkspace
         onReturnToEntry={refreshEntry}
+        onCompleteSession={completeSessionFromWorkspace}
         autoRetryResource={entry?.primaryAction === 'retry_resource'}
       />
     );
@@ -149,9 +164,9 @@ export default function UnifiedLearningEntry() {
             <aside className="border-t border-slate-200 pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
               <h2 className="text-sm font-semibold text-slate-900">学习进度</h2>
               <dl className="mt-5 space-y-4 text-sm">
-                <ProgressRow label="已完成" value={`${entry.completedRoundCount} 轮`} />
+                <ProgressRow label="已完成" value={`${entry.completedRoundCount} 题`} />
                 <ProgressRow label="当前状态" value={statusLabel(entry.status, entry.title)} />
-                {entry.currentRoundNumber ? <ProgressRow label="当前任务" value={`第 ${entry.currentRoundNumber} 轮`} /> : null}
+                {entry.currentRoundNumber ? <ProgressRow label="当前任务" value={`第 ${entry.currentRoundNumber} 题`} /> : null}
                 {entry.focusText ? <ProgressRow label="本轮重点" value={entry.focusText} /> : null}
               </dl>
             </aside>

@@ -52,6 +52,11 @@ const materialGuidance = [...new Set(items.map((item) => item.baseline.materialV
     return {
       materialVersionId,
       materialTitle: materialItems[0]?.baseline.materialTitle,
+      responseFormatBreakdown: materialItems.reduce<Record<string, number>>((counts, item) => {
+        counts[item.content.responseFormat] = (counts[item.content.responseFormat] || 0) + 1;
+        return counts;
+      }, {}),
+      defaultSingleChoiceTarget: defaultSingleChoiceTarget(materialItems.length),
       ...analyzeQuestionPortfolioGradient(materialItems.map((item) => item.content)),
     };
   })
@@ -68,6 +73,10 @@ console.log(JSON.stringify({
   blocked: results.filter((item) => item.evaluation.status === 'blocked').length,
   guided: results.filter((item) => item.evaluation.status === 'ready_with_guidance').length,
   ready: results.filter((item) => item.evaluation.status === 'ready').length,
+  responseFormatBreakdown: items.reduce<Record<string, number>>((counts, item) => {
+    counts[item.content.responseFormat] = (counts[item.content.responseFormat] || 0) + 1;
+    return counts;
+  }, {}),
   questionSpecificFindings: results
     .filter((item) => item.evaluation.findings.length > 0)
     .map((item) => ({
@@ -86,6 +95,12 @@ console.log(JSON.stringify({
     questionCount: item.questionCount,
     abilityBreakdown: item.abilityBreakdown,
     difficultyBreakdown: item.difficultyBreakdown,
+    responseFormatBreakdown: item.responseFormatBreakdown,
+    defaultSingleChoiceTarget: item.defaultSingleChoiceTarget,
+    singleChoiceGap: Math.max(
+      0,
+      item.defaultSingleChoiceTarget - (item.responseFormatBreakdown.single_choice || 0),
+    ),
     findings: item.findings.map((finding) => ({
       code: finding.code,
       severity: finding.severity,
@@ -94,3 +109,9 @@ console.log(JSON.stringify({
   })),
 }, null, 2));
 console.log('Current formal-question generation-quality audit passed (read-only).');
+
+function defaultSingleChoiceTarget(taskCount: number): number {
+  if (taskCount >= 5) return 2;
+  if (taskCount >= 3) return 1;
+  return 0;
+}

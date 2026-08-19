@@ -24,7 +24,7 @@ export const UNIFIED_ENTRY_STUDENT_ID = PHASE163_LEARNING_STUDENT_ID;
 export const UNIFIED_LEARNING_ENTRY_READ_TIMEOUT_MS = 5_000;
 export const UNIFIED_LEARNING_ENTRY_STAGE_TIMEOUT_MS = 4_000;
 
-const MAX_ROUNDS = 3;
+const MAX_ROUNDS = 5;
 const persistenceRepository = new IndexedDBLearningPersistenceRepository();
 const activityRepository = new LocalStorageUnifiedLearningEntryRepository();
 const operationRepository = new IndexedDBRealLearningOperationRepository();

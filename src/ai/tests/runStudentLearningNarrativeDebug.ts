@@ -252,10 +252,10 @@ function main(): void {
       }),
     }),
   }, (result) => result.taskReason?.text ===
-    '这道题先练习阅读第1-2段，定位描述女娲孤独的句子，并判断最直接的原因，为后面的解释和分析打基础。' &&
+    '这道题先练习理解句段含义与内容关系，为后面的解释和分析打基础。' &&
     !result.taskReason.text.includes('继续练习'));
 
-  check('N26 普通文本 Training 使用本题具体阅读动作', {
+  check('N26 普通文本 Training 使用安全的高层阅读动作', {
     currentTask: task('training', {
       responseFormat: 'text',
       learningIntent: learningIntent({
@@ -264,7 +264,8 @@ function main(): void {
       }),
     }),
   }, (result) => result.taskReason?.text ===
-    '这道题练习结合人物动作，解释动作与心理判断之间的关系。');
+    '这道题练习结合文本依据进行合理推断。' &&
+    !result.taskReason.text.includes('人物动作'));
 
   check('N27 Retest 保留间隔独立语义并使用具体动作', {
     currentTask: task('retest', {
@@ -273,7 +274,7 @@ function main(): void {
         isFoundationEntry: false,
       }),
     }),
-  }, (result) => result.taskReason?.text.includes('间隔一段时间后再次练习根据两处动作独立判断人物心理') === true &&
+  }, (result) => result.taskReason?.text.includes('间隔一段时间后再次练习结合文本依据进行合理推断') === true &&
     result.taskReason.text.includes('独立完成'));
 
   check('N28 Transfer 保留新材料迁移语义并使用具体动作', {
@@ -283,7 +284,7 @@ function main(): void {
         isFoundationEntry: false,
       }),
     }),
-  }, (result) => result.taskReason?.text.includes('换一份材料练习找出新材料中的动作依据并形成判断') === true &&
+  }, (result) => result.taskReason?.text.includes('换一份材料练习结合文本依据进行合理推断') === true &&
     result.taskReason.text.includes('新内容'));
 
   check('N29 Diagnosis 使用具体任务了解当前处理方式', {
@@ -293,7 +294,7 @@ function main(): void {
         isFoundationEntry: false,
       }),
     }),
-  }, (result) => result.taskReason?.text.includes('先了解你目前怎样完成找出与人物心理有关的动作') === true);
+  }, (result) => result.taskReason?.text.includes('先了解你目前怎样结合文本依据进行合理推断') === true);
 
   check('N30 疑似答案与内部字段不会进入说明并安全回退', {
     currentTask: task('training', {
@@ -306,7 +307,7 @@ function main(): void {
         isFoundationEntry: true,
       }),
     }),
-  }, (result) => result.taskReason?.text === '这道题练习“理解”，重点是把阅读思路用在当前材料中。' &&
+  }, (result) => result.taskReason?.text === '这道题先练习理解句段含义与内容关系，为后面的解释和分析打基础。' &&
     !/option-1|天地间没有人类|正确答案/.test(result.taskReason.text));
 
   console.log('\nStudent Learning Narrative Calibration Debug');

@@ -66,6 +66,7 @@ const cases: Array<{ name: string; run: () => Promise<void> }> = [
   { name: '27 explicit paragraph conflict with formal anchor is detected', run: caseExplicitParagraphAnchorConflict },
   { name: '28 explicit whole-text conflict with ranged anchor is detected', run: caseExplicitWholeTextAnchorConflict },
   { name: '29 natural causal single-choice wording is a clear selection action', run: caseNaturalCausalSingleChoiceWording },
+  { name: '30 required rubric dimension missing from stem recommends revision', run: caseHiddenRubricRequirement },
 ];
 
 async function main(): Promise<void> {
@@ -566,6 +567,29 @@ async function caseRubricMismatch(): Promise<void> {
     'Strong rubric mismatch did not recommend revision.',
   );
   assert(hasWarning(assessment, 'quality.rubric.semantic_mismatch'), 'Rubric warning is missing.');
+}
+
+async function caseHiddenRubricRequirement(): Promise<void> {
+  const rubric = validRubric('inference');
+  rubric.push({
+    itemId: 'structure-relation',
+    name: '说明总起与分述关系',
+    description: '指出总起句与后续分述之间的结构关系。',
+    abilityId: 'inference',
+    importance: 'important',
+    required: true,
+    evidenceRequirement: { requireExplanation: true },
+    acceptedSignals: ['总起', '分述', '具体展开'],
+  });
+  const fixture = await validFixture('hidden-rubric-requirement', {
+    questionStem: '结合具体动作，分析这一细节表现出的心理。',
+    rubric,
+  });
+  const assessment = assessQuestionDraftQuality(fixture);
+
+  assert(assessment.checks.rubricAlignment === 'warning', 'Hidden rubric requirement was not detected.');
+  assert(assessment.decision === 'revision_recommended', 'Hidden rubric requirement must recommend revision.');
+  assert(hasWarning(assessment, 'quality.rubric.hidden_requirement'), 'Hidden rubric warning is missing.');
 }
 
 async function caseRevisionInvalidation(): Promise<void> {

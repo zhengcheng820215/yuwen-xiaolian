@@ -393,6 +393,9 @@ export async function runPhase163RealLearningChain(
       updatedProfile: checkpoint.updatedStudentAbilityProfile!,
       updatedGrowthMemorySummary: checkpoint.updatedGrowthMemorySummary!,
     });
+    if (rawResolution.resolvedTaskRequest) {
+      taskRequest = rawResolution.resolvedTaskRequest;
+    }
     let resolution = rawResolution;
     if (rawResolution.status === 'matched' && rawResolution.resourceVersion && rawResolution.qualityGatedTask) {
       const preparation = prepareConcreteLearningTaskFromFrozenResource({
@@ -414,11 +417,22 @@ export async function runPhase163RealLearningChain(
     }
     const successful = resolution.status === 'matched' && resolution.resourceVersion &&
       resolution.qualityGatedTask && resolution.concreteTask && resolution.taskReadiness?.canExecute;
+    const sessionComplete = resolution.status === 'session_complete';
     checkpoint = await persistCheckpoint(dependencies.operationRepository, {
       ...checkpoint,
       stage: successful ? 'next_task_ready' : 'persisted',
-      status: successful ? 'completed' : resolution.status === 'review_required' ? 'review_required' : 'blocked',
-      nextAction: successful ? 'start_next_task' : resolution.status === 'review_required' ? 'human_review' : 'prepare_resource',
+      status: successful || sessionComplete
+        ? 'completed'
+        : resolution.status === 'review_required'
+          ? 'review_required'
+          : 'blocked',
+      nextAction: successful
+        ? 'start_next_task'
+        : sessionComplete
+          ? 'stop'
+          : resolution.status === 'review_required'
+            ? 'human_review'
+            : 'prepare_resource',
       nextLearningStrategy: strategy,
       nextTaskRequest: taskRequest,
       nextTaskResolution: resolution,

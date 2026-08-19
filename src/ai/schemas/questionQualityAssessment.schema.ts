@@ -4,7 +4,7 @@ import type {
 } from './questionResourceAdmission.schema.ts';
 
 export const QUESTION_QUALITY_ASSESSMENT_VERSION = 'phase17_5a_v1';
-export const QUESTION_QUALITY_RULE_VERSION = 'question_quality_rules_v6';
+export const QUESTION_QUALITY_RULE_VERSION = 'question_quality_rules_v7';
 
 export const QUESTION_QUALITY_CHECKS = [
   'materialGrounding',

@@ -37,12 +37,17 @@ import { runTaskExecutionAgent } from '../ai/agents/taskExecutionAgent.ts';
 import { scheduleDelayedRetest } from '../ai/agents/delayedRetestSchedulingAgent.ts';
 import { createDiagnosisProviderConfigSnapshot } from '../ai/agents/realLLMRuntimeFoundationAgent.ts';
 import {
+  filterCurrentFormalResourcesForNewLearningSession,
   loadCurrentFormalResourceVersions,
   matchCurrentFormalResource,
   resolveFormalResourceBootstrapMatch,
 } from '../ai/agents/phase173FormalResourceMatchingService.ts';
 import { buildScopedFormalResourceHistory } from '../ai/agents/formalResourceHistoryScope.ts';
 import { selectFormalResourceForLearningSequence } from '../ai/agents/learningTaskSequenceScheduler.ts';
+import {
+  createLearningSessionTaskQueue,
+  resolveLearningSessionTaskQueueProgress,
+} from '../ai/agents/learningSessionTaskQueueAgent.ts';
 import { REAL_AI_DIAGNOSIS_PROMPT_V4_VERSION } from '../ai/prompts/buildRealAIDiagnosisPromptV4.ts';
 import { InMemoryControlledFeedbackRepository } from '../ai/repositories/inMemoryControlledFeedbackRepository.ts';
 import { InMemoryFormalDiagnosisRepository } from '../ai/repositories/inMemoryFormalDiagnosisRepository.ts';
@@ -86,8 +91,13 @@ import type {
 } from '../ai/schemas/learningFeedbackRevision.schema.ts';
 import type { RealLearningOperationCheckpoint } from '../ai/schemas/realLearningOperation.schema.ts';
 import type { DelayedRetestPlan } from '../ai/schemas/delayedRetestScheduling.schema.ts';
-import type { CurrentLearningContext, TaskRequest } from '../ai/schemas/nextLearningStrategy.schema.ts';
+import type {
+  CurrentLearningContext,
+  NextLearningAction,
+  TaskRequest,
+} from '../ai/schemas/nextLearningStrategy.schema.ts';
 import type { FrozenQuestionResourceVersion } from '../ai/schemas/questionResourceAdmission.schema.ts';
+import type { UnifiedLearningActivityContext } from '../ai/schemas/unifiedLearningEntry.schema.ts';
 import type {
   SingleChoiceStudentAnswerValue,
   StudentSingleChoiceDelivery,
@@ -143,8 +153,13 @@ export type Phase163LiveWorkspaceState = {
   sessionId: string;
   roundId: string;
   roundNumber: number;
+  sessionTaskCount: number;
+  sessionComplete: boolean;
   task: {
     title: string;
+    materialTitle?: string;
+    materialAuthor?: string;
+    abilityId: string;
     focus: string;
     readingText: string;
     questionText: string;
@@ -197,7 +212,7 @@ export type Phase163LiveWorkspaceState = {
 };
 
 export type Phase163LearningTaskAvailability = {
-  state: 'available' | 'no_formal_resource' | 'no_eligible_match' | 'already_used' | 'read_failed';
+  state: 'available' | 'no_formal_resource' | 'no_eligible_match' | 'already_used' | 'stale_session' | 'read_failed';
   available: boolean;
   message: string;
 };
@@ -626,15 +641,30 @@ function attemptIdFor(
   });
 }
 
-export async function advancePhase163LiveRound(): Promise<void> {
+export async function advancePhase163LiveRound(): Promise<Phase163LiveWorkspaceState> {
   const context = await requireActiveContext();
   const current = roundNumber(context.currentLearningRoundId);
+  if (context.taskQueue && current >= context.taskQueue.targetTaskCount) {
+    throw new Error('当前题组已经完成，不能继续创建下一题。');
+  }
   const nextRoundId = `${context.learningSessionId}-round-${current + 1}`;
-  await activityRepository.save({
+  const write = await activityRepository.save({
     ...context,
     currentLearningRoundId: nextRoundId,
     updatedAt: new Date().toISOString(),
   });
+  if (write.status === 'conflict') {
+    throw new Error('当前学习会话已经变化，请重新打开学习入口。');
+  }
+  try {
+    return await loadPhase163LiveWorkspace();
+  } catch (error) {
+    await activityRepository.save({
+      ...context,
+      updatedAt: new Date().toISOString(),
+    });
+    throw error;
+  }
 }
 
 export async function loadPhase163DueRetestPlans(): Promise<DelayedRetestPlan[]> {
@@ -666,6 +696,13 @@ export async function resolveCurrentLearningTaskAvailability(): Promise<Phase163
   try {
     const selection = await resolveCurrentFormalTaskSelection(false);
     if (selection.currentVersions.length === 0) {
+      if (selection.identityCurrentVersionCount > 0) {
+        return {
+          state: 'no_eligible_match',
+          available: false,
+          message: '当前正式题目正在按最新质量规范优化，暂时没有可开始的新任务。',
+        };
+      }
       return {
         state: 'no_formal_resource',
         available: false,
@@ -708,12 +745,54 @@ export async function resolveCurrentLearningTaskAvailability(): Promise<Phase163
           message: '当前没有同时符合能力和任务要求的正式任务。',
         };
   } catch (error) {
+    const message = error instanceof Error ? error.message : '正式任务读取失败。';
+    if (/正式版本已不可用/.test(message)) {
+      return {
+        state: 'stale_session',
+        available: false,
+        message: '当前旧题组引用的正式题目已经更新，无法安全继续。已有学习结果已经保留，请结束本次学习后重新开始。',
+      };
+    }
     return {
       state: 'read_failed',
       available: false,
-      message: error instanceof Error ? error.message : '正式任务读取失败。',
+      message,
     };
   }
+}
+
+async function ensureActiveSessionTaskQueue(
+  context: UnifiedLearningActivityContext,
+  currentVersions: FrozenQuestionResourceVersion[],
+  firstResourceVersion: FrozenQuestionResourceVersion,
+  createdAt: string,
+  currentTaskNumber: number,
+): Promise<UnifiedLearningActivityContext> {
+  const queuedCurrentResourceVersionId = context.taskQueue
+    ?.resourceVersionIds[currentTaskNumber - 1];
+  if (
+    context.taskQueue &&
+    context.taskQueue.materialId === firstResourceVersion.materialId &&
+    queuedCurrentResourceVersionId === firstResourceVersion.resourceVersionId
+  ) {
+    return context;
+  }
+  const taskQueue = createLearningSessionTaskQueue({
+    firstResourceVersion,
+    currentVersions,
+    createdAt,
+    currentTaskNumber,
+  });
+  const nextContext: UnifiedLearningActivityContext = {
+    ...context,
+    taskQueue,
+    updatedAt: createdAt,
+  };
+  const write = await activityRepository.save(nextContext);
+  if (write.status === 'conflict') {
+    throw new Error('当前学习会话已经变化，请返回学习入口后继续。');
+  }
+  return write.context;
 }
 
 async function buildCurrentRoundDescriptor() {
@@ -726,6 +805,7 @@ async function buildCurrentRoundDescriptor() {
     latest,
     currentCheckpoint,
     retestPlan,
+    currentVersions,
     taskRequest,
     matched,
   } = selection;
@@ -741,6 +821,17 @@ async function buildCurrentRoundDescriptor() {
       : '暂无符合当前能力和任务要求的正式任务。');
   }
   const version = matched.resourceVersion;
+  const taskQueueContext = await ensureActiveSessionTaskQueue(
+    context,
+    currentVersions,
+    version,
+    selection.descriptorAt,
+    number,
+  );
+  const queueProgress = resolveLearningSessionTaskQueueProgress(
+    taskQueueContext.taskQueue,
+    number,
+  );
   const qualityTask = matched.qualityGatedTask;
   const fallbackPreparation = matched.concreteTask && matched.taskReadiness
     ? undefined
@@ -788,10 +879,12 @@ async function buildCurrentRoundDescriptor() {
     concreteTask,
     readiness,
     roundNumber: number,
+    taskQueue: taskQueueContext.taskQueue,
+    queueProgress,
     input: {
       ...base.input,
       operationId: `phase16-3-live-operation-${roundId}`,
-      learningSessionId: context.learningSessionId,
+      learningSessionId: taskQueueContext.learningSessionId,
       learningRoundId: roundId,
       diagnosisRequestId: `phase16-3-live-diagnosis-${roundId}`,
       studentId: PHASE163_LEARNING_STUDENT_ID,
@@ -823,7 +916,7 @@ async function buildCurrentRoundDescriptor() {
 async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
   const descriptorAt = new Date().toISOString();
   const storedContext = await activityRepository.getByStudent(PHASE163_LEARNING_STUDENT_ID);
-  const context = storedContext?.status !== 'ended' ? storedContext : undefined;
+  let context = storedContext?.status !== 'ended' ? storedContext : undefined;
   if (requireContext && !context) throw new Error('请先从学习入口开始本次学习。');
   if (context) assertPhase163ProductRuntimeIdentity(context);
   const roundId = context?.currentLearningRoundId || (
@@ -839,9 +932,12 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
     : undefined;
   const plans = await loadPhase163DueRetestPlans();
   const retestPlan = plans[0];
-  const currentVersions = await loadCurrentFormalResourceVersions(
+  const allCurrentVersions = await loadCurrentFormalResourceVersions(
     formalResourceRepository,
     materialObservationRepository,
+  );
+  const eligibleNewSessionVersions = filterCurrentFormalResourcesForNewLearningSession(
+    allCurrentVersions,
   );
   const previousRoundId = roundId && number > 1
     ? replaceRoundNumber(roundId, number - 1)
@@ -849,23 +945,53 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
   const previousCheckpoint = previousRoundId
     ? await operationRepository.getByOperationId(`phase16-3-live-operation-${previousRoundId}`)
     : undefined;
+  const previousVersion = previousCheckpoint?.sourceResourceVersionId
+    ? allCurrentVersions.find((version) => (
+        version.resourceVersionId === previousCheckpoint.sourceResourceVersionId
+      ))
+    : undefined;
+  if (context?.taskQueue && previousVersion && number > 1) {
+    const queuedPreviousResourceVersionId = context.taskQueue.resourceVersionIds[number - 2];
+    if (
+      context.taskQueue.materialId !== previousVersion.materialId ||
+      queuedPreviousResourceVersionId !== previousVersion.resourceVersionId
+    ) {
+      context = await ensureActiveSessionTaskQueue(
+        context,
+        allCurrentVersions,
+        previousVersion,
+        descriptorAt,
+        number - 1,
+      );
+    }
+  }
   const currentPersistenceRecord = roundId
     ? records.find((item) => item.learningRoundId === roundId)
     : undefined;
   const plannedResolution = previousCheckpoint?.nextTaskResolution?.status === 'matched'
     ? previousCheckpoint.nextTaskResolution
     : undefined;
-  const pinnedResourceVersionId = resolveRestoredFormalResourceVersionId({
+  const restoredResourceVersionId = resolveRestoredFormalResourceVersionId({
     checkpointSourceResourceVersionId: currentCheckpoint?.sourceResourceVersionId,
     persistenceRecord: currentPersistenceRecord,
   });
+  const queuedResourceVersionId = context?.taskQueue?.resourceVersionIds[number - 1];
+  const pinnedResourceVersionId = restoredResourceVersionId || queuedResourceVersionId;
+  const preservesFrozenSessionVersions = Boolean(
+    context?.taskQueue || restoredResourceVersionId || currentCheckpoint?.sourceResourceVersionId,
+  );
+  const currentVersions = preservesFrozenSessionVersions
+    ? allCurrentVersions
+    : eligibleNewSessionVersions;
   const currentVersion = pinnedResourceVersionId
-    ? currentVersions.find((item) => (
+    ? allCurrentVersions.find((item) => (
       item.resourceVersionId === pinnedResourceVersionId
     ))
     : undefined;
   if (pinnedResourceVersionId && !currentVersion) {
-    throw new Error('上次学习任务的正式版本已不可用，请结束本次学习后重新开始。');
+    throw new Error(queuedResourceVersionId === pinnedResourceVersionId
+      ? '本轮下一题的正式版本已不可用，已完成结果仍然保留。'
+      : '上次学习任务的正式版本已不可用，请结束本次学习后重新开始。');
   }
   const recentHistory = buildScopedFormalResourceHistory({
     studentId: PHASE163_LEARNING_STUDENT_ID,
@@ -877,8 +1003,8 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
   const effectiveHistory = currentVersion
     ? withoutCurrentResource(recentHistory, currentVersion)
     : recentHistory;
-  let effectiveRetestPlan = retestPlan;
-  let bootstrapResolution = !retestPlan && !plannedResolution && !currentVersion
+  let effectiveRetestPlan = currentVersion ? undefined : retestPlan;
+  let bootstrapResolution = !effectiveRetestPlan && !plannedResolution && !currentVersion
     ? await resolveFormalResourceBootstrapMatch({
         studentId: PHASE163_LEARNING_STUDENT_ID,
         versions: currentVersions,
@@ -889,12 +1015,12 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
         reusePreviouslyUsedWhenExhausted: true,
       })
     : undefined;
-  let taskRequest = retestPlan
-    ? taskRequestFromRetestPlan(retestPlan, descriptorAt)
-    : previousCheckpoint?.nextTaskRequest && plannedResolution
-      ? previousCheckpoint.nextTaskRequest
-      : currentVersion
-        ? taskRequestForExistingVersion(currentVersion, descriptorAt)
+  let taskRequest = currentVersion
+    ? taskRequestForExistingVersion(currentVersion, descriptorAt)
+    : effectiveRetestPlan
+      ? taskRequestFromRetestPlan(effectiveRetestPlan, descriptorAt)
+      : previousCheckpoint?.nextTaskRequest && plannedResolution
+        ? previousCheckpoint.nextTaskRequest
         : bootstrapResolution!.taskRequest;
   let matched = bootstrapResolution?.matched || await matchCurrentFormalResource({
     taskRequest,
@@ -908,11 +1034,12 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
       effectiveHistory.recentResourceVersionIds,
     ),
     requiredResourceVersionId: currentVersion?.resourceVersionId,
+    eligibleResourceVersionIds: currentVersions.map((version) => version.resourceVersionId),
     evaluatedAt: descriptorAt,
   });
   if (
     matched.status !== 'matched' &&
-    retestPlan &&
+    effectiveRetestPlan &&
     !plannedResolution &&
     !currentVersion
   ) {
@@ -941,6 +1068,7 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
     currentCheckpoint,
     retestPlan: effectiveRetestPlan,
     currentVersions,
+    identityCurrentVersionCount: allCurrentVersions.length,
     taskRequest,
     recentHistory: effectiveHistory,
     matched,
@@ -952,11 +1080,36 @@ async function resolveNextFormalTask(
   previousResourceVersion: FrozenQuestionResourceVersion,
 ): Promise<NextFormalTaskResolution> {
   const records = await persistenceRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID);
-  const versions = await loadCurrentFormalResourceVersions(
+  const allVersions = await loadCurrentFormalResourceVersions(
     formalResourceRepository,
     materialObservationRepository,
   );
   const storedContext = await activityRepository.getByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const versions = storedContext?.status !== 'ended' && storedContext?.taskQueue
+    ? allVersions
+    : filterCurrentFormalResourcesForNewLearningSession(allVersions);
+  const currentRoundNumber = roundNumber(storedContext?.currentLearningRoundId);
+  const queueProgress = resolveLearningSessionTaskQueueProgress(
+    storedContext?.status !== 'ended' ? storedContext?.taskQueue : undefined,
+    currentRoundNumber,
+  );
+  if (storedContext?.taskQueue && queueProgress.isComplete) {
+    return {
+      status: 'session_complete',
+      taskRequestId: taskRequest.taskRequestId,
+      issues: [],
+    };
+  }
+  const queuedNextVersion = queueProgress.nextResourceVersionId
+    ? versions.find((version) => version.resourceVersionId === queueProgress.nextResourceVersionId)
+    : undefined;
+  if (queueProgress.nextResourceVersionId && !queuedNextVersion) {
+    return {
+      status: 'blocked',
+      taskRequestId: taskRequest.taskRequestId,
+      issues: ['session_task_queue_next_version_unavailable'],
+    };
+  }
   const activeLearningSessionId = storedContext?.status !== 'ended'
     ? storedContext?.learningSessionId
     : undefined;
@@ -971,6 +1124,29 @@ async function resolveNextFormalTask(
     ...history.recentResourceVersionIds,
     previousResourceVersion.resourceVersionId,
   ]);
+  if (queuedNextVersion) {
+    const queuedTaskRequest = taskRequestForExistingVersion(queuedNextVersion, new Date().toISOString());
+    const queuedResolution = await matchCurrentFormalResource({
+      taskRequest: queuedTaskRequest,
+      studentId: PHASE163_LEARNING_STUDENT_ID,
+      resourceRepository: formalResourceRepository,
+      observationRepository: materialObservationRepository,
+      recentHistory: {
+        ...history,
+        recentTaskIds: uniqueStrings([...history.recentTaskIds, previousResourceVersion.taskId]),
+        recentResourceIds: uniqueStrings([...history.recentResourceIds, previousResourceVersion.resourceId]),
+        recentResourceVersionIds: effectiveRecentVersionIds,
+      },
+      bootstrapMaterialId: queuedNextVersion.materialId,
+      requiredResourceVersionId: queuedNextVersion.resourceVersionId,
+      eligibleResourceVersionIds: versions.map((version) => version.resourceVersionId),
+      evaluatedAt: new Date().toISOString(),
+    });
+    return {
+      ...queuedResolution,
+      resolvedTaskRequest: queuedTaskRequest,
+    };
+  }
   const preferredVersion = selectFormalResourceForLearningSequence(versions, {
     taskRole: taskRequest.taskRole,
     targetAbilityId: taskRequest.targetAbilityId,
@@ -1001,6 +1177,7 @@ async function resolveNextFormalTask(
     },
     bootstrapMaterialId: preferredVersion?.materialId,
     requiredResourceVersionId: preferredVersion?.resourceVersionId,
+    eligibleResourceVersionIds: versions.map((version) => version.resourceVersionId),
     evaluatedAt: new Date().toISOString(),
   });
 }
@@ -1068,8 +1245,13 @@ function readyState(
     sessionId: descriptor.input.learningSessionId,
     roundId: descriptor.input.learningRoundId,
     roundNumber: descriptor.roundNumber,
+    sessionTaskCount: descriptor.queueProgress.totalTaskCount,
+    sessionComplete: false,
     task: {
       title: descriptor.input.resourceVersion.title,
+      materialTitle: descriptor.input.resourceVersion.materialSnapshot?.title,
+      materialAuthor: descriptor.input.resourceVersion.materialSnapshot?.metadata?.author,
+      abilityId: task.targetAbilityId,
       focus: task.targetAbilityName,
       readingText: task.readingText || '',
       questionText: task.question,
@@ -1176,6 +1358,11 @@ async function stateFromCheckpoint(
   const restoredChoice = checkpoint.taskExecutionResult?.studentResponse?.singleChoiceAnswer || singleChoiceDraft;
   const base = readyState(descriptor, restoredAnswer, restoredChoice);
   const feedback = resolvePhase163LiveStudentFeedback(checkpoint);
+  const queueProgress = descriptor.queueProgress;
+  const hasFormalRoundResult = Boolean(checkpoint.learningPersistenceRecordId);
+  const sessionQueueBlocked = checkpoint.issues.includes(
+    'session_task_queue_next_version_unavailable',
+  );
   const learningPresentation = toStudentLearningPresentation(buildStudentLearningNarrativeProjection({
     studentId: checkpoint.studentId,
     currentTask: checkpoint.concreteTask || descriptor.concreteTask,
@@ -1187,7 +1374,8 @@ async function stateFromCheckpoint(
     nextTaskResolution: checkpoint.nextTaskResolution,
     delayedRetestPlan: descriptor.retestPlan,
   }));
-  const canAdvance = checkpoint.status === 'completed' && checkpoint.nextTaskResolution?.status === 'matched';
+  const canAdvance = hasFormalRoundResult && queueProgress.hasNextTask && !sessionQueueBlocked;
+  const sessionComplete = hasFormalRoundResult && queueProgress.isComplete;
   const primaryAction = canAdvance
     ? 'start_next_task'
     : checkpoint.status === 'review_required'
@@ -1212,7 +1400,9 @@ async function stateFromCheckpoint(
   const revision = await resolveFeedbackRevisionState(descriptor, checkpoint, feedback);
   return {
     ...base,
-    status: checkpoint.status === 'completed' ? 'completed' : checkpoint.status,
+    status: canAdvance || sessionComplete || checkpoint.status === 'completed'
+      ? 'completed'
+      : checkpoint.status,
     learningPresentation,
     feedback: feedback ? {
       headline: feedback.headline,
@@ -1230,6 +1420,7 @@ async function stateFromCheckpoint(
       } : undefined,
     } : undefined,
     canAdvance,
+    sessionComplete,
     canRetry: checkpoint.status === 'retry_required',
     primaryAction,
     pauseReason: pausePresentation?.reason,
@@ -1237,8 +1428,10 @@ async function stateFromCheckpoint(
     studentMessage: pausePresentation
       ? pausePresentation.message
       : checkpoint.status === 'blocked'
-        ? resourceUnavailable && checkpoint.learningPersistenceRecordId
-          ? '本轮学习已经完成。下一任务需要先准备，准备完成后可以从学习入口继续。'
+        ? sessionQueueBlocked
+          ? '本题结果已经保存，但下一题的正式版本已不可用。请返回学习入口后重新开始本轮学习。'
+          : resourceUnavailable && checkpoint.learningPersistenceRecordId
+            ? '本题学习已经完成。下一题需要先准备，准备完成后可以从学习入口继续。'
           : '当前任务暂时无法继续，已有学习记录已经保留。'
         : checkpoint.status === 'retry_required'
           ? checkpoint.nextAction === 'submit_answer'

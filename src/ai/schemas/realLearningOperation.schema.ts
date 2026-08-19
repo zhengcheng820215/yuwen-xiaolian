@@ -48,8 +48,9 @@ export type DiagnosisAdmissionDecision = {
 };
 
 export type NextFormalTaskResolution = {
-  status: 'matched' | 'partial_match' | 'no_match' | 'review_required' | 'blocked';
+  status: 'matched' | 'partial_match' | 'no_match' | 'review_required' | 'blocked' | 'session_complete';
   taskRequestId: string;
+  resolvedTaskRequest?: TaskRequest;
   resourceVersion?: FrozenQuestionResourceVersion;
   qualityGatedTask?: QualityGatedExecutableTask;
   concreteTask?: ConcreteLearningTask;

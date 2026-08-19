@@ -15,11 +15,66 @@ const base = fixture();
   const candidate = fixture({
     rubric: [rubric('观点'), rubric('依据'), rubric('解释')],
     responseFormat: 'short_text',
-    questionStem: '请概括人物此时的心情。',
+    questionStem: '请结合材料概括人物此时的心情，并说明相关文本依据。',
   });
   const evaluation = evaluateQuestionGenerationQuality({ candidate });
-  assert.notEqual(evaluation.status, 'blocked', 'Three rubric items alone must not force long_text.');
+  assert.notEqual(
+    evaluation.status,
+    'blocked',
+    `Three rubric items alone must not force long_text: ${JSON.stringify(evaluation.findings)}`,
+  );
   assert(evaluation.findings.some((item) => item.code === 'rubric_density_long_text_hint'));
+}
+
+{
+  const candidate = fixture({
+    questionStem: '请结合第2段的具体描写，说说作者是如何表现“刚睡醒”的特点的。',
+    rubric: [rubric('提取具体描写'), rubric('分析共同特点'), rubric('说明总起与分述关系')],
+  });
+  const evaluation = evaluateQuestionGenerationQuality({ candidate });
+  assert.equal(evaluation.status, 'blocked');
+  assert(evaluation.blockerCodes.includes('rubric_requirement_not_in_stem'));
+}
+
+{
+  const candidate = fixture({
+    questionStem: '请结合第2段的具体描写，说明“一切都像刚睡醒”与后面分述景物之间的结构关系。',
+    rubric: [rubric('提取具体描写'), rubric('说明总起与分述关系')],
+  });
+  assert(!evaluateQuestionGenerationQuality({ candidate }).blockerCodes.includes('rubric_requirement_not_in_stem'));
+}
+
+{
+  const candidate = fixture({
+    questionStem: '“一切都像刚睡醒”是总起句，后面三句是分述。请结合三处描写分析春天刚醒的状态。',
+    rubric: [rubric('提取具体描写'), rubric('说明总起与分述关系')],
+  });
+  assert(
+    evaluateQuestionGenerationQuality({ candidate }).blockerCodes.includes('rubric_requirement_not_in_stem'),
+    'Merely naming total/detail structure must not replace an explicit structural action.',
+  );
+}
+
+{
+  const candidate = fixture({
+    questionStem: '文章第3段和第4段都描写了济南的山。请分别概括两段中山的特点，并说明作者这样安排有什么作用。',
+    rubric: [rubric('段落概括'), rubric('结构分析')],
+  });
+  assert(
+    !evaluateQuestionGenerationQuality({ candidate }).blockerCodes.includes('rubric_requirement_not_in_stem'),
+    'A scoped paragraph-and-arrangement prompt must satisfy evidence and structural alignment.',
+  );
+}
+
+{
+  const candidate = fixture({
+    questionStem: '诗中多次使用“定然”“定能够”等词语，请结合诗句分析这些词语的表达效果。',
+    rubric: [rubric('找出关键词语'), rubric('分析表达效果'), rubric('结合主题')],
+  });
+  assert(
+    !evaluateQuestionGenerationQuality({ candidate }).blockerCodes.includes('rubric_requirement_not_in_stem'),
+    'Expected theme content under an expression-effect action must not be mistaken for a hidden task.',
+  );
 }
 
 {
@@ -87,7 +142,7 @@ const base = fixture();
   assert(portfolio.findings.every((item) => item.severity === 'advisory'));
 }
 
-console.log('Question generation quality policy debug passed (8 / 8).');
+console.log('Question generation quality policy debug passed (13 / 13).');
 
 function rubric(name: string): QuestionEditableFields['rubric'][number] {
   return {

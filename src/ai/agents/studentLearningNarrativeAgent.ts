@@ -11,6 +11,7 @@ import type { StudentFeedbackGrounding } from '../schemas/studentFeedbackGroundi
 import { buildStudentFeedbackActionPlan } from './studentFeedbackActionPlanAgent.ts';
 import type { StudentFeedbackActionPlan } from '../schemas/studentFeedbackActionPlan.schema.ts';
 import { buildStudentThinkingAnalysis } from './studentThinkingAnalysisAgent.ts';
+import { safeLearningAction } from '../content/preAnswerLearningGuidance.ts';
 import {
   STUDENT_LEARNING_NARRATIVE_SCHEMA_VERSION,
   isStudentLearningNarrativeProjection,
@@ -31,7 +32,6 @@ export type StudentLearningNarrativeInput = {
 };
 
 const INTERNAL_LANGUAGE = /\b(?:Evidence|Diagnosis|Profile|GrowthMemory|Root Cause|confidence|evaluator|operationId|responseId|taskRole)\b/i;
-const UNSAFE_TASK_REASON_INTENT = /(?:正确答案|答案是|正确选项|应选|选择选项\s*[A-D0-9]|option[-_]?\d+|可接受观察信号|评分项|干扰项|acceptedSignal)/i;
 
 export function buildStudentLearningNarrativeProjection(
   input: StudentLearningNarrativeInput,
@@ -242,57 +242,20 @@ function resolvePrimaryGapCoverage(feedback?: StudentLearningFeedback) {
 
 function buildTaskReason(task?: ConcreteLearningTask): StudentLearningNarrativeStatement | undefined {
   if (!task) return undefined;
-  const ability = studentAbilityLabel(task.targetAbilityName);
-  const action = specificStudentTaskAction(task);
+  const action = safeLearningAction(task.targetAbilityId, task.targetAbilityName);
   const text = task.taskRole === 'retest'
-    ? action
-      ? `这道题会在间隔一段时间后再次练习${action}，看看你能否独立完成。`
-      : `这道题会在间隔一段时间后再次练习${ability}，看看你能否独立完成。`
+    ? `这道题会在间隔一段时间后再次练习${action}，看看你能否独立完成。`
     : task.taskRole === 'transfer'
-      ? action
-        ? `这道题会换一份材料练习${action}，看看你能否把之前的方法用到新内容中。`
-        : `这道题会换一份材料练习${ability}，看看你能否把之前的方法用到新内容中。`
+      ? `这道题会换一份材料练习${action}，看看你能否把之前的方法用到新内容中。`
       : task.taskRole === 'diagnosis' || task.taskRole === 'observation'
-        ? action
-          ? `这道题先了解你目前怎样完成${action}，后面的练习会根据这次回答继续安排。`
-          : `这道题先了解你目前怎样处理${ability}相关要求，后面的练习会根据这次回答继续安排。`
-        : action
-          ? task.responseFormat === 'single_choice' && task.learningIntent?.isFoundationEntry
-            ? `这道题先练习${action}，为后面的解释和分析打基础。`
-            : `这道题练习${action}。`
-          : `这道题练习${ability}，重点是把阅读思路用在当前材料中。`;
+        ? `这道题先了解你目前怎样${action}，后面的练习会根据这次回答继续安排。`
+        : task.responseFormat === 'single_choice' && task.learningIntent?.isFoundationEntry
+          ? `这道题先练习${action}，为后面的解释和分析打基础。`
+          : `这道题练习${action}。`;
   return statement(text, 'current_task', 'formal_task', [
     task.taskId,
     task.learningIntent?.sourceObservationTaskPlanId,
   ].filter((value): value is string => Boolean(value)));
-}
-
-function specificStudentTaskAction(task: ConcreteLearningTask): string | undefined {
-  const intent = task.learningIntent;
-  if (!intent) return undefined;
-  const candidates = [intent.expectedStudentAction, intent.observationGoal];
-  for (const candidate of candidates) {
-    const action = normalizeStudentTaskAction(candidate);
-    if (action && !UNSAFE_TASK_REASON_INTENT.test(action) && !INTERNAL_LANGUAGE.test(action)) {
-      return action;
-    }
-  }
-  return undefined;
-}
-
-function normalizeStudentTaskAction(value: string): string | undefined {
-  let action = value
-    .trim()
-    .replace(/^(?:要求)?(?:学生|学习者)(?:需要|应当|应该|应|需)\s*/, '')
-    .replace(/^请\s*/, '')
-    .replace(/选择最(符合|直接|准确|恰当)的/g, '判断最$1的')
-    .replace(/[。！？?]+$/g, '')
-    .trim();
-  if (!action || action.length > 88) return undefined;
-  if (/是因为什么$/.test(action)) {
-    action = `理解${action.replace(/，?是因为什么$/, '')}的直接原因`;
-  }
-  return action;
 }
 
 function buildAchieved(

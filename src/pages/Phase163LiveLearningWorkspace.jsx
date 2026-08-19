@@ -20,6 +20,8 @@ import {
 import { requestStudentWritingCorrections } from '../api/studentWritingCorrections.ts';
 import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
 import ReadingMaterialText from '../components/continuous-learning/ReadingMaterialText.jsx';
+import { formatLearningMaterialHeading } from '../ui/learningMaterialHeading.ts';
+import { buildPreAnswerLearningGuidance } from '../ai/content/preAnswerLearningGuidance.ts';
 import AnswerLengthIndicator from '../components/continuous-learning/AnswerLengthIndicator.jsx';
 import SingleChoiceResponseInput from '../components/continuous-learning/SingleChoiceResponseInput.jsx';
 import {
@@ -38,7 +40,11 @@ import {
 const RUNTIME_UNAVAILABLE_MESSAGE = '分析服务尚未就绪。你可以继续编辑或保存回答，服务准备好后再提交。';
 const FEEDBACK_PRESENTATION_KEY_PREFIX = 'qingzhou:feedback-presentation:';
 
-export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRetryResource = false }) {
+export default function Phase163LiveLearningWorkspace({
+  onReturnToEntry,
+  onCompleteSession,
+  autoRetryResource = false,
+}) {
   const [state, setState] = useState(null);
   const [answer, setAnswer] = useState('');
   const [selectedOptionId, setSelectedOptionId] = useState('');
@@ -56,6 +62,14 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
   const toastSequence = useRef(0);
   const autoResourceRetryStarted = useRef(false);
   const revisionEvaluationRetryStarted = useRef(null);
+  const preAnswerGuidance = state?.task
+    ? buildPreAnswerLearningGuidance({
+        abilityId: state.task.abilityId,
+        abilityName: state.task.focus,
+        responseFormat: state.task.responseFormat,
+        questionText: state.task.questionText,
+      })
+    : null;
 
   useEffect(() => {
     let active = true;
@@ -306,10 +320,12 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
         await skipPhase163FeedbackRevision();
       }
       if (state?.canAdvance) {
-        await advancePhase163LiveRound();
-        applyState(await loadPhase163LiveWorkspace());
+        applyState(await advancePhase163LiveRound());
+      } else if (state?.sessionComplete) {
+        if (onCompleteSession) await onCompleteSession();
+        else await onReturnToEntry();
       } else {
-        onReturnToEntry();
+        await onReturnToEntry();
       }
     } catch (error) {
       showMessage(toMessage(error), 'error');
@@ -327,6 +343,11 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
   const revising = state.revision?.status === 'draft';
   const revisionSubmitted = ['submitted', 'evaluating', 'evaluation_pending_retry'].includes(state.revision?.status);
   const revisionEvaluated = state.revision?.status === 'evaluated';
+  const continueActionLabel = state.canAdvance
+    ? `下一题（${state.roundNumber + 1}/${state.sessionTaskCount}）`
+    : state.sessionComplete
+      ? '完成本轮学习'
+      : '返回学习入口';
   return (
     <div className={`min-h-screen text-slate-950 ${completed || paused || recovering || revising || revisionSubmitted || revisionEvaluated ? 'bg-[#f7f9fc]' : 'learning-workspace-split-background bg-[#f7f9fc] min-[1060px]:h-screen min-[1060px]:overflow-hidden'}`}>
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
@@ -341,7 +362,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
           </button>
           <div className="flex items-center gap-3 text-sm text-slate-500">
             {state.isRetest ? <span className="font-medium text-emerald-700">延迟复测</span> : null}
-            <span>第 {state.roundNumber} 轮</span>
+            <span>第 {state.roundNumber} / {state.sessionTaskCount} 题</span>
           </div>
         </div>
       </header>
@@ -359,6 +380,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
           onSave={saveRevisionDraft}
           onSubmit={submitRevision}
           onContinue={continueAfterFeedback}
+          continueLabel={continueActionLabel}
           inputRef={revisionInputRef}
         />
       ) : revisionEvaluated ? (
@@ -366,6 +388,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
           revision={state.revision}
           busy={busy}
           canAdvance={state.canAdvance}
+          continueLabel={continueActionLabel}
           onContinue={continueAfterFeedback}
         />
       ) : revisionSubmitted ? (
@@ -373,10 +396,11 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
           revision={state.revision}
           busy={busy}
           canAdvance={state.canAdvance}
+          continueLabel={continueActionLabel}
           onContinue={continueAfterFeedback}
         />
       ) : completed ? (
-        <CompletedFeedback state={state} writingCorrections={writingCorrections} writingCorrectionStatus={writingCorrectionStatus} busy={busy} onContinue={continueAfterFeedback} onReturn={continueAfterFeedback} onStartRevision={startRevision} />
+        <CompletedFeedback state={state} writingCorrections={writingCorrections} writingCorrectionStatus={writingCorrectionStatus} busy={busy} onContinue={continueAfterFeedback} onReturn={continueAfterFeedback} onStartRevision={startRevision} continueActionLabel={continueActionLabel} />
       ) : paused ? (
         <PausedWorkspace state={state} writingCorrections={writingCorrections} busy={busy} onReturn={continueAfterFeedback} onStartRevision={startRevision} />
       ) : recovering ? (
@@ -393,7 +417,7 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
             <div className="mx-auto w-full max-w-[760px]">
               <h1 className="flex items-center gap-3 text-lg font-semibold">
                 <BookOpen size={20} className="text-slate-500" />
-                阅读材料
+                {formatLearningMaterialHeading(state.task.materialTitle, state.task.materialAuthor)}
               </h1>
               <ReadingMaterialText className="mt-6 border-t border-slate-200 pt-7 text-base leading-8 text-slate-800">
                 {state.task.readingText || '本题不需要额外阅读材料。'}
@@ -403,14 +427,17 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
 
           <section className="bg-white px-6 py-8 lg:px-10 lg:py-10 xl:px-14 min-[1060px]:min-h-0 min-[1060px]:overflow-y-auto min-[1060px]:overscroll-contain">
             <div className="mx-auto max-w-[640px]">
-              {state.learningPresentation?.taskReason ? (
-                <div className="border-l-2 border-emerald-500 pl-4">
-                  <p className="text-sm font-semibold text-slate-800">为什么练这题</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">{state.learningPresentation.taskReason}</p>
-                </div>
-              ) : null}
-              <h1 className="mt-7 text-lg font-semibold">题目</h1>
+              <h1 className="text-lg font-semibold">题目</h1>
               <p className="mt-3 text-base leading-8 text-slate-800">{state.task.questionText}</p>
+
+              {preAnswerGuidance ? (
+                <details className="mt-5 py-2 text-sm">
+                  <summary className="cursor-pointer select-none font-medium text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2">
+                    需要提示时查看
+                  </summary>
+                  <p className="mt-3 leading-6 text-slate-600">{preAnswerGuidance.hint}</p>
+                </details>
+              ) : null}
 
               {state.task.responseFormat === 'single_choice' ? (
                 <SingleChoiceResponseInput
@@ -493,7 +520,16 @@ export default function Phase163LiveLearningWorkspace({ onReturnToEntry, autoRet
   );
 }
 
-function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus, busy, onContinue, onReturn, onStartRevision }) {
+function CompletedFeedback({
+  state,
+  writingCorrections,
+  writingCorrectionStatus,
+  busy,
+  onContinue,
+  onReturn,
+  onStartRevision,
+  continueActionLabel,
+}) {
   const positive = state.feedback?.whatYouDidWell?.slice(0, 1) || [];
   const thinkingReview = state.feedback?.thinkingReview;
   const guidance = state.feedback?.guidance;
@@ -508,6 +544,14 @@ function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus,
     responseFormat: state.task?.responseFormat,
     feedback: state.feedback,
   });
+  const presentedFallbackFeedback = fallbackFeedback ? {
+    ...fallbackFeedback,
+    nextAction: state.canAdvance
+      ? `本题结果已经保存，接下来进入第 ${state.roundNumber + 1} / ${state.sessionTaskCount} 题。`
+      : state.sessionComplete
+        ? '本题结果已经保存，当前题组已经全部完成。'
+        : fallbackFeedback.nextAction,
+  } : undefined;
   const hasReview = Boolean(thinkingReview || positive.length);
   const shouldStageFeedback = shouldStageFeedbackPresentation({
     correctionStatus: writingCorrectionStatus,
@@ -588,7 +632,7 @@ function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus,
           {state.revision?.status === 'offered' ? (
             <FeedbackRevisionGoal revision={state.revision} />
           ) : null}
-          {fallbackFeedback ? <CompletedFeedbackNotice feedback={fallbackFeedback} /> : null}
+          {presentedFallbackFeedback ? <CompletedFeedbackNotice feedback={presentedFallbackFeedback} /> : null}
         </section>
         <div className={`mt-8 grid min-h-11 gap-3 sm:grid-cols-2 ${feedbackRevealClass(presentationStep >= 3)}`}>
           {state.revision?.status === 'offered' ? (
@@ -599,7 +643,7 @@ function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus,
                 onClick={onContinue}
                 className="flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-5 text-sm text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {state.canAdvance ? '继续下一轮任务' : '返回学习入口'}
+                {continueActionLabel}
               </button>
               <button
                 type="button"
@@ -611,7 +655,7 @@ function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus,
                 {state.revision.actionLabel}
               </button>
             </>
-          ) : state.canAdvance ? (
+          ) : state.canAdvance || state.sessionComplete ? (
             <button
               type="button"
               disabled={busy}
@@ -619,7 +663,7 @@ function CompletedFeedback({ state, writingCorrections, writingCorrectionStatus,
               className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-600 px-5 text-sm text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 sm:col-span-2 sm:mx-auto sm:min-w-52"
             >
               {busy ? <RefreshCw size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-              进入下一轮任务
+              {continueActionLabel}
             </button>
           ) : (
             <button type="button" onClick={onReturn} className="min-h-11 rounded-md bg-emerald-600 px-5 text-sm text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:col-span-2 sm:mx-auto">

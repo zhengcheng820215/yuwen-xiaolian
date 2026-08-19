@@ -22,6 +22,10 @@ import {
 import {
   validateSingleChoiceInteraction,
 } from '../schemas/singleChoiceInteraction.schema.ts';
+import {
+  assessQuestionStemRubricAlignment,
+  formatHiddenRubricDimensions,
+} from '../patterns/questionStemRubricAlignment.ts';
 
 export type AssessQuestionDraftQualityInput = {
   draft: StructuredQuestionDraft;
@@ -539,6 +543,10 @@ function checkRubricAlignment(
   const rubricRequiresExplanation = draft.rubric.some(
     (item) => item.required && item.evidenceRequirement?.requireExplanation,
   );
+  const reverseAlignment = assessQuestionStemRubricAlignment(
+    draft.questionStem,
+    draft.rubric,
+  );
 
   if (
     (asksEvidence && !rubricRequiresEvidence) ||
@@ -551,6 +559,17 @@ function checkRubricAlignment(
       'strong_warning',
       '题干要求的依据或解释没有被 Required Rubric 完整覆盖。',
       ['questionStem', 'rubric'],
+    );
+    return 'warning';
+  }
+  if (!reverseAlignment.aligned) {
+    addWarning(
+      warnings,
+      'quality.rubric.hidden_requirement',
+      'rubricAlignment',
+      'strong_warning',
+      `评分标准包含题干没有明确要求的必答维度：${formatHiddenRubricDimensions(reverseAlignment.hiddenDimensions)}。`,
+      ['questionStem', ...reverseAlignment.rubricItemIds.map((itemId) => `rubric:${itemId}`)],
     );
     return 'warning';
   }

@@ -19,6 +19,7 @@ export function createUnifiedLearningActivityContext(input: {
   studentId: string;
   learningSessionId: string;
   currentLearningRoundId?: string;
+  taskQueue?: UnifiedLearningActivityContext['taskQueue'];
   status?: UnifiedLearningActivityContext['status'];
   createdAt: string;
   updatedAt?: string;
@@ -28,6 +29,7 @@ export function createUnifiedLearningActivityContext(input: {
     studentId: input.studentId,
     learningSessionId: input.learningSessionId,
     currentLearningRoundId: input.currentLearningRoundId,
+    taskQueue: input.taskQueue,
     status: input.status || 'active',
     createdAt: input.createdAt,
     updatedAt: input.updatedAt || input.createdAt,
@@ -68,7 +70,7 @@ export function buildUnifiedLearningEntryState(
     hasActiveSession: active.length === 1,
     hasDraft: Boolean(record?.answerDraft?.trim()) && !record?.studentResponse,
     hasUnviewedFeedback: Boolean(record?.learningRoundResult && (record.studentLearningFeedback || record.studentRoundSummary)),
-    currentRoundNumber: roundNumber(record?.learningRoundId),
+    currentRoundNumber: roundNumber(record?.learningRoundId || active[0]?.currentLearningRoundId),
     completedRoundCount: input.completedRoundCount,
     taskAvailabilityState: input.taskAvailabilityState,
     focusText: record?.concreteTask?.targetAbilityName,
@@ -86,6 +88,20 @@ export function buildUnifiedLearningEntryState(
     }, [...issues, ...(active.length > 1 ? ['multiple_active_sessions_not_allowed'] : [])]);
   }
 
+  if (
+    checkpoint?.status === 'review_required' &&
+    checkpoint.learningPersistenceRecordId &&
+    input.hasAvailableTask &&
+    active.length === 1
+  ) {
+    return finish({
+      ...base,
+      status: 'feedback_available', priority: 1,
+      title: '本题学习已经完成',
+      message: '本题结果已经保存。可以查看反馈，并继续完成当前题组中的下一题。',
+      primaryAction: 'view_feedback', primaryActionText: '查看反馈并继续', canEnterWorkspace: true,
+    });
+  }
   if (checkpoint?.status === 'review_required') {
     const presentation = resolveStudentRuntimePausePresentation({
       status: 'review_required',
@@ -141,6 +157,15 @@ export function buildUnifiedLearningEntryState(
       primaryAction: 'resume_processing', primaryActionText: '查看恢复状态', canEnterWorkspace: true,
     });
   }
+  if (active.length === 1 && input.taskAvailabilityState === 'stale_session') {
+    return finish({
+      ...base,
+      status: 'blocked', priority: 2,
+      title: '当前题组需要重新开始',
+      message: input.taskAvailabilityMessage || '当前旧题组已经失效。已有学习结果已经保留，请结束本次学习后重新开始。',
+      primaryAction: 'none', primaryActionText: '题组已失效', canEnterWorkspace: false,
+    });
+  }
   if (ended && active.length === 0) {
     if (!input.hasAvailableTask) {
       return finish({
@@ -165,6 +190,16 @@ export function buildUnifiedLearningEntryState(
       status: 'continue_round', priority: 3,
       title: base.hasDraft ? '继续上次的回答' : '继续当前学习',
       message: base.hasDraft ? '上次输入的内容已经保留，可以从这里继续。' : '当前任务尚未完成，可以继续作答。',
+      primaryAction: 'continue_learning', primaryActionText: '继续学习', canEnterWorkspace: true,
+    });
+  }
+
+  if (active.length === 1 && input.hasAvailableTask && !record) {
+    return finish({
+      ...base,
+      status: 'continue_round', priority: 3,
+      title: '继续当前题组',
+      message: `当前题组已经恢复，可以从第 ${base.currentRoundNumber || 1} 题继续。`,
       primaryAction: 'continue_learning', primaryActionText: '继续学习', canEnterWorkspace: true,
     });
   }
@@ -220,6 +255,7 @@ function noTaskTitle(state: UnifiedLearningEntryInput['taskAvailabilityState']):
     no_formal_resource: '当前还没有正式任务',
     no_eligible_match: '当前没有符合本轮条件的新任务',
     already_used: '本轮可用任务已经完成',
+    stale_session: '当前题组需要重新开始',
     available: '暂时没有可用任务',
   }[state || 'available'];
 }

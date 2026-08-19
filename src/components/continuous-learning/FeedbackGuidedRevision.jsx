@@ -1,6 +1,7 @@
 import { ArrowRight, BookOpen, RefreshCw, Save } from 'lucide-react';
 import AnswerLengthIndicator from './AnswerLengthIndicator.jsx';
 import ReadingMaterialText from './ReadingMaterialText.jsx';
+import { formatLearningMaterialHeading } from '../../ui/learningMaterialHeading.ts';
 
 export function FeedbackRevisionGoal({ revision, className = '' }) {
   if (!revision?.revisionGoal) return null;
@@ -21,6 +22,7 @@ export function FeedbackRevisionWorkspace({
   onSave,
   onSubmit,
   onContinue,
+  continueLabel = '暂不提交，继续下一项',
   inputRef,
 }) {
   return (
@@ -29,7 +31,7 @@ export function FeedbackRevisionWorkspace({
         <div className="mx-auto w-full max-w-[760px]">
           <h1 className="flex items-center gap-3 text-lg font-semibold">
             <BookOpen size={20} className="text-slate-500" />
-            阅读材料
+            {formatLearningMaterialHeading(task.materialTitle, task.materialAuthor)}
           </h1>
           <ReadingMaterialText className="mt-6 border-t border-slate-200 pt-7 text-base leading-8 text-slate-800">
             {task.readingText || '本题不需要额外阅读材料。'}
@@ -92,7 +94,7 @@ export function FeedbackRevisionWorkspace({
             onClick={onContinue}
             className="mt-4 min-h-10 w-full text-sm text-slate-600 hover:text-slate-900 disabled:opacity-40"
           >
-            暂不提交，继续下一项
+            {continueLabel}
           </button>
         </div>
       </section>
@@ -100,7 +102,7 @@ export function FeedbackRevisionWorkspace({
   );
 }
 
-export function FeedbackRevisionSubmitted({ revision, busy, canAdvance, onContinue }) {
+export function FeedbackRevisionSubmitted({ revision, busy, canAdvance, continueLabel, onContinue }) {
   const pending = revision?.status === 'evaluation_pending_retry';
   const evaluating = revision?.status === 'submitted' || revision?.status === 'evaluating';
   return (
@@ -123,14 +125,14 @@ export function FeedbackRevisionSubmitted({ revision, busy, canAdvance, onContin
           className="mt-8 flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-5 text-sm text-white hover:bg-emerald-700 disabled:opacity-40"
         >
           {busy ? <RefreshCw size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-          {canAdvance ? '进入下一轮任务' : '返回学习入口'}
+          {continueLabel || (canAdvance ? '进入下一题' : '返回学习入口')}
         </button>
       </div>
     </main>
   );
 }
 
-export function FeedbackRevisionEvaluated({ revision, busy, canAdvance, onContinue }) {
+export function FeedbackRevisionEvaluated({ revision, busy, canAdvance, continueLabel, onContinue }) {
   const evaluation = revision?.evaluation;
   if (!evaluation) return null;
   const presentation = revisionOutcomePresentation(evaluation.outcome);
@@ -163,7 +165,7 @@ export function FeedbackRevisionEvaluated({ revision, busy, canAdvance, onContin
           className="mt-8 flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-5 text-sm text-white hover:bg-emerald-700 disabled:opacity-40"
         >
           {busy ? <RefreshCw size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-          {canAdvance ? '进入下一轮任务' : '返回学习入口'}
+          {continueLabel || (canAdvance ? '进入下一题' : '返回学习入口')}
         </button>
       </div>
     </main>

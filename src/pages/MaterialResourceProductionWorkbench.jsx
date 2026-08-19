@@ -124,6 +124,8 @@ import { resolveCandidateOptimizationFieldPolicy } from
   '../ai/schemas/questionCandidateOptimization.schema.ts';
 import { analyzeQuestionResponseLoad } from
   '../ai/agents/questionGenerationQualityPolicyAgent.ts';
+import { assessQuestionStemRubricAlignment } from
+  '../ai/patterns/questionStemRubricAlignment.ts';
 import { FormalResourceCommandQueue } from './formalResourceCommandQueue.ts';
 import { resolveSingleChoiceCandidatePreview } from './singleChoiceCandidatePresentation.ts';
 import {
@@ -1618,6 +1620,9 @@ export default function MaterialResourceProductionWorkbench() {
           ),
           targetObservationId: isFormalOptimization
             ? task.observationTaskPlanId
+            : undefined,
+          targetQuestionContext: isFormalOptimization
+            ? buildTargetQuestionContext(task, draft)
             : undefined,
         },
         existingInventory: buildSingleTaskRegenerationInventory(
@@ -4969,6 +4974,39 @@ function buildTaskCandidateRuntimeContext({
 
 function findPublishedTaskFormalResource(details, task) {
   return details ? findPublishedResourceForObservationTask(details, task) : null;
+}
+
+function buildTargetQuestionContext(task, draft) {
+  const draftContent = draft ? extractQuestionEditableFields(draft) : null;
+  const questionStem = draftContent?.questionStem || task.questionStem;
+  const rubric = draftContent?.rubric || (task.rubric || []).map((item, index) => ({
+    itemId: `target-rubric-${index + 1}`,
+    name: item.name,
+    description: item.description,
+    abilityId: item.abilityId || task.abilityId,
+    importance: 'critical',
+    required: true,
+    evidenceRequirement: {
+      requireTextEvidence: true,
+      requireExplanation: (item.abilityId || task.abilityId) !== 'extraction',
+      requireConclusion: (item.abilityId || task.abilityId) !== 'extraction',
+    },
+    acceptedSignals: commaValues(item.acceptedSignalsText),
+  }));
+  const alignment = assessQuestionStemRubricAlignment(questionStem, rubric);
+  return {
+    questionStem,
+    expectedStudentAction: task.expectedStudentAction,
+    observationFocus: {
+      displayName: task.focusDisplayName || '',
+      definition: task.focusDefinition || '',
+    },
+    hiddenRequiredDimensions: alignment.hiddenDimensions,
+    rubric: rubric.map((item) => ({
+      name: item.name,
+      description: item.description,
+    })),
+  };
 }
 
 function buildTaskCandidateRequestedFocus(task, operation, goals, isFormalOptimization = false) {

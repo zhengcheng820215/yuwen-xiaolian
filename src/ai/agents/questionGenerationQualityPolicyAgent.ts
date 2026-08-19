@@ -16,6 +16,10 @@ import {
   evaluateGeneratedSingleChoiceOptions,
   evaluateSingleChoiceTrainingFit,
 } from './singleChoiceGenerationPolicy.ts';
+import {
+  assessQuestionStemRubricAlignment,
+  formatHiddenRubricDimensions,
+} from '../patterns/questionStemRubricAlignment.ts';
 
 const ACTION_PATTERNS: Array<[string, RegExp]> = [
   ['extract', /找出|写出|指出|摘录|识别/u],
@@ -251,6 +255,18 @@ export function evaluateQuestionGenerationQuality(input: {
       severity: 'advisory',
       message: '当前作答负荷较轻，长文本可能增加不必要的学生负担。',
       details: { responseLoad },
+    });
+  }
+  const rubricAlignment = assessQuestionStemRubricAlignment(
+    input.candidate.questionStem,
+    input.candidate.rubric,
+  );
+  if (!rubricAlignment.aligned) {
+    findings.push({
+      code: 'rubric_requirement_not_in_stem',
+      severity: 'blocker',
+      message: `评分标准包含题干没有要求的必答维度：${formatHiddenRubricDimensions(rubricAlignment.hiddenDimensions)}。`,
+      details: rubricAlignment,
     });
   }
   if (responseLoad.independentCoreRubricCount >= 3) {

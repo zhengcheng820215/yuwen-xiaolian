@@ -1791,6 +1791,7 @@ PublicationResult.completed
 3. 正式学习 Runtime 不得使用批次前缀、页面来源、历史 Demo 名称或测试 Fixture ID 过滤活动 Registry；
 4. Batch、Demo 和验收专用过滤器只能保留在对应测试或兼容入口，不得成为 `/learning` 的正式资源边界；
 5. Registry 指向的版本不存在、不是 `frozen` 或身份不一致时，必须报告读取异常，不得降级为“暂无新任务”。
+6. Active Registry 与 Link 完整只代表身份可读取；建立新 Learning Session 前还必须按当前题目质量策略重新评定 Current Head。最新结论为 `blocked` 时保留历史版本，但不得进入新会话候选池。
 
 ### 21.2 统一读取结果
 
@@ -1859,6 +1860,7 @@ type LearningFormalResourceReadState =
 9. Transfer 的 `new_context` 继续排除已使用材料，Retest 继续遵守受控相似材料关系，两者不得复用 Training 的耗尽算法；
 10. 正常空状态应沿用统一可用性探测返回的具体说明，不得再次退化为固定的通用空文案。
 11. 到期 Retest 仍具有优先级；当前没有合格 Retest 资源时，不得阻断普通 Training，入口应降级匹配可用正式训练任务。
+12. 新会话可用性、队列创建和工作区首题必须读取相同的“身份完整 + 最新质量合格”集合；旧活动队列则继续读取其冻结的确切版本，不得被新准入策略静默改写。
 
 ### 21.7 学习会话历史边界
 

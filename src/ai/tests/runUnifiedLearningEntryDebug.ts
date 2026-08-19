@@ -28,6 +28,13 @@ async function main(): Promise<void> {
     activeContexts: [activeContext()],
     latestPersistenceRecord: record({ answerDraft: '' }),
   }), 'continue_round');
+  checkState('B2.1 刷新后从活动题组当前题恢复', baseInput({
+    activeContexts: [activeContext({ currentLearningRoundId: 'session-phase16-3b-round-2' })],
+  }), 'continue_round', (state) => (
+    state.currentRoundNumber === 2 &&
+    state.title === '继续当前题组' &&
+    state.message.includes('第 2 题')
+  ));
   checkState('B3 答案草稿恢复', baseInput({
     activeContexts: [activeContext()],
     latestPersistenceRecord: record({ answerDraft: '这是上次保留的回答。' }),
@@ -47,6 +54,19 @@ async function main(): Promise<void> {
     operationCheckpoint: checkpoint({ status: 'review_required', nextAction: 'human_review' }),
     delayedRetestPlans: [retestPlan()],
   }), 'review_required');
+  checkState('B6.1 已保存结果的旧下一题复核态可进入工作区迁移题组', baseInput({
+    activeContexts: [activeContext()],
+    latestPersistenceRecord: completedRecord(),
+    operationCheckpoint: checkpoint({
+      status: 'review_required',
+      stage: 'persisted',
+      nextAction: 'human_review',
+      learningPersistenceRecordId: 'record-phase16-3b',
+    }),
+  }), 'feedback_available', (state) => (
+    state.canEnterWorkspace &&
+    state.primaryActionText === '查看反馈并继续'
+  ));
   checkState('B7 blocked 不展示残缺任务', baseInput({
     activeContexts: [activeContext()],
     operationCheckpoint: checkpoint({ status: 'blocked', nextAction: 'prepare_resource' }),
@@ -93,6 +113,17 @@ async function main(): Promise<void> {
       issues: ['quality_evaluation_not_executable', 'operation_identity_mismatch:resourceVersionId'],
     }),
   }), 'blocked', (state) => state.primaryAction === 'retry_resource' && state.canEnterWorkspace);
+  checkState('B12.2 失效旧题组提供结束入口而非通用读取失败', baseInput({
+    activeContexts: [activeContext()],
+    hasAvailableTask: false,
+    taskAvailabilityState: 'stale_session',
+    taskAvailabilityMessage: '当前旧题组引用的正式题目已经更新，无法安全继续。已有学习结果已经保留，请结束本次学习后重新开始。',
+  }), 'blocked', (state) => (
+    state.hasActiveSession &&
+    !state.canEnterWorkspace &&
+    state.title === '当前题组需要重新开始' &&
+    state.primaryAction === 'none'
+  ));
   checkState('B13 正式保存恢复不重新开放作答入口', baseInput({
     activeContexts: [activeContext()],
     operationCheckpoint: checkpoint({

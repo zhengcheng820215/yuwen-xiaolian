@@ -11,6 +11,7 @@ import {
 } from './reviewedResourceCandidateAdapter.ts';
 import { createAdaptiveTaskFulfillmentRequest } from './taskFulfillmentRequestAgent.ts';
 import { orderFormalResourcesForLearningSequence } from './learningTaskSequenceScheduler.ts';
+import { evaluateQuestionGenerationQuality } from './questionGenerationQualityPolicyAgent.ts';
 import type { MaterialObservationRepository } from '../repositories/materialObservationRepository.ts';
 import type { QuestionResourceAdmissionRepository } from '../repositories/questionResourceAdmissionRepository.ts';
 import {
@@ -30,6 +31,7 @@ import type {
   ResourceEligibilitySnapshot,
   ResourceMatchRecentHistory,
 } from '../schemas/resourceMatchQuality.schema.ts';
+import type { QuestionEditableFields } from '../schemas/workingTaskContent.schema.ts';
 
 const BATCH_A_RESOURCE_PREFIX = 'phase17-batch-a-resource-';
 const BATCH_A_BOOTSTRAP_MATERIAL_ID = 'phase17-batch-a-material-station';
@@ -44,6 +46,8 @@ export type Phase173FormalResourceMatchInput = {
   evaluatedAt?: string;
   bootstrapMaterialId?: string;
   requiredResourceVersionId?: string;
+  /** Explicit admission boundary supplied by a new Learning-session resolver. */
+  eligibleResourceVersionIds?: string[];
 };
 
 type FormalResourceMatchScope = 'all_active' | 'phase173_batch_a';
@@ -76,9 +80,12 @@ async function matchFormalResource(
   const scopedSnapshot = scope === 'phase173_batch_a'
     ? batchASnapshot(completeSnapshot)
     : completeSnapshot;
-  const snapshot = input.requiredResourceVersionId
-    ? resourceVersionSnapshot(scopedSnapshot, input.requiredResourceVersionId)
+  const qualityScopedSnapshot = input.eligibleResourceVersionIds
+    ? resourceVersionIdsSnapshot(scopedSnapshot, input.eligibleResourceVersionIds)
     : scopedSnapshot;
+  const snapshot = input.requiredResourceVersionId
+    ? resourceVersionSnapshot(qualityScopedSnapshot, input.requiredResourceVersionId)
+    : qualityScopedSnapshot;
   if (input.requiredResourceVersionId && snapshot.frozenVersions.length === 0) {
     return blocked(input.taskRequest.taskRequestId, 'required_resource_version_unavailable');
   }
@@ -479,6 +486,96 @@ export async function loadCurrentFormalResourceVersions(
   });
 }
 
+export type CurrentFormalResourceQualityAdmission = {
+  resourceId: string;
+  resourceVersionId: string;
+  materialVersionId?: string;
+  policyVersion: string;
+  status: 'ready' | 'ready_with_guidance' | 'blocked';
+  eligibleForNewLearningSession: boolean;
+  blockerCodes: string[];
+};
+
+/**
+ * Re-evaluates active formal content with the latest generation-quality policy.
+ * Historical Frozen Quality Trace data is intentionally not trusted here: this
+ * projection is for admission to a newly-created Learning session.
+ */
+export function evaluateCurrentFormalResourceQualityAdmission(
+  versions: FrozenQuestionResourceVersion[],
+): CurrentFormalResourceQualityAdmission[] {
+  const contents = new Map(versions.map((version) => [
+    version.resourceVersionId,
+    formalVersionAsEditableContent(version),
+  ]));
+  return versions.map((version) => {
+    const content = contents.get(version.resourceVersionId)!;
+    const evaluation = evaluateQuestionGenerationQuality({
+      candidate: content,
+      peerQuestions: versions
+        .filter((peer) => (
+          peer.resourceVersionId !== version.resourceVersionId &&
+          sameMaterialScope(peer, version)
+        ))
+        .map((peer) => contents.get(peer.resourceVersionId)!),
+      includePortfolioGuidance: false,
+    });
+    return {
+      resourceId: version.resourceId,
+      resourceVersionId: version.resourceVersionId,
+      materialVersionId: version.materialVersionId,
+      policyVersion: evaluation.policyVersion,
+      status: evaluation.status,
+      eligibleForNewLearningSession: evaluation.status !== 'blocked',
+      blockerCodes: evaluation.blockerCodes,
+    };
+  });
+}
+
+export function filterCurrentFormalResourcesForNewLearningSession(
+  versions: FrozenQuestionResourceVersion[],
+): FrozenQuestionResourceVersion[] {
+  const eligibleIds = new Set(evaluateCurrentFormalResourceQualityAdmission(versions)
+    .filter((item) => item.eligibleForNewLearningSession)
+    .map((item) => item.resourceVersionId));
+  return versions.filter((version) => eligibleIds.has(version.resourceVersionId));
+}
+
+function formalVersionAsEditableContent(
+  version: FrozenQuestionResourceVersion,
+): QuestionEditableFields {
+  return {
+    materialVersionId: version.materialVersionId,
+    title: version.title,
+    questionStem: version.questionStem,
+    questionType: version.questionType,
+    responseFormat: version.responseFormat,
+    options: version.options,
+    choiceInteraction: version.choiceInteraction,
+    assessmentMode: version.assessmentMode,
+    answerAcceptance: version.answerAcceptance,
+    rubric: version.rubric,
+    minimumAnswerRequirement: version.minimumAnswerRequirement,
+    abilityMetadata: version.abilityMetadata,
+    source: version.source,
+    tags: version.tags,
+  };
+}
+
+function sameMaterialScope(
+  left: FrozenQuestionResourceVersion,
+  right: FrozenQuestionResourceVersion,
+): boolean {
+  if (left.materialVersionId || right.materialVersionId) {
+    return Boolean(
+      left.materialVersionId &&
+      right.materialVersionId &&
+      left.materialVersionId === right.materialVersionId,
+    );
+  }
+  return Boolean(left.materialId && right.materialId && left.materialId === right.materialId);
+}
+
 async function loadCurrentVersions(
   repository: QuestionResourceAdmissionRepository,
   acceptsResourceId: (resourceId: string) => boolean,
@@ -545,6 +642,35 @@ function resourceVersionSnapshot(
       resourceVersionId,
     ]),
     registryEntries,
+    frozenVersions,
+    validations: snapshot.validations.filter((item) => validationIds.has(item.validationId)),
+    reviews: snapshot.reviews.filter((item) => reviewIds.has(item.reviewId)),
+  };
+}
+
+function resourceVersionIdsSnapshot(
+  snapshot: ResourceEligibilitySnapshot,
+  resourceVersionIds: string[],
+): ResourceEligibilitySnapshot {
+  const acceptedVersionIds = new Set(resourceVersionIds);
+  const frozenVersions = snapshot.frozenVersions.filter((version) => (
+    acceptedVersionIds.has(version.resourceVersionId)
+  ));
+  const acceptedResourceVersions = new Map(frozenVersions.map((version) => [
+    version.resourceId,
+    version.resourceVersionId,
+  ]));
+  const validationIds = new Set(frozenVersions.map((version) => version.validationId));
+  const reviewIds = new Set(frozenVersions.map((version) => version.reviewId));
+  return {
+    ...snapshot,
+    snapshotId: buildStableId('formal-resource-admission-snapshot', [
+      snapshot.snapshotId,
+      ...[...acceptedVersionIds].sort(),
+    ]),
+    registryEntries: snapshot.registryEntries.filter((entry) => (
+      acceptedResourceVersions.get(entry.resourceId) === entry.currentFrozenVersionId
+    )),
     frozenVersions,
     validations: snapshot.validations.filter((item) => validationIds.has(item.validationId)),
     reviews: snapshot.reviews.filter((item) => reviewIds.has(item.reviewId)),
@@ -696,15 +822,13 @@ function alignPinnedResourceDifficultyPreference(
 ): NonNullable<ReturnType<typeof createAdaptiveTaskFulfillmentRequest>['request']> {
   if (!requiredVersion) return fulfillment;
   const preferred = mapResourceDifficulty(requiredVersion.abilityMetadata.difficulty);
-  const order = { lower: 0, same: 1, higher: 2 } as const;
-  const minimum = fulfillment.difficultyRange.minimum || fulfillment.difficultyRange.preferred;
-  const maximum = fulfillment.difficultyRange.maximum || fulfillment.difficultyRange.preferred;
-  if (order[preferred] < order[minimum] || order[preferred] > order[maximum]) return fulfillment;
   return {
     ...fulfillment,
     difficultyRange: {
       ...fulfillment.difficultyRange,
+      minimum: preferred,
       preferred,
+      maximum: preferred,
     },
   };
 }
