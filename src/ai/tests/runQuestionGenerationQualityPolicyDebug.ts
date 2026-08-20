@@ -125,6 +125,24 @@ const base = fixture();
 }
 
 {
+  const candidate = choiceFixture({
+    rubric: [{
+      ...choiceFixture().rubric[0],
+      evidenceRequirement: { requireTextEvidence: true, requireExplanation: true },
+    }],
+  });
+  const evaluation = evaluateQuestionGenerationQuality({ candidate });
+  assert(evaluation.blockerCodes.includes('choice_rubric_open_response_not_allowed'));
+}
+
+{
+  const candidate = choiceFixture();
+  const evaluation = evaluateQuestionGenerationQuality({ candidate });
+  assert(!evaluation.blockerCodes.includes('rubric_requirement_not_in_stem'));
+  assert(!evaluation.blockerCodes.includes('choice_rubric_open_response_not_allowed'));
+}
+
+{
   const evaluation = evaluateQuestionGenerationQuality({
     candidate: base,
     baseContentHash: calculateQuestionEditableFieldsHash(base),
@@ -142,7 +160,7 @@ const base = fixture();
   assert(portfolio.findings.every((item) => item.severity === 'advisory'));
 }
 
-console.log('Question generation quality policy debug passed (13 / 13).');
+console.log('Question generation quality policy debug passed (15 / 15).');
 
 function rubric(name: string): QuestionEditableFields['rubric'][number] {
   return {
@@ -186,6 +204,67 @@ function fixture(overrides: Partial<QuestionEditableFields> = {}): QuestionEdita
     },
     source: { sourceType: 'ai_assisted', description: 'quality fixture' },
     tags: ['paragraph:2-2', 'observation_task:task-training'],
+    ...overrides,
+  };
+}
+
+function choiceFixture(overrides: Partial<QuestionEditableFields> = {}): QuestionEditableFields {
+  return {
+    materialVersionId: 'material:v1',
+    title: '人物行为的基础理解',
+    questionStem: '人物此时选择沉默的直接原因是（）。',
+    questionType: 'multiple_choice',
+    responseFormat: 'single_choice',
+    choiceInteraction: {
+      schemaVersion: 'single-choice-interaction-v1',
+      selectionMode: 'single',
+      options: [
+        { optionId: 'option-1', content: '他受到现实处境的压力。' },
+        { optionId: 'option-2', content: '他没有听见对方的问题。' },
+        { optionId: 'option-3', content: '他准备马上离开现场。' },
+        { optionId: 'option-4', content: '他完全忘记了此前发生的事。' },
+      ],
+      correctOptionIds: ['option-1'],
+      distractorRationales: [
+        { optionId: 'option-2', misconceptionCode: 'surface_reading', diagnosisMeaning: '忽略人物处境。', evidenceBoundary: '第2段写到人物承受压力。' },
+        { optionId: 'option-3', misconceptionCode: 'over_inference', diagnosisMeaning: '推断超过文本。', evidenceBoundary: '文本没有写人物马上离开。' },
+        { optionId: 'option-4', misconceptionCode: 'entity_confusion', diagnosisMeaning: '混淆沉默与遗忘。', evidenceBoundary: '人物记得此前发生的事。' },
+      ],
+      optionSetVersion: 1,
+    },
+    assessmentMode: 'exact_match',
+    answerAcceptance: { acceptedOptionIds: ['option-1'] },
+    rubric: [{
+      itemId: 'rubric-choice-judgment',
+      name: '识别直接原因',
+      description: '根据人物处境判断其沉默原因。',
+      abilityId: 'comprehension',
+      importance: 'critical',
+      required: true,
+      evidenceRequirement: {
+        requireTextEvidence: false,
+        requireExplanation: false,
+        requireConclusion: false,
+      },
+      acceptedSignals: ['option-1'],
+    }],
+    minimumAnswerRequirement: {
+      responseFormat: 'single_choice',
+      minLength: 0,
+      requireTextEvidence: false,
+      requireExplanation: false,
+      minSelections: 1,
+      maxSelections: 1,
+    },
+    abilityMetadata: {
+      abilityId: 'comprehension',
+      supportingAbilityIds: [],
+      prerequisiteAbilityIds: [],
+      taskRole: 'training',
+      difficulty: 'basic',
+    },
+    source: { sourceType: 'ai_assisted', description: 'quality choice fixture' },
+    tags: ['paragraph:2-2', 'observation_task:task-choice', 'observation_dimension:factual'],
     ...overrides,
   };
 }

@@ -191,6 +191,26 @@ const cases: Case[] = [
     },
   },
   {
+    name: 'single-choice Rubric cannot require a written explanation or text evidence',
+    run: async () => {
+      const content = validChoiceContent();
+      content.rubric[0].evidenceRequirement = {
+        requireTextEvidence: true,
+        requireExplanation: true,
+      };
+      const candidateValidation = validateQuestionCandidateContent(content);
+      assert.equal(candidateValidation.passed, false);
+      assert(candidateValidation.issues.some((issue) => (
+        issue.code === 'choice.rubric_open_response_not_allowed'
+      )));
+      const { repo, draftId } = await createChoiceDraft('choice-open-rubric', {
+        rubric: content.rubric,
+      });
+      const admissionValidation = await validateStructuredQuestionDraft(repo, draftId, NOW);
+      assert(hasResourceCode(admissionValidation, 'rubric.choice_open_response_not_allowed'));
+    },
+  },
+  {
     name: 'valid single-choice Draft passes admission validation',
     run: async () => {
       const { repo, draftId } = await createChoiceDraft('valid-choice');

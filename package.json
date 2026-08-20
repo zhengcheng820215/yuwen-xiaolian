@@ -116,6 +116,8 @@
     "audit:formal-resource-history": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runFormalResourceHistoricalAudit.ts",
     "audit:question-optimization-baseline": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runQuestionOptimizationBaselineAudit.ts",
     "audit:current-question-generation-quality": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runCurrentQuestionGenerationQualityAudit.ts",
+    "repair:single-choice-rubric-contract": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runSingleChoiceRubricContractClosure.ts --apply",
+    "debug:single-choice-rubric-contract": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runSingleChoiceRubricContractClosure.ts",
     "debug:formal-resource-latest-quality-admission": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runFormalResourceLatestQualityAdmissionDebug.ts",
     "audit:p0-02-material-scope": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runP002MaterialScopeRepair.ts",
     "repair:p0-02-material-scope": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runP002MaterialScopeRepair.ts --apply",

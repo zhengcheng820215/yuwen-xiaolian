@@ -232,6 +232,21 @@ export function evaluateQuestionGenerationQuality(input: {
         details: { issueCodes: trainingFit.issues.map((issue) => issue.code) },
       });
     }
+    const openResponseRubricItemIds = input.candidate.rubric
+      .filter((item) => item.required && (
+        item.evidenceRequirement?.requireTextEvidence
+        || item.evidenceRequirement?.requireExplanation
+        || item.evidenceRequirement?.requireConclusion
+      ))
+      .map((item) => item.itemId);
+    if (openResponseRubricItemIds.length > 0) {
+      findings.push({
+        code: 'choice_rubric_open_response_not_allowed',
+        severity: 'blocker',
+        message: '单选题的必答评分项不能继续要求学生提交文本证据、解释或结论。',
+        details: { rubricItemIds: openResponseRubricItemIds },
+      });
+    }
   }
   if (input.baseContentHash
     && calculateQuestionEditableFieldsHash(input.candidate) === input.baseContentHash) {
@@ -257,17 +272,19 @@ export function evaluateQuestionGenerationQuality(input: {
       details: { responseLoad },
     });
   }
-  const rubricAlignment = assessQuestionStemRubricAlignment(
-    input.candidate.questionStem,
-    input.candidate.rubric,
-  );
-  if (!rubricAlignment.aligned) {
-    findings.push({
-      code: 'rubric_requirement_not_in_stem',
-      severity: 'blocker',
-      message: `评分标准包含题干没有要求的必答维度：${formatHiddenRubricDimensions(rubricAlignment.hiddenDimensions)}。`,
-      details: rubricAlignment,
-    });
+  if (input.candidate.responseFormat !== 'single_choice') {
+    const rubricAlignment = assessQuestionStemRubricAlignment(
+      input.candidate.questionStem,
+      input.candidate.rubric,
+    );
+    if (!rubricAlignment.aligned) {
+      findings.push({
+        code: 'rubric_requirement_not_in_stem',
+        severity: 'blocker',
+        message: `评分标准包含题干没有要求的必答维度：${formatHiddenRubricDimensions(rubricAlignment.hiddenDimensions)}。`,
+        details: rubricAlignment,
+      });
+    }
   }
   if (responseLoad.independentCoreRubricCount >= 3) {
     findings.push({

@@ -553,6 +553,22 @@ Rubric 继续描述题目希望观察的能力，不得退化为“选A得1分�
 - 本题证据强度是初步观察还是能够支持更强结论；
 - 是否需要后续文本题、Retest 或 Transfer 补充证据。
 
+单选 Rubric 的结构必须与学生实际交互一致。对 `responseFormat = single_choice` 的必答评分项，以下字段必须为 `false` 或不设置：
+
+```ts
+evidenceRequirement: {
+  requireTextEvidence: false;
+  requireExplanation: false;
+  requireConclusion: false;
+}
+```
+
+该限制并不降低题目质量要求。材料证据、解释边界和典型误解继续由正确选项、`distractorRationales`、正式 Anchor 与核心判断 Rubric 共同表达，但不得要求学生在只提供单次结构化选择的界面中完成文本解释。生成质量策略、Candidate 完整性检查和 Formal Resource 准入必须使用同一门禁；任一必答评分项仍要求文本证据、解释或结论时，Candidate 不得显示“可以发布”。
+
+质量评估对单选不得继续套用开放文本的“题干必须显式列出每个 Rubric 作答动作”检查。单选的可观察动作由明确判断对象、合法选项集合和唯一答案建立；开放文本的题干—Rubric 对齐门禁继续完整保留。
+
+已冻结的历史单选若存在该元数据偏差，只能创建正式后继版本：旧 Frozen Version 保留并转为 `superseded`，新版本重新绑定 Validation、Review、Quality Trace、Registry 和 Active Observation Link。禁止原地改写冻结版本，也禁止改变题干、选项、答案键、材料范围或任务身份来掩盖契约偏差。
+
 ### 7.3 Diagnosis
 
 错误选择应映射为具体但不过度推断的反馈，例如：

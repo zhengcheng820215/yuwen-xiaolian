@@ -93,8 +93,8 @@ const cases: DebugCase[] = [
   {
     name: 'S4-01 two current corpus materials keep their real version identity',
     run: () => {
-      assert.equal(wolf.material.materialVersionId, 'material-b38614ee-a55:v3');
-      assert.equal(street.material.materialVersionId, 'material-c90bbd38-7fe:v3');
+      assert.match(wolf.material.materialVersionId, /^material-b38614ee-a55:v\d+$/u);
+      assert.match(street.material.materialVersionId, /^material-c90bbd38-7fe:v\d+$/u);
       assert.notEqual(wolf.material.metadata?.genre, street.material.metadata?.genre);
     },
   },

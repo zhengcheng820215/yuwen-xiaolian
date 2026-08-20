@@ -22,6 +22,7 @@ const items = baseline.items.map((item) => {
     questionType: version.questionType,
     responseFormat: version.responseFormat,
     options: version.options,
+    choiceInteraction: version.choiceInteraction,
     assessmentMode: version.assessmentMode,
     answerAcceptance: version.answerAcceptance,
     rubric: version.rubric,
@@ -65,6 +66,12 @@ const after = await store.read();
 assert.equal(after.revision, before.revision);
 assert.deepEqual(after.data, before.data, 'Current-question quality audit must be read-only.');
 assert.equal(results.length, baseline.counts.currentFormalVersions);
+assert.equal(
+  items.filter((item) => item.content.responseFormat === 'single_choice'
+    && item.content.choiceInteraction !== undefined).length,
+  items.filter((item) => item.content.responseFormat === 'single_choice').length,
+  'Current-question quality audit must preserve every single-choice interaction.',
+);
 
 console.log(JSON.stringify({
   storeRevision: before.revision,

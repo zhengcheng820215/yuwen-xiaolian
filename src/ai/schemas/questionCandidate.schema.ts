@@ -246,6 +246,17 @@ export function validateQuestionCandidateContent(
         message: 'Single-choice Candidate requires exactly one structured selection.',
       });
     }
+    if (content.rubric.some((item) => item.required && (
+      item.evidenceRequirement?.requireTextEvidence
+      || item.evidenceRequirement?.requireExplanation
+      || item.evidenceRequirement?.requireConclusion
+    ))) {
+      issues.push({
+        code: 'choice.rubric_open_response_not_allowed',
+        field: 'studentTask',
+        message: 'Single-choice Rubric cannot require a written explanation, conclusion, or text evidence.',
+      });
+    }
     const acceptedOptionIds = content.answerAcceptance?.acceptedOptionIds || [];
     const correctOptionIds = content.choiceInteraction?.correctOptionIds || [];
     if (

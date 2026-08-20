@@ -1,7 +1,7 @@
 import type { QuestionResponseFormat } from './questionResourceAdmission.schema.ts';
 
 export const QUESTION_GENERATION_QUALITY_POLICY_VERSION =
-  'question_generation_quality_v3' as const;
+  'question_generation_quality_v4' as const;
 
 export type QuestionGenerationQualitySeverity = 'blocker' | 'strong_hint' | 'advisory';
 
@@ -18,7 +18,8 @@ export type QuestionGenerationQualityCode =
   | 'foundational_gap'
   | 'choice_structure_invalid'
   | 'choice_training_action_mismatch'
-  | 'choice_option_quality_invalid';
+  | 'choice_option_quality_invalid'
+  | 'choice_rubric_open_response_not_allowed';
 
 export type QuestionResponseLoadAnalysis = {
   actionCount: number;

@@ -1146,6 +1146,18 @@ function validateRubric(draft: StructuredQuestionDraft, issues: ResourceValidati
     if (containsDiagnosisClaim([item.name, item.description || '', ...item.acceptedSignals])) {
       error(issues, 'rubric.diagnosis_claim', `rubric.${index}`, 'Rubric must not contain fixed student diagnosis conclusions.');
     }
+    if (draft.responseFormat === 'single_choice' && item.required && (
+      item.evidenceRequirement?.requireTextEvidence
+      || item.evidenceRequirement?.requireExplanation
+      || item.evidenceRequirement?.requireConclusion
+    )) {
+      error(
+        issues,
+        'rubric.choice_open_response_not_allowed',
+        `rubric.${index}.evidenceRequirement`,
+        'Single-choice Rubric cannot require a written explanation, conclusion, or text evidence.',
+      );
+    }
   });
 }
 

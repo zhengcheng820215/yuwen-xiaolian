@@ -1,5 +1,7 @@
 # 当前正式题最新质量重新准入验收报告
 
+> 2026-08-20 更新：本文保留 46 道纯文本基线的历史验收证据。当前 12 篇材料、61 道正式题（含 15 道单选）的最新结论见[正式题质量与发布链收口验收报告](./formal_question_quality_and_publication_closeout_acceptance_2026-08-20.md)。
+
 日期：2026-08-19
 范围：共享 Formal Resource Current Head、最新生成质量策略、Learning 新旧会话边界、题组容量
 
