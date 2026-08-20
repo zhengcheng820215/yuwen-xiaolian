@@ -58,6 +58,11 @@ import {
   assessQuestionStemRubricAlignment,
   formatHiddenRubricDimensions,
 } from '../patterns/questionStemRubricAlignment.ts';
+import {
+  projectTargetedMaterialUsage,
+  validateTargetedMaterialUsage,
+  validateTargetedTrainingResourceMetadata,
+} from '../schemas/targetedMicroTraining.schema.ts';
 
 const ASSESSMENT_MODES: AssessmentMode[] = [
   'exact_match',
@@ -505,7 +510,20 @@ function evaluateProviderCandidates(
       return;
     }
     const parsed = parseCandidate(rawCandidate, candidateIndex, input, materialParagraphs.length);
-    if (parsed.candidate) candidates.push(parsed.candidate);
+    const allowedTargetAbilities = input.material.usageType === 'targeted_excerpt'
+      ? input.material.targetedExcerptMetadata?.targetAbilityIds || []
+      : [];
+    if (
+      parsed.candidate
+      && allowedTargetAbilities.length > 0
+      && !allowedTargetAbilities.includes(parsed.candidate.primaryAbilityId)
+    ) {
+      rejectedCandidates.push({
+        candidateIndex,
+        issues: ['targeted_primary_ability_out_of_scope'],
+        diagnosticContext: buildRejectionDiagnosticContext(rawCandidate, materialParagraphs.length),
+      });
+    } else if (parsed.candidate) candidates.push(parsed.candidate);
     else rejectedCandidates.push({
       candidateIndex,
       issues: parsed.issues,
@@ -558,13 +576,23 @@ function evaluateProviderCandidates(
     : [];
   const batchIssues: string[] = [];
   const planningIntent = input.preferences?.planningIntent;
-  const minimumCandidateCount = planningIntent === 'supplement' ? 0 : planningIntent ? 2 : 3;
-  const maximumCandidateCount = planningIntent === 'supplement' ? 2 : planningIntent ? 3 : 6;
+  const isTargetedExcerpt = input.material.usageType === 'targeted_excerpt';
+  const minimumCandidateCount = isTargetedExcerpt
+    ? planningIntent === 'supplement' ? 0 : 1
+    : planningIntent === 'supplement' ? 0 : planningIntent ? 2 : 3;
+  const maximumCandidateCount = isTargetedExcerpt
+    ? input.material.targetedExcerptMetadata?.intendedTaskCount || 1
+    : planningIntent === 'supplement' ? 2 : planningIntent ? 3 : 6;
   if (rawCandidates.length < minimumCandidateCount || rawCandidates.length > maximumCandidateCount) {
     batchIssues.push(planningIntent ? 'candidate_count_outside_planning_range' : 'candidate_count_must_be_3_to_6');
   }
-  if (existingObservations.length === 0 && newObservationCandidates.length < (planningIntent ? 2 : 3)) {
-    batchIssues.push(planningIntent ? 'fewer_than_2_valid_independent_candidates' : 'fewer_than_3_valid_independent_candidates');
+  const minimumIndependentCandidateCount = isTargetedExcerpt
+    ? minimumCandidateCount
+    : planningIntent ? 2 : 3;
+  if (existingObservations.length === 0 && newObservationCandidates.length < minimumIndependentCandidateCount) {
+    batchIssues.push(isTargetedExcerpt
+      ? 'fewer_than_1_valid_targeted_candidate'
+      : planningIntent ? 'fewer_than_2_valid_independent_candidates' : 'fewer_than_3_valid_independent_candidates');
   }
   if (existingObservations.length > 0 && newObservationCandidates.length === 0) {
     batchIssues.push('no_new_observation_candidate');
@@ -1334,6 +1362,29 @@ function validateInput(input: MaterialObservationDraftGeneratorInput): string[] 
   const content = input.material?.content?.trim() || '';
   if (content.length < 20) issues.push('material_content_too_short');
   if (splitParagraphs(content).length === 0) issues.push('material_has_no_paragraph');
+  const materialUsage = projectTargetedMaterialUsage(input.material);
+  if (materialUsage.usageType === 'targeted_excerpt') {
+    const materialValidation = validateTargetedMaterialUsage(input.material);
+    issues.push(...materialValidation.issues.map((item) => item.code));
+    const targetedPlanning = input.preferences?.targetedTrainingPlanning;
+    const targetedValidation = validateTargetedTrainingResourceMetadata(
+      targetedPlanning,
+      input.material.materialVersionId,
+    );
+    issues.push(...targetedValidation.issues.map((item) => item.code));
+    if (
+      targetedPlanning
+      && !materialUsage.targetedExcerptMetadata?.supportedGapReasonCodes.includes(
+        targetedPlanning.primaryGapReasonCode,
+      )
+    ) issues.push('targeted_primary_gap_out_of_scope');
+    if (
+      (input.preferences?.candidateCount || 0)
+        > (materialUsage.targetedExcerptMetadata?.intendedTaskCount || 0)
+    ) issues.push('targeted_candidate_count_exceeds_intended_count');
+  } else if (input.preferences?.targetedTrainingPlanning !== undefined) {
+    issues.push('core_material_has_targeted_training_planning');
+  }
   const requestedCount = input.preferences?.candidateCount;
   const planningIntent = input.preferences?.planningIntent;
   const minimumCandidateCount = planningIntent ? 1 : 3;

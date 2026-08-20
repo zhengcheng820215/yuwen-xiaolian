@@ -22,6 +22,10 @@ import {
 import type { RecommendedTaskRole } from '../schemas/nextLearningStrategy.schema.ts';
 import type { CreateStructuredQuestionDraftInput } from './questionResourceAdmissionAgent.ts';
 import {
+  projectTargetedMaterialUsage,
+  validateTargetedTrainingResourceMetadata,
+} from '../schemas/targetedMicroTraining.schema.ts';
+import {
   FIRST_FROZEN_RESOURCE_PACK_SCHEMA_VERSION,
   MATERIAL_OBSERVATION_PLAN_SCHEMA_VERSION,
   OBSERVATION_DIMENSIONS,
@@ -57,6 +61,7 @@ export type ObservationTaskPlanInput = {
   abilityId: PrimaryAbilityId;
   taskRole: RecommendedTaskRole;
   difficulty: ObservationTaskPlan['difficulty'];
+  targetedTrainingMetadata?: ObservationTaskPlan['targetedTrainingMetadata'];
   sourceAnchorIds: string[];
   observationGoal: string;
   expectedStudentAction: string;
@@ -233,6 +238,42 @@ export function validateMaterialObservationPlan(input: {
     }
   });
   plan.taskPlans.forEach((task, index) => validateTaskPlan(plan, task, index, issues));
+  if (material) {
+    const usage = projectTargetedMaterialUsage(material);
+    if (usage.usageType === 'targeted_excerpt') {
+      if (plan.taskPlans.length < 1 || plan.taskPlans.length > 2) {
+        error(issues, 'targeted.task_count', 'taskPlans', 'Targeted excerpt Plan requires one or two tasks.');
+      }
+      plan.taskPlans.forEach((task, index) => {
+        const validation = validateTargetedTrainingResourceMetadata(
+          task.targetedTrainingMetadata,
+          material.materialVersionId,
+        );
+        validation.issues.forEach((issue) => error(
+          issues,
+          issue.code,
+          `taskPlans.${index}.${issue.field}`,
+          issue.message,
+        ));
+        if (task.taskRole !== 'training') {
+          error(issues, 'targeted.task_role', `taskPlans.${index}.taskRole`, 'Targeted excerpt tasks must use the training role.');
+        }
+        if (
+          task.targetedTrainingMetadata
+          && !usage.targetedExcerptMetadata?.supportedGapReasonCodes.includes(
+            task.targetedTrainingMetadata.primaryGapReasonCode,
+          )
+        ) {
+          error(issues, 'targeted.gap_scope', `taskPlans.${index}.targetedTrainingMetadata.primaryGapReasonCode`, 'Task primary Gap is outside the Material support scope.');
+        }
+        if (!usage.targetedExcerptMetadata?.targetAbilityIds.includes(task.abilityId)) {
+          error(issues, 'targeted.ability_scope', `taskPlans.${index}.abilityId`, 'Task Ability is outside the Material support scope.');
+        }
+      });
+    } else if (plan.taskPlans.some((task) => task.targetedTrainingMetadata !== undefined)) {
+      error(issues, 'core.targeted_metadata', 'taskPlans', 'Core Material tasks cannot carry targeted training metadata.');
+    }
+  }
   validateTaskDistinctness(plan.taskPlans, issues);
   const checkedAt = input.checkedAt || new Date().toISOString();
   return {
@@ -270,6 +311,7 @@ export function adaptObservationTaskToQuestionDraft(
       taskRole: task.taskRole,
       difficulty: task.difficulty,
       gradeRange: task.resourceDraftSpecification?.gradeRange,
+      targetedTrainingMetadata: task.targetedTrainingMetadata,
     },
     tags: uniqueSorted([
       ...(content.tags || []),
@@ -301,6 +343,8 @@ export function deriveResourceObservationLink(input: {
   if (version.abilityMetadata.abilityId !== task.abilityId) issues.push('resource.ability_mismatch');
   if (version.abilityMetadata.taskRole !== task.taskRole) issues.push('resource.task_role_mismatch');
   if (version.abilityMetadata.difficulty !== task.difficulty) issues.push('resource.difficulty_mismatch');
+  if (JSON.stringify(version.abilityMetadata.targetedTrainingMetadata || null)
+    !== JSON.stringify(task.targetedTrainingMetadata || null)) issues.push('resource.targeted_metadata_mismatch');
   if (version.status !== 'frozen' || registryEntry?.status !== 'active' || registryEntry.currentFrozenVersionId !== version.resourceVersionId) issues.push('resource.not_current');
   if (!validation?.passed || validation.validationId !== version.validationId || validation.resourceId !== version.resourceId) issues.push('resource.validation_untraceable');
   if (review?.action !== 'approve' || review.reviewId !== version.reviewId || review.validationId !== version.validationId || review.resourceId !== version.resourceId) issues.push('resource.review_untraceable');
@@ -321,6 +365,9 @@ export function deriveResourceObservationLink(input: {
     abilityId: task.abilityId,
     taskRole: task.taskRole,
     difficulty: task.difficulty,
+    targetedTrainingMetadata: task.targetedTrainingMetadata
+      ? clone(task.targetedTrainingMetadata)
+      : undefined,
     status: issues.length === 0 ? 'active' : 'invalid',
     linkedAt,
     schemaVersion: RESOURCE_OBSERVATION_LINK_SCHEMA_VERSION,

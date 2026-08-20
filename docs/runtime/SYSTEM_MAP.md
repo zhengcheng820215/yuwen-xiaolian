@@ -308,6 +308,9 @@ Shared Formal Resource Store 的 Revision 竞争与业务对象 Revision 冲突�
 | LearningRoundResult | 保存一轮学习从策略到证据回流的运行结果。 |
 | LearningSessionRecord | 把多个 Round 归入一次连续学习活动。 |
 | UnifiedLearningEntryState | 把开始、继续、复测、反馈、阻断和结束状态转换为统一学生入口。 |
+| TargetedMicroTrainingTriggerDecision | 记录某次正式核心表现是否具备一次针对性短片段训练资格；无资格与无匹配均是正常终止。 |
+| TargetedMicroTrainingRequest / Assignment | 以正式 Gap 与 Ability 精确请求一项微训练，并冻结资源身份和返回核心题组的游标。 |
+| TargetedMicroTrainingSessionOverlay | 在不改写核心任务队列的前提下保存当前微训练、返回位置和 Session 限额状态。 |
 | Phase163MultiDayRunState | 保存多自然日运行事实、恢复、复测和异常演练状态。 |
 
 ### 内容资源准入
@@ -342,7 +345,7 @@ Shared Formal Resource Store 的 Revision 竞争与业务对象 Revision 冲突�
 | DiagnosisQualityEvaluation | 在冻结样本上评估真实 Diagnosis 的教育可接受性。 |
 | ControlledFeedbackResult | 把已确认、可追溯事实转换为学生可读反馈，并记录校验与模板回退状态。 |
 | StudentLearningNarrativeProjection | 只读连接当前任务、本轮反馈、合法成长事实与下一策略，校验学生叙事的来源与表达边界，不产生新的教育结论。 |
-| StudentLearningPresentation | 将已通过校验的叙事按“为什么练、发生了什么、怎么办、为什么继续”分阶段组织；不持久化，不参与正式判断。 |
+| StudentLearningPresentation | 将已通过校验的叙事按“为什么练、发生了什么、怎么办、动态调整时为什么变化”分阶段组织；固定题组顺序导航不展示继续原因；不持久化，不参与正式判断。 |
 
 ## 五、Phase 状态
 
@@ -574,6 +577,7 @@ Phase 17 的录入、题目人工审核与发布正式化遵循 [Authoring, Revi
 | 素材录入、审核与发布平台体验规范 | [Resource Production Workbench UX Standard](../product/RESOURCE_PRODUCTION_WORKBENCH_UX_STANDARD.md) |
 | 单学生产品页面与入口收敛 | [Product Interface Consolidation](../product/STUDENT_PRODUCT_INTERFACE_CONSOLIDATION.md) |
 | 学生学习叙事校准 | [Student Learning Narrative Calibration](../product/STUDENT_LEARNING_NARRATIVE_CALIBRATION.md) |
+| 针对性短片段微训练调度与校准 | [阶段 3 工程实施与验收清单](../product/TARGETED_MICRO_TRAINING_STAGE3_LEARNING_SCHEDULING_ENGINEERING_PLAN.md) · [阶段 3 工程与 Debug 验收](../education/phase/reports/targeted_micro_training_stage3_engineering_debug_acceptance_2026-08-20.md) · [阶段 4 受控启用与真实校准契约](../product/TARGETED_MICRO_TRAINING_STAGE4_CONTROLLED_CALIBRATION_CONTRACT.md) · [阶段 4 工程实施与验收清单](../product/TARGETED_MICRO_TRAINING_STAGE4_ENGINEERING_AND_ACCEPTANCE_PLAN.md) · [阶段 4 工程与 Debug 验收](../education/phase/reports/targeted_micro_training_stage4_engineering_debug_acceptance_2026-08-20.md) |
 | 产品负责人控制表 | [Product Owner Control Table](../product/PRODUCT_CONTROL_TABLE.md) |
 
 推荐阅读顺序：

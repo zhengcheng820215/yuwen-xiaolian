@@ -5,10 +5,13 @@ import {
   loadPhase163LiveWorkspace,
   recordPhase163FeedbackPresented,
   recordPhase163QuestionPresented,
+  resumePhase163CoreAfterTargetedMicroTraining,
   resumePhase163FeedbackRevisionEvaluation,
   savePhase163LiveDraft,
   savePhase163FeedbackRevisionDraft,
   skipPhase163FeedbackRevision,
+  skipPhase163TargetedMicroTraining,
+  startPhase163TargetedMicroTraining,
   startPhase163FeedbackRevision,
   submitPhase163FeedbackRevision,
   submitPhase163LiveAnswer,
@@ -36,6 +39,10 @@ import {
   shouldStageFeedbackPresentation,
   synchronizeFeedbackPresentationStep,
 } from '../ui/feedbackPresentationPolicy.ts';
+import {
+  formatNextTaskAction,
+  formatNextTaskContinuation,
+} from '../ui/learningSessionProgressCopy.ts';
 
 const RUNTIME_UNAVAILABLE_MESSAGE = '分析服务尚未就绪。你可以继续编辑或保存回答，服务准备好后再提交。';
 const FEEDBACK_PRESENTATION_KEY_PREFIX = 'qingzhou:feedback-presentation:';
@@ -319,7 +326,9 @@ export default function Phase163LiveLearningWorkspace({
       if (state?.revision?.status === 'offered' || state?.revision?.status === 'draft') {
         await skipPhase163FeedbackRevision();
       }
-      if (state?.canAdvance) {
+      if (state?.isTargetedMicroTraining) {
+        applyState(await resumePhase163CoreAfterTargetedMicroTraining());
+      } else if (state?.canAdvance) {
         applyState(await advancePhase163LiveRound());
       } else if (state?.sessionComplete) {
         if (onCompleteSession) await onCompleteSession();
@@ -327,6 +336,30 @@ export default function Phase163LiveLearningWorkspace({
       } else {
         await onReturnToEntry();
       }
+    } catch (error) {
+      showMessage(toMessage(error), 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function startTargetedMicroTraining() {
+    if (busy || !state?.targetedMicroTraining?.assignmentId) return;
+    setBusy(true);
+    try {
+      applyState(await startPhase163TargetedMicroTraining(state.targetedMicroTraining.assignmentId));
+    } catch (error) {
+      showMessage(toMessage(error), 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function skipTargetedMicroTraining() {
+    if (busy || !state?.targetedMicroTraining?.assignmentId) return;
+    setBusy(true);
+    try {
+      applyState(await skipPhase163TargetedMicroTraining(state.targetedMicroTraining.assignmentId));
     } catch (error) {
       showMessage(toMessage(error), 'error');
     } finally {
@@ -343,8 +376,12 @@ export default function Phase163LiveLearningWorkspace({
   const revising = state.revision?.status === 'draft';
   const revisionSubmitted = ['submitted', 'evaluating', 'evaluation_pending_retry'].includes(state.revision?.status);
   const revisionEvaluated = state.revision?.status === 'evaluated';
-  const continueActionLabel = state.canAdvance
-    ? `下一题（${state.roundNumber + 1}/${state.sessionTaskCount}）`
+  const continueActionLabel = state.isTargetedMicroTraining
+    ? state.canAdvance
+      ? `继续第 ${state.roundNumber + 1} 题`
+      : '完成本轮学习'
+    : state.canAdvance
+    ? formatNextTaskAction(state.roundNumber + 1, state.sessionTaskCount)
     : state.sessionComplete
       ? '完成本轮学习'
       : '返回学习入口';
@@ -361,7 +398,7 @@ export default function Phase163LiveLearningWorkspace({
             <ArrowLeft size={19} />
           </button>
           <div className="flex items-center gap-3 text-sm text-slate-500">
-            {state.isRetest ? <span className="font-medium text-emerald-700">延迟复测</span> : null}
+            {state.isTargetedMicroTraining ? <span className="font-medium text-emerald-700">针对性练习</span> : state.isRetest ? <span className="font-medium text-emerald-700">延迟复测</span> : null}
             <span>第 {state.roundNumber} / {state.sessionTaskCount} 题</span>
           </div>
         </div>
@@ -400,7 +437,7 @@ export default function Phase163LiveLearningWorkspace({
           onContinue={continueAfterFeedback}
         />
       ) : completed ? (
-        <CompletedFeedback state={state} writingCorrections={writingCorrections} writingCorrectionStatus={writingCorrectionStatus} busy={busy} onContinue={continueAfterFeedback} onReturn={continueAfterFeedback} onStartRevision={startRevision} continueActionLabel={continueActionLabel} />
+        <CompletedFeedback state={state} writingCorrections={writingCorrections} writingCorrectionStatus={writingCorrectionStatus} busy={busy} onContinue={continueAfterFeedback} onReturn={continueAfterFeedback} onStartRevision={startRevision} onStartTargeted={startTargetedMicroTraining} onSkipTargeted={skipTargetedMicroTraining} continueActionLabel={continueActionLabel} />
       ) : paused ? (
         <PausedWorkspace state={state} writingCorrections={writingCorrections} busy={busy} onReturn={continueAfterFeedback} onStartRevision={startRevision} />
       ) : recovering ? (
@@ -528,6 +565,8 @@ function CompletedFeedback({
   onContinue,
   onReturn,
   onStartRevision,
+  onStartTargeted,
+  onSkipTargeted,
   continueActionLabel,
 }) {
   const positive = state.feedback?.whatYouDidWell?.slice(0, 1) || [];
@@ -547,7 +586,7 @@ function CompletedFeedback({
   const presentedFallbackFeedback = fallbackFeedback ? {
     ...fallbackFeedback,
     nextAction: state.canAdvance
-      ? `本题结果已经保存，接下来进入第 ${state.roundNumber + 1} / ${state.sessionTaskCount} 题。`
+      ? formatNextTaskContinuation(state.roundNumber + 1, state.sessionTaskCount)
       : state.sessionComplete
         ? '本题结果已经保存，当前题组已经全部完成。'
         : fallbackFeedback.nextAction,
@@ -626,16 +665,39 @@ function CompletedFeedback({
           {state.learningPresentation?.outcome?.progressMeaning ? (
             <NarrativeNote title="这次学习说明了什么" text={state.learningPresentation.outcome.progressMeaning} />
           ) : null}
-          {state.canAdvance && state.learningPresentation?.continuationReason ? (
-            <NarrativeNote title="为什么继续下一项任务" text={state.learningPresentation.continuationReason} />
-          ) : null}
           {state.revision?.status === 'offered' ? (
             <FeedbackRevisionGoal revision={state.revision} />
           ) : null}
           {presentedFallbackFeedback ? <CompletedFeedbackNotice feedback={presentedFallbackFeedback} /> : null}
+          {state.targetedMicroTraining ? (
+            <section className="mt-8 rounded-md bg-emerald-50 px-5 py-4">
+              <h2 className="text-sm font-semibold text-emerald-900">{state.targetedMicroTraining.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-emerald-900">{state.targetedMicroTraining.message}</p>
+            </section>
+          ) : null}
         </section>
         <div className={`mt-8 grid min-h-11 gap-3 sm:grid-cols-2 ${feedbackRevealClass(presentationStep >= 3)}`}>
-          {state.revision?.status === 'offered' ? (
+          {state.targetedMicroTraining ? (
+            <>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onSkipTargeted}
+                className="flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-5 text-sm text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"
+              >
+                {state.targetedMicroTraining.secondaryActionText}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onStartTargeted}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-600 px-5 text-sm text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40"
+              >
+                {busy ? <RefreshCw size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+                {state.targetedMicroTraining.primaryActionText}
+              </button>
+            </>
+          ) : state.revision?.status === 'offered' ? (
             <>
               <button
                 type="button"

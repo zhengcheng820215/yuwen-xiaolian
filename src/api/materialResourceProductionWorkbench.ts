@@ -41,6 +41,13 @@ import type {
   SharedFormalResourceStatus,
 } from '../ai/schemas/sharedFormalResourcePersistence.schema.ts';
 import {
+  buildMaterialContentHash,
+  CURRENT_MATERIAL_CONTENT_NORMALIZATION_POLICY_VERSION,
+  type MaterialContentNormalizationPolicyVersion,
+  type MaterialUsageType,
+  type TargetedExcerptMetadata,
+} from '../ai/schemas/targetedMicroTraining.schema.ts';
+import {
   PHASE17_TONGGUAN_MATERIAL,
   PHASE17_TONGGUAN_TASKS,
 } from '../data/phase17TongguanCalibration.ts';
@@ -233,10 +240,23 @@ export async function createProductionMaterial(input: {
   content: string;
   description?: string;
   copyrightNote?: string;
+  usageType?: MaterialUsageType;
+  targetedExcerptMetadata?: TargetedExcerptMetadata;
+  contentNormalizationPolicyVersion?: MaterialContentNormalizationPolicyVersion;
 }): Promise<QuestionMaterialVersion> {
-  const duplicate = (await resourceRepository.listMaterials()).find(
-    (material) => normalizeMaterialContent(material.content) === normalizeMaterialContent(input.content),
-  );
+  const policyVersion = input.usageType === 'targeted_excerpt'
+    ? input.contentNormalizationPolicyVersion
+      || CURRENT_MATERIAL_CONTENT_NORMALIZATION_POLICY_VERSION
+    : input.contentNormalizationPolicyVersion;
+  const contentHash = input.usageType === 'targeted_excerpt'
+    ? buildMaterialContentHash(input.content, policyVersion)
+    : undefined;
+  const duplicate = (await resourceRepository.listMaterials()).find((material) => (
+    contentHash && material.contentHash
+      ? material.contentHash === contentHash
+        && material.contentNormalizationPolicyVersion === policyVersion
+      : normalizeMaterialContent(material.content) === normalizeMaterialContent(input.content)
+  ));
   if (duplicate) {
     throw new Error(`已存在内容相同的学习材料：${formatMaterialTitle(duplicate.title)}。请直接使用已有素材。`);
   }
@@ -247,6 +267,10 @@ export async function createProductionMaterial(input: {
     versionNumber: 1,
     title: normalizeMaterialTitle(input.title),
     content: input.content,
+    usageType: input.usageType,
+    contentHash,
+    contentNormalizationPolicyVersion: policyVersion,
+    targetedExcerptMetadata: input.targetedExcerptMetadata,
     source: {
       sourceType: 'manual',
       description: input.description?.trim() || '系统自动记录：人工录入',
@@ -263,6 +287,9 @@ export async function stageProductionMaterialRevision(input: {
   copyrightNote?: string;
   revisionNote: string;
   metadata?: QuestionMaterialVersion['metadata'];
+  usageType?: MaterialUsageType;
+  targetedExcerptMetadata?: TargetedExcerptMetadata;
+  contentNormalizationPolicyVersion?: MaterialContentNormalizationPolicyVersion;
 }): Promise<QuestionMaterialVersion> {
   const source = await resourceRepository.getMaterial(input.sourceMaterialVersionId);
   if (!source) throw new Error(`未找到素材版本：${input.sourceMaterialVersionId}`);
@@ -278,6 +305,9 @@ export async function stageProductionMaterialRevision(input: {
           copyrightNote: input.copyrightNote ?? source.source.copyrightNote,
         },
     metadata: input.metadata,
+    usageType: input.usageType,
+    targetedExcerptMetadata: input.targetedExcerptMetadata,
+    contentNormalizationPolicyVersion: input.contentNormalizationPolicyVersion,
     revisionNote: input.revisionNote,
   });
 }

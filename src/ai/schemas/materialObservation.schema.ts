@@ -19,6 +19,7 @@ import type {
   OpenResponseAnswerStatus,
 } from './diagnosis.schema.ts';
 import type { RecommendedTaskRole } from './nextLearningStrategy.schema.ts';
+import type { TargetedTrainingResourceMetadata } from './targetedMicroTraining.schema.ts';
 
 export const MATERIAL_OBSERVATION_PLAN_SCHEMA_VERSION = 'material_observation_plan_v1' as const;
 export const RESOURCE_OBSERVATION_LINK_SCHEMA_VERSION = 'resource_observation_link_v1' as const;
@@ -122,6 +123,7 @@ export type ObservationTaskPlan = {
   abilityId: PrimaryAbilityId;
   taskRole: RecommendedTaskRole;
   difficulty: QuestionResourceDifficulty;
+  targetedTrainingMetadata?: TargetedTrainingResourceMetadata;
   sourceAnchorIds: string[];
   observationGoal: string;
   expectedStudentAction: string;
@@ -208,6 +210,7 @@ export type ResourceObservationLink = {
   abilityId: PrimaryAbilityId;
   taskRole: RecommendedTaskRole;
   difficulty: QuestionResourceDifficulty;
+  targetedTrainingMetadata?: TargetedTrainingResourceMetadata;
   status: 'active' | 'superseded' | 'invalid';
   linkedAt: string;
   schemaVersion: typeof RESOURCE_OBSERVATION_LINK_SCHEMA_VERSION;

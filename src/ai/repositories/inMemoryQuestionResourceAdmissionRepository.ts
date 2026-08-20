@@ -10,6 +10,7 @@ import {
   type ResourceValidationResult,
   type StructuredQuestionDraft,
 } from '../schemas/questionResourceAdmission.schema.ts';
+import { assertValidTargetedMaterialUsage } from '../schemas/targetedMicroTraining.schema.ts';
 
 export class InMemoryQuestionResourceAdmissionRepository
 implements QuestionResourceAdmissionRepository {
@@ -27,6 +28,7 @@ implements QuestionResourceAdmissionRepository {
   }
 
   async saveMaterial(material: QuestionMaterialVersion): Promise<QuestionMaterialVersion> {
+    assertValidTargetedMaterialUsage(material);
     const existing = this.materials.get(material.materialVersionId);
     if (existing) {
       if (!sameMaterialVersion(existing, material)) {

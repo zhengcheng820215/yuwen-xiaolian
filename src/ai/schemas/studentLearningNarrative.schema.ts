@@ -58,6 +58,10 @@ export type StudentLearningPresentation = {
   continuationReason?: string;
 };
 
+export type StudentLearningPresentationContext = {
+  continuationMode?: 'adaptive' | 'fixed_task_queue';
+};
+
 export type StudentLearningNarrativeProjection = {
   schemaVersion: typeof STUDENT_LEARNING_NARRATIVE_SCHEMA_VERSION;
   studentId: string;
@@ -100,6 +104,7 @@ export function toStudentLearningNarrative(
 
 export function toStudentLearningPresentation(
   projection: StudentLearningNarrativeProjection,
+  context: StudentLearningPresentationContext = {},
 ): StudentLearningPresentation | undefined {
   const narrative = toStudentLearningNarrative(projection);
   if (!narrative) return undefined;
@@ -115,7 +120,9 @@ export function toStudentLearningPresentation(
     taskReason: narrative.taskReason,
     outcome: Object.values(outcome).some(Boolean) ? outcome : undefined,
     nextAction: narrative.nextAction,
-    continuationReason: narrative.nextTaskReason,
+    continuationReason: context.continuationMode === 'fixed_task_queue'
+      ? undefined
+      : narrative.nextTaskReason,
   };
   return isStudentLearningPresentation(presentation) ? presentation : undefined;
 }

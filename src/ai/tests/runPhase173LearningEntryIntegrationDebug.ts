@@ -38,6 +38,7 @@ async function main(): Promise<void> {
   await retiredMaterialIsExcluded(environment);
   await genericFormalMatch(environment);
   await pinnedFormalResourceResume(environment);
+  await frozenSessionVersionSurvivesRegistryUpgrade(environment);
   await unavailablePinnedFormalResourceIsBlocked(environment);
   await legacyHintPolicyCompatibility(environment);
   await dynamicBootstrapAbility(environment);
@@ -244,6 +245,47 @@ async function pinnedFormalResourceResume(environment: Environment): Promise<voi
   );
 }
 
+async function frozenSessionVersionSurvivesRegistryUpgrade(environment: Environment): Promise<void> {
+  const pinned = environment.versions.find((item) => (
+    item.status === 'frozen' &&
+    item.abilityMetadata.abilityId === 'analysis' &&
+    item.abilityMetadata.taskRole === 'training'
+  ));
+  expect(pinned, 'Frozen-session resource fixture is missing.');
+  const upgradedRegistryRepository = registryHeadMovedAwayFrom(
+    environment.resources,
+    pinned.resourceId,
+  );
+  const request = createPhase173BatchABootstrapTaskRequest(STUDENT_ID, NOW);
+  const strictResult = await matchCurrentFormalResource({
+    taskRequest: request,
+    studentId: STUDENT_ID,
+    resourceRepository: upgradedRegistryRepository,
+    observationRepository: environment.observations,
+    bootstrapMaterialId: pinned.materialId,
+    requiredResourceVersionId: pinned.resourceVersionId,
+    evaluatedAt: NOW,
+  });
+  const sessionResult = await matchCurrentFormalResource({
+    taskRequest: request,
+    studentId: STUDENT_ID,
+    resourceRepository: upgradedRegistryRepository,
+    observationRepository: environment.observations,
+    bootstrapMaterialId: pinned.materialId,
+    requiredResourceVersionId: pinned.resourceVersionId,
+    frozenSessionResourceVersionId: pinned.resourceVersionId,
+    evaluatedAt: NOW,
+  });
+  record(
+    '02E 生产端发布后继版本后活动题组继续消费已冻结版本',
+    strictResult.status !== 'matched' &&
+      sessionResult.status === 'matched' &&
+      sessionResult.resourceVersion?.resourceVersionId === pinned.resourceVersionId &&
+      sessionResult.taskReadiness?.canExecute === true,
+    `strict=${strictResult.status}, session=${sessionResult.status}, resource=${sessionResult.resourceVersion?.resourceVersionId || 'none'}`,
+  );
+}
+
 async function unavailablePinnedFormalResourceIsBlocked(environment: Environment): Promise<void> {
   const request = createPhase173BatchABootstrapTaskRequest(STUDENT_ID, NOW);
   const result = await matchCurrentFormalResource({
@@ -426,6 +468,33 @@ function withoutBatchResourcePrefix(
         return async (resourceVersionId: string) => {
           const version = await target.getVersion(resourceVersionId);
           return version ? { ...version, resourceId: rename(version.resourceId) } : null;
+        };
+      }
+      const value = target[property as keyof QuestionResourceAdmissionRepository];
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
+
+function registryHeadMovedAwayFrom(
+  repository: QuestionResourceAdmissionRepository,
+  resourceId: string,
+): QuestionResourceAdmissionRepository {
+  return new Proxy(repository, {
+    get(target, property) {
+      if (property === 'listRegistryEntries') {
+        return async () => (await target.listRegistryEntries()).map((entry) => (
+          entry.resourceId === resourceId
+            ? { ...entry, currentFrozenVersionId: `${entry.currentFrozenVersionId}-successor` }
+            : entry
+        ));
+      }
+      if (property === 'getRegistryEntry') {
+        return async (requestedResourceId: string) => {
+          const entry = await target.getRegistryEntry(requestedResourceId);
+          return entry && requestedResourceId === resourceId
+            ? { ...entry, currentFrozenVersionId: `${entry.currentFrozenVersionId}-successor` }
+            : entry;
         };
       }
       const value = target[property as keyof QuestionResourceAdmissionRepository];

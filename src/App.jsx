@@ -45,6 +45,7 @@ import Phase175C1SemanticQualityDemo from './pages/Phase175C1SemanticQualityDemo
 import Phase175C2QualityPersistenceDemo from './pages/Phase175C2QualityPersistenceDemo.jsx';
 import Phase175C3ABatchQualitySummaryDemo from './pages/Phase175C3ABatchQualitySummaryDemo.jsx';
 import ReadingSingleChoiceStage4Acceptance from './pages/ReadingSingleChoiceStage4Acceptance.jsx';
+import TargetedMicroTrainingStage4Control from './pages/TargetedMicroTrainingStage4Control.jsx';
 
 export default function App() {
   return (
@@ -87,6 +88,7 @@ export default function App() {
         <Route path="/internal/acceptance/reading-single-choice" element={<ReadingSingleChoiceStage4Acceptance />} />
         <Route path="/internal/learning-review" element={<InternalLearningReview />} />
         <Route path="/internal/learning-collection" element={<LearningCollectionIntegrity />} />
+        <Route path="/internal/targeted-micro-training" element={<TargetedMicroTrainingStage4Control />} />
         <Route path="/phase16-3-unified-entry-demo" element={<Phase163UnifiedEntryDemo />} />
         <Route path="/phase16-3-multiday-operation-demo" element={<Phase163MultiDayOperationDemo />} />
         <Route path="/resource-coverage-dashboard-demo" element={<ResourceCoverageDashboardDemo />} />

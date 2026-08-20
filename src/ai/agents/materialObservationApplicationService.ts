@@ -25,6 +25,7 @@ import type {
 } from '../schemas/questionResourceAdmission.schema.ts';
 import type { RecommendedTaskRole } from '../schemas/nextLearningStrategy.schema.ts';
 import type { CreateStructuredQuestionDraftInput } from './questionResourceAdmissionAgent.ts';
+import { projectTargetedMaterialUsage } from '../schemas/targetedMicroTraining.schema.ts';
 import {
   createStructuredQuestionDraft,
   updateStructuredQuestionDraft,
@@ -50,6 +51,7 @@ export type MaterialProductionTaskInput = {
   abilityId: PrimaryAbilityId;
   taskRole: RecommendedTaskRole;
   difficulty: ObservationTaskPlan['difficulty'];
+  targetedTrainingMetadata?: ObservationTaskPlan['targetedTrainingMetadata'];
   anchorType?: MaterialSourceAnchor['anchorType'];
   startParagraph?: number;
   endParagraph?: number;
@@ -133,14 +135,43 @@ export async function createMaterialProductionPlan(
     now?: string;
   },
 ): Promise<{ plan: MaterialObservationPlan; validation: MaterialObservationPlanValidation }> {
-  if (input.tasks.length < 2 || input.tasks.length > 6) {
-    throw new Error('One Material production batch requires 2 to 6 Observation Tasks.');
+  const material = await resourceRepository.getMaterial(input.materialVersionId);
+  if (!material) throw new Error(`Material Version not found: ${input.materialVersionId}`);
+  const usage = projectTargetedMaterialUsage(material);
+  if (usage.usageType === 'targeted_excerpt') {
+    if (input.tasks.length < 1 || input.tasks.length > 2) {
+      throw new Error('Targeted excerpt production requires 1 to 2 Training Tasks.');
+    }
+    input.tasks.forEach((task) => {
+      if (task.taskRole !== 'training') {
+        throw new Error('Targeted excerpt Observation Tasks must use the training role.');
+      }
+      if (!task.targetedTrainingMetadata) {
+        throw new Error('Targeted excerpt Observation Task requires a structured primary Gap identity.');
+      }
+      if (task.targetedTrainingMetadata.targetedMaterialVersionId !== material.materialVersionId) {
+        throw new Error('Targeted Observation Task references a different Material Version.');
+      }
+      if (!usage.targetedExcerptMetadata?.supportedGapReasonCodes.includes(
+        task.targetedTrainingMetadata.primaryGapReasonCode,
+      )) {
+        throw new Error('Targeted Observation Task primary Gap is outside Material support scope.');
+      }
+      if (!usage.targetedExcerptMetadata?.targetAbilityIds.includes(task.abilityId)) {
+        throw new Error('Targeted Observation Task Ability is outside Material support scope.');
+      }
+    });
+  } else {
+    if (input.tasks.length < 2 || input.tasks.length > 6) {
+      throw new Error('One core Material production batch requires 2 to 6 Observation Tasks.');
+    }
+    if (input.tasks.some((task) => task.targetedTrainingMetadata !== undefined)) {
+      throw new Error('Core Observation Tasks cannot carry targeted training metadata.');
+    }
   }
   if (new Set(input.tasks.map((task) => normalize(task.questionStem))).size !== input.tasks.length) {
     throw new Error('Observation Tasks in one batch require distinct question stems.');
   }
-  const material = await resourceRepository.getMaterial(input.materialVersionId);
-  if (!material) throw new Error(`Material Version not found: ${input.materialVersionId}`);
   const now = input.now || new Date().toISOString();
   const existingStructures = await observationRepository.listStructures(input.materialVersionId);
   const structure = existingStructures[0]
@@ -207,6 +238,7 @@ export async function createMaterialProductionPlan(
       abilityId: task.abilityId,
       taskRole: task.taskRole,
       difficulty: task.difficulty,
+      targetedTrainingMetadata: task.targetedTrainingMetadata,
       sourceAnchorIds: [anchors[index].sourceAnchorId],
       observationGoal: task.questionStem,
       expectedStudentAction: task.expectedStudentAction,
@@ -767,6 +799,7 @@ function buildProductionQuestionDraftInput(
       taskRole: task.taskRole,
       difficulty: task.difficulty,
       gradeRange: task.resourceDraftSpecification?.gradeRange,
+      targetedTrainingMetadata: task.targetedTrainingMetadata,
     },
     tags: unique([
       ...(content.tags || []),

@@ -453,7 +453,7 @@ function contentFixture(): QuestionEditableFields {
   return {
     materialVersionId: 'material:v1',
     title: '人物心理分析',
-    questionStem: '请分析人物选择沉默的原因。',
+    questionStem: '请结合文本，分析人物选择沉默的原因。',
     questionType: 'reading_comprehension',
     responseFormat: 'long_text',
     options: [],

@@ -16,11 +16,11 @@ import {
 } from './phase163LiveLearning.ts';
 import {
   assertPhase163ProductRuntimeIdentity,
-  PHASE163_LEARNING_STUDENT_ID,
   PHASE163_LEARNING_TIMEZONE,
+  resolvePhase163LearningStudentId,
 } from './phase163LearningIdentity.ts';
 
-export const UNIFIED_ENTRY_STUDENT_ID = PHASE163_LEARNING_STUDENT_ID;
+export const UNIFIED_ENTRY_STUDENT_ID = resolvePhase163LearningStudentId();
 export const UNIFIED_LEARNING_ENTRY_READ_TIMEOUT_MS = 5_000;
 export const UNIFIED_LEARNING_ENTRY_STAGE_TIMEOUT_MS = 4_000;
 
@@ -46,11 +46,15 @@ async function loadUnifiedLearningEntryData(): Promise<UnifiedLearningEntryState
     ),
   ]);
   const activeContext = context?.status !== 'ended' ? context : undefined;
+  const activeLearningRoundId = activeContext?.targetedMicroTrainingOverlay?.mode === 'targeted'
+    && activeContext.targetedMicroTrainingOverlay.activeAssignmentId
+    ? `${activeContext.learningSessionId}-targeted-${activeContext.targetedMicroTrainingOverlay.activeAssignmentId}`
+    : activeContext?.currentLearningRoundId;
   const [currentRecord, session, operationCheckpoint, delayedRetestPlans, taskAvailability] = await Promise.all([
-    activeContext?.currentLearningRoundId
+    activeLearningRoundId
       ? readUnifiedLearningEntryStage(
           '当前学习进度',
-          persistenceRepository.loadByRound(UNIFIED_ENTRY_STUDENT_ID, activeContext.currentLearningRoundId),
+          persistenceRepository.loadByRound(UNIFIED_ENTRY_STUDENT_ID, activeLearningRoundId),
         )
       : Promise.resolve(undefined),
     context
@@ -59,10 +63,10 @@ async function loadUnifiedLearningEntryData(): Promise<UnifiedLearningEntryState
           sessionRepository.getById(UNIFIED_ENTRY_STUDENT_ID, context.learningSessionId),
         )
       : Promise.resolve(null),
-    activeContext?.currentLearningRoundId
+    activeLearningRoundId
       ? readUnifiedLearningEntryStage(
           '学习操作进度',
-          operationRepository.getByOperationId(`phase16-3-live-operation-${activeContext.currentLearningRoundId}`),
+          operationRepository.getByOperationId(`phase16-3-live-operation-${activeLearningRoundId}`),
         )
       : Promise.resolve(undefined),
     readUnifiedLearningEntryStage('复测计划', loadPhase163DueRetestPlans()),

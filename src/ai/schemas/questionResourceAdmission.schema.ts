@@ -9,6 +9,12 @@ import {
   type SingleChoiceInteraction,
   type SingleChoiceMinimumResponseRequirement,
 } from './singleChoiceInteraction.schema.ts';
+import type {
+  MaterialContentNormalizationPolicyVersion,
+  MaterialUsageType,
+  TargetedExcerptMetadata,
+  TargetedTrainingResourceMetadata,
+} from './targetedMicroTraining.schema.ts';
 
 export const QUESTION_RESOURCE_ADMISSION_VERSION = 'phase16_1a_v1';
 export const QUESTION_RESOURCE_ADMISSION_SCHEMA_VERSION = 'question_resource_admission_v1';
@@ -112,6 +118,13 @@ export type QuestionMaterialVersion = {
   revisionNote?: string;
   title: string;
   content: string;
+  /** Missing on historical versions and projected as core_reading. */
+  usageType?: MaterialUsageType;
+  /** Required for targeted_excerpt; optional on historical core materials. */
+  contentHash?: string;
+  /** Explains how contentHash was produced; required for new targeted excerpts. */
+  contentNormalizationPolicyVersion?: MaterialContentNormalizationPolicyVersion;
+  targetedExcerptMetadata?: TargetedExcerptMetadata;
   source: QuestionSource;
   metadata?: QuestionMaterialMetadata;
   createdAt: string;
@@ -154,6 +167,8 @@ export type QuestionAbilityMetadata = {
   taskRole: RecommendedTaskRole;
   difficulty: QuestionResourceDifficulty;
   gradeRange?: string;
+  /** Structured production identity for a targeted excerpt task. */
+  targetedTrainingMetadata?: TargetedTrainingResourceMetadata;
 };
 
 export type QuestionResourceDraftStatus =
@@ -381,6 +396,7 @@ export type ResourceRegistryEntry = {
   abilityId: PrimaryAbilityId;
   taskRole: RecommendedTaskRole;
   difficulty: QuestionResourceDifficulty;
+  targetedTrainingMetadata?: TargetedTrainingResourceMetadata;
   tags: string[];
   createdAt: string;
   updatedAt: string;

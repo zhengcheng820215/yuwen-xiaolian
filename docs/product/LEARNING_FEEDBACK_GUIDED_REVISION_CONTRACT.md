@@ -40,6 +40,7 @@
 6. **按诊断结果提供入口。** 不要求每题机械修订；只有存在可执行改善目标时才显示或推荐修订。
 7. **不污染题目校准。** 题目难度、首次独立得分和版本级经验校准继续只消费 Initial Response；Revision 单独用于观察反馈有效性。
 8. **失败不丢学习事实。** Revision Evaluation 失败时保留 Revised Response，自动重试评价，不要求学生重复提交。
+9. **反馈与操作必须一致。** 普通 Training 文本题已经确认学生完成至少一个必需观察项，同时又展示一个可通过补充依据、连接推理或补齐题目要求解决的正式缺口时，必须提供一次修订入口；不得一边告诉学生“缺什么、怎么改”，一边只允许进入下一题。
 
 ## 三、适用范围
 
@@ -78,11 +79,14 @@ Revision Offer 必须由正式 Diagnosis、Requirement Coverage 和可执行反�
 | `strong / fully_meets` | 无需要修正的正式缺口 | 不显示修订入口；主操作为“继续下一题” |
 | 基本达标但仍有小幅优化空间 | 存在一个可执行、非答案泄漏的 Revision Goal | 可显示“完善回答”，作为次操作 |
 | `partial` | 缺口可通过一次修订处理，且反馈已正式生成 | 显示“根据反馈修订”，作为推荐主操作 |
-| `invalid / off_topic / misunderstood_task` | 不满足普通修订条件 | 不进入 Revision；按有效性恢复或未来 Retry 处理 |
+| `does_not_meet` 但已有有效作答基础 | 至少一个必需观察项为 `covered / partially_covered`，同时存在一个可执行的必需项缺口 | 显示“根据反馈修订”；不得因总状态较低而丢弃已经形成的有效思考 |
+| `invalid / off_topic / misunderstood_task` | 没有任何必需观察项达到 `covered / partially_covered`，或缺口不可执行 | 不进入 Revision；按有效性恢复或未来 Retry 处理 |
 | Diagnosis 或 Feedback 未正式形成 | 无可追溯 Revision Goal | 不显示修订入口 |
 | 已提交 Revision | 达到一次上限 | 不再显示修订入口 |
 
 第一版只允许一个主 Revision Goal，最多附带两个紧密相关的观察点。目标必须来自首次 Diagnosis 的主要缺口和 Next Action，不得由前端自由拼接。
+
+资格判断不得只读取 `answerStatus`。当 `answerStatus = does_not_meet` 时，系统必须继续核对正式 `requirementCoverage`：如果已有必需项成立且另一必需项存在可执行缺口，该回答属于“有基础但未达到要求”，可以修订；只有所有必需项均为 `missing / insufficient_to_judge`，或答案有效性边界已经判为无效、离题、误解任务时，才不得进入普通 Revision。
 
 示例：
 
@@ -164,6 +168,17 @@ Revision Evaluation 只回答：
 - 下一次遇到类似任务时应注意什么。
 
 结束页不再提供第三次修改，只保留“继续下一题”。
+
+修订结束页必须区分“内部评价事实”和“学生可见表达”：
+
+- `outcome / resolvedIssueCodes / remainingIssueCodes / newIssueCodes`、Formal Diagnosis 身份、`feedback_supported`、后续独立验证要求等事实继续完整保存，供证据、画像、审计和调度使用；
+- 学生端只说明“这次修改有什么变化、还有什么需要注意、可以记住什么方法”，不得直接显示“正式诊断、原缺口、修订证据、反馈支持下形成、独立验证”等内部治理术语；
+- 不得把字符串 Diff 或学生新增加的整段文字用引号拼接成评价。学生修改内容只能作为内部比对证据，展示层必须转写为语义明确的改善点，例如“补充了文本依据”或“说明了依据与判断的关系”；
+- 顶部状态固定使用“本题修订完成”；结果标题按 Outcome 使用“修改后，回答更完整了 / 这次修改有进步 / 还可以再补充一步 / 修改时要保留原来答对的内容”等学生能够直接理解的表达；
+- 方法区域固定使用“记住这个方法”，不得使用容易与当前队列或下一题状态混淆的“下次独立作答”；
+- “反馈支持下的改善不能等同于独立掌握”属于内部证据口径，不在学生结束页重复解释。
+
+学生端文案应控制在“一条结果 + 一条方法”，每条优先使用一个完整短句；不得为了体现系统严谨性增加审计说明。
 
 ## 六、状态模型
 
@@ -289,7 +304,7 @@ type RevisionEvaluation = {
 };
 ```
 
-学生端不显示数值 Revision Score，只显示简洁的“已改善 / 仍需注意 / 下次怎么做”。评价文本必须引用 Revised Response 中真实发生的变化，不使用模板化的“回答更完整了”。
+学生端不显示数值 Revision Score，只显示简洁的“这次有什么变化 / 还要注意什么 / 记住什么方法”。内部评价必须以 Revised Response 中真实发生的变化和 Formal Diagnosis 差异为依据；学生端展示不得直接引用答案 Diff，而应把已解决的 Issue 转写为简洁、具体的语义观察。通用标题可以稳定，但正文不能只停留在“回答更完整了”而不说明改善类型。
 
 ### 8.1 阶段 3 评价输入与判定边界
 
@@ -438,6 +453,10 @@ learningTaskAttemptId
 10. Retest、Transfer、Maintenance 和 Formal Assessment 不出现即时修订；
 11. 题目完成数、首次 Attempt 数和校准 Projection 不因 Revision 增加；
 12. Initial Evidence 与 Revision Evidence 分别可追溯，后续 Profile 不把支持下改善误判为独立掌握。
+13. 结束页不显示 Formal Diagnosis、Gap、Evidence、Profile、独立验证等内部术语，也不展示原始答案 Diff；历史评价记录恢复时同样通过学生表达层呈现；
+14. 学生端稳定展示“一条结果 + 一条方法”，方法说明与当前题目状态、下一题按钮不冲突。
+15. `does_not_meet` 但至少一个必需观察项已成立、另有可执行必需项缺口时显示“根据反馈修订”；所有必需项均未成立或不可判断时不误开放修订；
+16. 学生反馈出现具体“思考缺口 / 下一步训练”时，Revision Offer、Revision Goal 与页面操作必须来自同一份 Requirement Coverage，不得发生反馈可改但入口缺失的投影分叉。
 
 ## 十五、实施顺序
 

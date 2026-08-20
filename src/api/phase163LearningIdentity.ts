@@ -1,9 +1,17 @@
 export const PHASE163_PRODUCT_STUDENT_ID = 'student-local-primary-v1';
 export const PHASE163_DEMO_STUDENT_ID = 'student-phase16-integration-demo';
+export const PHASE163_STAGE4_VERIFY_STUDENT_ID = 'student-local-stage4-verify-v1';
 
 // Compatibility alias for the formal single-student product path.
 export const PHASE163_LEARNING_STUDENT_ID = PHASE163_PRODUCT_STUDENT_ID;
 export const PHASE163_LEARNING_TIMEZONE = 'Asia/Shanghai';
+
+export function resolvePhase163LearningStudentId(): string {
+  if (typeof window === 'undefined') return PHASE163_PRODUCT_STUDENT_ID;
+  return new URLSearchParams(window.location.search).get('stage4verify') === '1'
+    ? PHASE163_STAGE4_VERIFY_STUDENT_ID
+    : PHASE163_PRODUCT_STUDENT_ID;
+}
 
 export type Phase163RuntimeScope = 'product' | 'demo' | 'unknown';
 
@@ -30,7 +38,10 @@ export function resolvePhase163RuntimeScope(identity: Phase163RuntimeIdentity): 
     identity.studentId === PHASE163_DEMO_STUDENT_ID ||
     identifiers.some((value) => DEMO_ID_MARKERS.some((marker) => value.includes(marker)))
   ) return 'demo';
-  if (identity.studentId === PHASE163_PRODUCT_STUDENT_ID) return 'product';
+  if (
+    identity.studentId === PHASE163_PRODUCT_STUDENT_ID
+    || identity.studentId === PHASE163_STAGE4_VERIFY_STUDENT_ID
+  ) return 'product';
   return 'unknown';
 }
 

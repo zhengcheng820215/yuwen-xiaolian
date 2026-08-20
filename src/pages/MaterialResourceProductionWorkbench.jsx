@@ -192,6 +192,17 @@ const trainingDirectionLabels = Object.fromEntries(trainingDirectionOptions);
 const roleLabels = Object.fromEntries(roleOptions);
 const difficultyLabels = Object.fromEntries(difficultyOptions);
 const assessmentModeLabels = Object.fromEntries(assessmentModeOptions);
+const targetedGapLabels = {
+  missing_text_evidence: '缺少文本依据',
+  missing_reasoning_relation: '证据与结论连接不足',
+  conclusion_inconsistent: '结论与材料不一致',
+  incomplete_task_requirement: '作答要求完成不全',
+};
+const targetedSourceRelationLabels = {
+  same_material_excerpt: '同篇材料局部片段',
+  authorized_external_excerpt: '已授权外部片段',
+  controlled_original: '受控原创片段',
+};
 export default function MaterialResourceProductionWorkbench() {
   const location = useLocation();
   const routeSelection = useMemo(() => {
@@ -1412,7 +1423,19 @@ export default function MaterialResourceProductionWorkbench() {
 
   async function requestTaskGroupCandidates(operationType) {
     if (!selectedMaterial) return;
-    const generationRequest = resolveTrainingTaskGenerationRequest(operationType, tasks.length);
+    const materialUsageIsTargeted = selectedMaterial.usageType === 'targeted_excerpt';
+    const standardGenerationRequest = resolveTrainingTaskGenerationRequest(operationType, tasks.length);
+    const targetedIntendedTaskCount = selectedMaterial.targetedExcerptMetadata?.intendedTaskCount || 1;
+    const generationRequest = materialUsageIsTargeted
+      ? {
+        candidateCount: operationType === 'supplement_group'
+          ? Math.max(0, Math.min(2, targetedIntendedTaskCount - tasks.length))
+          : targetedIntendedTaskCount,
+        planningIntent: operationType === 'supplement_group'
+          ? 'supplement'
+          : tasks.length === 0 ? 'initial' : 'replacement',
+      }
+      : standardGenerationRequest;
     if (generationRequest.candidateCount === 0) {
       setNotice({ type: 'error', message: `当前任务组已达到 ${MAX_TRAINING_TASK_COUNT} 个任务，无需继续补充。` });
       return;
@@ -1459,12 +1482,25 @@ export default function MaterialResourceProductionWorkbench() {
           content: selectedMaterial.content,
           sourceDescription: selectedMaterial.source?.description,
           copyrightNote: selectedMaterial.source?.copyrightNote,
+          usageType: selectedMaterial.usageType,
+          contentHash: selectedMaterial.contentHash,
+          contentNormalizationPolicyVersion: selectedMaterial.contentNormalizationPolicyVersion,
+          targetedExcerptMetadata: selectedMaterial.targetedExcerptMetadata,
         },
         preferences: {
           gradeRange: generatorPreferences.gradeRange,
           candidateCount: generationRequest.candidateCount,
           planningIntent: generationRequest.planningIntent,
-          preferredAbilityIds: generatorPreferences.preferredAbilityIds,
+          preferredAbilityIds: materialUsageIsTargeted
+            ? selectedMaterial.targetedExcerptMetadata?.targetAbilityIds
+            : generatorPreferences.preferredAbilityIds,
+          targetedTrainingPlanning: materialUsageIsTargeted
+            ? {
+              primaryGapReasonCode:
+                selectedMaterial.targetedExcerptMetadata.supportedGapReasonCodes[0],
+              targetedMaterialVersionId: selectedMaterial.materialVersionId,
+            }
+            : undefined,
           singleChoiceCandidateTarget,
           singleChoicePlanning: singleChoiceQuantityPlan
             ? {
@@ -1502,6 +1538,13 @@ export default function MaterialResourceProductionWorkbench() {
             candidate,
             index,
             result.sequencePlanningResult,
+            materialUsageIsTargeted
+              ? {
+                primaryGapReasonCode:
+                  selectedMaterial.targetedExcerptMetadata.supportedGapReasonCodes[0],
+                targetedMaterialVersionId: selectedMaterial.materialVersionId,
+              }
+              : undefined,
           )
         ));
         setGroupCandidateSession(createTrainingTaskGroupCandidateSession({
@@ -2462,7 +2505,7 @@ export default function MaterialResourceProductionWorkbench() {
                     <option value="">请选择一篇学习材料</option>
                     {activeMaterials.map((material) => (
                       <option key={material.materialVersionId} value={material.materialVersionId}>
-                        {material.title}（{materialProductionStatusById.get(material.materialVersionId) || '未生成任务'}）
+                        {material.title} · {material.usageType === 'targeted_excerpt' ? '针对性短片段' : '核心阅读材料'}（{materialProductionStatusById.get(material.materialVersionId) || '未生成任务'}）
                       </option>
                     ))}
                   </select>
@@ -2476,6 +2519,9 @@ export default function MaterialResourceProductionWorkbench() {
                       <p className="px-3 text-sm leading-5 text-slate-500 sm:col-start-1 sm:row-start-1 sm:px-4">当前素材</p>
                       <h2 id="selected-material-summary-title" className="flex min-h-10 flex-wrap items-center gap-x-2 px-3 text-base font-semibold leading-7 text-slate-950 sm:col-start-1 sm:row-start-2 sm:px-4">
                         <span>{selectedMaterial.title}</span>
+                        <span className={`rounded px-2 py-0.5 text-xs font-medium ${selectedMaterial.usageType === 'targeted_excerpt' ? 'bg-violet-50 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>
+                          {selectedMaterial.usageType === 'targeted_excerpt' ? '针对性短片段' : '核心阅读材料'}
+                        </span>
                         <span className="text-sm font-normal leading-7 text-slate-500">· 共 {paragraphs.length} 个自然段</span>
                       </h2>
                       <div className="flex min-h-10 flex-wrap items-start gap-2 px-3 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:justify-end sm:px-4">
@@ -2490,6 +2536,14 @@ export default function MaterialResourceProductionWorkbench() {
                         </button>
                       </div>
                     </div>
+                    {selectedMaterial.usageType === 'targeted_excerpt' && selectedMaterial.targetedExcerptMetadata && (
+                      <div className="mx-3 mt-3 flex flex-wrap gap-x-5 gap-y-1 rounded-md bg-violet-50 px-3 py-2 text-xs leading-5 text-violet-900 sm:mx-4">
+                        <span>训练能力：{selectedMaterial.targetedExcerptMetadata.targetAbilityIds.map((id) => abilityLabels[id] || id).join('、')}</span>
+                        <span>支持缺口：{selectedMaterial.targetedExcerptMetadata.supportedGapReasonCodes.map((code) => targetedGapLabels[code] || code).join('、')}</span>
+                        <span>来源：{targetedSourceRelationLabels[selectedMaterial.targetedExcerptMetadata.sourceRelation] || selectedMaterial.targetedExcerptMetadata.sourceRelation}</span>
+                        <span>预计题数：{selectedMaterial.targetedExcerptMetadata.intendedTaskCount}</span>
+                      </div>
+                    )}
                     <MaterialContentPreview
                       paragraphs={paragraphs}
                       expanded={materialPreviewExpanded}
@@ -2869,6 +2923,9 @@ export default function MaterialResourceProductionWorkbench() {
                     <div className="contents">
                       <div className="col-start-1 row-start-1 flex min-w-0 flex-wrap items-center gap-2" aria-label="训练任务标题与状态">
                         <h3 className="mr-1 text-sm font-bold">{formatTrainingTaskTitle(index, task.responseFormat)}</h3>
+                        {selectedMaterial?.usageType === 'targeted_excerpt' && (
+                          <span className="rounded bg-violet-50 px-2 py-1 text-xs font-medium text-violet-700">针对性短片段</span>
+                        )}
                         <TaskQuestionLifecycleBadge
                           presentation={taskCardPresentationWithPlanGate}
                           candidateReady={candidateReadyForAdoption && !workflowBusy}
@@ -4426,6 +4483,7 @@ function planTaskToEditableTask(task, index, anchors) {
     designReason: task.designReason,
     taskRole: task.taskRole,
     difficulty: task.difficulty,
+    targetedTrainingMetadata: task.targetedTrainingMetadata,
     sequenceStrategy: sequenceMetadata.strategy,
     sequenceReason: sequenceMetadata.reason,
     sequenceRank: sequenceMetadata.rank,
@@ -4475,7 +4533,12 @@ function buildWorkingQuestionEditableFields(task, draft) {
   };
 }
 
-function generatorCandidateToEditableTask(candidate, index, sequencePlanningResult) {
+function generatorCandidateToEditableTask(
+  candidate,
+  index,
+  sequencePlanningResult,
+  targetedTrainingMetadata,
+) {
   return {
     localId: candidate.candidateId,
     sourceType: 'ai_assisted',
@@ -4491,6 +4554,7 @@ function generatorCandidateToEditableTask(candidate, index, sequencePlanningResu
     expectedStudentAction: candidate.expectedStudentAction,
     designReason: candidate.designRationale,
     taskRole: 'training',
+    targetedTrainingMetadata,
     difficulty: candidate.difficultySuggestion,
     sequenceStrategy: sequencePlanningResult?.strategy,
     sequenceReason: sequencePlanningResult?.reason,
@@ -4758,6 +4822,7 @@ function toTaskInput(task) {
     abilityId: task.abilityId,
     taskRole: task.taskRole,
     difficulty: task.difficulty,
+    targetedTrainingMetadata: task.targetedTrainingMetadata,
     anchorType: task.anchorType,
     startParagraph: task.anchorType === 'full_text' ? undefined : task.startParagraph,
     endParagraph: task.anchorType === 'paragraph_range' ? task.endParagraph : undefined,
@@ -4900,6 +4965,7 @@ function buildQuestionCandidateContent(task, draft, selectedMaterial) {
       taskRole: task.taskRole,
       difficulty: task.difficulty,
       gradeRange: specification.gradeRange,
+      targetedTrainingMetadata: task.targetedTrainingMetadata,
     },
     source: selectedMaterial?.source || {
       sourceType: 'ai_assisted',

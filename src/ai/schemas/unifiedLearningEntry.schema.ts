@@ -5,6 +5,10 @@ import {
   isStudentLearningPresentation,
   type StudentLearningPresentation,
 } from './studentLearningNarrative.schema.ts';
+import {
+  isTargetedMicroTrainingSessionOverlay,
+  type TargetedMicroTrainingSessionOverlay,
+} from './targetedMicroTrainingScheduling.schema.ts';
 
 export const UNIFIED_LEARNING_ENTRY_SCHEMA_VERSION = 'unified_learning_entry_v1' as const;
 
@@ -31,6 +35,7 @@ export type UnifiedLearningActivityContext = {
   learningSessionId: string;
   currentLearningRoundId?: string;
   taskQueue?: LearningSessionTaskQueue;
+  targetedMicroTrainingOverlay?: TargetedMicroTrainingSessionOverlay;
   status: UnifiedLearningActivityStatus;
   createdAt: string;
   updatedAt: string;
@@ -149,6 +154,10 @@ export function isUnifiedLearningActivityContext(
     nonEmpty(context.studentId) &&
     nonEmpty(context.learningSessionId) &&
     (context.taskQueue === undefined || isLearningSessionTaskQueue(context.taskQueue)) &&
+    (context.targetedMicroTrainingOverlay === undefined || (
+      isTargetedMicroTrainingSessionOverlay(context.targetedMicroTrainingOverlay) &&
+      context.targetedMicroTrainingOverlay.learningSessionId === context.learningSessionId
+    )) &&
     ['active', 'review_required', 'blocked', 'ended'].includes(context.status) &&
     timestamp(context.createdAt) &&
     timestamp(context.updatedAt);

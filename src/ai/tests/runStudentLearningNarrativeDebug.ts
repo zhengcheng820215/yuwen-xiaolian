@@ -121,6 +121,18 @@ function main(): void {
     nextTaskResolution: resolution('no_match'),
   }, (result) => toStudentLearningPresentation(result)?.continuationReason === undefined);
 
+  check('N14.1 固定题组按序进入下一题时不展示继续原因', {
+    currentTask: task('training'),
+    feedback: feedback(),
+    nextLearningStrategy: strategy('transfer'),
+    nextTaskResolution: resolution('matched'),
+  }, (result) => {
+    const presentation = toStudentLearningPresentation(result, {
+      continuationMode: 'fixed_task_queue',
+    });
+    return Boolean(presentation?.outcome) && presentation?.continuationReason === undefined;
+  });
+
   check('N15 responseAnchor 只保留与覆盖要求相关的短表达', {
     currentTask: task('training'),
     feedback: feedback(),

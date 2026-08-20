@@ -27,7 +27,26 @@ async function main(): Promise<void> {
   check(partial.level === 'optional' && partial.actionLabel === '完善回答', 'partial_requirement_offers_optional_revision');
 
   check(decideLearningFeedbackRevisionOffer({ ...offerInput([]), answerStatus: 'fully_meets' }).level === 'none', 'fully_meets_has_no_revision_offer');
-  check(decideLearningFeedbackRevisionOffer({ ...offerInput([]), answerStatus: 'does_not_meet' }).level === 'none', 'does_not_meet_has_no_revision_offer');
+  const groundedDoesNotMeet = decideLearningFeedbackRevisionOffer({
+    ...offerInput([
+      coverage('judgement', 'conclusion', 'covered', undefined),
+      coverage('evidence', 'text_evidence', 'missing', 'missing_text_evidence'),
+    ]),
+    answerStatus: 'does_not_meet',
+  });
+  check(
+    groundedDoesNotMeet.level === 'recommended'
+      && groundedDoesNotMeet.reason === 'eligible_actionable_foundation'
+      && groundedDoesNotMeet.actionLabel === '根据反馈修订',
+    'does_not_meet_with_required_foundation_offers_revision',
+  );
+  check(decideLearningFeedbackRevisionOffer({
+    ...offerInput([
+      coverage('judgement', 'conclusion', 'missing', 'conclusion_inconsistent'),
+      coverage('evidence', 'text_evidence', 'missing', 'missing_text_evidence'),
+    ]),
+    answerStatus: 'does_not_meet',
+  }).level === 'none', 'does_not_meet_without_required_foundation_has_no_revision_offer');
   check(decideLearningFeedbackRevisionOffer({ ...offerInput([]), answerStatus: 'insufficient_evidence' }).level === 'none', 'insufficient_evidence_has_no_revision_offer');
   check(decideLearningFeedbackRevisionOffer({ ...offerInput([]), formalFeedbackReady: false }).level === 'none', 'unready_formal_feedback_has_no_revision_offer');
   check(decideLearningFeedbackRevisionOffer({ ...offerInput([]), taskRole: 'retest' }).level === 'none', 'retest_role_has_no_revision_offer');

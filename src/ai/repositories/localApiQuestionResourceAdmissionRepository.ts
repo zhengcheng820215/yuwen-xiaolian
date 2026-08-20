@@ -11,6 +11,7 @@ import {
   type ResourceValidationResult,
   type StructuredQuestionDraft,
 } from '../schemas/questionResourceAdmission.schema.ts';
+import { assertValidTargetedMaterialUsage } from '../schemas/targetedMicroTraining.schema.ts';
 
 export class LocalApiQuestionResourceAdmissionRepository
 implements QuestionResourceAdmissionRepository {
@@ -21,6 +22,7 @@ implements QuestionResourceAdmissionRepository {
   }
 
   async saveMaterial(material: QuestionMaterialVersion): Promise<QuestionMaterialVersion> {
+    assertValidTargetedMaterialUsage(material);
     const envelope = await this.client.read();
     const existing = envelope.snapshot.data.questionResources.materials
       .find((item) => item.materialVersionId === material.materialVersionId);

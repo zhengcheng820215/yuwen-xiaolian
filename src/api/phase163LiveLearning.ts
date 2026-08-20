@@ -120,11 +120,21 @@ import {
 import { runDiagnosisThroughPhase163Boundary } from './phase163DiagnosisBoundary.ts';
 import {
   assertPhase163ProductRuntimeIdentity,
-  PHASE163_LEARNING_STUDENT_ID,
   PHASE163_LEARNING_TIMEZONE,
+  resolvePhase163LearningStudentId,
 } from './phase163LearningIdentity.ts';
+import {
+  completeTargetedTraining,
+  getTargetedTrainingResourceVersion,
+  loadTargetedTrainingTransition,
+  scheduleTargetedTrainingAfterCoreResult,
+  skipTargetedTraining,
+  startTargetedTraining,
+  type TargetedMicroTrainingLearningTransition,
+} from './targetedMicroTrainingLearning.ts';
 
 const TIMEZONE = PHASE163_LEARNING_TIMEZONE;
+const PHASE163_RUNTIME_STUDENT_ID = resolvePhase163LearningStudentId();
 const operationRepository = new IndexedDBRealLearningOperationRepository();
 const persistenceRepository = new IndexedDBLearningPersistenceRepository();
 const sessionRepository = new IndexedDBLearningSessionRepository();
@@ -186,6 +196,8 @@ export type Phase163LiveWorkspaceState = {
   canAdvance: boolean;
   canRetry: boolean;
   isRetest: boolean;
+  isTargetedMicroTraining?: boolean;
+  targetedMicroTraining?: TargetedMicroTrainingLearningTransition;
   primaryAction: 'submit_answer' | 'resume_processing' | 'retry_resource' | 'start_next_task' | 'return_to_entry';
   pauseReason?: StudentRuntimePauseReason;
   studentTitle?: string;
@@ -229,10 +241,10 @@ export async function loadPhase163FeedbackRevisionObservationReport(options: {
     await observationService.retryDue().catch(() => undefined);
   }
   const [attempts, events, outboxEntries, projections] = await Promise.all([
-    learningTaskAttemptRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID),
-    learningObservationRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID),
+    learningTaskAttemptRepository.listByStudent(PHASE163_RUNTIME_STUDENT_ID),
+    learningObservationRepository.listByStudent(PHASE163_RUNTIME_STUDENT_ID),
     learningObservationOutboxRepository.listAll(),
-    questionCalibrationProjectionRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID),
+    questionCalibrationProjectionRepository.listByStudent(PHASE163_RUNTIME_STUDENT_ID),
   ]);
   return {
     audit: auditLearningFeedbackRevisionObservations({ attempts, events, outboxEntries, projections }),
@@ -243,7 +255,7 @@ export async function loadPhase163FeedbackRevisionObservationReport(options: {
 export async function loadPhase163LiveWorkspace(): Promise<Phase163LiveWorkspaceState> {
   const descriptor = await buildCurrentRoundDescriptor();
   const checkpoint = await operationRepository.getByOperationId(descriptor.input.operationId);
-  const persisted = await persistenceRepository.loadByRound(PHASE163_LEARNING_STUDENT_ID, descriptor.input.learningRoundId);
+  const persisted = await persistenceRepository.loadByRound(PHASE163_RUNTIME_STUDENT_ID, descriptor.input.learningRoundId);
   if (persisted) {
     assertPhase163ProductRuntimeIdentity({
       studentId: persisted.studentId,
@@ -256,6 +268,24 @@ export async function loadPhase163LiveWorkspace(): Promise<Phase163LiveWorkspace
   });
   if (!checkpoint) return readyState(descriptor, persisted?.answerDraft || '', persisted?.singleChoiceDraft);
   return await stateFromCheckpoint(descriptor, checkpoint, persisted?.answerDraft || '', persisted?.singleChoiceDraft);
+}
+
+export async function startPhase163TargetedMicroTraining(
+  assignmentId: string,
+): Promise<Phase163LiveWorkspaceState> {
+  await startTargetedTraining(PHASE163_RUNTIME_STUDENT_ID, assignmentId);
+  return loadPhase163LiveWorkspace();
+}
+
+export async function skipPhase163TargetedMicroTraining(
+  assignmentId: string,
+): Promise<Phase163LiveWorkspaceState> {
+  await skipTargetedTraining(PHASE163_RUNTIME_STUDENT_ID, assignmentId);
+  return loadPhase163LiveWorkspace();
+}
+
+export async function resumePhase163CoreAfterTargetedMicroTraining(): Promise<Phase163LiveWorkspaceState> {
+  return loadPhase163LiveWorkspace();
 }
 
 export async function recordPhase163QuestionPresented(roundId: string): Promise<void> {
@@ -295,10 +325,10 @@ export async function savePhase163LiveDraft(
   singleChoiceDraft?: SingleChoiceStudentAnswerValue,
 ): Promise<void> {
   const descriptor = await buildCurrentRoundDescriptor();
-  const existing = await persistenceRepository.loadByRound(PHASE163_LEARNING_STUDENT_ID, descriptor.input.learningRoundId);
+  const existing = await persistenceRepository.loadByRound(PHASE163_RUNTIME_STUDENT_ID, descriptor.input.learningRoundId);
   await persistenceRepository.save({
-    recordId: existing?.recordId || `${PHASE163_LEARNING_STUDENT_ID}::${descriptor.input.learningRoundId}`,
-    studentId: PHASE163_LEARNING_STUDENT_ID,
+    recordId: existing?.recordId || `${PHASE163_RUNTIME_STUDENT_ID}::${descriptor.input.learningRoundId}`,
+    studentId: PHASE163_RUNTIME_STUDENT_ID,
     learningRoundId: descriptor.input.learningRoundId,
     savedAt: existing?.savedAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -378,7 +408,13 @@ export async function submitPhase163LiveAnswer(
     learningPersistenceRepository: persistenceRepository,
     operationRepository,
     runDiagnosisRuntime: runDiagnosisThroughPhase163Boundary,
-    resolveNextTask: ({ taskRequest, previousResourceVersion }) => resolveNextFormalTask(taskRequest, previousResourceVersion),
+    resolveNextTask: ({ taskRequest, previousResourceVersion }) => descriptor.isTargetedMicroTraining
+      ? Promise.resolve({
+          status: 'session_complete' as const,
+          taskRequestId: taskRequest.taskRequestId,
+          issues: [],
+        })
+      : resolveNextFormalTask(taskRequest, previousResourceVersion),
     now: () => submittedAt,
   });
 
@@ -386,7 +422,7 @@ export async function submitPhase163LiveAnswer(
     await savePhase163LiveDraft(answerText, singleChoiceAnswer);
   }
 
-  const persistence = await persistenceRepository.loadByRound(PHASE163_LEARNING_STUDENT_ID, input.learningRoundId);
+  const persistence = await persistenceRepository.loadByRound(PHASE163_RUNTIME_STUDENT_ID, input.learningRoundId);
   await recordRuntimeCompletionObservations(descriptor, result.checkpoint, persistence);
   await projectPhase163CalibrationAttempt(descriptor, result.checkpoint.taskExecutionResult, result.checkpoint, persistence);
   await observationService.retryDue().catch(() => undefined);
@@ -614,7 +650,7 @@ function buildObservation(
     occurredAt,
     recordedAt: new Date().toISOString(),
     runtimeScope: 'product',
-    studentId: PHASE163_LEARNING_STUDENT_ID,
+    studentId: PHASE163_RUNTIME_STUDENT_ID,
     operationId: descriptor.input.operationId,
     learningSessionId: descriptor.input.learningSessionId,
     learningRoundId: descriptor.input.learningRoundId,
@@ -668,13 +704,13 @@ export async function advancePhase163LiveRound(): Promise<Phase163LiveWorkspaceS
 }
 
 export async function loadPhase163DueRetestPlans(): Promise<DelayedRetestPlan[]> {
-  const records = await persistenceRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const records = await persistenceRepository.listByStudent(PHASE163_RUNTIME_STUDENT_ID);
   const latest = records.filter((item) => item.growthMemorySummary).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
   if (!latest?.growthMemorySummary) return [];
-  const history = await queryLearningSessionHistory(sessionRepository, { studentId: PHASE163_LEARNING_STUDENT_ID });
+  const history = await queryLearningSessionHistory(sessionRepository, { studentId: PHASE163_RUNTIME_STUDENT_ID });
   const evidence = records.flatMap((item) => item.learningRoundResult?.taskEvidenceReturnResult?.abilityEvidence || []);
   const result = scheduleDelayedRetest({
-    studentId: PHASE163_LEARNING_STUDENT_ID,
+    studentId: PHASE163_RUNTIME_STUDENT_ID,
     targetAbilityId: latest.growthMemorySummary.abilityId,
     growthMemorySummary: latest.growthMemorySummary,
     sessionHistory: history,
@@ -808,6 +844,8 @@ async function buildCurrentRoundDescriptor() {
     currentVersions,
     taskRequest,
     matched,
+    isTargetedMicroTraining,
+    targetedAssignmentId,
   } = selection;
   if (!context || !roundId) throw new Error('请先从学习入口开始本次学习。');
   if (
@@ -821,13 +859,15 @@ async function buildCurrentRoundDescriptor() {
       : '暂无符合当前能力和任务要求的正式任务。');
   }
   const version = matched.resourceVersion;
-  const taskQueueContext = await ensureActiveSessionTaskQueue(
-    context,
-    currentVersions,
-    version,
-    selection.descriptorAt,
-    number,
-  );
+  const taskQueueContext = isTargetedMicroTraining
+    ? context
+    : await ensureActiveSessionTaskQueue(
+        context,
+        currentVersions,
+        version,
+        selection.descriptorAt,
+        number,
+      );
   const queueProgress = resolveLearningSessionTaskQueueProgress(
     taskQueueContext.taskQueue,
     number,
@@ -850,13 +890,13 @@ async function buildCurrentRoundDescriptor() {
   ));
   const currentProfile = latest?.studentAbilityProfile || {
     ...base.input.currentProfile,
-    studentId: PHASE163_LEARNING_STUDENT_ID,
+    studentId: PHASE163_RUNTIME_STUDENT_ID,
   };
   const currentGrowthMemorySummary = latest?.growthMemorySummary || {
     ...base.input.currentGrowthMemorySummary,
-    studentId: PHASE163_LEARNING_STUDENT_ID,
+    studentId: PHASE163_RUNTIME_STUDENT_ID,
   };
-  const revisionAttempts = await learningTaskAttemptRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const revisionAttempts = await learningTaskAttemptRepository.listByStudent(PHASE163_RUNTIME_STUDENT_ID);
   const latestRevisionProfile = [...revisionAttempts]
     .reverse()
     .find((item) => item.status === 'completed_with_revision' && item.revision?.profileAfterRevision)
@@ -870,11 +910,13 @@ async function buildCurrentRoundDescriptor() {
   const startedAt = new Date().toISOString();
   const currentLearningContext: CurrentLearningContext = {
     ...base.input.currentLearningContext,
-    studentId: PHASE163_LEARNING_STUDENT_ID,
+    studentId: PHASE163_RUNTIME_STUDENT_ID,
     targetAbilityId: version.abilityMetadata.abilityId,
     recentTaskRole: version.abilityMetadata.taskRole,
   };
   return {
+    isTargetedMicroTraining,
+    targetedAssignmentId,
     retestPlan,
     concreteTask,
     readiness,
@@ -887,7 +929,7 @@ async function buildCurrentRoundDescriptor() {
       learningSessionId: taskQueueContext.learningSessionId,
       learningRoundId: roundId,
       diagnosisRequestId: `phase16-3-live-diagnosis-${roundId}`,
-      studentId: PHASE163_LEARNING_STUDENT_ID,
+      studentId: PHASE163_RUNTIME_STUDENT_ID,
       resourceVersion: version,
       qualityGatedTask: qualityTask,
       answerText: '',
@@ -915,15 +957,29 @@ async function buildCurrentRoundDescriptor() {
 
 async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
   const descriptorAt = new Date().toISOString();
-  const storedContext = await activityRepository.getByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const storedContext = await activityRepository.getByStudent(PHASE163_RUNTIME_STUDENT_ID);
   let context = storedContext?.status !== 'ended' ? storedContext : undefined;
   if (requireContext && !context) throw new Error('请先从学习入口开始本次学习。');
   if (context) assertPhase163ProductRuntimeIdentity(context);
-  const roundId = context?.currentLearningRoundId || (
+  const targetedTransition = context
+    ? await loadTargetedTrainingTransition(PHASE163_RUNTIME_STUDENT_ID).catch(() => null)
+    : null;
+  const targetedAssignmentId = targetedTransition?.mode === 'in_progress'
+    ? targetedTransition.assignmentId
+    : undefined;
+  const targetedVersion = targetedAssignmentId
+    ? await getTargetedTrainingResourceVersion(targetedAssignmentId)
+    : undefined;
+  const coreRoundId = context?.currentLearningRoundId || (
     context ? `${context.learningSessionId}-round-1` : undefined
   );
-  const number = roundId ? roundNumber(roundId) : 1;
-  const records = await persistenceRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const roundId = targetedAssignmentId
+    ? `${context!.learningSessionId}-targeted-${targetedAssignmentId}`
+    : coreRoundId;
+  const number = targetedTransition
+    ? Math.max(1, targetedTransition.returnToCoreTaskNumber - 1)
+    : roundId ? roundNumber(roundId) : 1;
+  const records = await persistenceRepository.listByStudent(PHASE163_RUNTIME_STUDENT_ID);
   const latest = records
     .filter((item) => item.learningRoundResult?.status === 'completed')
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
@@ -932,14 +988,18 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
     : undefined;
   const plans = await loadPhase163DueRetestPlans();
   const retestPlan = plans[0];
-  const allCurrentVersions = await loadCurrentFormalResourceVersions(
+  const currentHeadVersions = await loadCurrentFormalResourceVersions(
     formalResourceRepository,
     materialObservationRepository,
   );
-  const eligibleNewSessionVersions = filterCurrentFormalResourcesForNewLearningSession(
-    allCurrentVersions,
+  const allCurrentVersions = await includeFrozenSessionResourceVersions(
+    context,
+    currentHeadVersions,
   );
-  const previousRoundId = roundId && number > 1
+  const eligibleNewSessionVersions = filterCurrentFormalResourcesForNewLearningSession(
+    currentHeadVersions,
+  );
+  const previousRoundId = !targetedAssignmentId && roundId && number > 1
     ? replaceRoundNumber(roundId, number - 1)
     : undefined;
   const previousCheckpoint = previousRoundId
@@ -976,7 +1036,9 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
     persistenceRecord: currentPersistenceRecord,
   });
   const queuedResourceVersionId = context?.taskQueue?.resourceVersionIds[number - 1];
-  const pinnedResourceVersionId = restoredResourceVersionId || queuedResourceVersionId;
+  const pinnedResourceVersionId = targetedVersion?.resourceVersionId
+    || restoredResourceVersionId
+    || queuedResourceVersionId;
   const preservesFrozenSessionVersions = Boolean(
     context?.taskQueue || restoredResourceVersionId || currentCheckpoint?.sourceResourceVersionId,
   );
@@ -994,7 +1056,7 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
       : '上次学习任务的正式版本已不可用，请结束本次学习后重新开始。');
   }
   const recentHistory = buildScopedFormalResourceHistory({
-    studentId: PHASE163_LEARNING_STUDENT_ID,
+    studentId: PHASE163_RUNTIME_STUDENT_ID,
     records,
     currentVersions,
     activeLearningSessionId: context?.learningSessionId,
@@ -1006,7 +1068,7 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
   let effectiveRetestPlan = currentVersion ? undefined : retestPlan;
   let bootstrapResolution = !effectiveRetestPlan && !plannedResolution && !currentVersion
     ? await resolveFormalResourceBootstrapMatch({
-        studentId: PHASE163_LEARNING_STUDENT_ID,
+        studentId: PHASE163_RUNTIME_STUDENT_ID,
         versions: currentVersions,
         resourceRepository: formalResourceRepository,
         observationRepository: materialObservationRepository,
@@ -1024,7 +1086,7 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
         : bootstrapResolution!.taskRequest;
   let matched = bootstrapResolution?.matched || await matchCurrentFormalResource({
     taskRequest,
-    studentId: PHASE163_LEARNING_STUDENT_ID,
+    studentId: PHASE163_RUNTIME_STUDENT_ID,
     resourceRepository: formalResourceRepository,
     observationRepository: materialObservationRepository,
     recentHistory: effectiveHistory,
@@ -1034,6 +1096,9 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
       effectiveHistory.recentResourceVersionIds,
     ),
     requiredResourceVersionId: currentVersion?.resourceVersionId,
+    frozenSessionResourceVersionId: queuedResourceVersionId === currentVersion?.resourceVersionId
+      ? queuedResourceVersionId
+      : undefined,
     eligibleResourceVersionIds: currentVersions.map((version) => version.resourceVersionId),
     evaluatedAt: descriptorAt,
   });
@@ -1044,7 +1109,7 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
     !currentVersion
   ) {
     bootstrapResolution = await resolveFormalResourceBootstrapMatch({
-      studentId: PHASE163_LEARNING_STUDENT_ID,
+      studentId: PHASE163_RUNTIME_STUDENT_ID,
       versions: currentVersions,
       resourceRepository: formalResourceRepository,
       observationRepository: materialObservationRepository,
@@ -1072,6 +1137,8 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
     taskRequest,
     recentHistory: effectiveHistory,
     matched,
+    isTargetedMicroTraining: Boolean(targetedAssignmentId),
+    targetedAssignmentId,
   };
 }
 
@@ -1079,15 +1146,19 @@ async function resolveNextFormalTask(
   taskRequest: TaskRequest,
   previousResourceVersion: FrozenQuestionResourceVersion,
 ): Promise<NextFormalTaskResolution> {
-  const records = await persistenceRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID);
-  const allVersions = await loadCurrentFormalResourceVersions(
+  const records = await persistenceRepository.listByStudent(PHASE163_RUNTIME_STUDENT_ID);
+  const currentHeadVersions = await loadCurrentFormalResourceVersions(
     formalResourceRepository,
     materialObservationRepository,
   );
-  const storedContext = await activityRepository.getByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const storedContext = await activityRepository.getByStudent(PHASE163_RUNTIME_STUDENT_ID);
+  const allVersions = await includeFrozenSessionResourceVersions(
+    storedContext?.status !== 'ended' ? storedContext : undefined,
+    currentHeadVersions,
+  );
   const versions = storedContext?.status !== 'ended' && storedContext?.taskQueue
     ? allVersions
-    : filterCurrentFormalResourcesForNewLearningSession(allVersions);
+    : filterCurrentFormalResourcesForNewLearningSession(currentHeadVersions);
   const currentRoundNumber = roundNumber(storedContext?.currentLearningRoundId);
   const queueProgress = resolveLearningSessionTaskQueueProgress(
     storedContext?.status !== 'ended' ? storedContext?.taskQueue : undefined,
@@ -1114,7 +1185,7 @@ async function resolveNextFormalTask(
     ? storedContext?.learningSessionId
     : undefined;
   const history = buildScopedFormalResourceHistory({
-    studentId: PHASE163_LEARNING_STUDENT_ID,
+    studentId: PHASE163_RUNTIME_STUDENT_ID,
     records,
     currentVersions: versions,
     activeLearningSessionId,
@@ -1128,7 +1199,7 @@ async function resolveNextFormalTask(
     const queuedTaskRequest = taskRequestForExistingVersion(queuedNextVersion, new Date().toISOString());
     const queuedResolution = await matchCurrentFormalResource({
       taskRequest: queuedTaskRequest,
-      studentId: PHASE163_LEARNING_STUDENT_ID,
+      studentId: PHASE163_RUNTIME_STUDENT_ID,
       resourceRepository: formalResourceRepository,
       observationRepository: materialObservationRepository,
       recentHistory: {
@@ -1139,6 +1210,7 @@ async function resolveNextFormalTask(
       },
       bootstrapMaterialId: queuedNextVersion.materialId,
       requiredResourceVersionId: queuedNextVersion.resourceVersionId,
+      frozenSessionResourceVersionId: queuedNextVersion.resourceVersionId,
       eligibleResourceVersionIds: versions.map((version) => version.resourceVersionId),
       evaluatedAt: new Date().toISOString(),
     });
@@ -1159,7 +1231,7 @@ async function resolveNextFormalTask(
   });
   return matchCurrentFormalResource({
     taskRequest,
-    studentId: PHASE163_LEARNING_STUDENT_ID,
+    studentId: PHASE163_RUNTIME_STUDENT_ID,
     resourceRepository: formalResourceRepository,
     observationRepository: materialObservationRepository,
     recentHistory: {
@@ -1182,6 +1254,24 @@ async function resolveNextFormalTask(
   });
 }
 
+async function includeFrozenSessionResourceVersions(
+  context: UnifiedLearningActivityContext | undefined,
+  currentHeadVersions: FrozenQuestionResourceVersion[],
+): Promise<FrozenQuestionResourceVersion[]> {
+  if (!context?.taskQueue) return currentHeadVersions;
+  const queuedVersions = await Promise.all(context.taskQueue.resourceVersionIds.map((id) => (
+    formalResourceRepository.getVersion(id)
+  )));
+  return uniqueById([
+    ...currentHeadVersions,
+    ...queuedVersions.filter((version): version is FrozenQuestionResourceVersion => Boolean(
+      version &&
+      version.status === 'frozen' &&
+      version.materialId === context.taskQueue?.materialId,
+    )),
+  ], (version) => version.resourceVersionId);
+}
+
 function selectBootstrapMaterialId(
   versions: FrozenQuestionResourceVersion[],
   taskRequest: TaskRequest,
@@ -1196,17 +1286,17 @@ function selectBootstrapMaterialId(
 
 async function appendRoundToCurrentSession(record: LearningPersistenceRecord): Promise<void> {
   const context = await requireActiveContext();
-  const session = await sessionRepository.getById(PHASE163_LEARNING_STUDENT_ID, context.learningSessionId);
+  const session = await sessionRepository.getById(PHASE163_RUNTIME_STUDENT_ID, context.learningSessionId);
   if (!session || session.status !== 'in_progress') return;
   await saveLearningSessionRecord(sessionRepository, appendLearningRoundToSession(session, { persistenceRecord: record }));
 }
 
 async function recordNaturalDay(result: Awaited<ReturnType<typeof runPhase163RealLearningChain>>, plan?: DelayedRetestPlan): Promise<void> {
   const now = new Date().toISOString();
-  const existing = await multiDayRepository.getByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const existing = await multiDayRepository.getByStudent(PHASE163_RUNTIME_STUDENT_ID);
   const state = existing || createPhase163MultiDayRun({
-    runId: `phase16-3-natural-${PHASE163_LEARNING_STUDENT_ID}`,
-    studentId: PHASE163_LEARNING_STUDENT_ID,
+    runId: `phase16-3-natural-${PHASE163_RUNTIME_STUDENT_ID}`,
+    studentId: PHASE163_RUNTIME_STUDENT_ID,
     timezone: TIMEZONE,
     targetNaturalDayCount: 5,
     startedAt: now,
@@ -1223,7 +1313,7 @@ async function recordNaturalDay(result: Awaited<ReturnType<typeof runPhase163Rea
 }
 
 async function requireActiveContext() {
-  const context = await activityRepository.getByStudent(PHASE163_LEARNING_STUDENT_ID);
+  const context = await activityRepository.getByStudent(PHASE163_RUNTIME_STUDENT_ID);
   if (!context || context.status === 'ended') throw new Error('请先从学习入口开始本次学习。');
   assertPhase163ProductRuntimeIdentity(context);
   return context;
@@ -1265,6 +1355,7 @@ function readyState(
     canAdvance: false,
     canRetry: false,
     isRetest: task.taskRole === 'retest',
+    isTargetedMicroTraining: descriptor.isTargetedMicroTraining,
     primaryAction: 'submit_answer',
   };
 }
@@ -1286,7 +1377,7 @@ function taskRequestForExistingVersion(
   return {
     taskRequestId: `phase17-3-resume-request-${version.resourceVersionId}`,
     strategyId: `phase17-3-resume-strategy-${version.resourceVersionId}`,
-    studentId: PHASE163_LEARNING_STUDENT_ID,
+    studentId: PHASE163_RUNTIME_STUDENT_ID,
     targetAbilityId: version.abilityMetadata.abilityId,
     taskRole: role,
     action,
@@ -1363,6 +1454,8 @@ async function stateFromCheckpoint(
   const sessionQueueBlocked = checkpoint.issues.includes(
     'session_task_queue_next_version_unavailable',
   );
+  const canAdvance = hasFormalRoundResult && queueProgress.hasNextTask && !sessionQueueBlocked;
+  const sessionComplete = hasFormalRoundResult && queueProgress.isComplete;
   const learningPresentation = toStudentLearningPresentation(buildStudentLearningNarrativeProjection({
     studentId: checkpoint.studentId,
     currentTask: checkpoint.concreteTask || descriptor.concreteTask,
@@ -1373,9 +1466,9 @@ async function stateFromCheckpoint(
     nextLearningStrategy: checkpoint.nextLearningStrategy,
     nextTaskResolution: checkpoint.nextTaskResolution,
     delayedRetestPlan: descriptor.retestPlan,
-  }));
-  const canAdvance = hasFormalRoundResult && queueProgress.hasNextTask && !sessionQueueBlocked;
-  const sessionComplete = hasFormalRoundResult && queueProgress.isComplete;
+  }), {
+    continuationMode: canAdvance ? 'fixed_task_queue' : 'adaptive',
+  });
   const primaryAction = canAdvance
     ? 'start_next_task'
     : checkpoint.status === 'review_required'
@@ -1398,6 +1491,46 @@ async function stateFromCheckpoint(
     })
     : undefined;
   const revision = await resolveFeedbackRevisionState(descriptor, checkpoint, feedback);
+  let targetedMicroTraining: TargetedMicroTrainingLearningTransition | undefined;
+  if (descriptor.isTargetedMicroTraining && descriptor.targetedAssignmentId && hasFormalRoundResult) {
+    await completeTargetedTraining(
+      PHASE163_RUNTIME_STUDENT_ID,
+      descriptor.targetedAssignmentId,
+    );
+  } else if (
+    hasFormalRoundResult
+    && checkpoint.status === 'completed'
+    && checkpoint.taskExecutionResult?.studentResponse
+    && !revision
+    && descriptor.input.resourceVersion.abilityMetadata.taskRole === 'training'
+  ) {
+    const response = checkpoint.taskExecutionResult.studentResponse;
+    targetedMicroTraining = await scheduleTargetedTrainingAfterCoreResult({
+      studentId: descriptor.input.studentId,
+      learningSessionId: descriptor.input.learningSessionId,
+      learningRoundId: descriptor.input.learningRoundId,
+      sourceAttemptId: attemptIdFor(descriptor, submissionIntentForResponse(response)),
+      sourceCoreTaskNumber: descriptor.roundNumber,
+      sourceVersion: descriptor.input.resourceVersion,
+      feedback,
+      persistenceCompleted: true,
+      revisionAvailable: false,
+      now: checkpoint.updatedAt,
+    }).catch(() => null) || undefined;
+  }
+  const targetedReturnTaskNumber = descriptor.isTargetedMicroTraining
+    ? descriptor.queueProgress.currentTaskNumber + 1
+    : undefined;
+  const targetedCanAdvance = Boolean(
+    descriptor.isTargetedMicroTraining
+    && targetedReturnTaskNumber
+    && targetedReturnTaskNumber <= descriptor.queueProgress.totalTaskCount,
+  );
+  const targetedSessionComplete = Boolean(
+    descriptor.isTargetedMicroTraining
+    && targetedReturnTaskNumber
+    && targetedReturnTaskNumber > descriptor.queueProgress.totalTaskCount,
+  );
   return {
     ...base,
     status: canAdvance || sessionComplete || checkpoint.status === 'completed'
@@ -1419,8 +1552,8 @@ async function stateFromCheckpoint(
           : feedback.thinkingReview.missingPoints.slice(0, 1),
       } : undefined,
     } : undefined,
-    canAdvance,
-    sessionComplete,
+    canAdvance: descriptor.isTargetedMicroTraining ? targetedCanAdvance : canAdvance,
+    sessionComplete: descriptor.isTargetedMicroTraining ? targetedSessionComplete : sessionComplete,
     canRetry: checkpoint.status === 'retry_required',
     primaryAction,
     pauseReason: pausePresentation?.reason,
@@ -1440,7 +1573,9 @@ async function stateFromCheckpoint(
               : '请补充回答后重新提交。'
             : '已提交的回答正在恢复处理，不需要重新作答。'
           : undefined,
-    revision,
+    revision: descriptor.isTargetedMicroTraining ? undefined : revision,
+    isTargetedMicroTraining: descriptor.isTargetedMicroTraining,
+    targetedMicroTraining,
   };
 }
 
@@ -1685,6 +1820,7 @@ async function resolveFeedbackRevisionState(
     initialFeedbackSchemaVersion: feedbackResult.schemaVersion,
     createdAt: response.submittedAt,
   });
+  if (attempt.status === 'completed_initial_only') return undefined;
   const offer = decideLearningFeedbackRevisionOffer({
     taskRole: descriptor.concreteTask.taskRole,
     answerStatus: commit.diagnosisResult.answerStatus,
@@ -1698,13 +1834,16 @@ async function resolveFeedbackRevisionState(
     requirementCoverage: feedback?.thinkingReview?.requirementCoverage,
     guidance: feedback?.guidance,
   });
-  attempt = await feedbackRevisionPersistenceService.recordRevisionOfferDecision(
-    attempt.learningTaskAttemptId,
-    offer,
-    checkpoint.updatedAt,
-  );
+  if (!attempt.revisionOfferDecision) {
+    attempt = await feedbackRevisionPersistenceService.recordRevisionOfferDecision(
+      attempt.learningTaskAttemptId,
+      offer,
+      checkpoint.updatedAt,
+    );
+  } else if (!attempt.revisionOfferDecision.eligible) {
+    return undefined;
+  }
 
-  if (attempt.status === 'completed_initial_only') return undefined;
   if (offer.level === 'none' && attempt.status === 'feedback_presented') {
     await feedbackRevisionPersistenceService.completeInitialOnly(attempt.learningTaskAttemptId);
     return undefined;

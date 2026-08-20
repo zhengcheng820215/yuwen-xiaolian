@@ -12,6 +12,7 @@ import {
 import { createAdaptiveTaskFulfillmentRequest } from './taskFulfillmentRequestAgent.ts';
 import { orderFormalResourcesForLearningSequence } from './learningTaskSequenceScheduler.ts';
 import { evaluateQuestionGenerationQuality } from './questionGenerationQualityPolicyAgent.ts';
+import { prepareConcreteLearningTaskFromFrozenResource } from './frozenQuestionResourceTaskAdapter.ts';
 import type { MaterialObservationRepository } from '../repositories/materialObservationRepository.ts';
 import type { QuestionResourceAdmissionRepository } from '../repositories/questionResourceAdmissionRepository.ts';
 import {
@@ -46,6 +47,12 @@ export type Phase173FormalResourceMatchInput = {
   evaluatedAt?: string;
   bootstrapMaterialId?: string;
   requiredResourceVersionId?: string;
+  /**
+   * Exact immutable version frozen into an already-started Learning session.
+   * It may no longer be the Registry Current Head after authoring publishes a
+   * successor, but it remains the authoritative version for that session.
+   */
+  frozenSessionResourceVersionId?: string;
   /** Explicit admission boundary supplied by a new Learning-session resolver. */
   eligibleResourceVersionIds?: string[];
 };
@@ -72,6 +79,12 @@ async function matchFormalResource(
   if (input.taskRequest.studentId !== input.studentId) {
     return blocked(input.taskRequest.taskRequestId, 'student_identity_mismatch');
   }
+  if (
+    input.frozenSessionResourceVersionId &&
+    input.requiredResourceVersionId !== input.frozenSessionResourceVersionId
+  ) {
+    return blocked(input.taskRequest.taskRequestId, 'frozen_session_resource_identity_mismatch');
+  }
 
   const completeSnapshot = await loadResourceEligibilitySnapshot(
     input.resourceRepository,
@@ -80,11 +93,15 @@ async function matchFormalResource(
   const scopedSnapshot = scope === 'phase173_batch_a'
     ? batchASnapshot(completeSnapshot)
     : completeSnapshot;
-  const qualityScopedSnapshot = input.eligibleResourceVersionIds
+  const qualityScopedSnapshot = input.eligibleResourceVersionIds && !input.frozenSessionResourceVersionId
     ? resourceVersionIdsSnapshot(scopedSnapshot, input.eligibleResourceVersionIds)
     : scopedSnapshot;
   const snapshot = input.requiredResourceVersionId
-    ? resourceVersionSnapshot(qualityScopedSnapshot, input.requiredResourceVersionId)
+    ? resourceVersionSnapshot(
+        qualityScopedSnapshot,
+        input.requiredResourceVersionId,
+        input.frozenSessionResourceVersionId === input.requiredResourceVersionId,
+      )
     : qualityScopedSnapshot;
   if (input.requiredResourceVersionId && snapshot.frozenVersions.length === 0) {
     return blocked(input.taskRequest.taskRequestId, 'required_resource_version_unavailable');
@@ -180,13 +197,28 @@ async function matchFormalResource(
     item.resourceVersionId === taskResult.task!.resourceVersionId
   ));
   if (!version) return blocked(input.taskRequest.taskRequestId, 'matched_version_missing');
-  const preparation = await prepareFormalResourceRuntimeTask({
-    resourceVersionId: version.resourceVersionId,
-    qualityGatedTask: taskResult.task,
-    resourceRepository: input.resourceRepository,
-    observationRepository: input.observationRepository,
-    createdAt: evaluatedAt,
-  });
+  const preparation = input.frozenSessionResourceVersionId === version.resourceVersionId
+    ? (() => {
+        const prepared = prepareConcreteLearningTaskFromFrozenResource({
+          resourceVersion: version,
+          qualityGatedTask: taskResult.task!,
+          createdAt: evaluatedAt,
+        });
+        return {
+          status: prepared.status,
+          taskPreparation: prepared.status === 'prepared'
+            ? { concreteTaskResult: prepared.concreteTaskResult }
+            : undefined,
+          issues: prepared.issues,
+        } as const;
+      })()
+    : await prepareFormalResourceRuntimeTask({
+        resourceVersionId: version.resourceVersionId,
+        qualityGatedTask: taskResult.task,
+        resourceRepository: input.resourceRepository,
+        observationRepository: input.observationRepository,
+        createdAt: evaluatedAt,
+      });
   if (preparation.status !== 'prepared') {
     return {
       status: preparation.status === 'review_required' ? 'review_required' : 'blocked',
@@ -624,6 +656,7 @@ function batchASnapshot(snapshot: ResourceEligibilitySnapshot): ResourceEligibil
 function resourceVersionSnapshot(
   snapshot: ResourceEligibilitySnapshot,
   resourceVersionId: string,
+  preserveFrozenSessionVersion = false,
 ): ResourceEligibilitySnapshot {
   const frozenVersions = snapshot.frozenVersions.filter((version) => (
     version.resourceVersionId === resourceVersionId
@@ -631,15 +664,26 @@ function resourceVersionSnapshot(
   const resourceIds = new Set(frozenVersions.map((version) => version.resourceId));
   const validationIds = new Set(frozenVersions.map((version) => version.validationId));
   const reviewIds = new Set(frozenVersions.map((version) => version.reviewId));
-  const registryEntries = snapshot.registryEntries.filter((entry) => (
-    resourceIds.has(entry.resourceId) &&
-    entry.currentFrozenVersionId === resourceVersionId
-  ));
+  const selectedVersion = frozenVersions[0];
+  const registryEntries = snapshot.registryEntries
+    .filter((entry) => (
+      resourceIds.has(entry.resourceId) &&
+      (preserveFrozenSessionVersion || entry.currentFrozenVersionId === resourceVersionId)
+    ))
+    .map((entry) => preserveFrozenSessionVersion && selectedVersion
+      ? {
+          ...entry,
+          currentFrozenVersionId: selectedVersion.resourceVersionId,
+          latestValidationId: selectedVersion.validationId,
+          latestReviewId: selectedVersion.reviewId,
+        }
+      : entry);
   return {
     ...snapshot,
     snapshotId: buildStableId('formal-resource-version-snapshot', [
       snapshot.snapshotId,
       resourceVersionId,
+      preserveFrozenSessionVersion ? 'frozen-session' : 'current-head',
     ]),
     registryEntries,
     frozenVersions,

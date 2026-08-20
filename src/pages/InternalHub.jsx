@@ -14,6 +14,13 @@ import { loadPhase163MultiDayReview } from '../api/internalLearningReview.ts';
 
 const tools = [
   {
+    to: '/internal/targeted-micro-training',
+    icon: ShieldCheck,
+    title: '针对性微训练控制与校准',
+    description: '受控导入短片段资源、隔离验证、暂停回滚并核对运行指标分母。',
+    meta: '受控校准',
+  },
+  {
     to: '/internal/learning-collection',
     icon: ShieldCheck,
     title: '学习采集完整性',

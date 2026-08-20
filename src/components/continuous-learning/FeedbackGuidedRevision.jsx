@@ -2,6 +2,7 @@ import { ArrowRight, BookOpen, RefreshCw, Save } from 'lucide-react';
 import AnswerLengthIndicator from './AnswerLengthIndicator.jsx';
 import ReadingMaterialText from './ReadingMaterialText.jsx';
 import { formatLearningMaterialHeading } from '../../ui/learningMaterialHeading.ts';
+import { presentLearningFeedbackRevision } from '../../ui/learningFeedbackRevisionPresentation.ts';
 
 export function FeedbackRevisionGoal({ revision, className = '' }) {
   if (!revision?.revisionGoal) return null;
@@ -135,27 +136,24 @@ export function FeedbackRevisionSubmitted({ revision, busy, canAdvance, continue
 export function FeedbackRevisionEvaluated({ revision, busy, canAdvance, continueLabel, onContinue }) {
   const evaluation = revision?.evaluation;
   if (!evaluation) return null;
-  const presentation = revisionOutcomePresentation(evaluation.outcome);
+  const presentation = presentLearningFeedbackRevision(evaluation);
   return (
     <main className="flex min-h-[calc(100vh-65px)] items-center px-6 py-12">
       <div className="mx-auto w-full max-w-[720px] rounded-md bg-white px-8 py-12 shadow-[0_10px_36px_rgba(15,23,42,0.08)]">
-        <p className="text-sm font-medium text-emerald-700">修订评价已完成</p>
+        <p className="text-sm font-medium text-emerald-700">{presentation.eyebrow}</p>
         <h1 className="mt-3 text-xl font-semibold">{presentation.title}</h1>
-        <p className="mt-3 text-base leading-7 text-slate-700">{evaluation.improvedObservation}</p>
+        <p className="mt-3 text-base leading-7 text-slate-700">{presentation.summary}</p>
 
-        {evaluation.remainingFocus ? (
-          <section className="mt-7 rounded-md bg-amber-50 px-5 py-4" aria-label="仍需关注">
-            <h2 className="text-sm font-semibold text-amber-900">仍需关注</h2>
-            <p className="mt-2 text-sm leading-6 text-amber-900">{evaluation.remainingFocus}</p>
+        {presentation.remainingFocus ? (
+          <section className="mt-7 rounded-md bg-amber-50 px-5 py-4" aria-label="还可以再完善">
+            <h2 className="text-sm font-semibold text-amber-900">还可以再完善</h2>
+            <p className="mt-2 text-sm leading-6 text-amber-900">{presentation.remainingFocus}</p>
           </section>
         ) : null}
 
-        <section className="mt-7 border-t border-slate-200 pt-6" aria-label="下次独立作答建议">
-          <h2 className="text-sm font-semibold text-slate-800">下次独立作答</h2>
-          <p className="mt-2 text-base leading-7 text-slate-700">{evaluation.nextSimilarTaskAction}</p>
-          <p className="mt-3 text-sm leading-6 text-slate-500">
-            这次表现是在反馈支持下形成，系统会保留为修订证据；是否真正掌握，将在后续独立任务中验证。
-          </p>
+        <section className="mt-7 border-t border-slate-200 pt-6" aria-label="记住这个方法">
+          <h2 className="text-sm font-semibold text-slate-800">记住这个方法</h2>
+          <p className="mt-2 text-base leading-7 text-slate-700">{presentation.methodReminder}</p>
         </section>
 
         <button
@@ -170,11 +168,4 @@ export function FeedbackRevisionEvaluated({ revision, busy, canAdvance, continue
       </div>
     </main>
   );
-}
-
-function revisionOutcomePresentation(outcome) {
-  if (outcome === 'improved') return { title: '这次修改已经解决主要问题' };
-  if (outcome === 'partially_improved') return { title: '这次修改已有改善' };
-  if (outcome === 'regressed') return { title: '这次修改引入了新的问题' };
-  return { title: '这次修改还没有解决主要问题' };
 }

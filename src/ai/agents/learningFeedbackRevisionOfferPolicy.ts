@@ -8,13 +8,14 @@ import type {
 } from '../schemas/studentLearningFeedback.schema.ts';
 
 export const LEARNING_FEEDBACK_REVISION_OFFER_POLICY_VERSION =
-  'learning_feedback_revision_offer_policy_v1' as const;
+  'learning_feedback_revision_offer_policy_v2' as const;
 
 export type LearningFeedbackRevisionOfferLevel = 'none' | 'optional' | 'recommended';
 
 export type LearningFeedbackRevisionOfferReason =
   | 'eligible_missing_requirement'
   | 'eligible_partial_requirement'
+  | 'eligible_actionable_foundation'
   | 'task_role_not_eligible'
   | 'formal_feedback_unavailable'
   | 'initial_response_fully_meets'
@@ -47,17 +48,25 @@ export function decideLearningFeedbackRevisionOffer(
     return none('formal_feedback_unavailable');
   }
   if (input.answerStatus === 'fully_meets') return none('initial_response_fully_meets');
-  if (input.answerStatus !== 'partially_meets') return none('initial_response_not_revision_eligible');
+  if (input.answerStatus !== 'partially_meets' && input.answerStatus !== 'does_not_meet') {
+    return none('initial_response_not_revision_eligible');
+  }
 
-  const actionable = (input.requirementCoverage || [])
+  const coverage = input.requirementCoverage || [];
+  const actionable = coverage
     .filter((item) => item.required)
     .filter((item) => item.status === 'missing' || item.status === 'partially_covered')
     .filter((item) => item.gapReasonCode !== 'insufficient_to_judge')
     .sort((left, right) => priority(left.status) - priority(right.status));
   const primary = actionable[0];
   if (!primary) return none('no_actionable_revision_goal');
+  if (input.answerStatus === 'does_not_meet' && !hasRequiredFoundation(coverage)) {
+    return none('initial_response_not_revision_eligible');
+  }
 
-  const level = primary.status === 'missing' ? 'recommended' : 'optional';
+  const level = input.answerStatus === 'does_not_meet' || primary.status === 'missing'
+    ? 'recommended'
+    : 'optional';
   const primaryIssueCode = issueCode(primary);
   const relatedIssueCodes = actionable
     .slice(1)
@@ -67,9 +76,11 @@ export function decideLearningFeedbackRevisionOffer(
   return {
     policyVersion: LEARNING_FEEDBACK_REVISION_OFFER_POLICY_VERSION,
     level,
-    reason: level === 'recommended'
-      ? 'eligible_missing_requirement'
-      : 'eligible_partial_requirement',
+    reason: input.answerStatus === 'does_not_meet'
+      ? 'eligible_actionable_foundation'
+      : level === 'recommended'
+        ? 'eligible_missing_requirement'
+        : 'eligible_partial_requirement',
     actionLabel: level === 'recommended' ? '根据反馈修订' : '完善回答',
     revisionGoal: {
       primaryIssueCode,
@@ -79,6 +90,13 @@ export function decideLearningFeedbackRevisionOffer(
       sourceFeedbackId: input.formalFeedbackId,
     },
   };
+}
+
+function hasRequiredFoundation(coverage: TaskRequirementCoverage[]): boolean {
+  return coverage.some((item) => (
+    item.required
+    && (item.status === 'covered' || item.status === 'partially_covered')
+  ));
 }
 
 function none(reason: LearningFeedbackRevisionOfferReason): LearningFeedbackRevisionOfferDecision {

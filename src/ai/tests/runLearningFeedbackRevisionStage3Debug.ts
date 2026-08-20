@@ -5,6 +5,7 @@ import type { DiagnosisResult, OpenResponseAnswerStatus } from '../schemas/diagn
 import type { RevisionGoal } from '../schemas/learningFeedbackRevision.schema.ts';
 import type { StudentAbilityProfile } from '../schemas/studentAbilityProfile.schema.ts';
 import { LearningFeedbackRevisionPersistenceService } from '../services/learningFeedbackRevisionPersistenceService.ts';
+import { presentLearningFeedbackRevision } from '../../ui/learningFeedbackRevisionPresentation.ts';
 
 const T0 = '2026-08-14T03:00:00.000Z';
 const T1 = '2026-08-14T03:01:00.000Z';
@@ -36,6 +37,15 @@ async function main(): Promise<void> {
   check(bundle.profileAfterRevision.ability_status[0].evidence_links.at(-1)?.supportLevel === 'feedback_supported', 'profile_keeps_support_level');
   check(bundle.growthMemoryRecord.action === 'append_evidence_only'
     && bundle.growthMemoryRecord.limitations.includes('反馈支持下的改善不能等同于独立掌握。'), 'growth_memory_keeps_revision_limitations');
+  check(!bundle.evaluation.improvedObservation.includes('正式诊断')
+    && !bundle.evaluation.improvedObservation.includes('“'), 'evaluation_does_not_expose_raw_diff_or_diagnosis_jargon');
+  const studentPresentation = presentLearningFeedbackRevision(bundle.evaluation);
+  check(studentPresentation.eyebrow === '本题修订完成'
+    && studentPresentation.title === '修改后，回答更完整了'
+    && studentPresentation.summary.includes('文本依据')
+    && studentPresentation.methodReminder.includes('原文'), 'student_revision_result_is_short_and_actionable');
+  check(!Object.values(studentPresentation).some((value) => value?.includes('修订证据') || value?.includes('独立验证')),
+    'student_revision_result_hides_internal_governance_terms');
 
   let mismatchRejected = false;
   try {

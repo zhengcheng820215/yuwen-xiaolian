@@ -18,8 +18,14 @@ import type {
   TrainingTaskSequencePlanningPreference,
   TrainingTaskSequencePlanningResult,
 } from './trainingTaskSequencePlanning.schema.ts';
+import type {
+  MaterialContentNormalizationPolicyVersion,
+  MaterialUsageType,
+  TargetedExcerptMetadata,
+  TargetedTrainingResourceMetadata,
+} from './targetedMicroTraining.schema.ts';
 
-export const MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION = 'material_observation_draft_generator_v1_9' as const;
+export const MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION = 'material_observation_draft_generator_v1_10' as const;
 
 export const SINGLE_CHOICE_TARGET_SHORTFALL_REASONS = [
   'insufficient_task_capacity',
@@ -93,6 +99,7 @@ export type MaterialObservationDraftGeneratorPreferences = {
     requestedSupplementSingleChoiceCount: number;
   };
   sequencePlanning?: TrainingTaskSequencePlanningPreference;
+  targetedTrainingPlanning?: TargetedTrainingResourceMetadata;
 };
 
 export type MaterialObservationDraftGeneratorInput = {
@@ -104,6 +111,10 @@ export type MaterialObservationDraftGeneratorInput = {
     content: string;
     sourceDescription?: string;
     copyrightNote?: string;
+    usageType?: MaterialUsageType;
+    contentHash?: string;
+    contentNormalizationPolicyVersion?: MaterialContentNormalizationPolicyVersion;
+    targetedExcerptMetadata?: TargetedExcerptMetadata;
   };
   preferences?: MaterialObservationDraftGeneratorPreferences;
   existingInventory?: {

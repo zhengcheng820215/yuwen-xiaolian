@@ -10,6 +10,10 @@ import {
 } from '../schemas/unifiedLearningEntry.schema.ts';
 import type { FrozenQuestionResourceVersion } from
   '../schemas/questionResourceAdmission.schema.ts';
+import {
+  formatNextTaskAction,
+  formatNextTaskContinuation,
+} from '../../ui/learningSessionProgressCopy.ts';
 
 const NOW = '2026-08-19T09:00:00.000Z';
 const choice1 = version('choice-1', 'single_choice', 1);
@@ -80,7 +84,13 @@ assert.equal(isLearningSessionTaskQueue({
   createdAt: NOW,
 }), false);
 
-console.log('Learning session task queue debug: 19/19 passed.');
+assert.equal(formatNextTaskAction(2, 6), '进入第 2 题（共 6 题）');
+assert.equal(
+  formatNextTaskContinuation(2, 6),
+  '本题结果已经保存，接下来进入第 2 题（共 6 题）。',
+);
+
+console.log('Learning session task queue debug: 21/21 passed.');
 
 function version(
   resourceVersionId: string,

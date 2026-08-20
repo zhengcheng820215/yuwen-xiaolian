@@ -3,7 +3,7 @@
 英文名称：Product Owner Control Table
 
 状态：ACTIVE  
-更新日期：2026-08-18
+更新日期：2026-08-20
 
 ## 一、用途
 
@@ -53,6 +53,7 @@ Debug / Acceptance Report
 | `/learning` 正式学习入口 | 让单学生从一个入口开始、恢复、作答、反馈并继续 | PASS | MAIN PATH PASS / SHARED FORMAL SNAPSHOT READ FIXED / CONSOLIDATION IN PROGRESS | UNIFIED ENTRY 20 / 20 + FORMAL ENTRY 10 / 10 PASS | `0 / 5` |
 | Learning 反馈后一次修订 | 保留首次独立表现，并观察学生能否利用反馈完成一次改善 | PASS | STAGES 1–4 ENGINEERING + DEBUG + E2E PASS | ISOLATED BROWSER + E2E PASS / REAL STUDENT ACCEPTANCE PENDING | AWAITING REAL RETEST / TRANSFER DATA |
 | 阅读训练单项选择作答 | 用低输入成本观察基础理解，并通过可解释干扰项形成具体诊断 | PASS | STAGES 1–4 65 / 65 PASS；FINAL RESUME REGRESSION 89 / 89 PASS | REAL-MATERIAL E2E + CONTROLLED PC / TABLET + FINAL BROWSER RESUME SMOKE PASS；CAPABILITY GATE OPEN | AWAITING REAL STUDENT DATA |
+| 针对性短片段微训练 | 在正式主要缺口成立时追加一项低负担训练，并返回核心题组 | PASS | STAGE 1 16 / 16 PASS；STAGE 2 32 / 32 PASS（受控资源包 12 份材料 / 18 道题）；STAGE 3 57 / 57 PASS；STAGE 4 51 / 51 PASS；B4-01—B4-16 CONTROLLED BROWSER PASS | ENGINEERING + CONTROLLED BROWSER PASS / REAL SINGLE-STUDENT CALIBRATION PENDING | AWAITING 5—7 DAY REAL OBSERVATION |
 | 真实 Learning 数据采集与观察 | 在不干扰学生的前提下记录匿名使用者、过程、答案与版本化校准样本 | PASS | WP0—WP7 + STAGE 4 ENGINEERING CLOSEOUT PASS | ISOLATED BROWSER ACCEPTANCE PASS / REAL USE PENDING | AWAITING REAL DATA |
 | 多能力调度 | 根据表现和正式资源决定下一步练什么 | PASS | RUNTIME PASS | LIMITED BY RESOURCE PACK | PENDING |
 | Student Learning Narrative | 把系统已有判断转化为学生可理解、可执行的表达 | PASS | BASELINE PASS | REAL STUDENT CALIBRATION PENDING | PENDING |
@@ -137,6 +138,19 @@ Debug / Acceptance Report
 | 演示路径 | 选择一篇材料中的独立单选任务 → 选择错误干扰项并提交 → 查看对应理解偏差反馈 → 刷新确认结果恢复 → 再完成同篇文本任务；生产端对照 Candidate 采用发布和 Frozen Version。 |
 | FAIL 先查 | 选项、答案键或干扰项：内容 / Schema；提交恢复或版本绑定：Runtime；反馈空泛：Diagnosis / 表达；题序或按钮状态：交互。 |
 | 证据 | [阅读训练单项选择作答契约](READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md) · [阶段 1 工程与 Debug 验收](../education/phase/reports/reading_single_choice_stage1_engineering_debug_acceptance_2026-08-18.md) · [阶段 2 工程实施与验收清单](READING_SINGLE_CHOICE_STAGE2_ENGINEERING_PLAN.md) · [阶段 2 工程与 Debug 验收](../education/phase/reports/reading_single_choice_stage2_engineering_debug_acceptance_2026-08-18.md) · [阶段 3 工程实施与验收清单](READING_SINGLE_CHOICE_STAGE3_ENGINEERING_PLAN.md) · [阶段 3 工程与 Debug 验收](../education/phase/reports/reading_single_choice_stage3_engineering_debug_acceptance_2026-08-18.md) · [阶段 4 端到端联调与产品验收清单](READING_SINGLE_CHOICE_STAGE4_E2E_AND_PRODUCT_ACCEPTANCE_PLAN.md) · [阶段 4 端到端与产品验收报告](../education/phase/reports/reading_single_choice_stage4_e2e_product_acceptance_2026-08-18.md) · [AI 题目生成质量与定向优化契约](AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md) · [AI 题目采用与真实作答校准契约](AI_QUESTION_ADOPTION_AND_EMPIRICAL_CALIBRATION_CONTRACT.md) |
+
+### 6.4 针对性短片段微训练
+
+| 控制项 | 产品负责人视图 |
+| --- | --- |
+| 为什么需要 | 完整课文数量有限；在同篇材料中机械加题会产生重复，但已确认缺口仍需要不同情境中的一次针对性训练。 |
+| 使用者变化 | 核心题完成后，只有出现明确缺口时才可能进入一项短片段练习；完成后回到原题组，不会被无限追问。 |
+| 只做 | `core_reading / targeted_excerpt` 用途区分；正式短片段元数据完整性门禁；版本化内容规范化与哈希；四类具体动作 Gap 触发与可执行资源覆盖矩阵；默认优先不同证据情境；同篇片段必须使用不同 Anchor 且不泄露答案；每核心题最多 1 道、每 Session 最多 2 道；追加式 Assignment；独立 Attempt / Evidence；无匹配时静默继续核心题组。 |
+| 不做 | 不固定增加题量；不把推荐长度设为结构门禁；不使用宏观能力弱项直接触发；不改写核心题组；不建立第二套生产发布链；不因连续失败无限补题；不把微训练完成解释为能力掌握。 |
+| 产品级 PASS | ① 正式短片段元数据完整、哈希策略可解释；② 四类 Gap 均有足够独立可执行资源；③ 触发来自正式唯一具体动作缺口；④ 匹配 Ability / Gap / Role 精确，同篇使用不同 Anchor；⑤ 核心队列不被重排；⑥ 刷新和重复提交不生成重复 Assignment；⑦ 微训练结束后稳定返回核心题组；⑧ 首次表现与微训练证据分离；⑨ 效果只由后续独立核心题、Retest 或 Transfer 验证。 |
+| 演示路径 | 核心文本题形成 `missing_reasoning_relation` → 系统匹配一项短片段训练 → 学生完成 → 返回下一道核心题 → 内部核对两个独立 Attempt 和来源关系。 |
+| FAIL 先查 | 触发过度：Diagnosis / Policy；匹配错位：Resource / Runtime；返回或重复：Session Runtime；片段或题目质量差：内容生产。 |
+| 证据 | [针对性短片段微训练材料与调度契约](./TARGETED_MICRO_TRAINING_MATERIAL_AND_SCHEDULING_CONTRACT.md) · [阶段 1 工程与 Debug 验收](../education/phase/reports/targeted_micro_training_stage1_engineering_debug_acceptance_2026-08-20.md) · [阶段 2 工程实施与验收清单](./TARGETED_MICRO_TRAINING_STAGE2_PRODUCTION_ENGINEERING_PLAN.md) · [阶段 2 工程与 Debug 验收](../education/phase/reports/targeted_micro_training_stage2_engineering_debug_acceptance_2026-08-20.md) · [阶段 3 工程实施与验收清单](./TARGETED_MICRO_TRAINING_STAGE3_LEARNING_SCHEDULING_ENGINEERING_PLAN.md) · [阶段 3 工程与 Debug 验收](../education/phase/reports/targeted_micro_training_stage3_engineering_debug_acceptance_2026-08-20.md) · [阶段 4 受控启用与真实校准契约](./TARGETED_MICRO_TRAINING_STAGE4_CONTROLLED_CALIBRATION_CONTRACT.md) · [阶段 4 工程实施与验收清单](./TARGETED_MICRO_TRAINING_STAGE4_ENGINEERING_AND_ACCEPTANCE_PLAN.md) · [阶段 4 工程与 Debug 验收](../education/phase/reports/targeted_micro_training_stage4_engineering_debug_acceptance_2026-08-20.md) · [阶段 4 全量真实浏览器联调验收](../education/phase/reports/targeted_micro_training_stage4_full_browser_acceptance_2026-08-20.md) · [训练模型](../education/TRAINING_MODEL.md) · [学习缺口模型](../education/LEARNING_GAP_MODEL.md) |
 
 ## 七、多能力调度
 

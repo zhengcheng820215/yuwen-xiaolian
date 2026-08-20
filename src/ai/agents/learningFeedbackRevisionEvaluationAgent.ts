@@ -21,7 +21,7 @@ import type { ProfileUpdateDecision } from '../schemas/profileUpdateDecision.sch
 import type { StudentAbilityProfile } from '../schemas/studentAbilityProfile.schema.ts';
 
 export const LEARNING_FEEDBACK_REVISION_EVALUATION_POLICY_VERSION =
-  'learning_feedback_revision_evaluation_policy_v1' as const;
+  'learning_feedback_revision_evaluation_policy_v2' as const;
 
 export type LearningFeedbackRevisionEvaluationInput = {
   revisionId: string;
@@ -185,30 +185,24 @@ function buildObservation(
   input: LearningFeedbackRevisionEvaluationInput,
   outcome: RevisionOutcome,
 ): string {
-  const added = extractChangedExcerpt(input.initialAnswer, input.revisedAnswer);
   if (outcome === 'improved' || outcome === 'partially_improved') {
-    return added
-      ? `修订中补充了“${added}”，正式诊断确认原缺口${outcome === 'improved' ? '已经解决' : '得到部分改善'}。`
-      : `修订后的正式诊断由 ${input.initialDiagnosis.answerStatus || 'unknown'} 变为 ${input.revisedDiagnosis.answerStatus || 'unknown'}。`;
+    const focus = issueFocus(input.revisionGoal.primaryIssueCode);
+    return outcome === 'improved'
+      ? `修订回答已经补充${focus}，主要要求已经完成。`
+      : `修订回答已经补充${focus}，仍有部分要求需要完善。`;
   }
   if (outcome === 'regressed') {
-    return added
-      ? `修订中加入了“${added}”，但正式诊断显示出现新的实质问题。`
-      : '修订后的正式诊断低于首次表现，当前修改没有形成可确认改善。';
+    return '修订回答影响了原来已经满足的要求，需要保留正确内容后再修改。';
   }
-  return added
-    ? `修订中加入了“${added}”，但正式诊断尚未确认主要缺口得到改善。`
-    : '修订内容发生变化，但正式诊断尚未确认主要缺口得到改善。';
+  return '修订回答已有变化，但题目需要的关键内容仍未补充完整。';
 }
 
 function buildNextAction(
   input: LearningFeedbackRevisionEvaluationInput,
   outcome: RevisionOutcome,
 ): string {
-  if (outcome === 'improved') return '下次遇到类似题目，先独立找到文本依据，再说明依据与判断之间的关系。';
-  if (outcome === 'partially_improved') return compact(input.revisedDiagnosis.nextTraining || input.revisionGoal.instruction, 120);
-  if (outcome === 'regressed') return '下次修改前先保持原有正确判断，再只针对反馈指出的一个缺口补充证据。';
-  return compact(input.revisionGoal.instruction, 120);
+  if (outcome === 'regressed') return '先保留原来答对的内容，再只修改反馈指出的部分。';
+  return issueMethodReminder(input.revisionGoal.primaryIssueCode);
 }
 
 function buildProfileEvaluation(
@@ -303,24 +297,33 @@ function hasSubstantiveChange(initialAnswer: string, revisedAnswer: string): boo
   return Math.abs(revised.length - initial.length) >= 4 || revised !== initial;
 }
 
-function extractChangedExcerpt(initialAnswer: string, revisedAnswer: string): string {
-  const initial = initialAnswer.trim();
-  const revised = revisedAnswer.trim();
-  if (revised.startsWith(initial)) return compact(revised.slice(initial.length), 70);
-  let prefix = 0;
-  while (prefix < initial.length && prefix < revised.length && initial[prefix] === revised[prefix]) prefix += 1;
-  let suffix = 0;
-  while (
-    suffix < initial.length - prefix
-    && suffix < revised.length - prefix
-    && initial[initial.length - 1 - suffix] === revised[revised.length - 1 - suffix]
-  ) suffix += 1;
-  return compact(revised.slice(prefix, revised.length - suffix), 70);
-}
-
 function compact(value: string, maxLength: number): string {
   const normalized = value.replace(/\s+/g, ' ').replace(/^[，。；：、\s]+|[，。；：、\s]+$/g, '').trim();
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}…` : normalized;
+}
+
+function issueFocus(issueCode: string): string {
+  if (issueCode === 'missing_text_evidence' || issueCode === 'evidence') return '文本依据';
+  if (issueCode === 'missing_reasoning_relation' || issueCode === 'relation') return '依据与判断之间的关系';
+  if (issueCode === 'conclusion_inconsistent') return '与文章内容一致的判断';
+  if (issueCode === 'incomplete_task_requirement') return '题目要求的关键信息';
+  return '题目要求的关键内容';
+}
+
+function issueMethodReminder(issueCode: string): string {
+  if (issueCode === 'missing_text_evidence' || issueCode === 'evidence') {
+    return '先找到能支持判断的原文，再说明它怎样支持你的判断。';
+  }
+  if (issueCode === 'missing_reasoning_relation' || issueCode === 'relation') {
+    return '写出依据后，再用一句话说明它为什么能支持你的判断。';
+  }
+  if (issueCode === 'conclusion_inconsistent') {
+    return '作出判断后回到原文核对，看看文章是否真的支持这个结论。';
+  }
+  if (issueCode === 'incomplete_task_requirement') {
+    return '提交前逐项对照题目要求，确认每一项都已经回答。';
+  }
+  return '回答后对照题目要求检查一遍，确认关键信息已经说清楚。';
 }
 
 function normalize(value: string): string {

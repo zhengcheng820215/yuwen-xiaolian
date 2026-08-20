@@ -7,7 +7,7 @@ import {
   STRUCTURED_QUESTION_TYPES,
 } from '../schemas/questionResourceAdmission.schema.ts';
 
-export const MATERIAL_OBSERVATION_DRAFT_PROMPT_VERSION = 'material_observation_draft_prompt_v1_15' as const;
+export const MATERIAL_OBSERVATION_DRAFT_PROMPT_VERSION = 'material_observation_draft_prompt_v1_16' as const;
 
 type MaterialObservationDraftRepairItem = {
   candidateIndex: number;
@@ -67,10 +67,16 @@ export function buildMaterialObservationDraftPrompt(
       : `当前顺序策略为 role_driven（${sequencePlanning.reason}）：顺序服从 Retest / Transfer 的角色和时间依赖，不得提前为初始阅读入口。`;
   const inventory = input.existingInventory || { observations: [], questions: [] };
   const paragraphs = splitParagraphs(input.material.content);
+  const targetedPlanning = input.preferences?.targetedTrainingPlanning;
+  const targetedInstruction = input.material.usageType === 'targeted_excerpt'
+    ? `当前 Material 是 targeted_excerpt，只能生成 1—${input.material.targetedExcerptMetadata?.intendedTaskCount || 1} 道即时针对训练题。主 Gap 固定为 ${targetedPlanning?.primaryGapReasonCode || '未提供'}，目标能力只能从 ${(input.material.targetedExcerptMetadata?.targetAbilityIds || []).join('、') || '未提供'} 中选择。来源关系为 ${input.material.targetedExcerptMetadata?.sourceRelation || '未提供'}，父材料为 ${input.material.targetedExcerptMetadata?.parentMaterialId || '无'}，来源 Anchor 为 ${JSON.stringify(input.material.targetedExcerptMetadata?.sourceAnchor || null)}。不得生成 Retest / Transfer，不得把它扩展成完整课文题组，也不得偏离该 Gap 去追求能力覆盖；不得复述已知答案或让题干直接暴露正确结论。`
+    : '当前 Material 是 core_reading，不得写入 targetedTrainingMetadata。';
 
   return `你是初中语文材料观测任务设计助手。你的输出只是待人工审核的教学资源候选，不是正式题目，不得写入正式状态。
 
 当前生成模式为 ${generationMode}。${generationInstruction}
+
+Material 使用边界：${targetedInstruction}
 
 作答形式规划：${responseFormatInstruction}
 

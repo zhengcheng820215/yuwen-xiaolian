@@ -638,6 +638,6 @@ StudentLearningPresentation
 阶段化学生表达
 ```
 
-展示层围绕四个学生问题组织：“为什么练、发生了什么、怎么办、为什么继续”。作答前解释当前任务目的，作答后沿用本轮任务要求覆盖反馈与下一动作，下一资源正式匹配后解释继续原因；跨 Session 进展含义只有在延迟、独立、可追溯且质量合格的正式观察成立时才能展示。四问是阶段化信息架构，不是四张同时出现的卡片。Narrative 与 Presentation 均不持久化为新教育事实，不建立第二套反馈 Runtime，不反向修改 Strategy 或 Task Matching。
+展示层围绕四个学生问题组织：“为什么练、发生了什么、怎么办、动态调整时为什么变化”。作答前解释当前任务目的，作答后沿用本轮任务要求覆盖反馈与下一动作；只有下一资源正式匹配且确由本次表现触发 Retest、Transfer 或其他可追溯调整时，才解释继续原因。固定题组按既定队列进入下一题只展示题组进度和下一题入口，不投射后台常规续题说明。跨 Session 进展含义只有在延迟、独立、可追溯且质量合格的正式观察成立时才能展示。四问是阶段化信息架构，不是四张同时出现的卡片。Narrative 与 Presentation 均不持久化为新教育事实，不建立第二套反馈 Runtime，不反向修改 Strategy 或 Task Matching。
 
 详细规则见：[Student Learning Narrative Calibration](./STUDENT_LEARNING_NARRATIVE_CALIBRATION.md)。

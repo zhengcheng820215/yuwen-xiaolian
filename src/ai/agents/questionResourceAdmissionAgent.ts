@@ -42,6 +42,13 @@ import {
   validateSingleChoiceInteraction,
   type SingleChoiceInteraction,
 } from '../schemas/singleChoiceInteraction.schema.ts';
+import {
+  buildMaterialContentHash,
+  CURRENT_MATERIAL_CONTENT_NORMALIZATION_POLICY_VERSION,
+  projectTargetedMaterialUsage,
+  validateTargetedMaterialUsage,
+  validateTargetedTrainingResourceMetadata,
+} from '../schemas/targetedMicroTraining.schema.ts';
 
 export type CreateQuestionMaterialInput = Omit<
   QuestionMaterialVersion,
@@ -57,6 +64,9 @@ export type CreateQuestionMaterialRevisionInput = {
   content?: string;
   source?: QuestionMaterialVersion['source'];
   metadata?: QuestionMaterialMetadata;
+  usageType?: QuestionMaterialVersion['usageType'];
+  targetedExcerptMetadata?: QuestionMaterialVersion['targetedExcerptMetadata'];
+  contentNormalizationPolicyVersion?: QuestionMaterialVersion['contentNormalizationPolicyVersion'];
   revisionNote: string;
   now?: string;
 };
@@ -108,6 +118,18 @@ export async function createQuestionMaterial(
   input: CreateQuestionMaterialInput,
 ): Promise<QuestionMaterialVersion> {
   const now = input.updatedAt || input.createdAt || new Date().toISOString();
+  const content = input.content.trim();
+  const usage = projectTargetedMaterialUsage(input);
+  const contentNormalizationPolicyVersion = usage.usageType === 'targeted_excerpt'
+    ? input.contentNormalizationPolicyVersion
+      || CURRENT_MATERIAL_CONTENT_NORMALIZATION_POLICY_VERSION
+    : input.contentNormalizationPolicyVersion;
+  const contentHash = usage.usageType === 'targeted_excerpt'
+    ? buildMaterialContentHash(content, contentNormalizationPolicyVersion)
+    : input.contentHash;
+  if (input.contentHash && input.contentHash !== contentHash) {
+    throw new Error('Material contentHash does not match normalized content.');
+  }
   const material: QuestionMaterialVersion = {
     materialId: input.materialId,
     materialVersionId: input.materialVersionId,
@@ -116,7 +138,13 @@ export async function createQuestionMaterial(
     parentMaterialVersionId: input.parentMaterialVersionId,
     revisionNote: input.revisionNote?.trim(),
     title: input.title.trim(),
-    content: input.content.trim(),
+    content,
+    usageType: input.usageType,
+    contentHash,
+    contentNormalizationPolicyVersion,
+    targetedExcerptMetadata: input.targetedExcerptMetadata
+      ? clone(input.targetedExcerptMetadata)
+      : undefined,
     source: clone(input.source),
     metadata: input.metadata ? normalizeMaterialMetadata(input.metadata) : undefined,
     createdAt: input.createdAt || now,
@@ -139,6 +167,12 @@ export async function createQuestionMaterial(
   if (!nonEmpty(material.source.description)) {
     throw new Error('Material source description is required.');
   }
+  const targetedValidation = validateTargetedMaterialUsage(material);
+  if (!targetedValidation.passed) {
+    throw new Error(
+      `Material usage is invalid: ${targetedValidation.issues.map((issue) => issue.code).join(', ')}`,
+    );
+  }
 
   return repository.saveMaterial(material);
 }
@@ -159,13 +193,32 @@ export async function createQuestionMaterialRevision(
     const expectedMetadata = input.metadata
       ? normalizeMaterialMetadata(input.metadata)
       : source.metadata;
+    const requestedContent = (input.content ?? source.content).trim();
+    const requestedUsageType = input.usageType ?? source.usageType;
+    if (requestedUsageType !== source.usageType) {
+      throw new Error('Material usage type cannot change in an ordinary revision. Create a new Material identity.');
+    }
+    const requestedPolicy = input.contentNormalizationPolicyVersion
+      ?? source.contentNormalizationPolicyVersion;
+    const requestedTargetedMetadata = input.targetedExcerptMetadata
+      ?? source.targetedExcerptMetadata;
+    const requestedContentHash = requestedUsageType === 'targeted_excerpt'
+      ? buildMaterialContentHash(
+          requestedContent,
+          requestedPolicy || CURRENT_MATERIAL_CONTENT_NORMALIZATION_POLICY_VERSION,
+        )
+      : source.contentHash;
     const sameRequestedRevision =
       existing.parentMaterialVersionId === source.materialVersionId &&
       existing.revisionNote === input.revisionNote.trim() &&
       existing.title === (input.title ?? source.title).trim() &&
-      existing.content === (input.content ?? source.content).trim() &&
+      existing.content === requestedContent &&
       JSON.stringify(existing.source) === JSON.stringify(input.source ?? source.source) &&
-      JSON.stringify(existing.metadata) === JSON.stringify(expectedMetadata);
+      JSON.stringify(existing.metadata) === JSON.stringify(expectedMetadata) &&
+      existing.usageType === requestedUsageType &&
+      existing.contentHash === requestedContentHash &&
+      existing.contentNormalizationPolicyVersion === requestedPolicy &&
+      JSON.stringify(existing.targetedExcerptMetadata) === JSON.stringify(requestedTargetedMetadata);
     if (!sameRequestedRevision) {
       throw new Error(`Material revision already exists with different content: ${existing.materialVersionId}`);
     }
@@ -174,6 +227,10 @@ export async function createQuestionMaterialRevision(
   const versionNumber = Math.max(...siblings.map((material) => material.versionNumber)) + 1;
   const materialVersionId = `${source.materialId}:v${versionNumber}`;
   const now = input.now || new Date().toISOString();
+  const requestedUsageType = input.usageType ?? source.usageType;
+  if (requestedUsageType !== source.usageType) {
+    throw new Error('Material usage type cannot change in an ordinary revision. Create a new Material identity.');
+  }
   return createQuestionMaterial(repository, {
     materialId: source.materialId,
     materialVersionId,
@@ -185,6 +242,11 @@ export async function createQuestionMaterialRevision(
     content: input.content ?? source.content,
     source: input.source ?? source.source,
     metadata: input.metadata ?? source.metadata,
+    usageType: requestedUsageType,
+    contentNormalizationPolicyVersion: input.contentNormalizationPolicyVersion
+      ?? source.contentNormalizationPolicyVersion,
+    targetedExcerptMetadata: input.targetedExcerptMetadata
+      ?? source.targetedExcerptMetadata,
     createdAt: now,
     updatedAt: now,
   });
@@ -226,6 +288,27 @@ export async function createStructuredQuestionDraft(
     version: QUESTION_RESOURCE_ADMISSION_VERSION,
     schemaVersion: QUESTION_RESOURCE_ADMISSION_SCHEMA_VERSION,
   };
+
+  const material = draft.materialVersionId
+    ? await repository.getMaterial(draft.materialVersionId)
+    : null;
+  const materialUsage = material ? projectTargetedMaterialUsage(material) : null;
+  if (materialUsage?.usageType === 'targeted_excerpt') {
+    const targetedValidation = validateTargetedTrainingResourceMetadata(
+      draft.abilityMetadata.targetedTrainingMetadata,
+      draft.materialVersionId,
+    );
+    if (!targetedValidation.passed) {
+      throw new Error(
+        `Targeted Question Draft is invalid: ${targetedValidation.issues.map((issue) => issue.code).join(', ')}`,
+      );
+    }
+    if (draft.abilityMetadata.taskRole !== 'training') {
+      throw new Error('Targeted Question Draft must use the training role.');
+    }
+  } else if (draft.abilityMetadata.targetedTrainingMetadata !== undefined) {
+    throw new Error('Core Question Draft cannot carry targeted training metadata.');
+  }
 
   return repository.saveDraft(draft);
 }
@@ -1208,6 +1291,37 @@ function validateMaterial(
   if (draft.materialVersionId && !material) {
     error(issues, 'material.missing', 'materialVersionId', 'Referenced Material Version does not exist.');
   }
+  if (!material) return;
+  const materialUsage = projectTargetedMaterialUsage(material);
+  const targetedMetadata = draft.abilityMetadata.targetedTrainingMetadata;
+  if (materialUsage.usageType === 'targeted_excerpt') {
+    const validation = validateTargetedTrainingResourceMetadata(
+      targetedMetadata,
+      material.materialVersionId,
+    );
+    validation.issues.forEach((issue) => {
+      error(issues, issue.code, issue.field, issue.message);
+    });
+    if (draft.abilityMetadata.taskRole !== 'training') {
+      error(issues, 'resource.targeted_task_role', 'abilityMetadata.taskRole', 'Targeted excerpt resources must use the training role.');
+    }
+    if (
+      targetedMetadata
+      && !material.targetedExcerptMetadata?.supportedGapReasonCodes.includes(
+        targetedMetadata.primaryGapReasonCode,
+      )
+    ) {
+      error(issues, 'resource.primary_gap_out_of_scope', 'abilityMetadata.targetedTrainingMetadata.primaryGapReasonCode', 'Question primary Gap is not supported by its targeted Material.');
+    }
+    if (
+      targetedMetadata
+      && !material.targetedExcerptMetadata?.targetAbilityIds.includes(draft.abilityMetadata.abilityId)
+    ) {
+      error(issues, 'resource.ability_out_of_scope', 'abilityMetadata.abilityId', 'Question Ability is not supported by its targeted Material.');
+    }
+  } else if (targetedMetadata !== undefined) {
+    error(issues, 'resource.core_has_targeted_metadata', 'abilityMetadata.targetedTrainingMetadata', 'Core resources cannot carry targeted training metadata.');
+  }
 }
 
 function validateVersionLineage(
@@ -1304,6 +1418,9 @@ function buildRegistryEntry(
     abilityId: version.abilityMetadata.abilityId,
     taskRole: version.abilityMetadata.taskRole,
     difficulty: version.abilityMetadata.difficulty,
+    targetedTrainingMetadata: version.abilityMetadata.targetedTrainingMetadata
+      ? clone(version.abilityMetadata.targetedTrainingMetadata)
+      : undefined,
     tags: [...version.tags],
     createdAt: existing?.createdAt || now,
     updatedAt: now,

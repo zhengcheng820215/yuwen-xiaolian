@@ -10,6 +10,7 @@ import {
   type ResourceValidationResult,
   type StructuredQuestionDraft,
 } from '../schemas/questionResourceAdmission.schema.ts';
+import { assertValidTargetedMaterialUsage } from '../schemas/targetedMicroTraining.schema.ts';
 import type { SharedQuestionResourceState } from '../schemas/sharedFormalResourcePersistence.schema.ts';
 
 const DB_NAME = 'yuwen_xiaolian_question_resource_admission';
@@ -44,6 +45,7 @@ implements QuestionResourceAdmissionRepository {
   }
 
   async saveMaterial(material: QuestionMaterialVersion): Promise<QuestionMaterialVersion> {
+    assertValidTargetedMaterialUsage(material);
     const existing = await this.getMaterial(material.materialVersionId);
     if (existing) {
       if (!sameMaterialVersion(existing, material)) {
