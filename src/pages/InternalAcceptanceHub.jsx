@@ -3,6 +3,13 @@ import { Link } from 'react-router-dom';
 
 const acceptanceItems = [
   {
+    to: '/internal/acceptance/product-complexity-convergence-stage3',
+    title: '产品复杂度收口阶段 3',
+    description: '执行 B3-01—B3-18，验证反馈单焦点、一次修订评价、恢复回退与 Profile 粗粒度只读投射。',
+    provider: '确定性只读投射',
+    data: '隔离验收，不写正式数据',
+  },
+  {
     to: '/internal/acceptance/product-complexity-convergence-stage2',
     title: '产品复杂度收口阶段 2',
     description: '执行 B2-01—B2-18，验证四类条件能力的 Legacy、Shadow、单项 Enforced、Session 冻结、幂等和安全回退。',

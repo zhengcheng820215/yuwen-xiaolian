@@ -48,6 +48,10 @@ import {
   formatStudentNextQuestionAction,
   studentConditionalTaskTitle,
 } from '../ui/productComplexityConvergencePresentation.ts';
+import {
+  resolveConvergenceStage3PresentationFlag,
+  toConvergenceFeedbackStudentView,
+} from '../ui/productComplexityConvergenceStage3Presentation.ts';
 
 const RUNTIME_UNAVAILABLE_MESSAGE = '分析服务尚未就绪。你可以继续编辑或保存回答，服务准备好后再提交。';
 const FEEDBACK_PRESENTATION_KEY_PREFIX = 'qingzhou:feedback-presentation:';
@@ -586,6 +590,9 @@ function CompletedFeedback({
   const guidance = state.feedback?.guidance;
   const attention = guidance ? [] : state.feedback?.whatNeedsAttention?.slice(0, 1) || [];
   const hasLearningNarrative = hasOutcomeNarrative(state.learningPresentation);
+  const convergenceView = resolveConvergenceStage3PresentationFlag() === 'convergence_v1'
+    ? toConvergenceFeedbackStudentView(state.convergenceFeedbackPresentation)
+    : undefined;
   const fallbackFeedback = resolveCompletedFeedbackFallback({
     hasOutcomeNarrative: hasLearningNarrative,
     hasThinkingReview: Boolean(thinkingReview),
@@ -658,7 +665,13 @@ function CompletedFeedback({
       <div className="mx-auto w-full max-w-[720px]">
         <section className="rounded-md bg-white px-7 py-[60px] shadow-[0_10px_36px_rgba(15,23,42,0.08)] [&>section:first-child]:mt-0 md:px-10">
           {writingCorrections.length ? <WritingCorrections items={writingCorrections} /> : null}
-          {hasLearningNarrative ? (
+          {convergenceView ? (
+            <ConvergenceFeedbackOutcome
+              view={convergenceView}
+              reviewVisible={presentationStep >= 1}
+              actionVisible={presentationStep >= 2}
+            />
+          ) : hasLearningNarrative ? (
             <StudentLearningNarrativeOutcome
               presentation={state.learningPresentation}
               responseFormat={state.task?.responseFormat}
@@ -674,7 +687,7 @@ function CompletedFeedback({
               {attention.length ? <FeedbackList title="需要留意" items={attention} tone="attention" /> : null}
             </>
           )}
-          {state.learningPresentation?.outcome?.progressMeaning ? (
+          {!convergenceView && state.learningPresentation?.outcome?.progressMeaning ? (
             <NarrativeNote title="这次学习说明了什么" text={state.learningPresentation.outcome.progressMeaning} />
           ) : null}
           {state.revision?.status === 'offered' ? (
@@ -768,6 +781,9 @@ function PausedWorkspace({ state, writingCorrections, busy, onReturn, onStartRev
   const guidance = state.feedback?.guidance;
   const attention = guidance ? [] : state.feedback?.whatNeedsAttention?.slice(0, 1) || [];
   const hasLearningNarrative = hasOutcomeNarrative(state.learningPresentation);
+  const convergenceView = resolveConvergenceStage3PresentationFlag() === 'convergence_v1'
+    ? toConvergenceFeedbackStudentView(state.convergenceFeedbackPresentation)
+    : undefined;
   const showPauseMessage = !state.feedback || !['resource_unavailable', 'next_task_review'].includes(state.pauseReason);
   useEffect(() => {
     if (!state.feedback) return;
@@ -780,7 +796,9 @@ function PausedWorkspace({ state, writingCorrections, busy, onReturn, onStartRev
           {state.feedback ? (
             <>
               {writingCorrections.length ? <WritingCorrections items={writingCorrections} /> : null}
-              {hasLearningNarrative ? (
+              {convergenceView ? (
+                <ConvergenceFeedbackOutcome view={convergenceView} />
+              ) : hasLearningNarrative ? (
                 <StudentLearningNarrativeOutcome
                   presentation={state.learningPresentation}
                   responseFormat={state.task?.responseFormat}
@@ -870,6 +888,31 @@ function FeedbackSectionTitle({ icon, children }) {
       <Icon size={18} aria-hidden="true" className={`shrink-0 ${colorClass}`} />
       <span>{children}</span>
     </h2>
+  );
+}
+
+function ConvergenceFeedbackOutcome({ view, reviewVisible = true, actionVisible = true }) {
+  return (
+    <section aria-label={view.eyebrow}>
+      {view.blocks.map((block) => {
+        const visible = block.kind === 'next_action' ? actionVisible : reviewVisible;
+        const icon = block.kind === 'acknowledgement'
+          ? 'positive'
+          : block.kind === 'primary_gap'
+            ? 'gap'
+            : 'action';
+        return (
+          <div
+            key={block.kind}
+            className={`mt-7 ${feedbackRevealClass(visible)}`}
+            data-feedback-block={block.kind}
+          >
+            <FeedbackSectionTitle icon={icon}>{block.title}</FeedbackSectionTitle>
+            <p className="mt-2 pl-[26px] text-base leading-7 text-slate-700">{block.text}</p>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 

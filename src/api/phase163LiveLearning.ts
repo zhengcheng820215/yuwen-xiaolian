@@ -28,6 +28,11 @@ import {
   type LearningFeedbackRevisionMetrics,
 } from '../ai/agents/learningFeedbackRevisionObservationAuditAgent.ts';
 import { buildStudentLearningNarrativeProjection } from '../ai/agents/studentLearningNarrativeAgent.ts';
+import {
+  projectConvergenceLearningFeedback,
+  projectConvergenceRevisionFeedback,
+} from
+  '../ai/agents/productComplexityConvergenceFeedbackProjectionAgent.ts';
 import { createFeedbackExpressionConfigSnapshot } from '../ai/agents/controlledFeedbackExpressionAgent.ts';
 import {
   buildStructuredFeedbackFacts,
@@ -137,6 +142,8 @@ import type {
   StudentLearningFeedback,
   StudentThinkingReview,
 } from '../ai/schemas/studentLearningFeedback.schema.ts';
+import type { ConvergenceFeedbackPresentation } from
+  '../ai/schemas/productComplexityConvergenceFeedbackProjection.schema.ts';
 import {
   toStudentLearningPresentation,
   type StudentLearningPresentation,
@@ -230,6 +237,7 @@ export type Phase163LiveWorkspaceState = {
     };
   };
   learningPresentation?: StudentLearningPresentation;
+  convergenceFeedbackPresentation?: ConvergenceFeedbackPresentation;
   canAdvance: boolean;
   canRetry: boolean;
   isRetest: boolean;
@@ -255,6 +263,7 @@ export type Phase163LiveWorkspaceState = {
     draftAnswer?: string;
     draftUpdatedAt?: string;
     evaluation?: RevisionEvaluation;
+    convergencePresentation?: ConvergenceFeedbackPresentation;
     evaluationIssue?: RevisionEvaluationIssue;
     evaluationAttemptCount?: number;
   };
@@ -1697,6 +1706,22 @@ async function stateFromCheckpoint(
     })
     : undefined;
   const revision = await resolveFeedbackRevisionState(descriptor, checkpoint, feedback);
+  const convergenceFeedbackPresentation = feedback && checkpoint.controlledFeedbackResult?.feedbackRequestId
+    ? projectConvergenceLearningFeedback({
+        feedback,
+        feedbackId: checkpoint.controlledFeedbackResult.feedbackRequestId,
+        learningTaskAttemptId: revision?.learningTaskAttemptId,
+        formalDiagnosisId: checkpoint.controlledFeedbackResult?.structuredFacts?.formalDiagnosisId,
+        runtimeActions: {
+          canContinue: canAdvance || sessionComplete || checkpoint.status === 'completed',
+          canReviseOnce: revision?.status === 'offered',
+          canRetryAnalysis: checkpoint.status === 'retry_required',
+          canRecoverSavedState: checkpoint.status === 'retry_required'
+            && checkpoint.nextAction !== 'submit_answer',
+          reviseLabel: revision?.actionLabel,
+        },
+      })
+    : undefined;
   let targetedMicroTraining: TargetedMicroTrainingLearningTransition | undefined;
   if (descriptor.isTargetedMicroTraining && descriptor.targetedAssignmentId && hasFormalRoundResult) {
     await completeTargetedTraining(
@@ -1743,6 +1768,7 @@ async function stateFromCheckpoint(
       ? 'completed'
       : checkpoint.status,
     learningPresentation,
+    convergenceFeedbackPresentation,
     feedback: feedback ? {
       headline: feedback.headline,
       summary: feedback.summary,
@@ -2087,6 +2113,16 @@ function toFeedbackRevisionPresentation(
       draftAnswer: attempt.revision.draftAnswer,
       draftUpdatedAt: attempt.revision.draftUpdatedAt,
       evaluation: attempt.revision.evaluation,
+      convergencePresentation: attempt.revision.evaluation
+        ? projectConvergenceRevisionFeedback({
+            studentId: attempt.studentId,
+            learningRoundId: attempt.learningRoundId,
+            feedbackId: attempt.initialFeedbackId,
+            learningTaskAttemptId: attempt.learningTaskAttemptId,
+            revisionEvaluation: attempt.revision.evaluation,
+            runtimeActions: { canContinue: true, canReviseOnce: false, canRetryAnalysis: false, canRecoverSavedState: false },
+          })
+        : undefined,
       evaluationIssue: attempt.revision.evaluationIssue,
       evaluationAttemptCount: attempt.revision.evaluationAttemptCount,
     };

@@ -3,6 +3,10 @@ import AnswerLengthIndicator from './AnswerLengthIndicator.jsx';
 import ReadingMaterialText from './ReadingMaterialText.jsx';
 import { formatLearningMaterialHeading } from '../../ui/learningMaterialHeading.ts';
 import { presentLearningFeedbackRevision } from '../../ui/learningFeedbackRevisionPresentation.ts';
+import {
+  resolveConvergenceStage3PresentationFlag,
+  toConvergenceFeedbackStudentView,
+} from '../../ui/productComplexityConvergenceStage3Presentation.ts';
 
 export function FeedbackRevisionGoal({ revision, className = '' }) {
   if (!revision?.revisionGoal) return null;
@@ -137,24 +141,33 @@ export function FeedbackRevisionEvaluated({ revision, busy, canAdvance, continue
   const evaluation = revision?.evaluation;
   if (!evaluation) return null;
   const presentation = presentLearningFeedbackRevision(evaluation);
+  const convergenceView = resolveConvergenceStage3PresentationFlag() === 'convergence_v1'
+    ? toConvergenceFeedbackStudentView(revision.convergencePresentation)
+    : undefined;
   return (
     <main className="flex min-h-[calc(100vh-65px)] items-center px-6 py-12">
       <div className="mx-auto w-full max-w-[720px] rounded-md bg-white px-8 py-12 shadow-[0_10px_36px_rgba(15,23,42,0.08)]">
-        <p className="text-sm font-medium text-emerald-700">{presentation.eyebrow}</p>
-        <h1 className="mt-3 text-xl font-semibold">{presentation.title}</h1>
-        <p className="mt-3 text-base leading-7 text-slate-700">{presentation.summary}</p>
+        <p className="text-sm font-medium text-emerald-700">{convergenceView?.eyebrow || presentation.eyebrow}</p>
+        {convergenceView ? (
+          <ConvergenceRevisionOutcome view={convergenceView} />
+        ) : (
+          <>
+            <h1 className="mt-3 text-xl font-semibold">{presentation.title}</h1>
+            <p className="mt-3 text-base leading-7 text-slate-700">{presentation.summary}</p>
+          </>
+        )}
 
-        {presentation.remainingFocus ? (
+        {!convergenceView && presentation.remainingFocus ? (
           <section className="mt-7 rounded-md bg-amber-50 px-5 py-4" aria-label="还可以再完善">
             <h2 className="text-sm font-semibold text-amber-900">还可以再完善</h2>
             <p className="mt-2 text-sm leading-6 text-amber-900">{presentation.remainingFocus}</p>
           </section>
         ) : null}
 
-        <section className="mt-7 border-t border-slate-200 pt-6" aria-label="记住这个方法">
+        {!convergenceView ? <section className="mt-7 border-t border-slate-200 pt-6" aria-label="记住这个方法">
           <h2 className="text-sm font-semibold text-slate-800">记住这个方法</h2>
           <p className="mt-2 text-base leading-7 text-slate-700">{presentation.methodReminder}</p>
-        </section>
+        </section> : null}
 
         <button
           type="button"
@@ -167,5 +180,18 @@ export function FeedbackRevisionEvaluated({ revision, busy, canAdvance, continue
         </button>
       </div>
     </main>
+  );
+}
+
+function ConvergenceRevisionOutcome({ view }) {
+  return (
+    <section aria-label="修订反馈投射">
+      {view.blocks.map((block) => (
+        <div key={block.kind} className="mt-6" data-feedback-block={block.kind}>
+          <h2 className="text-sm font-semibold text-slate-800">{block.title}</h2>
+          <p className="mt-2 text-base leading-7 text-slate-700">{block.text}</p>
+        </div>
+      ))}
+    </section>
   );
 }

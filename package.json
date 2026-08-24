@@ -189,6 +189,7 @@
     "audit:product-complexity-convergence-stage0": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runProductComplexityConvergenceStage0Debug.ts --report",
     "debug:product-complexity-convergence-stage1": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runProductComplexityConvergenceStage1Debug.ts",
     "debug:product-complexity-convergence-stage2": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runProductComplexityConvergenceStage2Debug.ts",
+    "debug:product-complexity-convergence-stage3": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runProductComplexityConvergenceStage3Debug.ts",
     "debug:reading-training-progression-stage0": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runReadingTrainingProgressionStage0Debug.ts",
     "debug:reading-training-progression-stage1": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runReadingTrainingProgressionStage1Debug.ts",
     "debug:reading-training-progression-stage2": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runReadingTrainingProgressionStage2Debug.ts",

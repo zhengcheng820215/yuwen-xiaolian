@@ -53,6 +53,7 @@ import ReadingTrainingProgressionStage4BrowserAcceptance from './pages/ReadingTr
 import ProductComplexityConvergenceStage0BrowserAcceptance from './pages/ProductComplexityConvergenceStage0BrowserAcceptance.jsx';
 import ProductComplexityConvergenceStage1BrowserAcceptance from './pages/ProductComplexityConvergenceStage1BrowserAcceptance.jsx';
 import ProductComplexityConvergenceStage2BrowserAcceptance from './pages/ProductComplexityConvergenceStage2BrowserAcceptance.jsx';
+import ProductComplexityConvergenceStage3BrowserAcceptance from './pages/ProductComplexityConvergenceStage3BrowserAcceptance.jsx';
 
 export default function App() {
   return (
@@ -99,6 +100,7 @@ export default function App() {
         <Route path="/internal/acceptance/product-complexity-convergence-stage0" element={<ProductComplexityConvergenceStage0BrowserAcceptance />} />
         <Route path="/internal/acceptance/product-complexity-convergence-stage1" element={<ProductComplexityConvergenceStage1BrowserAcceptance />} />
         <Route path="/internal/acceptance/product-complexity-convergence-stage2" element={<ProductComplexityConvergenceStage2BrowserAcceptance />} />
+        <Route path="/internal/acceptance/product-complexity-convergence-stage3" element={<ProductComplexityConvergenceStage3BrowserAcceptance />} />
         <Route path="/internal/reading-training-progression-stage4" element={<ProgressiveLoadStage4Review />} />
         <Route path="/internal/learning-review" element={<InternalLearningReview />} />
         <Route path="/internal/learning-collection" element={<LearningCollectionIntegrity />} />

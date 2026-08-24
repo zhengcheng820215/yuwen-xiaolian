@@ -539,7 +539,11 @@ type CoreAbilitySummary = {
 
 ### 阶段 3：反馈与 Profile 投射收口
 
+工程实施与验收要求见：[阶段 3 反馈与 Profile 投射收口工程实施与 Debug 验收文档](./PRODUCT_COMPLEXITY_CONVERGENCE_STAGE3_FEEDBACK_PROFILE_PROJECTION_ENGINEERING_AND_DEBUG_PLAN.md)。
+
 允许收敛学生反馈和现有 Profile 的只读展示，不允许建立第二套 Diagnosis、Evidence 或 Profile 写入链。
+
+阶段 3 必须把反馈收敛为至多一个真实完成点、一个正式主要缺口和一个可执行动作，但不机械输出固定三段；`CoreAbilitySummary` 只能从现有 `StudentAbilityProfile` 只读映射。历史自由文本不得反向推断新 Gap，表达失败必须回退既有正式反馈。当前状态为 `ENGINEERING COMPLETE / DEBUG ACCEPTED / FULL BROWSER ACCEPTED`：`C3-01—C3-48`、`B3-01—B3-18`、405 项旧主链专项回归与 Production Build 均通过，正式资源、Attempt、Evidence、Profile 与真实校准分母零写入。真实收益仍留待阶段 4 观察。
 
 ### 阶段 4：稳定试用与退役决策
 
