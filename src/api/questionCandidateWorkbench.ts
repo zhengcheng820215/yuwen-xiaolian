@@ -21,6 +21,8 @@ import { IndexedDBQuestionCandidateRepository } from
   '../ai/repositories/indexedDBQuestionCandidateRepository.ts';
 import { IndexedDBWorkingTaskContentRepository } from
   '../ai/repositories/indexedDBWorkingTaskContentRepository.ts';
+import { IndexedDBLearningProgressionRepository } from
+  '../ai/repositories/indexedDBLearningProgressionRepository.ts';
 import {
   createBrowserMaterialObservationRepository,
   createBrowserQuestionResourceAdmissionRepository,
@@ -54,6 +56,7 @@ const repository = new IndexedDBQuestionCandidateRepository();
 const questionRepository = createBrowserQuestionResourceAdmissionRepository();
 const observationRepository = createBrowserMaterialObservationRepository();
 const workingRepository = new IndexedDBWorkingTaskContentRepository();
+const progressionRepository = new IndexedDBLearningProgressionRepository();
 const correctionService = new QuestionCandidateCorrectionService(
   repository,
   questionRepository,
@@ -294,7 +297,10 @@ export async function adoptQuestionTaskCandidate(
       },
       listPeerQuestionContents,
     },
-    new QuestionResourceCandidateAdoptionGateway(questionRepository),
+    new QuestionResourceCandidateAdoptionGateway(
+      questionRepository,
+      progressionRepository,
+    ),
   );
   return adoptQuestionCandidateAndPublish(input, {
     service,

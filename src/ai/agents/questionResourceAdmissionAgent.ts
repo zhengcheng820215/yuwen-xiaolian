@@ -49,6 +49,8 @@ import {
   validateTargetedMaterialUsage,
   validateTargetedTrainingResourceMetadata,
 } from '../schemas/targetedMicroTraining.schema.ts';
+import type { FormalTaskProgressionMetadata } from
+  '../schemas/formalTaskProgressionMetadata.schema.ts';
 
 export type CreateQuestionMaterialInput = Omit<
   QuestionMaterialVersion,
@@ -78,6 +80,7 @@ export type CreateStructuredQuestionDraftInput = {
   proposedVersionNumber?: number;
   parentVersionId?: string;
   materialVersionId?: string;
+  progressionMetadata?: FormalTaskProgressionMetadata;
   title: string;
   questionStem: string;
   questionType: StructuredQuestionType;
@@ -97,6 +100,7 @@ export type CreateStructuredQuestionDraftInput = {
 export type StructuredQuestionDraftPatch = Partial<Pick<
   StructuredQuestionDraft,
   | 'materialVersionId'
+  | 'progressionMetadata'
   | 'title'
   | 'questionStem'
   | 'questionType'
@@ -268,6 +272,9 @@ export async function createStructuredQuestionDraft(
     proposedVersionNumber: input.proposedVersionNumber || 1,
     parentVersionId: input.parentVersionId,
     materialVersionId: input.materialVersionId,
+    progressionMetadata: input.progressionMetadata
+      ? clone(input.progressionMetadata)
+      : undefined,
     title: input.title,
     questionStem: input.questionStem,
     questionType: input.questionType,
@@ -344,6 +351,7 @@ export async function createRevisionFromRejectedQuestionResourceDraft(
     proposedVersionNumber: source.proposedVersionNumber,
     parentVersionId: source.parentVersionId,
     materialVersionId: source.materialVersionId,
+    progressionMetadata: source.progressionMetadata,
     title: source.title,
     questionStem: source.questionStem,
     questionType: source.questionType,
@@ -822,6 +830,9 @@ export async function prepareQuestionResourceFreezeCommit(
     sourceDraftId: draft.draftId,
     materialId: material?.materialId,
     materialVersionId: material?.materialVersionId,
+    progressionMetadata: draft.progressionMetadata
+      ? clone(draft.progressionMetadata)
+      : undefined,
     materialSnapshot: material ? clone(material) : undefined,
     taskId: draft.taskId,
     title: draft.title.trim(),
@@ -879,6 +890,7 @@ export async function createNextQuestionResourceVersionDraft(
     proposedVersionNumber: current.versionNumber + 1,
     parentVersionId: current.resourceVersionId,
     materialVersionId: current.materialVersionId,
+    progressionMetadata: current.progressionMetadata,
     title: current.title,
     questionStem: current.questionStem,
     questionType: current.questionType,
@@ -942,6 +954,7 @@ export async function createEditableSuccessorQuestionResourceDraft(
     proposedVersionNumber: source.proposedVersionNumber,
     parentVersionId: source.parentVersionId,
     materialVersionId: source.materialVersionId,
+    progressionMetadata: source.progressionMetadata,
     title: source.title,
     questionStem: source.questionStem,
     questionType: source.questionType,

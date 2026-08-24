@@ -10,6 +10,8 @@ import {
   buildDeterministicSingleChoiceOptionOrder,
   createStudentSingleChoiceDelivery,
 } from '../schemas/singleChoiceInteraction.schema.ts';
+import type { LearningProgressionContextSnapshot } from
+  '../schemas/learningProgressionContext.schema.ts';
 
 export type FrozenQuestionResourceTaskPreparationResult = {
   status: 'prepared' | 'blocked';
@@ -21,6 +23,7 @@ export function prepareConcreteLearningTaskFromFrozenResource(input: {
   resourceVersion: FrozenQuestionResourceVersion;
   qualityGatedTask: QualityGatedExecutableTask;
   learningIntent?: ConcreteLearningTask['learningIntent'];
+  progressionContextSnapshot?: LearningProgressionContextSnapshot;
   createdAt?: string;
 }): FrozenQuestionResourceTaskPreparationResult {
   const issues = validateIdentity(input.resourceVersion, input.qualityGatedTask);
@@ -39,6 +42,7 @@ export function prepareConcreteLearningTaskFromFrozenResource(input: {
       input.resourceVersion,
       input.qualityGatedTask.executableTask.studentId,
       input.learningIntent,
+      input.progressionContextSnapshot,
     ),
   });
   if (!concreteTaskResult.concreteTask || !concreteTaskResult.readiness.canExecute) {
@@ -81,6 +85,7 @@ function buildConcreteTaskOverrides(
   version: FrozenQuestionResourceVersion,
   studentId: string,
   learningIntent?: ConcreteLearningTask['learningIntent'],
+  progressionContextSnapshot?: LearningProgressionContextSnapshot,
 ): Partial<ConcreteLearningTask> {
   const rubric: QuestionMetadataRubricItem[] = version.rubric.map((item) => ({
     id: item.itemId,
@@ -104,6 +109,7 @@ function buildConcreteTaskOverrides(
     targetAbilityId,
     targetAbilityName: abilityDisplayName(targetAbilityId),
     learningIntent,
+    progressionContextSnapshot,
     readingText: version.materialSnapshot?.content,
     responseFormat: version.responseFormat === 'single_choice' ? 'single_choice' : 'text',
     singleChoiceDelivery: version.responseFormat === 'single_choice' && version.choiceInteraction

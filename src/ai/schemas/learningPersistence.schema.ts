@@ -6,6 +6,10 @@ import type { StudentRoundSummary } from './studentRoundSummary.schema.ts';
 import type { ConcreteLearningTask } from './concreteLearningTask.schema.ts';
 import type { StudentResponse } from './taskExecution.schema.ts';
 import type { SingleChoiceStudentAnswerValue } from './singleChoiceInteraction.schema.ts';
+import {
+  isLearningProgressionContextSnapshot,
+  type LearningProgressionContextSnapshot,
+} from './learningProgressionContext.schema.ts';
 
 export const LEARNING_PERSISTENCE_VERSION = 'phase12_1_v1';
 export const LEARNING_PERSISTENCE_SCHEMA_VERSION = 'learning_persistence_v1';
@@ -35,6 +39,7 @@ export type LearningPersistenceRecord = {
 
   learningRoundResult?: LearningRoundResult;
   concreteTask?: ConcreteLearningTask;
+  progressionContextSnapshot?: LearningProgressionContextSnapshot;
   answerDraft?: string;
   singleChoiceDraft?: SingleChoiceStudentAnswerValue;
   studentResponse?: StudentResponse;
@@ -79,6 +84,7 @@ export type LearningPersistenceInput = {
 
   learningRoundResult?: LearningRoundResult;
   concreteTask?: ConcreteLearningTask;
+  progressionContextSnapshot?: LearningProgressionContextSnapshot;
   answerDraft?: string;
   singleChoiceDraft?: SingleChoiceStudentAnswerValue;
   studentResponse?: StudentResponse;
@@ -101,6 +107,8 @@ export function isLearningPersistenceRecord(value: unknown): value is LearningPe
     isNonEmptyString(record.updatedAt) &&
     record.version === LEARNING_PERSISTENCE_VERSION &&
     record.schemaVersion === LEARNING_PERSISTENCE_SCHEMA_VERSION &&
+    (!record.progressionContextSnapshot ||
+      isLearningProgressionContextSnapshot(record.progressionContextSnapshot)) &&
     ['saved', 'restore_ready', 'restore_failed', 'invalid'].includes(record.status) &&
     Array.isArray(record.issues) &&
     record.issues.every((issue) => typeof issue === 'string')

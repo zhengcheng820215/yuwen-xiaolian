@@ -172,6 +172,10 @@ function missingPhase8Objects(result: TaskEvidenceReturnResult): string[] {
 
   if (!result.diagnosisResult) issues.push('TaskEvidenceReturnResult.diagnosisResult is missing.');
   if (result.abilityEvidence.length === 0) issues.push('TaskEvidenceReturnResult.abilityEvidence is empty.');
+  if (result.progressionEvidenceAdmissionDecision
+    && !result.progressionEvidenceAdmissionDecision.allowProfileEvaluation) {
+    return issues;
+  }
   if (!result.evaluationResult) issues.push('TaskEvidenceReturnResult.evaluationResult is missing.');
   if (!result.profileUpdateDecision) issues.push('TaskEvidenceReturnResult.profileUpdateDecision is missing.');
   if (!result.growthMemoryRecord) issues.push('TaskEvidenceReturnResult.growthMemoryRecord is missing.');

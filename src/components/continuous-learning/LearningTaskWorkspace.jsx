@@ -31,15 +31,6 @@ export default function LearningTaskWorkspace({
 
         <section className="bg-white px-4 py-5 md:px-6 lg:px-8 lg:py-7 min-[1060px]:overflow-y-auto">
         <div className="mx-auto w-full max-w-[640px] space-y-6">
-          <div>
-            <h2 className="text-lg font-semibold leading-7 text-slate-950">
-              本轮重点：{toStudentFocusTitle(entry?.studentRoundFocus?.title)}
-            </h2>
-            <p className="mt-2 max-w-[520px] text-sm leading-6 text-slate-500">
-              {toStudentFocusDescription(entry?.studentRoundFocus?.description)}
-            </p>
-          </div>
-
           <section>
             <h2 className="text-lg font-semibold leading-7 text-slate-950">题目</h2>
             <p className="mt-2 text-base leading-7 text-slate-800">{entry?.questionText}</p>
@@ -87,16 +78,4 @@ export default function LearningTaskWorkspace({
       </div>
     </div>
   );
-}
-
-function toStudentFocusDescription(description) {
-  if (!description || description.includes('有效作答证据')) {
-    return '本题考查根据人物动作和细节推断人物心理的能力。';
-  }
-  return description;
-}
-
-function toStudentFocusTitle(title) {
-  const normalizedTitle = title?.replace(/^本轮(?:关注|重点)[：:]\s*/, '').trim();
-  return normalizedTitle || '推理';
 }

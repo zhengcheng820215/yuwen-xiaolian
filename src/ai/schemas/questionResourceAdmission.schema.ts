@@ -15,6 +15,10 @@ import type {
   TargetedExcerptMetadata,
   TargetedTrainingResourceMetadata,
 } from './targetedMicroTraining.schema.ts';
+import {
+  isFormalTaskProgressionMetadata,
+  type FormalTaskProgressionMetadata,
+} from './formalTaskProgressionMetadata.schema.ts';
 
 export const QUESTION_RESOURCE_ADMISSION_VERSION = 'phase16_1a_v1';
 export const QUESTION_RESOURCE_ADMISSION_SCHEMA_VERSION = 'question_resource_admission_v1';
@@ -224,6 +228,8 @@ export type StructuredQuestionDraft = {
   proposedVersionNumber: number;
   parentVersionId?: string;
   materialVersionId?: string;
+  /** Native progressive-load identity. Historical drafts may omit it. */
+  progressionMetadata?: FormalTaskProgressionMetadata;
   title: string;
   questionStem: string;
   questionType: StructuredQuestionType;
@@ -359,6 +365,8 @@ export type FrozenQuestionResourceVersion = {
   sourceDraftId: string;
   materialId?: string;
   materialVersionId?: string;
+  /** Immutable native progressive-load identity. Historical versions may omit it. */
+  progressionMetadata?: FormalTaskProgressionMetadata;
   materialSnapshot?: QuestionMaterialVersion;
   taskId: string;
   title: string;
@@ -494,6 +502,8 @@ export function isStructuredQuestionDraft(value: unknown): value is StructuredQu
     isPositiveInteger(draft.proposedVersionNumber) &&
     (draft.parentVersionId === undefined || isNonEmptyString(draft.parentVersionId)) &&
     (draft.materialVersionId === undefined || isNonEmptyString(draft.materialVersionId)) &&
+    (draft.progressionMetadata === undefined ||
+      isFormalTaskProgressionMetadata(draft.progressionMetadata)) &&
     typeof draft.title === 'string' &&
     typeof draft.questionStem === 'string' &&
     isStructuredQuestionType(draft.questionType) &&

@@ -8,6 +8,10 @@ import type {
   SingleChoiceInteraction,
   StudentSingleChoiceDelivery,
 } from './singleChoiceInteraction.schema.ts';
+import {
+  isLearningProgressionContextSnapshot,
+  type LearningProgressionContextSnapshot,
+} from './learningProgressionContext.schema.ts';
 
 export type ConcreteLearningTaskSourceType =
   | 'matched_resource'
@@ -35,6 +39,8 @@ export type ConcreteLearningTask = {
   targetAbilityName: string;
   taskRole: RecommendedTaskRole;
   validationGoal: string;
+  /** Frozen per attempt; never recompute after the attempt starts. */
+  progressionContextSnapshot?: LearningProgressionContextSnapshot;
   learningIntent?: ConcreteLearningTaskIntent;
   readingText?: string;
   responseFormat?: 'text' | 'single_choice';
@@ -114,6 +120,8 @@ export function isConcreteLearningTask(value: unknown): value is ConcreteLearnin
     isNonEmptyString(task.targetAbilityName) &&
     isNonEmptyString(task.taskRole) &&
     isNonEmptyString(task.validationGoal) &&
+    (!task.progressionContextSnapshot ||
+      isLearningProgressionContextSnapshot(task.progressionContextSnapshot)) &&
     (!task.learningIntent || isConcreteLearningTaskIntent(task.learningIntent)) &&
     isNonEmptyString(task.question) &&
     (

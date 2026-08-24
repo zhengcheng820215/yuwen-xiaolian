@@ -2,20 +2,31 @@ import type { RecommendedTaskRole } from '../schemas/nextLearningStrategy.schema
 import type { FrozenQuestionResourceVersion } from '../schemas/questionResourceAdmission.schema.ts';
 import { isTextResponseFormat } from '../schemas/readingOpenResponseInputLoad.schema.ts';
 import { analyzeReadingOpenResponseInputLoad } from './readingOpenResponseInputLoadAnalyzer.ts';
+import {
+  isFormalTaskGroupProgressionArtifact,
+  isFormalTaskProgressionMetadata,
+  type FormalTaskGroupProgressionArtifact,
+} from '../schemas/formalTaskProgressionMetadata.schema.ts';
 
 export const LEARNING_TASK_SEQUENCE_SCHEDULER_VERSION =
-  'learning_task_sequence_scheduler_v3' as const;
+  'learning_task_sequence_scheduler_v4' as const;
 
 export function orderFormalResourcesForLearningSequence(
   versions: FrozenQuestionResourceVersion[],
   options: {
     taskRole: RecommendedTaskRole;
     recentResourceVersionIds?: string[];
+    progressionArtifacts?: FormalTaskGroupProgressionArtifact[];
   },
 ): FrozenQuestionResourceVersion[] {
   const recentIds = new Set(options.recentResourceVersionIds || []);
   const available = versions.filter((version) => !recentIds.has(version.resourceVersionId));
   if (options.taskRole !== 'training') return [...available];
+  const nativeOrdered = orderByNativeProgressionAuthority(
+    available,
+    options.progressionArtifacts || [],
+  );
+  if (nativeOrdered) return nativeOrdered;
   const preludeResourceIds = resolvePreludeResourceIds(available);
 
   return available
@@ -57,6 +68,7 @@ export function selectFormalResourceForLearningSequence(
     targetAbilityId?: string;
     recentResourceVersionIds?: string[];
     materialId?: string;
+    progressionArtifacts?: FormalTaskGroupProgressionArtifact[];
   },
 ): FrozenQuestionResourceVersion | undefined {
   const candidates = versions.filter((version) => (
@@ -66,6 +78,66 @@ export function selectFormalResourceForLearningSequence(
     (!options.materialId || version.materialId === options.materialId)
   ));
   return orderFormalResourcesForLearningSequence(candidates, options)[0];
+}
+
+export function resolveFormalProgressionAuthority(
+  version: FrozenQuestionResourceVersion,
+  artifacts: FormalTaskGroupProgressionArtifact[],
+): { artifact: FormalTaskGroupProgressionArtifact; sequenceRank: number } | null {
+  const metadata = version.progressionMetadata;
+  if (!isFormalTaskProgressionMetadata(metadata)) return null;
+  const artifact = artifacts.find((item) => item.planHash
+    === metadata.taskGroupProgressionPlanHash);
+  if (!isFormalTaskGroupProgressionArtifact(artifact)) return null;
+  if (artifact.materialVersionId !== metadata.materialVersionId) return null;
+  const member = artifact.progressionPlan.orderedTasks.find((item) => (
+    item.planningTaskKey === metadata.planningTaskKey
+  ));
+  if (!member
+    || member.sequenceRank !== metadata.sequenceRank
+    || member.taskLoadSemanticsHash !== metadata.taskLoadSemanticsHash) return null;
+  return { artifact, sequenceRank: metadata.sequenceRank };
+}
+
+function orderByNativeProgressionAuthority(
+  versions: FrozenQuestionResourceVersion[],
+  artifacts: FormalTaskGroupProgressionArtifact[],
+): FrozenQuestionResourceVersion[] | null {
+  const resolved = versions.map((version, sourceIndex) => ({
+    version,
+    sourceIndex,
+    authority: resolveFormalProgressionAuthority(version, artifacts),
+  }));
+  if (!resolved.some((item) => item.authority)) return null;
+
+  const blockOrder = new Map<string, number>();
+  resolved.forEach((item) => {
+    const key = item.authority
+      ? `native:${item.authority.artifact.planHash}`
+      : `legacy:${item.version.materialId || 'unknown'}`;
+    if (!blockOrder.has(key)) blockOrder.set(key, item.sourceIndex);
+  });
+  const preludeResourceIds = resolvePreludeResourceIds(
+    resolved.filter((item) => !item.authority).map((item) => item.version),
+  );
+  return resolved.sort((left, right) => {
+    const leftKey = left.authority
+      ? `native:${left.authority.artifact.planHash}`
+      : `legacy:${left.version.materialId || 'unknown'}`;
+    const rightKey = right.authority
+      ? `native:${right.authority.artifact.planHash}`
+      : `legacy:${right.version.materialId || 'unknown'}`;
+    const blockDifference = (blockOrder.get(leftKey) || 0) - (blockOrder.get(rightKey) || 0);
+    if (leftKey !== rightKey) return blockDifference || left.sourceIndex - right.sourceIndex;
+    if (left.authority && right.authority) {
+      return left.authority.sequenceRank - right.authority.sequenceRank
+        || left.sourceIndex - right.sourceIndex;
+    }
+    return sequencePriority(left.version, preludeResourceIds)
+      - sequencePriority(right.version, preludeResourceIds)
+      || sequenceTieBreak(left.version, right.version)
+      || left.sourceIndex - right.sourceIndex;
+  }).map((item) => item.version);
 }
 
 function sequencePriority(

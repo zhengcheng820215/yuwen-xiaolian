@@ -18,6 +18,8 @@ import type { DiagnosisProviderAdapter } from '../providers/diagnosisProviderAda
 import type { ControlledFeedbackRepository } from '../repositories/controlledFeedbackRepository.ts';
 import type { FormalDiagnosisRepository } from '../repositories/formalDiagnosisRepository.ts';
 import type { LearningPersistenceRepository } from '../repositories/learningPersistenceRepository.ts';
+import type { LearningProgressionRuntimeService } from
+  '../services/learningProgressionRuntimeService.ts';
 import type { RealLearningOperationRepository } from '../repositories/realLearningOperationRepository.ts';
 import type { AbilityEvidence } from '../schemas/abilityEvidence.schema.ts';
 import type {
@@ -47,6 +49,12 @@ import {
 import type { QualityGatedExecutableTask } from '../schemas/resourceMatchQuality.schema.ts';
 import type { StudentAbilityProfile } from '../schemas/studentAbilityProfile.schema.ts';
 import type { SingleChoiceStudentAnswerValue } from '../schemas/singleChoiceInteraction.schema.ts';
+import type { LearningProgressionContextSnapshot } from
+  '../schemas/learningProgressionContext.schema.ts';
+import type {
+  ProgressionPerformanceObservation,
+  ProgressionSupportMode,
+} from '../schemas/progressionPerformanceObservation.schema.ts';
 
 export type Phase163RealLearningChainInput = {
   operationId: string;
@@ -66,6 +74,10 @@ export type Phase163RealLearningChainInput = {
   currentGrowthMemorySummary: GrowthMemorySummary;
   existingGrowthMemoryRecords?: GrowthMemoryRecord[];
   previousEvidence?: AbilityEvidence[];
+  progressionContextSnapshot?: LearningProgressionContextSnapshot;
+  previousProgressionObservations?: ProgressionPerformanceObservation[];
+  progressionSupportMode?: ProgressionSupportMode;
+  progressionTaskLoadRisk?: boolean;
   currentLearningContext: CurrentLearningContext;
   providerConfig: DiagnosisProviderConfigSnapshot;
   timezone: string;
@@ -77,6 +89,7 @@ export type Phase163RealLearningChainDependencies = {
   controlledFeedbackRepository: ControlledFeedbackRepository;
   learningPersistenceRepository: LearningPersistenceRepository;
   operationRepository: RealLearningOperationRepository;
+  learningProgressionRuntimeService?: LearningProgressionRuntimeService;
   runDiagnosisRuntime?: (
     input: RealLLMRuntimeFoundationInput,
   ) => Promise<RealLLMDiagnosisRuntimeResult>;
@@ -246,6 +259,10 @@ export async function runPhase163RealLearningChain(
       currentProfile: input.currentProfile,
       diagnosisResult: runtime.formalDiagnosisCommit?.diagnosisResult,
       diagnosisResultId: runtime.formalDiagnosisCommit?.formalDiagnosisId,
+      progressionContextSnapshot: input.progressionContextSnapshot,
+      previousProgressionObservations: input.previousProgressionObservations,
+      progressionSupportMode: input.progressionSupportMode,
+      progressionTaskLoadRisk: input.progressionTaskLoadRisk,
       returnedAt: input.submittedAt,
     });
     if (evidenceReturn.status !== 'evidence_returned' || !evidenceReturn.validation.passed) {
@@ -259,20 +276,28 @@ export async function runPhase163RealLearningChain(
       });
       return resultFromCheckpoint(input, checkpoint, Boolean(existing));
     }
-    const profileExecution = applyProfileUpdateDecision({
-      currentProfile: input.currentProfile,
-      decision: evidenceReturn.profileUpdateDecision!,
-      appliedAt: input.submittedAt,
-    });
+    const profileEvaluationAllowed = evidenceReturn.progressionEvidenceAdmissionDecision
+      ?.allowProfileEvaluation !== false;
+    const profileExecution = profileEvaluationAllowed && evidenceReturn.profileUpdateDecision
+      ? applyProfileUpdateDecision({
+          currentProfile: input.currentProfile,
+          decision: evidenceReturn.profileUpdateDecision,
+          appliedAt: input.submittedAt,
+        })
+      : { afterProfile: input.currentProfile };
     const memoryRecords = uniqueById([
       ...(input.existingGrowthMemoryRecords || []),
-      evidenceReturn.growthMemoryRecord!,
+      ...(profileEvaluationAllowed && evidenceReturn.growthMemoryRecord
+        ? [evidenceReturn.growthMemoryRecord]
+        : []),
     ], (record) => record.recordId);
-    const memorySummary = summarizeGrowthMemory({
-      studentId: input.studentId,
-      abilityId: checkpoint.concreteTask.targetAbilityId,
-      records: memoryRecords,
-    });
+    const memorySummary = profileEvaluationAllowed && evidenceReturn.growthMemoryRecord
+      ? summarizeGrowthMemory({
+          studentId: input.studentId,
+          abilityId: checkpoint.concreteTask.targetAbilityId,
+          records: memoryRecords,
+        })
+      : input.currentGrowthMemorySummary;
     const evidence = evidenceReturn.abilityEvidence[0];
     const quality = assessEvidenceQuality({
       studentId: input.studentId,
@@ -331,6 +356,27 @@ export async function runPhase163RealLearningChain(
       issues: unique([...quality.validation.issues, ...feedback.validation.issues]),
       updatedAt: now(),
     });
+  }
+
+  if (checkpoint.taskEvidenceReturnResult && dependencies.learningProgressionRuntimeService) {
+    try {
+      await dependencies.learningProgressionRuntimeService.persistEvidenceSidecar(
+        checkpoint.taskEvidenceReturnResult,
+      );
+    } catch (error) {
+      checkpoint = await persistCheckpoint(dependencies.operationRepository, {
+        ...checkpoint,
+        status: 'retry_required',
+        nextAction: 'retry_persistence',
+        issues: unique([
+          ...checkpoint.issues,
+          `learning_progression_sidecar_persistence_failed:${error instanceof Error
+            ? error.message : String(error)}`,
+        ]),
+        updatedAt: now(),
+      });
+      return resultFromCheckpoint(input, checkpoint, Boolean(existing));
+    }
   }
 
   if (!checkpoint.learningPersistenceRecordId) {
@@ -467,6 +513,7 @@ async function prepareInitialCheckpoint(
   const preparation = prepareConcreteLearningTaskFromFrozenResource({
     resourceVersion: input.resourceVersion,
     qualityGatedTask: input.qualityGatedTask,
+    progressionContextSnapshot: input.progressionContextSnapshot,
     createdAt,
   });
   const concreteTask = preparation.concreteTaskResult.concreteTask || undefined;
@@ -531,6 +578,7 @@ async function persistFormalRound(
       sourceVersion: REAL_LEARNING_OPERATION_SCHEMA_VERSION,
       learningRoundResult: roundResult,
       concreteTask: checkpoint.concreteTask,
+      progressionContextSnapshot: checkpoint.concreteTask?.progressionContextSnapshot,
       studentResponse: checkpoint.taskExecutionResult?.studentResponse,
       studentLearningFeedback: feedback,
       studentRoundSummary: summary,

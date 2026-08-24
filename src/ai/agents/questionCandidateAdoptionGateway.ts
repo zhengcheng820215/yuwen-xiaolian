@@ -8,6 +8,8 @@ import {
 } from './questionCandidateService.ts';
 import type { QuestionResourceAdmissionRepository } from
   '../repositories/questionResourceAdmissionRepository.ts';
+import type { LearningProgressionRepository } from
+  '../repositories/learningProgressionRepository.ts';
 import type {
   CandidateAdoptionResult,
   CandidateRuntimeContext,
@@ -19,6 +21,11 @@ import {
 } from '../schemas/workingTaskContent.schema.ts';
 import type { StructuredQuestionDraft } from
   '../schemas/questionResourceAdmission.schema.ts';
+import {
+  buildFormalTaskGroupProgressionArtifact,
+  buildFormalTaskProgressionMetadata,
+  type FormalTaskProgressionMetadata,
+} from '../schemas/formalTaskProgressionMetadata.schema.ts';
 
 const EDITABLE_STATUSES = new Set([
   'drafted',
@@ -28,9 +35,14 @@ const EDITABLE_STATUSES = new Set([
 
 export class QuestionResourceCandidateAdoptionGateway implements CandidateAdoptionGateway {
   private readonly repository: QuestionResourceAdmissionRepository;
+  private readonly progressionRepository?: LearningProgressionRepository;
 
-  constructor(repository: QuestionResourceAdmissionRepository) {
+  constructor(
+    repository: QuestionResourceAdmissionRepository,
+    progressionRepository?: LearningProgressionRepository,
+  ) {
     this.repository = repository;
+    this.progressionRepository = progressionRepository;
   }
 
   async findAdoption(input: {
@@ -65,6 +77,11 @@ export class QuestionResourceCandidateAdoptionGateway implements CandidateAdopti
     const recovered = await this.findAdoption(input);
     if (recovered) return recovered;
     await this.requireCurrentFormalVersionBase(input.candidate);
+    const progressionMetadata = await this.persistAndBuildProgressionMetadata(
+      input.candidate,
+      input.expectedContext,
+      input.adoptedAt,
+    );
 
     const source = input.expectedContext.activeDraftId
       ? await this.requireExpectedDraft(input.expectedContext)
@@ -89,6 +106,7 @@ export class QuestionResourceCandidateAdoptionGateway implements CandidateAdopti
         draftId: deterministicDraftId(input.candidate.candidateId),
         resourceId: `question-${safeIdentity(input.candidate.trainingTaskId)}`,
         taskId: input.candidate.trainingTaskId,
+        progressionMetadata,
         now: input.adoptedAt,
       });
       return this.toAdoption(input.candidate, draft, input.adoptedAt);
@@ -106,7 +124,9 @@ export class QuestionResourceCandidateAdoptionGateway implements CandidateAdopti
       const updated = await updateStructuredQuestionDraft(
         this.repository,
         source.draftId,
-        input.candidate.content,
+        progressionMetadata
+          ? { ...input.candidate.content, progressionMetadata }
+          : input.candidate.content,
         input.adoptedAt,
         { expectedRevision: input.expectedContext.activeDraftRevision },
       );
@@ -118,6 +138,7 @@ export class QuestionResourceCandidateAdoptionGateway implements CandidateAdopti
       draftId: deterministicDraftId(input.candidate.candidateId),
       resourceId: source.resourceId,
       taskId: source.taskId,
+      progressionMetadata,
       proposedVersionNumber: frozenVersion
         ? frozenVersion.versionNumber + 1
         : source.proposedVersionNumber,
@@ -125,6 +146,53 @@ export class QuestionResourceCandidateAdoptionGateway implements CandidateAdopti
       now: input.adoptedAt,
     });
     return this.toAdoption(input.candidate, successor, input.adoptedAt);
+  }
+
+  private async persistAndBuildProgressionMetadata(
+    candidate: QuestionCandidate,
+    context: CandidateRuntimeContext,
+    createdAt: string,
+  ): Promise<FormalTaskProgressionMetadata | undefined> {
+    const plan = context.taskGroupProgressionPlan;
+    const semantics = candidate.taskLoadSemantics || context.taskLoadSemantics;
+    const semanticsHash = candidate.taskLoadSemanticsHash || context.taskLoadSemanticsHash;
+    const planningTaskKey = candidate.planningTaskKey || context.planningTaskKey;
+    const planHash = candidate.taskGroupProgressionPlanHash
+      || context.taskGroupProgressionPlanHash;
+    const semanticsStatus = candidate.taskLoadSemanticsVerification?.status;
+    const gateDecision = candidate.taskGroupProgressionGateAssessment?.decision;
+    if (!plan || !semantics || !semanticsHash || !planningTaskKey || !planHash) {
+      return undefined;
+    }
+    if (plan.planHash !== planHash
+      || !['matched', 'advisory'].includes(semanticsStatus || '')
+      || !['pass', 'pass_with_advisory'].includes(gateDecision || '')) {
+      return undefined;
+    }
+    const metadata = buildFormalTaskProgressionMetadata({
+      materialVersionId: context.materialVersionId,
+      observationPlanRevisionId: plan.observationPlanRevisionId,
+      planningTaskKey,
+      progressionPlan: plan,
+      taskLoadSemantics: semantics,
+      taskLoadSemanticsHash: semanticsHash,
+    });
+    if (this.progressionRepository) {
+      const existingArtifact = await this.progressionRepository.getArtifact(plan.planHash);
+      await this.progressionRepository.saveArtifact(
+        buildFormalTaskGroupProgressionArtifact({
+          progressionPlan: plan,
+          // The full group subject set is stable across separately adopted
+          // members. Planning keys are the compatibility fallback for callers
+          // that do not yet provide projected group subjects.
+          sourceCandidateIds: context.taskGroupProgressionSubjects?.map(
+            (item) => item.subjectId,
+          ) || plan.orderedTasks.map((item) => item.planningTaskKey),
+          createdAt: existingArtifact?.createdAt || createdAt,
+        }),
+      );
+    }
+    return metadata;
   }
 
   private assertFormalVersionCandidateIdentity(

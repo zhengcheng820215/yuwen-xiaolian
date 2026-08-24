@@ -5,6 +5,13 @@ import type { EvaluationResult } from './evaluationResult.schema.ts';
 import type { GrowthMemoryRecord } from './growthMemory.schema.ts';
 import type { ProfileUpdateDecision } from './profileUpdateDecision.schema.ts';
 import type { TaskExecutionResult } from './taskExecution.schema.ts';
+import type { LearningProgressionContextSnapshot } from './learningProgressionContext.schema.ts';
+import type { ProgressionPerformanceObservation } from './progressionPerformanceObservation.schema.ts';
+import type { ProgressionInstabilityAssessment } from './progressionInstabilityAssessment.schema.ts';
+import type {
+  ProgressionEvidenceAdmissionDecision,
+  ProgressionEvidenceContext,
+} from './progressionEvidenceAdmission.schema.ts';
 
 export type TaskEvidenceReturnStatus =
   | 'blocked_invalid_execution'
@@ -35,6 +42,11 @@ export type TaskEvidenceReturnResult = {
   evaluationResult?: EvaluationResult;
   profileUpdateDecision?: ProfileUpdateDecision;
   growthMemoryRecord?: GrowthMemoryRecord;
+  progressionContextSnapshot?: LearningProgressionContextSnapshot;
+  progressionObservation?: ProgressionPerformanceObservation;
+  progressionInstabilityAssessment?: ProgressionInstabilityAssessment;
+  progressionEvidenceContext?: ProgressionEvidenceContext;
+  progressionEvidenceAdmissionDecision?: ProgressionEvidenceAdmissionDecision;
   supportContext: {
     usedHint: boolean;
     hintCount: number;
@@ -62,6 +74,8 @@ export function isTaskEvidenceReturnResult(value: unknown): value is TaskEvidenc
     isNonEmptyString(result.executionSessionId) &&
     Array.isArray(result.abilityEvidence) &&
     Array.isArray(result.evidenceTraceLinks) &&
+    (!result.progressionEvidenceAdmissionDecision ||
+      typeof result.progressionEvidenceAdmissionDecision.allowProfileEvaluation === 'boolean') &&
     typeof result.supportContext === 'object' &&
     result.supportContext !== null &&
     typeof result.supportContext.usedHint === 'boolean' &&

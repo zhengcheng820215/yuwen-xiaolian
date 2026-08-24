@@ -21,6 +21,18 @@ import type {
   TaskEvidenceReturnStatus,
   TaskEvidenceTraceLink,
 } from '../schemas/taskEvidenceReturn.schema.ts';
+import type { LearningProgressionContextSnapshot } from
+  '../schemas/learningProgressionContext.schema.ts';
+import type {
+  ProgressionPerformanceObservation,
+  ProgressionSupportMode,
+} from '../schemas/progressionPerformanceObservation.schema.ts';
+import { createProgressionPerformanceObservation } from
+  './progressionPerformanceObservationAgent.ts';
+import { assessProgressionInstability } from
+  './progressionInstabilityAssessmentAgent.ts';
+import { decideProgressionEvidenceAdmission } from
+  './progressionEvidenceAdmissionAgent.ts';
 
 const DEFAULT_RETURNED_AT = '2026-07-13T11:30:00.000Z';
 
@@ -32,6 +44,10 @@ export type TaskEvidenceReturnInput = {
   diagnosisResult?: Partial<DiagnosisResult> | null;
   diagnosisResultId?: string;
   diagnosisFailed?: boolean;
+  progressionContextSnapshot?: LearningProgressionContextSnapshot;
+  previousProgressionObservations?: ProgressionPerformanceObservation[];
+  progressionSupportMode?: ProgressionSupportMode;
+  progressionTaskLoadRisk?: boolean;
   returnedAt?: string;
 };
 
@@ -129,6 +145,36 @@ export function runTaskEvidenceReturnAgent(
     responseId: responseId || 'missing-response-id',
     diagnosisResultId,
   };
+  const progression = buildProgressionResult({
+    input,
+    diagnosisResult,
+    evidence: newEvidence,
+    responseId: responseId || 'missing-response-id',
+    diagnosisResultId,
+    returnedAt,
+  });
+  const traceabilityComplete = isTraceabilityComplete(evidenceTraceLink);
+  if (progression
+    && !progression.progressionEvidenceAdmissionDecision.allowProfileEvaluation) {
+    return {
+      ...base,
+      status: 'evidence_returned',
+      diagnosisResult,
+      diagnosisResultId,
+      abilityEvidence: [newEvidence],
+      evidenceTraceLinks: [evidenceTraceLink],
+      ...progression,
+      validation: {
+        passed: traceabilityComplete,
+        diagnosisSchemaValid: true,
+        taskDiagnosisAligned: true,
+        studentIdConsistent: true,
+        traceabilityComplete,
+        reviewRequired: false,
+        issues: traceabilityComplete ? [] : ['AbilityEvidence traceability is incomplete.'],
+      },
+    };
+  }
   const updatedEvidence = dedupeEvidence([
     ...(input.previousEvidence || []),
     newEvidence,
@@ -163,8 +209,6 @@ export function runTaskEvidenceReturnAgent(
     sourceRuntime: 'phase9_3_task_evidence_return',
     relatedSessionId: input.taskExecutionResult.executionSessionId,
   });
-  const traceabilityComplete = isTraceabilityComplete(evidenceTraceLink);
-
   return {
     ...base,
     status: 'evidence_returned',
@@ -175,6 +219,7 @@ export function runTaskEvidenceReturnAgent(
     evaluationResult,
     profileUpdateDecision,
     growthMemoryRecord,
+    ...progression,
     validation: {
       passed: traceabilityComplete,
       diagnosisSchemaValid: true,
@@ -185,6 +230,76 @@ export function runTaskEvidenceReturnAgent(
       issues: traceabilityComplete ? [] : ['AbilityEvidence traceability is incomplete.'],
     },
   };
+}
+
+function buildProgressionResult(input: {
+  input: TaskEvidenceReturnInput;
+  diagnosisResult: DiagnosisResult;
+  evidence: AbilityEvidence;
+  responseId: string;
+  diagnosisResultId: string;
+  returnedAt: string;
+}): Pick<TaskEvidenceReturnResult,
+  'progressionContextSnapshot' | 'progressionObservation'
+  | 'progressionInstabilityAssessment' | 'progressionEvidenceContext'
+  | 'progressionEvidenceAdmissionDecision'> | undefined {
+  const context = input.input.progressionContextSnapshot
+    || input.input.concreteTask.progressionContextSnapshot;
+  if (!context) return undefined;
+  const observation = createProgressionPerformanceObservation({
+    context,
+    responseId: input.responseId,
+    formalDiagnosisId: input.diagnosisResultId,
+    diagnosis: input.diagnosisResult,
+    supportMode: input.input.progressionSupportMode,
+    usedHint: input.input.taskExecutionResult.usedHint,
+    observedAt: input.returnedAt,
+  });
+  const lower = findComparableLowerObservation(
+    context,
+    input.input.previousProgressionObservations || [],
+  );
+  const assessment = assessProgressionInstability({
+    higher: observation,
+    higherContext: context,
+    lower,
+    taskLoadRisk: input.input.progressionTaskLoadRisk,
+    corroboratingObservations: input.input.previousProgressionObservations,
+    assessedAt: input.returnedAt,
+  });
+  const admission = decideProgressionEvidenceAdmission({
+    evidence: input.evidence,
+    context,
+    observation,
+    assessment,
+    taskId: input.input.concreteTask.taskId,
+    responseId: input.responseId,
+    diagnosisId: input.diagnosisResultId,
+    decidedAt: input.returnedAt,
+  });
+  return {
+    progressionContextSnapshot: context,
+    progressionObservation: observation,
+    progressionInstabilityAssessment: assessment,
+    progressionEvidenceContext: admission.context,
+    progressionEvidenceAdmissionDecision: admission.decision,
+  };
+}
+
+function findComparableLowerObservation(
+  context: LearningProgressionContextSnapshot,
+  observations: ProgressionPerformanceObservation[],
+): ProgressionPerformanceObservation | undefined {
+  const predecessorRank = context.predecessor?.sequenceRank;
+  if (!predecessorRank) return undefined;
+  return observations
+    .filter((item) => item.studentId === context.studentId
+      && item.learningSessionId === context.learningSessionId
+      && item.taskGroupProgressionPlanHash === context.taskGroupProgressionPlanHash
+      && item.observationThreadId === context.taskLoadSemantics?.observationThreadId
+      && item.sequenceRank === predecessorRank
+      && item.resourceVersionId === context.predecessor?.resourceVersionId)
+    .sort((left, right) => right.observedAt.localeCompare(left.observedAt))[0];
 }
 
 function buildBaseResult(input: {

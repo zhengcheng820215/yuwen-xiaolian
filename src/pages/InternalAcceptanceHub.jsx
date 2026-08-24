@@ -3,6 +3,48 @@ import { Link } from 'react-router-dom';
 
 const acceptanceItems = [
   {
+    to: '/internal/acceptance/product-complexity-convergence-stage2',
+    title: '产品复杂度收口阶段 2',
+    description: '执行 B2-01—B2-18，验证四类条件能力的 Legacy、Shadow、单项 Enforced、Session 冻结、幂等和安全回退。',
+    provider: '确定性策略封套',
+    data: '隔离审计，不写正式数据',
+  },
+  {
+    to: '/internal/acceptance/product-complexity-convergence-stage1',
+    title: '产品复杂度收口阶段 1',
+    description: '执行 B1-01—B1-18，验证录入端与 Learning 页面投射、主操作、条件能力可见性和本地错误恢复。',
+    provider: '版本化纯函数投射',
+    data: '隔离验收，不写正式数据',
+  },
+  {
+    to: '/internal/acceptance/product-complexity-convergence-stage0',
+    title: '产品复杂度收口阶段 0',
+    description: '执行 CB0-01—CB0-12，只读审计普通页面、条件能力路径、错误恢复和四类零写入边界。',
+    provider: '版本化纯函数审计',
+    data: '仅 Session 报告，不写正式数据',
+  },
+  {
+    to: '/internal/acceptance/reading-training-progression-stage4',
+    title: '递进负担阶段 4 全量联调',
+    description: '执行 B4-01—B4-16，验证 successor 治理、版本冻结、事件恢复、校准状态和产品投射边界。',
+    provider: '正式确定性运行器',
+    data: '隔离内存，不写正式数据',
+  },
+  {
+    to: '/internal/reading-training-progression-stage4',
+    title: '递进负担阶段 4 内部观察',
+    description: '查看小批次 successor 治理上下文、真实事件完整性和版本级校准状态；不形成学生能力结论。',
+    provider: '只读投影',
+    data: '正式过程事实，不含答案正文',
+  },
+  {
+    to: '/internal/acceptance/reading-training-progression-stage3',
+    title: '递进负担阶段 3 全量联调',
+    description: '执行 B3-01—B3-16，验证 Learning 顺序、刷新恢复、兼容降级、受约束归因与 Evidence Admission。',
+    provider: '正式确定性运行器',
+    data: '隔离内存，不写正式数据',
+  },
+  {
     to: '/internal/acceptance/reading-open-response-stage4',
     title: '开放文本题阶段 4 全量验收',
     description: '执行 B4-01—B4-16，验证治理、后继发布、Session 版本冻结、过程事实与真实校准隔离。',

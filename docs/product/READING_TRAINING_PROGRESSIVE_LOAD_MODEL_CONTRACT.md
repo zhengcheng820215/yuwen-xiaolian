@@ -2,11 +2,11 @@
 
 英文名称：Reading Training Progressive Load Model Contract
 
-状态：`V2 ACTIVE / STAGE 0-1 COMPLETE / STAGE 2 ENGINEERING CONTRACT READY`
+状态：`V2 ACTIVE / STAGE 0-4 ENGINEERING COMPLETE / STAGE 4 DEBUG ACCEPTED / FULL BROWSER ACCEPTED / REAL CALIBRATION NOT STARTED`
 
 契约版本：`reading_training_progressive_load_policy_v2`
 
-更新日期：2026-08-21
+更新日期：2026-08-24
 
 ## 一、系统级原则
 
@@ -177,3 +177,13 @@ type TaskGroupProgressionPlan = {
 
 阶段 2 已完成工程与 Debug 验收，状态为 `IMPLEMENTED / DEBUG ACCEPTED`；执行证据见：
 [`reading_training_progressive_load_stage2_engineering_debug_acceptance_2026-08-24.md`](../education/phase/reports/reading_training_progressive_load_stage2_engineering_debug_acceptance_2026-08-24.md)。
+
+阶段 3 的 Learning 上下文冻结、负担表现观察、受约束失稳归因、Evidence Admission、兼容迁移以及 `S3-01—S3-56` / `B3-01—B3-16` 验收边界见：
+[`READING_TRAINING_PROGRESSIVE_LOAD_STAGE3_LEARNING_DIAGNOSIS_EVIDENCE_ENGINEERING_AND_DEBUG_PLAN.md`](./READING_TRAINING_PROGRESSIVE_LOAD_STAGE3_LEARNING_DIAGNOSIS_EVIDENCE_ENGINEERING_AND_DEBUG_PLAN.md)。
+
+当前阶段 3 状态为 `IMPLEMENTED / DEBUG ACCEPTED / FULL BROWSER ACCEPTED / REAL CALIBRATION PENDING`。专项 Debug、关键旧主链回归、Production Build 与 `B3-01—B3-16` 全量真实浏览器联调均已通过；联调使用隔离内存 Fixture，不写正式资源、学生作答或能力画像，因此仍不得表述为真实教育效果已经验证。验收记录见[阶段 3 全量真实浏览器联调](../education/phase/reports/reading_training_progressive_load_stage3_full_browser_acceptance_2026-08-24.md)。
+
+阶段 4 的历史资源 successor 治理、真实 Learning 校准事件、版本级投影、试运行阈值、回滚边界和 `S4-01—S4-64` / `B4-01—B4-16` 验收要求见：
+[`READING_TRAINING_PROGRESSIVE_LOAD_STAGE4_SUCCESSOR_GOVERNANCE_AND_REAL_CALIBRATION_ENGINEERING_AND_DEBUG_PLAN.md`](./READING_TRAINING_PROGRESSIVE_LOAD_STAGE4_SUCCESSOR_GOVERNANCE_AND_REAL_CALIBRATION_ENGINEERING_AND_DEBUG_PLAN.md)。
+
+当前阶段 4 状态为 `ENGINEERING COMPLETE / DEBUG ACCEPTED / FULL BROWSER ACCEPTED / REAL CALIBRATION NOT STARTED`。`S4-01—S4-64` 为 `64 / 64 PASS`，`B4-01—B4-16` 已在真实应用内浏览器中完成 `16 / 16 PASS` 人工签署，阶段 0—3 与 Learning 主链零回归、Production Build 通过。浏览器联调使用隔离内存数据，正式资源、Student Attempt、Student Profile 与真实校准分母写入均为 `0`；该状态不等于真实样本充分、真实校准完成或教育效果证明。验收记录见[阶段 4 全量真实浏览器联调](../education/phase/reports/reading_training_progressive_load_stage4_full_browser_acceptance_2026-08-24.md)。

@@ -53,6 +53,10 @@ import { InMemoryControlledFeedbackRepository } from '../ai/repositories/inMemor
 import { InMemoryFormalDiagnosisRepository } from '../ai/repositories/inMemoryFormalDiagnosisRepository.ts';
 import { IndexedDBLearningPersistenceRepository } from '../ai/repositories/indexedDBLearningPersistenceRepository.ts';
 import { IndexedDBLearningSessionRepository } from '../ai/repositories/indexedDBLearningSessionRepository.ts';
+import { IndexedDBLearningProgressionRepository } from
+  '../ai/repositories/indexedDBLearningProgressionRepository.ts';
+import { IndexedDBProgressiveLoadStage4Repository } from
+  '../ai/repositories/indexedDBProgressiveLoadStage4Repository.ts';
 import { IndexedDBPhase163MultiDayRunRepository } from '../ai/repositories/indexedDBPhase163MultiDayRunRepository.ts';
 import {
   createBrowserMaterialObservationRepository,
@@ -71,6 +75,22 @@ import { LocalStorageUnifiedLearningEntryRepository } from '../ai/repositories/l
 import { LearningObservationService } from '../ai/services/learningObservationService.ts';
 import { QuestionCalibrationProjectionService } from '../ai/services/questionCalibrationProjectionService.ts';
 import { LearningFeedbackRevisionPersistenceService } from '../ai/services/learningFeedbackRevisionPersistenceService.ts';
+import { LearningProgressionRuntimeService } from
+  '../ai/services/learningProgressionRuntimeService.ts';
+import { ProgressiveLoadCalibrationService } from
+  '../ai/services/progressiveLoadCalibrationService.ts';
+import {
+  PROGRESSIVE_LOAD_CALIBRATION_EVENT_SCHEMA_VERSION,
+  stableProgressiveLoadId,
+  type ProgressiveLoadCalibrationEventType,
+  type ProgressiveLoadSupportMode,
+} from '../ai/schemas/progressiveLoadStage4.schema.ts';
+import { resolveLearningProgressionContext } from
+  '../ai/agents/learningProgressionContextResolver.ts';
+import type { FormalTaskGroupProgressionArtifact } from
+  '../ai/schemas/formalTaskProgressionMetadata.schema.ts';
+import type { ProgressionSupportMode } from
+  '../ai/schemas/progressionPerformanceObservation.schema.ts';
 import { ReadingOpenResponseProcessFactService } from
   '../ai/services/readingOpenResponseProcessFactService.ts';
 import {
@@ -162,6 +182,14 @@ const readingOpenResponseProcessFactService = new ReadingOpenResponseProcessFact
   readingOpenResponseProcessFactRepository,
 );
 const learningTaskAttemptRepository = new IndexedDBLearningTaskAttemptRepository();
+const learningProgressionRepository = new IndexedDBLearningProgressionRepository();
+const learningProgressionRuntimeService = new LearningProgressionRuntimeService(
+  learningProgressionRepository,
+);
+const progressiveLoadStage4Repository = new IndexedDBProgressiveLoadStage4Repository();
+const progressiveLoadCalibrationService = new ProgressiveLoadCalibrationService(
+  progressiveLoadStage4Repository,
+);
 const feedbackRevisionPersistenceService = new LearningFeedbackRevisionPersistenceService(
   learningTaskAttemptRepository,
 );
@@ -275,6 +303,9 @@ export async function loadPhase163LiveWorkspace(): Promise<Phase163LiveWorkspace
   await recoverPhase163LearningObservations(descriptor, checkpoint, persisted).catch(() => {
     // Observation recovery is non-critical and must never block workspace loading.
   });
+  await progressiveLoadCalibrationService.retryDue().catch(() => {
+    // Progressive-load calibration recovery is also non-critical.
+  });
   if (!checkpoint) return readyState(descriptor, persisted?.answerDraft || '', persisted?.singleChoiceDraft);
   return await stateFromCheckpoint(descriptor, checkpoint, persisted?.answerDraft || '', persisted?.singleChoiceDraft);
 }
@@ -324,6 +355,7 @@ export function recordPhase163PreAnswerHintOpened(roundId: string): void {
     firstInputAt: current?.firstInputAt,
     hintOpened: true,
   });
+  void recordDirectProgressiveLoadEventForRound(roundId, 'hint_opened', `hint:${roundId}`);
 }
 
 export function recordPhase163FirstInputObserved(roundId: string): void {
@@ -404,7 +436,9 @@ export async function submitPhase163LiveAnswer(
       selectedOptionIds: preflightResponse.singleChoiceAnswer?.selectedOptionIds,
       optionSetVersion: preflightResponse.singleChoiceAnswer?.optionSetVersion,
       displayedOptionOrder: preflightResponse.singleChoiceAnswer?.displayedOptionOrder,
-    }, preflightResponse.submittedAt);
+    }, preflightResponse.submittedAt,
+    validityPreflight.taskExecutionResult?.canEnterDiagnosisRuntime
+      ? 'valid_response_submitted' : 'invalid_response_rejected');
     await synchronizeReadingOpenResponseProcessFact(
       descriptor,
       attemptId,
@@ -448,6 +482,7 @@ export async function submitPhase163LiveAnswer(
     controlledFeedbackRepository: new InMemoryControlledFeedbackRepository(),
     learningPersistenceRepository: persistenceRepository,
     operationRepository,
+    learningProgressionRuntimeService,
     runDiagnosisRuntime: runDiagnosisThroughPhase163Boundary,
     resolveNextTask: ({ taskRequest, previousResourceVersion }) => descriptor.isTargetedMicroTraining
       ? Promise.resolve({
@@ -610,9 +645,83 @@ async function recordObservation(
   sourceEntityId: string,
   payload: LearningObservationEventPayload,
   occurredAt = new Date().toISOString(),
+  calibrationEventType?: ProgressiveLoadCalibrationEventType,
 ): Promise<void> {
   const event = buildObservation(descriptor, eventType, sourceEntityId, payload, occurredAt);
-  if (event) await observationService.record(event);
+  if (!event) return;
+  await observationService.record(event);
+  await progressiveLoadCalibrationService.recordFromLearningObservation({
+    observation: event,
+    context: descriptor.input.progressionContextSnapshot,
+    supportMode: descriptor.input.progressionSupportMode,
+    responseFormat: descriptor.input.resourceVersion.responseFormat === 'single_choice'
+      ? 'single_choice' : 'text',
+    taskLoadRisk: descriptor.input.progressionTaskLoadRisk,
+    eventTypeOverride: calibrationEventType,
+  });
+}
+
+async function recordDirectProgressiveLoadEventForRound(
+  roundId: string,
+  eventType: ProgressiveLoadCalibrationEventType,
+  sourceEntityId: string,
+): Promise<void> {
+  try {
+    const descriptor = await buildCurrentRoundDescriptor();
+    if (descriptor.input.learningRoundId !== roundId) return;
+    await recordDirectProgressiveLoadEvent(descriptor, eventType, sourceEntityId);
+  } catch {
+    // Progressive-load collection is observational and cannot block Learning UI actions.
+  }
+}
+
+async function recordDirectProgressiveLoadEvent(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  eventType: ProgressiveLoadCalibrationEventType,
+  sourceEntityId: string,
+  occurredAt = new Date().toISOString(),
+): Promise<void> {
+  const context = descriptor.input.progressionContextSnapshot;
+  const supportMode = normalizeProgressiveSupportMode(descriptor.input.progressionSupportMode);
+  await progressiveLoadCalibrationService.recordEvent({
+    schemaVersion: PROGRESSIVE_LOAD_CALIBRATION_EVENT_SCHEMA_VERSION,
+    eventId: stableProgressiveLoadId('progressive-calibration-direct-event', [
+      descriptor.input.learningSessionId,
+      descriptor.input.learningRoundId,
+      descriptor.input.resourceVersion.resourceVersionId,
+      eventType,
+      sourceEntityId,
+      supportMode,
+      context.snapshotHash,
+    ]),
+    eventType,
+    runtimeScope: 'product',
+    studentId: descriptor.input.studentId,
+    learningSessionId: descriptor.input.learningSessionId,
+    learningRoundId: descriptor.input.learningRoundId,
+    learningTaskAttemptId: context.learningTaskAttemptId,
+    resourceVersionId: descriptor.input.resourceVersion.resourceVersionId,
+    materialVersionId: descriptor.input.resourceVersion.materialVersionId
+      || context.materialVersionId,
+    progressionPlanHash: context.taskGroupProgressionPlanHash,
+    taskLoadSemanticsHash: context.taskLoadSemanticsHash,
+    observationThreadId: context.taskLoadSemantics?.observationThreadId,
+    sequenceRank: context.sequenceRank,
+    supportMode,
+    responseFormat: descriptor.input.resourceVersion.responseFormat === 'single_choice'
+      ? 'single_choice' : 'text',
+    taskLoadRisk: descriptor.input.progressionTaskLoadRisk,
+    occurredAt,
+    source: 'real_learning',
+  });
+}
+
+function normalizeProgressiveSupportMode(
+  value: ProgressionSupportMode | ProgressiveLoadSupportMode | undefined,
+): ProgressiveLoadSupportMode {
+  if (value === 'independent_initial') return 'initial_independent';
+  if (value === 'hint_supported_initial') return 'hint_supported';
+  return value || 'initial_independent';
 }
 
 async function synchronizeFeedbackRevisionObservations(
@@ -727,6 +836,7 @@ function attemptIdFor(
 }
 
 export async function advancePhase163LiveRound(): Promise<Phase163LiveWorkspaceState> {
+  const descriptor = await buildCurrentRoundDescriptor();
   const context = await requireActiveContext();
   const current = roundNumber(context.currentLearningRoundId);
   if (context.taskQueue && current >= context.taskQueue.targetTaskCount) {
@@ -741,6 +851,11 @@ export async function advancePhase163LiveRound(): Promise<Phase163LiveWorkspaceS
   if (write.status === 'conflict') {
     throw new Error('当前学习会话已经变化，请重新打开学习入口。');
   }
+  await recordDirectProgressiveLoadEvent(
+    descriptor,
+    'next_task_entered',
+    `${descriptor.input.learningRoundId}:next:${nextRoundId}`,
+  );
   try {
     return await loadPhase163LiveWorkspace();
   } catch (error) {
@@ -865,6 +980,7 @@ async function ensureActiveSessionTaskQueue(
   const taskQueue = createLearningSessionTaskQueue({
     firstResourceVersion,
     currentVersions,
+    progressionArtifacts: await loadProgressionArtifacts(currentVersions),
     createdAt,
     currentTaskNumber,
   });
@@ -922,15 +1038,36 @@ async function buildCurrentRoundDescriptor() {
     number,
   );
   const qualityTask = matched.qualityGatedTask;
-  const fallbackPreparation = matched.concreteTask && matched.taskReadiness
-    ? undefined
-    : prepareConcreteLearningTaskFromFrozenResource({
+  const progressionArtifact = version.progressionMetadata
+    ? await learningProgressionRepository.getArtifact(
+        version.progressionMetadata.taskGroupProgressionPlanHash,
+      ).catch(() => null)
+    : null;
+  const progressionContextSnapshot = await learningProgressionRuntimeService.freezeAttemptContext(
+    resolveLearningProgressionContext({
+      studentId: PHASE163_RUNTIME_STUDENT_ID,
+      learningSessionId: taskQueueContext.learningSessionId,
+      learningRoundId: roundId,
+      learningTaskAttemptId: buildProgressionAttemptId({
+        studentId: PHASE163_RUNTIME_STUDENT_ID,
+        learningSessionId: taskQueueContext.learningSessionId,
+        learningRoundId: roundId,
+        resourceVersionId: version.resourceVersionId,
+      }),
       resourceVersion: version,
-      qualityGatedTask: qualityTask,
-      createdAt: new Date().toISOString(),
-    });
-  const concreteTask = matched.concreteTask || fallbackPreparation?.concreteTaskResult.concreteTask;
-  const readiness = matched.taskReadiness || fallbackPreparation?.concreteTaskResult.readiness;
+      activeResourceVersions: currentVersions,
+      progressionArtifact,
+      capturedAt: selection.descriptorAt,
+    }),
+  );
+  const preparation = prepareConcreteLearningTaskFromFrozenResource({
+    resourceVersion: version,
+    qualityGatedTask: qualityTask,
+    progressionContextSnapshot,
+    createdAt: selection.descriptorAt,
+  });
+  const concreteTask = preparation.concreteTaskResult.concreteTask;
+  const readiness = preparation.concreteTaskResult.readiness;
   if (!concreteTask || !readiness?.canExecute) {
     throw new Error('当前正式任务尚未准备完成。');
   }
@@ -956,6 +1093,10 @@ async function buildCurrentRoundDescriptor() {
     ...revisionAttempts.flatMap((item) => item.revision?.growthMemoryRecord ? [item.revision.growthMemoryRecord] : []),
   ], (item) => item.recordId);
   const previousEvidence = records.flatMap((item) => item.learningRoundResult?.taskEvidenceReturnResult?.abilityEvidence || []);
+  const previousProgressionObservations = await learningProgressionRepository.listObservations(
+    PHASE163_RUNTIME_STUDENT_ID,
+    progressionContextSnapshot.taskLoadSemantics?.observationThreadId,
+  );
   const startedAt = new Date().toISOString();
   const currentLearningContext: CurrentLearningContext = {
     ...base.input.currentLearningContext,
@@ -988,6 +1129,15 @@ async function buildCurrentRoundDescriptor() {
       currentGrowthMemorySummary,
       existingGrowthMemoryRecords,
       previousEvidence,
+      progressionContextSnapshot,
+      previousProgressionObservations,
+      progressionSupportMode: isTargetedMicroTraining
+        ? 'targeted_training'
+        : version.abilityMetadata.taskRole === 'retest'
+          ? 'retest_independent'
+          : version.abilityMetadata.taskRole === 'transfer'
+            ? 'transfer_independent'
+            : undefined,
       currentLearningContext,
       providerConfig: createDiagnosisProviderConfigSnapshot({
         provider: 'deepseek_chat',
@@ -1094,6 +1244,7 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
   const currentVersions = preservesFrozenSessionVersions
     ? allCurrentVersions
     : eligibleNewSessionVersions;
+  const progressionArtifacts = await loadProgressionArtifacts(currentVersions);
   const currentVersion = pinnedResourceVersionId
     ? allCurrentVersions.find((item) => (
       item.resourceVersionId === pinnedResourceVersionId
@@ -1143,6 +1294,7 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
       currentVersions,
       taskRequest,
       effectiveHistory.recentResourceVersionIds,
+      progressionArtifacts,
     ),
     requiredResourceVersionId: currentVersion?.resourceVersionId,
     frozenSessionResourceVersionId: queuedResourceVersionId === currentVersion?.resourceVersionId
@@ -1208,6 +1360,7 @@ async function resolveNextFormalTask(
   const versions = storedContext?.status !== 'ended' && storedContext?.taskQueue
     ? allVersions
     : filterCurrentFormalResourcesForNewLearningSession(currentHeadVersions);
+  const progressionArtifacts = await loadProgressionArtifacts(versions);
   const currentRoundNumber = roundNumber(storedContext?.currentLearningRoundId);
   const queueProgress = resolveLearningSessionTaskQueueProgress(
     storedContext?.status !== 'ended' ? storedContext?.taskQueue : undefined,
@@ -1273,10 +1426,12 @@ async function resolveNextFormalTask(
     targetAbilityId: taskRequest.targetAbilityId,
     recentResourceVersionIds: effectiveRecentVersionIds,
     materialId: previousResourceVersion.materialId,
+    progressionArtifacts,
   }) || selectFormalResourceForLearningSequence(versions, {
     taskRole: taskRequest.taskRole,
     targetAbilityId: taskRequest.targetAbilityId,
     recentResourceVersionIds: effectiveRecentVersionIds,
+    progressionArtifacts,
   });
   return matchCurrentFormalResource({
     taskRequest,
@@ -1325,11 +1480,13 @@ function selectBootstrapMaterialId(
   versions: FrozenQuestionResourceVersion[],
   taskRequest: TaskRequest,
   recentResourceVersionIds: string[],
+  progressionArtifacts: FormalTaskGroupProgressionArtifact[] = [],
 ): string | undefined {
   return selectFormalResourceForLearningSequence(versions, {
     taskRole: taskRequest.taskRole,
     targetAbilityId: taskRequest.targetAbilityId,
     recentResourceVersionIds,
+    progressionArtifacts,
   })?.materialId;
 }
 
@@ -2019,6 +2176,37 @@ export function resolvePhase163LiveStudentFeedback(
 function roundNumber(roundId?: string): number {
   const match = roundId?.match(/round-(\d+)$/);
   return match ? Number(match[1]) : 1;
+}
+
+async function loadProgressionArtifacts(
+  versions: FrozenQuestionResourceVersion[],
+): Promise<FormalTaskGroupProgressionArtifact[]> {
+  const planHashes = uniqueStrings(versions.flatMap((version) => (
+    version.progressionMetadata?.taskGroupProgressionPlanHash
+      ? [version.progressionMetadata.taskGroupProgressionPlanHash]
+      : []
+  )));
+  const artifacts = await Promise.all(planHashes.map((planHash) => (
+    learningProgressionRepository.getArtifact(planHash).catch(() => null)
+  )));
+  return artifacts.filter((artifact): artifact is FormalTaskGroupProgressionArtifact => (
+    Boolean(artifact)
+  ));
+}
+
+function buildProgressionAttemptId(input: {
+  studentId: string;
+  learningSessionId: string;
+  learningRoundId: string;
+  resourceVersionId: string;
+}): string {
+  return [
+    'learning-progression-attempt',
+    input.studentId,
+    input.learningSessionId,
+    input.learningRoundId,
+    input.resourceVersionId,
+  ].join(':');
 }
 
 function replaceRoundNumber(roundId: string, number: number): string {

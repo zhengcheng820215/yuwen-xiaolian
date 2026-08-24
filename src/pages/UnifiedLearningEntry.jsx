@@ -6,6 +6,7 @@ import {
   loadUnifiedLearningEntry,
   startOrResumeUnifiedLearning,
 } from '../api/unifiedLearningEntry.ts';
+import { studentEntryStatusLabel } from '../ui/productComplexityConvergencePresentation.ts';
 
 export default function UnifiedLearningEntry() {
   const [entry, setEntry] = useState(null);
@@ -78,8 +79,6 @@ export default function UnifiedLearningEntry() {
   const canFinishReviewedSession = entry?.status === 'review_required' &&
     entry?.hasActiveSession &&
     entry?.validation?.passed;
-  const entryPresentation = resolveEntryPresentation(entry);
-
   if (view === 'workspace') {
     return (
       <Phase163LiveLearningWorkspace
@@ -113,17 +112,6 @@ export default function UnifiedLearningEntry() {
                 {entry.message}
               </p>
 
-              {entryPresentation ? (
-                <div className="mt-7 max-w-[680px] border-l-2 border-emerald-500 pl-4">
-                  <p className="text-sm font-semibold text-slate-900">
-                    {entryPresentation.title}
-                  </p>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    {entryPresentation.message}
-                  </p>
-                </div>
-              ) : null}
-
               {entry.hasDraft ? (
                 <p className="mt-6 flex items-center gap-2 text-sm leading-6 text-emerald-700">
                   <RotateCcw size={16} />
@@ -133,8 +121,8 @@ export default function UnifiedLearningEntry() {
 
               {entry.retest ? (
                 <div className="mt-7 border-l-2 border-emerald-500 pl-4">
-                  <p className="text-sm font-semibold text-slate-900">待完成复测</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">{entry.retest.whyNow}</p>
+                  <p className="text-sm font-semibold text-slate-900">有一项练习待完成</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">完成这项练习后，可以继续本次学习。</p>
                 </div>
               ) : null}
 
@@ -165,9 +153,8 @@ export default function UnifiedLearningEntry() {
               <h2 className="text-sm font-semibold text-slate-900">学习进度</h2>
               <dl className="mt-5 space-y-4 text-sm">
                 <ProgressRow label="已完成" value={`${entry.completedRoundCount} 题`} />
-                <ProgressRow label="当前状态" value={statusLabel(entry.status, entry.title)} />
+                <ProgressRow label="当前状态" value={studentEntryStatusLabel(entry.status, entry.title)} />
                 {entry.currentRoundNumber ? <ProgressRow label="当前任务" value={`第 ${entry.currentRoundNumber} 题`} /> : null}
-                {entry.focusText ? <ProgressRow label="本轮重点" value={entry.focusText} /> : null}
               </dl>
             </aside>
           </div>
@@ -177,21 +164,6 @@ export default function UnifiedLearningEntry() {
   );
 }
 
-function resolveEntryPresentation(entry) {
-  const presentation = entry?.learningPresentation;
-  if (!presentation) return null;
-  if (['feedback_available', 'session_ended'].includes(entry.status) && presentation.outcome?.progressMeaning) {
-    return { title: '这次学习说明了什么', message: presentation.outcome.progressMeaning };
-  }
-  if (entry.status === 'start_new_round' && presentation.continuationReason) {
-    return { title: '为什么继续', message: presentation.continuationReason };
-  }
-  if (['continue_round', 'delayed_retest_available', 'start_new_round'].includes(entry.status) && presentation.taskReason) {
-    return { title: '为什么练这题', message: presentation.taskReason };
-  }
-  return null;
-}
-
 function StatusEyebrow({ status, title }) {
   const isComplete = ['feedback_available', 'session_ended'].includes(status);
   const isActionable = ['continue_round', 'start_new_round', 'delayed_retest_available'].includes(status);
@@ -199,7 +171,7 @@ function StatusEyebrow({ status, title }) {
   return (
     <div className={`flex items-center gap-2 text-sm font-semibold ${tone}`}>
       {isComplete ? <CheckCircle2 size={16} /> : <Clock3 size={16} />}
-      {statusLabel(status, title)}
+      {studentEntryStatusLabel(status, title)}
     </div>
   );
 }
@@ -225,16 +197,6 @@ function ErrorState({ message, onRetry }) {
       <button type="button" onClick={onRetry} className="mt-6 min-h-11 rounded-md bg-emerald-600 px-5 text-sm text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2">重新尝试</button>
     </section>
   );
-}
-
-function statusLabel(status, title) {
-  if (status === 'review_required' && title === '本轮学习已经完成') return '下一任务待检查';
-  const labels = {
-    review_required: '结果未采用', blocked: '暂时无法继续', recovering_submission: '正在恢复',
-    continue_round: '可以继续', delayed_retest_available: '复测待完成', feedback_available: '反馈可查看',
-    start_new_round: '可以开始', session_ended: '本次学习已结束', no_task: '暂无任务',
-  };
-  return labels[status] || '学习状态';
 }
 
 function toMessage(error) {

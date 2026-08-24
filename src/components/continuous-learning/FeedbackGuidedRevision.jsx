@@ -116,7 +116,7 @@ export function FeedbackRevisionSubmitted({ revision, busy, canAdvance, continue
         <p className="mt-3 text-base leading-7 text-slate-600">
           {pending
             ? '首次回答和修订回答都已保留。评价服务恢复后，系统会自动继续，不需要重新作答。'
-            : '首次回答仍然保持原样，系统正在比较修订前后的正式诊断结果。'}
+            : '首次回答仍然保持原样，系统正在确认这次修改。'}
         </p>
         <FeedbackRevisionGoal revision={revision} />
         <button

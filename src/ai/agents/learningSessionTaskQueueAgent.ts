@@ -4,6 +4,8 @@ import {
   type LearningSessionTaskQueue,
 } from '../schemas/unifiedLearningEntry.schema.ts';
 import type { FrozenQuestionResourceVersion } from '../schemas/questionResourceAdmission.schema.ts';
+import type { FormalTaskGroupProgressionArtifact } from
+  '../schemas/formalTaskProgressionMetadata.schema.ts';
 import { orderFormalResourcesForLearningSequence } from './learningTaskSequenceScheduler.ts';
 
 export const LEARNING_SESSION_TASK_QUEUE_MAX_COUNT = 6;
@@ -23,6 +25,7 @@ export function createLearningSessionTaskQueue(input: {
   createdAt: string;
   maxTaskCount?: number;
   currentTaskNumber?: number;
+  progressionArtifacts?: FormalTaskGroupProgressionArtifact[];
 }): LearningSessionTaskQueue {
   const maxTaskCount = Math.min(
     LEARNING_SESSION_TASK_QUEUE_MAX_COUNT,
@@ -35,7 +38,10 @@ export function createLearningSessionTaskQueue(input: {
     version.abilityMetadata.taskRole === 'training'
   ));
   const ordered = first.abilityMetadata.taskRole === 'training'
-    ? orderFormalResourcesForLearningSequence(candidates, { taskRole: 'training' })
+    ? orderFormalResourcesForLearningSequence(candidates, {
+        taskRole: 'training',
+        progressionArtifacts: input.progressionArtifacts,
+      })
     : [first];
   const otherResourceVersionIds = unique(ordered
     .map((version) => version.resourceVersionId)

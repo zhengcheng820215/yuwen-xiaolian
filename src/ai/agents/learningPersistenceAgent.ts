@@ -25,6 +25,8 @@ export function createLearningPersistenceRecord(
     sourceVersion: input.sourceVersion,
     learningRoundResult: input.learningRoundResult,
     concreteTask: input.concreteTask,
+    progressionContextSnapshot: input.progressionContextSnapshot
+      || input.concreteTask?.progressionContextSnapshot,
     answerDraft: input.answerDraft,
     singleChoiceDraft: input.singleChoiceDraft,
     studentResponse: input.studentResponse,
@@ -171,6 +173,23 @@ function determineResumeMode(record: LearningPersistenceRecord): LearningResumeM
 function validateInternalIdentity(record: LearningPersistenceRecord): string[] {
   const issues: string[] = [];
   const { studentId, learningRoundId } = record;
+  const progression = record.progressionContextSnapshot;
+  if (progression) {
+    if (progression.studentId !== studentId) {
+      issues.push('LearningProgressionContextSnapshot.studentId does not match record.studentId.');
+    }
+    if (progression.learningRoundId !== learningRoundId) {
+      issues.push('LearningProgressionContextSnapshot.learningRoundId does not match record.learningRoundId.');
+    }
+    if (record.concreteTask?.progressionContextSnapshot?.snapshotHash
+      && record.concreteTask.progressionContextSnapshot.snapshotHash !== progression.snapshotHash) {
+      issues.push('Persisted progression Snapshot does not match ConcreteLearningTask Snapshot.');
+    }
+    if (record.concreteTask?.questionMetadata?.questionId
+      && record.concreteTask.questionMetadata.questionId !== progression.resourceVersionId) {
+      issues.push('LearningProgressionContextSnapshot.resourceVersionId does not match ConcreteLearningTask.');
+    }
+  }
 
   if (record.learningRoundResult) {
     if (record.learningRoundResult.studentId !== studentId) {

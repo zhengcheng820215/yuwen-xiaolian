@@ -33,6 +33,7 @@ import {
 import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
 import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
 import { formatMaterialTitle } from '../ui/materialTitle.ts';
+import { ordinaryRuntimeNotice } from '../ui/productComplexityConvergencePresentation.ts';
 import { calculateTaskLoadSemanticsHash } from
   '../ai/schemas/readingTaskLoadSemantics.schema.ts';
 import {
@@ -2449,9 +2450,9 @@ export default function MaterialResourceProductionWorkbench() {
             className="mb-5 border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
           >
             {{
-              lock_waiting: '正在等待共享数据写入…',
-              conflict_retrying: '检测到数据更新，正在自动接续…',
-              recovered: '操作已接续完成。',
+              lock_waiting: '正在等待上一项操作完成…',
+              conflict_retrying: '检测到内容更新，正在继续处理…',
+              recovered: '操作已完成。',
             }[formalResourceWriteRuntime.state]}
           </div>
         )}
@@ -2461,7 +2462,7 @@ export default function MaterialResourceProductionWorkbench() {
             data-formal-resource-queue-state="queued"
             className="mb-5 border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
           >
-            等待上一项操作完成… 已排队 {formalResourceQueueState.queuedKeys.length} 项。
+            另有操作正在处理，请稍候。
           </div>
         )}
         {usesNonCanonicalLocalPort && (
@@ -2507,16 +2508,12 @@ export default function MaterialResourceProductionWorkbench() {
             </div>
           </section>
         )}
-        {notice && (
-          <div role="status" className={`mt-5 border-l-4 px-4 py-3 text-sm leading-6 ${notice.type === 'error' ? 'border-red-500 bg-red-50 text-red-800' : 'border-emerald-500 bg-emerald-50 text-emerald-800'}`}>
-            <p>{notice.message}</p>
-            {notice.errorCode && (
-              <p className="mt-1 text-xs opacity-80">
-                错误码：{notice.errorCode}
-                {notice.objectId ? ` · 对象：${notice.objectId}` : ''}
-                {` · ${notice.recoveryMessage}`}
-              </p>
-            )}
+        {notice && ordinaryRuntimeNotice(notice) && (
+          <div role={notice.type === 'error' ? 'alert' : 'status'} aria-live={notice.type === 'error' ? 'assertive' : 'polite'} className={`mt-5 border-l-4 px-4 py-3 text-sm leading-6 ${notice.type === 'error' ? 'border-red-500 bg-red-50 text-red-800' : 'border-emerald-500 bg-emerald-50 text-emerald-800'}`}>
+            <p>{ordinaryRuntimeNotice(notice).message}</p>
+            {ordinaryRuntimeNotice(notice).recoveryMessage ? (
+              <p className="mt-1 text-xs opacity-80">{ordinaryRuntimeNotice(notice).recoveryMessage}</p>
+            ) : null}
           </div>
         )}
 

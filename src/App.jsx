@@ -47,6 +47,12 @@ import Phase175C3ABatchQualitySummaryDemo from './pages/Phase175C3ABatchQualityS
 import ReadingSingleChoiceStage4Acceptance from './pages/ReadingSingleChoiceStage4Acceptance.jsx';
 import TargetedMicroTrainingStage4Control from './pages/TargetedMicroTrainingStage4Control.jsx';
 import ReadingOpenResponseStage4BrowserAcceptance from './pages/ReadingOpenResponseStage4BrowserAcceptance.jsx';
+import ReadingTrainingProgressionStage3BrowserAcceptance from './pages/ReadingTrainingProgressionStage3BrowserAcceptance.jsx';
+import ProgressiveLoadStage4Review from './pages/ProgressiveLoadStage4Review.jsx';
+import ReadingTrainingProgressionStage4BrowserAcceptance from './pages/ReadingTrainingProgressionStage4BrowserAcceptance.jsx';
+import ProductComplexityConvergenceStage0BrowserAcceptance from './pages/ProductComplexityConvergenceStage0BrowserAcceptance.jsx';
+import ProductComplexityConvergenceStage1BrowserAcceptance from './pages/ProductComplexityConvergenceStage1BrowserAcceptance.jsx';
+import ProductComplexityConvergenceStage2BrowserAcceptance from './pages/ProductComplexityConvergenceStage2BrowserAcceptance.jsx';
 
 export default function App() {
   return (
@@ -88,6 +94,12 @@ export default function App() {
         <Route path="/internal/acceptance" element={<InternalAcceptanceHub />} />
         <Route path="/internal/acceptance/reading-single-choice" element={<ReadingSingleChoiceStage4Acceptance />} />
         <Route path="/internal/acceptance/reading-open-response-stage4" element={<ReadingOpenResponseStage4BrowserAcceptance />} />
+        <Route path="/internal/acceptance/reading-training-progression-stage3" element={<ReadingTrainingProgressionStage3BrowserAcceptance />} />
+        <Route path="/internal/acceptance/reading-training-progression-stage4" element={<ReadingTrainingProgressionStage4BrowserAcceptance />} />
+        <Route path="/internal/acceptance/product-complexity-convergence-stage0" element={<ProductComplexityConvergenceStage0BrowserAcceptance />} />
+        <Route path="/internal/acceptance/product-complexity-convergence-stage1" element={<ProductComplexityConvergenceStage1BrowserAcceptance />} />
+        <Route path="/internal/acceptance/product-complexity-convergence-stage2" element={<ProductComplexityConvergenceStage2BrowserAcceptance />} />
+        <Route path="/internal/reading-training-progression-stage4" element={<ProgressiveLoadStage4Review />} />
         <Route path="/internal/learning-review" element={<InternalLearningReview />} />
         <Route path="/internal/learning-collection" element={<LearningCollectionIntegrity />} />
         <Route path="/internal/targeted-micro-training" element={<TargetedMicroTrainingStage4Control />} />

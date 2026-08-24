@@ -42,9 +42,12 @@ import {
   synchronizeFeedbackPresentationStep,
 } from '../ui/feedbackPresentationPolicy.ts';
 import {
-  formatNextTaskAction,
   formatNextTaskContinuation,
 } from '../ui/learningSessionProgressCopy.ts';
+import {
+  formatStudentNextQuestionAction,
+  studentConditionalTaskTitle,
+} from '../ui/productComplexityConvergencePresentation.ts';
 
 const RUNTIME_UNAVAILABLE_MESSAGE = '分析服务尚未就绪。你可以继续编辑或保存回答，服务准备好后再提交。';
 const FEEDBACK_PRESENTATION_KEY_PREFIX = 'qingzhou:feedback-presentation:';
@@ -380,10 +383,10 @@ export default function Phase163LiveLearningWorkspace({
   const revisionEvaluated = state.revision?.status === 'evaluated';
   const continueActionLabel = state.isTargetedMicroTraining
     ? state.canAdvance
-      ? `继续第 ${state.roundNumber + 1} 题`
+      ? formatStudentNextQuestionAction(state.roundNumber, state.sessionTaskCount)
       : '完成本轮学习'
     : state.canAdvance
-    ? formatNextTaskAction(state.roundNumber + 1, state.sessionTaskCount)
+    ? formatStudentNextQuestionAction(state.roundNumber, state.sessionTaskCount)
     : state.sessionComplete
       ? '完成本轮学习'
       : '返回学习入口';
@@ -400,7 +403,7 @@ export default function Phase163LiveLearningWorkspace({
             <ArrowLeft size={19} />
           </button>
           <div className="flex items-center gap-3 text-sm text-slate-500">
-            {state.isTargetedMicroTraining ? <span className="font-medium text-emerald-700">针对性练习</span> : state.isRetest ? <span className="font-medium text-emerald-700">延迟复测</span> : null}
+            {studentConditionalTaskTitle(state) ? <span className="font-medium text-emerald-700">{studentConditionalTaskTitle(state)}</span> : null}
             <span>第 {state.roundNumber} / {state.sessionTaskCount} 题</span>
           </div>
         </div>
@@ -1102,14 +1105,14 @@ function WorkspaceFailure({ message, onBack }) {
 function resolveWorkspaceFailurePresentation(message) {
   if (/暂无符合复测要求的正式任务/.test(message || '')) {
     return {
-      title: '复测任务还需要准备',
-      message: '本次复测要求已经保留，但当前没有符合能力、材料和复测条件的正式任务。系统不会用普通训练题代替复测。',
+      title: '下一项练习还需要准备',
+      message: '本次学习要求已经保留，目前还没有适合继续的练习。已完成的学习记录不会丢失。',
     };
   }
   if (/暂无符合当前能力和任务要求的正式任务/.test(message || '')) {
     return {
       title: '当前没有新的正式任务',
-      message: '上一轮结果已经保存。当前没有同时符合能力、任务角色且未重复使用的正式资源；系统不会用错位题目凑匹配。',
+      message: '上一轮结果已经保存。目前还没有适合继续的练习，系统不会安排不匹配的题目。',
     };
   }
   if (/当前正式任务尚未准备完成/.test(message || '')) {
