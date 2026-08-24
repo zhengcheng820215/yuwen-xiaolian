@@ -20,6 +20,16 @@ import type {
 } from './diagnosis.schema.ts';
 import type { RecommendedTaskRole } from './nextLearningStrategy.schema.ts';
 import type { TargetedTrainingResourceMetadata } from './targetedMicroTraining.schema.ts';
+import {
+  isTaskLoadSemantics,
+  type TaskLoadSemantics,
+} from './readingTaskLoadSemantics.schema.ts';
+import type { READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION } from
+  './readingTrainingProgressionAudit.schema.ts';
+import type {
+  READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION,
+  TaskGroupProgressionPlan,
+} from './readingTaskGroupProgression.schema.ts';
 
 export const MATERIAL_OBSERVATION_PLAN_SCHEMA_VERSION = 'material_observation_plan_v1' as const;
 export const RESOURCE_OBSERVATION_LINK_SCHEMA_VERSION = 'resource_observation_link_v1' as const;
@@ -132,6 +142,9 @@ export type ObservationTaskPlan = {
   materialRelationIntent?: 'same_context' | 'similar_context' | 'new_context';
   resourceDraftSpecification?: ObservationResourceDraftSpecification;
   calibrationCases?: ObservationCalibrationCase[];
+  taskLoadSemantics?: TaskLoadSemantics;
+  planningTaskKey?: string;
+  taskGroupProgressionPlanHash?: string;
   linkedDraftId?: string;
   linkedResourceId?: string;
   status: ObservationTaskPlanStatus;
@@ -164,6 +177,9 @@ export type MaterialObservationPlan = {
     sourceObservationTaskPlanId: string;
     taskRevisionRootId: string;
   };
+  trainingModelPolicyVersion?: typeof READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION;
+  progressionStageRuleVersion?: typeof READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION;
+  taskGroupProgressionPlan?: TaskGroupProgressionPlan;
   createdAt: string;
   updatedAt: string;
   schemaVersion: typeof MATERIAL_OBSERVATION_PLAN_SCHEMA_VERSION;
@@ -287,6 +303,10 @@ export function isObservationTaskPlan(value: unknown): value is ObservationTaskP
     nonEmpty(task.observationGoal) &&
     nonEmpty(task.expectedStudentAction) &&
     nonEmpty(task.designReason) &&
+    (task.taskLoadSemantics === undefined || isTaskLoadSemantics(
+      task.taskLoadSemantics,
+      task.resourceDraftSpecification?.responseFormat,
+    )) &&
     ['planned', 'draft_linked', 'frozen_linked', 'revision_required', 'cancelled'].includes(task.status)
   );
 }

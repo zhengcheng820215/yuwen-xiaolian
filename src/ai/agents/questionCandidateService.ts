@@ -24,6 +24,40 @@ import {
 } from './questionGenerationQualityPolicyAgent.ts';
 import type { QuestionGenerationQualityEvaluation } from
   '../schemas/questionGenerationQuality.schema.ts';
+import {
+  READING_OPEN_RESPONSE_LOAD_GATED_CANDIDATE_RULE_VERSION,
+  type ReadingOpenResponseLoadGateAssessment,
+  type ReadingTaskGroupLoadGateAssessment,
+} from '../schemas/readingOpenResponseLoadGate.schema.ts';
+import type {
+  TextResponseCandidateGenerationTrace,
+  TextResponseLoadPlanningIntent,
+} from '../schemas/readingOpenResponseGenerationPlanning.schema.ts';
+import {
+  assessReadingOpenResponseLoadGate,
+} from './readingOpenResponseLoadQualityGate.ts';
+import { isCandidateLoadGateAdoptable } from
+  './readingOpenResponsePublicationReadiness.ts';
+import { assessReadingTaskGroupLoadGate } from
+  './readingTaskGroupLoadQualityGate.ts';
+import {
+  isTrainingTaskSequenceReason,
+  isTrainingTaskSequenceStrategy,
+} from '../schemas/trainingTaskSequencePlanning.schema.ts';
+import {
+  calculateTaskLoadSemanticsHash,
+  cloneTaskLoadSemantics,
+  isTaskLoadSemantics,
+} from '../schemas/readingTaskLoadSemantics.schema.ts';
+import { READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION } from
+  '../schemas/readingTrainingProgressionAudit.schema.ts';
+import { verifyTaskLoadSemantics } from './readingTaskLoadSemanticsAgent.ts';
+import {
+  READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION,
+  type ReadingTaskGroupProgressionGateAssessment,
+} from '../schemas/readingTaskGroupProgression.schema.ts';
+import { assessReadingTaskGroupProgression } from
+  './readingTaskGroupProgressionPlanner.ts';
 
 const OPTIMIZABLE_FIELDS: CandidateFieldKey[] = [
   'abilityTarget',
@@ -44,6 +78,10 @@ export type GeneratedQuestionCandidate = {
   changedFields: CandidateFieldKey[];
   generationContext: CandidateGenerationContext;
   generationQuality?: QuestionGenerationQualityEvaluation;
+  textResponseLoadPlanning?: {
+    intent: TextResponseLoadPlanningIntent;
+    trace: TextResponseCandidateGenerationTrace;
+  };
 };
 
 export interface QuestionCandidateGenerator {
@@ -135,6 +173,36 @@ export class QuestionCandidateConflictError extends Error {
     super(message);
     this.name = 'QuestionCandidateConflictError';
     this.code = code;
+  }
+}
+
+export class QuestionCandidateLoadGateError extends Error {
+  readonly assessment: ReadingOpenResponseLoadGateAssessment;
+
+  constructor(assessment: ReadingOpenResponseLoadGateAssessment) {
+    super(`Reading open-response load gate blocked Candidate: ${assessment.blockerCodes.join(', ')}`);
+    this.name = 'QuestionCandidateLoadGateError';
+    this.assessment = assessment;
+  }
+}
+
+export class QuestionCandidateGroupLoadGateError extends Error {
+  readonly assessment: ReadingTaskGroupLoadGateAssessment;
+
+  constructor(assessment: ReadingTaskGroupLoadGateAssessment) {
+    super(`Reading task-group load gate blocked Candidate: ${assessment.blockerCodes.join(', ')}`);
+    this.name = 'QuestionCandidateGroupLoadGateError';
+    this.assessment = assessment;
+  }
+}
+
+export class QuestionCandidateProgressionGateError extends Error {
+  readonly assessment: ReadingTaskGroupProgressionGateAssessment;
+
+  constructor(assessment: ReadingTaskGroupProgressionGateAssessment) {
+    super(`Reading task-group progression gate blocked Candidate: ${assessment.blockerCodes.join(', ')}`);
+    this.name = 'QuestionCandidateProgressionGateError';
+    this.assessment = assessment;
   }
 }
 
@@ -258,6 +326,12 @@ export class QuestionCandidateService {
         `Candidate ${candidateId} content changed before adoption.`,
       );
     }
+    if (!isCandidateLoadGateAdoptable(candidate)) {
+      throw new QuestionCandidateConflictError(
+        'CANDIDATE_LOAD_GATE_BLOCKED_OR_STALE',
+        '当前候选的输入负担检查未通过或已过期，请重新生成题目。',
+      );
+    }
     const expectedContext = input.expectedContext
       ? cloneQuestionCandidate(input.expectedContext)
       : await this.contextGateway.getCurrentContext(trainingTaskId);
@@ -268,15 +342,16 @@ export class QuestionCandidateService {
     });
     if (recovered) {
       validateAdoptionResult(candidate, recovered);
+      const recoveredWithLoadGate = this.attachDraftLoadGateAssessment(candidate, recovered);
       await this.repository.saveCommandReceipt({
         command: 'adoptTaskCandidate',
         idempotencyKey,
         requestFingerprint,
-        result: { kind: 'candidate_adoption', adoption: recovered },
+        result: { kind: 'candidate_adoption', adoption: recoveredWithLoadGate },
         createdAt: recovered.adoptedAt,
       });
-      await this.reconcileAdoption(candidateId, input, recovered);
-      return cloneQuestionCandidate(recovered);
+      await this.reconcileAdoption(candidateId, input, recoveredWithLoadGate);
+      return cloneQuestionCandidate(recoveredWithLoadGate);
     }
     if (candidate.status !== 'ready') {
       throw new QuestionCandidateConflictError(
@@ -289,6 +364,52 @@ export class QuestionCandidateService {
       input.expectedContext,
     );
     await this.ensureCandidateCurrent(candidate, context);
+    const currentPeerQuestions = this.contextGateway.listPeerQuestionContents
+      ? await this.contextGateway.listPeerQuestionContents(trainingTaskId, context)
+      : [];
+    if (context.progressionStageRuleVersion
+      === READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION) {
+      const currentProgressionAssessment = assessCandidateProgression({
+        candidateId: candidate.candidateId,
+        content: candidate.content,
+        context,
+        assessedAt: this.now(),
+      });
+      if (['blocked', 'insufficient_input'].includes(currentProgressionAssessment.decision)) {
+        throw new QuestionCandidateProgressionGateError(currentProgressionAssessment);
+      }
+      if (candidate.taskGroupProgressionGateAssessment?.projectedGroupSnapshotHash
+        !== currentProgressionAssessment.projectedGroupSnapshotHash) {
+        throw new QuestionCandidateConflictError(
+          'CANDIDATE_GROUP_PROGRESSION_GATE_STALE',
+          '当前题组计划或任务身份已经变化，请重新检查候选后再发布。',
+        );
+      }
+    } else {
+      const currentGroupAssessment = assessCandidateTaskGroupLoad({
+        candidateId: candidate.candidateId,
+        trainingTaskId: candidate.trainingTaskId,
+        content: candidate.content,
+        loadGateAssessment: candidate.loadGateAssessment,
+        context,
+        peerQuestions: currentPeerQuestions,
+        assessedAt: this.now(),
+      });
+      if (currentGroupAssessment.decision === 'blocked') {
+        throw new QuestionCandidateGroupLoadGateError(currentGroupAssessment);
+      }
+      if (
+        candidate.generationContext.ruleVersion
+          === READING_OPEN_RESPONSE_LOAD_GATED_CANDIDATE_RULE_VERSION
+        && candidate.groupLoadGateAssessment?.groupSnapshotHash
+          !== currentGroupAssessment.groupSnapshotHash
+      ) {
+        throw new QuestionCandidateConflictError(
+          'CANDIDATE_GROUP_LOAD_GATE_STALE',
+          '当前题组顺序或内容已经变化，请重新检查候选后再发布。',
+        );
+      }
+    }
     const adoptedAt = this.now();
     const adoption = await this.adoptionGateway.adoptCandidate({
       candidate: cloneQuestionCandidate(candidate),
@@ -297,16 +418,48 @@ export class QuestionCandidateService {
       adoptedAt,
     });
     validateAdoptionResult(candidate, adoption);
+    const adoptionWithLoadGate = this.attachDraftLoadGateAssessment(candidate, adoption);
 
     await this.repository.saveCommandReceipt({
       command: 'adoptTaskCandidate',
       idempotencyKey,
       requestFingerprint,
-      result: { kind: 'candidate_adoption', adoption },
+      result: { kind: 'candidate_adoption', adoption: adoptionWithLoadGate },
       createdAt: adoptedAt,
     });
-    await this.reconcileAdoption(candidateId, input, adoption);
-    return cloneQuestionCandidate(adoption);
+    await this.reconcileAdoption(candidateId, input, adoptionWithLoadGate);
+    return cloneQuestionCandidate(adoptionWithLoadGate);
+  }
+
+  private attachDraftLoadGateAssessment(
+    candidate: QuestionCandidate,
+    adoption: CandidateAdoptionResult,
+  ): CandidateAdoptionResult {
+    if (
+      candidate.generationContext.ruleVersion
+      !== READING_OPEN_RESPONSE_LOAD_GATED_CANDIDATE_RULE_VERSION
+    ) {
+      return cloneQuestionCandidate(adoption);
+    }
+    const draftAssessment = assessReadingOpenResponseLoadGate({
+      subject: {
+        kind: 'draft_revision',
+        subjectId: adoption.draftId,
+        revision: adoption.revision,
+      },
+      trainingTaskId: candidate.trainingTaskId,
+      content: candidate.content,
+      generationTrace: candidate.textResponseLoadPlanning?.trace,
+      requireGenerationTrace: true,
+      assessedAt: adoption.adoptedAt,
+    });
+    if (draftAssessment?.decision === 'blocked') {
+      throw new QuestionCandidateLoadGateError(draftAssessment);
+    }
+    return {
+      ...cloneQuestionCandidate(adoption),
+      ...(draftAssessment ? { draftLoadGateAssessment: draftAssessment } : {}),
+    };
   }
 
   async generateFormalVersionOptimizationCandidates(
@@ -501,7 +654,9 @@ export class QuestionCandidateService {
     const candidates: QuestionCandidate[] = [];
     for (let index = 0; index < generated.length; index += 1) {
       const item = generated[index]!;
+      const candidateId = `${commandId}:${index + 1}`;
       validateGenerationContext(item.generationContext, context);
+      validateNativeTaskLoadContext(context, item.generationContext, item.content.responseFormat);
       if (input.operation === 'optimize' && input.baseCandidate) {
         validateOptimizedContent(
           input.baseCandidate.content,
@@ -510,8 +665,65 @@ export class QuestionCandidateService {
           input.lockedFields,
         );
       }
+      const loadGateAssessment = assessReadingOpenResponseLoadGate({
+        subject: { kind: 'candidate', subjectId: candidateId },
+        trainingTaskId,
+        content: item.content,
+        generationTrace: item.textResponseLoadPlanning?.trace,
+        requireGenerationTrace: item.generationContext.ruleVersion
+          === READING_OPEN_RESPONSE_LOAD_GATED_CANDIDATE_RULE_VERSION,
+        assessedAt: item.generationContext.generatedAt,
+      });
+      if (loadGateAssessment?.decision === 'blocked') {
+        throw new QuestionCandidateLoadGateError(loadGateAssessment);
+      }
+      const usesStage2Progression = context.progressionStageRuleVersion
+        === READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION;
+      const groupLoadGateAssessment = usesStage2Progression
+        ? undefined
+        : assessCandidateTaskGroupLoad({
+          candidateId,
+          trainingTaskId,
+          content: item.content,
+          loadGateAssessment: loadGateAssessment || undefined,
+          context,
+          peerQuestions,
+          assessedAt: item.generationContext.generatedAt,
+        });
+      if (groupLoadGateAssessment?.decision === 'blocked') {
+        throw new QuestionCandidateGroupLoadGateError(groupLoadGateAssessment);
+      }
+      const taskLoadSemanticsVerification = context.taskLoadSemantics
+        ? verifyTaskLoadSemantics({
+          trainingTaskId,
+          candidateId,
+          plannedSemantics: context.taskLoadSemantics,
+          plannedSemanticsHash: context.taskLoadSemanticsHash,
+          candidateSemantics: context.taskLoadSemantics,
+          responseFormat: item.content.responseFormat,
+          recomputedTextResponseLoadProfile: item.textResponseLoadPlanning?.trace.finalProfile,
+        })
+        : undefined;
+      if (taskLoadSemanticsVerification?.status === 'mismatched') {
+        throw new QuestionCandidateConflictError(
+          'TASK_LOAD_SEMANTICS_CONTENT_MISMATCH',
+          'Generated Candidate content does not match the authoritative Task load semantics.',
+        );
+      }
+      const taskGroupProgressionGateAssessment = usesStage2Progression
+        ? assessCandidateProgression({
+          candidateId,
+          content: item.content,
+          context,
+          assessedAt: item.generationContext.generatedAt,
+        })
+        : undefined;
+      if (taskGroupProgressionGateAssessment
+        && ['blocked', 'insufficient_input'].includes(taskGroupProgressionGateAssessment.decision)) {
+        throw new QuestionCandidateProgressionGateError(taskGroupProgressionGateAssessment);
+      }
       const candidate = createQuestionCandidate({
-        candidateId: `${commandId}:${index + 1}`,
+        candidateId,
         generationCommandId: commandId,
         generationCommandFingerprint: requestFingerprint,
         trainingTaskId,
@@ -527,8 +739,26 @@ export class QuestionCandidateService {
         changedFields: item.changedFields,
         allowedFields: input.allowedFields,
         lockedFields: input.lockedFields,
-        generationContext: item.generationContext,
+        generationContext: {
+          ...item.generationContext,
+          trainingModelPolicyVersion: context.trainingModelPolicyVersion,
+          trainingTaskLoadSemanticsHash: context.taskLoadSemanticsHash,
+          progressionStageRuleVersion: context.progressionStageRuleVersion,
+          planningTaskKey: context.planningTaskKey,
+          taskGroupProgressionPlanHash: context.taskGroupProgressionPlanHash,
+        },
         generationQuality: generationQuality[index],
+        textResponseLoadPlanning: item.textResponseLoadPlanning,
+        ...(loadGateAssessment ? { loadGateAssessment } : {}),
+        ...(groupLoadGateAssessment ? { groupLoadGateAssessment } : {}),
+        taskLoadSemantics: cloneTaskLoadSemantics(context.taskLoadSemantics),
+        taskLoadSemanticsHash: context.taskLoadSemanticsHash,
+        planningTaskKey: context.planningTaskKey,
+        taskGroupProgressionPlanHash: context.taskGroupProgressionPlanHash,
+        ...(taskGroupProgressionGateAssessment
+          ? { taskGroupProgressionGateAssessment }
+          : {}),
+        taskLoadSemanticsVerification,
         status: 'ready',
         createdAt: item.generationContext.generatedAt,
       });
@@ -746,6 +976,139 @@ export class QuestionCandidateService {
   }
 }
 
+function assessCandidateProgression(input: {
+  candidateId: string;
+  content: QuestionEditableFields;
+  context: CandidateRuntimeContext;
+  assessedAt: string;
+}): ReadingTaskGroupProgressionGateAssessment {
+  const subjects = (input.context.taskGroupProgressionSubjects || []).map((subject) => (
+    subject.planningTaskKey === input.context.planningTaskKey
+      ? {
+        ...subject,
+        subjectId: input.candidateId,
+        taskLoadSemantics: input.context.taskLoadSemantics || subject.taskLoadSemantics,
+        taskLoadSemanticsHash: input.context.taskLoadSemanticsHash
+          || subject.taskLoadSemanticsHash,
+        taskGroupProgressionPlanHash: input.context.taskGroupProgressionPlanHash,
+        observationObject: input.content.title,
+        sourceAnchorIdentity: input.content.tags
+          .filter((tag) => tag.startsWith('source_anchor:') || tag.startsWith('paragraph:'))
+          .join('|') || subject.sourceAnchorIdentity,
+        scoringTargetIds: input.content.rubric.map((rubric) => (
+          `${rubric.abilityId}:${rubric.name}`
+        )),
+      }
+      : {
+        ...subject,
+        taskGroupProgressionPlanHash: input.context.taskGroupProgressionPlanHash,
+      }
+  ));
+  return assessReadingTaskGroupProgression({
+    plan: input.context.taskGroupProgressionPlan,
+    materialVersionId: input.context.materialVersionId,
+    observationPlanRevisionId: input.context.taskGroupProgressionPlan
+      ?.observationPlanRevisionId
+      || `observation-plan:${input.context.observationPlanVersion}`,
+    subjects,
+    assessedAt: input.assessedAt,
+  });
+}
+
+function assessCandidateTaskGroupLoad(input: {
+  candidateId: string;
+  trainingTaskId: string;
+  content: QuestionEditableFields;
+  loadGateAssessment?: ReadingOpenResponseLoadGateAssessment;
+  context: CandidateRuntimeContext;
+  peerQuestions: QuestionEditableFields[];
+  assessedAt: string;
+}): ReadingTaskGroupLoadGateAssessment {
+  const allContents = [
+    ...input.peerQuestions.map((content, index) => ({
+      trainingTaskId: observationTaskId(content.tags) || `peer:${index + 1}`,
+      subjectId: `peer:${calculateQuestionEditableFieldsHash(content)}`,
+      content,
+      loadGateAssessment: assessReadingOpenResponseLoadGate({
+        subject: {
+          kind: 'draft_revision',
+          subjectId: `peer:${calculateQuestionEditableFieldsHash(content)}`,
+        },
+        trainingTaskId: observationTaskId(content.tags) || `peer:${index + 1}`,
+        content,
+        requireGenerationTrace: false,
+        assessedAt: input.assessedAt,
+      }) || undefined,
+    })),
+    {
+      trainingTaskId: input.trainingTaskId,
+      subjectId: input.candidateId,
+      content: input.content,
+      loadGateAssessment: input.loadGateAssessment,
+    },
+  ];
+  const sequenceTags = allContents.flatMap((item) => item.content.tags);
+  const strategyValue = tagValue(sequenceTags, 'sequence-strategy');
+  const reasonValue = tagValue(sequenceTags, 'sequence-reason');
+  const sequenceStrategy = isTrainingTaskSequenceStrategy(strategyValue)
+    ? strategyValue
+    : 'entry_first';
+  const sequenceReasonCode = isTrainingTaskSequenceReason(reasonValue)
+    ? reasonValue
+    : 'default_foundation_entry';
+  const completeSequenceIdentity = isTrainingTaskSequenceStrategy(strategyValue)
+    && isTrainingTaskSequenceReason(reasonValue)
+    && allContents.every((item) => Boolean(
+      positiveTagValue(item.content.tags, 'sequence-rank'),
+    ));
+  return assessReadingTaskGroupLoadGate({
+    materialVersionId: input.context.materialVersionId,
+    observationPlanRevisionId: `observation-plan:${input.context.observationPlanVersion}`,
+    items: allContents.map((item, index) => ({
+      trainingTaskId: item.trainingTaskId,
+      subjectId: item.subjectId,
+      responseFormat: item.content.responseFormat,
+      taskRole: item.content.abilityMetadata.taskRole,
+      sequenceRank: positiveTagValue(item.content.tags, 'sequence-rank') || index + 1,
+      sourceAnchorIds: item.content.tags.filter((tag) => (
+        tag.startsWith('source_anchor:')
+        || tag.startsWith('paragraph:')
+        || tag.startsWith('material_scope:')
+      )),
+      observationObject: item.content.title,
+      scoringTargetIds: item.content.rubric.map((rubric) => (
+        `${rubric.abilityId}:${rubric.name}`
+      )),
+      higherOrderObservationId: item.loadGateAssessment?.recomputedLoadProfile.loadLevel
+        === 'integrated'
+        ? item.trainingTaskId
+        : undefined,
+      singleGateAssessment: item.loadGateAssessment,
+    })),
+    sequenceStrategy,
+    sequenceReasonCode,
+    enforceSequence: completeSequenceIdentity,
+    targetedExcerpt: sequenceTags.some((tag) => (
+      tag === 'usage_type:targeted_excerpt'
+      || tag.startsWith('targeted_excerpt:')
+    )),
+    assessedAt: input.assessedAt,
+  });
+}
+
+function observationTaskId(tags: string[]): string | undefined {
+  return tagValue(tags, 'observation_task');
+}
+
+function tagValue(tags: string[], prefix: string): string | undefined {
+  return tags.find((tag) => tag.startsWith(`${prefix}:`))?.slice(prefix.length + 1);
+}
+
+function positiveTagValue(tags: string[], prefix: string): number | undefined {
+  const value = Number(tagValue(tags, prefix));
+  return Number.isInteger(value) && value > 0 ? value : undefined;
+}
+
 function validateOptimizedContent(
   base: QuestionEditableFields,
   generated: GeneratedQuestionCandidate,
@@ -838,6 +1201,59 @@ function validateGenerationContext(
     throw new QuestionCandidateConflictError(
       'CANDIDATE_GENERATION_CONTEXT_MISMATCH',
       'Generator returned a candidate for a different production context.',
+    );
+  }
+  if (current.progressionStageRuleVersion
+    === READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION
+    && (
+      generated.progressionStageRuleVersion !== current.progressionStageRuleVersion
+      || generated.planningTaskKey !== current.planningTaskKey
+      || generated.taskGroupProgressionPlanHash !== current.taskGroupProgressionPlanHash
+    )) {
+    throw new QuestionCandidateConflictError(
+      'CANDIDATE_PROGRESSION_CONTEXT_MISMATCH',
+      'Generator returned a Candidate for a different task-group progression plan.',
+    );
+  }
+}
+
+function validateNativeTaskLoadContext(
+  current: CandidateRuntimeContext,
+  generated: CandidateGenerationContext,
+  responseFormat: QuestionEditableFields['responseFormat'],
+): void {
+  if (current.trainingModelPolicyVersion === undefined) return;
+  if (current.trainingModelPolicyVersion
+    !== READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION) {
+    throw new QuestionCandidateConflictError(
+      'TASK_LOAD_POLICY_UNSUPPORTED',
+      'Training Model policy version is not supported.',
+    );
+  }
+  if (!current.taskLoadSemantics
+    || !isTaskLoadSemantics(current.taskLoadSemantics, responseFormat)) {
+    throw new QuestionCandidateConflictError(
+      'TASK_LOAD_SEMANTICS_INVALID',
+      'Native progressive-load Candidate requires valid inherited Task semantics.',
+    );
+  }
+  const expectedHash = calculateTaskLoadSemanticsHash(current.taskLoadSemantics);
+  if (current.taskLoadSemanticsHash !== expectedHash) {
+    throw new QuestionCandidateConflictError(
+      'TASK_LOAD_SEMANTICS_HASH_MISMATCH',
+      'Task load semantics hash does not match the inherited semantics.',
+    );
+  }
+  if (generated.trainingModelPolicyVersion !== current.trainingModelPolicyVersion) {
+    throw new QuestionCandidateConflictError(
+      'TASK_LOAD_POLICY_CONTEXT_MISMATCH',
+      'Generator returned a different Training Model policy version.',
+    );
+  }
+  if (generated.trainingTaskLoadSemanticsHash !== expectedHash) {
+    throw new QuestionCandidateConflictError(
+      'TASK_LOAD_GENERATION_HASH_MISMATCH',
+      'Generator returned a different Task load semantics hash.',
     );
   }
 }

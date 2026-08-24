@@ -20,6 +20,8 @@ import {
   QUESTION_RESOURCE_DIFFICULTIES,
   STRUCTURED_QUESTION_TYPES,
   type PrimaryAbilityId,
+  type QuestionResourceRubricItem,
+  type TextMinimumAnswerRequirement,
 } from '../schemas/questionResourceAdmission.schema.ts';
 import type {
   AssessmentMode,
@@ -31,7 +33,9 @@ import {
 } from '../providers/diagnosisProviderAdapter.ts';
 import {
   buildMaterialObservationDraftPrompt,
+  buildMaterialObservationDraftPlanningPrompt,
   buildMaterialObservationDraftRepairPrompt,
+  buildMaterialObservationDraftRealizationPrompt,
 } from '../prompts/materialObservationDraftPrompt.ts';
 import {
   AUTHORING_FIELD_CONTRACT_VERSION,
@@ -63,6 +67,26 @@ import {
   validateTargetedMaterialUsage,
   validateTargetedTrainingResourceMetadata,
 } from '../schemas/targetedMicroTraining.schema.ts';
+import {
+  projectReadingOpenResponseCandidateLoad,
+  stableTextResponsePromptFingerprint,
+} from './readingOpenResponseLoadPlanningAgent.ts';
+import { isTextResponseFormat } from
+  '../schemas/readingOpenResponseInputLoad.schema.ts';
+import { READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION } from
+  '../schemas/readingTrainingProgressionAudit.schema.ts';
+import {
+  READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION,
+  isReadingTaskPlanningSeed,
+  stableProgressionIdentity,
+  type ReadingTaskPlanningSeed,
+  type TaskGroupProgressionPlanningResult,
+} from '../schemas/readingTaskGroupProgression.schema.ts';
+import {
+  planReadingTaskGroupProgression,
+  planReadingTaskGroupProgressionSeeds,
+} from
+  './readingTaskGroupProgressionPlanner.ts';
 
 const ASSESSMENT_MODES: AssessmentMode[] = [
   'exact_match',
@@ -116,6 +140,8 @@ export type MaterialObservationDraftGeneratorConfig = {
   maxOutputTokens: number;
   timeoutMs: number;
   maxAttempts: number;
+  /** Live generation uses authoritative Seed -> Plan -> Realization. */
+  stage2TwoPassPlanning: boolean;
 };
 
 type PendingCandidateRepair = {
@@ -132,6 +158,7 @@ export function createMaterialObservationDraftGeneratorConfig(input: {
   maxOutputTokens?: number;
   timeoutMs?: number;
   maxAttempts?: number;
+  stage2TwoPassPlanning?: boolean;
 }): MaterialObservationDraftGeneratorConfig {
   return {
     providerName: input.providerName,
@@ -140,7 +167,176 @@ export function createMaterialObservationDraftGeneratorConfig(input: {
     maxOutputTokens: input.maxOutputTokens ?? 8_000,
     timeoutMs: input.timeoutMs ?? 30_000,
     maxAttempts: input.maxAttempts ?? 2,
+    stage2TwoPassPlanning: input.stage2TwoPassPlanning ?? false,
   };
+}
+
+type AuthoritativeProgressionRealization = {
+  seeds: ReadingTaskPlanningSeed[];
+  progressionPlanning: {
+    orderedSeeds: ReadingTaskPlanningSeed[];
+    sequencePlanningResult: MaterialObservationDraftGeneratorResult['sequencePlanningResult'];
+    planningResult: TaskGroupProgressionPlanningResult;
+  };
+};
+
+async function generateMaterialObservationDraftCandidatesTwoPass(
+  input: MaterialObservationDraftGeneratorInput,
+  dependencies: {
+    provider: DiagnosisProviderAdapter;
+    config: MaterialObservationDraftGeneratorConfig;
+  },
+): Promise<MaterialObservationDraftGeneratorResult> {
+  let totalLatencyMs = 0;
+  let tokenUsage: MaterialObservationDraftGeneratorResult['provider']['tokenUsage'];
+  try {
+    const planningResponse = await dependencies.provider.diagnose({
+      requestId: `${input.requestId}:stage2-plan`,
+      attempt: 1,
+      prompt: buildMaterialObservationDraftPlanningPrompt(input),
+      model: dependencies.config.model,
+      temperature: dependencies.config.temperature,
+      maxOutputTokens: Math.min(dependencies.config.maxOutputTokens, 4_000),
+      timeoutMs: dependencies.config.timeoutMs,
+    });
+    totalLatencyMs += planningResponse.latencyMs;
+    tokenUsage = mergeUsage(tokenUsage, planningResponse.tokenUsage);
+    const planningPayload = parseProviderOutput(planningResponse.rawOutput);
+    if (!planningPayload) {
+      return emptyResult(input, dependencies.config, {
+        status: 'review_required',
+        issues: ['stage2_planning_output_not_valid_json'],
+        limitations: ['任务规划输出无法解析；未进入题面生成。'],
+        attemptCount: 1,
+        latencyMs: totalLatencyMs,
+        tokenUsage,
+      });
+    }
+    const seedResult = parseStage2PlanningSeeds(input, planningPayload);
+    if (seedResult.issues.length > 0 || seedResult.seeds.length === 0) {
+      return emptyResult(input, dependencies.config, {
+        status: 'review_required',
+        issues: seedResult.issues.length > 0
+          ? seedResult.issues : ['stage2_planning_seed_empty'],
+        limitations: ['任务 Seed 未通过结构校验；未进入题面生成。'],
+        attemptCount: 1,
+        latencyMs: totalLatencyMs,
+        tokenUsage,
+      });
+    }
+    const providerSequenceDecision = resolveProviderSequencePlanningDecision(
+      input,
+      planningPayload.sequencePlanningDecision,
+      seedResult.seeds.length,
+    );
+    const progressionPlanning = planReadingTaskGroupProgressionSeeds({
+      materialVersionId: input.material.materialVersionId,
+      observationPlanRevisionId: input.preferences?.observationPlanRevisionId
+        || `draft:${input.requestId}`,
+      seeds: seedResult.seeds,
+      preference: providerSequenceDecision.preference,
+    });
+    const authoritative: AuthoritativeProgressionRealization = {
+      seeds: seedResult.seeds,
+      progressionPlanning,
+    };
+    const realizationResponse = await dependencies.provider.diagnose({
+      requestId: `${input.requestId}:stage2-realization`,
+      attempt: 1,
+      prompt: buildMaterialObservationDraftRealizationPrompt({
+        baseInput: input,
+        seeds: progressionPlanning.orderedSeeds,
+        progressionPlan: progressionPlanning.planningResult.progressionPlan,
+      }),
+      model: dependencies.config.model,
+      temperature: dependencies.config.temperature,
+      maxOutputTokens: dependencies.config.maxOutputTokens,
+      timeoutMs: dependencies.config.timeoutMs,
+    });
+    totalLatencyMs += realizationResponse.latencyMs;
+    tokenUsage = mergeUsage(tokenUsage, realizationResponse.tokenUsage);
+    const realizationPayload = parseProviderOutput(realizationResponse.rawOutput);
+    if (!realizationPayload) {
+      return emptyResult(input, dependencies.config, {
+        status: 'review_required',
+        issues: ['stage2_realization_output_not_valid_json'],
+        limitations: ['题面实现输出无法解析；规划结果未写入正式资源。'],
+        attemptCount: 2,
+        latencyMs: totalLatencyMs,
+        tokenUsage,
+      });
+    }
+    return evaluateProviderCandidates(input, realizationPayload, {
+      config: dependencies.config,
+      attemptCount: 2,
+      latencyMs: totalLatencyMs,
+      tokenUsage,
+      authoritativeProgression: authoritative,
+    });
+  } catch (error) {
+    return emptyResult(input, dependencies.config, {
+      status: 'provider_failed',
+      issues: [error instanceof DiagnosisProviderError
+        ? `provider_${error.category}` : 'provider_failed'],
+      limitations: ['阶段 2 两步式生成未完成；未写入正式资源。'],
+      attemptCount: 1,
+      latencyMs: totalLatencyMs,
+      tokenUsage,
+    });
+  }
+}
+
+function parseStage2PlanningSeeds(
+  input: MaterialObservationDraftGeneratorInput,
+  payload: Record<string, unknown>,
+): { seeds: ReadingTaskPlanningSeed[]; issues: string[] } {
+  const rawSeeds = Array.isArray(payload.planningSeeds) ? payload.planningSeeds : [];
+  const issues: string[] = [];
+  const seeds = rawSeeds.flatMap((rawSeed, index): ReadingTaskPlanningSeed[] => {
+    if (!isRecord(rawSeed)) {
+      issues.push(`stage2_seed_${index}_invalid`);
+      return [];
+    }
+    const seedKey = isNonEmptyString(rawSeed.seedKey)
+      ? rawSeed.seedKey.trim() : `seed-${index + 1}`;
+    const loadIntent = isRecord(rawSeed.loadIntent) ? rawSeed.loadIntent : {};
+    const seed: ReadingTaskPlanningSeed = {
+      planningTaskKey: stableProgressionIdentity({
+        materialVersionId: input.material.materialVersionId,
+        seedKey,
+        dimension: rawSeed.observationDimension,
+        object: rawSeed.observationObject,
+        anchor: rawSeed.materialAnchor,
+        abilityId: rawSeed.primaryAbilityId,
+      }),
+      observationDimension: rawSeed.observationDimension as ReadingTaskPlanningSeed['observationDimension'],
+      observationObject: typeof rawSeed.observationObject === 'string'
+        ? rawSeed.observationObject.trim() : '',
+      materialAnchor: rawSeed.materialAnchor as ReadingTaskPlanningSeed['materialAnchor'],
+      primaryAbilityId: rawSeed.primaryAbilityId as ReadingTaskPlanningSeed['primaryAbilityId'],
+      taskRole: (rawSeed.taskRole || 'training') as ReadingTaskPlanningSeed['taskRole'],
+      responseFormat: rawSeed.responseFormat as ReadingTaskPlanningSeed['responseFormat'],
+      loadIntent: {
+        primaryAction: loadIntent.primaryAction as ReadingTaskPlanningSeed['loadIntent']['primaryAction'],
+        supportingAction: loadIntent.supportingAction as ReadingTaskPlanningSeed['loadIntent']['supportingAction'],
+        responsibilities: Array.isArray(loadIntent.responsibilities)
+          ? loadIntent.responsibilities as ReadingTaskPlanningSeed['loadIntent']['responsibilities']
+          : [],
+        textResponseLoadProfile: isRecord(loadIntent.textResponseLoadProfile)
+          ? loadIntent.textResponseLoadProfile as ReadingTaskPlanningSeed['loadIntent']['textResponseLoadProfile']
+          : undefined,
+      },
+    };
+    if (!isReadingTaskPlanningSeed(seed)) {
+      issues.push(`stage2_seed_${index}_contract_invalid`);
+      return [];
+    }
+    return [seed];
+  });
+  if (new Set(seeds.map((seed) => seed.planningTaskKey)).size !== seeds.length) {
+    issues.push('stage2_seed_identity_duplicate');
+  }
+  return { seeds, issues };
 }
 
 export async function generateMaterialObservationDraftCandidates(
@@ -164,6 +360,10 @@ export async function generateMaterialObservationDraftCandidates(
       issues: ['provider_config_mismatch'],
       limitations: ['Provider identity does not match the configured generator.'],
     });
+  }
+
+  if (dependencies.config.stage2TwoPassPlanning) {
+    return generateMaterialObservationDraftCandidatesTwoPass(input, dependencies);
   }
 
   let prompt = buildMaterialObservationDraftPrompt(input);
@@ -207,6 +407,9 @@ export async function generateMaterialObservationDraftCandidates(
         });
       }
 
+      const repairedCandidateIndexes = pendingRepair
+        ? readRepairedCandidateIndexes(parsed, pendingRepair.rejectedCandidates)
+        : new Set<number>();
       const evaluatedPayload = pendingRepair
         ? mergeRepairedCandidates(pendingRepair.originalPayload, parsed, pendingRepair.rejectedCandidates)
         : parsed;
@@ -215,6 +418,13 @@ export async function generateMaterialObservationDraftCandidates(
         attemptCount: attempt,
         latencyMs: totalLatencyMs,
         tokenUsage,
+        repairedCandidateIndexes,
+        repairIssuesByCandidateIndex: pendingRepair
+          ? new Map(pendingRepair.rejectedCandidates.map((candidate) => [
+            candidate.candidateIndex,
+            candidate.issues,
+          ]))
+          : new Map(),
       });
       if (pendingRepair) {
         return finalizeRepairResult(result, pendingRepair);
@@ -292,13 +502,17 @@ function selectRejectedCandidatesForRepair(
   result: MaterialObservationDraftGeneratorResult,
 ): RejectedMaterialObservationCandidate[] {
   if (result.status === 'review_required') return result.rejectedCandidates;
-  if (result.singleChoicePlanningResult?.status !== 'underfilled') return [];
-  return result.rejectedCandidates.filter((candidate) => (
-    candidate.diagnosticContext?.responseFormat === 'single_choice'
-      && candidate.disposition !== 'unsupported_by_material'
-      && candidate.issues.length > 0
-      && candidate.issues.every(isRepairableSingleChoiceCandidateIssue)
-  ));
+  return result.rejectedCandidates.filter((candidate) => {
+    if (candidate.disposition === 'unsupported_by_material'
+      || candidate.issues.length === 0) return false;
+    const responseFormat = candidate.diagnosticContext?.responseFormat;
+    if (responseFormat === 'short_text' || responseFormat === 'long_text') {
+      return candidate.issues.some((issue) => issue.startsWith('text_response_load.'));
+    }
+    return result.singleChoicePlanningResult?.status === 'underfilled'
+      && responseFormat === 'single_choice'
+      && candidate.issues.every(isRepairableSingleChoiceCandidateIssue);
+  });
 }
 
 function isRepairableSingleChoiceCandidateIssue(issue: string): boolean {
@@ -373,6 +587,34 @@ function buildCandidateRepairInstructions(
       '逐项核对 questionStem 与 rubricDraft。优先删除题干未要求的 Rubric；只有该维度属于原 Observation 的核心训练意图时，才同步改写题干明确要求。短段落只保留一个主要认知动作和一至两个相互依赖的核心评分项。',
     );
   }
+  if (issues.some((issue) => issue === 'text_response_load.composite_core_actions'
+    || issue === 'text_response_load.three_or_more_independent_actions')) {
+    instructions.push(
+      '开放文本题只保留一个主要认知动作和最多一个紧密依赖的支撑动作。删除可独立评分的概括、人物、主题、结构或表达等多余目标，并同步精简题干、Rubric、答案接受条件与作答要求。',
+    );
+  }
+  if (issues.includes('text_response_load.hidden_rubric_requirement')) {
+    instructions.push(
+      '删除题干没有要求的 Required Rubric；只有原 Observation Focus 明确要求的核心维度才能保留，并须在题干中用学生可理解的动作明确表达。',
+    );
+  }
+  if (issues.includes('text_response_load.evidence_scope_insufficient')
+    || issues.includes('text_response_load.evidence_requirement_excessive')) {
+    instructions.push(
+      '保持回答对象不变，把证据数量和范围收窄到当前 Material Anchor 实际支持的内容；不得凭空扩大到全文或增加不存在的证据。',
+    );
+  }
+  if (issues.includes('text_response_load.response_format_load_mismatch')) {
+    instructions.push(
+      '按实际训练动作调整 short_text / long_text；局部单一动作优先 short_text，多证据综合关系才使用 long_text。不得改变主要能力和回答对象。',
+    );
+  }
+  if (issues.includes('text_response_load.minimum_length_overweighted')
+    || issues.includes('text_response_load.minimum_length_under_supports_rubric')) {
+    instructions.push(
+      'minimumAnswerRequirement 只表达内容有效性的最低边界，不得复制内部推荐长度区间。同步保证题干、Rubric 与最短完整答案相容。',
+    );
+  }
   return instructions;
 }
 
@@ -384,15 +626,25 @@ function mergeRepairedCandidates(
   const originalCandidates = Array.isArray(originalPayload.candidates)
     ? [...originalPayload.candidates]
     : [];
-  const rejectedIndexes = new Set(rejectedCandidates.map((item) => item.candidateIndex));
+  const rejectedByIndex = new Map(rejectedCandidates.map((item) => [
+    item.candidateIndex,
+    item,
+  ]));
+  const rejectedIndexes = new Set(rejectedByIndex.keys());
   const repairedCandidates = Array.isArray(repairPayload.candidates) ? repairPayload.candidates : [];
 
   repairedCandidates.forEach((candidate) => {
     if (!isRecord(candidate)) return;
     const repairIndex = readRepairCandidateIndex(candidate.repairOfCandidateIndex);
     if (repairIndex === undefined || !rejectedIndexes.has(repairIndex)) return;
+    const original = originalCandidates[repairIndex];
     const replacement = { ...candidate };
     delete replacement.repairOfCandidateIndex;
+    if (!isRecord(original) || !preservesRepairLockedIdentity(
+      original,
+      replacement,
+      rejectedByIndex.get(repairIndex)?.issues || [],
+    )) return;
     originalCandidates[repairIndex] = replacement;
   });
 
@@ -409,8 +661,71 @@ function mergeRepairedCandidates(
   };
 }
 
+function preservesRepairLockedIdentity(
+  original: Record<string, unknown>,
+  replacement: Record<string, unknown>,
+  issues: string[],
+): boolean {
+  if (original.primaryAbilityId !== replacement.primaryAbilityId) return false;
+  if (original.observationDimension !== replacement.observationDimension) return false;
+  if (stableSerializeForRepair(original.observationFocus)
+    !== stableSerializeForRepair(replacement.observationFocus)) return false;
+  const materialAnchorMayBeCorrected = issues.some((issue) => (
+    issue === 'material_anchor_missing'
+    || issue === 'material_anchor_type_invalid'
+    || issue === 'material_anchor_out_of_range'
+  ));
+  if (!materialAnchorMayBeCorrected
+    && stableSerializeForRepair(original.materialAnchor)
+      !== stableSerializeForRepair(replacement.materialAnchor)) return false;
+  const responseFormatMayChange = issues.includes(
+    'text_response_load.response_format_load_mismatch',
+  );
+  if (!responseFormatMayChange) {
+    const originalDraft = isRecord(original.questionDraft) ? original.questionDraft : {};
+    const replacementDraft = isRecord(replacement.questionDraft) ? replacement.questionDraft : {};
+    if (originalDraft.responseFormat !== replacementDraft.responseFormat) return false;
+  }
+  return true;
+}
+
+function stableSerializeForRepair(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableSerializeForRepair).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => `${key}:${stableSerializeForRepair(item)}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value) || 'null';
+}
+
+function materialAnchorsEqual(
+  left: ReadingTaskPlanningSeed['materialAnchor'],
+  right: ReadingTaskPlanningSeed['materialAnchor'],
+): boolean {
+  if (left.anchorType !== right.anchorType) return false;
+  if (left.anchorType === 'full_text') return true;
+  if (left.startParagraph !== right.startParagraph) return false;
+  if (left.anchorType === 'paragraph') return true;
+  return left.endParagraph === right.endParagraph;
+}
+
 function readRepairCandidateIndex(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
+function readRepairedCandidateIndexes(
+  repairPayload: Record<string, unknown>,
+  rejectedCandidates: RejectedMaterialObservationCandidate[],
+): Set<number> {
+  const allowed = new Set(rejectedCandidates.map((candidate) => candidate.candidateIndex));
+  const repaired = Array.isArray(repairPayload.candidates) ? repairPayload.candidates : [];
+  return new Set(repaired.flatMap((candidate) => {
+    if (!isRecord(candidate)) return [];
+    const index = readRepairCandidateIndex(candidate.repairOfCandidateIndex);
+    return index !== undefined && allowed.has(index) ? [index] : [];
+  }));
 }
 
 function countRejectedIssues(
@@ -493,6 +808,9 @@ function evaluateProviderCandidates(
     attemptCount: number;
     latencyMs: number;
     tokenUsage?: MaterialObservationDraftGeneratorResult['provider']['tokenUsage'];
+    repairedCandidateIndexes?: Set<number>;
+    repairIssuesByCandidateIndex?: Map<number, string[]>;
+    authoritativeProgression?: AuthoritativeProgressionRealization;
   },
 ): MaterialObservationDraftGeneratorResult {
   const rawCandidates = Array.isArray(payload.candidates) ? payload.candidates : [];
@@ -509,11 +827,61 @@ function evaluateProviderCandidates(
       });
       return;
     }
-    const parsed = parseCandidate(rawCandidate, candidateIndex, input, materialParagraphs.length);
+    const authoritativeTask = runtime.authoritativeProgression
+      ?.progressionPlanning.planningResult.progressionPlan.orderedTasks[candidateIndex];
+    const authoritativeSeed = authoritativeTask
+      ? runtime.authoritativeProgression?.progressionPlanning.orderedSeeds[candidateIndex]
+      : undefined;
+    const authoritativeSemantics = authoritativeTask
+      ? runtime.authoritativeProgression?.progressionPlanning.planningResult.plannedTasks.find(
+          (item) => item.planningTaskKey === authoritativeTask.planningTaskKey,
+        )
+      : undefined;
+    if (runtime.authoritativeProgression && (!isRecord(rawCandidate)
+      || !authoritativeTask
+      || !authoritativeSeed
+      || rawCandidate.planningTaskKey !== authoritativeTask.planningTaskKey
+      || rawCandidate.taskLoadSemanticsHash !== authoritativeTask.taskLoadSemanticsHash
+      || rawCandidate.taskGroupProgressionPlanHash
+        !== runtime.authoritativeProgression.progressionPlanning.planningResult.progressionPlan.planHash
+      || rawCandidate.sequenceRank !== candidateIndex + 1)) {
+      rejectedCandidates.push({
+        candidateIndex,
+        issues: ['stage2_realization_receipt_mismatch'],
+        diagnosticContext: buildRejectionDiagnosticContext(rawCandidate, materialParagraphs.length),
+      });
+      return;
+    }
+    const parsed = parseCandidate(
+      rawCandidate,
+      candidateIndex,
+      input,
+      materialParagraphs,
+      runtime.repairedCandidateIndexes?.has(candidateIndex)
+        ? {
+            attemptCount: 1,
+            issueCodes: runtime.repairIssuesByCandidateIndex?.get(candidateIndex) || [],
+          }
+        : undefined,
+    );
     const allowedTargetAbilities = input.material.usageType === 'targeted_excerpt'
       ? input.material.targetedExcerptMetadata?.targetAbilityIds || []
       : [];
-    if (
+    if (parsed.candidate && authoritativeSeed && (
+      parsed.candidate.primaryAbilityId !== authoritativeSeed.primaryAbilityId
+      || parsed.candidate.observationDimension !== authoritativeSeed.observationDimension
+      || parsed.candidate.questionDraft.responseFormat !== authoritativeSeed.responseFormat
+      || !materialAnchorsEqual(
+        parsed.candidate.materialAnchor,
+        authoritativeSeed.materialAnchor,
+      )
+    )) {
+      rejectedCandidates.push({
+        candidateIndex,
+        issues: ['stage2_realization_seed_drift'],
+        diagnosticContext: buildRejectionDiagnosticContext(rawCandidate, materialParagraphs.length),
+      });
+    } else if (
       parsed.candidate
       && allowedTargetAbilities.length > 0
       && !allowedTargetAbilities.includes(parsed.candidate.primaryAbilityId)
@@ -523,7 +891,15 @@ function evaluateProviderCandidates(
         issues: ['targeted_primary_ability_out_of_scope'],
         diagnosticContext: buildRejectionDiagnosticContext(rawCandidate, materialParagraphs.length),
       });
-    } else if (parsed.candidate) candidates.push(parsed.candidate);
+    } else if (parsed.candidate) candidates.push(authoritativeTask && authoritativeSemantics
+      ? {
+          ...parsed.candidate,
+          planningTaskKey: authoritativeTask.planningTaskKey,
+          taskGroupProgressionPlanHash:
+            runtime.authoritativeProgression!.progressionPlanning.planningResult.progressionPlan.planHash,
+          taskLoadSemantics: authoritativeSemantics.taskLoadSemantics,
+        }
+      : parsed.candidate);
     else rejectedCandidates.push({
       candidateIndex,
       issues: parsed.issues,
@@ -602,11 +978,29 @@ function evaluateProviderCandidates(
     payload.sequencePlanningDecision,
     newObservationCandidates.length,
   );
-  const sequencePlan = planTrainingTaskSequence({
-    tasks: newObservationCandidates,
-    preference: providerSequenceDecision.preference,
-  });
-  const orderedObservationCandidates = sequencePlan.tasks;
+  const derivedProgressionPlanning = runtime.authoritativeProgression
+    ? undefined
+    : planReadingTaskGroupProgression({
+        materialVersionId: input.material.materialVersionId,
+        observationPlanRevisionId: input.preferences?.observationPlanRevisionId
+          || `draft:${input.requestId}`,
+        candidates: newObservationCandidates,
+        preference: providerSequenceDecision.preference,
+      });
+  const progressionPlanning = runtime.authoritativeProgression?.progressionPlanning;
+  const orderedObservationCandidates = progressionPlanning
+    ? progressionPlanning.planningResult.progressionPlan.orderedTasks.flatMap((task) => {
+        const candidate = newObservationCandidates.find(
+          (item) => item.planningTaskKey === task.planningTaskKey,
+        );
+        return candidate ? [candidate] : [];
+      })
+    : derivedProgressionPlanning!.orderedCandidates;
+  if (runtime.authoritativeProgression
+    && orderedObservationCandidates.length
+      !== progressionPlanning!.planningResult.progressionPlan.orderedTasks.length) {
+    batchIssues.push('stage2_realization_candidate_count_mismatch');
+  }
   const singleChoiceCandidateCount = orderedObservationCandidates.filter(
     (candidate) => candidate.questionDraft.responseFormat === 'single_choice',
   ).length;
@@ -656,7 +1050,11 @@ function evaluateProviderCandidates(
     withheldCandidates,
     rejectedCandidates,
     singleChoicePlanningResult,
-    sequencePlanningResult: sequencePlan.result,
+    sequencePlanningResult: progressionPlanning?.sequencePlanningResult
+      || derivedProgressionPlanning!.sequencePlanningResult,
+    progressionStageRuleVersion: READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION,
+    taskGroupProgressionPlan: progressionPlanning?.planningResult.progressionPlan
+      || derivedProgressionPlanning!.planningResult.progressionPlan,
     coveragePreview: {
       surfaceCandidateCount: rawCandidates.length,
       independentObservationCount: orderedObservationCandidates.length,
@@ -683,6 +1081,7 @@ function evaluateProviderCandidates(
       tokenUsage: runtime.tokenUsage,
     },
     limitations,
+    trainingModelPolicyVersion: READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION,
     version: MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION,
   };
 }
@@ -858,9 +1257,11 @@ function parseCandidate(
   value: unknown,
   candidateIndex: number,
   input: MaterialObservationDraftGeneratorInput,
-  paragraphCount: number,
+  materialParagraphs: string[],
+  repairContext?: { attemptCount: 1; issueCodes: string[] },
 ): { candidate?: MaterialObservationPlanningCandidate; issues: string[] } {
   const issues: string[] = [];
+  const paragraphCount = materialParagraphs.length;
   if (!isRecord(value)) return { issues: ['candidate_not_object'] };
   const prohibited = PROHIBITED_CANDIDATE_FIELDS.filter((field) => field in value);
   if (prohibited.length) issues.push(`prohibited_formal_fields:${prohibited.join(',')}`);
@@ -951,9 +1352,65 @@ function parseCandidate(
     return { issues: unique(issues) };
   }
 
+  const candidateId = `observation-candidate-${stableHash(`${input.material.materialVersionId}|${questionStem}|${candidateIndex}`)}`;
+  const textResponseLoadProjection = isTextResponseFormat(questionDraft.responseFormat)
+    ? projectReadingOpenResponseCandidateLoad({
+        planningInput: {
+          sourceIdentity: {
+            materialVersionId: input.material.materialVersionId,
+            trainingTaskId: input.preferences?.targetObservationId,
+            taskRole: 'training',
+          },
+          questionIdentity: candidateId,
+          materialTitle: input.material.title,
+          questionStem,
+          responseObject: observationFocus.displayName,
+          responseFormat: questionDraft.responseFormat,
+          rubric: toLoadRubric(rubricDraft, minimumAnswerRequirement),
+          minimumAnswerRequirement: minimumAnswerRequirement as TextMinimumAnswerRequirement,
+          abilityMetadata: {
+            abilityId: primaryAbilityId,
+            supportingAbilityIds,
+            difficulty: difficultySuggestion,
+          },
+          expectedStudentAction,
+          sourceAnchorIds: materialAnchorIds(materialAnchor, paragraphCount),
+          sourceEvidenceCharacterCount: materialAnchorCharacterCount(
+            materialAnchor,
+            materialParagraphs,
+          ),
+          sequenceContext: resolveLoadSequenceContext(input, candidateIndex),
+        },
+        promptInputFingerprint: stableTextResponsePromptFingerprint({
+          requestId: input.requestId,
+          materialVersionId: input.material.materialVersionId,
+          generationMode: input.generationMode || 'discover_new_observation',
+          preferences: input.preferences || {},
+          candidateIndex,
+        }),
+        repairAttemptCount: repairContext?.attemptCount || 0,
+        repairIssueCodes: repairContext?.issueCodes || [],
+      })
+    : undefined;
+  if (textResponseLoadProjection?.blockingIssueCodes.length) {
+    return { issues: unique(textResponseLoadProjection.blockingIssueCodes) };
+  }
+  if (
+    textResponseLoadProjection
+    && textResponseLoadProjection.planningResult.status !== 'planned'
+  ) {
+    return {
+      issues: textResponseLoadProjection.planningResult.status === 'requires_task_refocus'
+        ? textResponseLoadProjection.planningResult.reasonCodes.map(
+            (code) => `text_response_load.${code}`,
+          )
+        : ['text_response_load.not_applicable'],
+    };
+  }
+
   return {
     candidate: {
-      candidateId: `observation-candidate-${stableHash(`${input.material.materialVersionId}|${questionStem}|${candidateIndex}`)}`,
+      candidateId,
       questionStem,
       questionDraft,
       choiceInteraction,
@@ -973,12 +1430,103 @@ function parseCandidate(
       evidencePotential,
       evidenceBoundary,
       safetyBoundary,
+      ...(textResponseLoadProjection?.trace
+        && textResponseLoadProjection.planningResult.status === 'planned'
+        ? {
+            textResponseLoadPlanning: {
+              intent: textResponseLoadProjection.planningResult.intent,
+              trace: textResponseLoadProjection.trace,
+            },
+          }
+        : {}),
       inventoryRelation: {
         disposition: 'new_observation_candidate',
         reason: '尚未与已有 Observation Inventory 建立同质匹配。',
       },
     },
     issues: [],
+  };
+}
+
+function toLoadRubric(
+  rubricDraft: MaterialObservationPlanningCandidate['rubricDraft'],
+  minimumAnswerRequirement: TextMinimumAnswerRequirement,
+): QuestionResourceRubricItem[] {
+  return rubricDraft.map((item, index) => ({
+    itemId: `generated-load-rubric-${index + 1}`,
+    name: item.name,
+    description: item.description,
+    abilityId: item.abilityId,
+    importance: 'critical',
+    required: true,
+    evidenceRequirement: {
+      requireTextEvidence: minimumAnswerRequirement.requireTextEvidence,
+      requireExplanation: minimumAnswerRequirement.requireExplanation,
+      requireConclusion: minimumAnswerRequirement.requireExplanation,
+    },
+    acceptedSignals: item.acceptedSignals,
+  }));
+}
+
+function materialAnchorIds(
+  anchor: MaterialObservationPlanningCandidate['materialAnchor'],
+  paragraphCount: number,
+): string[] {
+  if (anchor.anchorType === 'full_text') {
+    return Array.from({ length: paragraphCount }, (_, index) => `paragraph-${index + 1}`);
+  }
+  const start = Math.max(1, anchor.startParagraph || 1);
+  const end = Math.min(paragraphCount, anchor.endParagraph || start);
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, index) => (
+    `paragraph-${start + index}`
+  ));
+}
+
+function materialAnchorCharacterCount(
+  anchor: MaterialObservationPlanningCandidate['materialAnchor'],
+  paragraphs: string[],
+): number {
+  if (anchor.anchorType === 'full_text') {
+    return paragraphs.reduce((sum, paragraph) => sum + Array.from(paragraph).length, 0);
+  }
+  const startIndex = Math.max(0, (anchor.startParagraph || 1) - 1);
+  const endIndex = Math.min(paragraphs.length - 1, (anchor.endParagraph || anchor.startParagraph || 1) - 1);
+  return paragraphs.slice(startIndex, endIndex + 1)
+    .reduce((sum, paragraph) => sum + Array.from(paragraph).length, 0);
+}
+
+function resolveLoadSequenceContext(
+  input: MaterialObservationDraftGeneratorInput,
+  candidateIndex: number,
+) {
+  const sequence = input.preferences?.sequencePlanning;
+  if (sequence?.strategy === 'holistic_first') {
+    return {
+      position: candidateIndex,
+      singleChoiceFoundationSatisfied: false,
+      sequencePreference: 'holistic_judgment_first' as const,
+      exceptionReason: sequence.reason === 'independent_expression_baseline'
+        ? 'text_expression_required' as const
+        : 'holistic_judgment_required' as const,
+    };
+  }
+  if (sequence?.strategy === 'role_driven') {
+    return {
+      position: candidateIndex,
+      singleChoiceFoundationSatisfied: false,
+      sequencePreference: 'role_driven' as const,
+      exceptionReason: sequence.reason === 'transfer_in_new_context'
+        ? 'transfer_role' as const
+        : 'retest_role' as const,
+    };
+  }
+  const preferredPreludeChoiceCount = sequence?.preferredPreludeChoiceCount
+    ?? input.preferences?.singleChoiceCandidateTarget
+    ?? 0;
+  return {
+    position: candidateIndex,
+    singleChoiceFoundationSatisfied: candidateIndex >= preferredPreludeChoiceCount,
+    sequencePreference: 'foundation_first' as const,
   };
 }
 
@@ -1563,25 +2111,18 @@ function emptyResult(
       tokenUsage: details.tokenUsage,
     },
     limitations: details.limitations,
+    trainingModelPolicyVersion: READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION,
     version: MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION,
   };
 }
 
 function parseProviderOutput(rawOutput: string): Record<string, unknown> | null {
-  const trimmed = rawOutput.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  const trimmed = rawOutput.trim();
   try {
     const parsed = JSON.parse(trimmed);
     return isRecord(parsed) ? parsed : null;
   } catch {
-    const start = trimmed.indexOf('{');
-    const end = trimmed.lastIndexOf('}');
-    if (start < 0 || end <= start) return null;
-    try {
-      const parsed = JSON.parse(trimmed.slice(start, end + 1));
-      return isRecord(parsed) ? parsed : null;
-    } catch {
-      return null;
-    }
+    return null;
   }
 }
 

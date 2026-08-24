@@ -4,6 +4,8 @@ import {
   advancePhase163LiveRound,
   loadPhase163LiveWorkspace,
   recordPhase163FeedbackPresented,
+  recordPhase163FirstInputObserved,
+  recordPhase163PreAnswerHintOpened,
   recordPhase163QuestionPresented,
   resumePhase163CoreAfterTargetedMicroTraining,
   resumePhase163FeedbackRevisionEvaluation,
@@ -468,7 +470,12 @@ export default function Phase163LiveLearningWorkspace({
               <p className="mt-3 text-base leading-8 text-slate-800">{state.task.questionText}</p>
 
               {preAnswerGuidance ? (
-                <details className="mt-5 py-2 text-sm">
+                <details
+                  className="mt-5 py-2 text-sm"
+                  onToggle={(event) => {
+                    if (event.currentTarget.open) recordPhase163PreAnswerHintOpened(state.roundId);
+                  }}
+                >
                   <summary className="cursor-pointer select-none font-medium text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2">
                     需要提示时查看
                   </summary>
@@ -481,6 +488,7 @@ export default function Phase163LiveLearningWorkspace({
                   options={state.task.singleChoice?.options || []}
                   selectedOptionId={selectedOptionId}
                   onSelect={(optionId) => {
+                    recordPhase163FirstInputObserved(state.roundId);
                     setSelectedOptionId(optionId);
                     if (toast) showMessage('');
                   }}
@@ -492,6 +500,7 @@ export default function Phase163LiveLearningWorkspace({
                 ref={answerInputRef}
                 value={answer}
                 onChange={(event) => {
+                  if (event.target.value.trim()) recordPhase163FirstInputObserved(state.roundId);
                   setAnswer(event.target.value);
                   if (toast) showMessage('');
                 }}

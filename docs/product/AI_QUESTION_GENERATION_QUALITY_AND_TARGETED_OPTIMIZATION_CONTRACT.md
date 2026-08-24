@@ -4,9 +4,9 @@
 
 状态：`ACTIVE`
 
-文档版本：`ai_question_generation_quality_and_targeted_optimization_v1.9`
+文档版本：`ai_question_generation_quality_and_targeted_optimization_v2.0`
 
-生效日期：`2026-08-18`
+生效日期：`2026-08-20`
 
 ## 一、目标与适用范围
 
@@ -21,6 +21,10 @@
 本文不授权 AI 修改材料正文、原位覆盖 Frozen Question Version、批量替换全部题目，也不增加人工改题、审核人、审核意见或第二次确认。
 
 阅读训练单项选择的对象结构、适用边界、干扰项质量、学生投影、Diagnosis、真实数据和分阶段验收统一遵循[阅读训练单项选择作答契约](./READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md)。Schema 中预留 `single_choice` 枚举不等于工程能力已经可执行；在该契约阶段1—4完成前，不得将其标记为正式覆盖能力。
+
+阅读开放文本题的进入难度、单题复合度、推荐作答长度、提示负担、题组坡度和既有题治理统一遵循[阅读开放文本题难度梯度与输入负担优化契约](./READING_OPEN_RESPONSE_DIFFICULTY_AND_INPUT_LOAD_OPTIMIZATION_CONTRACT.md)。该优化降低训练入口与表达负担，但不删除 Observation Plan 必需的高阶文本观察，也不改变 Candidate → Adopt → Revision → Publish 主链。
+
+若需要把题组坡度用于识别学生从哪一层开始失稳，还必须遵循[阅读训练递进负担模型契约](./READING_TRAINING_PROGRESSIVE_LOAD_MODEL_CONTRACT.md)。生成器不得自行把内容层负担标签投射为学生能力结论；阶段 0 仅执行历史正式题的只读兼容投影。
 
 ## 二、当前基线与优化边界
 

@@ -33,6 +33,8 @@ import {
 import WorkspaceToast from '../components/continuous-learning/WorkspaceToast.jsx';
 import { createWorkbenchErrorNotice } from '../api/workbenchErrorNotice.ts';
 import { formatMaterialTitle } from '../ui/materialTitle.ts';
+import { calculateTaskLoadSemanticsHash } from
+  '../ai/schemas/readingTaskLoadSemantics.schema.ts';
 import {
   buildMaterialResourceWorkbenchDetails,
   findPublishedResourceForObservationTask,
@@ -123,6 +125,8 @@ import {
 } from '../ai/schemas/questionCandidate.schema.ts';
 import { resolveCandidateOptimizationFieldPolicy } from
   '../ai/schemas/questionCandidateOptimization.schema.ts';
+import { READING_OPEN_RESPONSE_LOAD_GATED_CANDIDATE_RULE_VERSION } from
+  '../ai/schemas/readingOpenResponseLoadGate.schema.ts';
 import { analyzeQuestionResponseLoad } from
   '../ai/agents/questionGenerationQualityPolicyAgent.ts';
 import { assessQuestionStemRubricAlignment } from
@@ -213,6 +217,13 @@ export default function MaterialResourceProductionWorkbench() {
       editTasks: params.get('edit') === 'training-tasks',
     };
   }, [location.search]);
+  useEffect(() => {
+    if (!import.meta.env.DEV || typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('stage3LoadGateVerify')) return;
+    url.searchParams.delete('stage3LoadGateVerify');
+    window.history.replaceState(window.history.state, '', url.toString());
+  }, []);
   const usesNonCanonicalLocalPort = import.meta.env.DEV
     && typeof window !== 'undefined'
     && window.location.port !== '5174';
@@ -1521,6 +1532,11 @@ export default function MaterialResourceProductionWorkbench() {
             reason: 'default_foundation_entry',
             preferredPreludeChoiceCount,
           },
+          observationPlanRevisionId: `observation-plan:${selectedPlan
+            ? ['draft', 'revision_required'].includes(selectedPlan.status)
+              ? selectedPlan.revision
+              : selectedPlan.revision + 1
+            : 1}`,
           requestedFocus: [
             operationType === 'replace_group'
               ? '重新规划完整候选任务组，覆盖方向应形成互补'
@@ -1552,6 +1568,8 @@ export default function MaterialResourceProductionWorkbench() {
           operationType,
           basedOnPlanRevision: selectedPlan?.revision || 0,
           candidateTasks,
+          progressionStageRuleVersion: result.progressionStageRuleVersion,
+          taskGroupProgressionPlan: result.taskGroupProgressionPlan,
         }));
       }
       const singleChoicePlanningMessage = formatSingleChoicePlanningResult(
@@ -1714,14 +1732,42 @@ export default function MaterialResourceProductionWorkbench() {
           changedFields: CANDIDATE_FIELD_KEYS.filter((field) => (
             candidateFieldChanged(baseContent, content, field)
           )),
+          textResponseLoadPlanning: item.textResponseLoadPlanning
+            ? {
+                intent: {
+                  ...item.textResponseLoadPlanning.intent,
+                  sourceIdentity: {
+                    ...item.textResponseLoadPlanning.intent.sourceIdentity,
+                    materialVersionId: context.materialVersionId,
+                    trainingTaskId,
+                  },
+                },
+                trace: {
+                  ...item.textResponseLoadPlanning.trace,
+                  planningIntent: {
+                    ...item.textResponseLoadPlanning.trace.planningIntent,
+                    sourceIdentity: {
+                      ...item.textResponseLoadPlanning.trace.planningIntent.sourceIdentity,
+                      materialVersionId: context.materialVersionId,
+                      trainingTaskId,
+                    },
+                  },
+                },
+              }
+            : undefined,
           generationContext: {
             modelId: generatorStatus?.model || generatorStatus?.provider || 'material-observation-generator',
             promptVersion: 'material-observation-candidate-p3',
             promptHash: result.requestId || `candidate-${Date.now()}`,
-            ruleVersion: 'question-candidate-p3-v1',
+            ruleVersion: READING_OPEN_RESPONSE_LOAD_GATED_CANDIDATE_RULE_VERSION,
             materialVersionId: context.materialVersionId,
             observationPlanVersion: context.observationPlanVersion,
             trainingTaskVersion: context.trainingTaskVersion,
+            trainingModelPolicyVersion: context.trainingModelPolicyVersion,
+            trainingTaskLoadSemanticsHash: context.taskLoadSemanticsHash,
+            progressionStageRuleVersion: context.progressionStageRuleVersion,
+            planningTaskKey: context.planningTaskKey,
+            taskGroupProgressionPlanHash: context.taskGroupProgressionPlanHash,
             generatedAt: new Date().toISOString(),
           },
         };
@@ -2178,11 +2224,28 @@ export default function MaterialResourceProductionWorkbench() {
         return;
       }
       setToast({ id: Date.now(), message: '正在采用训练任务方案…', tone: 'operation' });
+      const canPersistProgressionPlan = groupCandidateSession.operationType === 'replace_group'
+        && groupCandidateSession.progressionStageRuleVersion
+        && groupCandidateSession.taskGroupProgressionPlan
+        && adoption.tasks.length
+          === groupCandidateSession.taskGroupProgressionPlan.orderedTasks.length
+        && adoption.tasks.every((task) => (
+          task.planningTaskKey
+          && groupCandidateSession.taskGroupProgressionPlan.orderedTasks.some(
+            (item) => item.planningTaskKey === task.planningTaskKey,
+          )
+        ));
       const saved = await run(
         () => executeSavePlanRevisionCommand({
           materialVersionId: selectedMaterialId,
           sourcePlanId: selectedPlan?.materialObservationPlanId,
           tasks: adoption.tasks.map(toTaskInput),
+          ...(canPersistProgressionPlan
+            ? {
+              progressionStageRuleVersion: groupCandidateSession.progressionStageRuleVersion,
+              taskGroupProgressionPlan: groupCandidateSession.taskGroupProgressionPlan,
+            }
+            : {}),
         }),
         (saveResult) => saveResult.validation.passed
           ? '候选训练任务已采用、保存并通过内容检查。'
@@ -4504,6 +4567,9 @@ function planTaskToEditableTask(task, index, anchors) {
     minLength: specification?.minimumAnswerRequirement?.minLength ?? (task.abilityId === 'extraction' ? 6 : 12),
     rubric,
     calibrationCases,
+    taskLoadSemantics: task.taskLoadSemantics,
+    planningTaskKey: task.planningTaskKey,
+    taskGroupProgressionPlanHash: task.taskGroupProgressionPlanHash,
   };
 }
 
@@ -4586,6 +4652,9 @@ function generatorCandidateToEditableTask(
       category: item.category,
       answerText: item.answerText,
     })),
+    taskLoadSemantics: candidate.taskLoadSemantics,
+    planningTaskKey: candidate.planningTaskKey,
+    taskGroupProgressionPlanHash: candidate.taskGroupProgressionPlanHash,
   };
 }
 
@@ -4606,6 +4675,9 @@ function createLockedRegenerationCandidate(candidate, sourceTask, index) {
     startParagraph: sourceTask.startParagraph,
     endParagraph: sourceTask.endParagraph,
     comparisonGroupId: sourceTask.comparisonGroupId,
+    taskLoadSemantics: sourceTask.taskLoadSemantics,
+    planningTaskKey: sourceTask.planningTaskKey,
+    taskGroupProgressionPlanHash: sourceTask.taskGroupProgressionPlanHash,
     rubric: generated.rubric.map((item) => ({
       ...item,
       abilityId: sourceTask.abilityId,
@@ -4653,6 +4725,7 @@ function createTargetedOptimizationCandidate(candidate, sourceTask, index) {
     startParagraph: sourceTask.startParagraph,
     endParagraph: sourceTask.endParagraph,
     comparisonGroupId: sourceTask.comparisonGroupId,
+    taskLoadSemantics: sourceTask.taskLoadSemantics,
   };
 }
 
@@ -4894,9 +4967,16 @@ function toTaskInput(task) {
           isPrelude: task.sequencePrelude === true,
           preludeCount: task.sequencePreludeCount,
         }),
+        ...(task.planningTaskKey ? [`planning-task:${task.planningTaskKey}`] : []),
+        ...(task.taskGroupProgressionPlanHash
+          ? [`progression-plan:${task.taskGroupProgressionPlanHash}`]
+          : []),
       ],
     },
     calibrationCases,
+    taskLoadSemantics: task.taskLoadSemantics,
+    planningTaskKey: task.planningTaskKey,
+    taskGroupProgressionPlanHash: task.taskGroupProgressionPlanHash,
   };
 }
 
@@ -5030,6 +5110,36 @@ function buildTaskCandidateRuntimeContext({
     trainingTaskVersion: Number(
       task?.revision || task?.versionNumber || task?.taskRevision || 1,
     ),
+    ...(task?.taskLoadSemantics
+      ? {
+        trainingModelPolicyVersion: selectedPlan?.trainingModelPolicyVersion,
+        taskLoadSemantics: task.taskLoadSemantics,
+        taskLoadSemanticsHash: calculateTaskLoadSemanticsHash(task.taskLoadSemantics),
+      }
+      : {}),
+    ...(selectedPlan?.progressionStageRuleVersion
+      && selectedPlan?.taskGroupProgressionPlan
+      && task?.planningTaskKey
+      ? {
+        progressionStageRuleVersion: selectedPlan.progressionStageRuleVersion,
+        planningTaskKey: task.planningTaskKey,
+        taskGroupProgressionPlanHash: task.taskGroupProgressionPlanHash,
+        taskGroupProgressionPlan: selectedPlan.taskGroupProgressionPlan,
+        taskGroupProgressionSubjects: (selectedPlan.taskPlans || [])
+          .filter((planTask) => planTask.planningTaskKey && planTask.taskLoadSemantics)
+          .map((planTask) => ({
+            planningTaskKey: planTask.planningTaskKey,
+            subjectId: planTask.observationTaskPlanId,
+            taskLoadSemantics: planTask.taskLoadSemantics,
+            taskLoadSemanticsHash: calculateTaskLoadSemanticsHash(planTask.taskLoadSemantics),
+            observationObject: planTask.observationFocus?.displayName || planTask.observationGoal,
+            sourceAnchorIdentity: (planTask.sourceAnchorIds || []).join('|'),
+            scoringTargetIds: (planTask.resourceDraftSpecification?.rubric || []).map(
+              (rubric) => `${rubric.abilityId}:${rubric.name}`,
+            ),
+          })),
+      }
+      : {}),
     ...(formalResource
       ? {
         baseFormalResourceId: formalResource.resourceId,

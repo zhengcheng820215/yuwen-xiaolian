@@ -32,6 +32,9 @@ import {
   getWorkingTaskContentState,
   resolveTrainingTaskId,
 } from './workingTaskContentService.ts';
+import { cloneTaskLoadSemantics } from
+  '../schemas/readingTaskLoadSemantics.schema.ts';
+import { verifyTaskLoadSemantics } from './readingTaskLoadSemanticsAgent.ts';
 
 const CORRECTION_RULE_VERSION = 'question-candidate-correction-p5-v1';
 const AUTHORIZED_ROLES: ExceptionCorrectionPermissionRole[] = [
@@ -186,8 +189,23 @@ export class QuestionCandidateCorrectionService {
         materialVersionId: normalized.expectedContext.materialVersionId,
         observationPlanVersion: normalized.expectedContext.observationPlanVersion,
         trainingTaskVersion: normalized.expectedContext.trainingTaskVersion,
+        trainingModelPolicyVersion: normalized.expectedContext.trainingModelPolicyVersion,
+        trainingTaskLoadSemanticsHash: normalized.expectedContext.taskLoadSemanticsHash,
         generatedAt: correctedAt,
       },
+      taskLoadSemantics: cloneTaskLoadSemantics(
+        normalized.expectedContext.taskLoadSemantics,
+      ),
+      taskLoadSemanticsHash: normalized.expectedContext.taskLoadSemanticsHash,
+      taskLoadSemanticsVerification: normalized.expectedContext.taskLoadSemantics
+        ? verifyTaskLoadSemantics({
+          trainingTaskId: normalized.trainingTaskId,
+          candidateId,
+          plannedSemantics: normalized.expectedContext.taskLoadSemantics,
+          plannedSemanticsHash: normalized.expectedContext.taskLoadSemanticsHash,
+          responseFormat: normalized.correctedContent.responseFormat,
+        })
+        : undefined,
       status: 'ready',
       createdAt: correctedAt,
     });

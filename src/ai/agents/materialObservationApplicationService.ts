@@ -24,6 +24,13 @@ import type {
   StructuredQuestionDraft,
 } from '../schemas/questionResourceAdmission.schema.ts';
 import type { RecommendedTaskRole } from '../schemas/nextLearningStrategy.schema.ts';
+import type { TaskLoadSemantics } from '../schemas/readingTaskLoadSemantics.schema.ts';
+import type {
+  READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION,
+  TaskGroupProgressionPlan,
+} from '../schemas/readingTaskGroupProgression.schema.ts';
+import { READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION } from
+  '../schemas/readingTrainingProgressionAudit.schema.ts';
 import type { CreateStructuredQuestionDraftInput } from './questionResourceAdmissionAgent.ts';
 import { projectTargetedMaterialUsage } from '../schemas/targetedMicroTraining.schema.ts';
 import {
@@ -62,6 +69,9 @@ export type MaterialProductionTaskInput = {
   materialRelationIntent?: ObservationTaskPlan['materialRelationIntent'];
   resourceDraftSpecification?: ObservationResourceDraftSpecification;
   calibrationCases?: ObservationCalibrationCase[];
+  taskLoadSemantics?: TaskLoadSemantics;
+  planningTaskKey?: string;
+  taskGroupProgressionPlanHash?: string;
 };
 
 export type MaterialProductionDraftResult = {
@@ -132,6 +142,8 @@ export async function createMaterialProductionPlan(
     materialVersionId: string;
     tasks: MaterialProductionTaskInput[];
     sourcePlanId?: string;
+    progressionStageRuleVersion?: typeof READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION;
+    taskGroupProgressionPlan?: TaskGroupProgressionPlan;
     now?: string;
   },
 ): Promise<{ plan: MaterialObservationPlan; validation: MaterialObservationPlanValidation }> {
@@ -224,6 +236,13 @@ export async function createMaterialProductionPlan(
     revision: mutableSourcePlan?.revision || (previousPlans[0]?.revision || 0) + 1,
     parentPlanId: mutableSourcePlan?.parentPlanId || sourcePlan?.materialObservationPlanId,
     createdAt: mutableSourcePlan?.createdAt,
+    trainingModelPolicyVersion: input.tasks.every((task) => (
+      task.taskLoadSemantics?.derivationSource === 'planned'
+    ))
+      ? READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION
+      : mutableSourcePlan?.trainingModelPolicyVersion,
+    progressionStageRuleVersion: input.progressionStageRuleVersion,
+    taskGroupProgressionPlan: input.taskGroupProgressionPlan,
     dimensionReviews,
     taskPlans: input.tasks.map((task, index) => ({
       // ObservationTask identity is stable across group-level Plan revisions. Existing
@@ -247,6 +266,9 @@ export async function createMaterialProductionPlan(
       materialRelationIntent: task.materialRelationIntent,
       resourceDraftSpecification: task.resourceDraftSpecification,
       calibrationCases: task.calibrationCases,
+      taskLoadSemantics: task.taskLoadSemantics,
+      planningTaskKey: task.planningTaskKey,
+      taskGroupProgressionPlanHash: task.taskGroupProgressionPlanHash,
     })),
     now,
   });
@@ -357,6 +379,7 @@ export async function createSingleTaskRegenerationRevision(
       sourceObservationTaskPlanId: sourceTask.observationTaskPlanId,
       taskRevisionRootId,
     },
+    trainingModelPolicyVersion: sourcePlan.trainingModelPolicyVersion,
     dimensionReviews: sourcePlan.dimensionReviews,
     taskPlans,
     now,
@@ -893,6 +916,9 @@ function productionTaskInputToObservationTaskInput(
     materialRelationIntent: task.materialRelationIntent,
     resourceDraftSpecification: task.resourceDraftSpecification,
     calibrationCases: task.calibrationCases,
+    taskLoadSemantics: task.taskLoadSemantics,
+    planningTaskKey: task.planningTaskKey,
+    taskGroupProgressionPlanHash: task.taskGroupProgressionPlanHash,
   };
 }
 
@@ -915,6 +941,9 @@ function observationTaskToInput(task: ObservationTaskPlan, preserveIdentity: boo
     materialRelationIntent: task.materialRelationIntent,
     resourceDraftSpecification: task.resourceDraftSpecification,
     calibrationCases: task.calibrationCases,
+    taskLoadSemantics: task.taskLoadSemantics,
+    planningTaskKey: task.planningTaskKey,
+    taskGroupProgressionPlanHash: task.taskGroupProgressionPlanHash,
   };
 }
 

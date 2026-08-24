@@ -119,6 +119,8 @@ export class QuestionCandidateOptimizationAgent implements QuestionCandidateGene
           materialVersionId: input.context.materialVersionId,
           observationPlanVersion: input.context.observationPlanVersion,
           trainingTaskVersion: input.context.trainingTaskVersion,
+          trainingModelPolicyVersion: input.context.trainingModelPolicyVersion,
+          trainingTaskLoadSemanticsHash: input.context.taskLoadSemanticsHash,
           generatedAt: this.now(),
         },
       }];

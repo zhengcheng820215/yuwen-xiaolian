@@ -3,8 +3,8 @@
 英文名称：Formal Resource Production Contract Map
 
 状态：ACTIVE CONTRACT INDEX / AI CANDIDATE P0-P7 COMPLETE / ACCEPTANCE RECORDED
-文档版本：`formal_resource_production_contract_map_v4.2`
-更新日期：2026-08-20
+文档版本：`formal_resource_production_contract_map_v4.6`
+更新日期：2026-08-21
 
 ## 一、目标与权威边界
 
@@ -18,9 +18,27 @@ AI 题目的人工作业和真实样本观察遵循 [AI_QUESTION_ADOPTION_AND_EM
 
 AI 题目的完整生成、作答格式匹配、同篇去重、能力梯度与少量定向替换遵循 [AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md](./AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md)。该契约禁止整批覆盖正式题，并要求未采用候选不影响 Registry、Observation Link 或 Learning。
 
+阅读开放文本题的训练入口负担、单题认知动作数量、推荐回答长度、思路提示和题组难度坡度遵循[阅读开放文本题难度梯度与输入负担优化契约](./READING_OPEN_RESPONSE_DIFFICULTY_AND_INPUT_LOAD_OPTIMIZATION_CONTRACT.md)。该契约负责内容负担治理，不建立新的题目或发布主链。
+
+当题组需要通过不同负担层级的表现差异识别学生从哪一层开始失稳时，必须进一步遵循[阅读训练递进负担模型契约](./READING_TRAINING_PROGRESSIVE_LOAD_MODEL_CONTRACT.md)。这是不重建现有主链的 Training Model 兼容式核心升级，不得简化为 Prompt 偏好。阶段 0 只允许执行版本化 `legacy_projection` 与真实题库只读审计；工程边界和 `S0-01—S0-24` 验收见[阶段 0 契约与只读审计计划](./READING_TRAINING_PROGRESSIVE_LOAD_STAGE0_CONTRACT_AND_READ_ONLY_AUDIT_PLAN.md)，真实结果见[阶段 0 真实题库只读审计报告](../education/phase/reports/reading_training_progressive_load_stage0_read_only_audit_2026-08-21.md)。
+
+阶段 1 的原生 `TaskLoadSemantics`、Observation Thread 身份、PlanningCandidate → TrainingTask → QuestionCandidate 所有权、历史兼容、语义 Hash 与 `S1-01—S1-40` 验收边界见[阶段 1 原生负担语义工程实施与 Debug 验收计划](./READING_TRAINING_PROGRESSIVE_LOAD_STAGE1_NATIVE_SEMANTICS_ENGINEERING_AND_DEBUG_PLAN.md)。阶段 1 不授权题组级发布阻断、Learning 调度或学生能力归因。
+
+阅读训练递进负担模型的所有阶段共同遵循“双证据门”：**每个阶段都必须证明旧主链零回归，并且新语义只在该阶段允许的边界内生效。** 阶段执行报告必须同时包含旧主链回归清单和阶段授权/禁止生效面清单；缺少任一项时不得宣称阶段完成或进入下一阶段。
+
+该优化的阶段 1 已完成负担画像和正式题库只读审计验收；其 Schema、零写入边界、工程工作包与 `28 / 28` Debug 证据见[阅读开放文本题输入负担阶段 1 工程实施与 Debug 验收清单](./READING_OPEN_RESPONSE_INPUT_LOAD_STAGE1_ENGINEERING_AND_DEBUG_PLAN.md)。阶段 1 的完成不代表正式题已经修改；在后续阶段分别完成契约与工程验收前，仍不得把负担画像接入 Prompt、发布阻断、Learning 或 Student Ability Profile。
+
+阶段 2 已完成 Planner Schema、Prompt 输入输出、内部长度策略、一次受控修复、Candidate 投影和写入隔离，并通过 `40 / 40` 专项 Debug；实施边界见[阅读开放文本题输入负担阶段 2 Planner、Prompt 与长度策略工程实施及 Debug 验收清单](./READING_OPEN_RESPONSE_INPUT_LOAD_STAGE2_PLANNER_PROMPT_AND_LENGTH_ENGINEERING_PLAN.md)，工程证据见[阶段 2 工程与 Debug 验收报告](../education/phase/reports/reading_open_response_input_load_stage2_engineering_debug_acceptance_2026-08-21.md)。阶段 2 只允许在生成期创建满足契约的 Candidate；发布门禁、题组正式顺序、Learning 和 Student Ability Profile 仍不在本阶段授权范围内。
+
+阶段 3 已完成单题与题组质量门禁、Candidate / Draft 身份一致性、发布就绪同源投影和工作台错误映射工程，详见[阅读开放文本题输入负担阶段 3 质量门禁、题组顺序与发布一致性工程实施及 Debug 验收清单](./READING_OPEN_RESPONSE_INPUT_LOAD_STAGE3_QUALITY_GATE_AND_SEQUENCE_ENGINEERING_PLAN.md)，工程证据见[阶段 3 工程与 Debug 验收报告](../education/phase/reports/reading_open_response_input_load_stage3_engineering_debug_acceptance_2026-08-21.md)。专项 `48 / 48`、阶段 1/2、单选、Candidate、Targeted、Learning 队列、Learning History 与生产构建均通过；ready / advisory / blocked / stale / publishing / published 的零正式数据写入隔离浏览器矩阵也已通过，当前状态为 `ENGINEERING COMPLETE / DEBUG ACCEPTED`。
+
+阶段 4 只允许依据版本化审计结果，按 `3—5` 道的小批次对高风险既有题生成后继 Candidate；不得原地改题、整批覆盖或自动发布。治理 Case、真实 Learning 样本资格、校准指标、停止条件、`S4-01—S4-56` 专项 Debug 和工程/真实校准双重完成门见[阅读开放文本题输入负担阶段 4 既有题治理与真实校准工程实施及 Debug 验收清单](./READING_OPEN_RESPONSE_INPUT_LOAD_STAGE4_EXISTING_QUESTION_GOVERNANCE_AND_REAL_CALIBRATION_ENGINEERING_PLAN.md)。当前已完成 `B4-01—B4-16` 全量真实应用内浏览器联调，状态为 `ENGINEERING COMPLETE / DEBUG ACCEPTED / FULL BROWSER ACCEPTED / REAL CALIBRATION PENDING`。
+
 阅读训练中的单项选择不是独立生产模块，而是 QuestionCandidate 的一种完整作答格式。其稳定选项身份、干扰项诊断、学生投影隔离、Learning 响应和真实数据规则遵循[阅读训练单项选择作答契约](./READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md)。第一版只实现 `single_choice`，不改变 Candidate → Adopt → Revision → Publish 主链。
 
 当完整课文数量有限、正式主要缺口需要增加一次不同情境的训练时，可以生产 `targeted_excerpt` 短片段 Material。短片段仍复用同一 Material → Observation Plan → Candidate → Adopt → Revision → Publish 主链，不建立第二套题库或发布系统；其来源、Gap 支持、题量止损、追加式 Session Assignment 和证据边界遵循[针对性短片段微训练材料与调度契约](./TARGETED_MICRO_TRAINING_MATERIAL_AND_SCHEDULING_CONTRACT.md)。
+
+针对性短片段的 Frozen Resource、Registry 与 Observation Link 只有同时具备身份一致的 Frozen Quality Trace 才可投射为 Learning Consumable。历史缺失工件的窄范围补齐、重复错误去重、原子提交和零内容变更边界遵循[针对性微训练冻结质量轨迹一致性修复计划](./TARGETED_MICRO_TRAINING_QUALITY_TRACE_CONSISTENCY_REPAIR_PLAN.md)。
 
 共享正式资源写入的页面内串行化、Revision Conflict 重试、多标签页协调、幂等恢复与服务端原子命令演进遵循[共享正式资源并发与写入恢复契约](./SHARED_FORMAL_RESOURCE_CONCURRENCY_CONTRACT.md)。该契约不改变业务对象和人工步骤，只负责保证正式写入可靠完成或安全进入可恢复状态。
 
@@ -130,6 +148,7 @@ Material Version + Observation Plan Revision + Training Task
 | [训练任务组 AI 规划契约](./TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md) | 补充候选、整组替代方案、工作草稿和批量采用边界 | 单题审核与 Frozen Resource 状态 |
 | [AI 资源生成与优化工作流契约](./AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md) | Question Candidate 的身份、不可变规则、生成、优化、采用、异常纠错及旧 Working Content 退出边界 | 上游训练任务组规划和采用后的审核发布状态流 |
 | [AI 题目生成质量与定向优化契约](./AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md) | 完整题目方案、作答格式匹配、同篇去重、能力梯度、4道试点和逐题原子替换 | 材料正文换版、人工字段编辑和批量自动覆盖 |
+| [阅读训练递进负担模型契约](./READING_TRAINING_PROGRESSIVE_LOAD_MODEL_CONTRACT.md) | 统一题目负担语义、题组递进计划、跨 Learning / Diagnosis / Evidence 的可解释边界 | 不重建 Material 到 Learning 主链，不把负担等级写入学生能力画像 |
 | [阅读训练单项选择作答契约](./READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md) | 单选 Candidate、稳定选项身份、干扰项质量、学生交互、Diagnosis、数据与分阶段验收 | 多选、复合题、题型配额和高阶能力选择题化 |
 | [针对性短片段微训练材料与调度契约](./TARGETED_MICRO_TRAINING_MATERIAL_AND_SCHEDULING_CONTRACT.md) | 短片段材料用途、正式缺口触发、资源匹配、题量止损、Session 追加调度和独立证据 | 固定扩题、无限补练、第二套生产链和能力提升结论 |
 | [AI 题目采用与真实作答校准契约](./AI_QUESTION_ADOPTION_AND_EMPIRICAL_CALIBRATION_CONTRACT.md) | 单次采用发布、内部断点结果、失败恢复及 Learning 后台真实样本校准 | 人工字段编辑、第二次确认和模拟样本造数 |

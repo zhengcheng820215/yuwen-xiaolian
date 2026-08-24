@@ -143,9 +143,9 @@ const holisticChoice = version('holistic-choice', 'single_choice', [
 assert.deepEqual(
   orderFormalResourcesForLearningSequence(
     [entryText2, entryChoice3, entryText, entryChoice2, entryChoice], {
-    taskRole: 'training',
+      taskRole: 'training',
   }).map((item) => item.resourceVersionId),
-  ['entry-choice', 'entry-choice-2', 'entry-text', 'entry-choice-3', 'entry-text-2'],
+  ['entry-choice', 'entry-choice-2', 'entry-text', 'entry-text-2', 'entry-choice-3'],
 );
 assert.equal(selectFormalResourceForLearningSequence(
   [holisticText, holisticChoice],
@@ -181,6 +181,24 @@ assert.deepEqual(
     { taskRole: 'training' },
   ).map((item) => item.resourceVersionId),
   ['legacy-choice-1', 'legacy-choice-2', 'legacy-text', 'legacy-choice-3'],
+);
+
+const legacyDeveloping = completeTextVersion(
+  'legacy-developing',
+  '结合一处描写，说明人物当时的心理。',
+  1,
+);
+const legacyIntegrated = completeTextVersion(
+  'legacy-integrated',
+  '结合全文多处证据，比较两个人物并分析文章主题。',
+  3,
+);
+assert.deepEqual(
+  orderFormalResourcesForLearningSequence(
+    [legacyIntegrated, legacyChoice1, legacyDeveloping],
+    { taskRole: 'training' },
+  ).map((item) => item.resourceVersionId),
+  ['legacy-choice-1', 'legacy-developing', 'legacy-integrated'],
 );
 
 const retestText = version('retest-text', 'long_text', [], 'retest');
@@ -226,6 +244,40 @@ function version(
       prerequisiteAbilityIds: [],
       taskRole,
       difficulty: 'basic',
+    },
+  } as FrozenQuestionResourceVersion;
+}
+
+function completeTextVersion(
+  resourceVersionId: string,
+  questionStem: string,
+  rubricCount: number,
+): FrozenQuestionResourceVersion {
+  const base = version(resourceVersionId, 'long_text', []);
+  return {
+    ...base,
+    title: resourceVersionId,
+    questionStem,
+    materialVersionId: 'material-1:v1',
+    rubric: Array.from({ length: rubricCount }, (_, index) => ({
+      itemId: `rubric-${index + 1}`,
+      name: `评分项${index + 1}`,
+      description: index === 0 ? '结合文本证据说明结论' : `补充第${index + 1}项独立分析`,
+      abilityId: 'analysis',
+      importance: 'critical',
+      required: true,
+      evidenceRequirement: {
+        requireTextEvidence: true,
+        requireExplanation: true,
+        requireConclusion: true,
+      },
+      acceptedSignals: ['完成对应分析'],
+    })),
+    minimumAnswerRequirement: {
+      responseFormat: 'long_text',
+      minLength: 30,
+      requireTextEvidence: true,
+      requireExplanation: true,
     },
   } as FrozenQuestionResourceVersion;
 }

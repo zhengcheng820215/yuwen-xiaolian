@@ -53,12 +53,71 @@ export default function LearningCollectionIntegrity() {
               {awaitingData ? <p className="mt-3 text-sm text-slate-600">{report.scope === 'current_collection' ? '当前采集代际尚无真实轮次，完成新一轮学习后再判断链路健康度。' : '全部历史范围尚无正式学习轮次。'}</p> : report.issues.length === 0 ? <p className="mt-3 text-sm text-slate-600">当前范围未发现完整性问题。</p> : <div className="mt-4 space-y-3">{report.issues.map((issue, index) => <div key={`${issue.code}-${index}`} className="rounded-md border border-slate-200 p-4"><div className="flex gap-2"><span className={issue.severity === 'fail' ? 'text-red-600' : 'text-amber-600'}>{issue.severity === 'fail' ? '失败' : '警告'}</span><code className="text-xs text-slate-500">{issue.code}</code></div><p className="mt-2 text-sm text-slate-700">{issue.message}</p></div>)}</div>}
             </section>
             <RevisionObservation report={view.revisionObservation} />
+            <ReadingOpenResponseObservation view={view.readingOpenResponse} />
             <section className="mt-6 space-y-3"><h2 className="text-base font-semibold">按轮次查看</h2>{view.rounds.length === 0 ? <p className="text-sm text-slate-600">{scope === 'current_collection' ? '尚无当前采集代际的正式学习轮次。' : '尚无正式学习轮次。'}</p> : view.rounds.map((round) => <details key={round.learningRoundId} className="rounded-md border border-slate-200 bg-white p-5"><summary className="cursor-pointer text-sm font-semibold">{round.learningRoundId} · {round.status}</summary><p className="mt-3 text-xs text-slate-500">题目版本：{round.resourceVersionId}</p><div className="mt-4 flex flex-wrap gap-2">{round.events.map((event, index) => <span key={`${event.eventType}-${index}`} className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-800">{eventNames[event.eventType]}</span>)}</div><div className="mt-4 text-sm text-slate-700">Attempt：{round.projections.length ? round.projections.map((item) => `${item.attemptId} · ${item.status}${item.itemScore === undefined ? '' : ` · ${item.itemScore}`}`).join('；') : '无 Projection'}</div></details>)}</section>
           </>
         )}
       </main>
     </div>
   );
+}
+
+function ReadingOpenResponseObservation({ view }) {
+  if (!view) return null;
+  const { integrity, governance, reports } = view;
+  const engineering = governance.engineering;
+  return (
+    <section className="mt-6 rounded-md border border-slate-200 bg-white p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold">开放文本题负担治理与校准</h2>
+          <p className="mt-1 text-xs text-slate-500">工程状态、真实样本状态与教育效果结论分开显示；本页不修改题目或学生画像。</p>
+        </div>
+        <span className={`rounded-full px-3 py-1 text-xs font-medium ${integrity.passed ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+          {integrity.passed ? '过程事实完整' : '存在完整性问题'}
+        </span>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Metric label="治理 Case" value={engineering.caseCount} />
+        <Metric label="活动批次" value={engineering.activeBatchCount} />
+        <Metric label="暂停批次" value={engineering.pausedBatchCount} />
+        <Metric label="产品过程事实" value={integrity.productFactCount} />
+      </div>
+      <p className="mt-4 text-xs text-slate-500">教育效果：尚不从工程完成或样本状态推断。当前 30 份门槛仅为版本化产品治理试运行阈值。</p>
+      {reports.length === 0 ? (
+        <p className="mt-4 text-sm text-slate-600">尚无开放文本题过程事实；完成真实 Learning 后开始形成版本级记录。</p>
+      ) : (
+        <div className="mt-4 space-y-2">
+          {reports.map((item) => (
+            <details key={item.resourceVersionId} className="rounded-md border border-slate-200 p-4">
+              <summary className="cursor-pointer text-sm font-semibold">
+                {item.resourceVersionId} · {calibrationStatusText(item.status)}
+              </summary>
+              <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-3">
+                <p>展示 {item.presentedCount}</p>
+                <p>有效样本 {item.eligibleSampleCount}</p>
+                <p>独立使用者 {item.independentSubjectCount}</p>
+                <p>完成 {item.completedCount}</p>
+                <p>无效输入 {item.invalidResponseCount}</p>
+                <p>打开提示 {item.hintOpenedCount}</p>
+              </div>
+              <p className="mt-3 text-xs text-slate-500">{item.limitations.join('；')}</p>
+            </details>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Metric({ label, value }) {
+  return <div className="rounded-md bg-slate-50 p-4"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-xl font-semibold">{value}</p></div>;
+}
+
+function calibrationStatusText(status) {
+  if (status === 'calibrated') return '达到当前试运行计算门槛';
+  if (status === 'insufficient_sample') return '样本不足';
+  return '等待真实数据';
 }
 
 function RevisionObservation({ report }) {

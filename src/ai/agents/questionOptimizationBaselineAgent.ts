@@ -92,7 +92,7 @@ export function buildQuestionOptimizationBaseline(
       const trace = traceByVersionId.get(version.resourceVersionId);
       if (!trace) issues.push(`frozen_quality_trace_missing:${version.resourceVersionId}`);
       const material = materialById.get(plan.materialId);
-      const identityConsistent = Boolean(
+      const structuralIdentityConsistent = Boolean(
         material
         && plan.materialVersionId === material.materialVersionId
         && link.materialId === plan.materialId
@@ -102,8 +102,15 @@ export function buildQuestionOptimizationBaseline(
         && version.resourceVersionId === registry.currentFrozenVersionId
         && version.materialId === plan.materialId
         && version.materialVersionId === plan.materialVersionId
-        && trace?.resourceId === version.resourceId,
       );
+      const traceIdentityConsistent = !trace || Boolean(
+        trace.resourceId === version.resourceId
+        && trace.resourceVersionId === version.resourceVersionId
+        && trace.sourceDraftId === version.sourceDraftId
+        && trace.validationId === version.validationId
+        && trace.reviewId === version.reviewId
+      );
+      const identityConsistent = structuralIdentityConsistent && traceIdentityConsistent;
       if (!identityConsistent) {
         issues.push(`learning_identity_mismatch:${task.observationTaskPlanId}`);
       }

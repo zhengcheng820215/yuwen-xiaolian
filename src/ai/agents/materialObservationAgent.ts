@@ -50,6 +50,19 @@ import {
   type ObservationTaskPlan,
   type ResourceObservationLink,
 } from '../schemas/materialObservation.schema.ts';
+import {
+  cloneTaskLoadSemantics,
+  isTaskLoadSemantics,
+  type TaskLoadSemantics,
+} from '../schemas/readingTaskLoadSemantics.schema.ts';
+import { READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION } from
+  '../schemas/readingTrainingProgressionAudit.schema.ts';
+import {
+  READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION,
+  isTaskGroupProgressionPlan,
+  validateProgressionPlanAgainstSemantics,
+  type TaskGroupProgressionPlan,
+} from '../schemas/readingTaskGroupProgression.schema.ts';
 
 export type ObservationTaskPlanInput = {
   observationTaskPlanId?: string;
@@ -70,6 +83,9 @@ export type ObservationTaskPlanInput = {
   materialRelationIntent?: ObservationTaskPlan['materialRelationIntent'];
   resourceDraftSpecification?: ObservationResourceDraftSpecification;
   calibrationCases?: ObservationCalibrationCase[];
+  taskLoadSemantics?: TaskLoadSemantics;
+  planningTaskKey?: string;
+  taskGroupProgressionPlanHash?: string;
 };
 
 export function deriveMaterialStructureSnapshot(
@@ -140,6 +156,9 @@ export function buildMaterialObservationPlan(input: {
   parentPlanId?: string;
   createdAt?: string;
   regenerationContext?: MaterialObservationPlan['regenerationContext'];
+  trainingModelPolicyVersion?: MaterialObservationPlan['trainingModelPolicyVersion'];
+  progressionStageRuleVersion?: MaterialObservationPlan['progressionStageRuleVersion'];
+  taskGroupProgressionPlan?: TaskGroupProgressionPlan;
   dimensionReviews: DimensionReview[];
   taskPlans: ObservationTaskPlanInput[];
   now?: string;
@@ -170,6 +189,9 @@ export function buildMaterialObservationPlan(input: {
       expectedStudentAction: task.expectedStudentAction.trim(),
       designReason: task.designReason.trim(),
       status: 'planned',
+      taskLoadSemantics: cloneTaskLoadSemantics(task.taskLoadSemantics),
+      planningTaskKey: task.planningTaskKey,
+      taskGroupProgressionPlanHash: task.taskGroupProgressionPlanHash,
     };
   });
   return {
@@ -187,6 +209,11 @@ export function buildMaterialObservationPlan(input: {
     taskPlans,
     parentPlanId: input.parentPlanId,
     regenerationContext: input.regenerationContext,
+    trainingModelPolicyVersion: input.trainingModelPolicyVersion,
+    progressionStageRuleVersion: input.progressionStageRuleVersion,
+    taskGroupProgressionPlan: input.taskGroupProgressionPlan
+      ? clone(input.taskGroupProgressionPlan)
+      : undefined,
     createdAt: input.createdAt || now,
     updatedAt: now,
     schemaVersion: MATERIAL_OBSERVATION_PLAN_SCHEMA_VERSION,
@@ -238,6 +265,41 @@ export function validateMaterialObservationPlan(input: {
     }
   });
   plan.taskPlans.forEach((task, index) => validateTaskPlan(plan, task, index, issues));
+  if (plan.progressionStageRuleVersion === READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION) {
+    if (!plan.taskGroupProgressionPlan || !isTaskGroupProgressionPlan(plan.taskGroupProgressionPlan)) {
+      error(issues, 'progression.plan_missing_or_invalid', 'taskGroupProgressionPlan', 'Stage 2 Plan requires one complete authoritative Task Group Progression Plan.');
+    } else {
+      if (plan.taskGroupProgressionPlan.observationPlanRevisionId
+        !== `observation-plan:${plan.revision}`) {
+        error(
+          issues,
+          'progression.plan_revision_mismatch',
+          'taskGroupProgressionPlan.observationPlanRevisionId',
+          'Task Group Progression Plan revision identity must match the saved Observation Plan revision.',
+        );
+      }
+      const semanticsByTaskKey = new Map(plan.taskPlans
+        .filter((task) => task.planningTaskKey && task.taskLoadSemantics)
+        .map((task) => [task.planningTaskKey!, task.taskLoadSemantics!]));
+      validateProgressionPlanAgainstSemantics({
+        plan: plan.taskGroupProgressionPlan,
+        semanticsByTaskKey,
+      }).forEach((issue) => error(
+        issues,
+        'progression.plan_semantics_mismatch',
+        'taskGroupProgressionPlan',
+        issue,
+      ));
+      plan.taskPlans.forEach((task, index) => {
+        if (!task.planningTaskKey?.trim()) {
+          error(issues, 'progression.task_key_missing', `taskPlans.${index}.planningTaskKey`, 'Stage 2 Task requires a Planning Task Key.');
+        }
+        if (task.taskGroupProgressionPlanHash !== plan.taskGroupProgressionPlan?.planHash) {
+          error(issues, 'progression.task_plan_hash_mismatch', `taskPlans.${index}.taskGroupProgressionPlanHash`, 'Task Plan Hash must match its authoritative group progression plan.');
+        }
+      });
+    }
+  }
   if (material) {
     const usage = projectTargetedMaterialUsage(material);
     if (usage.usageType === 'targeted_excerpt') {
@@ -505,6 +567,22 @@ function validateTaskPlan(
   }
   if (task.calibrationCases) {
     validateCalibrationCases(task.calibrationCases, index, issues);
+  }
+  const responseFormat = task.resourceDraftSpecification?.responseFormat;
+  if (task.taskLoadSemantics
+    && !isTaskLoadSemantics(task.taskLoadSemantics, responseFormat)) {
+    error(issues, 'task.load_semantics_invalid', `${prefix}.taskLoadSemantics`, 'Task load semantics are invalid or incompatible with the response format.');
+  }
+  if (plan.trainingModelPolicyVersion === READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION
+    && task.status !== 'cancelled'
+    && !task.taskLoadSemantics) {
+    error(issues, 'task.load_semantics_missing', `${prefix}.taskLoadSemantics`, 'Native progressive-load Plans require Task load semantics.');
+  }
+  if (plan.trainingModelPolicyVersion === READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION
+    && task.status !== 'cancelled'
+    && task.taskLoadSemantics
+    && task.taskLoadSemantics.derivationSource !== 'planned') {
+    error(issues, 'task.load_semantics_not_native', `${prefix}.taskLoadSemantics.derivationSource`, 'Native progressive-load Plans cannot use legacy or recomputed semantics as their authority.');
   }
 }
 

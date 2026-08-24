@@ -452,7 +452,7 @@ await check('C38 能力错位仅修改 Rubric 后重新通过完整校验', asyn
     && repaired.rubricDraft.every((rubric) => rubric.abilityId === 'summarization');
 });
 
-await check('C39 字段职责重复只产生人工确认提醒而不阻断候选', async () => {
+await check('C39 字段职责重复经治理后不阻断候选', async () => {
   const payload = validPayload();
   payload.candidates[0] = {
     ...payload.candidates[0],
@@ -463,12 +463,21 @@ await check('C39 字段职责重复只产生人工确认提醒而不阻断候选
     },
     questionStem: '找出父亲在站台上的两个动作',
     expectedStudentAction: '找出父亲在站台上的两个动作',
+    questionDraft: {
+      questionType: 'reading_comprehension',
+      responseFormat: 'short_text',
+    },
+    minimumAnswerRequirement: {
+      minLength: 1,
+      requireTextEvidence: true,
+      requireExplanation: false,
+    },
   };
   const result = await run(input, providerWith(payload));
   return result.status === 'candidates_ready'
     && result.candidates.length === 3
     && result.validation.passed
-    && result.limitations.some((item) => item.includes('候选题目 1 字段职责需要人工确认'));
+    && result.limitations.some((item) => item.includes('字段职责需要人工确认'));
 });
 
 await check('C40 新工作台首次规划允许两个高质量独立任务', async () => {
@@ -613,6 +622,69 @@ await check('C44 隐藏评分要求在导入前触发候选级受控修复', asy
     && repairPrompt.includes('优先删除题干未要求的 Rubric');
 });
 
+await check('C45 真实边界执行 Seed → Plan → Realization 两步生成', async () => {
+  let calls = 0;
+  const provider = {
+    providerName: 'scripted_two_pass_provider',
+    async diagnose(request: { prompt: string }) {
+      calls += 1;
+      if (calls === 1) {
+        return {
+          providerRequestId: 'plan-call', latencyMs: 2,
+          rawOutput: JSON.stringify({
+            sequencePlanningDecision: {
+              strategy: 'entry_first', reason: 'default_foundation_entry',
+              preferredPreludeChoiceCount: 1,
+            },
+            planningSeeds: [
+              planningSeed('seed-1', '动作信息提取', 'extraction', 'fact', { anchorType: 'full_text' }, 'locate_information'),
+              planningSeed('seed-2', '动作与心理关系', 'inference', 'character', { anchorType: 'paragraph', startParagraph: 1 }, 'infer_from_evidence'),
+              planningSeed('seed-3', '整体事件概括', 'summarization', 'structure', { anchorType: 'full_text' }, 'summarize_content'),
+            ],
+          }),
+        };
+      }
+      const receiptMatch = request.prompt.match(/<required_plan_receipts>\n([\s\S]*?)\n<\/required_plan_receipts>/);
+      if (!receiptMatch) throw new Error('missing_stage2_receipts');
+      const receipts = JSON.parse(receiptMatch[1]) as Array<Record<string, unknown>>;
+      const planMatch = request.prompt.match(/<stage2_authoritative_progression_plan>\n([\s\S]*?)\n<\/stage2_authoritative_progression_plan>/);
+      if (!planMatch) throw new Error('missing_stage2_authoritative_plan');
+      const planContext = JSON.parse(planMatch[1]) as {
+        seeds: Array<{ observationObject: string }>;
+      };
+      const payload = validPayload();
+      const candidateByFocus = new Map(payload.candidates.map((item: Record<string, any>) => [
+        item.observationFocus.displayName,
+        item,
+      ]));
+      payload.candidates = planContext.seeds.map((seed, index) => ({
+        ...candidateByFocus.get(seed.observationObject),
+        ...receipts[index],
+      }));
+      return {
+        providerRequestId: 'realization-call', latencyMs: 3,
+        rawOutput: JSON.stringify(payload),
+      };
+    },
+  };
+  const result = await generateMaterialObservationDraftCandidates(input, {
+    provider,
+    config: createMaterialObservationDraftGeneratorConfig({
+      providerName: provider.providerName,
+      model: 'scripted-two-pass',
+      maxAttempts: 2,
+      stage2TwoPassPlanning: true,
+    }),
+  });
+  return calls === 2
+    && result.status === 'candidates_ready'
+    && result.candidates.length === 3
+    && result.candidates.every((item) => (
+      Boolean(item.planningTaskKey)
+      && item.taskGroupProgressionPlanHash === result.taskGroupProgressionPlan?.planHash
+    ));
+});
+
 console.log('\nPhase 17.2 Material Observation Draft Generator Debug');
 console.log('='.repeat(78));
 for (const report of reports) {
@@ -690,6 +762,39 @@ function validPayload() {
       }),
     ],
     materialLimitations: [],
+  };
+}
+
+function planningSeed(
+  seedKey: string,
+  observationObject: string,
+  primaryAbilityId: string,
+  observationDimension: string,
+  materialAnchor: Record<string, unknown>,
+  primaryAction: string,
+) {
+  return {
+    seedKey,
+    observationDimension,
+    observationObject,
+    materialAnchor,
+    primaryAbilityId,
+    taskRole: 'training',
+    responseFormat: 'long_text',
+    loadIntent: {
+      primaryAction,
+      responsibilities: ['basic_understanding', 'text_evidence', 'relation_explanation'],
+      textResponseLoadProfile: {
+        policyVersion: 'reading_open_response_input_load_policy_v1_1',
+        loadLevel: 'developing',
+        primaryAction,
+        requiredEvidenceUnitCount: 1,
+        requiredRelationCount: 1,
+        requiredObjectCount: 1,
+        expectedAnswerLengthBand: { recommendedMin: 20, recommendedMax: 60 },
+        compositeLoadReasons: [],
+      },
+    },
   };
 }
 

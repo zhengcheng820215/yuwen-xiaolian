@@ -7,10 +7,42 @@ import {
 } from './workingTaskContent.schema.ts';
 import type { QuestionGenerationQualityEvaluation } from
   './questionGenerationQuality.schema.ts';
+import type {
+  ReadingOpenResponseLoadGateAssessment,
+  ReadingTaskGroupLoadGateAssessment,
+} from
+  './readingOpenResponseLoadGate.schema.ts';
+import {
+  READING_OPEN_RESPONSE_LOAD_GATED_CANDIDATE_RULE_VERSION,
+  READING_OPEN_RESPONSE_LOAD_GATE_VERSION,
+} from
+  './readingOpenResponseLoadGate.schema.ts';
+import type {
+  TextResponseCandidateGenerationTrace,
+  TextResponseLoadPlanningIntent,
+} from './readingOpenResponseGenerationPlanning.schema.ts';
 import {
   isSingleChoiceMinimumResponseRequirement,
   validateSingleChoiceInteraction,
 } from './singleChoiceInteraction.schema.ts';
+import type {
+  TaskLoadSemantics,
+  TaskLoadSemanticsVerification,
+} from './readingTaskLoadSemantics.schema.ts';
+import {
+  calculateTaskLoadSemanticsHash,
+  isTaskLoadSemantics,
+  isTaskLoadSemanticsVerification,
+} from './readingTaskLoadSemantics.schema.ts';
+import type { READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION } from
+  './readingTrainingProgressionAudit.schema.ts';
+import {
+  READING_TASK_GROUP_PROGRESSION_GATE_VERSION,
+  READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION,
+  isReadingTaskGroupProgressionGateAssessment,
+  type ReadingTaskGroupProgressionGateAssessment,
+  type TaskGroupProgressionPlan,
+} from './readingTaskGroupProgression.schema.ts';
 
 export const QUESTION_CANDIDATE_SCHEMA_VERSION = 'question-candidate-v1' as const;
 
@@ -57,6 +89,11 @@ export type CandidateGenerationContext = {
   trainingTaskVersion: number;
   trainingTaskContentHash?: string;
   generatedAt: string;
+  trainingModelPolicyVersion?: typeof READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION;
+  trainingTaskLoadSemanticsHash?: string;
+  progressionStageRuleVersion?: typeof READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION;
+  planningTaskKey?: string;
+  taskGroupProgressionPlanHash?: string;
 };
 
 export type QuestionCandidateOrigin =
@@ -72,6 +109,22 @@ export type CandidateRuntimeContext = {
   activeDraftId?: string;
   activeDraftRevision?: number;
   activeDraftContentHash?: string;
+  trainingModelPolicyVersion?: typeof READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION;
+  taskLoadSemantics?: TaskLoadSemantics;
+  taskLoadSemanticsHash?: string;
+  progressionStageRuleVersion?: typeof READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION;
+  planningTaskKey?: string;
+  taskGroupProgressionPlanHash?: string;
+  taskGroupProgressionPlan?: TaskGroupProgressionPlan;
+  taskGroupProgressionSubjects?: Array<{
+    planningTaskKey: string;
+    subjectId: string;
+    taskLoadSemantics: TaskLoadSemantics;
+    taskLoadSemanticsHash: string;
+    observationObject: string;
+    sourceAnchorIdentity: string;
+    scoringTargetIds: string[];
+  }>;
 };
 
 export type QuestionCandidate = {
@@ -95,6 +148,18 @@ export type QuestionCandidate = {
   lockedFields: CandidateFieldKey[];
   generationContext: CandidateGenerationContext;
   generationQuality?: QuestionGenerationQualityEvaluation;
+  textResponseLoadPlanning?: {
+    intent: TextResponseLoadPlanningIntent;
+    trace: TextResponseCandidateGenerationTrace;
+  };
+  loadGateAssessment?: ReadingOpenResponseLoadGateAssessment;
+  groupLoadGateAssessment?: ReadingTaskGroupLoadGateAssessment;
+  taskLoadSemantics?: TaskLoadSemantics;
+  taskLoadSemanticsHash?: string;
+  taskLoadSemanticsVerification?: TaskLoadSemanticsVerification;
+  planningTaskKey?: string;
+  taskGroupProgressionPlanHash?: string;
+  taskGroupProgressionGateAssessment?: ReadingTaskGroupProgressionGateAssessment;
   status: QuestionCandidateStatus;
   createdAt: string;
   adoptedAt?: string;
@@ -122,6 +187,7 @@ export type CandidateAdoptionResult = {
   revision: number;
   contentHash: string;
   adoptedAt: string;
+  draftLoadGateAssessment?: ReadingOpenResponseLoadGateAssessment;
 };
 
 export type CandidateCommandName =
@@ -325,6 +391,47 @@ export function createQuestionCandidate(input: Omit<
       `Question Candidate content is invalid: ${contentValidation.issues.map((issue) => issue.code).join(', ')}`,
     );
   }
+  if (input.taskLoadSemantics) {
+    if (!isTaskLoadSemantics(input.taskLoadSemantics, content.responseFormat)) {
+      throw new Error('Question Candidate task load semantics are invalid.');
+    }
+    const semanticsHash = calculateTaskLoadSemanticsHash(input.taskLoadSemantics);
+    if (input.taskLoadSemanticsHash !== semanticsHash) {
+      throw new Error('Question Candidate task load semantics hash mismatch.');
+    }
+    if (!input.taskLoadSemanticsVerification
+      || !isTaskLoadSemanticsVerification(input.taskLoadSemanticsVerification)) {
+      throw new Error('Question Candidate task load semantics verification is missing or invalid.');
+    }
+    if (input.status === 'ready'
+      && input.taskLoadSemanticsVerification.status === 'mismatched') {
+      throw new Error('Mismatched Task load semantics cannot enter the ready Candidate state.');
+    }
+  }
+  if (input.generationContext.progressionStageRuleVersion
+    === READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION) {
+    if (!input.planningTaskKey?.trim()
+      || !input.taskGroupProgressionPlanHash?.trim()
+      || input.generationContext.planningTaskKey !== input.planningTaskKey
+      || input.generationContext.taskGroupProgressionPlanHash
+        !== input.taskGroupProgressionPlanHash) {
+      throw new Error('Stage 2 Candidate is missing a valid progression plan receipt.');
+    }
+    if (!isReadingTaskGroupProgressionGateAssessment(
+      input.taskGroupProgressionGateAssessment,
+    )
+      || input.taskGroupProgressionGateAssessment.schemaVersion
+        !== READING_TASK_GROUP_PROGRESSION_GATE_VERSION
+      || ['blocked', 'insufficient_input'].includes(
+        input.taskGroupProgressionGateAssessment.decision,
+      )
+      || input.taskGroupProgressionGateAssessment.stageRuleVersion
+        !== READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION
+      || input.taskGroupProgressionGateAssessment.taskGroupProgressionPlanHash
+        !== input.taskGroupProgressionPlanHash) {
+      throw new Error('Stage 2 Candidate progression gate is missing, blocked or mismatched.');
+    }
+  }
   const contentHash = calculateQuestionEditableFieldsHash(content);
   return {
     ...cloneQuestionCandidate(input),
@@ -353,6 +460,15 @@ export function candidateContextMatches(
   return candidate.generationContext.materialVersionId === context.materialVersionId &&
     candidate.generationContext.observationPlanVersion === context.observationPlanVersion &&
     candidate.generationContext.trainingTaskVersion === context.trainingTaskVersion &&
+    candidate.generationContext.trainingModelPolicyVersion
+      === context.trainingModelPolicyVersion &&
+    candidate.generationContext.trainingTaskLoadSemanticsHash
+      === context.taskLoadSemanticsHash &&
+    candidate.generationContext.progressionStageRuleVersion
+      === context.progressionStageRuleVersion &&
+    candidate.generationContext.planningTaskKey === context.planningTaskKey &&
+    candidate.generationContext.taskGroupProgressionPlanHash
+      === context.taskGroupProgressionPlanHash &&
     candidate.basedOnFormalResourceId === context.baseFormalResourceId &&
     candidate.basedOnFormalVersionId === context.baseFormalVersionId &&
     draftIdentityMatches &&
@@ -386,11 +502,16 @@ export function resolveTaskCandidateState(input: {
   }
 
   const readyCandidates = input.candidates.filter((candidate) => (
-    candidate.status === 'ready' && candidateContextMatches(candidate, input.context)
+    candidate.status === 'ready'
+    && candidateContextMatches(candidate, input.context)
+    && candidateLoadGateAllowsAdoption(candidate)
   ));
   const expiredCandidates = input.candidates.filter((candidate) => (
     candidate.status === 'expired' ||
-    (candidate.status === 'ready' && !candidateContextMatches(candidate, input.context))
+    (candidate.status === 'ready' && (
+      !candidateContextMatches(candidate, input.context)
+      || !candidateLoadGateAllowsAdoption(candidate)
+    ))
   ));
   if (readyCandidates.length > 0) {
     return {
@@ -414,6 +535,29 @@ export function resolveTaskCandidateState(input: {
     readyCandidateIds: [],
     expiredCandidateIds: [],
   };
+}
+
+function candidateLoadGateAllowsAdoption(candidate: QuestionCandidate): boolean {
+  if (
+    candidate.generationContext.ruleVersion
+    !== READING_OPEN_RESPONSE_LOAD_GATED_CANDIDATE_RULE_VERSION
+  ) return true;
+  const assessment = candidate.loadGateAssessment;
+  const groupAssessment = candidate.groupLoadGateAssessment;
+  const singleAssessmentAllowsAdoption = candidate.content.responseFormat === 'single_choice'
+    || Boolean(
+      assessment
+      && assessment.decision !== 'blocked'
+      && assessment.subject.subjectId === candidate.candidateId
+      && assessment.subject.contentHash === candidate.contentHash
+      && assessment.trainingTaskId === candidate.trainingTaskId,
+    );
+  return Boolean(
+    singleAssessmentAllowsAdoption
+    && groupAssessment
+    && groupAssessment.decision !== 'blocked'
+    && groupAssessment.gateRuleVersion === READING_OPEN_RESPONSE_LOAD_GATE_VERSION
+  );
 }
 
 export function readCandidateField(

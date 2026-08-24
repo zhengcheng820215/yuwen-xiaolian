@@ -4,6 +4,16 @@ import {
   IndexedDBLearningObservationRepository,
   IndexedDBQuestionCalibrationProjectionRepository,
 } from '../ai/repositories/indexedDBLearningCollectionRepositories.ts';
+import { IndexedDBReadingOpenResponseGovernanceRepository } from
+  '../ai/repositories/indexedDBReadingOpenResponseGovernanceRepository.ts';
+import { IndexedDBReadingOpenResponseProcessFactRepository } from
+  '../ai/repositories/indexedDBReadingOpenResponseProcessFactRepository.ts';
+import {
+  auditReadingOpenResponseCalibrationIntegrity,
+  projectReadingOpenResponseVersionCalibration,
+} from '../ai/agents/readingOpenResponseRealCalibrationAgent.ts';
+import { buildReadingOpenResponseGovernanceProjection } from
+  '../ai/agents/readingOpenResponseExistingQuestionGovernanceAgent.ts';
 import {
   LearningCollectionIntegrityService,
   selectLearningCollectionIntegrityScope,
@@ -23,12 +33,26 @@ export async function loadLearningCollectionIntegrityView(
   const operationRepository = new IndexedDBRealLearningOperationRepository();
   const eventRepository = new IndexedDBLearningObservationRepository();
   const projectionRepository = new IndexedDBQuestionCalibrationProjectionRepository();
-  const [checkpoints, persistenceRecords, events, projections, revisionObservation] = await Promise.all([
+  const processFactRepository = new IndexedDBReadingOpenResponseProcessFactRepository();
+  const governanceRepository = new IndexedDBReadingOpenResponseGovernanceRepository();
+  const [
+    checkpoints,
+    persistenceRecords,
+    events,
+    projections,
+    revisionObservation,
+    processFacts,
+    governanceCases,
+    governanceBatches,
+  ] = await Promise.all([
     operationRepository.listByStudent(PHASE163_LEARNING_STUDENT_ID),
     new IndexedDBLearningPersistenceRepository().listByStudent(PHASE163_LEARNING_STUDENT_ID),
     eventRepository.listAll(),
     projectionRepository.listAll(),
     loadPhase163FeedbackRevisionObservationReport({ recoverPending: false }),
+    processFactRepository.listAll(),
+    governanceRepository.listCases(),
+    governanceRepository.listBatches(),
   ]);
   const generatedAt = new Date().toISOString();
   const service = new LearningCollectionIntegrityService();
@@ -47,9 +71,35 @@ export async function loadLearningCollectionIntegrityView(
   };
   const scoped = selectLearningCollectionIntegrityScope(input);
   const report = service.buildReport(input);
+  const resourceVersionIds = [...new Set([
+    ...processFacts.map((fact) => fact.resourceVersionId),
+    ...projections.map((projection) => projection.resourceVersionId),
+  ])].sort();
+  const readingOpenResponseReports = resourceVersionIds.map((resourceVersionId) => (
+    projectReadingOpenResponseVersionCalibration({
+      resourceVersionId,
+      events,
+      projections,
+      processFacts,
+      generatedAt,
+    })
+  ));
   return {
     report,
     revisionObservation,
+    readingOpenResponse: {
+      integrity: auditReadingOpenResponseCalibrationIntegrity({
+        events,
+        projections,
+        processFacts,
+      }),
+      governance: buildReadingOpenResponseGovernanceProjection({
+        cases: governanceCases,
+        batches: governanceBatches,
+        calibrationReports: readingOpenResponseReports,
+      }),
+      reports: readingOpenResponseReports,
+    },
     rounds: scoped.input.checkpoints.map((checkpoint) => roundView(
       checkpoint,
       scoped.input.events,

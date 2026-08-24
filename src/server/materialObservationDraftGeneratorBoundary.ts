@@ -19,6 +19,7 @@ export function createMaterialObservationDraftLiveConfig(providerName: string, m
     maxOutputTokens: MATERIAL_OBSERVATION_DRAFT_LIVE_MAX_OUTPUT_TOKENS,
     timeoutMs: MATERIAL_OBSERVATION_DRAFT_LIVE_TIMEOUT_MS,
     maxAttempts: 2,
+    stage2TwoPassPlanning: true,
   });
 }
 

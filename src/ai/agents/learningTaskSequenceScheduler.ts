@@ -1,8 +1,10 @@
 import type { RecommendedTaskRole } from '../schemas/nextLearningStrategy.schema.ts';
 import type { FrozenQuestionResourceVersion } from '../schemas/questionResourceAdmission.schema.ts';
+import { isTextResponseFormat } from '../schemas/readingOpenResponseInputLoad.schema.ts';
+import { analyzeReadingOpenResponseInputLoad } from './readingOpenResponseInputLoadAnalyzer.ts';
 
 export const LEARNING_TASK_SEQUENCE_SCHEDULER_VERSION =
-  'learning_task_sequence_scheduler_v2' as const;
+  'learning_task_sequence_scheduler_v3' as const;
 
 export function orderFormalResourcesForLearningSequence(
   versions: FrozenQuestionResourceVersion[],
@@ -21,10 +23,31 @@ export function orderFormalResourcesForLearningSequence(
     .sort((left, right) => (
       sequencePriority(left.version, preludeResourceIds) -
         sequencePriority(right.version, preludeResourceIds) ||
-      sequenceRank(left.version) - sequenceRank(right.version) ||
+      sequenceTieBreak(left.version, right.version) ||
       left.sourceIndex - right.sourceIndex
     ))
     .map(({ version }) => version);
+}
+
+function sequenceTieBreak(
+  left: FrozenQuestionResourceVersion,
+  right: FrozenQuestionResourceVersion,
+): number {
+  const leftRank = explicitSequenceRank(left);
+  const rightRank = explicitSequenceRank(right);
+  const leftHasRank = leftRank !== undefined;
+  const rightHasRank = rightRank !== undefined;
+  if (leftRank !== undefined && rightRank !== undefined) return leftRank - rightRank;
+  if (leftHasRank !== rightHasRank) return leftHasRank ? -1 : 1;
+  // Legacy formal text tasks often predate explicit sequence tags. Within the
+  // same derived load band, place the task with fewer required rubric actions
+  // first instead of preserving an accidental historical insertion order.
+  return requiredRubricActionCount(left) - requiredRubricActionCount(right);
+}
+
+function requiredRubricActionCount(version: FrozenQuestionResourceVersion): number {
+  if (!isTextResponseFormat(version.responseFormat)) return 0;
+  return version.rubric.filter((item) => item.required !== false).length;
 }
 
 export function selectFormalResourceForLearningSequence(
@@ -52,10 +75,38 @@ function sequencePriority(
   const strategy = tagValue(version.tags, 'sequence-strategy');
   if (strategy === 'holistic_first' || strategy === 'role_driven') return 0;
   if (strategy === 'entry_first') {
-    return preludeResourceIds.has(version.resourceVersionId) ? 0 : 1;
+    if (preludeResourceIds.has(version.resourceVersionId)) return 0;
+    return version.responseFormat === 'single_choice'
+      ? 2.5
+      : legacyTextLoadPriority(version);
   }
   if (preludeResourceIds.has(version.resourceVersionId)) return 0;
-  return version.responseFormat === 'single_choice' ? 2 : 1;
+  if (version.responseFormat === 'single_choice') return 2.5;
+  return legacyTextLoadPriority(version);
+}
+
+function legacyTextLoadPriority(version: FrozenQuestionResourceVersion): number {
+  if (
+    !isTextResponseFormat(version.responseFormat)
+    || !version.questionStem?.trim()
+    || !Array.isArray(version.rubric)
+    || !version.minimumAnswerRequirement
+  ) return 1;
+  const audit = analyzeReadingOpenResponseInputLoad({
+    questionVersionId: version.resourceVersionId,
+    materialVersionId: version.materialVersionId,
+    title: version.title,
+    questionStem: version.questionStem,
+    responseFormat: version.responseFormat,
+    rubric: version.rubric,
+    minimumAnswerRequirement: version.minimumAnswerRequirement,
+    abilityMetadata: version.abilityMetadata,
+    tags: version.tags,
+  });
+  const level = audit?.profile?.loadLevel;
+  if (level === 'integrated') return 3;
+  if (level === 'developing') return 2;
+  return 1;
 }
 
 function resolvePreludeResourceIds(
@@ -96,8 +147,16 @@ function isFoundationChoice(version: FrozenQuestionResourceVersion): boolean {
 }
 
 function sequenceRank(version: FrozenQuestionResourceVersion): number {
+  return explicitSequenceRank(version) ?? Number.MAX_SAFE_INTEGER;
+}
+
+function explicitSequenceRank(
+  version: FrozenQuestionResourceVersion,
+): number | undefined {
   const value = numericTag(version.tags, 'sequence-rank');
-  return Number.isInteger(value) && value > 0 ? value : Number.MAX_SAFE_INTEGER;
+  return typeof value === 'number' && Number.isInteger(value) && value > 0
+    ? value
+    : undefined;
 }
 
 function numericTag(tags: string[], prefix: string): number | undefined {

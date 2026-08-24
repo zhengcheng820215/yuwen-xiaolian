@@ -292,6 +292,7 @@ export async function adoptQuestionTaskCandidate(
         }
         return resolveCurrentCandidateContext(trainingTaskId, input.expectedContext);
       },
+      listPeerQuestionContents,
     },
     new QuestionResourceCandidateAdoptionGateway(questionRepository),
   );
@@ -360,6 +361,14 @@ async function resolveCurrentCandidateContext(
       trainingTaskVersion: expectedContext.trainingTaskVersion,
       baseFormalResourceId: expectedContext.baseFormalResourceId,
       baseFormalVersionId: expectedContext.baseFormalVersionId,
+      trainingModelPolicyVersion: expectedContext.trainingModelPolicyVersion,
+      taskLoadSemantics: expectedContext.taskLoadSemantics,
+      taskLoadSemanticsHash: expectedContext.taskLoadSemanticsHash,
+      progressionStageRuleVersion: expectedContext.progressionStageRuleVersion,
+      planningTaskKey: expectedContext.planningTaskKey,
+      taskGroupProgressionPlanHash: expectedContext.taskGroupProgressionPlanHash,
+      taskGroupProgressionPlan: expectedContext.taskGroupProgressionPlan,
+      taskGroupProgressionSubjects: expectedContext.taskGroupProgressionSubjects,
     };
   }
   return {
@@ -368,6 +377,14 @@ async function resolveCurrentCandidateContext(
     trainingTaskVersion: expectedContext.trainingTaskVersion,
     baseFormalResourceId: expectedContext.baseFormalResourceId,
     baseFormalVersionId: expectedContext.baseFormalVersionId,
+    trainingModelPolicyVersion: expectedContext.trainingModelPolicyVersion,
+    taskLoadSemantics: expectedContext.taskLoadSemantics,
+    taskLoadSemanticsHash: expectedContext.taskLoadSemanticsHash,
+    progressionStageRuleVersion: expectedContext.progressionStageRuleVersion,
+    planningTaskKey: expectedContext.planningTaskKey,
+    taskGroupProgressionPlanHash: expectedContext.taskGroupProgressionPlanHash,
+    taskGroupProgressionPlan: expectedContext.taskGroupProgressionPlan,
+    taskGroupProgressionSubjects: expectedContext.taskGroupProgressionSubjects,
     activeDraftId: activeDraft.draftId,
     activeDraftRevision: activeDraft.revision,
     activeDraftContentHash: calculateQuestionEditableFieldsHash(

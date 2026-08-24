@@ -46,6 +46,7 @@ import Phase175C2QualityPersistenceDemo from './pages/Phase175C2QualityPersisten
 import Phase175C3ABatchQualitySummaryDemo from './pages/Phase175C3ABatchQualitySummaryDemo.jsx';
 import ReadingSingleChoiceStage4Acceptance from './pages/ReadingSingleChoiceStage4Acceptance.jsx';
 import TargetedMicroTrainingStage4Control from './pages/TargetedMicroTrainingStage4Control.jsx';
+import ReadingOpenResponseStage4BrowserAcceptance from './pages/ReadingOpenResponseStage4BrowserAcceptance.jsx';
 
 export default function App() {
   return (
@@ -86,6 +87,7 @@ export default function App() {
         <Route path="/internal" element={<InternalHub />} />
         <Route path="/internal/acceptance" element={<InternalAcceptanceHub />} />
         <Route path="/internal/acceptance/reading-single-choice" element={<ReadingSingleChoiceStage4Acceptance />} />
+        <Route path="/internal/acceptance/reading-open-response-stage4" element={<ReadingOpenResponseStage4BrowserAcceptance />} />
         <Route path="/internal/learning-review" element={<InternalLearningReview />} />
         <Route path="/internal/learning-collection" element={<LearningCollectionIntegrity />} />
         <Route path="/internal/targeted-micro-training" element={<TargetedMicroTrainingStage4Control />} />

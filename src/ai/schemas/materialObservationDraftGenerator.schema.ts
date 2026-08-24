@@ -19,13 +19,24 @@ import type {
   TrainingTaskSequencePlanningResult,
 } from './trainingTaskSequencePlanning.schema.ts';
 import type {
+  TextResponseCandidateGenerationTrace,
+  TextResponseLoadPlanningIntent,
+} from './readingOpenResponseGenerationPlanning.schema.ts';
+import type {
   MaterialContentNormalizationPolicyVersion,
   MaterialUsageType,
   TargetedExcerptMetadata,
   TargetedTrainingResourceMetadata,
 } from './targetedMicroTraining.schema.ts';
+import type { TaskLoadSemantics } from './readingTaskLoadSemantics.schema.ts';
+import type {
+  READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION,
+  TaskGroupProgressionPlan,
+} from './readingTaskGroupProgression.schema.ts';
+import type { READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION } from
+  './readingTrainingProgressionAudit.schema.ts';
 
-export const MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION = 'material_observation_draft_generator_v1_10' as const;
+export const MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION = 'material_observation_draft_generator_v1_11' as const;
 
 export const SINGLE_CHOICE_TARGET_SHORTFALL_REASONS = [
   'insufficient_task_capacity',
@@ -99,6 +110,8 @@ export type MaterialObservationDraftGeneratorPreferences = {
     requestedSupplementSingleChoiceCount: number;
   };
   sequencePlanning?: TrainingTaskSequencePlanningPreference;
+  /** Stable Plan revision identity used by the Stage 2 group progression plan. */
+  observationPlanRevisionId?: string;
   targetedTrainingPlanning?: TargetedTrainingResourceMetadata;
 };
 
@@ -144,6 +157,10 @@ export type MaterialObservationDraftCalibrationAnswer = {
 
 export type MaterialObservationPlanningCandidate = {
   candidateId: string;
+  /** Stable identity across Seed, Task, Candidate and the group progression plan. */
+  planningTaskKey?: string;
+  /** Receipt proving this realized Candidate consumed the authoritative group plan. */
+  taskGroupProgressionPlanHash?: string;
   questionStem: string;
   questionDraft: {
     questionType: StructuredQuestionType;
@@ -183,6 +200,13 @@ export type MaterialObservationPlanningCandidate = {
     taskRole: 'training_candidate';
     requiresHumanReview: true;
   };
+  /** Internal generation governance; never projected into student-facing resources. */
+  textResponseLoadPlanning?: {
+    intent: TextResponseLoadPlanningIntent;
+    trace: TextResponseCandidateGenerationTrace;
+  };
+  /** Stage 1 native semantics; inherited by Task and QuestionCandidate unchanged. */
+  taskLoadSemantics?: TaskLoadSemantics;
   inventoryRelation: {
     disposition: Exclude<MaterialObservationCandidateDisposition, 'unsupported_by_material'>;
     matchedObservationId?: string;
@@ -229,6 +253,8 @@ export type MaterialObservationDraftGeneratorResult = {
     reasons: SingleChoiceTargetShortfallReason[];
   };
   sequencePlanningResult: TrainingTaskSequencePlanningResult;
+  progressionStageRuleVersion?: typeof READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION;
+  taskGroupProgressionPlan?: TaskGroupProgressionPlan;
   coveragePreview: {
     surfaceCandidateCount: number;
     independentObservationCount: number;
@@ -266,5 +292,6 @@ export type MaterialObservationDraftGeneratorResult = {
     };
   };
   limitations: string[];
+  trainingModelPolicyVersion?: typeof READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION;
   version: typeof MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION;
 };

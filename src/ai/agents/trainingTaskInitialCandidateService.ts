@@ -12,6 +12,11 @@ import {
   calculateQuestionEditableFieldsHash,
   type QuestionEditableFields,
 } from '../schemas/workingTaskContent.schema.ts';
+import { cloneTaskLoadSemantics } from
+  '../schemas/readingTaskLoadSemantics.schema.ts';
+import { verifyTaskLoadSemantics } from './readingTaskLoadSemanticsAgent.ts';
+import { assessReadingTaskGroupProgression } from
+  './readingTaskGroupProgressionPlanner.ts';
 
 export type TrainingTaskInitialCandidateSource = {
   trainingTaskVersion: number;
@@ -101,6 +106,28 @@ export class TrainingTaskInitialCandidateService {
       })));
 
     const createdAt = this.clock();
+    const taskGroupProgressionGateAssessment = source.context.taskGroupProgressionPlan
+      ? assessReadingTaskGroupProgression({
+        plan: source.context.taskGroupProgressionPlan,
+        materialVersionId: source.context.materialVersionId,
+        observationPlanRevisionId:
+          source.context.taskGroupProgressionPlan.observationPlanRevisionId,
+        subjects: (source.context.taskGroupProgressionSubjects || []).map((subject) => ({
+          ...subject,
+          taskGroupProgressionPlanHash: source.context.taskGroupProgressionPlanHash,
+          ...(subject.planningTaskKey === source.context.planningTaskKey
+            ? {
+              subjectId: candidateId,
+              observationObject: source.content.title,
+              scoringTargetIds: source.content.rubric.map((rubric) => (
+                `${rubric.abilityId}:${rubric.name}`
+              )),
+            }
+            : {}),
+        })),
+        assessedAt: createdAt,
+      })
+      : undefined;
     const candidate = createQuestionCandidate({
       candidateId,
       generationCommandId: `ensure-initial:${input.idempotencyKey}`,
@@ -126,8 +153,27 @@ export class TrainingTaskInitialCandidateService {
         observationPlanVersion: source.context.observationPlanVersion,
         trainingTaskVersion: source.trainingTaskVersion,
         trainingTaskContentHash: source.contentHash,
+        trainingModelPolicyVersion: source.context.trainingModelPolicyVersion,
+        trainingTaskLoadSemanticsHash: source.context.taskLoadSemanticsHash,
+        progressionStageRuleVersion: source.context.progressionStageRuleVersion,
+        planningTaskKey: source.context.planningTaskKey,
+        taskGroupProgressionPlanHash: source.context.taskGroupProgressionPlanHash,
         generatedAt: createdAt,
       },
+      taskLoadSemantics: cloneTaskLoadSemantics(source.context.taskLoadSemantics),
+      taskLoadSemanticsHash: source.context.taskLoadSemanticsHash,
+      taskLoadSemanticsVerification: source.context.taskLoadSemantics
+        ? verifyTaskLoadSemantics({
+          trainingTaskId: input.trainingTaskId,
+          candidateId,
+          plannedSemantics: source.context.taskLoadSemantics,
+          plannedSemanticsHash: source.context.taskLoadSemanticsHash,
+          responseFormat: source.content.responseFormat,
+        })
+        : undefined,
+      planningTaskKey: source.context.planningTaskKey,
+      taskGroupProgressionPlanHash: source.context.taskGroupProgressionPlanHash,
+      taskGroupProgressionGateAssessment,
       status: 'ready',
       createdAt,
     });
@@ -170,6 +216,11 @@ function runtimeContextFingerprint(context: CandidateRuntimeContext): string {
     materialVersionId: context.materialVersionId,
     observationPlanVersion: context.observationPlanVersion,
     trainingTaskVersion: context.trainingTaskVersion,
+    trainingModelPolicyVersion: context.trainingModelPolicyVersion || null,
+    taskLoadSemanticsHash: context.taskLoadSemanticsHash || null,
+    progressionStageRuleVersion: context.progressionStageRuleVersion || null,
+    planningTaskKey: context.planningTaskKey || null,
+    taskGroupProgressionPlanHash: context.taskGroupProgressionPlanHash || null,
   });
   let hash = 0x811c9dc5;
   for (let index = 0; index < serialized.length; index += 1) {

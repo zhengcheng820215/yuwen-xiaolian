@@ -32,6 +32,12 @@ export function createWorkbenchErrorNotice(
 }
 
 function userFacingMessage(message: string): string {
+  if (message.startsWith('Reading open-response load gate blocked Candidate:')) {
+    return '当前题目的作答要求过于集中或与题面不一致，请重新生成题目。原任务不会改变。';
+  }
+  if (message.startsWith('Reading task-group load gate blocked Candidate:')) {
+    return '当前候选与整组任务的难度顺序或观察内容不匹配，请重新生成题目。原任务组不会改变。';
+  }
   if (message === 'Question quality assessments are not identity-aligned.') {
     return '质量检查结果已更新，请重新检查后再确认发布。';
   }

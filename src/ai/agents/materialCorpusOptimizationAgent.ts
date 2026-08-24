@@ -943,6 +943,7 @@ export function createQualityArtifacts(input: {
   draft: StructuredQuestionDraft;
   validation: ResourceValidationResult;
   material: QuestionMaterialVersion;
+  materialAnchor?: MaterialSourceAnchor | null;
   peerDrafts: StructuredQuestionDraft[];
   review: ResourceReviewDecision;
   version: FrozenQuestionResourceVersion;
@@ -952,6 +953,7 @@ export function createQualityArtifacts(input: {
     draft: input.draft,
     validation: input.validation,
     material: input.material,
+    materialAnchor: input.materialAnchor,
     peerDrafts: input.peerDrafts.filter((item) => item.draftId !== input.draft.draftId),
     assessedAt: input.now,
   });

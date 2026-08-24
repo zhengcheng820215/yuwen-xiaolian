@@ -51,7 +51,7 @@ const round1 = buildCompletedPersistenceRecord(
 const round2 = buildCompletedPersistenceRecord(
   'phase13-session1-round2',
   '2026-07-13T09:30:00.000Z',
-  '母亲保留旧杯子，是因为杯子承载着共同生活的回忆，她珍惜这段经历。',
+  '父亲反复整理旧书并看着夹在书里的树叶停了很久，说明这件旧物唤起了他和孩子共同读书的回忆，也表现出他的怀念与不舍。',
 );
 const unfinishedExpressionRound = buildUnfinishedPersistenceRecord(
   'phase13-session2-round1',
@@ -440,6 +440,11 @@ function buildCompletedPersistenceRecord(
     diagnosisResult: buildDiagnosisResult('推理'),
     completedAt: createdAt,
   });
+  if (roundResult.status !== 'completed') {
+    throw new Error(
+      `Completed-session fixture ${learningRoundId} produced ${roundResult.status}: ${roundResult.issues.join('; ')}`,
+    );
+  }
   const feedback = buildStudentLearningFeedback({ entryState, learningRoundResult: roundResult });
   const summary = buildStudentRoundSummary({
     learningRoundResult: roundResult,

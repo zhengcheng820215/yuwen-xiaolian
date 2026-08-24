@@ -2,9 +2,11 @@
 
 英文名称：Targeted Micro-training Material and Scheduling Contract
 
-状态：STAGES 1–2 ENGINEERING PASS / STAGE 3 ENGINEERING + AUTOMATED DEBUG PASS / STAGE 4 DESIGN READY  
-文档版本：`targeted_micro_training_material_scheduling_v1`  
-更新日期：2026-08-20
+状态：STAGES 1–4 ENGINEERING PASS / REAL EFFECT PENDING
+
+文档版本：`targeted_micro_training_material_scheduling_v1.1`
+
+更新日期：2026-08-21
 
 ## 一、问题与目标
 
@@ -135,7 +137,35 @@ type TargetedExcerptMetadata = {
 
 无法满足时必须继续优先匹配不同证据情境；没有合格资源时不补练。
 
-### 3.3 支持的首批缺口
+### 3.3 Frozen Quality Trace 与 Learning 可消费性
+
+`targeted_excerpt` 的 Frozen Resource、Registry Head 和 Observation Link 完整，不等于已经可以进入 Learning。每个当前 Frozen Resource Version 还必须具有与自身身份一致、来源工件完整的 `FrozenQuestionQualityTrace`：
+
+```text
+Draft + Validation + Deterministic Assessment
++ Semantic Assessment + Assessment Bundle + Human Review
+→ Frozen Question Quality Trace
+→ Learning Consumable
+```
+
+缺少冻结质量轨迹时：
+
+- Resource Version、Registry 和 Observation Link 继续保持原身份，不得重建或覆盖；
+- 该题不得进入正式 Learning 匹配结果；
+- 系统必须报告 `frozen_quality_trace_missing`；
+- 不得因为 Trace 缺失又把同一问题重复解释为结构身份错位；只有 Material、Plan、Task Lineage、Link、Registry、Version 或已经存在的 Trace 真实不一致时，才报告 `learning_identity_mismatch`。
+
+历史补齐只能根据已经存在且身份对齐的 Draft、Validation、Review、Material 和 Frozen Version 重建质量工件。任何来源缺失、校验未通过或身份冲突都必须停止，不得伪造通过结论。补齐操作必须满足：
+
+- 只追加缺失的 Deterministic Assessment、Semantic Assessment、Assessment Bundle 和 Frozen Quality Trace；
+- 不修改题干、Rubric、作答格式、能力标签、Frozen Version、Registry Head、Observation Link 或 Learning 历史；
+- 同一 Repair Command 可重复执行且不产生重复工件；
+- 四类质量集合在同一共享资源 Revision 中原子提交；
+- 修复后重新执行正式资源基线，目标为当前任务、Frozen Version、Quality Trace 与 `learningConsumable` 数量一致。
+
+本轮 18 道受控微训练题的具体修复范围、Debug 和回滚边界见[针对性微训练冻结质量轨迹一致性修复计划](./TARGETED_MICRO_TRAINING_QUALITY_TRACE_CONSISTENCY_REPAIR_PLAN.md)。
+
+### 3.4 支持的首批缺口
 
 第一版只支持可直接映射到单一训练动作的高频缺口：
 
@@ -480,6 +510,8 @@ Assignment 不插入、不重排、不覆盖核心 `resourceVersionIds`。调度
 - [阶段 4：工程实施与验收清单](./TARGETED_MICRO_TRAINING_STAGE4_ENGINEERING_AND_ACCEPTANCE_PLAN.md)
 
 ## 十四、增补记录
+
+2026-08-21 质量轨迹边界与数据收口：明确 Frozen Resource、Registry 与 Observation Link 之外，当前正式微训练题还必须具有身份一致的 Frozen Quality Trace 才能进入 Learning。Trace 缺失与结构身份错位分开计数；已从完整既有审核证据为 18 道受控微训练题原子补齐质量工件，Shared Store `1957 → 1958`，当前正式任务 / Trace / Learning Consumable 达到 `79 / 79 / 79`，重复执行 no-op，未重建题目或切换正式版本。
 
 2026-08-20 设计增补：将 `100–300` 字明确为推荐区间而非结构门禁；默认优先不同证据情境，`same_material_excerpt` 只在不同 Anchor、重新执行价值和无答案泄露同时成立时使用；请求从粗粒度排除整个 Material 调整为 `materialRelationPolicy + excludedSourceAnchors`；第一版 Gap 固定为四类具体动作缺口，不接纳宏观能力弱项；补充三层训练结构、单选分层职责和后续独立任务效果口径，并冻结首批约 12 份片段在真实数据形成前不继续扩容。
 

@@ -59,6 +59,8 @@ import {
   createBrowserQuestionResourceAdmissionRepository,
 } from '../ai/repositories/formalResourceRepositoryRouter.ts';
 import { IndexedDBRealLearningOperationRepository } from '../ai/repositories/indexedDBRealLearningOperationRepository.ts';
+import { IndexedDBReadingOpenResponseProcessFactRepository } from
+  '../ai/repositories/indexedDBReadingOpenResponseProcessFactRepository.ts';
 import {
   IndexedDBLearningObservationOutboxRepository,
   IndexedDBLearningObservationRepository,
@@ -69,6 +71,8 @@ import { LocalStorageUnifiedLearningEntryRepository } from '../ai/repositories/l
 import { LearningObservationService } from '../ai/services/learningObservationService.ts';
 import { QuestionCalibrationProjectionService } from '../ai/services/questionCalibrationProjectionService.ts';
 import { LearningFeedbackRevisionPersistenceService } from '../ai/services/learningFeedbackRevisionPersistenceService.ts';
+import { ReadingOpenResponseProcessFactService } from
+  '../ai/services/readingOpenResponseProcessFactService.ts';
 import {
   buildLearningCalibrationAttemptId,
   buildLearningObservationEventId,
@@ -151,6 +155,11 @@ const observationService = new LearningObservationService(
 );
 const calibrationProjectionService = new QuestionCalibrationProjectionService(
   questionCalibrationProjectionRepository,
+);
+const readingOpenResponseProcessFactRepository =
+  new IndexedDBReadingOpenResponseProcessFactRepository();
+const readingOpenResponseProcessFactService = new ReadingOpenResponseProcessFactService(
+  readingOpenResponseProcessFactRepository,
 );
 const learningTaskAttemptRepository = new IndexedDBLearningTaskAttemptRepository();
 const feedbackRevisionPersistenceService = new LearningFeedbackRevisionPersistenceService(
@@ -300,6 +309,31 @@ export async function recordPhase163QuestionPresented(roundId: string): Promise<
     kind: 'question_presented',
     presentationId,
   });
+  const current = readHintMarker(roundId);
+  writeHintMarker(roundId, {
+    presentedAt: current?.presentedAt || new Date().toISOString(),
+    firstInputAt: current?.firstInputAt,
+    hintOpened: current?.hintOpened || false,
+  });
+}
+
+export function recordPhase163PreAnswerHintOpened(roundId: string): void {
+  const current = readHintMarker(roundId);
+  writeHintMarker(roundId, {
+    presentedAt: current?.presentedAt || new Date().toISOString(),
+    firstInputAt: current?.firstInputAt,
+    hintOpened: true,
+  });
+}
+
+export function recordPhase163FirstInputObserved(roundId: string): void {
+  const current = readHintMarker(roundId);
+  if (current?.firstInputAt) return;
+  writeHintMarker(roundId, {
+    presentedAt: current?.presentedAt || new Date().toISOString(),
+    firstInputAt: new Date().toISOString(),
+    hintOpened: current?.hintOpened || false,
+  });
 }
 
 export async function recordPhase163FeedbackPresented(roundId: string): Promise<void> {
@@ -371,6 +405,13 @@ export async function submitPhase163LiveAnswer(
       optionSetVersion: preflightResponse.singleChoiceAnswer?.optionSetVersion,
       displayedOptionOrder: preflightResponse.singleChoiceAnswer?.displayedOptionOrder,
     }, preflightResponse.submittedAt);
+    await synchronizeReadingOpenResponseProcessFact(
+      descriptor,
+      attemptId,
+      preflightResponse.submittedAt,
+      validityPreflight.taskExecutionResult?.responseValidity.status || 'insufficient',
+      false,
+    ).catch(() => undefined);
     if (!validityPreflight.taskExecutionResult?.canEnterDiagnosisRuntime) {
       await projectPhase163CalibrationAttempt(
         descriptor,
@@ -497,6 +538,14 @@ async function projectPhase163CalibrationAttempt(
       : undefined,
   ].filter((issue): issue is string => Boolean(issue));
   const completed = persistence?.learningRoundResult?.status === 'completed';
+  await synchronizeReadingOpenResponseProcessFact(
+    descriptor,
+    attemptIdFor(descriptor, submissionIntentId),
+    response.submittedAt,
+    execution?.responseValidity.status || 'insufficient',
+    completed,
+    completed ? persistence.updatedAt : undefined,
+  ).catch(() => undefined);
   await calibrationProjectionService.project({
     attemptId: attemptIdFor(descriptor, submissionIntentId),
     runtimeScope: 'product',
@@ -1590,6 +1639,10 @@ export async function startPhase163FeedbackRevision(): Promise<Phase163LiveWorks
     revision.revisionGoal,
   );
   await synchronizeFeedbackRevisionObservations(context.descriptor, attempt);
+  await readingOpenResponseProcessFactService.recordRevision({
+    attemptId: attempt.initialAttemptId,
+    offered: true,
+  }).catch(() => undefined);
   return await stateFromCheckpoint(
     context.descriptor,
     context.checkpoint,
@@ -1630,6 +1683,11 @@ export async function submitPhase163FeedbackRevision(
     revisedAnswer,
   );
   await synchronizeFeedbackRevisionObservations(context.descriptor, submitted);
+  await readingOpenResponseProcessFactService.recordRevision({
+    attemptId: submitted.initialAttemptId,
+    offered: true,
+    submitted: true,
+  }).catch(() => undefined);
   return await evaluateSubmittedFeedbackRevision(
     context.descriptor,
     context.checkpoint,
@@ -1987,4 +2045,94 @@ function responseDisplayText(
   const selectedOptionId = response.singleChoiceAnswer.selectedOptionIds[0];
   return task.singleChoiceDelivery?.options.find((option) => option.optionId === selectedOptionId)?.content
     || '已完成单项选择作答';
+}
+
+type ReadingOpenResponseHintMarker = {
+  presentedAt: string;
+  firstInputAt?: string;
+  hintOpened: boolean;
+};
+
+const READING_OPEN_RESPONSE_HINT_MARKER_PREFIX =
+  'qingzhou:reading-open-response-process:';
+
+function readHintMarker(roundId: string): ReadingOpenResponseHintMarker | undefined {
+  if (typeof sessionStorage === 'undefined') return undefined;
+  try {
+    const value = sessionStorage.getItem(`${READING_OPEN_RESPONSE_HINT_MARKER_PREFIX}${roundId}`);
+    if (!value) return undefined;
+    const parsed = JSON.parse(value) as Partial<ReadingOpenResponseHintMarker>;
+    if (!parsed.presentedAt || !Number.isFinite(Date.parse(parsed.presentedAt))) return undefined;
+    return {
+      presentedAt: parsed.presentedAt,
+      ...(parsed.firstInputAt && Number.isFinite(Date.parse(parsed.firstInputAt))
+        ? { firstInputAt: parsed.firstInputAt }
+        : {}),
+      hintOpened: parsed.hintOpened === true,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function writeHintMarker(roundId: string, marker: ReadingOpenResponseHintMarker): void {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.setItem(
+      `${READING_OPEN_RESPONSE_HINT_MARKER_PREFIX}${roundId}`,
+      JSON.stringify(marker),
+    );
+  } catch {
+    // Process-fact collection is non-critical and must never block Learning.
+  }
+}
+
+async function synchronizeReadingOpenResponseProcessFact(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  attemptId: string,
+  submittedAt: string,
+  responseValidity: 'valid' | 'empty' | 'placeholder' | 'irrelevant' | 'insufficient',
+  completed: boolean,
+  completedAt?: string,
+): Promise<void> {
+  const marker = readHintMarker(descriptor.input.learningRoundId);
+  const persisted = await persistenceRepository.loadByRound(
+    descriptor.input.studentId,
+    descriptor.input.learningRoundId,
+  );
+  const presentedAt = marker?.presentedAt || persisted?.savedAt || submittedAt;
+  await readingOpenResponseProcessFactService.recordPresented({
+    attemptId,
+    runtimeScope: 'product',
+    studentId: descriptor.input.studentId,
+    learningSessionId: descriptor.input.learningSessionId,
+    learningRoundId: descriptor.input.learningRoundId,
+    materialVersionId: descriptor.input.resourceVersion.materialVersionId
+      || 'material-version-unavailable',
+    resourceVersionId: descriptor.input.resourceVersion.resourceVersionId,
+    presentedAt,
+  });
+  const firstInputAt = marker?.firstInputAt || persisted?.savedAt;
+  if (
+    firstInputAt
+    && Date.parse(firstInputAt) >= Date.parse(presentedAt)
+    && Date.parse(firstInputAt) <= Date.parse(submittedAt)
+  ) {
+    await readingOpenResponseProcessFactService.recordFirstInput(attemptId, firstInputAt);
+  }
+  if (marker?.hintOpened) {
+    await readingOpenResponseProcessFactService.recordHintOpened(attemptId, submittedAt);
+  }
+  await readingOpenResponseProcessFactService.recordSubmitted({
+    attemptId,
+    submittedAt,
+    responseValidity,
+  });
+  if (completed) {
+    await readingOpenResponseProcessFactService.recordCompleted({
+      attemptId,
+      completedAt: completedAt || submittedAt,
+      followUpRole: descriptor.concreteTask.taskRole,
+    });
+  }
 }

@@ -3,6 +3,13 @@ import { Link } from 'react-router-dom';
 
 const acceptanceItems = [
   {
+    to: '/internal/acceptance/reading-open-response-stage4',
+    title: '开放文本题阶段 4 全量验收',
+    description: '执行 B4-01—B4-16，验证治理、后继发布、Session 版本冻结、过程事实与真实校准隔离。',
+    provider: '确定性治理运行器',
+    data: 'debug 隔离，不进真实分母',
+  },
+  {
     to: '/internal/acceptance/reading-single-choice',
     title: '阅读单项选择学习端验收',
     description: '验证选项保护、未选禁用、保存、唯一提交运行态、反馈和 PC / Tablet 布局。',

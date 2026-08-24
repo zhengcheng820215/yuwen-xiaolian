@@ -40,21 +40,46 @@ export type QuestionPortfolioSupplementPublicationReport = {
   currentTraceCount: number;
 };
 
+export type QuestionPortfolioSupplementPublicationOptions = {
+  expectedCandidateCount?: number;
+  publicationMarker?: string;
+  idPrefix?: string;
+  authorId?: string;
+  reviewerId?: string;
+  planReviewNote?: string;
+  questionReviewNote?: string;
+};
+
 export function prepareQuestionPortfolioSupplementPublication(
   source: SharedFormalResourceData,
   candidateReport: QuestionPortfolioSupplementCandidateReport | null,
   now: string,
+  options: QuestionPortfolioSupplementPublicationOptions = {},
 ): { data: SharedFormalResourceData; report: QuestionPortfolioSupplementPublicationReport } {
+  const expectedCandidateCount = options.expectedCandidateCount ?? 4;
+  const publicationMarker = options.publicationMarker
+    ?? QUESTION_PORTFOLIO_SUPPLEMENT_PUBLICATION_MARKER;
+  const idPrefix = options.idPrefix ?? 'p2-03';
+  const authorId = options.authorId ?? 'codex-p2-03-author';
+  const reviewerId = options.reviewerId ?? 'codex-p2-03-reviewer';
+  const planReviewNote = options.planReviewNote
+    ?? 'P2-03：在不替换既有正式题的前提下，采用一项具有新增观察价值的基础能力补充题。';
+  const questionReviewNote = options.questionReviewNote
+    ?? 'P2-03：候选新增观察价值、材料事实、作答负荷、Rubric和答案接受范围已完成受控核对。';
   const data = cloneSharedFormalResourceValue(source);
-  const activeMarkerVersions = currentMarkerVersions(data);
-  if (activeMarkerVersions.length === 4) {
+  const activeMarkerVersions = currentMarkerVersions(data, publicationMarker);
+  if (activeMarkerVersions.length === expectedCandidateCount) {
     return { data, report: summarize(data, true, activeMarkerVersions, []) };
   }
   if (activeMarkerVersions.length > 0) {
-    throw new Error(`P2-03 partial publication state detected: ${activeMarkerVersions.length}/4.`);
+    throw new Error(`${idPrefix} partial publication state detected: ${activeMarkerVersions.length}/${expectedCandidateCount}.`);
   }
-  if (!candidateReport || candidateReport.candidateCount !== 4 || candidateReport.issues.length) {
-    throw new Error('P2-03 requires the complete, accepted P2-02 candidate set.');
+  if (
+    !candidateReport
+    || candidateReport.candidateCount !== expectedCandidateCount
+    || candidateReport.issues.length
+  ) {
+    throw new Error(`${idPrefix} requires a complete, accepted candidate set.`);
   }
 
   const resourceVersionIds: string[] = [];
@@ -103,7 +128,7 @@ export function prepareQuestionPortfolioSupplementPublication(
     const newTaskInput = {
       primaryDimension: newCandidate.observationDimension,
       observationFocus: {
-        focusCode: `p2-03-${newCandidate.observationDimension}-${buildStableId('focus', [material.materialId, newCandidate.candidateId])}`,
+        focusCode: `${idPrefix}-${newCandidate.observationDimension}-${buildStableId('focus', [material.materialId, newCandidate.candidateId])}`,
         displayName: newCandidate.observationFocus.displayName,
         definition: newCandidate.observationFocus.definition,
         scope: 'plan_local' as const,
@@ -131,7 +156,7 @@ export function prepareQuestionPortfolioSupplementPublication(
         tags: candidateResult.completeContent.tags.filter((tag) => !tag.startsWith('candidate_only:')),
       },
       calibrationCases: newCandidate.calibrationAnswers.map((item) => ({
-        calibrationCaseId: buildStableId('p2-03-calibration', [newCandidate.candidateId, item.category]),
+        calibrationCaseId: buildStableId(`${idPrefix}-calibration`, [newCandidate.candidateId, item.category]),
         category: item.category,
         answerText: item.answerText,
         expectedAnswerStatus: item.expectedAnswerStatus,
@@ -143,7 +168,7 @@ export function prepareQuestionPortfolioSupplementPublication(
         ? {
           ...review,
           decision: 'selected' as const,
-          reason: `${review.reason} P2-03新增基础能力观察，不以机械配额扩题。`,
+          reason: `${review.reason} ${idPrefix}新增基础能力观察，不以机械配额扩题。`,
           sourceAnchorIds: [...new Set([...review.sourceAnchorIds, anchor.sourceAnchorId])],
         }
         : cloneSharedFormalResourceValue(review)
@@ -174,6 +199,10 @@ export function prepareQuestionPortfolioSupplementPublication(
       task: newTask,
       content: candidateResult.completeContent,
       now,
+      publicationMarker,
+      authorId,
+      reviewerId,
+      questionReviewNote,
     });
     plan.taskPlans[newTaskIndex] = {
       ...newTask,
@@ -182,8 +211,8 @@ export function prepareQuestionPortfolioSupplementPublication(
       status: 'frozen_linked',
     };
     plan.status = 'reviewed';
-    plan.reviewerId = 'codex-p2-03-reviewer';
-    plan.reviewNote = 'P2-03：在不替换既有正式题的前提下，采用一项具有新增观察价值的基础能力补充题。';
+    plan.reviewerId = reviewerId;
+    plan.reviewNote = planReviewNote;
     plan.reviewedAt = now;
     plan.updatedAt = now;
     const planValidation = validateMaterialObservationPlan({
@@ -224,7 +253,7 @@ export function prepareQuestionPortfolioSupplementPublication(
       assessmentId: quality.deterministic.assessmentId,
       warningCode: warning.code,
       decision: 'accepted',
-      reviewedBy: 'codex-p2-03-reviewer',
+      reviewedBy: reviewerId,
       reviewedAt: now,
     }));
     const registry: ResourceRegistryEntry = {
@@ -266,7 +295,7 @@ export function prepareQuestionPortfolioSupplementPublication(
       planRevision: plan.revision,
       validationId: planValidation.validationId,
       action: 'approve',
-      reviewerId: 'codex-p2-03-reviewer',
+      reviewerId,
       notes: plan.reviewNote,
       reviewedAt: now,
     });
@@ -285,7 +314,13 @@ export function prepareQuestionPortfolioSupplementPublication(
   }
   return {
     data,
-    report: summarize(data, false, currentMarkerVersions(data), planIds, resourceVersionIds),
+    report: summarize(
+      data,
+      false,
+      currentMarkerVersions(data, publicationMarker),
+      planIds,
+      resourceVersionIds,
+    ),
   };
 }
 
@@ -295,6 +330,10 @@ function createNewQuestionArtifacts(input: {
   task: MaterialObservationPlan['taskPlans'][number];
   content: QuestionPortfolioSupplementCandidateReport['candidates'][number]['completeContent'];
   now: string;
+  publicationMarker: string;
+  authorId: string;
+  reviewerId: string;
+  questionReviewNote: string;
 }) {
   const { material, task, content, now } = input;
   const resourceId = `question-${task.observationTaskPlanId}`;
@@ -308,7 +347,7 @@ function createNewQuestionArtifacts(input: {
     `observation_task:${task.observationTaskPlanId}`,
     `observation_task_root:${task.taskRevisionRootId || task.observationTaskPlanId}`,
     `observation_dimension:${task.primaryDimension}`,
-    QUESTION_PORTFOLIO_SUPPLEMENT_PUBLICATION_MARKER,
+    input.publicationMarker,
   ], task.taskRole);
   const draft: StructuredQuestionDraft = {
     draftId,
@@ -333,13 +372,13 @@ function createNewQuestionArtifacts(input: {
     latestValidationId: validationId,
     latestReviewId: reviewId,
     reviewSubmittedAt: now,
-    reviewSubmittedBy: 'codex-p2-03-author',
+    reviewSubmittedBy: input.authorId,
     reviewSubmissionCount: 1,
     reviewSubmissionHistory: [{
       eventId: `${draftId}:submitted:1`,
       action: 'submitted',
       draftRevision: 1,
-      actorId: 'codex-p2-03-author',
+      actorId: input.authorId,
       occurredAt: now,
     }],
     warningAcknowledgements: [],
@@ -374,8 +413,8 @@ function createNewQuestionArtifacts(input: {
     reviewedDraftRevision: 1,
     validationId,
     action: 'approve',
-    reviewerId: 'codex-p2-03-reviewer',
-    notes: 'P2-03：候选新增观察价值、材料事实、作答负荷、Rubric和答案接受范围已完成受控核对。',
+    reviewerId: input.reviewerId,
+    notes: input.questionReviewNote,
     reviewedAt: now,
   };
   const version: FrozenQuestionResourceVersion = {
@@ -418,14 +457,17 @@ function currentPlan(data: SharedFormalResourceData, materialVersionId: string):
   return plan;
 }
 
-function currentMarkerVersions(data: SharedFormalResourceData): FrozenQuestionResourceVersion[] {
+function currentMarkerVersions(
+  data: SharedFormalResourceData,
+  publicationMarker: string,
+): FrozenQuestionResourceVersion[] {
   const activeVersionIds = new Set(data.questionResources.registryEntries.filter((item) => (
     item.status === 'active' && item.currentFrozenVersionId
   )).map((item) => item.currentFrozenVersionId));
   return data.questionResources.versions.filter((item) => (
     item.status === 'frozen'
     && activeVersionIds.has(item.resourceVersionId)
-    && item.tags.includes(QUESTION_PORTFOLIO_SUPPLEMENT_PUBLICATION_MARKER)
+    && item.tags.includes(publicationMarker)
   ));
 }
 

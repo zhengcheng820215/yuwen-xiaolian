@@ -1,3 +1,8 @@
+import type {
+  READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION,
+  TaskGroupProgressionPlan,
+} from '../ai/schemas/readingTaskGroupProgression.schema.ts';
+
 export type TrainingTaskGroupOperationType = 'replace_group' | 'supplement_group';
 
 export const INITIAL_TRAINING_TASK_RECOMMENDATION = 3;
@@ -232,6 +237,8 @@ export type TrainingTaskGroupCandidateSession<T extends TrainingTaskGroupCandida
   generatedAt: string;
   candidateTasks: T[];
   selectedCandidateTaskIds: string[];
+  progressionStageRuleVersion?: typeof READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION;
+  taskGroupProgressionPlan?: TaskGroupProgressionPlan;
 };
 
 export type TrainingTaskGroupCoverage = {
@@ -269,12 +276,16 @@ export function createTrainingTaskGroupCandidateSession<T extends TrainingTaskGr
   operationType,
   basedOnPlanRevision,
   candidateTasks,
+  progressionStageRuleVersion,
+  taskGroupProgressionPlan,
   generatedAt = new Date().toISOString(),
 }: {
   candidateGroupId: string;
   operationType: TrainingTaskGroupOperationType;
   basedOnPlanRevision: number;
   candidateTasks: T[];
+  progressionStageRuleVersion?: typeof READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION;
+  taskGroupProgressionPlan?: TaskGroupProgressionPlan;
   generatedAt?: string;
 }): TrainingTaskGroupCandidateSession<T> {
   return {
@@ -283,6 +294,8 @@ export function createTrainingTaskGroupCandidateSession<T extends TrainingTaskGr
     basedOnPlanRevision,
     generatedAt,
     candidateTasks,
+    progressionStageRuleVersion,
+    taskGroupProgressionPlan,
     selectedCandidateTaskIds: candidateTasks.map(candidateTaskId),
   };
 }
