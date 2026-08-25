@@ -120,6 +120,8 @@
     "govern:formal-question-load": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runFormalQuestionLoadGovernanceClosure.ts --apply",
     "audit:formal-question-latest-standard-governance": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runFormalQuestionLatestStandardGovernance.ts",
     "govern:formal-question-latest-standard": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runFormalQuestionLatestStandardGovernance.ts --apply",
+    "audit:formal-question-change-effect-governance": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runFormalQuestionChangeEffectGovernance.ts",
+    "govern:formal-question-change-effect": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runFormalQuestionChangeEffectGovernance.ts --apply",
     "audit:formal-question-high-risk-governance": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runFormalQuestionHighRiskGovernance.ts",
     "govern:formal-question-high-risk": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runFormalQuestionHighRiskGovernance.ts --apply",
     "audit:formal-question-focused-governance-batch2": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runFormalQuestionFocusedGovernanceBatch2.ts",

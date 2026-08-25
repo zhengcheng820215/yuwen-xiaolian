@@ -69,6 +69,13 @@ export function analyzeReadingOpenResponseInputLoad(
   const rubricActions = detectActions(rubricText);
   const fallbackAction = ABILITY_ACTION[input.abilityMetadata.abilityId];
   const operationalActions = stemActions.length > 0 ? stemActions : [fallbackAction];
+  const dependentChangeEffectChain = isDependentChangeEffectChain(
+    input.questionStem,
+    input.expectedStudentAction,
+  );
+  const effectiveRequiredRubricCount = dependentChangeEffectChain
+    ? Math.min(1, requiredRubric.length)
+    : requiredRubric.length;
   const allActions = uniqueActions([
     ...stemActions,
     ...rubricActions,
@@ -80,9 +87,22 @@ export function analyzeReadingOpenResponseInputLoad(
   const primaryAction = orderedActions[0] || fallbackAction;
   const supportingAction = orderedActions.find((action) => action !== primaryAction);
   const independentActionCount = countIndependentActions(stemActions, rubricActions);
-  const requiredEvidenceCount = resolveEvidenceCount(input, stemText, requiredRubric.length);
-  const requiredRelationCount = resolveRelationCount(stemText, operationalActions, requiredRubric.length);
-  const requiredObjectCount = resolveObjectCount(stemText, operationalActions);
+  const requiredEvidenceCount = resolveEvidenceCount(
+    input,
+    stemText,
+    effectiveRequiredRubricCount,
+  );
+  const requiredRelationCount = resolveRelationCount(
+    stemText,
+    operationalActions,
+    effectiveRequiredRubricCount,
+    dependentChangeEffectChain,
+  );
+  const requiredObjectCount = resolveObjectCount(
+    stemText,
+    operationalActions,
+    dependentChangeEffectChain,
+  );
   const wholeText = /全文|整篇|结合文章|联系全文|通读全文/u.test(stemText);
   const compositeLoadReasons = resolveCompositeReasons({
     independentActionCount,
@@ -90,7 +110,7 @@ export function analyzeReadingOpenResponseInputLoad(
     relationCount: requiredRelationCount,
     objectCount: requiredObjectCount,
     wholeText,
-    requiredRubricCount: requiredRubric.length,
+    requiredRubricCount: effectiveRequiredRubricCount,
   });
   const loadLevel = resolveLoadLevel({
     primaryAction,
@@ -99,7 +119,8 @@ export function analyzeReadingOpenResponseInputLoad(
     relationCount: requiredRelationCount,
     objectCount: requiredObjectCount,
     wholeText,
-    requiredRubricCount: requiredRubric.length,
+    requiredRubricCount: effectiveRequiredRubricCount,
+    dependentChangeEffectChain,
   });
   const expectedAnswerLengthBand = resolveLengthBand(loadLevel, {
     evidenceCount: requiredEvidenceCount,
@@ -337,6 +358,7 @@ function resolveRelationCount(
   text: string,
   actions: CanonicalTextResponseAction[],
   requiredRubricCount: number,
+  dependentChangeEffectChain: boolean,
 ): number {
   let count = actions.some((action) => [
     'identify_relation',
@@ -349,21 +371,44 @@ function resolveRelationCount(
     'analyze_structure',
     'evaluate_expression',
   ].includes(action)) ? 1 : 0;
-  if (
+  if (!dependentChangeEffectChain && (
     /分别.{0,18}(说明|分析|比较)|从.{0,24}(方面|角度)|内容.{0,20}结构|心理.{0,20}处境/u
       .test(text)
     || (actions.includes('compare_objects') && requiredRubricCount >= 2)
-  ) count = 2;
+  )) count = 2;
   return count;
 }
 
-function resolveObjectCount(text: string, actions: CanonicalTextResponseAction[]): number {
+function resolveObjectCount(
+  text: string,
+  actions: CanonicalTextResponseAction[],
+  dependentChangeEffectChain: boolean,
+): number {
   if (/三个|三种|三方面|三处|3个/u.test(text)) return 3;
   if (
     /两个|两种|两方面|两处|2个|分别/u.test(text)
-    || actions.includes('compare_objects')
+    || (actions.includes('compare_objects') && !dependentChangeEffectChain)
   ) return 2;
   return 1;
+}
+
+function isDependentChangeEffectChain(
+  questionStem: string,
+  expectedStudentAction?: string,
+): boolean {
+  const stem = normalizeText(questionStem);
+  const action = normalizeText(expectedStudentAction || '');
+  const asksObservableChange = /(反应|态度|状态|做法|表现).{0,16}(发生了|有了)?怎样的变化/u
+    .test(stem);
+  const asksDirectEffect = /这(?:一变化|种变化|样的变化|对).{0,24}(有什么|起到|产生|带来|推动).{0,12}(作用|影响|结果)?/u
+    .test(stem);
+  const actionKeepsDependency = /(这种变化|该变化|反应.{0,12}变化).{0,24}(说明|打破|传播|推动|导致|影响)/u
+    .test(action);
+  const addsIndependentTheme = /主题|主旨|中心思想|社会现象|人物形象/u.test(stem);
+  return asksObservableChange
+    && asksDirectEffect
+    && actionKeepsDependency
+    && !addsIndependentTheme;
 }
 
 function resolveCompositeReasons(input: {
@@ -392,6 +437,7 @@ function resolveLoadLevel(input: {
   objectCount: number;
   wholeText: boolean;
   requiredRubricCount: number;
+  dependentChangeEffectChain: boolean;
 }): TextResponseLoadLevel {
   const highOrder = [
     'infer_from_evidence',
@@ -400,7 +446,8 @@ function resolveLoadLevel(input: {
     'analyze_theme',
     'analyze_structure',
     'evaluate_expression',
-  ].includes(input.primaryAction);
+  ].includes(input.primaryAction)
+    && !(input.dependentChangeEffectChain && input.primaryAction === 'compare_objects');
   if (
     input.evidenceCount >= 3
     || input.relationCount >= 2

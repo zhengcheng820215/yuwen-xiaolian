@@ -142,6 +142,20 @@ check(
   relation?.hint || 'missing',
 );
 
+const changeEffect = buildPreAnswerLearningGuidance({
+  abilityId: 'analysis',
+  questionText: '小孩子说出“可是他什么衣服也没有穿呀”后，人们的反应发生了怎样的变化？这对揭穿骗局有什么作用？',
+  responseFormat: 'text',
+});
+check(
+  '变化—作用题提示只引导前后对照，不提前说出变化和答案',
+  changeEffect?.clue === '“可是他什么衣服也没有穿呀”前后人们的反应'
+    && /前后对照/.test(changeEffect.thinkingAction)
+    && /后续结果/.test(changeEffect.thinkingAction)
+    && !/开始说出真相|打破沉默|骗局被揭穿/.test(changeEffect.hint),
+  changeEffect?.hint || 'missing',
+);
+
 const summary = buildPreAnswerLearningGuidance({
   abilityId: 'summarization',
   questionText: '请概括全文的主要事件。',

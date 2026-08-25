@@ -82,6 +82,18 @@ function buildGuidanceCandidate(input: {
     };
   }
 
+  if (
+    /(反应|态度|状态|做法|表现).{0,16}(发生了|有了)?怎样的变化/.test(input.questionText)
+    && /这(?:一变化|种变化|样的变化|对).{0,24}(作用|影响)/.test(input.questionText)
+    && quotedTerms.length > 0
+  ) {
+    return {
+      clue: `“${quotedTerms[0]}”前后人们的反应`,
+      thinkingAction: '前后对照他们说了什么，再判断这种变化怎样影响后续结果',
+      clueSource: 'question_quote',
+    };
+  }
+
   if (/作用|效果|如何表现|特点|形象/.test(input.questionText) && quotedTerms.length > 0) {
     return {
       clue: quotedTerms.map((item) => `“${item}”`).join('和'),
