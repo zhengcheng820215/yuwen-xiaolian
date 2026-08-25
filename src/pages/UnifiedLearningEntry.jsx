@@ -7,12 +7,17 @@ import {
   startOrResumeUnifiedLearning,
 } from '../api/unifiedLearningEntry.ts';
 import { studentEntryStatusLabel } from '../ui/productComplexityConvergencePresentation.ts';
+import { readProductRuntimeHealth, healthReadReasonCodes } from '../api/productRuntimeHealthClient.ts';
+import { projectProductRuntimeRecovery } from '../ai/services/productRuntimeRecoveryProjectionService.ts';
+import { toProductRuntimeRecoveryNoticeView } from '../ui/productRuntimeRecoveryPresentation.ts';
+import ProductRuntimeRecoveryNotice from '../components/runtime/ProductRuntimeRecoveryNotice.jsx';
 
 export default function UnifiedLearningEntry() {
   const [entry, setEntry] = useState(null);
   const [view, setView] = useState('entry');
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
+  const [runtimeProjection, setRuntimeProjection] = useState(null);
 
   useEffect(() => {
     refreshEntry();
@@ -22,10 +27,50 @@ export default function UnifiedLearningEntry() {
     setBusy(true);
     setError('');
     try {
-      setEntry(await loadUnifiedLearningEntry());
+      const healthResult = await readProductRuntimeHealth();
+      if (healthResult.state !== 'available') {
+        setRuntimeProjection(projectProductRuntimeRecovery({
+          surface: 'learning_entry', operation: 'load_entry', healthReadState: healthResult.state,
+          reasonCodes: healthReadReasonCodes(healthResult), ownerFacts: unknownOwnerFacts(),
+        }));
+        setEntry(null);
+        setView('entry');
+        return;
+      }
+      if (healthResult.health.formalResourceStore.status === 'blocked') {
+        setRuntimeProjection(projectProductRuntimeRecovery({
+          surface: 'learning_entry', operation: 'load_entry', healthReadState: 'available',
+          health: healthResult.health, ownerFacts: unknownOwnerFacts(),
+        }));
+        setEntry(null);
+        setView('entry');
+        return;
+      }
+      const nextEntry = await loadUnifiedLearningEntry();
+      setEntry(nextEntry);
+      setRuntimeProjection(projectProductRuntimeRecovery({
+        surface: 'learning_entry',
+        operation: ['start_learning', 'start_new_session'].includes(nextEntry.primaryAction) ? 'start_learning' : 'load_entry',
+        healthReadState: 'available', health: healthResult.health,
+        ownerFacts: {
+          hasActiveSession: nextEntry.hasActiveSession,
+          hasDraft: nextEntry.hasDraft,
+          attemptCommitted: nextEntry.status === 'recovering_submission',
+          checkpointPhase: nextEntry.status === 'recovering_submission' ? 'submitted' : undefined,
+          publishedResourceCommitted: false,
+          currentWorkbenchObjectPresent: false,
+        },
+        taskAvailability: nextEntry.taskAvailabilityState,
+      }));
       setView('entry');
     } catch (loadError) {
-      setError(toMessage(loadError));
+      const message = loadError instanceof Error ? loadError.message : String(loadError);
+      setRuntimeProjection(projectProductRuntimeRecovery({
+        surface: 'learning_entry', operation: 'load_entry', healthReadState: 'available',
+        reasonCodes: /共享资源服务|正式任务/.test(message) ? ['formal_resource_boundary_unavailable'] : ['audit_evidence_incomplete'],
+        ownerFacts: unknownOwnerFacts(),
+      }));
+      setEntry(null);
     } finally {
       setBusy(false);
     }
@@ -101,7 +146,14 @@ export default function UnifiedLearningEntry() {
       <main className="mx-auto w-full max-w-[1200px] px-5 py-10 md:px-8 md:py-14">
         {busy && !entry ? <LoadingState /> : null}
         {error ? <ErrorState message={error} onRetry={refreshEntry} /> : null}
-        {entry && !error ? (
+        {!busy && runtimeProjection && runtimeProjection.state !== 'ready' ? (
+          <ProductRuntimeRecoveryNotice
+            view={toProductRuntimeRecoveryNoticeView(runtimeProjection)}
+            busy={busy}
+            onPrimaryAction={runtimeProjection.primaryAction.actionId === 'continue_learning' ? enterWorkspace : refreshEntry}
+          />
+        ) : null}
+        {entry && !error && (!runtimeProjection || runtimeProjection.state === 'ready') ? (
           <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-16">
             <section aria-live="polite">
               <StatusEyebrow status={entry.status} title={entry.title} />
@@ -206,4 +258,11 @@ function toMessage(error) {
   if (/^学习入口暂时无法读取“.+”，请重新尝试。$/.test(value)) return value;
   if (/共享资源服务(读取超时|不可用)/.test(value)) return '正式任务暂时无法读取，请重新尝试。';
   return '学习状态暂时无法读取，已有记录不会丢失，请重新尝试。';
+}
+
+function unknownOwnerFacts() {
+  return {
+    hasActiveSession: 'unknown', hasDraft: 'unknown', attemptCommitted: 'unknown',
+    publishedResourceCommitted: false, currentWorkbenchObjectPresent: false,
+  };
 }

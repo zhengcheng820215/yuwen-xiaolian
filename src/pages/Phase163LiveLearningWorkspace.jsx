@@ -52,6 +52,7 @@ import {
   resolveConvergenceStage3PresentationFlag,
   toConvergenceFeedbackStudentView,
 } from '../ui/productComplexityConvergenceStage3Presentation.ts';
+import { readProductRuntimeHealth } from '../api/productRuntimeHealthClient.ts';
 
 const RUNTIME_UNAVAILABLE_MESSAGE = '分析服务尚未就绪。你可以继续编辑或保存回答，服务准备好后再提交。';
 const FEEDBACK_PRESENTATION_KEY_PREFIX = 'qingzhou:feedback-presentation:';
@@ -92,12 +93,16 @@ export default function Phase163LiveLearningWorkspace({
     Promise.all([
       loadPhase163LiveWorkspace(),
       getPhase163DiagnosisBoundaryStatus(),
+      readProductRuntimeHealth(),
     ])
-      .then(([next, runtime]) => {
+      .then(([next, diagnosisRuntime, healthResult]) => {
         if (!active) return;
         applyState(next);
-        setRuntimeAvailability(runtime.status);
-        if (runtime.status === 'unavailable' && next.task.responseFormat !== 'single_choice' && (next.status === 'ready' || next.status === 'retry_required')) {
+        const runtimeStatus = diagnosisRuntime.status === 'ready'
+          && healthResult.state === 'available'
+          && healthResult.health.learning.canSubmitForDiagnosis ? 'ready' : 'unavailable';
+        setRuntimeAvailability(runtimeStatus);
+        if (runtimeStatus === 'unavailable' && next.task.responseFormat !== 'single_choice' && (next.status === 'ready' || next.status === 'retry_required')) {
           showMessage(RUNTIME_UNAVAILABLE_MESSAGE, 'error');
         }
       })

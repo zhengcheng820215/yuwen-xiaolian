@@ -130,6 +130,19 @@ export class SharedFormalResourceStore {
     }
   }
 
+  async readOnly(): Promise<SharedFormalResourceSnapshot> {
+    try {
+      const parsed = await readSnapshotFile(this.storePath);
+      if (isLegacySnapshot(parsed)) {
+        throw new Error('Legacy shared formal resource snapshot requires explicit migration.');
+      }
+      return cloneSharedFormalResourceValue(validateSnapshot(parsed));
+    } catch (error) {
+      if (isMissingFileError(error)) return createEmptySnapshot(this.now());
+      throw error;
+    }
+  }
+
   async initialize(
     data: SharedFormalResourceData,
     baselineSource: string,

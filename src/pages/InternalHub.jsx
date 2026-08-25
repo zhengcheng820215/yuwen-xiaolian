@@ -14,6 +14,13 @@ import { loadPhase163MultiDayReview } from '../api/internalLearningReview.ts';
 
 const tools = [
   {
+    to: '/internal/runtime-health',
+    icon: Database,
+    title: 'Runtime Health',
+    description: '只读查看 Runtime、正式资源、AI 配置、Learning 能力与 Trial 身份状态。',
+    meta: '运行可靠性',
+  },
+  {
     to: '/internal/product-complexity-convergence-stage4-preflight',
     icon: ShieldCheck,
     title: '真实 Trial 启动前预检',

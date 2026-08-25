@@ -20,8 +20,24 @@ export function studentEntryStatusLabel(status?: string, title?: string): string
 
 export function ordinaryRuntimeNotice(notice: any): { message: string; recoveryMessage?: string } | null {
   if (!notice) return null;
+  if (notice.type === 'error') {
+    if (notice.errorCode === 'SHARED_STORE_UNAVAILABLE') return {
+      message: '当前服务尚未启动，本次操作没有完成。',
+      recoveryMessage: '现有工作内容保持不变，服务恢复后可以重新尝试。',
+    };
+    if (notice.errorCode === 'SHARED_STORE_TIMEOUT') return {
+      message: '正式数据暂时无法读取，本次操作没有完成。',
+      recoveryMessage: '现有工作内容已经保留，可以安全重试。',
+    };
+    if (notice.recoverability === 'retry_safe' || notice.recoverability === 'reload_required') return {
+      message: '本次操作尚未完成。',
+      recoveryMessage: '现有工作内容已经保留，可以安全重试。',
+    };
+  }
+  const rawMessage = String(notice.message || (notice.type === 'error' ? '本次操作没有完成，请重新尝试。' : '操作已完成。'));
+  const containsInternal = /(revision|registry|command\s*id|quality\s*trace|checkpoint|reason\s*code|shared_[a-z_]+|[A-Z_]{4,})/i.test(rawMessage);
   return {
-    message: String(notice.message || (notice.type === 'error' ? '本次操作没有完成，请重新尝试。' : '操作已完成。')),
+    message: containsInternal ? '本次操作尚未完成，请按当前提示重新尝试。' : rawMessage,
     recoveryMessage: notice.type === 'error' && notice.recoveryMessage
       ? String(notice.recoveryMessage) : undefined,
   };

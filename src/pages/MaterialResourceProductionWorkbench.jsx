@@ -3139,11 +3139,9 @@ export default function MaterialResourceProductionWorkbench() {
                           }`}
                         >
                           {taskCardFeedback.message}
-                          {taskCardFeedback.errorCode && (
+                          {taskCardFeedback.errorCode && taskCardFeedback.recoveryMessage && (
                             <span className="block opacity-80">
-                              错误码：{taskCardFeedback.errorCode}
-                              {taskCardFeedback.objectId ? ` · 对象：${taskCardFeedback.objectId}` : ''}
-                              {taskCardFeedback.recoveryMessage ? ` · ${taskCardFeedback.recoveryMessage}` : ''}
+                              {taskCardFeedback.recoveryMessage}
                             </span>
                           )}
                         </p>

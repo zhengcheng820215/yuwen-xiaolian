@@ -58,6 +58,10 @@ import ProductComplexityConvergenceStage4BrowserAcceptance from './pages/Product
 import ProductComplexityConvergenceStage4Observation from './pages/ProductComplexityConvergenceStage4Observation.jsx';
 import ProductComplexityConvergenceStage4Preflight from './pages/ProductComplexityConvergenceStage4Preflight.jsx';
 import ProductComplexityConvergenceStage4RealTrialPreflightBrowserAcceptance from './pages/ProductComplexityConvergenceStage4RealTrialPreflightBrowserAcceptance.jsx';
+import ProductRuntimeReliabilityWPR0Acceptance from './pages/ProductRuntimeReliabilityWPR0Acceptance.jsx';
+import ProductRuntimeHealth from './pages/ProductRuntimeHealth.jsx';
+import ProductRuntimeReliabilityWPR1Acceptance from './pages/ProductRuntimeReliabilityWPR1Acceptance.jsx';
+import ProductRuntimeReliabilityWPR2Acceptance from './pages/ProductRuntimeReliabilityWPR2Acceptance.jsx';
 
 export default function App() {
   return (
@@ -107,6 +111,10 @@ export default function App() {
         <Route path="/internal/acceptance/product-complexity-convergence-stage3" element={<ProductComplexityConvergenceStage3BrowserAcceptance />} />
         <Route path="/internal/acceptance/product-complexity-convergence-stage4" element={<ProductComplexityConvergenceStage4BrowserAcceptance />} />
         <Route path="/internal/acceptance/product-complexity-convergence-stage4-real-trial-preflight" element={<ProductComplexityConvergenceStage4RealTrialPreflightBrowserAcceptance />} />
+        <Route path="/internal/acceptance/product-runtime-reliability-wp-r0" element={<ProductRuntimeReliabilityWPR0Acceptance />} />
+        <Route path="/internal/acceptance/product-runtime-reliability-wp-r1" element={<ProductRuntimeReliabilityWPR1Acceptance />} />
+        <Route path="/internal/acceptance/product-runtime-reliability-wp-r2" element={<ProductRuntimeReliabilityWPR2Acceptance />} />
+        <Route path="/internal/runtime-health" element={<ProductRuntimeHealth />} />
         <Route path="/internal/product-complexity-convergence-stage4" element={<ProductComplexityConvergenceStage4Observation />} />
         <Route path="/internal/product-complexity-convergence-stage4-preflight" element={<ProductComplexityConvergenceStage4Preflight />} />
         <Route path="/internal/reading-training-progression-stage4" element={<ProgressiveLoadStage4Review />} />

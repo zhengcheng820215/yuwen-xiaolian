@@ -3,6 +3,27 @@ import { Link } from 'react-router-dom';
 
 const acceptanceItems = [
   {
+    to: '/internal/acceptance/product-runtime-reliability-wp-r2',
+    title: '运行可靠性 WP-R2',
+    description: '执行 R2-B01—R2-B18，只读核对 Learning、Workspace 与 Workbench 的故障分类、内容保留和单一恢复动作。',
+    provider: 'Recovery Projection v1',
+    data: '八类正式写入为 0',
+  },
+  {
+    to: '/internal/acceptance/product-runtime-reliability-wp-r1',
+    title: '运行可靠性 WP-R1',
+    description: '执行 R1-B01—R1-B14，只读核对统一启动、Runtime Health、动态正式资源、AI 配置和 Trial fail-open。',
+    provider: 'Runtime Health v1',
+    data: 'GET-only，正式写入为 0',
+  },
+  {
+    to: '/internal/acceptance/product-runtime-reliability-wp-r0',
+    title: '运行可靠性 WP-R0',
+    description: '执行 R0-B01—R0-B12，只读核对当前 Runtime、正式资源、Reason Code、Trial 身份和六类零写入边界。',
+    provider: '动态正式基线',
+    data: '只读验收，不写正式数据',
+  },
+  {
     to: '/internal/acceptance/product-complexity-convergence-stage4-real-trial-preflight',
     title: '真实 Trial 启动前预检',
     description: '执行 PF-B01—PF-B20，验证默认关闭、Registry、隔离烟测、恢复和五类零写入边界。',
