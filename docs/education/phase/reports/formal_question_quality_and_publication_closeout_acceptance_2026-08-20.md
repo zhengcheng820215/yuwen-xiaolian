@@ -1,5 +1,7 @@
 # 正式题质量与发布链收口验收报告
 
+> 历史快照说明：本报告记录 `2026-08-20` 当时的 `61` 道 Current Head，不代表当前权威基线。`2026-08-25` 的 `81` 道全量复审、阻断项与 successor 治理结果以[当前正式题最新标准审计与 successor 治理报告](./current_formal_question_latest_standard_audit_and_successor_governance_2026-08-25.md)为准；历史数字不得继续作为代码中的固定断言。
+
 日期：2026-08-20  
 范围：12 篇活动材料、61 道 Current Head、15 道单选、Candidate 质量策略、正式后继版本、发布恢复与 Learning 消费
 

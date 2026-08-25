@@ -16,6 +16,7 @@ const apply = process.argv.includes('--apply');
 const store = new SharedFormalResourceStore();
 const before = await store.read();
 if (!before.initialized) throw new Error('Shared formal resource store is not initialized.');
+const sourceBaseline = buildQuestionOptimizationBaseline(before);
 
 const existingPublished = before.data.questionResources.versions.filter((version) => (
   version.status === 'frozen'
@@ -34,17 +35,17 @@ const prepared = prepareQuestionPortfolioSupplementPublication(
 );
 const projected = { ...before, data: prepared.data };
 const baseline = buildQuestionOptimizationBaseline(projected);
-assert.equal(prepared.report.activeMaterialCount, 12);
-assert.equal(prepared.report.currentQuestionCount, 46);
-assert.equal(prepared.report.currentTraceCount, 46);
+assert.equal(prepared.report.activeMaterialCount, sourceBaseline.counts.activeMaterials);
+assert.equal(prepared.report.currentQuestionCount, sourceBaseline.counts.currentTasks);
+assert.equal(prepared.report.currentTraceCount, sourceBaseline.counts.frozenQualityTraces);
 assert.equal(prepared.report.publishedMaterialTitles.length, 4);
-assert.equal(baseline.counts.activeMaterials, 12);
-assert.equal(baseline.counts.currentTasks, 46);
-assert.equal(baseline.counts.activeObservationLinks, 46);
-assert.equal(baseline.counts.activeRegistryEntries, 46);
-assert.equal(baseline.counts.currentFormalVersions, 46);
-assert.equal(baseline.counts.frozenQualityTraces, 46);
-assert.equal(baseline.counts.learningConsumableQuestions, 46);
+assert.equal(baseline.counts.activeMaterials, sourceBaseline.counts.activeMaterials);
+assert.equal(baseline.counts.currentTasks, sourceBaseline.counts.currentTasks);
+assert.equal(baseline.counts.activeObservationLinks, sourceBaseline.counts.activeObservationLinks);
+assert.equal(baseline.counts.activeRegistryEntries, sourceBaseline.counts.activeRegistryEntries);
+assert.equal(baseline.counts.currentFormalVersions, sourceBaseline.counts.currentFormalVersions);
+assert.equal(baseline.counts.frozenQualityTraces, sourceBaseline.counts.frozenQualityTraces);
+assert.equal(baseline.counts.learningConsumableQuestions, sourceBaseline.counts.learningConsumableQuestions);
 assert.deepEqual(baseline.issues, []);
 
 const publishedVersions = prepared.data.questionResources.versions.filter((version) => (

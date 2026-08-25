@@ -1,0 +1,372 @@
+import { buildPreAnswerLearningGuidance, validatePreAnswerLearningGuidance } from
+  '../content/preAnswerLearningGuidance.ts';
+import { projectFeedbackObservationTarget } from
+  '../agents/feedbackObservationTargetAdapter.ts';
+import type { FeedbackObservationTargetProjection } from
+  '../schemas/feedbackObservationTargetProjection.schema.ts';
+import type { FrozenQuestionResourceVersion } from
+  '../schemas/questionResourceAdmission.schema.ts';
+import type { SharedFormalResourceSnapshot } from
+  '../schemas/sharedFormalResourcePersistence.schema.ts';
+
+export const FORMAL_QUESTION_HINT_FEEDBACK_AUDIT_SCHEMA_VERSION =
+  'formal_question_hint_feedback_batch_audit_v1' as const;
+
+export type FormalQuestionHintFeedbackAuditSeverity = 'blocked' | 'advisory' | 'info';
+
+export type FormalQuestionHintFeedbackAuditFinding = {
+  domain: 'hint' | 'feedback' | 'contract';
+  code: string;
+  severity: FormalQuestionHintFeedbackAuditSeverity;
+  message: string;
+};
+
+export type FormalQuestionHintFeedbackAuditItem = {
+  materialTitle: string;
+  resourceId: string;
+  resourceVersionId: string;
+  taskId: string;
+  questionStem: string;
+  responseFormat: string;
+  abilityId: string;
+  taskRole: string;
+  hintProjection: {
+    status: 'ready' | 'hidden_by_quality_gate' | 'suppressed_by_role';
+    clue?: string;
+    thinkingAction?: string;
+    hint?: string;
+  };
+  feedbackProjection: FeedbackObservationTargetProjection;
+  feedbackTarget: string;
+  disposition: 'blocked' | 'advisory' | 'pass';
+  findings: FormalQuestionHintFeedbackAuditFinding[];
+};
+
+export type FormalQuestionHintFeedbackBatchAuditReport = {
+  schemaVersion: typeof FORMAL_QUESTION_HINT_FEEDBACK_AUDIT_SCHEMA_VERSION;
+  storeRevision: number;
+  auditedAt: string;
+  currentQuestionCount: number;
+  summary: {
+    pass: number;
+    advisory: number;
+    blocked: number;
+    hintReady: number;
+    hintHidden: number;
+    hintSuppressed: number;
+  };
+  findingBreakdown: Record<string, number>;
+  targetBreakdown: Record<string, number>;
+  materialBreakdown: Array<{
+    materialTitle: string;
+    total: number;
+    pass: number;
+    advisory: number;
+    blocked: number;
+  }>;
+  items: FormalQuestionHintFeedbackAuditItem[];
+};
+
+export function buildFormalQuestionHintFeedbackBatchAudit(
+  snapshot: SharedFormalResourceSnapshot,
+  auditedAt = new Date().toISOString(),
+): FormalQuestionHintFeedbackBatchAuditReport {
+  const versionById = new Map(snapshot.data.questionResources.versions.map((version) => (
+    [version.resourceVersionId, version]
+  )));
+  const currentVersions = snapshot.data.questionResources.registryEntries
+    .filter((entry) => entry.status === 'active' && entry.currentFrozenVersionId)
+    .map((entry) => versionById.get(entry.currentFrozenVersionId!))
+    .filter((version): version is FrozenQuestionResourceVersion => (
+      Boolean(version) && version!.status === 'frozen'
+    ));
+  const uniqueVersions = [...new Map(currentVersions.map((version) => (
+    [version.resourceVersionId, version]
+  ))).values()];
+  const items = uniqueVersions
+    .map(auditVersion)
+    .sort((left, right) => (
+      `${left.materialTitle}:${left.resourceVersionId}`.localeCompare(
+        `${right.materialTitle}:${right.resourceVersionId}`,
+        'zh-CN',
+      )
+    ));
+  const findingBreakdown: Record<string, number> = {};
+  for (const item of items) {
+    for (const finding of item.findings) {
+      findingBreakdown[finding.code] = (findingBreakdown[finding.code] || 0) + 1;
+    }
+  }
+  const targetBreakdown: Record<string, number> = {};
+  const materialBreakdown = new Map<string, {
+    materialTitle: string;
+    total: number;
+    pass: number;
+    advisory: number;
+    blocked: number;
+  }>();
+  for (const item of items) {
+    targetBreakdown[item.feedbackProjection.targetCode] = (
+      targetBreakdown[item.feedbackProjection.targetCode] || 0
+    ) + 1;
+    const aggregate = materialBreakdown.get(item.materialTitle) || {
+      materialTitle: item.materialTitle,
+      total: 0,
+      pass: 0,
+      advisory: 0,
+      blocked: 0,
+    };
+    aggregate.total += 1;
+    aggregate[item.disposition] += 1;
+    materialBreakdown.set(item.materialTitle, aggregate);
+  }
+  return {
+    schemaVersion: FORMAL_QUESTION_HINT_FEEDBACK_AUDIT_SCHEMA_VERSION,
+    storeRevision: snapshot.revision,
+    auditedAt,
+    currentQuestionCount: items.length,
+    summary: {
+      pass: items.filter((item) => item.disposition === 'pass').length,
+      advisory: items.filter((item) => item.disposition === 'advisory').length,
+      blocked: items.filter((item) => item.disposition === 'blocked').length,
+      hintReady: items.filter((item) => item.hintProjection.status === 'ready').length,
+      hintHidden: items.filter((item) => item.hintProjection.status === 'hidden_by_quality_gate').length,
+      hintSuppressed: items.filter((item) => item.hintProjection.status === 'suppressed_by_role').length,
+    },
+    findingBreakdown: Object.fromEntries(Object.entries(findingBreakdown).sort(([left], [right]) => (
+      left.localeCompare(right)
+    ))),
+    targetBreakdown: Object.fromEntries(Object.entries(targetBreakdown).sort(([left], [right]) => (
+      left.localeCompare(right)
+    ))),
+    materialBreakdown: [...materialBreakdown.values()].sort((left, right) => (
+      left.materialTitle.localeCompare(right.materialTitle, 'zh-CN')
+    )),
+    items,
+  };
+}
+
+function auditVersion(version: FrozenQuestionResourceVersion): FormalQuestionHintFeedbackAuditItem {
+  const findings: FormalQuestionHintFeedbackAuditFinding[] = [];
+  const expectsNoHint = version.abilityMetadata.taskRole === 'retest'
+    || version.tags.includes('hint_policy:no_hint');
+  const guidance = buildPreAnswerLearningGuidance({
+    abilityId: version.abilityMetadata.abilityId,
+    abilityName: abilityDisplayName(version.abilityMetadata.abilityId),
+    responseFormat: version.responseFormat === 'single_choice' ? 'single_choice' : 'text',
+    questionText: version.questionStem,
+  });
+  let hintProjection: FormalQuestionHintFeedbackAuditItem['hintProjection'];
+  if (expectsNoHint) {
+    hintProjection = { status: 'suppressed_by_role' };
+    if (guidance) {
+      findings.push(finding(
+        'hint',
+        'hint_generated_for_no_hint_role',
+        'blocked',
+        '当前 Task Role 要求无提示，但通用提示生成器仍会产生提示。',
+      ));
+    }
+  } else if (!guidance) {
+    hintProjection = { status: 'hidden_by_quality_gate' };
+    findings.push(finding(
+      'hint',
+      'hint_hidden_without_specific_clue',
+      'info',
+      '题干无法提供可靠的具体线索与思考动作，Learning 将安全隐藏提示入口。',
+    ));
+  } else {
+    const validation = validatePreAnswerLearningGuidance(guidance);
+    hintProjection = {
+      status: 'ready',
+      clue: guidance.clue,
+      thinkingAction: guidance.thinkingAction,
+      hint: guidance.hint,
+    };
+    for (const issue of validation.issues) {
+      findings.push(finding(
+        'hint',
+        `hint_${issue}`,
+        'blocked',
+        `提示未通过统一结构化质量门禁：${issue}。`,
+      ));
+    }
+  }
+
+  const feedbackProjection = projectFeedbackObservationTarget({
+    question: version.questionStem,
+    abilityName: abilityDisplayName(version.abilityMetadata.abilityId),
+    questionType: version.questionType,
+    rubric: version.rubric,
+    taskRole: version.abilityMetadata.taskRole,
+  });
+  auditFeedbackTarget(version, feedbackProjection, findings);
+  auditRequirementContract(version, findings);
+
+  return {
+    materialTitle: version.materialSnapshot?.title || '阅读材料',
+    resourceId: version.resourceId,
+    resourceVersionId: version.resourceVersionId,
+    taskId: version.taskId,
+    questionStem: version.questionStem,
+    responseFormat: version.responseFormat,
+    abilityId: version.abilityMetadata.abilityId,
+    taskRole: version.abilityMetadata.taskRole,
+    hintProjection,
+    feedbackProjection,
+    feedbackTarget: feedbackProjection.displayLabel,
+    disposition: findings.some((item) => item.severity === 'blocked')
+      ? 'blocked'
+      : findings.some((item) => item.severity === 'advisory')
+        ? 'advisory'
+        : 'pass',
+    findings,
+  };
+}
+
+function auditFeedbackTarget(
+  version: FrozenQuestionResourceVersion,
+  projection: FeedbackObservationTargetProjection,
+  findings: FormalQuestionHintFeedbackAuditFinding[],
+): void {
+  const question = version.questionStem;
+  const feedbackTarget = projection.displayLabel;
+  const sceneryTask = /(?:景物|景色|春天|万物|小草|山|水|太阳).{0,24}(?:特点|状态|变化|如何表现)/.test(question);
+  if (sceneryTask && feedbackTarget === '人物的特点') {
+    findings.push(finding(
+      'feedback',
+      'feedback_scenery_misclassified_as_character_trait',
+      'blocked',
+      '景物或整体状态题被错误投射为人物特点。',
+    ));
+  }
+  if (
+    /表达效果|表达作用|表现力|修辞/.test(question)
+    && projection.targetCode !== 'expression_effect'
+    && !(
+      projection.targetCode === 'requirement_completion'
+      && projection.evidenceSignals.some((signal) => signal.includes('expression_effect'))
+    )
+  ) {
+    findings.push(finding(
+      'feedback',
+      'feedback_expression_target_mismatch',
+      'blocked',
+      '表达效果题未稳定投射为词句表达效果。',
+    ));
+  }
+  if (
+    /结构关系|照应|承接|总起|分述|前后关系/.test(question)
+    && projection.targetCode !== 'structure_relation'
+    && !(
+      projection.targetCode === 'requirement_completion'
+      && projection.evidenceSignals.some((signal) => signal.includes('structure_relation'))
+    )
+  ) {
+    findings.push(finding(
+      'feedback',
+      'feedback_structure_target_mismatch',
+      'blocked',
+      '结构关系题未稳定投射为句段结构关系。',
+    ));
+  }
+  if (
+    projection.targetCode === 'generic_content'
+    && projection.fallbackReason === 'question_rubric_mismatch'
+  ) {
+    findings.push(finding(
+      'feedback',
+      'feedback_question_rubric_target_mismatch',
+      'blocked',
+      '题干与必要 Rubric 指向不同观察对象，Adapter 已拒绝静默覆盖。',
+    ));
+  } else if (projection.targetCode === 'generic_content') {
+    findings.push(finding(
+      'feedback',
+      'feedback_target_ambiguous',
+      'advisory',
+      '当前题目只能投射为克制的通用观察对象，需要在真实作答中观察反馈可解释性。',
+    ));
+  } else if (projection.confidence === 'medium') {
+    findings.push(finding(
+      'feedback',
+      'feedback_target_medium_confidence',
+      'info',
+      '观察对象由必要 Rubric 或兼容信号投射，需要在真实 Trial 中校准主体与范围。',
+    ));
+  }
+}
+
+function auditRequirementContract(
+  version: FrozenQuestionResourceVersion,
+  findings: FormalQuestionHintFeedbackAuditFinding[],
+): void {
+  const requiredRubric = version.rubric.filter((item) => item.required);
+  if (requiredRubric.length === 0) {
+    findings.push(finding(
+      'contract',
+      'feedback_required_rubric_missing',
+      'blocked',
+      '正式题没有必要 Rubric，运行时无法形成可靠 Requirement 覆盖反馈。',
+    ));
+  }
+
+  const minimum = version.minimumAnswerRequirement as {
+    requireTextEvidence?: boolean;
+    requireExplanation?: boolean;
+  };
+  if (version.responseFormat === 'single_choice') {
+    if (minimum.requireTextEvidence || minimum.requireExplanation) {
+      findings.push(finding(
+        'contract',
+        'single_choice_text_requirement_conflict',
+        'blocked',
+        '单选题仍携带文本依据或解释要求，反馈覆盖口径与作答形式冲突。',
+      ));
+    }
+    return;
+  }
+  if (
+    minimum.requireTextEvidence
+    && !requiredRubric.some((item) => item.evidenceRequirement?.requireTextEvidence)
+  ) {
+    findings.push(finding(
+      'contract',
+      'feedback_evidence_requirement_not_in_rubric',
+      'advisory',
+      '最低作答要求需要文本依据，但必要 Rubric 未显式声明该证据要求。',
+    ));
+  }
+  if (
+    minimum.requireExplanation
+    && !requiredRubric.some((item) => item.evidenceRequirement?.requireExplanation)
+  ) {
+    findings.push(finding(
+      'contract',
+      'feedback_relation_requirement_not_in_rubric',
+      'advisory',
+      '最低作答要求需要解释关系，但必要 Rubric 未显式声明该关系要求。',
+    ));
+  }
+}
+
+function finding(
+  domain: FormalQuestionHintFeedbackAuditFinding['domain'],
+  code: string,
+  severity: FormalQuestionHintFeedbackAuditSeverity,
+  message: string,
+): FormalQuestionHintFeedbackAuditFinding {
+  return { domain, code, severity, message };
+}
+
+function abilityDisplayName(value: string): string {
+  const names: Record<string, string> = {
+    extraction: '信息提取',
+    comprehension: '理解',
+    summarization: '概括',
+    analysis: '分析',
+    inference: '推理',
+    expression: '表达',
+  };
+  return names[value] || '本题';
+}

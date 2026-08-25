@@ -389,3 +389,34 @@ P0—P2 完成后，当前正式基线为12篇活动材料、46道 Learning 可�
 - [材料语料质量与版本升级契约](./MATERIAL_CORPUS_QUALITY_AND_VERSIONING_CONTRACT.md)
 - [资源生产工作台 UX 规范](./RESOURCE_PRODUCTION_WORKBENCH_UX_STANDARD.md)
 - [统一素材资源生产工作台契约](./UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md)
+
+## 十六、2026-08-25 全量正式题复审与 successor 治理边界
+
+本轮使用当前冻结的生成质量策略、正式资源身份规则与递进负担语义，对 `24` 篇活动材料、`81` 道 Current Head 执行只读复审。复审范围包含 `12` 篇核心阅读材料与 `12` 篇 targeted excerpt；正式题身份、Active Registry、Active Observation Link、Frozen Quality Trace 与 Learning 可消费投影均保持 `81 / 81`，一致性问题为 `0`。
+
+治理前最新质量分布为：
+
+- `ready`：`63` 道；
+- `ready_with_guidance`：`16` 道；
+- `blocked`：`2` 道；
+- 作答形式：`long_text 31`、`short_text 32`、`single_choice 18`。
+
+两项阻断必须通过不可变后继版本治理：
+
+1. 《春》一题声明为 `single_choice`，但发布投影遗漏 `choiceInteraction`，导致正式版本缺少选项、正确答案身份与干扰项依据；
+2. 《女娲造人》一题的 Rubric 要求解释“小人的表现—女娲喜悦”的关系，但旧题干没有把该必答关系说清楚。
+
+本轮治理冻结以下边界：
+
+1. 不原位修改、删除或覆盖 Frozen Resource；两题均沿原 `resourceId` 创建 successor Candidate / Draft / Frozen Version；
+2. 旧版本转为 `superseded` 并继续保留审计链；已开始 Session 继续绑定旧版本，新建 Session 只消费新 Current Head；
+3. Current Head 总数保持 `81`，不得把版本治理误计为新增题量；Registry、Link、Quality Trace 与 Plan 必须在同一次受控提交中切换；
+4. 《春》后继版本必须完整保留 `choiceInteraction`，且 `acceptedOptionIds` 必须与 `correctOptionIds` 一致；补充生成发布器必须将该字段同时投影到 Draft 与 Frozen Version，避免同类缺陷复发；
+5. 《女娲造人》后继版本只显式化原 Rubric 已要求的因果关系，不扩充新的观察动作，不改变题型、任务角色或能力结论；
+6. 治理完成后，当前质量重新准入必须达到 `0 blocked`，正式身份与 Learning 消费继续保持 `81 / 81`。
+
+递进负担审计中的 `unexplained_responsibility_jump` 属于题组级治理提示，不等于单题内容错误或学生能力不足。系统不得为了消除提示机械补齐全部负担等级，也不得批量改写既有正式题。只有在能够证明缺少过渡理由、真实 Learning 出现同层级失稳，且 successor 能增加独立观察价值时，才进入后继候选治理；否则保留为 advisory 并记录处置理由。
+
+所有审计与迁移脚本不得继续把 `61` 道题、`15` 道单选等历史快照写死为永久断言。历史报告保留当时事实；当前验收必须从执行前权威共享存储动态读取基线，并验证治理前后题量、身份链和题型数量守恒。
+
+本轮详细记录见[当前正式题最新标准审计与 successor 治理报告](../education/phase/reports/current_formal_question_latest_standard_audit_and_successor_governance_2026-08-25.md)。

@@ -4,6 +4,7 @@ import type {
   TaskRequirementCoverage,
   TaskRequirementCoverageStatus,
 } from '../schemas/studentLearningFeedback.schema.ts';
+import { projectFeedbackObservationTarget } from './feedbackObservationTargetAdapter.ts';
 
 const EVIDENCE_REQUIREMENT_PATTERN = /文本依据|结合(?:材料|原文|文章|文中)|结合.{0,8}(?:动作|语言|神态|细节|内容)|具体(?:动作|语句|细节)|引用/;
 const RELATION_REQUIREMENT_PATTERN = /说明.*(?:理由|关系)|依据.*结论|为什么|体现|表现|看出/;
@@ -39,7 +40,14 @@ export function buildStudentThinkingReview(
     ...task.scoringPoints,
     ...task.rubric.flatMap((item) => [item.name, item.description || '']),
   ].join('\n');
-  const target = describeTaskTarget(task.question, task.targetAbilityName);
+  const target = projectFeedbackObservationTarget({
+    question: task.question,
+    abilityName: task.targetAbilityName,
+    questionType: task.questionMetadata.questionType,
+    answerRequirements: task.answerRequirements,
+    rubric: task.rubric,
+    taskRole: task.taskRole,
+  }).displayLabel;
   const targetSubject = describeTaskSubject(task.question);
   const relationTarget = target === '人物的心理' ? '人物心理' : target;
   const acceptedKeywords = uniqueStrings(task.questionMetadata.answerAcceptance?.acceptedKeywords || []);
@@ -249,7 +257,13 @@ function buildConclusionCoverage(input: {
       gapReasonCode: 'conclusion_inconsistent',
     });
   }
-  if (input.matchedKeywords.length > 0) {
+  const keywordConclusionConfirmed = input.matchedKeywords.length > 0 && (
+    input.answerStatus === 'fully_meets'
+    || input.answerStatus === 'partially_meets'
+    || input.hasPositiveEvidence
+    || CONCLUSION_SUPPORTED_PATTERN.test(input.formalText)
+  );
+  if (keywordConclusionConfirmed) {
     return coverageItem(input.taskId, 'conclusion', `写出${input.target}`, 'covered', {
       studentEvidence: input.matchedKeywords.slice(0, 2),
       taskEvidence: ['正式任务的可接受方向'],
@@ -485,6 +499,10 @@ function buildCoveredConclusion(target: string, keywords: string[]): string {
   const content = `“${keywords.join('、')}”`;
   if (target === '人物的心理') return `你写出了${content}这一人物心理。`;
   if (target === '人物的特点') return `你写出了${content}这一人物特点。`;
+  if (target === '景物或事物的状态') return `你指出了${content}所表现的整体状态。`;
+  if (target === '词句的表达效果') return `你写出了${content}这一表达效果。`;
+  if (target === '句段的结构关系') return `你指出了${content}这一结构关系。`;
+  if (target === '主要内容') return `你概括出了${content}这一主要内容。`;
   if (target === '事情的原因') return `你写出了${content}这一关键原因。`;
   return `你写出了${target}中的${content}这一关键意思。`;
 }
@@ -642,13 +660,16 @@ function evidenceContextCharacters(value: string, predicates: string[]): Set<str
   return new Set([...context].filter((character) => !/[持续慢快半边]/u.test(character)));
 }
 
-function describeTaskTarget(question: string, abilityName: string): string {
-  if (/心理|心情|情感/.test(question)) return '人物的心理';
-  if (/特点|品质|形象|是(?:一位|一个)?怎样的(?:人|人物|父亲|母亲|老师|学生)/.test(question)) {
-    return '人物的特点';
-  }
-  if (/原因|为什么/.test(question)) return '事情的原因';
-  return `${abilityName || '本题'}的关键内容`;
+export function describeStudentFeedbackTaskTarget(
+  question: string,
+  abilityName: string,
+  questionType?: string,
+): string {
+  return projectFeedbackObservationTarget({
+    question,
+    abilityName,
+    questionType,
+  }).displayLabel;
 }
 
 function describeTaskSubject(question: string): string | undefined {
@@ -676,12 +697,19 @@ function describeUnderstandingTarget(target: string, subject?: string): string {
   if (subject && target === '人物的特点') return `${subject}特点`;
   if (target === '人物的心理') return '人物心理';
   if (target === '人物的特点') return '人物特点';
+  if (target === '景物或事物的状态') return '景物或事物的状态';
+  if (target === '词句的表达效果') return '词句的表达效果';
+  if (target === '句段的结构关系') return '句段的结构关系';
+  if (target === '主要内容') return '主要内容';
   if (target === '事情的原因') return '事情原因';
   return target;
 }
 
 function describeEvidenceKind(target: string): string {
   if (target === '人物的心理' || target === '人物的特点') return '人物的具体动作或语句';
+  if (target === '景物或事物的状态') return '景物或事物的具体变化';
+  if (target === '词句的表达效果') return '题目所指词句的具体表达';
+  if (target === '句段的结构关系') return '前后句段的具体内容';
   return '文中的具体内容';
 }
 

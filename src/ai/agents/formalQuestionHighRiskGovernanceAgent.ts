@@ -29,14 +29,17 @@ export const FORMAL_QUESTION_HIGH_RISK_GOVERNANCE_MARKER =
 export const FORMAL_QUESTION_FOCUSED_GOVERNANCE_BATCH2_MARKER =
   'formal-question-focused-governance:2026-08-21-batch-2-v1' as const;
 
-type GovernanceSpecification = {
+export type GovernanceSpecification = {
   materialTitle: string;
   resourceId: string;
   expectedSourceVersionId: string;
   anchor: { startParagraph: number; endParagraph: number };
   title: string;
   questionStem: string;
-  responseFormat: 'short_text' | 'long_text';
+  questionType?: FrozenQuestionResourceVersion['questionType'];
+  responseFormat: 'short_text' | 'long_text' | 'single_choice';
+  choiceInteraction?: FrozenQuestionResourceVersion['choiceInteraction'];
+  assessmentMode?: FrozenQuestionResourceVersion['assessmentMode'];
   expectedStudentAction: string;
   designReason: string;
   answerAcceptance: FrozenQuestionResourceVersion['answerAcceptance'];
@@ -254,7 +257,7 @@ export function prepareFormalQuestionFocusedGovernanceBatch2(
   );
 }
 
-function prepareFormalQuestionGovernanceBatch(
+export function prepareFormalQuestionGovernanceBatch(
   source: SharedFormalResourceData,
   now: string,
   marker: string,
@@ -380,10 +383,16 @@ function prepareSuccessor(
       ? {
         ...cloneSharedFormalResourceValue(task.resourceDraftSpecification),
         title: spec.title,
-        questionType: 'reading_comprehension' as const,
+        questionType: spec.questionType ?? (spec.responseFormat === 'single_choice'
+          ? 'multiple_choice' as const
+          : 'reading_comprehension' as const),
         responseFormat: spec.responseFormat,
-        choiceInteraction: undefined,
-        assessmentMode: 'reasoning_chain' as const,
+        choiceInteraction: spec.choiceInteraction
+          ? cloneSharedFormalResourceValue(spec.choiceInteraction)
+          : undefined,
+        assessmentMode: spec.assessmentMode ?? (spec.responseFormat === 'single_choice'
+          ? 'exact_match' as const
+          : 'reasoning_chain' as const),
         answerAcceptance: cloneSharedFormalResourceValue(spec.answerAcceptance),
         rubric: cloneSharedFormalResourceValue(spec.rubric),
         minimumAnswerRequirement: cloneSharedFormalResourceValue(spec.minimumAnswerRequirement),
@@ -596,11 +605,17 @@ function createSuccessorArtifacts(input: {
   const content = {
     title: spec.title,
     questionStem: spec.questionStem,
-    questionType: 'reading_comprehension' as const,
+    questionType: spec.questionType ?? (spec.responseFormat === 'single_choice'
+      ? 'multiple_choice' as const
+      : 'reading_comprehension' as const),
     responseFormat: spec.responseFormat,
     options: [] as string[],
-    choiceInteraction: undefined,
-    assessmentMode: 'reasoning_chain' as const,
+    choiceInteraction: spec.choiceInteraction
+      ? cloneSharedFormalResourceValue(spec.choiceInteraction)
+      : undefined,
+    assessmentMode: spec.assessmentMode ?? (spec.responseFormat === 'single_choice'
+      ? 'exact_match' as const
+      : 'reasoning_chain' as const),
     answerAcceptance: cloneSharedFormalResourceValue(spec.answerAcceptance),
     rubric: cloneSharedFormalResourceValue(spec.rubric),
     minimumAnswerRequirement: cloneSharedFormalResourceValue(spec.minimumAnswerRequirement),

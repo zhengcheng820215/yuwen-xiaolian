@@ -360,6 +360,9 @@ function createNewQuestionArtifacts(input: {
     questionType: content.questionType,
     responseFormat: content.responseFormat,
     options: content.options,
+    choiceInteraction: content.choiceInteraction
+      ? cloneSharedFormalResourceValue(content.choiceInteraction)
+      : undefined,
     assessmentMode: content.assessmentMode,
     answerAcceptance: cloneSharedFormalResourceValue(content.answerAcceptance),
     rubric: cloneSharedFormalResourceValue(content.rubric),
@@ -431,6 +434,9 @@ function createNewQuestionArtifacts(input: {
     questionType: draft.questionType,
     responseFormat: draft.responseFormat,
     options: draft.options,
+    choiceInteraction: draft.choiceInteraction
+      ? cloneSharedFormalResourceValue(draft.choiceInteraction)
+      : undefined,
     assessmentMode: draft.assessmentMode,
     answerAcceptance: cloneSharedFormalResourceValue(draft.answerAcceptance),
     rubric: cloneSharedFormalResourceValue(draft.rubric),

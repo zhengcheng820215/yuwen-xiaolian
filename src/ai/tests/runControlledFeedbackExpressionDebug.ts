@@ -110,6 +110,7 @@ async function main(): Promise<void> {
   await casePsychologyGuidanceUsesExplicitReference();
   await caseDoesNotMeetMissingEvidenceDoesNotBecomeWrongConclusion();
   await caseFullyMeetsAlternativeEvidenceIsNotTreatedAsCumulativeRequirement();
+  await caseSceneryStateIsNotProjectedAsCharacterTrait();
 
   printReport();
   if (cases.some((item) => !item.passed)) {
@@ -1072,6 +1073,47 @@ async function caseFullyMeetsAlternativeEvidenceIsNotTreatedAsCumulativeRequirem
       review?.primaryGap === undefined &&
       review?.missingPoints.length === 0,
     JSON.stringify({ evidence, relation, review }),
+  );
+}
+
+async function caseSceneryStateIsNotProjectedAsCharacterTrait(): Promise<void> {
+  const input = baseInput({ evidenceTypes: ['positive'] });
+  const task = input.taskEvidenceReturnResult.concreteTask;
+  task.readingText = '一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。';
+  task.question = '请结合第2段的具体描写，说明这些景物如何共同表现“刚睡醒”的特点。';
+  task.answerRequirements = ['指出整体状态', '结合景物变化说明理由'];
+  task.scoringPoints = ['刚睡醒', '山朗润', '水涨', '太阳的脸红', '景物变化共同表现春天初醒'];
+  task.questionMetadata.questionType = '阅读简答';
+  task.questionMetadata.answerAcceptance = {
+    acceptedKeywords: ['刚睡醒'],
+    semanticEquivalentAllowed: true,
+  };
+  input.taskContext = {
+    readingText: task.readingText,
+    questionText: task.question,
+    answerRequirements: task.answerRequirements,
+  };
+  setStudentAnswer(input, '山变得朗润，水涨起来，太阳也红了，这些变化共同写出春天刚睡醒的状态。');
+  setDiagnosis(input, {
+    answerStatus: 'fully_meets',
+    surfaceError: '本次作答未发现明确问题。',
+    rootCause: '景物变化与整体状态的关系说明完整。',
+    diagnosisSummary: '结论、景物依据和解释关系均已完成。',
+    matchedRubricItems: ['state', 'text_evidence', 'reasoning_relation'],
+    missingRubricItems: [],
+  });
+  const run = await execute(input);
+  const review = run.result.finalFeedback.thinkingReview;
+  const rendered = JSON.stringify(review);
+  record(
+    'case_63_scenery_state_not_character_trait',
+    '景物状态题不会因为题干出现“特点”而投射为人物特点',
+    Boolean(
+      review?.coveredPoints.some((item) => item.includes('整体状态')) &&
+      !rendered.includes('人物特点') &&
+      !rendered.includes('人物的特点'),
+    ),
+    rendered,
   );
 }
 

@@ -187,3 +187,18 @@ type TaskGroupProgressionPlan = {
 [`READING_TRAINING_PROGRESSIVE_LOAD_STAGE4_SUCCESSOR_GOVERNANCE_AND_REAL_CALIBRATION_ENGINEERING_AND_DEBUG_PLAN.md`](./READING_TRAINING_PROGRESSIVE_LOAD_STAGE4_SUCCESSOR_GOVERNANCE_AND_REAL_CALIBRATION_ENGINEERING_AND_DEBUG_PLAN.md)。
 
 当前阶段 4 状态为 `ENGINEERING COMPLETE / DEBUG ACCEPTED / FULL BROWSER ACCEPTED / REAL CALIBRATION NOT STARTED`。`S4-01—S4-64` 为 `64 / 64 PASS`，`B4-01—B4-16` 已在真实应用内浏览器中完成 `16 / 16 PASS` 人工签署，阶段 0—3 与 Learning 主链零回归、Production Build 通过。浏览器联调使用隔离内存数据，正式资源、Student Attempt、Student Profile 与真实校准分母写入均为 `0`；该状态不等于真实样本充分、真实校准完成或教育效果证明。验收记录见[阶段 4 全量真实浏览器联调](../education/phase/reports/reading_training_progressive_load_stage4_full_browser_acceptance_2026-08-24.md)。
+
+## 九、2026-08-25 当前正式题递进负担复审处置
+
+当前 `24` 个活动题组、`81` 道 Current Head 的只读复审结果为：`80` 道负担投影完整，`1` 道单选因正式发布投影遗漏 `choiceInteraction` 而处于 `partial`；该单题必须通过 successor 治理修复。核心阅读题组中 `10 / 12` 可直接形成可追踪递进投影，《猫》《天上的街市》因既有正式题的跨线程比较或断点证据不足保留为部分可解释；targeted excerpt 的职责是一次小范围缺口训练，不要求形成完整核心题组坡度。
+
+本轮出现的 `unexplained_responsibility_jump` 统一按 advisory 处理：
+
+1. 它表示相邻任务的证据、关系、推理或表达责任出现明显上升，但当前版本尚无足够正式理由解释该跃迁；
+2. 它不自动阻断 Current Head、Learning 或真实试用，也不得直接形成“学生能力不足”的 Diagnosis；
+3. 若任务角色、Observation Plan 或材料结构已经给出合理理由，可记录处置理由后保留现状；
+4. 只有真实 Learning 在对应层级重复失稳，且能够通过 successor 增加独立观察价值时，才治理任务顺序、证据范围或主要动作；
+5. 不要求每个题组出现全部 `entry_short / focused_short / developing / integrated`，也不得为消除告警机械补题；
+6. successor 治理必须保持 Material → Plan → Task → Candidate → Publish → Learning 主链与历史 Session 身份不变。
+
+因此，本轮工程治理只修复确定的发布投影与题干—Rubric 阻断；其余梯度提示进入真实 Trial Window 的观察清单，不进行无样本批量重写。

@@ -16,6 +16,15 @@ const apply = process.argv.includes('--apply');
 const store = new SharedFormalResourceStore();
 const before = await store.read();
 if (!before.initialized) throw new Error('Shared formal resource store is not initialized.');
+const sourceBaseline = buildQuestionOptimizationBaseline(before);
+const sourceCurrentIds = new Set(before.data.questionResources.registryEntries
+  .filter((entry) => entry.status === 'active' && entry.currentFrozenVersionId)
+  .map((entry) => entry.currentFrozenVersionId!));
+const sourceSingleChoiceCount = before.data.questionResources.versions.filter((version) => (
+  version.status === 'frozen'
+  && sourceCurrentIds.has(version.resourceVersionId)
+  && version.responseFormat === 'single_choice'
+)).length;
 
 const prepared = prepareSingleChoiceRubricContractClosure(before.data, new Date().toISOString());
 const projected = { ...before, data: prepared.data };
@@ -28,11 +37,11 @@ const currentVersions = prepared.data.questionResources.versions.filter((version
 ));
 const currentChoices = currentVersions.filter((version) => version.responseFormat === 'single_choice');
 
-assert.equal(prepared.report.currentQuestionCount, 61);
-assert.equal(prepared.report.currentSingleChoiceCount, 15);
-assert.equal(prepared.report.currentTraceCount, 61);
-assert.equal(baseline.counts.currentFormalVersions, 61);
-assert.equal(baseline.counts.learningConsumableQuestions, 61);
+assert.equal(prepared.report.currentQuestionCount, sourceBaseline.counts.currentFormalVersions);
+assert.equal(prepared.report.currentSingleChoiceCount, sourceSingleChoiceCount);
+assert.equal(prepared.report.currentTraceCount, sourceBaseline.counts.frozenQualityTraces);
+assert.equal(baseline.counts.currentFormalVersions, sourceBaseline.counts.currentFormalVersions);
+assert.equal(baseline.counts.learningConsumableQuestions, sourceBaseline.counts.learningConsumableQuestions);
 assert.deepEqual(baseline.issues, []);
 assert(currentChoices.every((version) => validateQuestionCandidateContent(version).passed));
 assert(currentChoices.every((version) => inspectInitialCandidateCompleteness(version).complete));
