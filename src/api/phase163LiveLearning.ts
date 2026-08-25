@@ -84,6 +84,8 @@ import { LearningProgressionRuntimeService } from
   '../ai/services/learningProgressionRuntimeService.ts';
 import { ProgressiveLoadCalibrationService } from
   '../ai/services/progressiveLoadCalibrationService.ts';
+import { observeProductComplexityConvergenceOwnerFact } from
+  './productComplexityConvergenceStage4Preflight.ts';
 import {
   PROGRESSIVE_LOAD_CALIBRATION_EVENT_SCHEMA_VERSION,
   stableProgressiveLoadId,
@@ -645,6 +647,37 @@ async function recordRuntimeCompletionObservations(
       persistenceRecordId: persistence.recordId,
       completedAt: persistence.updatedAt,
     }, persistence.updatedAt);
+    const taskRole = descriptor.concreteTask.taskRole;
+    if ((taskRole === 'retest' || taskRole === 'transfer') && formalCommit?.status === 'committed') {
+      const independentlySucceeded = formalCommit.diagnosisResult?.correct === true
+        || formalCommit.diagnosisResult?.answerStatus === 'fully_meets';
+      await observeProductComplexityConvergenceOwnerFact({
+        capability: taskRole,
+        ownerFactType: taskRole === 'retest' ? 'retest_result' : 'transfer_result',
+        ownerSchemaVersion: taskRole === 'retest'
+          ? 'delayed_retest_scheduling_v1'
+          : 'next_learning_task_request_v1',
+        studentId: descriptor.input.studentId,
+        learningSessionId: descriptor.input.learningSessionId,
+        learningRoundId: descriptor.input.learningRoundId,
+        learningTaskAttemptId: attemptId,
+        sourceDecisionId: descriptor.input.operationId,
+        sourceResultId: formalCommit.formalDiagnosisId,
+        lifecycleStage: 'follow_up_observed',
+        outcomeCode: taskRole === 'retest'
+          ? independentlySucceeded
+            ? 'retest_independent_retained'
+            : 'retest_independent_not_retained'
+          : independentlySucceeded
+            ? 'transfer_independent_succeeded'
+            : 'transfer_independent_not_succeeded',
+        occurredAt: persistence.updatedAt,
+        dataOrigin: 'real_learning',
+        runtimeScope: 'product',
+        identityAligned: true,
+        sourceFactValidated: true,
+      });
+    }
   }
 }
 
@@ -1826,6 +1859,24 @@ export async function startPhase163FeedbackRevision(): Promise<Phase163LiveWorks
     attemptId: attempt.initialAttemptId,
     offered: true,
   }).catch(() => undefined);
+  await observeProductComplexityConvergenceOwnerFact({
+    capability: 'feedback_projection',
+    ownerFactType: 'feedback_projection_result',
+    ownerSchemaVersion: 'product_complexity_convergence_feedback_projection_v1',
+    studentId: attempt.studentId,
+    learningSessionId: attempt.learningSessionId,
+    learningRoundId: attempt.learningRoundId,
+    learningTaskAttemptId: attempt.learningTaskAttemptId,
+    sourceDecisionId: attempt.revisionOfferDecision?.sourceFeedbackId || attempt.initialFeedbackId,
+    sourceResultId: attempt.revision?.revisionId,
+    lifecycleStage: 'completed',
+    outcomeCode: 'feedback_action_followed',
+    occurredAt: attempt.updatedAt,
+    dataOrigin: 'real_learning',
+    runtimeScope: 'product',
+    identityAligned: true,
+    sourceFactValidated: true,
+  });
   return await stateFromCheckpoint(
     context.descriptor,
     context.checkpoint,
@@ -1944,6 +1995,34 @@ async function evaluateSubmittedFeedbackRevision(
       bundle,
     );
     await synchronizeFeedbackRevisionObservations(descriptor, completed);
+    const evaluation = completed.revision?.evaluation;
+    if (evaluation) {
+      await observeProductComplexityConvergenceOwnerFact({
+        capability: 'revision',
+        ownerFactType: 'revision_evaluation',
+        ownerSchemaVersion: 'learning_feedback_revision_v1',
+        studentId: completed.studentId,
+        learningSessionId: completed.learningSessionId,
+        learningRoundId: completed.learningRoundId,
+        learningTaskAttemptId: completed.learningTaskAttemptId,
+        sourceDecisionId: evaluation.revisionId,
+        sourceResultId: evaluation.revisionEvaluationId,
+        sourceEvidenceIds: completed.revision?.feedbackSupportedEvidence?.evidenceId
+          ? [completed.revision.feedbackSupportedEvidence.evidenceId]
+          : [],
+        lifecycleStage: 'completed',
+        outcomeCode: evaluation.outcome === 'improved'
+          ? 'revision_gap_resolved_supported'
+          : evaluation.outcome === 'partially_improved'
+            ? 'revision_gap_partially_resolved_supported'
+            : 'revision_gap_unresolved',
+        occurredAt: evaluation.evaluatedAt,
+        dataOrigin: 'real_learning',
+        runtimeScope: 'product',
+        identityAligned: true,
+        sourceFactValidated: true,
+      });
+    }
   } catch (error) {
     const issue = toRevisionEvaluationIssue(error);
     await feedbackRevisionPersistenceService.markRevisionEvaluationPendingRetry(

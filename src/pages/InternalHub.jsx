@@ -14,6 +14,20 @@ import { loadPhase163MultiDayReview } from '../api/internalLearningReview.ts';
 
 const tools = [
   {
+    to: '/internal/product-complexity-convergence-stage4-preflight',
+    icon: ShieldCheck,
+    title: '真实 Trial 启动前预检',
+    description: '只读核对正式来源接线、默认关闭、预检报告、Launch 记录和激活审计。',
+    meta: '启动前工程',
+  },
+  {
+    to: '/internal/product-complexity-convergence-stage4',
+    icon: Database,
+    title: '复杂能力稳定试用观察',
+    description: '只读查看试用窗口、结构化观察、样本充分性和能力去留提案。',
+    meta: '复杂度治理',
+  },
+  {
     to: '/internal/targeted-micro-training',
     icon: ShieldCheck,
     title: '针对性微训练控制与校准',

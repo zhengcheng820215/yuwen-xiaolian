@@ -2,7 +2,7 @@
 
 英文名称：Product Complexity Convergence Contract
 契约版本：`product_complexity_convergence_v1`
-状态：`DESIGN FROZEN / ENGINEERING READY`
+状态：`DESIGN FROZEN / ENGINEERING COMPLETE / DEBUG ACCEPTED / FULL BROWSER ACCEPTED / ISOLATED OBSERVATION READY / ACTIVATION PREFLIGHT REQUIRED / REAL TRIAL NOT STARTED`
 生效范围：资源录入端、Learning、内部观察与既有训练调度链
 日期：2026-08-24
 
@@ -547,7 +547,17 @@ type CoreAbilitySummary = {
 
 ### 阶段 4：稳定试用与退役决策
 
+工程实施与验收要求见：[阶段 4 稳定试用与退役决策工程实施与 Debug 验收文档](./PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_STABLE_TRIAL_AND_RETIREMENT_ENGINEERING_AND_DEBUG_PLAN.md)。
+
+真实运行要求见：[阶段 4 真实 Trial Window 启动与运行验收契约](./PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_REAL_TRIAL_WINDOW_OPERATION_AND_ACCEPTANCE_CONTRACT.md)。
+
+启动前生产接线与预检要求见：[阶段 4 真实 Trial Window 启动前工程实施与 Debug 验收文档](./PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_REAL_TRIAL_PREFLIGHT_ENGINEERING_AND_DEBUG_PLAN.md)。
+
+启动前工程已完成并通过 `PF-C01—PF-C56`、`PF-B01—PF-B20`、阶段 0—4、Learning 主链与 Production Build 验收；工程事实见：[阶段 4 真实 Trial 启动前工程、Debug 与浏览器验收报告](../education/phase/reports/product_complexity_convergence_stage4_real_trial_preflight_engineering_debug_browser_acceptance_2026-08-25.md)。2026-08-25 已显式冻结单学生、21 天窗口、不可变 Preflight Report 与 `approved_to_activate` Launch Record，并在真实浏览器完成 `real_trial` 激活；当前八项能力均为 `observe_only`，激活时 Observation Event 为 0，未制造测试事件。签署与执行事实见：[真实 Trial 激活签署与执行记录](../education/phase/reports/product_complexity_convergence_real_trial_activation_signoff_2026-08-25.md)。
+
 冻结新增能力，运行 2—4 周真实试用。只对具有真实证据的能力执行保留、默认关闭或退役决策。
+
+阶段 4 已完成来源隔离、只读观察、样本充分性、版本化聚合和内部决策提案；Decision Agent 只能生成提案，不能直接修改 Feature Flag、停止写入或删除能力。`C4-01—C4-64` 为 `64 / 64 PASS`，`B4-01—B4-20` 为 `20 / 20 PASS`，阶段 0—3 与 Revision、Targeted、Reading Progression、Learning Queue 旧主链专项回归为 `295 / 295 PASS`，Production Build PASS；浏览器验收中正式资源、Attempt、Evidence、Profile 与真实试用分母写入均为 `0`。上述结论证明隔离观察工程基线就绪，不代表生产 Owner Fact Adapter 和显式激活控制已经通过启动预检。当前状态统一为 `ENGINEERING COMPLETE / DEBUG ACCEPTED / FULL BROWSER ACCEPTED / ISOLATED OBSERVATION READY / ACTIVATION PREFLIGHT REQUIRED / REAL TRIAL NOT STARTED`。验收事实见：[阶段 4 工程、Debug 与浏览器验收报告](../education/phase/reports/product_complexity_convergence_stage4_engineering_debug_browser_acceptance_2026-08-25.md)。
 
 ## 十七、跨阶段验收原则
 

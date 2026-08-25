@@ -3,6 +3,20 @@ import { Link } from 'react-router-dom';
 
 const acceptanceItems = [
   {
+    to: '/internal/acceptance/product-complexity-convergence-stage4-real-trial-preflight',
+    title: '真实 Trial 启动前预检',
+    description: '执行 PF-B01—PF-B20，验证默认关闭、Registry、隔离烟测、恢复和五类零写入边界。',
+    provider: '确定性内存预检',
+    data: '隔离验收，不写正式数据',
+  },
+  {
+    to: '/internal/acceptance/product-complexity-convergence-stage4',
+    title: '产品复杂度收口阶段 4',
+    description: '执行 B4-01—B4-20，验证真实数据隔离、只读观察、聚合、样本充分性与退役提案边界。',
+    provider: '确定性隔离观察',
+    data: '真实分母写入为 0',
+  },
+  {
     to: '/internal/acceptance/product-complexity-convergence-stage3',
     title: '产品复杂度收口阶段 3',
     description: '执行 B3-01—B3-18，验证反馈单焦点、一次修订评价、恢复回退与 Profile 粗粒度只读投射。',

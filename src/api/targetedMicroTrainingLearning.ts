@@ -20,6 +20,8 @@ import {
   getTargetedMicroTrainingStage4Service,
   recordTargetedMicroTrainingLifecycleEvent,
 } from './targetedMicroTrainingStage4.ts';
+import { observeProductComplexityConvergenceOwnerFact } from
+  './productComplexityConvergenceStage4Preflight.ts';
 
 const schedulingRepository = new IndexedDBTargetedMicroTrainingSchedulingRepository();
 const activityRepository = new LocalStorageUnifiedLearningEntryRepository();
@@ -296,6 +298,36 @@ async function recordAssignmentEvent(
     responseFormat: version?.responseFormat,
     taskRole: version?.abilityMetadata.taskRole,
     outcome,
+  });
+  await observeProductComplexityConvergenceOwnerFact({
+    capability: 'targeted_micro_training',
+    ownerFactType: 'targeted_training_result',
+    ownerSchemaVersion: 'targeted_micro_training_scheduling_v1',
+    studentId,
+    learningSessionId: request.learningSessionId,
+    learningRoundId: request.sourceLearningRoundId,
+    learningTaskAttemptId: request.sourceAttemptId,
+    sourceDecisionId: decision.decisionId,
+    sourceResultId: assignmentId,
+    lifecycleStage: eventName === 'targeted_assignment_presented'
+      ? 'triggered'
+      : eventName === 'targeted_assignment_unavailable'
+        ? 'interrupted'
+        : eventName === 'targeted_assignment_skipped'
+          ? 'not_triggered'
+          : 'completed',
+    outcomeCode: eventName === 'targeted_assignment_presented'
+      ? 'triggered_pending'
+      : eventName === 'targeted_assignment_unavailable'
+        ? 'runtime_interrupted'
+        : eventName === 'targeted_assignment_skipped'
+          ? 'eligible_not_triggered'
+          : 'completed_without_outcome',
+    occurredAt: new Date().toISOString(),
+    dataOrigin: 'real_learning',
+    runtimeScope: 'product',
+    identityAligned: true,
+    sourceFactValidated: true,
   });
 }
 
