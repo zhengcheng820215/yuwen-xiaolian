@@ -71,6 +71,36 @@ export function createLearningSessionTaskQueue(input: {
   return queue;
 }
 
+/**
+ * Rebuild a missing legacy Session queue from the exact Frozen Version that
+ * was already presented in the previous round. A newer Registry head for the
+ * same resource must not be inserted beside that immutable Session version.
+ */
+export function createRecoveredLearningSessionTaskQueue(input: {
+  previousResourceVersion: FrozenQuestionResourceVersion;
+  currentVersions: FrozenQuestionResourceVersion[];
+  createdAt: string;
+  currentTaskNumber: number;
+  maxTaskCount?: number;
+  progressionArtifacts?: FormalTaskGroupProgressionArtifact[];
+}): LearningSessionTaskQueue {
+  const previous = input.previousResourceVersion;
+  const recoveryVersions = uniqueByResourceVersionId([
+    previous,
+    ...input.currentVersions.filter((version) => (
+      version.resourceId !== previous.resourceId
+    )),
+  ]);
+  return createLearningSessionTaskQueue({
+    firstResourceVersion: previous,
+    currentVersions: recoveryVersions,
+    createdAt: input.createdAt,
+    currentTaskNumber: input.currentTaskNumber,
+    maxTaskCount: input.maxTaskCount,
+    progressionArtifacts: input.progressionArtifacts,
+  });
+}
+
 export function resolveLearningSessionTaskQueueProgress(
   queue: LearningSessionTaskQueue | undefined,
   currentTaskNumber: number,
@@ -92,4 +122,10 @@ export function resolveLearningSessionTaskQueueProgress(
 
 function unique(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
+}
+
+function uniqueByResourceVersionId(
+  versions: FrozenQuestionResourceVersion[],
+): FrozenQuestionResourceVersion[] {
+  return [...new Map(versions.map((version) => [version.resourceVersionId, version])).values()];
 }

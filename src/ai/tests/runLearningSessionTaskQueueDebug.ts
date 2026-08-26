@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  createRecoveredLearningSessionTaskQueue,
   createLearningSessionTaskQueue,
   LEARNING_SESSION_TASK_QUEUE_MAX_COUNT,
   resolveLearningSessionTaskQueueProgress,
@@ -76,6 +77,21 @@ const retestQueue = createLearningSessionTaskQueue({
 });
 assert.deepEqual(retestQueue.resourceVersionIds, ['retest-1']);
 
+const previousFrozen = version('text-1-v1', 'long_text', 1);
+const successorHead = {
+  ...version('text-1-v2', 'long_text', 1),
+  resourceId: previousFrozen.resourceId,
+};
+const recoveredLegacyQueue = createRecoveredLearningSessionTaskQueue({
+  previousResourceVersion: previousFrozen,
+  currentVersions: [successorHead, choice2, text2, text3],
+  currentTaskNumber: 1,
+  createdAt: NOW,
+});
+assert.equal(recoveredLegacyQueue.resourceVersionIds[0], previousFrozen.resourceVersionId);
+assert.equal(recoveredLegacyQueue.resourceVersionIds.includes(successorHead.resourceVersionId), false);
+assert.equal(recoveredLegacyQueue.resourceVersionIds[1], choice2.resourceVersionId);
+
 assert.equal(isLearningSessionTaskQueue({
   queueVersion: LEARNING_SESSION_TASK_QUEUE_VERSION,
   materialId: 'material-1',
@@ -90,7 +106,7 @@ assert.equal(
   '本题结果已经保存，接下来进入第 2 题（共 6 题）。',
 );
 
-console.log('Learning session task queue debug: 21/21 passed.');
+console.log('Learning session task queue debug: 24/24 passed.');
 
 function version(
   resourceVersionId: string,

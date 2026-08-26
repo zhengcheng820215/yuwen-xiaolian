@@ -28,3 +28,9 @@
 ## 结论
 
 问题已按“新会话用最新版、活动会话用冻结版”边界修复。完成修订、刷新页面或生产端发布新版，都不应再把尚未完成的固定题组提前截断。
+
+## 2026-08-26 旧 Session 恢复边界补充
+
+历史活动 Session 可能已经完成首题，但尚未持久化 `LearningSessionTaskQueue`。入口恢复时必须从上一轮 Operation Checkpoint 读取当时实际使用的 `sourceResourceVersionId`，按该精确 Frozen Version 重建题列；即使 Registry 已指向后继版本，也不得用后继版本替换已完成题或把两版同时放入题列。
+
+同时，页面只有在 `UnifiedLearningEntryState.canEnterWorkspace = true` 时，才可把活动 Session 投射为“继续学习”。仅检测到 Session 记录、但正式资源或冻结题列尚未证明可恢复时，应展示入口自身的阻断/恢复状态，不得提供点击后无响应的继续按钮。

@@ -53,7 +53,9 @@ export default function UnifiedLearningEntry() {
         operation: ['start_learning', 'start_new_session'].includes(nextEntry.primaryAction) ? 'start_learning' : 'load_entry',
         healthReadState: 'available', health: healthResult.health,
         ownerFacts: {
-          hasActiveSession: nextEntry.hasActiveSession,
+          // A stored Session is only projected as "continue learning" when
+          // the entry contract has proved that its frozen task can be opened.
+          hasActiveSession: nextEntry.hasActiveSession && nextEntry.canEnterWorkspace,
           hasDraft: nextEntry.hasDraft,
           attemptCommitted: nextEntry.status === 'recovering_submission',
           checkpointPhase: nextEntry.status === 'recovering_submission' ? 'submitted' : undefined,

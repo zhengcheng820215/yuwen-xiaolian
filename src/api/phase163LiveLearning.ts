@@ -50,6 +50,7 @@ import {
 import { buildScopedFormalResourceHistory } from '../ai/agents/formalResourceHistoryScope.ts';
 import { selectFormalResourceForLearningSequence } from '../ai/agents/learningTaskSequenceScheduler.ts';
 import {
+  createRecoveredLearningSessionTaskQueue,
   createLearningSessionTaskQueue,
   resolveLearningSessionTaskQueueProgress,
 } from '../ai/agents/learningSessionTaskQueueAgent.ts';
@@ -1038,6 +1039,32 @@ async function ensureActiveSessionTaskQueue(
   return write.context;
 }
 
+async function recoverLegacyActiveSessionTaskQueue(
+  context: UnifiedLearningActivityContext,
+  currentVersions: FrozenQuestionResourceVersion[],
+  previousResourceVersion: FrozenQuestionResourceVersion,
+  createdAt: string,
+  previousTaskNumber: number,
+): Promise<UnifiedLearningActivityContext> {
+  const taskQueue = createRecoveredLearningSessionTaskQueue({
+    previousResourceVersion,
+    currentVersions,
+    progressionArtifacts: await loadProgressionArtifacts(currentVersions),
+    createdAt,
+    currentTaskNumber: previousTaskNumber,
+  });
+  const nextContext: UnifiedLearningActivityContext = {
+    ...context,
+    taskQueue,
+    updatedAt: createdAt,
+  };
+  const write = await activityRepository.save(nextContext);
+  if (write.status === 'conflict') {
+    throw new Error('当前学习会话已经变化，请返回学习入口后继续。');
+  }
+  return write.context;
+}
+
 async function buildCurrentRoundDescriptor() {
   const selection = await resolveCurrentFormalTaskSelection(true);
   const {
@@ -1233,7 +1260,7 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
     formalResourceRepository,
     materialObservationRepository,
   );
-  const allCurrentVersions = await includeFrozenSessionResourceVersions(
+  let allCurrentVersions = await includeFrozenSessionResourceVersions(
     context,
     currentHeadVersions,
   );
@@ -1246,14 +1273,26 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
   const previousCheckpoint = previousRoundId
     ? await operationRepository.getByOperationId(`phase16-3-live-operation-${previousRoundId}`)
     : undefined;
+  const recordedPreviousVersion = previousCheckpoint?.sourceResourceVersionId
+    ? await formalResourceRepository.getVersion(previousCheckpoint.sourceResourceVersionId)
+    : undefined;
   const previousVersion = previousCheckpoint?.sourceResourceVersionId
     ? allCurrentVersions.find((version) => (
         version.resourceVersionId === previousCheckpoint.sourceResourceVersionId
-      ))
+      )) || (recordedPreviousVersion?.status === 'frozen' ? recordedPreviousVersion : undefined)
     : undefined;
-  if (context?.taskQueue && previousVersion && number > 1) {
-    const queuedPreviousResourceVersionId = context.taskQueue.resourceVersionIds[number - 2];
-    if (
+  if (context && previousVersion && number > 1) {
+    const queuedPreviousResourceVersionId = context.taskQueue?.resourceVersionIds[number - 2];
+    if (!context.taskQueue) {
+      context = await recoverLegacyActiveSessionTaskQueue(
+        context,
+        allCurrentVersions,
+        previousVersion,
+        descriptorAt,
+        number - 1,
+      );
+      allCurrentVersions = await includeFrozenSessionResourceVersions(context, currentHeadVersions);
+    } else if (
       context.taskQueue.materialId !== previousVersion.materialId ||
       queuedPreviousResourceVersionId !== previousVersion.resourceVersionId
     ) {
@@ -1264,6 +1303,7 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
         descriptorAt,
         number - 1,
       );
+      allCurrentVersions = await includeFrozenSessionResourceVersions(context, currentHeadVersions);
     }
   }
   const currentPersistenceRecord = roundId
