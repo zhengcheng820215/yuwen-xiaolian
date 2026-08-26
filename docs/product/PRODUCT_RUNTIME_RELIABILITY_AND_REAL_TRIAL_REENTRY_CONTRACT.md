@@ -737,7 +737,7 @@ learning_round_completed
 | WP-R2 | Learning / Workbench 故障分类与恢复投射 | WP-R1 通过 |
 | WP-R3 | Product Runtime Identity 与 Trial 自动失效 | WP-R1 通过 |
 | WP-R4 | Trial Re-entry Preflight 与重新激活，详见 [WP-R4 工程与 Debug 验收文档](./PRODUCT_RUNTIME_RELIABILITY_WP_R4_TRIAL_REENTRY_ENGINEERING_AND_DEBUG_PLAN.md) | WP-R3 通过 |
-| WP-R5 | 完整真实学习烟测与最小事件链验收 | WP-R2、WP-R4 通过 |
+| WP-R5 | 完整真实学习烟测与最小事件链验收，详见 [WP-R5 工程与 Debug 验收文档](./PRODUCT_RUNTIME_RELIABILITY_WP_R5_REAL_LEARNING_SMOKE_ENGINEERING_AND_DEBUG_PLAN.md) | WP-R2、WP-R4 通过 |
 | WP-R6 | 旧固定基线测试、性能提示与最终浏览器验收收口 | WP-R5 通过 |
 
 本主契约只冻结工作包边界。每个工作包的文件清单、接口签名、测试 Case、Debug 命令、浏览器矩阵、回滚和完成记录必须在独立工程文档中补齐。
@@ -795,4 +795,4 @@ REAL TRIAL RE-ENTRY APPROVED
 16. 本轮不新增 Training Model 功能，不重构正式主链；
 17. 本轮完成只表示真实运行重新准入，不表示教育效果已经证明。
 
-本文档当前达到 `DESIGN BASELINE / WP-R0—R4 ENGINEERING COMPLETE / REAL TRIAL REMAINS OFF / WP-R5 AUTHORIZED`。WP-R0 已完成只读基线，WP-R1 已完成统一启动器、固定端口保护、GET-only Runtime Health、动态正式资源投射和 Internal Health，WP-R2 已完成 Learning / Workbench 故障分类、内容保留表达、单一恢复动作和普通页面内部字段隔离，WP-R3 已完成内容寻址 Runtime Identity、Launch Binding 读取契约、旧非 off Trial 自动失效、Health/Internal 投射和零写入验收。WP-R4 已完成新 Preflight、Launch Record、Identity Binding、原子 Approval Bundle、显式激活、失败回滚、零写入边界与浏览器只读验收。当前工作树仍包含未提交的 WP-R4 改动，因此真实 Trial 必须保持 off；提交后仍须以 clean Production Artifact 重新执行 Preflight 和显式激活，才能进入 WP-R5 真实学习烟测。
+本文档当前达到 `DESIGN BASELINE / WP-R0—R4 ENGINEERING COMPLETE / REAL TRIAL REMAINS OFF / WP-R5 DESIGN FROZEN`。WP-R0 已完成只读基线，WP-R1 已完成统一启动器、固定端口保护、GET-only Runtime Health、动态正式资源投射和 Internal Health，WP-R2 已完成 Learning / Workbench 故障分类、内容保留表达、单一恢复动作和普通页面内部字段隔离，WP-R3 已完成内容寻址 Runtime Identity、Launch Binding 读取契约、旧非 off Trial 自动失效、Health/Internal 投射和零写入验收，WP-R4 已完成新 Preflight、Launch Record、Identity Binding、原子 Approval Bundle、显式激活、失败回滚、零写入边界与浏览器只读验收。WP-R5 的真实学习烟测边界已经在独立工程文档中冻结；必须先提交该文档，再以最终 clean Production Artifact 重新生成 Runtime Identity、执行 R4-P01—R4-P24、保存新准入包并显式激活。第一条事件仍必须等待真实学生自然操作，不得由工程脚本制造。
