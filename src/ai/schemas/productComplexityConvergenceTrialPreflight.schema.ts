@@ -14,6 +14,7 @@ import {
   type ComplexityConvergenceStage4ObservationMode,
   type ComplexityConvergenceTrialWindow,
 } from './productComplexityConvergenceObservation.schema.ts';
+import { isSha256Digest } from './productRuntimeIdentity.schema.ts';
 
 export const PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_SOURCE_REGISTRY_ENTRY_VERSION =
   'product_complexity_convergence_stage4_source_registry_entry_v1' as const;
@@ -21,12 +22,16 @@ export const PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_SOURCE_REGISTRY_VERSION =
   'product_complexity_convergence_stage4_source_registry_v1' as const;
 export const PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_VERSION =
   'product_complexity_convergence_stage4_activation_state_v1' as const;
+export const PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_V2_VERSION =
+  'product_complexity_convergence_stage4_activation_state_v2' as const;
 export const PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_LAUNCH_RECORD_VERSION =
   'product_complexity_convergence_stage4_trial_launch_v1' as const;
 export const PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_PREFLIGHT_REPORT_VERSION =
   'product_complexity_convergence_stage4_preflight_report_v1' as const;
 export const PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_AUDIT_VERSION =
   'product_complexity_convergence_stage4_activation_audit_v1' as const;
+export const PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_AUDIT_V2_VERSION =
+  'product_complexity_convergence_stage4_activation_audit_v2' as const;
 
 export const CONVERGENCE_STAGE4_PREFLIGHT_CHECK_IDS = Array.from(
   { length: 18 },
@@ -101,7 +106,7 @@ export type RealTrialWindowPreflightReport = {
   eligibleForActivation: boolean;
 };
 
-export type ConvergenceObservationActivationState = {
+export type ConvergenceObservationActivationStateV1 = {
   activationStateVersion: typeof PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_VERSION;
   activationStateId: 'product-complexity-convergence-stage4-current';
   requestedMode: ComplexityConvergenceStage4ObservationMode;
@@ -117,7 +122,31 @@ export type ConvergenceObservationActivationState = {
   updatedAt: string;
 };
 
-export type ConvergenceObservationActivationAudit = {
+export type ConvergenceObservationActivationStateV2 = {
+  activationStateVersion: typeof PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_V2_VERSION;
+  activationStateId: 'product-complexity-convergence-stage4-current';
+  requestedMode: ComplexityConvergenceStage4ObservationMode;
+  effectiveMode: ComplexityConvergenceStage4ObservationMode;
+  trialWindowId?: string;
+  launchRecordId?: string;
+  runtimeIdentityBindingId?: string;
+  activatedRuntimeIdentityDigest?: string;
+  invalidatedRuntimeIdentityDigest?: string;
+  registrySnapshotHash?: string;
+  policySnapshotHash?: string;
+  buildVersion?: string;
+  activatedAt?: string;
+  deactivatedAt?: string;
+  invalidatedAt?: string;
+  reasonCodes: string[];
+  updatedAt: string;
+};
+
+export type ConvergenceObservationActivationState =
+  | ConvergenceObservationActivationStateV1
+  | ConvergenceObservationActivationStateV2;
+
+export type ConvergenceObservationActivationAuditV1 = {
   auditVersion: typeof PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_AUDIT_VERSION;
   auditId: string;
   action: 'requested' | 'approved' | 'activated' | 'deactivated' | 'rejected' | 'recovered_off';
@@ -128,6 +157,24 @@ export type ConvergenceObservationActivationAudit = {
   reasonCodes: string[];
   occurredAt: string;
 };
+
+export type ConvergenceObservationActivationAuditV2 = {
+  auditVersion: typeof PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_AUDIT_V2_VERSION;
+  auditId: string;
+  action: 'invalidated';
+  requestedMode: ComplexityConvergenceStage4ObservationMode;
+  effectiveMode: 'off';
+  trialWindowId?: string;
+  launchRecordId?: string;
+  previousRuntimeIdentityDigest?: string;
+  currentRuntimeIdentityDigest?: string;
+  reasonCodes: string[];
+  occurredAt: string;
+};
+
+export type ConvergenceObservationActivationAudit =
+  | ConvergenceObservationActivationAuditV1
+  | ConvergenceObservationActivationAuditV2;
 
 export function buildConvergenceSourceRegistrySnapshot(input: {
   sourceRegistryVersion?: string;
@@ -157,7 +204,7 @@ export function createDefaultConvergenceActivationState(now: string): Convergenc
   };
 }
 
-export function buildConvergenceActivationAudit(input: Omit<ConvergenceObservationActivationAudit,
+export function buildConvergenceActivationAudit(input: Omit<ConvergenceObservationActivationAuditV1,
   'auditVersion' | 'auditId'>): ConvergenceObservationActivationAudit {
   const identity = stableConvergenceSerialize(input);
   return {
@@ -245,7 +292,8 @@ export function validateRealTrialWindowPreflightReport(report: RealTrialWindowPr
 
 export function validateConvergenceActivationState(state: ConvergenceObservationActivationState): string[] {
   const issues: string[] = [];
-  if (state.activationStateVersion !== PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_VERSION
+  if (![PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_VERSION,
+    PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_V2_VERSION].includes(state.activationStateVersion as never)
     || state.activationStateId !== 'product-complexity-convergence-stage4-current') issues.push('activation_state_version_invalid');
   if (!['off', 'isolated_acceptance', 'real_trial'].includes(state.requestedMode)
     || !['off', 'isolated_acceptance', 'real_trial'].includes(state.effectiveMode)) issues.push('activation_mode_invalid');
@@ -254,17 +302,36 @@ export function validateConvergenceActivationState(state: ConvergenceObservation
     && (!nonEmpty(state.trialWindowId) || !nonEmpty(state.launchRecordId)
       || !nonEmpty(state.registrySnapshotHash) || !nonEmpty(state.policySnapshotHash)
       || !nonEmpty(state.buildVersion) || !timestamp(state.activatedAt))) issues.push('real_trial_activation_incomplete');
+  if (state.activationStateVersion === PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_V2_VERSION
+    && state.invalidatedAt && !timestamp(state.invalidatedAt)) issues.push('activation_invalidation_time_invalid');
+  if (state.activationStateVersion === PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_V2_VERSION) {
+    if (state.activatedRuntimeIdentityDigest
+      && !isSha256Digest(state.activatedRuntimeIdentityDigest)) issues.push('activation_runtime_identity_digest_invalid');
+    if (state.invalidatedRuntimeIdentityDigest
+      && !isSha256Digest(state.invalidatedRuntimeIdentityDigest)) issues.push('activation_invalidated_identity_digest_invalid');
+    if (state.reasonCodes.includes('trial_runtime_identity_invalidated')
+      && (state.effectiveMode !== 'off' || !timestamp(state.invalidatedAt)
+        || !timestamp(state.deactivatedAt))) issues.push('activation_invalidation_incomplete');
+  }
   return unique(issues);
 }
 
 export function validateConvergenceActivationAudit(audit: ConvergenceObservationActivationAudit): string[] {
   const issues: string[] = [];
-  if (audit.auditVersion !== PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_AUDIT_VERSION
+  if (![PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_AUDIT_VERSION,
+    PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_AUDIT_V2_VERSION].includes(audit.auditVersion as never)
     || !nonEmpty(audit.auditId)) issues.push('activation_audit_identity_invalid');
-  if (!['requested', 'approved', 'activated', 'deactivated', 'rejected', 'recovered_off'].includes(audit.action)) issues.push('activation_audit_action_invalid');
+  if (!['requested', 'approved', 'activated', 'deactivated', 'rejected', 'recovered_off', 'invalidated'].includes(audit.action)) issues.push('activation_audit_action_invalid');
   if (!['off', 'isolated_acceptance', 'real_trial'].includes(audit.requestedMode)
     || !['off', 'isolated_acceptance', 'real_trial'].includes(audit.effectiveMode)) issues.push('activation_audit_mode_invalid');
   if (!stringArray(audit.reasonCodes) || !timestamp(audit.occurredAt)) issues.push('activation_audit_metadata_invalid');
+  if (audit.auditVersion === PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_AUDIT_V2_VERSION) {
+    if (audit.action !== 'invalidated' || audit.effectiveMode !== 'off') issues.push('activation_invalidation_audit_invalid');
+    if (audit.previousRuntimeIdentityDigest
+      && !isSha256Digest(audit.previousRuntimeIdentityDigest)) issues.push('activation_audit_previous_identity_invalid');
+    if (audit.currentRuntimeIdentityDigest
+      && !isSha256Digest(audit.currentRuntimeIdentityDigest)) issues.push('activation_audit_current_identity_invalid');
+  }
   return unique(issues);
 }
 

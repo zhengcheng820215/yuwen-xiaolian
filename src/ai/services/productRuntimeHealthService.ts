@@ -17,10 +17,12 @@ export type ProductRuntimeHealthInput = {
   aiAvailabilityVerified?: boolean;
   buildIdentity?: string;
   buildIdentityContentAddressed?: boolean;
+  runtimeIdentityVersion?: 'product_runtime_identity_v1';
+  runtimeIdentityStatus?: 'available' | 'missing' | 'invalid' | 'dirty';
   trial?: {
     requestedMode: ProductRuntimeTrialMode;
     effectiveMode: ProductRuntimeTrialMode;
-    identityStatus: 'aligned' | 'mismatch' | 'insufficient_evidence';
+    identityStatus: 'aligned' | 'mismatch' | 'insufficient_evidence' | 'missing' | 'invalid' | 'dirty' | 'legacy_unverifiable';
     observationAvailable?: boolean;
   };
 };
@@ -51,7 +53,7 @@ export function buildProductRuntimeHealth(input: ProductRuntimeHealthInput): Pro
   };
   const trialReasons: ProductRuntimeReasonCode[] = [];
   if (trialInput.identityStatus === 'mismatch') trialReasons.push('trial_identity_mismatch', 'trial_reentry_required');
-  if (trialInput.identityStatus === 'insufficient_evidence') trialReasons.push('audit_evidence_incomplete', 'trial_reentry_required');
+  if (['insufficient_evidence', 'missing', 'invalid', 'dirty', 'legacy_unverifiable'].includes(trialInput.identityStatus)) trialReasons.push('audit_evidence_incomplete', 'trial_reentry_required');
   if (trialInput.observationAvailable === false) trialReasons.push('trial_observation_unavailable');
   const summaryReasonCodes = uniqueSorted([
     ...instanceReasons,
@@ -73,6 +75,8 @@ export function buildProductRuntimeHealth(input: ProductRuntimeHealthInput): Pro
       runtimeStatus: 'ready' as const,
       buildIdentityStatus: input.buildIdentityContentAddressed ? 'available' as const : 'insufficient' as const,
       buildIdentity: input.buildIdentity,
+      runtimeIdentityVersion: input.runtimeIdentityVersion,
+      runtimeIdentityStatus: input.runtimeIdentityStatus,
       reasonCodes: instanceReasons,
     },
     formalResourceStore: formal,
@@ -82,6 +86,7 @@ export function buildProductRuntimeHealth(input: ProductRuntimeHealthInput): Pro
       requestedMode: trialInput.requestedMode,
       effectiveMode: trialInput.identityStatus === 'aligned' ? trialInput.effectiveMode : 'off' as const,
       identityStatus: trialInput.identityStatus,
+      identityAlignment: trialInput.identityStatus,
       observationFailOpen: true as const,
       reasonCodes: uniqueSorted(trialReasons),
     },

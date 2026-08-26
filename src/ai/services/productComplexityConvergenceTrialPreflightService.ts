@@ -28,6 +28,9 @@ import {
   type RealTrialWindowPreflightReport,
 } from '../schemas/productComplexityConvergenceTrialPreflight.schema.ts';
 import { recordConvergenceObservation } from './productComplexityConvergenceObservationService.ts';
+import type { ProductRuntimeIdentity, RealTrialRuntimeIdentityBinding } from
+  '../schemas/productRuntimeIdentity.schema.ts';
+import { applyProductRuntimeTrialInvalidation } from './productRuntimeTrialIdentityService.ts';
 
 export type ConvergenceActivationResolution = {
   state: ConvergenceObservationActivationState;
@@ -202,6 +205,8 @@ export async function recordConvergenceFormalOwnerFact(input: {
   repository: ProductComplexityConvergenceObservationRepository;
   now: string;
   buildVersion: string;
+  currentRuntimeIdentity?: ProductRuntimeIdentity;
+  runtimeIdentityBinding?: RealTrialRuntimeIdentityBinding;
 }): Promise<ConvergenceFormalOwnerObservationResult> {
   try {
     const activation = await recoverConvergenceActivation({
@@ -210,6 +215,16 @@ export async function recordConvergenceFormalOwnerFact(input: {
     if (activation.state.effectiveMode === 'off') return {
       learningAllowed: true, mode: 'off', observedCount: 0,
       admittedToRealDenominatorCount: 0, issueCodes: activation.state.reasonCodes,
+    };
+    const identity = await applyProductRuntimeTrialInvalidation({
+      repository: input.repository,
+      currentIdentity: input.currentRuntimeIdentity,
+      binding: input.runtimeIdentityBinding,
+      now: input.now,
+    });
+    if (!identity.observationAllowed) return {
+      learningAllowed: true, mode: 'off', observedCount: 0,
+      admittedToRealDenominatorCount: 0, issueCodes: identity.reasonCodes,
     };
     const window = activation.state.trialWindowId
       ? await input.repository.getTrialWindow(activation.state.trialWindowId) : undefined;

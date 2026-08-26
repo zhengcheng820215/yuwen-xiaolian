@@ -4,7 +4,7 @@
 
 契约版本：`product_runtime_reliability_and_real_trial_reentry_v1`
 
-状态：`DESIGN BASELINE / WP-R0—R2 COMPLETE / WP-R3 AUTHORIZED / REAL TRIAL RE-ENTRY REQUIRED`
+状态：`DESIGN BASELINE / WP-R0—R3 COMPLETE / WP-R4 AUTHORIZED / REAL TRIAL RE-ENTRY REQUIRED`
 
 日期：2026-08-25
 
@@ -13,6 +13,8 @@
 - [WP-R0 运行基线、Reason Code 与只读审计工程实施及 Debug 验收文档](./PRODUCT_RUNTIME_RELIABILITY_WP_R0_BASELINE_ENGINEERING_AND_DEBUG_PLAN.md)
 - [WP-R1 统一启动器与 Runtime Health 工程实施及 Debug 验收文档](./PRODUCT_RUNTIME_RELIABILITY_WP_R1_LAUNCHER_AND_HEALTH_ENGINEERING_AND_DEBUG_PLAN.md)
 - [WP-R2 Learning / Workbench 故障分类与恢复投射工程实施及 Debug 验收文档](./PRODUCT_RUNTIME_RELIABILITY_WP_R2_FAILURE_CLASSIFICATION_AND_RECOVERY_PROJECTION_ENGINEERING_AND_DEBUG_PLAN.md)
+- [WP-R3 Product Runtime Identity 与 Trial 自动失效工程实施及 Debug 验收文档](./PRODUCT_RUNTIME_RELIABILITY_WP_R3_RUNTIME_IDENTITY_AND_TRIAL_INVALIDATION_ENGINEERING_AND_DEBUG_PLAN.md)
+- [WP-R3 Runtime Identity、Trial 自动失效与浏览器验收记录](../education/phase/reports/product_runtime_reliability_wp_r3_runtime_identity_debug_browser_acceptance_2026-08-26.md)
 - [WP-R0 基线、Debug 与浏览器只读验收记录](../education/phase/reports/product_runtime_reliability_wp_r0_baseline_debug_browser_acceptance_2026-08-25.md)
 - [WP-R1 启动器、Health、Debug 与浏览器验收记录](../education/phase/reports/product_runtime_reliability_wp_r1_launcher_health_debug_browser_acceptance_2026-08-25.md)
 - [产品复杂度收口总契约](./PRODUCT_COMPLEXITY_CONVERGENCE_CONTRACT.md)
@@ -792,4 +794,4 @@ REAL TRIAL RE-ENTRY APPROVED
 16. 本轮不新增 Training Model 功能，不重构正式主链；
 17. 本轮完成只表示真实运行重新准入，不表示教育效果已经证明。
 
-本文档当前达到 `DESIGN BASELINE / WP-R0—R2 COMPLETE / WP-R3 AUTHORIZED / REAL TRIAL RE-ENTRY REQUIRED`。WP-R0 已完成只读基线，WP-R1 已完成统一启动器、固定端口保护、GET-only Runtime Health、动态正式资源投射和 Internal Health，WP-R2 已完成 Learning / Workbench 故障分类、内容保留表达、单一恢复动作和普通页面内部字段隔离。当前运行实例可启动且正式资源可读，但 AI 配置、内容寻址构建身份和 Trial 重新准入仍未同时满足；在 WP-R3—WP-R5 完成并通过重新准入前，旧 Trial 激活记录不得作为当前构建继续采集真实 Observation 的充分依据。
+本文档当前达到 `DESIGN BASELINE / WP-R0—R3 COMPLETE / WP-R4 AUTHORIZED / REAL TRIAL RE-ENTRY REQUIRED`。WP-R0 已完成只读基线，WP-R1 已完成统一启动器、固定端口保护、GET-only Runtime Health、动态正式资源投射和 Internal Health，WP-R2 已完成 Learning / Workbench 故障分类、内容保留表达、单一恢复动作和普通页面内部字段隔离，WP-R3 已完成内容寻址 Runtime Identity、Launch Binding 读取契约、旧非 off Trial 自动失效、Health/Internal 投射和零写入验收。当前 Runtime Identity 因工作区未提交而为 dirty，Learning 与 Workbench 继续可用，真实 Trial 保持 off；下一步只授权 WP-R4 重新执行 Preflight、创建新 Launch 与新 Binding，旧 Trial 激活记录不得继续接收真实 Observation。

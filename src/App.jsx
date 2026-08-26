@@ -62,6 +62,7 @@ import ProductRuntimeReliabilityWPR0Acceptance from './pages/ProductRuntimeRelia
 import ProductRuntimeHealth from './pages/ProductRuntimeHealth.jsx';
 import ProductRuntimeReliabilityWPR1Acceptance from './pages/ProductRuntimeReliabilityWPR1Acceptance.jsx';
 import ProductRuntimeReliabilityWPR2Acceptance from './pages/ProductRuntimeReliabilityWPR2Acceptance.jsx';
+import ProductRuntimeReliabilityWPR3Acceptance from './pages/ProductRuntimeReliabilityWPR3Acceptance.jsx';
 
 export default function App() {
   return (
@@ -114,6 +115,7 @@ export default function App() {
         <Route path="/internal/acceptance/product-runtime-reliability-wp-r0" element={<ProductRuntimeReliabilityWPR0Acceptance />} />
         <Route path="/internal/acceptance/product-runtime-reliability-wp-r1" element={<ProductRuntimeReliabilityWPR1Acceptance />} />
         <Route path="/internal/acceptance/product-runtime-reliability-wp-r2" element={<ProductRuntimeReliabilityWPR2Acceptance />} />
+        <Route path="/internal/acceptance/product-runtime-reliability-wp-r3" element={<ProductRuntimeReliabilityWPR3Acceptance />} />
         <Route path="/internal/runtime-health" element={<ProductRuntimeHealth />} />
         <Route path="/internal/product-complexity-convergence-stage4" element={<ProductComplexityConvergenceStage4Observation />} />
         <Route path="/internal/product-complexity-convergence-stage4-preflight" element={<ProductComplexityConvergenceStage4Preflight />} />

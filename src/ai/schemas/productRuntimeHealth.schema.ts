@@ -18,6 +18,8 @@ export type ProductRuntimeHealth = {
     runtimeStatus: 'ready';
     buildIdentityStatus: 'insufficient' | 'available';
     buildIdentity?: string;
+    runtimeIdentityVersion?: 'product_runtime_identity_v1';
+    runtimeIdentityStatus?: 'available' | 'missing' | 'invalid' | 'dirty';
     reasonCodes: ProductRuntimeReasonCode[];
   };
   formalResourceStore: {
@@ -48,7 +50,8 @@ export type ProductRuntimeHealth = {
   trial: {
     requestedMode: ProductRuntimeTrialMode;
     effectiveMode: ProductRuntimeTrialMode;
-    identityStatus: 'aligned' | 'mismatch' | 'insufficient_evidence';
+    identityStatus: 'aligned' | 'mismatch' | 'insufficient_evidence' | 'missing' | 'invalid' | 'dirty' | 'legacy_unverifiable';
+    identityAlignment: 'aligned' | 'mismatch' | 'insufficient_evidence' | 'missing' | 'invalid' | 'dirty' | 'legacy_unverifiable';
     observationFailOpen: true;
     reasonCodes: ProductRuntimeReasonCode[];
   };
@@ -106,6 +109,7 @@ export function isProductRuntimeHealth(value: unknown): value is ProductRuntimeH
     && (health.aiProvider?.availabilityVerified === false
       || health.aiProvider?.status === 'configured')
     && ['ready', 'degraded', 'blocked'].includes(health.learning?.status)
+    && health.trial?.identityAlignment === health.trial?.identityStatus
     && health.trial?.observationFailOpen === true
     && Array.isArray(health.summaryReasonCodes)
     && typeof health.factDigest === 'string'

@@ -30,6 +30,10 @@ import {
   recoverConvergenceActivation,
   resolveConvergenceActivation,
 } from '../services/productComplexityConvergenceTrialPreflightService.ts';
+import { REAL_TRIAL_RUNTIME_IDENTITY_BINDING_VERSION } from
+  '../schemas/productRuntimeIdentity.schema.ts';
+import { buildProductRuntimeIdentity, sha256 } from
+  '../services/productRuntimeIdentityService.ts';
 
 const NOW = '2026-08-25T08:00:00.000Z';
 const ENDS = '2026-09-15T08:00:00.000Z';
@@ -58,6 +62,33 @@ const launch = buildRealTrialLaunchRecord({
   enabledCapabilityModes: windowRecord.enabledCapabilityModes,
   preflightCheckIds: [...CONVERGENCE_STAGE4_PREFLIGHT_CHECK_IDS], unresolvedIssues: [], recordedAt: NOW,
 });
+const runtimeIdentity = buildProductRuntimeIdentity({
+  identityInputs: {
+    applicationContentDigest: sha256('preflight-application'),
+    dependencyLockDigest: sha256('preflight-lock'),
+    buildConfigurationDigest: sha256('preflight-config'),
+    buildArtifactManifestDigest: sha256('preflight-artifact'),
+    formalResourceSnapshotDigest: sha256('preflight-formal-resources'),
+    executablePolicyBundleDigest: sha256('preflight-executable-policy'),
+    trialPolicyBundleDigest: sha256('preflight-trial-policy'),
+    providerBoundaryDigest: sha256('preflight-provider'),
+  },
+  evidence: {
+    gitCommit: 'commit-1', worktreeState: 'clean', sourceFileCount: 1,
+    artifactFileCount: 1, formalStoreRevision: 1, generatedAt: NOW,
+  },
+});
+const runtimeIdentityBinding = {
+  bindingVersion: REAL_TRIAL_RUNTIME_IDENTITY_BINDING_VERSION,
+  bindingId: 'preflight-runtime-binding-1', launchRecordId: launch.launchRecordId,
+  trialWindowId: windowRecord.trialWindowId,
+  runtimeIdentityVersion: runtimeIdentity.runtimeIdentityVersion,
+  runtimeIdentityDigest: runtimeIdentity.runtimeIdentityDigest,
+  formalResourceSnapshotDigest: runtimeIdentity.identityInputs.formalResourceSnapshotDigest,
+  executablePolicyBundleDigest: runtimeIdentity.identityInputs.executablePolicyBundleDigest,
+  trialPolicyBundleDigest: runtimeIdentity.identityInputs.trialPolicyBundleDigest,
+  boundAt: NOW,
+};
 
 const checks: Array<{ id: string; title: string; passed: boolean }> = [];
 function check(id: string, title: string, passed: boolean) { checks.push({ id, title, passed }); }
@@ -85,8 +116,8 @@ await seed(idempotentRepository);
 const activeResolution = resolveConvergenceActivation({ requestedMode: 'real_trial', now: NOW,
   trialWindow: windowRecord, launchRecord: launch, preflightReport: report, registrySnapshot: registry, buildVersion: BUILD });
 await persistConvergenceActivationResolution({ resolution: activeResolution, repository: idempotentRepository });
-const observed1 = await recordConvergenceFormalOwnerFact({ ownerFact: ownerFact('revision'), repository: idempotentRepository, now: NOW, buildVersion: BUILD });
-const observed2 = await recordConvergenceFormalOwnerFact({ ownerFact: ownerFact('revision'), repository: idempotentRepository, now: NOW, buildVersion: BUILD });
+const observed1 = await recordConvergenceFormalOwnerFact({ ownerFact: ownerFact('revision'), repository: idempotentRepository, now: NOW, buildVersion: BUILD, currentRuntimeIdentity: runtimeIdentity, runtimeIdentityBinding });
+const observed2 = await recordConvergenceFormalOwnerFact({ ownerFact: ownerFact('revision'), repository: idempotentRepository, now: NOW, buildVersion: BUILD, currentRuntimeIdentity: runtimeIdentity, runtimeIdentityBinding });
 check('PF-C18', '重复 Owner Fact 幂等去重', observed1.observedCount === 1 && observed2.observedCount === 1 && (await idempotentRepository.listEvents()).length === 1);
 let conflictSeen = false;
 try {
@@ -110,13 +141,13 @@ const isolatedRepo = new InMemoryProductComplexityConvergenceObservationReposito
 await isolatedRepo.saveSourceRegistrySnapshot(registry);
 await isolatedRepo.saveTrialWindow(windowRecord);
 await persistConvergenceActivationResolution({ resolution: resolveConvergenceActivation({ requestedMode: 'isolated_acceptance', now: NOW, registrySnapshot: registry }), repository: isolatedRepo });
-const isolatedResult = await recordConvergenceFormalOwnerFact({ ownerFact: { ...ownerFact('revision'), dataOrigin: 'internal_acceptance', runtimeScope: 'internal' }, repository: isolatedRepo, now: NOW, buildVersion: BUILD });
+const isolatedResult = await recordConvergenceFormalOwnerFact({ ownerFact: { ...ownerFact('revision'), dataOrigin: 'internal_acceptance', runtimeScope: 'internal' }, repository: isolatedRepo, now: NOW, buildVersion: BUILD, currentRuntimeIdentity: runtimeIdentity, runtimeIdentityBinding });
 check('PF-C31', 'isolated_acceptance 永不进入真实分母', isolatedResult.admittedToRealDenominatorCount === 0);
 const offRepo = new InMemoryProductComplexityConvergenceObservationRepository();
 const offResult = await recordConvergenceFormalOwnerFact({ ownerFact: ownerFact('revision'), repository: offRepo, now: NOW, buildVersion: BUILD });
 check('PF-C32', 'off 模式零 Observation 写入', offResult.observedCount === 0 && (await offRepo.listEvents()).length === 0);
 check('PF-C33', 'real_trial 只有完整门禁后才生效', activeResolution.state.effectiveMode === 'real_trial' && activeResolution.activationAllowed);
-check('PF-C34', 'Adapter 失败不阻断 Learning', (await recordConvergenceFormalOwnerFact({ ownerFact: { ...ownerFact('revision'), ownerSchemaVersion: 'unknown' }, repository: idempotentRepository, now: NOW, buildVersion: BUILD })).learningAllowed);
+check('PF-C34', 'Adapter 失败不阻断 Learning', (await recordConvergenceFormalOwnerFact({ ownerFact: { ...ownerFact('revision'), ownerSchemaVersion: 'unknown' }, repository: idempotentRepository, now: NOW, buildVersion: BUILD, currentRuntimeIdentity: runtimeIdentity, runtimeIdentityBinding })).learningAllowed);
 const failingRepo = new InMemoryProductComplexityConvergenceObservationRepository();
 failingRepo.getActivationState = async () => { throw new Error('storage_failed'); };
 check('PF-C35', 'Repository 失败不阻断 Learning', (await recordConvergenceFormalOwnerFact({ ownerFact: ownerFact('revision'), repository: failingRepo, now: NOW, buildVersion: BUILD })).learningAllowed);

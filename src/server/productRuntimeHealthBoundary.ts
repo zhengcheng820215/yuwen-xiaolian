@@ -2,6 +2,7 @@ import type { Connect } from 'vite';
 import { SharedFormalResourceStore } from './sharedFormalResourceStore.ts';
 import { buildProductRuntimeHealth } from '../ai/services/productRuntimeHealthService.ts';
 import type { ProductRuntimeHealth, ProductRuntimeTrialMode } from '../ai/schemas/productRuntimeHealth.schema.ts';
+import { readCurrentProductRuntimeIdentity } from './productRuntimeIdentityBoundary.ts';
 
 export type ProductRuntimeHealthReader = () => Promise<ProductRuntimeHealth>;
 
@@ -37,13 +38,16 @@ export async function readCurrentProductRuntimeHealth(): Promise<ProductRuntimeH
   const store = new SharedFormalResourceStore();
   try {
     const snapshot = await store.readOnly();
+    const runtimeIdentity = await readCurrentProductRuntimeIdentity(undefined, snapshot);
     return buildProductRuntimeHealth({
       checkedAt: new Date().toISOString(), snapshot,
       aiConfigured: configured(process.env.DEEPSEEK_API_KEY),
       aiAvailabilityVerified: verifiedAiAvailability(),
-      buildIdentity: process.env.PRODUCT_RUNTIME_BUILD_IDENTITY,
-      buildIdentityContentAddressed: process.env.PRODUCT_RUNTIME_BUILD_IDENTITY_CONTENT_ADDRESSED === 'true',
-      trial: safeTrialInput(),
+      buildIdentity: runtimeIdentity.identity?.runtimeIdentityDigest,
+      buildIdentityContentAddressed: runtimeIdentity.status === 'available',
+      runtimeIdentityVersion: runtimeIdentity.identity?.runtimeIdentityVersion,
+      runtimeIdentityStatus: runtimeIdentity.status,
+      trial: safeTrialInput(runtimeIdentity.status),
     });
   } catch {
     return buildProductRuntimeHealth({
@@ -63,13 +67,17 @@ function verifiedAiAvailability(): boolean {
     && process.env.PRODUCT_AI_PROVIDER_AVAILABILITY_VERIFIED === 'true';
 }
 
-function safeTrialInput() {
+function safeTrialInput(runtimeIdentityStatus?: 'available' | 'missing' | 'invalid' | 'dirty') {
   const mode = (value: string | undefined): ProductRuntimeTrialMode =>
     ['off', 'isolated_acceptance', 'real_trial'].includes(String(value))
       ? value as ProductRuntimeTrialMode : 'off';
-  const identity = ['aligned', 'mismatch', 'insufficient_evidence'].includes(String(process.env.PRODUCT_TRIAL_IDENTITY_STATUS))
-    ? process.env.PRODUCT_TRIAL_IDENTITY_STATUS as 'aligned' | 'mismatch' | 'insufficient_evidence'
-    : 'mismatch';
+  const explicit = process.env.PRODUCT_TRIAL_IDENTITY_STATUS;
+  const allowed = ['aligned', 'mismatch', 'insufficient_evidence', 'missing', 'invalid', 'dirty', 'legacy_unverifiable'];
+  const identity = runtimeIdentityStatus && runtimeIdentityStatus !== 'available'
+    ? runtimeIdentityStatus
+    : allowed.includes(String(explicit))
+      ? explicit as 'aligned' | 'mismatch' | 'insufficient_evidence' | 'missing' | 'invalid' | 'dirty' | 'legacy_unverifiable'
+      : 'legacy_unverifiable';
   return {
     requestedMode: mode(process.env.PRODUCT_TRIAL_REQUESTED_MODE),
     effectiveMode: mode(process.env.PRODUCT_TRIAL_EFFECTIVE_MODE),
