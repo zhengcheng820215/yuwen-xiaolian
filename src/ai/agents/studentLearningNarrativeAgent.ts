@@ -18,6 +18,7 @@ import {
   type StudentLearningNarrativeProjection,
   type StudentLearningNarrativeStatement,
 } from '../schemas/studentLearningNarrative.schema.ts';
+import { projectSingleChoiceReviewActionForStudent } from '../content/singleChoiceStudentFeedback.ts';
 
 export type StudentLearningNarrativeInput = {
   studentId: string;
@@ -178,10 +179,7 @@ function buildSingleChoiceNextAction(
   const hasGap = Boolean(input.feedback?.thinkingReview?.primaryGap);
   if (!task || !response || !selectedOptionId || !hasGap) return undefined;
   const rationale = task.singleChoiceEvaluation?.distractorRationales.find((item) => item.optionId === selectedOptionId);
-  const boundary = rationale?.evidenceBoundary?.trim();
-  const text = boundary
-    ? `回到材料核对：${finishSentence(boundary)}`
-    : '回到材料重新核对题目要求的关键信息。';
+  const text = projectSingleChoiceReviewActionForStudent(rationale);
   return statement(text, 'current_response', 'learning_gap', [
     response.responseId,
     input.feedback?.thinkingReview?.primaryGapRequirementId || task.taskId,

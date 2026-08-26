@@ -87,6 +87,9 @@ async function main(): Promise<void> {
   await caseA15();
   await caseA16();
   await caseA17();
+  await caseA18();
+  await caseA19();
+  await caseA20();
 
   console.log('\nPhase 16.3A Real Learning Chain Debug');
   console.log('='.repeat(78));
@@ -221,6 +224,86 @@ async function caseA17(): Promise<void> {
       result.checkpoint.nextTaskResolution?.status === 'session_complete' &&
       result.checkpoint.nextAction === 'stop',
     `status=${result.status}, stage=${result.checkpoint.stage}, next=${result.checkpoint.nextTaskResolution?.status}, action=${result.checkpoint.nextAction}`);
+}
+
+async function caseA18(): Promise<void> {
+  const env = await createEnvironment('a18', [responseStep(validDiagnosis())], 'matched');
+  const first = await runPhase163RealLearningChain(env.input, env.dependencies);
+  const providerCalls = env.provider.callCount;
+  await env.dependencies.operationRepository.save({
+    ...first.checkpoint,
+    stage: 'next_task_ready',
+    status: 'completed',
+    nextTaskResolution: undefined,
+  });
+  const recovered = await runPhase163RealLearningChain(env.input, env.dependencies);
+  record('A18 旧完成态缺失下一题准入快照时只重建准入',
+    recovered.status === 'completed' &&
+      recovered.checkpoint.nextTaskResolution?.status === 'matched' &&
+      recovered.checkpoint.nextTaskResolution.taskReadiness?.canExecute === true &&
+      env.provider.callCount === providerCalls,
+    `status=${recovered.status}, next=${recovered.checkpoint.nextTaskResolution?.status}, providerCalls=${env.provider.callCount}`);
+}
+
+async function caseA19(): Promise<void> {
+  const env = await createEnvironment('a19', [responseStep(validDiagnosis())], 'matched');
+  const first = await runPhase163RealLearningChain(env.input, env.dependencies);
+  const expected = first.checkpoint.nextTaskResolution?.resourceVersion?.resourceVersionId;
+  const providerCalls = env.provider.callCount;
+  expect(Boolean(expected), 'A19 expected next resource is missing.');
+  await env.dependencies.operationRepository.save({
+    ...first.checkpoint,
+    stage: 'next_task_ready',
+    status: 'completed',
+    nextTaskResolution: first.checkpoint.nextTaskResolution?.resourceVersion
+      ? {
+          ...first.checkpoint.nextTaskResolution,
+          resourceVersion: {
+            ...first.checkpoint.nextTaskResolution.resourceVersion,
+            resourceVersionId: 'legacy-wrong-next-resource-version',
+          },
+        }
+      : first.checkpoint.nextTaskResolution,
+  });
+  const recovered = await runPhase163RealLearningChain({
+    ...env.input,
+    expectedNextResourceVersionId: expected,
+    expectedNextTaskRequest: first.checkpoint.nextTaskRequest,
+  }, env.dependencies);
+  record('A19 旧下一题匹配与固定队列身份不一致时重建准入',
+    recovered.status === 'completed' &&
+      recovered.checkpoint.nextTaskResolution?.resourceVersion?.resourceVersionId === expected &&
+      env.provider.callCount === providerCalls,
+    `expected=${expected}, actual=${recovered.checkpoint.nextTaskResolution?.resourceVersion?.resourceVersionId}, providerCalls=${env.provider.callCount}`);
+}
+
+async function caseA20(): Promise<void> {
+  const env = await createEnvironment('a20', [responseStep(validDiagnosis())], 'matched');
+  const first = await runPhase163RealLearningChain(env.input, env.dependencies);
+  const expected = first.checkpoint.nextTaskResolution?.resourceVersion?.resourceVersionId;
+  const expectedRequest = first.checkpoint.nextTaskRequest;
+  const providerCalls = env.provider.callCount;
+  expect(Boolean(expected && expectedRequest), 'A20 expected fixed-queue admission context is missing.');
+  await env.dependencies.operationRepository.save({
+    ...first.checkpoint,
+    stage: 'persisted',
+    status: 'review_required',
+    nextAction: 'human_review',
+    nextTaskRequest: undefined,
+    nextTaskResolution: undefined,
+    issues: ['legacy_adaptive_next_task_review'],
+  });
+  const recovered = await runPhase163RealLearningChain({
+    ...env.input,
+    expectedNextResourceVersionId: expected,
+    expectedNextTaskRequest: expectedRequest,
+  }, env.dependencies);
+  record('A20 已保存当前题不因旧自适应续题复核阻断固定队列',
+    recovered.status === 'completed' &&
+      recovered.checkpoint.nextTaskResolution?.resourceVersion?.resourceVersionId === expected &&
+      recovered.checkpoint.nextTaskResolution?.taskReadiness?.canExecute === true &&
+      env.provider.callCount === providerCalls,
+    `status=${recovered.status}, next=${recovered.checkpoint.nextTaskResolution?.resourceVersion?.resourceVersionId}, providerCalls=${env.provider.callCount}`);
 }
 
 async function caseA11(): Promise<void> {

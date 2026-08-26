@@ -5,6 +5,7 @@ import type {
   TaskRequirementCoverageStatus,
 } from '../schemas/studentLearningFeedback.schema.ts';
 import { projectFeedbackObservationTarget } from './feedbackObservationTargetAdapter.ts';
+import { projectSingleChoiceGapForStudent } from '../content/singleChoiceStudentFeedback.ts';
 
 const EVIDENCE_REQUIREMENT_PATTERN = /文本依据|结合(?:材料|原文|文章|文中)|结合.{0,8}(?:动作|语言|神态|细节|内容)|具体(?:动作|语句|细节)|引用/;
 const RELATION_REQUIREMENT_PATTERN = /说明.*(?:理由|关系)|依据.*结论|为什么|体现|表现|看出/;
@@ -173,11 +174,11 @@ function buildSingleChoiceThinkingReview(
   }
 
   const rationale = interaction.distractorRationales.find((item) => item.optionId === selectedOptionId);
-  const diagnosisMeaning = finishSentence(
-    rationale?.diagnosisMeaning || diagnosis.surfaceError || '这次选择与材料和题意不一致',
-  );
   const evidenceBoundary = rationale?.evidenceBoundary?.trim();
-  const gapMessage = diagnosisMeaning;
+  const gapMessage = projectSingleChoiceGapForStudent({
+    diagnosisMeaning: rationale?.diagnosisMeaning || diagnosis.surfaceError,
+    evidenceBoundary,
+  });
   return {
     requirementCoverage: [{
       requirementId,

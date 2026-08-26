@@ -145,6 +145,10 @@ Session 队列中存在 `nextResourceVersionId` 只表示队列仍有后续位�
 
 `canAdvance` 是正式准入结果的页面投影，不得由 `queue.hasNextTask` 单独推导。
 
+历史 Checkpoint 若已标记 `next_task_ready / completed`，但缺少完整的下一题 Resource Version、Quality Gated Task、Concrete Task 或可执行 Readiness，不得直接投影为题组结束。页面应保留当前正式结果，将下一题准入视为可恢复检查；用户选择继续时只重建准入快照，不重跑 Diagnosis、不重复写入 Attempt / Evidence，通过后直接进入队列中的下一题。
+
+单项选择的反馈必须使用学生可理解的作答契约：说明当前选择关注了什么、遗漏了哪条关键线索，并引导对照材料后重新判断选项。禁止原样展示“学生只看到……”等内部诊断口吻，也不得要求单选作答补写文本解释。正式 `distractorRationale` 仍是事实来源，但必须经过稳定的学生端投影后才能展示。
+
 当反馈中的“下一步这样做”与修订目标文本完全相同时，默认只展示一次修订目标；不得以两个标题重复投射同一句指导，使学生误认为存在两个不同动作。
 
 ### 5.2 终止阻断态退出与入口恢复边界
@@ -164,6 +168,14 @@ Session 收口成功后，页面必须同步清除收口前缓存的 Runtime 恢
 健康且可恢复的活动 Session 应由统一学习入口的正常状态卡片承载，并同时提供“继续学习”和“结束本次学习”。不得使用仅有单一“继续学习”动作的 Runtime 故障提示覆盖正常入口，否则学生在恢复目标已经失效时没有退出路径。
 
 只有仍存在可执行下一题、可提交修订、可恢复提交，或页面实际提供且学生选择执行资源重试时，Session 才可继续保持 active。内部 `primaryAction` 仍为资源检查或重试，不得覆盖学生在反馈页明确选择“返回学习入口”的退出语义。
+
+固定题组续题还必须遵守以下恢复边界：
+
+- 当前题的正式结果已经保存且 Session Task Queue 仍有下一题时，下一题身份以队列中的 Frozen Resource Version 为准；
+- 历史自适应策略产生的 `review_required`、旧匹配快照或错误的下一题身份，不得把固定题组降级为“返回学习入口”；
+- Runtime 应使用队列目标版本派生确定性的 Task Request，重新执行下一题 Admission，而不得重新解释学生能力或重跑当前题 Diagnosis；
+- 固定队列中的 Frozen Resource Version 已通过发布边界；续题准入应从该版本确定性重建质量任务封装、Concrete Task 与 Readiness，不再用新的历史窗口重复运行动态候选匹配；
+- 恢复成功后直接进入下一题；恢复失败时保留当前题正式结果并显示可见错误，不得形成“入口—反馈—入口”的循环。
 
 ## 六、自然作答与人工边界
 
@@ -218,6 +230,21 @@ Session 收口成功后，页面必须同步清除收口前缓存的 Runtime 恢
 ```
 
 步骤 10 是不可自动跨越的人工边界。
+
+### 9.1 历史完成态的固定队列恢复边界
+
+真实 Trial 中，当前题是否已经完成必须以正式持久化结果为主事实，不得以 Operation Checkpoint 中可缺失的 `taskExecutionResult.studentResponse` 作为唯一依据。若同时满足：
+
+- 当前轮存在已保存的正式学习结果；
+- Session Task Queue 尚有下一位置；
+- 下一位置指向仍可用的 Frozen Resource Version；
+- 当前下一题 Admission 尚未完成或与固定队列身份不一致；
+
+系统必须只重建下一题 Admission，并在反馈页提供“进入第 N 题（共 M 题）”。不得重复执行当前题 Diagnosis、Evidence、Profile 更新或正式结果写入，也不得落入“返回学习入口”。只有队列确实完成或下一 Frozen Resource Version 已不可用时，才允许结束或明确阻断。
+
+上一题已冻结的下一题 Admission 同时是进入该 Frozen Version 的有效凭据。若资源版本身份一致、质量门禁快照完整且 `taskReadiness.canExecute = true`，下一轮必须直接消费该快照；不得在点击“进入下一题”后再使用实时历史窗口重复匹配同一版本。二次匹配结果不得推翻已经对学生投射为可进入的固定队列状态。
+
+若历史 Admission 标记为 `matched`，但快照不完整，恢复必须遵守“冻结身份优先”顺序：资源版本与固定队列一致且 Quality Gated Task 已存在时，先从该冻结资源确定性补建 Concrete Task 与可执行 Readiness；只有缺少冻结资源、缺少质量任务、身份不一致或确定性补建失败时，才清除残缺准入并重新运行一次纯 Admission。不得因为旧状态是 `blocked / review_required` 而在恢复链入口提前返回，也不得先走实时匹配而让新历史窗口推翻旧题组的合法续题身份。若 Admission 已完整但 Operation 仍残留旧人工复核或阻断状态，则直接规范化为 `next_task_ready / completed / start_next_task`。
 
 ## 十、零回归原则
 

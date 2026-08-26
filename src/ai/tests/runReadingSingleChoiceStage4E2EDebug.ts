@@ -53,6 +53,10 @@ import type {
 } from '../schemas/questionResourceAdmission.schema.ts';
 import { RESOURCE_MATCH_QUALITY_SCHEMA_VERSION, type QualityGatedExecutableTask } from '../schemas/resourceMatchQuality.schema.ts';
 import { SINGLE_CHOICE_INTERACTION_SCHEMA_VERSION, type SingleChoiceInteraction } from '../schemas/singleChoiceInteraction.schema.ts';
+import {
+  projectSingleChoiceGapForStudent,
+  projectSingleChoiceReviewActionForStudent,
+} from '../content/singleChoiceStudentFeedback.ts';
 import type { TaskEvidenceReturnResult } from '../schemas/taskEvidenceReturn.schema.ts';
 
 const NOW = '2026-08-18T15:00:00.000Z';
@@ -775,8 +779,9 @@ async function executeChoice(chain: MaterialChain, version: FrozenQuestionResour
     assert.equal(narrative.nextAction, undefined, narrativeText);
   } else {
     const rationale = concrete.singleChoiceEvaluation?.distractorRationales.find((item) => item.optionId === selectedOptionId);
-    assert(narrative.currentGap?.text.includes(rationale?.diagnosisMeaning || ''), narrativeText);
-    assert(narrative.nextAction?.text.includes(rationale?.evidenceBoundary || ''), narrativeText);
+    assert.equal(narrative.currentGap?.text, projectSingleChoiceGapForStudent(rationale), narrativeText);
+    assert.equal(narrative.nextAction?.text, projectSingleChoiceReviewActionForStudent(rationale), narrativeText);
+    assert.equal(/^学生/u.test(narrative.currentGap?.text || ''), false, narrativeText);
   }
   const trace = validateFormalResourceLearningTrace({
     sourceContext: prepared.sourceResolution.sourceContext!,

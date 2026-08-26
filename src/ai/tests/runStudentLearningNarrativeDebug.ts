@@ -12,6 +12,10 @@ import type { NextFormalTaskResolution } from '../schemas/realLearningOperation.
 import type { StudentLearningFeedback } from '../schemas/studentLearningFeedback.schema.ts';
 import type { StudentResponse } from '../schemas/taskExecution.schema.ts';
 import { narrativeCalibrationSamples } from '../fixtures/narrativeCalibrationSamples.ts';
+import {
+  projectSingleChoiceGapForStudent,
+  projectSingleChoiceReviewActionForStudent,
+} from '../content/singleChoiceStudentFeedback.ts';
 
 const STUDENT_ID = 'student-learning-narrative-debug';
 type Report = { name: string; passed: boolean; detail: string };
@@ -321,6 +325,22 @@ function main(): void {
     }),
   }, (result) => result.taskReason?.text === '这道题先练习理解句段含义与内容关系，为后面的解释和分析打基础。' &&
     !/option-1|天地间没有人类|正确答案/.test(result.taskReason.text));
+
+  reports.push({
+    name: 'N31 单选理解偏差转换为学生可理解表达',
+    passed: projectSingleChoiceGapForStudent({
+      diagnosisMeaning: '学生只看到后文“她现在很听我的话”，忽略了前文的直接原因',
+    }) === '你选择的这一项只关注了后文“她现在很听我的话”，还没有结合前文的直接原因。',
+    detail: 'internal reviewer voice is removed',
+  });
+
+  reports.push({
+    name: 'N32 单选下一动作只引导核对线索与重新判断',
+    passed: projectSingleChoiceReviewActionForStudent({
+      evidenceBoundary: '回到材料核对：第2段前后两句的因果关系。',
+    }) === '请对照第2段前后两句的因果关系，再判断哪个选项更符合原文。',
+    detail: 'no text revision requirement',
+  });
 
   console.log('\nStudent Learning Narrative Calibration Debug');
   console.log('='.repeat(76));

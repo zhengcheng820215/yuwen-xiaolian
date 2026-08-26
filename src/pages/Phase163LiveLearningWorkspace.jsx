@@ -7,6 +7,7 @@ import {
   recordPhase163FirstInputObserved,
   recordPhase163PreAnswerHintOpened,
   recordPhase163QuestionPresented,
+  recoverPhase163FixedQueueContinuation,
   resumePhase163CoreAfterTargetedMicroTraining,
   resumePhase163FeedbackRevisionEvaluation,
   savePhase163LiveDraft,
@@ -273,8 +274,8 @@ export default function Phase163LiveLearningWorkspace({
 
   async function resumeProcessing() {
     const choiceAnswer = buildChoiceAnswer(state, selectedOptionId) || state?.singleChoiceDraft;
-    if (busy || (state?.task?.responseFormat === 'single_choice' ? !choiceAnswer : !answer.trim())) return;
     const resourceOnlyRetry = state?.primaryAction === 'retry_resource';
+    if (busy || (!resourceOnlyRetry && (state?.task?.responseFormat === 'single_choice' ? !choiceAnswer : !answer.trim()))) return;
     if (!resourceOnlyRetry && state?.task?.responseFormat !== 'single_choice' && runtimeAvailability !== 'ready') {
       showMessage(RUNTIME_UNAVAILABLE_MESSAGE, 'error');
       return;
@@ -282,7 +283,9 @@ export default function Phase163LiveLearningWorkspace({
     setBusy(true);
     showMessage(resourceOnlyRetry ? '正在检查符合要求的下一任务。' : '正在恢复已经提交的结果，请稍候。');
     try {
-      applyState(await submitPhase163LiveAnswer(choiceAnswer || answer));
+      applyState(resourceOnlyRetry
+        ? await recoverPhase163FixedQueueContinuation()
+        : await submitPhase163LiveAnswer(choiceAnswer || answer));
     } catch (error) {
       if (isPhase163DiagnosisBoundaryUnavailable(error)) {
         setRuntimeAvailability('unavailable');
@@ -344,10 +347,24 @@ export default function Phase163LiveLearningWorkspace({
         && (state.revision.status === 'offered' || state.revision.status === 'draft')
         ? state.revision.learningTaskAttemptId
         : undefined;
-      if (state?.isTargetedMicroTraining) {
+      if (state?.primaryAction === 'retry_resource' && !state.canAdvance) {
+        const recovered = await recoverPhase163FixedQueueContinuation();
+        if (recovered.canAdvance) {
+          const nextState = await advancePhase163LiveRound();
+          if (skippableRevisionAttemptId) {
+            await skipPhase163FeedbackRevisionByAttemptId(skippableRevisionAttemptId);
+          }
+          applyState(nextState);
+        } else {
+          applyState(recovered);
+        }
+      } else if (state?.isTargetedMicroTraining) {
         applyState(await resumePhase163CoreAfterTargetedMicroTraining());
       } else if (state?.canAdvance) {
         const nextState = await advancePhase163LiveRound();
+        if (nextState.roundNumber <= state.roundNumber) {
+          throw new Error('下一题进入状态未前进，请重新检查当前题组。');
+        }
         if (skippableRevisionAttemptId) {
           await skipPhase163FeedbackRevisionByAttemptId(skippableRevisionAttemptId);
         }
@@ -424,7 +441,7 @@ export default function Phase163LiveLearningWorkspace({
     ? state.canAdvance
       ? formatStudentNextQuestionAction(state.roundNumber, state.sessionTaskCount)
       : '完成本轮学习'
-    : state.canAdvance
+    : state.canAdvance || state.primaryAction === 'retry_resource'
     ? formatStudentNextQuestionAction(state.roundNumber, state.sessionTaskCount)
     : state.sessionComplete
       ? '完成本轮学习'
@@ -782,7 +799,7 @@ function CompletedFeedback({
                 {state.revision.actionLabel}
               </button>
             </>
-          ) : state.canAdvance || state.sessionComplete ? (
+          ) : state.canAdvance || state.sessionComplete || state.primaryAction === 'retry_resource' ? (
             <button
               type="button"
               disabled={busy}

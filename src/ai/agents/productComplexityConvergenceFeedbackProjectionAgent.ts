@@ -427,7 +427,7 @@ function safeStudentText(value?: string): string | undefined {
 function safeExecutableAction(value?: string): string | undefined {
   const text = safeStudentText(value);
   if (!text || GENERIC_ACTION.test(text)) return undefined;
-  return /(?:回到|找到|找出|保留|补充|说明|写出|核对|检查|整理|结合|选择)/.test(text)
+  return /(?:回到|找到|找出|保留|补充|说明|写出|核对|对照|判断|检查|整理|结合|选择)/.test(text)
     ? text
     : undefined;
 }

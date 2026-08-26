@@ -14,6 +14,9 @@ import {
   type StudentRuntimePauseReason,
 } from '../ai/content/studentRuntimeMessages.ts';
 import { toStudentFeedbackSummary } from '../ai/content/studentFeedbackPresentation.ts';
+import {
+  projectSingleChoiceReviewActionForStudent,
+} from '../ai/content/singleChoiceStudentFeedback.ts';
 import { buildStudentThinkingReview } from '../ai/agents/studentThinkingReviewAgent.ts';
 import { resolveRestoredFormalResourceVersionId } from '../ai/agents/learningPersistenceAgent.ts';
 import {
@@ -55,6 +58,12 @@ import {
   createLearningSessionTaskQueue,
   resolveLearningSessionTaskQueueProgress,
 } from '../ai/agents/learningSessionTaskQueueAgent.ts';
+import {
+  buildFixedQueueAdmissionFromFrozenResource,
+  reusableFixedQueueAdmission,
+  restoreFixedTaskQueueCheckpointFromPersistence,
+  shouldRecoverFixedTaskQueueAdmission,
+} from '../ai/agents/fixedTaskQueueContinuationRecovery.ts';
 import { REAL_AI_DIAGNOSIS_PROMPT_V4_VERSION } from '../ai/prompts/buildRealAIDiagnosisPromptV4.ts';
 import { InMemoryControlledFeedbackRepository } from '../ai/repositories/inMemoryControlledFeedbackRepository.ts';
 import { InMemoryFormalDiagnosisRepository } from '../ai/repositories/inMemoryFormalDiagnosisRepository.ts';
@@ -320,7 +329,14 @@ export async function loadPhase163LiveWorkspace(): Promise<Phase163LiveWorkspace
     // Progressive-load calibration recovery is also non-critical.
   });
   if (!checkpoint) return readyState(descriptor, persisted?.answerDraft || '', persisted?.singleChoiceDraft);
-  return await stateFromCheckpoint(descriptor, checkpoint, persisted?.answerDraft || '', persisted?.singleChoiceDraft);
+  const restored = restoreFixedTaskQueueCheckpointFromPersistence({ checkpoint, persistence: persisted });
+  return await stateFromCheckpoint(
+    descriptor,
+    restored.checkpoint,
+    restored.studentResponse?.answerText || persisted?.answerDraft || '',
+    restored.studentResponse?.singleChoiceAnswer || persisted?.singleChoiceDraft,
+    persisted,
+  );
 }
 
 export async function startPhase163TargetedMicroTraining(
@@ -517,7 +533,98 @@ export async function submitPhase163LiveAnswer(
   await observationService.retryDue().catch(() => undefined);
   if (persistence?.learningRoundResult) await appendRoundToCurrentSession(persistence);
   await recordNaturalDay(result, descriptor.retestPlan);
-  return await stateFromCheckpoint(descriptor, result.checkpoint, answerText, singleChoiceAnswer);
+  return await stateFromCheckpoint(descriptor, result.checkpoint, answerText, singleChoiceAnswer, persistence);
+}
+
+export async function recoverPhase163FixedQueueContinuation(): Promise<Phase163LiveWorkspaceState> {
+  const descriptor = await buildCurrentRoundDescriptor();
+  let checkpoint = await operationRepository.getByOperationId(descriptor.input.operationId);
+  const persistence = await persistenceRepository.loadByRound(
+    PHASE163_RUNTIME_STUDENT_ID,
+    descriptor.input.learningRoundId,
+  );
+  if (!checkpoint || persistence?.learningRoundResult?.status !== 'completed') {
+    throw new Error('当前题的正式结果尚未完成，不能恢复下一题。');
+  }
+  const expectedNextResourceVersionId = descriptor.queueProgress.nextResourceVersionId;
+  const frozenAdmission = checkpoint.nextTaskResolution;
+  if (
+    expectedNextResourceVersionId
+    && frozenAdmission?.status === 'matched'
+    && frozenAdmission.resourceVersion?.resourceVersionId === expectedNextResourceVersionId
+    && frozenAdmission.qualityGatedTask
+    && (!frozenAdmission.concreteTask || frozenAdmission.taskReadiness?.canExecute !== true)
+  ) {
+    const preparation = prepareConcreteLearningTaskFromFrozenResource({
+      resourceVersion: frozenAdmission.resourceVersion,
+      qualityGatedTask: frozenAdmission.qualityGatedTask,
+      createdAt: new Date().toISOString(),
+    });
+    if (
+      preparation.status === 'prepared'
+      && preparation.concreteTaskResult.concreteTask
+      && preparation.concreteTaskResult.readiness?.canExecute === true
+    ) {
+      const repairedCheckpoint: RealLearningOperationCheckpoint = {
+        ...checkpoint,
+        stage: 'next_task_ready',
+        status: 'completed',
+        nextAction: 'start_next_task',
+        nextTaskResolution: {
+          ...frozenAdmission,
+          concreteTask: preparation.concreteTaskResult.concreteTask,
+          taskReadiness: preparation.concreteTaskResult.readiness,
+        },
+        updatedAt: new Date().toISOString(),
+      };
+      const write = await operationRepository.save(repairedCheckpoint);
+      if (write.status === 'conflict') {
+        throw new Error(write.issues.join('、') || '当前学习状态恢复冲突。');
+      }
+      checkpoint = repairedCheckpoint;
+    }
+  }
+  const restored = restoreFixedTaskQueueCheckpointFromPersistence({
+    checkpoint,
+    persistence,
+    expectedNextResourceVersionId,
+  });
+  const studentResponse = restored.studentResponse;
+  if (!studentResponse) throw new Error('当前题的正式作答记录不完整，不能安全恢复下一题。');
+  if (restored.changed) {
+    const write = await operationRepository.save(restored.checkpoint);
+    if (write.status === 'conflict') throw new Error(write.issues.join('、') || '当前学习状态恢复冲突。');
+  }
+  const result = await runPhase163RealLearningChain({
+    ...descriptor.input,
+    answerText: studentResponse.answerText,
+    singleChoiceAnswer: studentResponse.singleChoiceAnswer,
+    usedHint: studentResponse.usedHint,
+    hintCount: studentResponse.hintCount,
+    submittedAt: studentResponse.submittedAt,
+  }, {
+    formalDiagnosisRepository: new InMemoryFormalDiagnosisRepository(),
+    controlledFeedbackRepository: new InMemoryControlledFeedbackRepository(),
+    learningPersistenceRepository: persistenceRepository,
+    operationRepository,
+    learningProgressionRuntimeService,
+    runDiagnosisRuntime: runDiagnosisThroughPhase163Boundary,
+    resolveNextTask: ({ taskRequest, previousResourceVersion }) => (
+      resolveNextFormalTask(taskRequest, previousResourceVersion)
+    ),
+    now: () => new Date().toISOString(),
+  });
+  const recoveredState = await stateFromCheckpoint(
+    descriptor,
+    result.checkpoint,
+    studentResponse.answerText,
+    studentResponse.singleChoiceAnswer,
+    persistence,
+  );
+  if (!recoveredState.canAdvance) {
+    throw new Error('下一题尚未完成准入检查，请返回学习入口后重试。');
+  }
+  return recoveredState;
 }
 
 async function recoverPhase163LearningObservations(
@@ -1174,6 +1281,9 @@ async function buildCurrentRoundDescriptor() {
     targetAbilityId: version.abilityMetadata.abilityId,
     recentTaskRole: version.abilityMetadata.taskRole,
   };
+  const expectedNextVersion = queueProgress.nextResourceVersionId
+    ? currentVersions.find((item) => item.resourceVersionId === queueProgress.nextResourceVersionId)
+    : undefined;
   return {
     isTargetedMicroTraining,
     targetedAssignmentId,
@@ -1201,6 +1311,10 @@ async function buildCurrentRoundDescriptor() {
       previousEvidence,
       progressionContextSnapshot,
       previousProgressionObservations,
+      expectedNextResourceVersionId: queueProgress.nextResourceVersionId,
+      expectedNextTaskRequest: expectedNextVersion
+        ? taskRequestForExistingVersion(expectedNextVersion, startedAt)
+        : undefined,
       progressionSupportMode: isTargetedMicroTraining
         ? 'targeted_training'
         : version.abilityMetadata.taskRole === 'retest'
@@ -1369,7 +1483,11 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
       : previousCheckpoint?.nextTaskRequest && plannedResolution
         ? previousCheckpoint.nextTaskRequest
         : bootstrapResolution!.taskRequest;
-  let matched = bootstrapResolution?.matched || await matchCurrentFormalResource({
+  const frozenQueueAdmission = reusableFixedQueueAdmission({
+    plannedResolution,
+    expectedResourceVersionId: currentVersion?.resourceVersionId,
+  });
+  let matched = frozenQueueAdmission || bootstrapResolution?.matched || await matchCurrentFormalResource({
     taskRequest,
     studentId: PHASE163_RUNTIME_STUDENT_ID,
     resourceRepository: formalResourceRepository,
@@ -1484,27 +1602,11 @@ async function resolveNextFormalTask(
   ]);
   if (queuedNextVersion) {
     const queuedTaskRequest = taskRequestForExistingVersion(queuedNextVersion, new Date().toISOString());
-    const queuedResolution = await matchCurrentFormalResource({
+    return buildFixedQueueAdmissionFromFrozenResource({
+      resourceVersion: queuedNextVersion,
       taskRequest: queuedTaskRequest,
-      studentId: PHASE163_RUNTIME_STUDENT_ID,
-      resourceRepository: formalResourceRepository,
-      observationRepository: materialObservationRepository,
-      recentHistory: {
-        ...history,
-        recentTaskIds: uniqueStrings([...history.recentTaskIds, previousResourceVersion.taskId]),
-        recentResourceIds: uniqueStrings([...history.recentResourceIds, previousResourceVersion.resourceId]),
-        recentResourceVersionIds: effectiveRecentVersionIds,
-      },
-      bootstrapMaterialId: queuedNextVersion.materialId,
-      requiredResourceVersionId: queuedNextVersion.resourceVersionId,
-      frozenSessionResourceVersionId: queuedNextVersion.resourceVersionId,
-      eligibleResourceVersionIds: versions.map((version) => version.resourceVersionId),
-      evaluatedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     });
-    return {
-      ...queuedResolution,
-      resolvedTaskRequest: queuedTaskRequest,
-    };
   }
   const preferredVersion = selectFormalResourceForLearningSequence(versions, {
     taskRole: taskRequest.taskRole,
@@ -1735,13 +1837,18 @@ async function stateFromCheckpoint(
   checkpoint: NonNullable<Awaited<ReturnType<IndexedDBRealLearningOperationRepository['getByOperationId']>>>,
   answerDraft: string,
   singleChoiceDraft?: SingleChoiceStudentAnswerValue,
+  persistence?: LearningPersistenceRecord,
 ): Promise<Phase163LiveWorkspaceState> {
-  const restoredAnswer = checkpoint.taskExecutionResult?.studentResponse?.answerText || answerDraft;
-  const restoredChoice = checkpoint.taskExecutionResult?.studentResponse?.singleChoiceAnswer || singleChoiceDraft;
+  const restoredResponse = checkpoint.taskExecutionResult?.studentResponse || persistence?.studentResponse;
+  const restoredAnswer = restoredResponse?.answerText || answerDraft;
+  const restoredChoice = restoredResponse?.singleChoiceAnswer || singleChoiceDraft;
   const base = readyState(descriptor, restoredAnswer, restoredChoice);
   const feedback = resolvePhase163LiveStudentFeedback(checkpoint);
   const queueProgress = descriptor.queueProgress;
-  const hasFormalRoundResult = Boolean(checkpoint.learningPersistenceRecordId);
+  const hasFormalRoundResult = Boolean(
+    checkpoint.learningPersistenceRecordId
+    || persistence?.learningRoundResult?.status === 'completed',
+  );
   const sessionQueueBlocked = checkpoint.issues.includes(
     'session_task_queue_next_version_unavailable',
   );
@@ -1752,6 +1859,14 @@ async function stateFromCheckpoint(
     nextTaskResolution: checkpoint.nextTaskResolution,
   });
   const sessionComplete = hasFormalRoundResult && queueProgress.isComplete;
+  const needsNextTaskAdmissionRecovery = shouldRecoverFixedTaskQueueAdmission({
+    hasFormalRoundResult,
+    checkpointStatus: checkpoint.status,
+    checkpointNextAction: checkpoint.nextAction,
+    queueProgress,
+    canAdvance,
+    queueBlocked: sessionQueueBlocked,
+  });
   const learningPresentation = toStudentLearningPresentation(buildStudentLearningNarrativeProjection({
     studentId: checkpoint.studentId,
     currentTask: checkpoint.concreteTask || descriptor.concreteTask,
@@ -1767,17 +1882,19 @@ async function stateFromCheckpoint(
   });
   const primaryAction = canAdvance
     ? 'start_next_task'
-    : checkpoint.status === 'review_required'
-      ? 'return_to_entry'
-      : checkpoint.status === 'blocked'
-        ? checkpoint.nextAction === 'prepare_resource' && Boolean(checkpoint.learningPersistenceRecordId)
-          ? 'retry_resource'
-          : 'return_to_entry'
-        : checkpoint.nextAction === 'submit_answer'
-          ? 'submit_answer'
-          : checkpoint.status === 'retry_required'
-            ? 'resume_processing'
-            : 'return_to_entry';
+    : needsNextTaskAdmissionRecovery
+      ? 'retry_resource'
+      : checkpoint.status === 'review_required'
+        ? 'return_to_entry'
+        : checkpoint.status === 'blocked'
+          ? checkpoint.nextAction === 'prepare_resource' && Boolean(checkpoint.learningPersistenceRecordId)
+            ? 'retry_resource'
+            : 'return_to_entry'
+          : checkpoint.nextAction === 'submit_answer'
+            ? 'submit_answer'
+            : checkpoint.status === 'retry_required'
+              ? 'resume_processing'
+              : 'return_to_entry';
   const resourceUnavailable = checkpoint.nextAction === 'prepare_resource';
   const pausePresentation = checkpoint.status === 'review_required' || checkpoint.status === 'blocked'
     ? resolveStudentRuntimePausePresentation({
@@ -1845,7 +1962,7 @@ async function stateFromCheckpoint(
   );
   return {
     ...base,
-    status: canAdvance || sessionComplete || checkpoint.status === 'completed'
+    status: canAdvance || sessionComplete || needsNextTaskAdmissionRecovery || checkpoint.status === 'completed'
       ? 'completed'
       : checkpoint.status,
     learningPresentation,
@@ -2326,6 +2443,11 @@ export function resolvePhase163LiveStudentFeedback(
     thinkingReview,
   });
   if (!plan.validation.passed) return { ...feedback, whatNeedsAttention: [] };
+  const singleChoiceNextAction = task.responseFormat === 'single_choice'
+    ? projectSingleChoiceReviewActionForStudent({
+        evidenceBoundary: plan.revisionActions[0]?.text || feedback.nextActionText,
+      })
+    : undefined;
   return {
     ...feedback,
     summary: toStudentFeedbackSummary(feedback.summary),
@@ -2336,8 +2458,11 @@ export function resolvePhase163LiveStudentFeedback(
     guidance: {
       understandingNotice: plan.understandingNotice?.text,
       detailsToReview: plan.detailsToReview.map((item) => item.text),
-      revisionActions: plan.revisionActions.map((item) => item.text),
+      revisionActions: singleChoiceNextAction
+        ? [singleChoiceNextAction]
+        : plan.revisionActions.map((item) => item.text),
     },
+    nextActionText: singleChoiceNextAction || feedback.nextActionText,
     thinkingReview,
   };
 }

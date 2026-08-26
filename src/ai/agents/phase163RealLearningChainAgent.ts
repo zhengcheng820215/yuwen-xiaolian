@@ -79,6 +79,8 @@ export type Phase163RealLearningChainInput = {
   progressionSupportMode?: ProgressionSupportMode;
   progressionTaskLoadRisk?: boolean;
   currentLearningContext: CurrentLearningContext;
+  expectedNextResourceVersionId?: string;
+  expectedNextTaskRequest?: TaskRequest;
   providerConfig: DiagnosisProviderConfigSnapshot;
   timezone: string;
 };
@@ -120,7 +122,15 @@ export async function runPhase163RealLearningChain(
       true,
     );
   }
-  if (existing?.stage === 'next_task_ready' && existing.status === 'completed') {
+  if (
+    existing?.stage === 'next_task_ready'
+    && existing.status === 'completed'
+    && Boolean(existing.learningPersistenceRecordId)
+    && hasCompleteNextTaskAdmission(
+      existing.nextTaskResolution,
+      input.expectedNextResourceVersionId,
+    )
+  ) {
     return resultFromCheckpoint(input, existing, true);
   }
 
@@ -386,7 +396,10 @@ export async function runPhase163RealLearningChain(
     }
   }
 
-  const shouldResolveNextTask = !checkpoint.nextTaskResolution || (
+  const shouldResolveNextTask = !hasCompleteNextTaskAdmission(
+    checkpoint.nextTaskResolution,
+    input.expectedNextResourceVersionId,
+  ) || (
     recoverableResourceGap && checkpoint.nextTaskResolution.status !== 'matched'
   );
   if (shouldResolveNextTask) {
@@ -396,7 +409,7 @@ export async function runPhase163RealLearningChain(
       currentLearningContext: input.currentLearningContext,
       createdAt: input.submittedAt,
     });
-    let taskRequest = checkpoint.nextTaskRequest;
+    let taskRequest = input.expectedNextTaskRequest || checkpoint.nextTaskRequest;
     if (!taskRequest) {
       const strategyValidation = validateNextLearningStrategy({
         strategy,
@@ -488,6 +501,22 @@ export async function runPhase163RealLearningChain(
   }
 
   return resultFromCheckpoint(input, checkpoint, Boolean(existing));
+}
+
+export function hasCompleteNextTaskAdmission(
+  resolution?: NextFormalTaskResolution,
+  expectedNextResourceVersionId?: string,
+): boolean {
+  if (resolution?.status === 'session_complete') return !expectedNextResourceVersionId;
+  return Boolean(
+    resolution?.status === 'matched'
+    && resolution.resourceVersion
+    && (!expectedNextResourceVersionId
+      || resolution.resourceVersion.resourceVersionId === expectedNextResourceVersionId)
+    && resolution.qualityGatedTask
+    && resolution.concreteTask
+    && resolution.taskReadiness?.canExecute === true,
+  );
 }
 
 async function runDiagnosisDirectly(
