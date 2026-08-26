@@ -3,6 +3,7 @@ import { SharedFormalResourceStore } from './sharedFormalResourceStore.ts';
 import { buildProductRuntimeHealth } from '../ai/services/productRuntimeHealthService.ts';
 import type { ProductRuntimeHealth, ProductRuntimeTrialMode } from '../ai/schemas/productRuntimeHealth.schema.ts';
 import { readCurrentProductRuntimeIdentity } from './productRuntimeIdentityBoundary.ts';
+import { readProductRuntimeTrialProjection } from './productRuntimeTrialControlBoundary.ts';
 
 export type ProductRuntimeHealthReader = () => Promise<ProductRuntimeHealth>;
 
@@ -39,6 +40,10 @@ export async function readCurrentProductRuntimeHealth(): Promise<ProductRuntimeH
   try {
     const snapshot = await store.readOnly();
     const runtimeIdentity = await readCurrentProductRuntimeIdentity(undefined, snapshot);
+    const trial = await readProductRuntimeTrialProjection({
+      runtimeIdentityStatus: runtimeIdentity.status,
+      runtimeIdentity: runtimeIdentity.identity,
+    });
     return buildProductRuntimeHealth({
       checkedAt: new Date().toISOString(), snapshot,
       aiConfigured: configured(process.env.DEEPSEEK_API_KEY),
@@ -47,7 +52,7 @@ export async function readCurrentProductRuntimeHealth(): Promise<ProductRuntimeH
       buildIdentityContentAddressed: runtimeIdentity.status === 'available',
       runtimeIdentityVersion: runtimeIdentity.identity?.runtimeIdentityVersion,
       runtimeIdentityStatus: runtimeIdentity.status,
-      trial: safeTrialInput(runtimeIdentity.status),
+      trial,
     });
   } catch {
     return buildProductRuntimeHealth({

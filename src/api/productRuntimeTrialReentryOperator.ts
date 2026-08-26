@@ -23,6 +23,8 @@ import {
   planRealTrialReentryIdentities,
   type RealTrialReentryActivationResult,
 } from '../ai/services/productRuntimeTrialReentryService.ts';
+import { applyProductRuntimeTrialInvalidation } from
+  '../ai/services/productRuntimeTrialIdentityService.ts';
 import { initializeProductComplexityConvergencePreflight,
   getProductComplexityConvergencePreflightRepository } from
   './productComplexityConvergenceStage4Preflight.ts';
@@ -174,7 +176,7 @@ export async function confirmAndActivateRealTrialReentry(
     right.generatedAt.localeCompare(left.generatedAt))[0];
   if (!registry) throw new Error('source_registry_missing');
   const protectedWritesSincePreflight = protectedDomainChanges(prepared.protectedBaseline, after);
-  return activateRealTrialReentry({
+  const result = await activateRealTrialReentry({
     repository,
     launchRecordId: prepared.report.plannedLaunchRecordId,
     currentIdentity,
@@ -192,6 +194,36 @@ export async function confirmAndActivateRealTrialReentry(
     explicitOperatorConfirmation: true,
     now: new Date().toISOString(),
   });
+  if (!['activated', 'already_activated'].includes(result.status)) return result;
+  const binding = await repository.getRealTrialRuntimeIdentityBinding(
+    prepared.report.plannedRuntimeIdentityBindingId,
+  );
+  try {
+    const response = await fetch('/__runtime/trial-control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        controlVersion: 'product_runtime_trial_control_v1',
+        requestedMode: 'real_trial', effectiveMode: 'real_trial',
+        runtimeIdentityDigest: currentIdentity.runtimeIdentityDigest,
+        trialWindowId: prepared.trialWindow.trialWindowId,
+        launchRecordId: prepared.report.plannedLaunchRecordId,
+        runtimeIdentityBindingId: prepared.report.plannedRuntimeIdentityBindingId,
+        activatedAt: new Date().toISOString(),
+      }),
+    });
+    const body = await response.json();
+    if (!response.ok || body?.status !== 'activated') throw new Error('trial_control_sync_failed');
+    return result;
+  } catch {
+    await applyProductRuntimeTrialInvalidation({
+      repository, currentIdentity: undefined, binding, now: new Date().toISOString(),
+    });
+    return {
+      status: 'rejected', effectiveMode: 'off',
+      reasonCodes: ['trial_reentry_activation_confirmation_failed'],
+    };
+  }
 }
 
 async function readHealth(): Promise<ProductRuntimeHealth> {
