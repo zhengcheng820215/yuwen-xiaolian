@@ -24,6 +24,8 @@ import {
 } from '../ai/services/productComplexityConvergenceTrialPreflightService.ts';
 import { validateProductRuntimeIdentity, type ProductRuntimeIdentity } from
   '../ai/schemas/productRuntimeIdentity.schema.ts';
+import { applyProductRuntimeTrialInvalidation } from
+  '../ai/services/productRuntimeTrialIdentityService.ts';
 
 export const PRODUCT_COMPLEXITY_CONVERGENCE_PREFLIGHT_BUILD_VERSION =
   'product-complexity-convergence-preflight-build-v1' as const;
@@ -60,7 +62,22 @@ export async function initializeProductComplexityConvergencePreflight(): Promise
 export async function loadProductComplexityConvergencePreflightStatus() {
   await initializeProductComplexityConvergencePreflight();
   const now = new Date().toISOString();
-  const currentState = await repository.getActivationState();
+  let currentState = await repository.getActivationState();
+  if (currentState?.activationStateVersion
+    === PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_V2_VERSION
+    && currentState.runtimeIdentityBindingId) {
+    const [currentIdentity, runtimeIdentityBinding] = await Promise.all([
+      readBrowserRuntimeIdentity(),
+      repository.getRealTrialRuntimeIdentityBinding(currentState.runtimeIdentityBindingId),
+    ]);
+    const identityDecision = await applyProductRuntimeTrialInvalidation({
+      repository,
+      currentIdentity,
+      binding: runtimeIdentityBinding,
+      now,
+    });
+    currentState = identityDecision.projectedState;
+  }
   const recovered = currentState?.activationStateVersion
     === PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_V2_VERSION
     ? { state: currentState, learningAllowed: true as const, activationAllowed: true }
