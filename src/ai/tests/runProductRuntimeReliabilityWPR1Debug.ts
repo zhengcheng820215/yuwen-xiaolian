@@ -15,7 +15,7 @@ import { buildProductRuntimeProtectedSnapshot } from '../services/productRuntime
 const TIME = '2026-08-25T10:00:00.000Z';
 const snapshot = await new SharedFormalResourceStore().readOnly();
 const healthy = (patch: Record<string, unknown> = {}) => buildProductRuntimeHealth({
-  checkedAt: TIME, snapshot, aiConfigured: true, buildIdentity: 'content-addressed-fixture',
+  checkedAt: TIME, snapshot, aiConfigured: true, aiAvailabilityVerified: true, buildIdentity: 'content-addressed-fixture',
   buildIdentityContentAddressed: true,
   trial: { requestedMode: 'off', effectiveMode: 'off', identityStatus: 'aligned' },
   ...patch,
@@ -40,7 +40,7 @@ const cases: Array<{ id: string; name: string; run: () => unknown | Promise<unkn
   { id: 'R1-C11', name: 'material count is dynamic', run: () => assert.equal(healthy().formalResourceStore.activeMaterialCount, snapshot.data.questionResources.materials.filter((item) => item.status !== 'retired').length) },
   { id: 'R1-C12', name: 'question count is dynamic', run: () => assert.equal(healthy().formalResourceStore.currentQuestionCount, snapshot.data.questionResources.registryEntries.filter((item) => item.status === 'active').length) },
   { id: 'R1-C13', name: 'missing AI is safe and secret-free', run: () => { const value = degraded(); assert.equal(value.aiProvider.status, 'not_configured'); assert(!JSON.stringify(value).includes('secret-fixture')); } },
-  { id: 'R1-C14', name: 'configured AI is configuration-only', run: () => { const value = healthy(); assert.equal(value.aiProvider.status, 'configured'); assert.equal(value.aiProvider.verificationLevel, 'configuration_only'); } },
+  { id: 'R1-C14', name: 'configured AI remains unverified for Trial without blocking local Learning', run: () => { const value = healthy({ aiAvailabilityVerified: false }); assert.equal(value.aiProvider.status, 'configured'); assert.equal(value.aiProvider.verificationLevel, 'configuration_only'); assert.equal(value.aiProvider.availabilityVerified, false); assert.equal(value.aiProvider.trialEligible, false); assert.equal(value.learning.canSubmitForDiagnosis, true); } },
   { id: 'R1-C15', name: 'unchecked AI remains degraded', run: () => { const value = healthy({ aiConfigured: null }); assert.equal(value.aiProvider.status, 'not_checked'); assert.equal(value.learning.status, 'degraded'); } },
   { id: 'R1-C16', name: 'Formal tasks are readable when Store is ready', run: () => assert(healthy().learning.canReadFormalTasks) },
   { id: 'R1-C17', name: 'missing AI gates real start and submit', run: () => { const value = degraded(); assert(!value.learning.canStartRealLearning); assert(!value.learning.canSubmitForDiagnosis); } },

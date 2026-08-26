@@ -4,6 +4,8 @@
 
 状态：`WP-R1 ENGINEERING COMPLETE / DEBUG ACCEPTED / RUNTIME LAUNCH ACCEPTED / HEALTH READ-ONLY VERIFIED / WP-R2 AND WP-R3 AUTHORIZED`
 
+> 快照边界：本文只记录 2026-08-25 验收时事实。“验收结束时保持运行”不表示后续任意时刻 Runtime 仍在运行；当前状态必须以 `runtime:check` 和 `/__runtime/health` 为准。
+
 ## 一、完成结论
 
 WP-R1 已完成统一启动器、启动前预检、5174 端口安全分类、`product_runtime_health_v1`、GET-only `/__runtime/health`、Internal Health 页面和三组验收矩阵。
@@ -21,7 +23,7 @@ WP-R1 已完成统一启动器、启动前预检、5174 端口安全分类、`pr
 | 统一入口 | Learning、Workbench、Internal Health、Health API 四个地址 |
 | 未知进程策略 | 测试证明只阻断、不终止、不换端口 |
 
-本次真实 Runtime 由 WP-R1 启动器启动并在验收结束时保持运行。
+本次真实 Runtime 由 WP-R1 启动器启动，并在该次验收结束时保持运行。
 
 ## 三、当前 Health 事实
 
@@ -46,6 +48,8 @@ health fact digest: fnv1a-2016f5ea
 ```
 
 Health Fact Digest 排除 `checkedAt`；连续两次 GET 得到相同 `fnv1a-2016f5ea`。
+
+边界补齐说明（2026-08-26）：后续 Health 投射额外区分 `availabilityVerified` 与 `trialEligible`。仅配置凭证仍不是实时可达性证明，也不能单独满足真实 Trial 准入。
 
 ## 四、HTTP Boundary 验收
 

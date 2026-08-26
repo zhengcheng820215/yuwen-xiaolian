@@ -32,14 +32,16 @@ export async function runProductRuntimeLauncher(options = {}) {
   }
 
   const aiConfigured = Boolean(adapters.env.DEEPSEEK_API_KEY?.trim());
+  const aiAvailabilityVerified = aiConfigured
+    && adapters.env.PRODUCT_AI_PROVIDER_AVAILABILITY_VERIFIED === 'true';
   if (mode === 'check_only') {
-    return result(aiConfigured ? 'CHECK_READY' : 'CHECK_DEGRADED', false, urls,
-      aiConfigured ? [] : ['ai_provider_not_configured']);
+    return result(aiAvailabilityVerified ? 'CHECK_READY' : 'CHECK_DEGRADED', false, urls,
+      aiConfigured ? ['ai_provider_status_not_checked'] : ['ai_provider_not_configured']);
   }
 
   const viteEntry = resolve(projectRoot, 'node_modules', 'vite', 'bin', 'vite.js');
   const child = adapters.spawnRuntime(process.execPath, [
-    viteEntry, '--host', '0.0.0.0', '--port', String(PRODUCT_RUNTIME_PORT), '--strictPort',
+    viteEntry, '--host', '127.0.0.1', '--port', String(PRODUCT_RUNTIME_PORT), '--strictPort',
   ], { cwd: projectRoot, env: adapters.env });
   const startedAt = adapters.now();
   while (adapters.now() - startedAt < PRODUCT_RUNTIME_STARTUP_TIMEOUT_MS) {
@@ -82,7 +84,7 @@ function isOurHealthyRuntime(health) {
 
 function runtimeUrls() {
   return {
-    learning: 'http://localhost:5174/learning#/learning',
+    learning: 'http://localhost:5174/#/learning',
     workbench: 'http://localhost:5174/#/material-resource-workbench',
     internalHealth: 'http://localhost:5174/#/internal/runtime-health',
     healthApi: 'http://127.0.0.1:5174/__runtime/health',

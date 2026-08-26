@@ -24,7 +24,8 @@ export function createProductRuntimeHealthBoundary(
     } catch {
       const health = buildProductRuntimeHealth({
         checkedAt: new Date().toISOString(), formalStoreError: true,
-        aiConfigured: configured(process.env.DEEPSEEK_API_KEY), trial: safeTrialInput(),
+        aiConfigured: configured(process.env.DEEPSEEK_API_KEY),
+        aiAvailabilityVerified: verifiedAiAvailability(), trial: safeTrialInput(),
       });
       response.statusCode = 503;
       response.end(JSON.stringify(health));
@@ -39,6 +40,7 @@ export async function readCurrentProductRuntimeHealth(): Promise<ProductRuntimeH
     return buildProductRuntimeHealth({
       checkedAt: new Date().toISOString(), snapshot,
       aiConfigured: configured(process.env.DEEPSEEK_API_KEY),
+      aiAvailabilityVerified: verifiedAiAvailability(),
       buildIdentity: process.env.PRODUCT_RUNTIME_BUILD_IDENTITY,
       buildIdentityContentAddressed: process.env.PRODUCT_RUNTIME_BUILD_IDENTITY_CONTENT_ADDRESSED === 'true',
       trial: safeTrialInput(),
@@ -46,13 +48,19 @@ export async function readCurrentProductRuntimeHealth(): Promise<ProductRuntimeH
   } catch {
     return buildProductRuntimeHealth({
       checkedAt: new Date().toISOString(), formalStoreError: true,
-      aiConfigured: configured(process.env.DEEPSEEK_API_KEY), trial: safeTrialInput(),
+      aiConfigured: configured(process.env.DEEPSEEK_API_KEY),
+      aiAvailabilityVerified: verifiedAiAvailability(), trial: safeTrialInput(),
     });
   }
 }
 
 function configured(value: string | undefined): boolean {
   return Boolean(value?.trim());
+}
+
+function verifiedAiAvailability(): boolean {
+  return configured(process.env.DEEPSEEK_API_KEY)
+    && process.env.PRODUCT_AI_PROVIDER_AVAILABILITY_VERIFIED === 'true';
 }
 
 function safeTrialInput() {

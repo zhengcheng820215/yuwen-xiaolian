@@ -17,7 +17,14 @@ export type ProductRuntimeReliabilityWPR2BrowserInput = {
 export function buildProductRuntimeReliabilityWPR2BrowserReport(input: ProductRuntimeReliabilityWPR2BrowserInput) {
   const healthReady = {
     ...input.health,
-    aiProvider: { ...input.health.aiProvider, status: 'configured' as const },
+    aiProvider: {
+      ...input.health.aiProvider,
+      status: 'configured' as const,
+      verificationLevel: 'live_verified' as const,
+      availabilityVerified: true,
+      trialEligible: true,
+      reasonCodes: [],
+    },
     summaryReasonCodes: input.health.summaryReasonCodes.filter((code) => !code.startsWith('ai_provider_')),
   };
   const projection = (patch: Partial<ProductRuntimeProjectionContext> = {}) => projectProductRuntimeRecovery({

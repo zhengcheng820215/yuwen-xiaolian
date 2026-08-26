@@ -222,6 +222,8 @@ Vite Runtime :5174
 ### 6.2 端口规则
 
 - 产品本地标准端口保持 `5174`；
+- 默认只监听 `127.0.0.1`，不得因本地启动而自动向局域网暴露产品；
+- 未来远程试用必须通过独立网络部署契约显式开放，不复用本地启动器的默认安全边界；
 - 标准启动不得静默切换到其他端口；
 - 端口已被本项目健康实例占用时，返回“已经运行”及入口地址；
 - 端口被未知或不健康进程占用时，启动失败并提示处理方式；
@@ -235,6 +237,8 @@ Vite Runtime :5174
 - 正式资源读取不依赖 AI Provider；
 - Learning 是否允许开始由当前任务的正式依赖决定，不能因为未使用到的 AI 功能缺失而误阻断整个入口；
 - 开始会产生 AI Diagnosis 的真实学习前，必须明确 AI Provider 可用或提供准确阻断说明。
+- “凭证已配置”只允许表示操作具备尝试条件，不等于 Provider 已完成实时可达性验证；
+- 真实 Trial 准入必须额外满足 `availabilityVerified=true` 与 `trialEligible=true`，不得以 `configuration_only` 代替。
 
 ### 6.4 启动终态
 
@@ -653,7 +657,7 @@ learning_round_completed
 | RH-A04 | 端口空闲 | 正常启动到固定 `5174` |
 | RH-A05 | 已运行实例 | 健康实例返回 `ALREADY_RUNNING` |
 | RH-A06 | 未知端口占用 | 不终止未知进程，返回明确阻断 |
-| RH-A07 | 正式资源检查 | 返回真实 Revision 与 `24 / 81 / 81` 当前事实 |
+| RH-A07 | 正式资源检查 | 返回执行时真实 Revision、材料数、当前题数与可消费题数 |
 | RH-A08 | 密钥保护 | 只显示配置状态，不显示值 |
 | RH-A09 | Health 只读 | 五类正式写入计数均为 0 |
 | RH-A10 | 健康聚合 | ready / degraded / blocked 语义稳定 |
@@ -755,7 +759,7 @@ REAL TRIAL RE-ENTRY APPROVED
 5. Product Runtime Identity 与当前源码、构建、Registry 和策略一致；
 6. 当前代码变化能够使旧 Trial 安全回落 `off`；
 7. 重新准入 Preflight 与 Launch Record 完成；
-8. 当前正式 `24` 篇材料、`81` 道题保持身份和质量零回归；
+8. 执行时全部 Current Frozen Resource 保持身份、数量守恒和质量零回归；`24 / 81 / 81` 仅作为 2026-08-25 基线证据；
 9. 完整真实学习烟测通过；
 10. 五项最小事件链身份、顺序和幂等通过；
 11. Observation 失败不阻断 Learning；

@@ -134,6 +134,17 @@ Health、Revision、Checkpoint 和幂等校验由系统执行。用户不管理�
 
 刷新后应回到当前工作对象：当前 Session、当前题、当前答案草稿或当前 Workbench Task。不得让用户选择内部事务版本。
 
+### 4.5 生产接入边界
+
+统一恢复投射的完成定义是“普通用户语义一致”，不是强制所有页面改用同一个 React 组件：
+
+- Unified Learning Entry 直接消费 `projectProductRuntimeRecovery` 与 `ProductRuntimeRecoveryNotice`；
+- Live Learning Workspace 继续以既有 Session / Attempt / Checkpoint 为 Owner，并使用既有提交禁用、草稿保留和恢复动作；共享投射负责定义故障语义，但不得复制第二套学习状态；
+- Material Resource Workbench 继续以既有操作队列、幂等 Command 与发布事实为 Owner；共享投射用于冻结读取、生成、采用和发布的故障结论，不能替代原事务控制；
+- 纯函数与浏览器 Fixture 证明三类页面在相同事实下得到相同结论；验收报告不得据此声称每个生产按钮都直接调用同一个工具函数。
+
+因此，后续若将共享组件进一步接入 Workspace 或 Workbench，只允许替换用户可见投射层，不得改写 Owner Fact、事务边界或既有单飞控制。
+
 ## 五、版本化投射 Schema
 
 ### 5.1 Schema

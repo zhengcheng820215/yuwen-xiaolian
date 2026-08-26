@@ -16,6 +16,7 @@ import { toProductRuntimeRecoveryNoticeView } from '../../ui/productRuntimeRecov
 const snapshot = await new SharedFormalResourceStore().readOnly();
 const readyHealth = buildProductRuntimeHealth({
   checkedAt: '2026-08-25T10:00:00.000Z', snapshot, aiConfigured: true,
+  aiAvailabilityVerified: true,
   buildIdentity: 'fixture-content-addressed', buildIdentityContentAddressed: true,
   trial: { requestedMode: 'off', effectiveMode: 'off', identityStatus: 'aligned' },
 });

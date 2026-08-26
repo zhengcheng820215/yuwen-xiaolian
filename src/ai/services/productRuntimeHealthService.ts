@@ -14,6 +14,7 @@ export type ProductRuntimeHealthInput = {
   snapshot?: SharedFormalResourceSnapshot;
   formalStoreError?: boolean;
   aiConfigured: boolean | null;
+  aiAvailabilityVerified?: boolean;
   buildIdentity?: string;
   buildIdentityContentAddressed?: boolean;
   trial?: {
@@ -28,11 +29,19 @@ export function buildProductRuntimeHealth(input: ProductRuntimeHealthInput): Pro
   const instanceReasons: ProductRuntimeReasonCode[] = input.buildIdentityContentAddressed
     ? [] : ['runtime_identity_insufficient'];
   const formal = buildFormalHealth(input);
+  const availabilityVerified = input.aiConfigured === true && input.aiAvailabilityVerified === true;
   const ai = input.aiConfigured === true
-    ? { providerId: 'deepseek' as const, status: 'configured' as const, verificationLevel: 'configuration_only' as const, reasonCodes: [] as ProductRuntimeReasonCode[] }
+    ? {
+      providerId: 'deepseek' as const,
+      status: 'configured' as const,
+      verificationLevel: availabilityVerified ? 'live_verified' as const : 'configuration_only' as const,
+      availabilityVerified,
+      trialEligible: availabilityVerified,
+      reasonCodes: availabilityVerified ? [] as ProductRuntimeReasonCode[] : ['ai_provider_status_not_checked' as const],
+    }
     : input.aiConfigured === false
-      ? { providerId: 'deepseek' as const, status: 'not_configured' as const, verificationLevel: 'configuration_only' as const, reasonCodes: ['ai_provider_not_configured' as const] }
-      : { providerId: 'deepseek' as const, status: 'not_checked' as const, verificationLevel: 'configuration_only' as const, reasonCodes: ['ai_provider_status_not_checked' as const] };
+      ? { providerId: 'deepseek' as const, status: 'not_configured' as const, verificationLevel: 'configuration_only' as const, availabilityVerified: false, trialEligible: false, reasonCodes: ['ai_provider_not_configured' as const] }
+      : { providerId: 'deepseek' as const, status: 'not_checked' as const, verificationLevel: 'configuration_only' as const, availabilityVerified: false, trialEligible: false, reasonCodes: ['ai_provider_status_not_checked' as const] };
   const learning = buildLearningHealth(formal.status, ai.status);
   const trialInput = input.trial || {
     requestedMode: 'off' as const,
@@ -52,7 +61,7 @@ export function buildProductRuntimeHealth(input: ProductRuntimeHealthInput): Pro
     ...trialReasons,
   ]);
   const blocked = formal.status === 'blocked' || learning.status === 'blocked';
-  const degraded = instanceReasons.length > 0 || ai.status !== 'configured'
+  const degraded = instanceReasons.length > 0 || ai.status !== 'configured' || !availabilityVerified
     || learning.status === 'degraded' || trialReasons.length > 0;
   const resultWithoutDigest = {
     schemaVersion: PRODUCT_RUNTIME_HEALTH_VERSION,
@@ -126,6 +135,8 @@ function buildLearningHealth(
     canSubmitForDiagnosis: false,
     reasonCodes: [aiStatus === 'not_configured' ? 'ai_provider_not_configured' : 'ai_provider_status_not_checked'],
   };
+  // “允许发起”只表示本地产品可尝试调用已配置的服务；真实 Trial 是否可进入
+  // 由 aiProvider.trialEligible 单独表达，不能反向阻断普通学习主链。
   return {
     status: 'ready', canReadFormalTasks: true, canStartRealLearning: true,
     canSubmitForDiagnosis: true, reasonCodes: [],

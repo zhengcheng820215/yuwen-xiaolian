@@ -7,9 +7,11 @@
 基线提交：`4d016c6`
 阶段结论：`WP-R2 ENGINEERING COMPLETE / DEBUG ACCEPTED / BROWSER ACCEPTED`
 
+> 快照边界：本文只记录 2026-08-25 验收时事实。Runtime、AI 配置和 Trial 状态均可能随启动环境变化，当前状态必须重新读取 Health；本文不构成持续在线证明。
+
 ## 1. 实施范围
 
-本轮实现 `product_runtime_user_projection_v1`、GET-only Health Client、Recovery Projection Service、普通页面 Recovery Notice、Learning Entry 与 Live Learning 健康门禁、Workbench 安全文案、单飞动作保护及 Internal 浏览器验收页。
+本轮实现 `product_runtime_user_projection_v1`、GET-only Health Client、Recovery Projection Service、普通页面 Recovery Notice、Learning Entry 与 Live Learning 健康门禁、Workbench 安全文案、单飞动作工具及 Internal 浏览器验收页。单飞工具已通过纯函数与 Fixture 验收；生产页面继续使用各自主操作禁用、正式命令队列和既有幂等机制，不将“工具存在”表述为所有按钮均已改接该工具。
 
 投射只消费 Runtime Health、冻结 Reason Code 和既有 Owner Fact。它不创建第二套 Session、Attempt、Checkpoint、发布或 Trial 状态。
 

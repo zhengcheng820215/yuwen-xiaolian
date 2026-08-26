@@ -113,7 +113,7 @@ function buildDependencies(input: {
 function buildRouteAudits(baseUrl: string, runtime: RuntimeProbe): RuntimeRouteAudit[] {
   const reasonCodes = runtime.reachable ? [] : ['runtime_unreachable' as const];
   return [
-    route('learning', `${baseUrl}/learning#/learning`, runtime.reachable, runtime.formalBoundaryReachable, reasonCodes),
+    route('learning', `${baseUrl}/#/learning`, runtime.reachable, runtime.formalBoundaryReachable, reasonCodes),
     route('workbench', `${baseUrl}/#/material-resource-workbench`, runtime.reachable, runtime.formalBoundaryReachable, reasonCodes),
     route('internal', `${baseUrl}/#/internal`, runtime.reachable, runtime.formalBoundaryReachable, reasonCodes),
   ];

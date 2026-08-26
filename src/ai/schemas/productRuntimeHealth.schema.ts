@@ -33,7 +33,9 @@ export type ProductRuntimeHealth = {
   aiProvider: {
     providerId: 'deepseek';
     status: 'configured' | 'not_configured' | 'not_checked';
-    verificationLevel: 'configuration_only';
+    verificationLevel: 'configuration_only' | 'live_verified';
+    availabilityVerified: boolean;
+    trialEligible: boolean;
     reasonCodes: ProductRuntimeReasonCode[];
   };
   learning: {
@@ -94,6 +96,15 @@ export function isProductRuntimeHealth(value: unknown): value is ProductRuntimeH
     && ['ready', 'degraded', 'blocked'].includes(health.overallStatus)
     && ['ready', 'blocked'].includes(health.formalResourceStore?.status)
     && ['configured', 'not_configured', 'not_checked'].includes(health.aiProvider?.status)
+    && ['configuration_only', 'live_verified'].includes(health.aiProvider?.verificationLevel)
+    && typeof health.aiProvider?.availabilityVerified === 'boolean'
+    && typeof health.aiProvider?.trialEligible === 'boolean'
+    && health.aiProvider?.trialEligible === health.aiProvider?.availabilityVerified
+    && health.aiProvider?.verificationLevel === (
+      health.aiProvider?.availabilityVerified ? 'live_verified' : 'configuration_only'
+    )
+    && (health.aiProvider?.availabilityVerified === false
+      || health.aiProvider?.status === 'configured')
     && ['ready', 'degraded', 'blocked'].includes(health.learning?.status)
     && health.trial?.observationFailOpen === true
     && Array.isArray(health.summaryReasonCodes)

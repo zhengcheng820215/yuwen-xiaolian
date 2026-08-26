@@ -38,7 +38,7 @@ export function buildProductRuntimeReliabilityWPR1BrowserReport(input: ProductRu
     check('R1-B01', '统一启动终态', 'Runtime 由标准启动契约进入 READY 或复用 ALREADY_RUNNING。', ['READY', 'ALREADY_RUNNING'].includes(input.launcherStatus)),
     check('R1-B02', 'Health API', 'GET 返回合法 product_runtime_health_v1。', isProductRuntimeHealth(health)),
     check('R1-B03', 'Internal Health', '投射 overall 与五个独立分域。', domainCount === 5),
-    check('R1-B04', 'Learning URL', '统一 Learning 地址固定为 5174/learning#/learning。', health.instance.port === 5174),
+    check('R1-B04', 'Learning URL', '统一 Learning 地址固定为 5174/#/learning。', health.instance.port === 5174),
     check('R1-B05', 'Workbench URL', '统一 Workbench 地址固定为 5174/#/material-resource-workbench。', health.instance.port === 5174),
     check('R1-B06', '动态正式资源', 'Health 与正式 Boundary 的 Revision、材料和题目数一致。', health.formalResourceStore.revision === input.after.revision && health.formalResourceStore.activeMaterialCount === input.after.activeMaterialCount && health.formalResourceStore.currentQuestionCount === input.after.currentQuestionCount && health.formalResourceStore.learningConsumableQuestionCount === input.after.learningConsumableQuestionCount),
     check('R1-B07', 'AI 配置边界', '只显示配置状态，不显示 Key 或长度。', ['configured', 'not_configured', 'not_checked'].includes(health.aiProvider.status) && !forbidden.test(text)),

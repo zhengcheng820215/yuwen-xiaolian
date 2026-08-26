@@ -126,7 +126,7 @@ scripts/start-product-runtime.mjs
   ├─ Existing Instance Classifier
   │   └─ GET /__runtime/health
   └─ Child Runtime Owner
-      └─ Vite --host 0.0.0.0 --port 5174 --strictPort
+      └─ Vite --host 127.0.0.1 --port 5174 --strictPort
 
 Vite Runtime
   └─ GET /__runtime/health
@@ -161,14 +161,16 @@ Vite Runtime
 
 `runtime:check` 仅检查，不启动子进程。`runtime:start` 使用当前 `process.execPath` 启动 Vite，禁止依赖用户手工拼接 Node 路径。
 
-`runtime:check` 的 `CHECK_READY` 只表示“依赖与端口满足启动条件”，不表示 Runtime 已经运行；若发现健康的同项目实例则返回 `ALREADY_RUNNING`，若发现冲突或依赖问题则返回对应 blocked 终态。
+`runtime:check` 的 `CHECK_READY` 只表示“依赖、端口与受控 AI 可用性验证满足启动前检查”，不表示 Runtime 已经运行；AI Key 已配置但尚未形成受控可用性证据时返回 `CHECK_DEGRADED / ai_provider_status_not_checked`。若发现健康的同项目实例则返回 `ALREADY_RUNNING`，若发现冲突或依赖问题则返回对应 blocked 终态。
+
+本地启动器只绑定 `127.0.0.1`。`0.0.0.0`、局域网共享和远程访问不属于本契约，必须由后续独立部署方案显式授权。
 
 ### 5.2 启动输入
 
 ```ts
 type ProductRuntimeLauncherOptions = {
   projectRoot: string;
-  host: '0.0.0.0';
+  host: '127.0.0.1';
   port: 5174;
   strictPort: true;
   healthUrl: 'http://127.0.0.1:5174/__runtime/health';
@@ -221,7 +223,7 @@ type ProductRuntimeLaunchResult = {
   health?: ProductRuntimeHealth;
   reasonCodes: ProductRuntimeReasonCode[];
   urls: {
-    learning: 'http://localhost:5174/learning#/learning';
+    learning: 'http://localhost:5174/#/learning';
     workbench: 'http://localhost:5174/#/material-resource-workbench';
     internalHealth: 'http://localhost:5174/#/internal/runtime-health';
     healthApi: 'http://127.0.0.1:5174/__runtime/health';
@@ -293,7 +295,9 @@ type ProductRuntimeHealth = {
   aiProvider: {
     providerId: 'deepseek';
     status: 'configured' | 'not_configured' | 'not_checked';
-    verificationLevel: 'configuration_only';
+    verificationLevel: 'configuration_only' | 'live_verified';
+    availabilityVerified: boolean;
+    trialEligible: boolean;
     reasonCodes: ProductRuntimeReasonCode[];
   };
   learning: {
@@ -344,10 +348,15 @@ Health 只能读 Store。禁止调用 initialize、replace、restore、command�
 | 环境事实 | 投射 |
 | --- | --- |
 | Key 缺失或空白 | `not_configured` / `ai_provider_not_configured` |
-| Key 非空 | `configured`，`verificationLevel=configuration_only` |
+| Key 非空、未完成实时验证 | `configured`，`verificationLevel=configuration_only`，`availabilityVerified=false`，`trialEligible=false` |
+| 已由受控真实调用验证 | `configured`，`verificationLevel=live_verified`，`availabilityVerified=true`，`trialEligible=true` |
 | 本次未执行配置检查 | `not_checked` / `ai_provider_status_not_checked` |
 
 WP-R1 不调用 Provider，因此不得输出 `unreachable`；该状态需由真实 Provider Boundary 的后续运行证据形成。
+
+`canStartRealLearning` 与 `canSubmitForDiagnosis` 表示当前配置门禁允许发起操作，不证明外部 Provider 必然成功。真实 Trial 是否允许采集必须单独读取 `trialEligible`，不得由上述 capability 反推。
+
+`PRODUCT_AI_PROVIDER_AVAILABILITY_VERIFIED=true` 只允许由受控 Provider 预检在成功后注入，不能由“Key 非空”自动推导，也不能作为普通用户手工绕过 Trial 门禁的开关。WP-R1 只消费该证据，不负责执行远端探测。
 
 ### 8.3 Learning 能力
 
@@ -557,7 +566,7 @@ src/ai/tests/runProductRuntimeReliabilityWPR1BrowserMatrixDebug.ts
 | R1-C11 | 动态材料数 | 不断言固定 12 / 24 |
 | R1-C12 | 动态题量 | 不断言固定 46 / 81 |
 | R1-C13 | AI Missing | not_configured，不输出 Key |
-| R1-C14 | AI Configured | 只标 configuration_only，不调用 Provider |
+| R1-C14 | AI Configured | 区分 configuration_only / live_verified；未验证不进入 Trial，但不反向阻断普通本地 Learning |
 | R1-C15 | AI Not Checked | 保守 degraded，不猜测 ready |
 | R1-C16 | Learning Read | Store ready 时可读正式任务 |
 | R1-C17 | Learning AI Gate | AI missing 时真实开始和诊断提交为 false |

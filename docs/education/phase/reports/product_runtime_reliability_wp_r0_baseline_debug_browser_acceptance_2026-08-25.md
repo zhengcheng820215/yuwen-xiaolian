@@ -4,6 +4,8 @@
 
 状态：`WP-R0 ENGINEERING COMPLETE / DEBUG ACCEPTED / READ-ONLY VERIFIED / WP-R1 AUTHORIZED`
 
+> 快照边界：本文只记录 2026-08-25 验收时事实，不证明阅读本文时 Runtime 仍处于相同状态。当前状态必须重新执行 `runtime:check` 并读取 `/__runtime/health`。
+
 对应契约：
 
 - `product_runtime_reliability_and_real_trial_reentry_v1`
@@ -80,7 +82,7 @@ WP-R1 AUTHORIZED
 
 浏览器只读走查记录：
 
-- 当前 URL：`http://localhost:5174/learning#/learning`；
+- 当前 URL：`http://localhost:5174/#/learning`；
 - 可见状态：`暂时无法打开学习入口`；
 - 辅助文案：`正式任务暂时无法读取，请重新尝试。`；
 - 未点击“重新尝试”，未新建重复页面，未提交、发布、恢复、删除或激活；
