@@ -77,7 +77,10 @@ const retestQueue = createLearningSessionTaskQueue({
 });
 assert.deepEqual(retestQueue.resourceVersionIds, ['retest-1']);
 
-const previousFrozen = version('text-1-v1', 'long_text', 1);
+const previousFrozen = {
+  ...version('text-1-v1', 'long_text', 1),
+  status: 'superseded' as const,
+};
 const successorHead = {
   ...version('text-1-v2', 'long_text', 1),
   resourceId: previousFrozen.resourceId,

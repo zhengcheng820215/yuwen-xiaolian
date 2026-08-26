@@ -255,6 +255,7 @@ async function frozenSessionVersionSurvivesRegistryUpgrade(environment: Environm
   const upgradedRegistryRepository = registryHeadMovedAwayFrom(
     environment.resources,
     pinned.resourceId,
+    pinned.resourceVersionId,
   );
   const request = createPhase173BatchABootstrapTaskRequest(STUDENT_ID, NOW);
   const strictResult = await matchCurrentFormalResource({
@@ -479,7 +480,13 @@ function withoutBatchResourcePrefix(
 function registryHeadMovedAwayFrom(
   repository: QuestionResourceAdmissionRepository,
   resourceId: string,
+  supersededResourceVersionId?: string,
 ): QuestionResourceAdmissionRepository {
+  const projectVersion = <T extends { resourceVersionId: string; status: string } | null>(version: T): T => (
+    version && version.resourceVersionId === supersededResourceVersionId
+      ? { ...version, status: 'superseded' } as T
+      : version
+  );
   return new Proxy(repository, {
     get(target, property) {
       if (property === 'listRegistryEntries') {
@@ -496,6 +503,16 @@ function registryHeadMovedAwayFrom(
             ? { ...entry, currentFrozenVersionId: `${entry.currentFrozenVersionId}-successor` }
             : entry;
         };
+      }
+      if (property === 'listVersions') {
+        return async (requestedResourceId?: string) => (
+          await target.listVersions(requestedResourceId)
+        ).map((version) => projectVersion(version));
+      }
+      if (property === 'getVersion') {
+        return async (resourceVersionId: string) => projectVersion(
+          await target.getVersion(resourceVersionId),
+        );
       }
       const value = target[property as keyof QuestionResourceAdmissionRepository];
       return typeof value === 'function' ? value.bind(target) : value;

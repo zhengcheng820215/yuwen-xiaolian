@@ -665,6 +665,13 @@ function resourceVersionSnapshot(
   const validationIds = new Set(frozenVersions.map((version) => version.validationId));
   const reviewIds = new Set(frozenVersions.map((version) => version.reviewId));
   const selectedVersion = frozenVersions[0];
+  const executableFrozenVersions = preserveFrozenSessionVersion
+    ? frozenVersions.map((version) => (
+        version.status === 'superseded'
+          ? { ...version, status: 'frozen' as const }
+          : version
+      ))
+    : frozenVersions;
   const registryEntries = snapshot.registryEntries
     .filter((entry) => (
       resourceIds.has(entry.resourceId) &&
@@ -686,7 +693,7 @@ function resourceVersionSnapshot(
       preserveFrozenSessionVersion ? 'frozen-session' : 'current-head',
     ]),
     registryEntries,
-    frozenVersions,
+    frozenVersions: executableFrozenVersions,
     validations: snapshot.validations.filter((item) => validationIds.has(item.validationId)),
     reviews: snapshot.reviews.filter((item) => reviewIds.has(item.reviewId)),
   };

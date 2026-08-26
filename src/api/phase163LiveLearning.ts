@@ -1279,7 +1279,9 @@ async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
   const previousVersion = previousCheckpoint?.sourceResourceVersionId
     ? allCurrentVersions.find((version) => (
         version.resourceVersionId === previousCheckpoint.sourceResourceVersionId
-      )) || (recordedPreviousVersion?.status === 'frozen' ? recordedPreviousVersion : undefined)
+      )) || (recordedPreviousVersion && ['frozen', 'superseded'].includes(recordedPreviousVersion.status)
+        ? recordedPreviousVersion
+        : undefined)
     : undefined;
   if (context && previousVersion && number > 1) {
     const queuedPreviousResourceVersionId = context.taskQueue?.resourceVersionIds[number - 2];
@@ -1552,7 +1554,7 @@ async function includeFrozenSessionResourceVersions(
     ...currentHeadVersions,
     ...queuedVersions.filter((version): version is FrozenQuestionResourceVersion => Boolean(
       version &&
-      version.status === 'frozen' &&
+      ['frozen', 'superseded'].includes(version.status) &&
       version.materialId === context.taskQueue?.materialId,
     )),
   ], (version) => version.resourceVersionId);

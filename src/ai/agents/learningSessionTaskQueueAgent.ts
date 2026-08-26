@@ -84,7 +84,9 @@ export function createRecoveredLearningSessionTaskQueue(input: {
   maxTaskCount?: number;
   progressionArtifacts?: FormalTaskGroupProgressionArtifact[];
 }): LearningSessionTaskQueue {
-  const previous = input.previousResourceVersion;
+  const previous = input.previousResourceVersion.status === 'superseded'
+    ? { ...input.previousResourceVersion, status: 'frozen' as const }
+    : input.previousResourceVersion;
   const recoveryVersions = uniqueByResourceVersionId([
     previous,
     ...input.currentVersions.filter((version) => (

@@ -33,4 +33,6 @@
 
 历史活动 Session 可能已经完成首题，但尚未持久化 `LearningSessionTaskQueue`。入口恢复时必须从上一轮 Operation Checkpoint 读取当时实际使用的 `sourceResourceVersionId`，按该精确 Frozen Version 重建题列；即使 Registry 已指向后继版本，也不得用后继版本替换已完成题或把两版同时放入题列。
 
+正式存储在发布后继版本后会把旧版本状态记为 `superseded`。该状态不允许进入新 Session，但若它与活动 Session 已记录的精确 `resourceVersionId` 一致，且原 Validation / Review Trace 仍完整，则恢复匹配应把它视为本 Session 的冻结执行快照；这一兼容不得放宽新会话的 Current Head 准入。
+
 同时，页面只有在 `UnifiedLearningEntryState.canEnterWorkspace = true` 时，才可把活动 Session 投射为“继续学习”。仅检测到 Session 记录、但正式资源或冻结题列尚未证明可恢复时，应展示入口自身的阻断/恢复状态，不得提供点击后无响应的继续按钮。
