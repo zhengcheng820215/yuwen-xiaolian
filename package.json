@@ -1,5 +1,8 @@
 {
   "type": "module",
+  "engines": {
+    "node": ">=22.6.0"
+  },
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5174 --strictPort",
     "build": "vite build",
@@ -212,6 +215,8 @@
     "debug:product-runtime-reliability-wp-r2-browser-matrix": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runProductRuntimeReliabilityWPR2BrowserMatrixDebug.ts",
     "debug:product-runtime-reliability-wp-r3": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runProductRuntimeReliabilityWPR3Debug.ts",
     "debug:product-runtime-reliability-wp-r3-browser-matrix": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runProductRuntimeReliabilityWPR3BrowserMatrixDebug.ts",
+    "debug:product-runtime-reliability-wp-r4": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runProductRuntimeReliabilityWPR4Debug.ts",
+    "debug:product-runtime-reliability-wp-r4-browser-matrix": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runProductRuntimeReliabilityWPR4BrowserMatrixDebug.ts",
     "build:product-runtime-identity": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/generate-product-runtime-identity.mjs",
     "debug:reading-training-progression-stage0": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runReadingTrainingProgressionStage0Debug.ts",
     "debug:reading-training-progression-stage1": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runReadingTrainingProgressionStage1Debug.ts",

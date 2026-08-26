@@ -13,6 +13,17 @@ import type {
   RealTrialWindowLaunchRecord,
   RealTrialWindowPreflightReport,
 } from '../schemas/productComplexityConvergenceTrialPreflight.schema.ts';
+import {
+  validateRealTrialReentryApprovalBundle,
+  validateRealTrialReentryAtomicActivation,
+  type ConvergenceObservationActivationAuditV3,
+  type RealTrialReentryApprovalBundle,
+  type RealTrialReentryApprovalBundleCommitResult,
+  type RealTrialReentryAtomicActivation,
+  type RealTrialReentryPreflightReportV2,
+  type RealTrialWindowLaunchRecordV2,
+} from '../schemas/productRuntimeTrialReentry.schema.ts';
+import type { RealTrialRuntimeIdentityBinding } from '../schemas/productRuntimeIdentity.schema.ts';
 
 const STATUS_RANK: Record<ComplexityConvergenceDecisionProposal['status'], number> = {
   proposed: 0, accepted: 1, rejected: 1, superseded: 2,
@@ -29,6 +40,10 @@ implements ProductComplexityConvergenceObservationRepository {
   private readonly launchRecords = new Map<string, RealTrialWindowLaunchRecord>();
   private activationState?: ConvergenceObservationActivationState;
   private readonly activationAudits = new Map<string, ConvergenceObservationActivationAudit>();
+  private readonly reentryPreflightReports = new Map<string, RealTrialReentryPreflightReportV2>();
+  private readonly reentryLaunchRecords = new Map<string, RealTrialWindowLaunchRecordV2>();
+  private readonly runtimeIdentityBindings = new Map<string, RealTrialRuntimeIdentityBinding>();
+  private readonly reentryActivationAudits = new Map<string, ConvergenceObservationActivationAuditV3>();
 
   async saveTrialWindow(window: ComplexityConvergenceTrialWindow): Promise<void> {
     const existing = this.windows.get(window.trialWindowId);
@@ -145,6 +160,77 @@ implements ProductComplexityConvergenceObservationRepository {
     return [...this.activationAudits.values()].filter((item) => !trialWindowId || item.trialWindowId === trialWindowId).map(clone);
   }
 
+  async commitRealTrialReentryApprovalBundle(
+    bundle: RealTrialReentryApprovalBundle,
+  ): Promise<RealTrialReentryApprovalBundleCommitResult> {
+    const issues = validateRealTrialReentryApprovalBundle(bundle);
+    if (issues.length) throw new Error(`trial_reentry_bundle_invalid:${issues.join(',')}`);
+    const existingWindow = this.windows.get(bundle.trialWindow.trialWindowId);
+    const existingReport = this.reentryPreflightReports.get(bundle.preflightReport.reportId);
+    const existingLaunch = this.reentryLaunchRecords.get(bundle.launchRecord.launchRecordId);
+    const existingBinding = this.runtimeIdentityBindings.get(bundle.runtimeIdentityBinding.bindingId);
+    const existingValues = [existingWindow, existingReport, existingLaunch, existingBinding];
+    const incomingValues = [bundle.trialWindow, bundle.preflightReport, bundle.launchRecord,
+      bundle.runtimeIdentityBinding];
+    const populated = existingValues.filter(Boolean).length;
+    if (populated > 0 && populated < 4) throw new Error('trial_reentry_partial_bundle_conflict');
+    if (populated === 4) {
+      if (existingValues.some((value, index) => !sameValue(value, incomingValues[index]))) {
+        throw new Error('trial_reentry_bundle_conflict');
+      }
+      return bundleResult(bundle, 'duplicate');
+    }
+    if ([...this.reentryLaunchRecords.values()].some((record) =>
+      record.runtimeIdentityBindingId === bundle.runtimeIdentityBinding.bindingId)
+      || [...this.runtimeIdentityBindings.values()].some((binding) =>
+        binding.launchRecordId === bundle.launchRecord.launchRecordId)) {
+      throw new Error('trial_reentry_bundle_conflict');
+    }
+    this.windows.set(bundle.trialWindow.trialWindowId, clone(bundle.trialWindow));
+    this.reentryPreflightReports.set(bundle.preflightReport.reportId, clone(bundle.preflightReport));
+    this.reentryLaunchRecords.set(bundle.launchRecord.launchRecordId, clone(bundle.launchRecord));
+    this.runtimeIdentityBindings.set(bundle.runtimeIdentityBinding.bindingId, clone(bundle.runtimeIdentityBinding));
+    return bundleResult(bundle, 'committed');
+  }
+
+  async getRealTrialReentryPreflightReport(reportId: string): Promise<RealTrialReentryPreflightReportV2 | undefined> {
+    return cloneOptional(this.reentryPreflightReports.get(reportId));
+  }
+  async getRealTrialReentryLaunchRecord(launchRecordId: string): Promise<RealTrialWindowLaunchRecordV2 | undefined> {
+    return cloneOptional(this.reentryLaunchRecords.get(launchRecordId));
+  }
+  async getRealTrialRuntimeIdentityBinding(bindingId: string): Promise<RealTrialRuntimeIdentityBinding | undefined> {
+    return cloneOptional(this.runtimeIdentityBindings.get(bindingId));
+  }
+  async activateRealTrialReentryAtomically(
+    activation: RealTrialReentryAtomicActivation,
+  ): Promise<'activated' | 'already_activated'> {
+    const issues = validateRealTrialReentryAtomicActivation(activation);
+    if (issues.length) throw new Error(`trial_reentry_activation_invalid:${issues.join(',')}`);
+    const currentWindow = this.windows.get(activation.trialWindow.trialWindowId);
+    const currentState = this.activationState;
+    const currentAudit = this.reentryActivationAudits.get(activation.activationAudit.auditId);
+    if (currentWindow?.status === 'active' && currentState?.effectiveMode === 'real_trial'
+      && currentState.trialWindowId === activation.trialWindow.trialWindowId
+      && currentAudit && sameValue(currentAudit, activation.activationAudit)) return 'already_activated';
+    if (!currentWindow || currentWindow.status !== 'draft') throw new Error('trial_reentry_activation_conflict');
+    if (!sameWindowIdentity(currentWindow, activation.trialWindow)) throw new Error('trial_reentry_activation_conflict');
+    if (currentState && (currentState.effectiveMode !== 'off' || currentState.requestedMode !== 'off')) {
+      throw new Error('trial_reentry_activation_conflict');
+    }
+    if (currentAudit) throw new Error('trial_reentry_activation_conflict');
+    this.windows.set(activation.trialWindow.trialWindowId, clone(activation.trialWindow));
+    this.activationState = clone(activation.activationState);
+    this.reentryActivationAudits.set(activation.activationAudit.auditId, clone(activation.activationAudit));
+    return 'activated';
+  }
+  async listRealTrialReentryActivationAudits(
+    trialWindowId?: string,
+  ): Promise<ConvergenceObservationActivationAuditV3[]> {
+    return [...this.reentryActivationAudits.values()]
+      .filter((item) => !trialWindowId || item.trialWindowId === trialWindowId).map(clone);
+  }
+
   async clear(): Promise<void> {
     this.windows.clear();
     this.events.clear();
@@ -155,6 +241,10 @@ implements ProductComplexityConvergenceObservationRepository {
     this.launchRecords.clear();
     this.activationState = undefined;
     this.activationAudits.clear();
+    this.reentryPreflightReports.clear();
+    this.reentryLaunchRecords.clear();
+    this.runtimeIdentityBindings.clear();
+    this.reentryActivationAudits.clear();
   }
 }
 
@@ -164,6 +254,18 @@ function saveImmutable<T>(map: Map<string, T>, key: string, value: T, conflictCo
   const existing = map.get(key);
   if (existing && JSON.stringify(existing) !== JSON.stringify(value)) throw new Error(conflictCode);
   if (!existing) map.set(key, clone(value));
+}
+function sameValue(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+function bundleResult(
+  bundle: RealTrialReentryApprovalBundle,
+  status: 'committed' | 'duplicate',
+): RealTrialReentryApprovalBundleCommitResult {
+  return { status, trialWindowId: bundle.trialWindow.trialWindowId,
+    preflightReportId: bundle.preflightReport.reportId,
+    launchRecordId: bundle.launchRecord.launchRecordId,
+    runtimeIdentityBindingId: bundle.runtimeIdentityBinding.bindingId };
 }
 function sameWindowIdentity(left: ComplexityConvergenceTrialWindow, right: ComplexityConvergenceTrialWindow): boolean {
   const mutable = new Set(['status', 'closedAt', 'invalidationReasons']);

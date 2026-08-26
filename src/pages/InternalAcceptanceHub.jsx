@@ -3,6 +3,13 @@ import { Link } from 'react-router-dom';
 
 const acceptanceItems = [
   {
+    to: '/internal/acceptance/product-runtime-reliability-wp-r4',
+    title: '运行可靠性 WP-R4',
+    description: '执行 R4-B01—R4-B18，只读核对新 Preflight、准入包原子性、显式激活和失败保持关闭。',
+    provider: 'Trial Re-entry v2',
+    data: '只读验收，不激活 Trial',
+  },
+  {
     to: '/internal/acceptance/product-runtime-reliability-wp-r3',
     title: '运行可靠性 WP-R3',
     description: '执行 R3-B01—R3-B16，只读核对内容寻址 Runtime Identity、历史兼容、Trial 单向失效和 Learning fail-open。',

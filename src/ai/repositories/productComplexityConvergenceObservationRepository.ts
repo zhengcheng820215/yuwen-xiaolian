@@ -11,6 +11,15 @@ import type {
   RealTrialWindowLaunchRecord,
   RealTrialWindowPreflightReport,
 } from '../schemas/productComplexityConvergenceTrialPreflight.schema.ts';
+import type {
+  ConvergenceObservationActivationAuditV3,
+  RealTrialReentryApprovalBundle,
+  RealTrialReentryApprovalBundleCommitResult,
+  RealTrialReentryAtomicActivation,
+  RealTrialReentryPreflightReportV2,
+  RealTrialWindowLaunchRecordV2,
+} from '../schemas/productRuntimeTrialReentry.schema.ts';
+import type { RealTrialRuntimeIdentityBinding } from '../schemas/productRuntimeIdentity.schema.ts';
 
 export interface ProductComplexityConvergenceObservationRepository {
   saveTrialWindow(window: ComplexityConvergenceTrialWindow): Promise<void>;
@@ -38,5 +47,17 @@ export interface ProductComplexityConvergenceObservationRepository {
   getActivationState(): Promise<ConvergenceObservationActivationState | undefined>;
   appendActivationAudit(audit: ConvergenceObservationActivationAudit): Promise<'inserted' | 'duplicate'>;
   listActivationAudits(trialWindowId?: string): Promise<ConvergenceObservationActivationAudit[]>;
+  commitRealTrialReentryApprovalBundle(
+    bundle: RealTrialReentryApprovalBundle,
+  ): Promise<RealTrialReentryApprovalBundleCommitResult>;
+  getRealTrialReentryPreflightReport(reportId: string): Promise<RealTrialReentryPreflightReportV2 | undefined>;
+  getRealTrialReentryLaunchRecord(launchRecordId: string): Promise<RealTrialWindowLaunchRecordV2 | undefined>;
+  getRealTrialRuntimeIdentityBinding(bindingId: string): Promise<RealTrialRuntimeIdentityBinding | undefined>;
+  activateRealTrialReentryAtomically(
+    activation: RealTrialReentryAtomicActivation,
+  ): Promise<'activated' | 'already_activated'>;
+  listRealTrialReentryActivationAudits(
+    trialWindowId?: string,
+  ): Promise<ConvergenceObservationActivationAuditV3[]>;
   clear(): Promise<void>;
 }
