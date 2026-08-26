@@ -39,7 +39,7 @@ Trial Window
 
 1. 工作树为 `clean`；
 2. Production Build 成功，Product Runtime Identity 来自同一 Commit 与同一产物；
-3. Runtime Health 为 `ready`；
+3. Runtime Health 的核心运行域为 `ready`：Instance、Formal Store、Learning 均为 `ready`，AI Provider 为 `live_verified`；整体状态若仅因 `audit_evidence_incomplete / trial_reentry_required` 显示 `degraded`，不视为 R4-P01 失败，因为这两项正是本次重新准入要消除的预期控制面状态；
 4. Formal Store、正式资源快照与 Registry 可读且身份一致；
 5. AI Provider 已完成真实可用性验证，状态为 `live_verified`；仅配置 Key 不等于通过；
 6. Trial Activation State 为 `off / off`，不存在活动旧 Window；
@@ -63,7 +63,7 @@ Trial Window
 ```text
 A01 复读 git clean、Commit、Production Artifact 与 Runtime Identity
 A02 执行 Provider 真实可用性验证
-A03 复读 Runtime Health = ready
+A03 复读 Runtime Health 核心运行域 = ready；只允许预期的 Trial 重新准入原因
 A04 记录激活前保护写入基线
 A05 创建新的 draft Trial Window 身份
 A06 只读执行 R4-P01—R4-P24
@@ -79,6 +79,11 @@ A15 停在 AWAITING_REAL_STUDENT_ACTION
 ```
 
 A10 不得由保存动作隐式替代；A14—A15 不允许工程人员代写学生答案。
+
+上述 A04—A13 只能通过 `/internal/product-complexity-convergence-stage4-preflight`
+的 R4 v2 Internal 操作边界执行。该入口必须先展示当前事实计算得到的
+R4-P01—R4-P24，再分离“保存准入包”和“显式激活”两个动作；普通 Learning、
+Workbench 页面不得出现激活入口。旧 v1 全通过 Fixture 与旧激活函数不得用于真实准入。
 
 ## 五、R4-P01—R4-P24 签署要求
 
@@ -122,7 +127,7 @@ Preflight 阶段全域零写入。保存和激活阶段只允许新增或推进�
 真实 Trial 准入激活仅在以下事实同时成立时完成：
 
 1. Provider 为 `live_verified`；
-2. Runtime Health 为 `ready`；
+2. Runtime Health 核心运行域为 `ready`，整体状态不存在预期 Trial 重新准入原因以外的阻断或降级原因；
 3. R4-P01—R4-P24 为 `24 / 24 PASS`；
 4. 新 Window / Report / Launch / Binding 一一对应且身份一致；
 5. 激活前 Trial 为 off；
@@ -142,4 +147,4 @@ ADMISSION BLOCKED / AI PROVIDER NOT LIVE VERIFIED / REAL TRIAL OFF
 
 ## 九、冻结声明
 
-本规程冻结真实 Trial 准入激活的执行顺序、凭证边界、只读 Preflight、有限控制面写入、显式确认、失败回落和真实学生人工边界。它不授权新增产品功能，也不允许绕过 Provider、Runtime Identity 或零写入门禁。
+本规程冻结真实 Trial 准入激活的执行顺序、凭证边界、只读 Preflight、有限控制面写入、显式确认、失败回落和真实学生人工边界。它只授权 Internal R4 v2 操作边界承载上述准入动作，不授权普通产品页面新增 Trial 操作，也不允许绕过 Provider、Runtime Identity 或零写入门禁。

@@ -11,6 +11,7 @@ import { createRubricItemOptimizationBoundary } from './src/server/rubricItemOpt
 import { createSharedFormalResourceBoundary } from './src/server/sharedFormalResourceBoundary.ts';
 import { createQuestionSemanticQualityAssessmentBoundary } from './src/server/questionSemanticQualityAssessmentBoundary.ts';
 import { createProductRuntimeHealthBoundary } from './src/server/productRuntimeHealthBoundary.ts';
+import { createProductRuntimeIdentityBoundary } from './src/server/productRuntimeIdentityBoundary.ts';
 
 const execFileAsync = promisify(execFile);
 const DEVELOPMENT_PORT = 5174;
@@ -36,6 +37,7 @@ export default defineConfig({
       server.middlewares.use('/__runtime/phase17-5/question-semantic-quality', createQuestionSemanticQualityAssessmentBoundary());
       server.middlewares.use('/__runtime/phase17-4/formal-resources', createSharedFormalResourceBoundary());
       server.middlewares.use('/__runtime/health', createProductRuntimeHealthBoundary());
+      server.middlewares.use('/__runtime/identity', createProductRuntimeIdentityBoundary());
       server.middlewares.use('/__demo/deepseek-chat', async (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405;

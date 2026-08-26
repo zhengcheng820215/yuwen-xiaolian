@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { relative, resolve, sep } from 'node:path';
 import type { SharedFormalResourceSnapshot } from '../ai/schemas/sharedFormalResourcePersistence.schema.ts';
 import type { ProductRuntimeIdentity } from '../ai/schemas/productRuntimeIdentity.schema.ts';
+import type { Connect } from 'vite';
 import {
   buildFormalResourceSnapshotDigest,
   buildManifestDigest,
@@ -10,6 +11,27 @@ import {
   resolveProductRuntimeIdentityStatus,
   sha256,
 } from '../ai/services/productRuntimeIdentityService.ts';
+
+export function createProductRuntimeIdentityBoundary(): Connect.NextHandleFunction {
+  return async (request, response) => {
+    response.setHeader('Content-Type', 'application/json; charset=utf-8');
+    response.setHeader('Cache-Control', 'no-store');
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    if (request.method !== 'GET') {
+      response.statusCode = 405;
+      response.end(JSON.stringify({ code: 'method_not_allowed' }));
+      return;
+    }
+    const result = await readCurrentProductRuntimeIdentity();
+    response.statusCode = result.status === 'available' ? 200 : 409;
+    response.end(JSON.stringify({
+      schemaVersion: 'product_runtime_identity_read_result_v1',
+      status: result.status,
+      issueCodes: result.issueCodes,
+      identity: result.identity,
+    }));
+  };
+}
 
 export async function readCurrentProductRuntimeIdentity(
   identityPath = process.env.PRODUCT_RUNTIME_IDENTITY_PATH

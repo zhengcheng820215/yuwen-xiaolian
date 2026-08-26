@@ -11,6 +11,7 @@ import {
 } from '../schemas/productComplexityConvergenceObservation.schema.ts';
 import {
   CONVERGENCE_STAGE4_PREFLIGHT_CHECK_IDS,
+  PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_V2_VERSION,
   PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_VERSION,
   PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_LAUNCH_RECORD_VERSION,
   PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_PREFLIGHT_REPORT_VERSION,
@@ -31,6 +32,8 @@ import { recordConvergenceObservation } from './productComplexityConvergenceObse
 import type { ProductRuntimeIdentity, RealTrialRuntimeIdentityBinding } from
   '../schemas/productRuntimeIdentity.schema.ts';
 import { applyProductRuntimeTrialInvalidation } from './productRuntimeTrialIdentityService.ts';
+import { validateRealTrialReentryPreflightReport,
+  validateRealTrialWindowLaunchRecordV2 } from '../schemas/productRuntimeTrialReentry.schema.ts';
 
 export type ConvergenceActivationResolution = {
   state: ConvergenceObservationActivationState;
@@ -156,6 +159,39 @@ export async function recoverConvergenceActivation(input: {
     if (!current || current.requestedMode === 'off') return {
       state: createDefaultConvergenceActivationState(input.now), learningAllowed: true, activationAllowed: false,
     };
+    if (current.activationStateVersion
+      === PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_V2_VERSION) {
+      const [trialWindow, launchRecord, binding] = await Promise.all([
+        current.trialWindowId ? input.repository.getTrialWindow(current.trialWindowId) : undefined,
+        current.launchRecordId
+          ? input.repository.getRealTrialReentryLaunchRecord(current.launchRecordId) : undefined,
+        current.runtimeIdentityBindingId
+          ? input.repository.getRealTrialRuntimeIdentityBinding(current.runtimeIdentityBindingId) : undefined,
+      ]);
+      const report = launchRecord
+        ? await input.repository.getRealTrialReentryPreflightReport(launchRecord.preflightReportId)
+        : undefined;
+      const registrySnapshot = trialWindow
+        ? await input.repository.getSourceRegistrySnapshot(trialWindow.sourceRegistryVersion) : undefined;
+      const valid = current.effectiveMode === 'real_trial'
+        && trialWindow?.status === 'active'
+        && Boolean(binding)
+        && Boolean(report?.eligibleForActivation)
+        && Boolean(launchRecord)
+        && Boolean(registrySnapshot)
+        && validateRealTrialWindowLaunchRecordV2(launchRecord!).length === 0
+        && validateRealTrialReentryPreflightReport(report!).length === 0
+        && validateConvergenceSourceRegistrySnapshot(registrySnapshot!).length === 0
+        && launchRecord!.runtimeIdentityBindingId === binding!.bindingId
+        && launchRecord!.trialWindowId === trialWindow!.trialWindowId;
+      if (valid) return { state: current, learningAllowed: true, activationAllowed: true };
+      return {
+        state: { ...createDefaultConvergenceActivationState(input.now),
+          reasonCodes: ['trial_reentry_context_invalid_off'] },
+        learningAllowed: true,
+        activationAllowed: false,
+      };
+    }
     const trialWindow = current.trialWindowId
       ? await input.repository.getTrialWindow(current.trialWindowId) : undefined;
     const launchRecord = current.launchRecordId

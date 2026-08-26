@@ -7,6 +7,7 @@ import { IndexedDBProductComplexityConvergenceObservationRepository } from
   '../ai/repositories/indexedDBProductComplexityConvergenceObservationRepository.ts';
 import {
   CONVERGENCE_STAGE4_PREFLIGHT_CHECK_IDS,
+  PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_V2_VERSION,
   validateConvergenceSourceRegistrySnapshot,
   validateRealTrialWindowLaunchRecord,
   validateRealTrialWindowPreflightReport,
@@ -21,6 +22,8 @@ import {
   resolveConvergenceActivation,
   persistConvergenceActivationResolution,
 } from '../ai/services/productComplexityConvergenceTrialPreflightService.ts';
+import { validateProductRuntimeIdentity, type ProductRuntimeIdentity } from
+  '../ai/schemas/productRuntimeIdentity.schema.ts';
 
 export const PRODUCT_COMPLEXITY_CONVERGENCE_PREFLIGHT_BUILD_VERSION =
   'product-complexity-convergence-preflight-build-v1' as const;
@@ -57,33 +60,49 @@ export async function initializeProductComplexityConvergencePreflight(): Promise
 export async function loadProductComplexityConvergencePreflightStatus() {
   await initializeProductComplexityConvergencePreflight();
   const now = new Date().toISOString();
-  const [activation, registries, windows, reports, launches, audits, events] = await Promise.all([
-    recoverConvergenceActivation({
-      repository,
-      now,
-      buildVersion: PRODUCT_COMPLEXITY_CONVERGENCE_PREFLIGHT_BUILD_VERSION,
-    }),
+  const currentState = await repository.getActivationState();
+  const recovered = currentState?.activationStateVersion
+    === PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_V2_VERSION
+    ? { state: currentState, learningAllowed: true as const, activationAllowed: true }
+    : await recoverConvergenceActivation({
+      repository, now, buildVersion: PRODUCT_COMPLEXITY_CONVERGENCE_PREFLIGHT_BUILD_VERSION,
+    });
+  const [registries, windows, reports, launches, audits, events, reentryAudits] = await Promise.all([
     repository.listSourceRegistrySnapshots(),
     repository.listTrialWindows(),
     repository.listPreflightReports(),
     repository.listLaunchRecords(),
     repository.listActivationAudits(),
     repository.listEvents(),
+    repository.listRealTrialReentryActivationAudits(),
   ]);
   const registry = [...registries].sort((left, right) =>
     right.generatedAt.localeCompare(left.generatedAt))[0];
   const latestWindow = [...windows].sort((left, right) =>
     right.startsAt.localeCompare(left.startsAt))[0];
-  const latestReport = [...reports].sort((left, right) =>
+  let latestReport = [...reports].sort((left, right) =>
     right.completedAt.localeCompare(left.completedAt))[0];
-  const latestLaunch = [...launches].sort((left, right) =>
+  let latestLaunch = [...launches].sort((left, right) =>
     right.recordedAt.localeCompare(left.recordedAt))[0];
+  if (currentState?.activationStateVersion
+    === PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_V2_VERSION
+    && currentState.launchRecordId) {
+    const reentryLaunch = await repository.getRealTrialReentryLaunchRecord(
+      currentState.launchRecordId,
+    );
+    const reentryReport = reentryLaunch
+      ? await repository.getRealTrialReentryPreflightReport(reentryLaunch.preflightReportId)
+      : undefined;
+    if (reentryLaunch) latestLaunch = reentryLaunch;
+    if (reentryReport) latestReport = reentryReport;
+  }
   const registryIssues = registry ? validateConvergenceSourceRegistrySnapshot(registry) : ['registry_missing'];
   return {
     schemaVersion: 'product_complexity_convergence_stage4_preflight_projection_v1' as const,
-    requestedMode: activation.state.requestedMode,
-    effectiveMode: activation.state.effectiveMode,
-    learningAllowed: activation.learningAllowed,
+    requestedMode: recovered.state.requestedMode,
+    effectiveMode: recovered.state.effectiveMode,
+    activationStateVersion: recovered.state.activationStateVersion,
+    learningAllowed: recovered.learningAllowed,
     registryReady: registryIssues.length === 0,
     registryIssues,
     registeredCapabilityCount: registry?.entries.length || 0,
@@ -91,14 +110,14 @@ export async function loadProductComplexityConvergencePreflightStatus() {
     latestWindow,
     latestReport,
     latestLaunch,
-    activationAuditCount: audits.length,
+    activationAuditCount: audits.length + reentryAudits.length,
     observationEventCount: events.length,
     approvedToActivate: Boolean(
       latestWindow?.status === 'active'
       && latestReport?.eligibleForActivation
       && latestLaunch?.status === 'approved_to_activate',
     ),
-    realTrialStarted: activation.state.effectiveMode === 'real_trial',
+    realTrialStarted: recovered.state.effectiveMode === 'real_trial',
     studentContentIncluded: false as const,
   };
 }
@@ -109,11 +128,24 @@ export async function observeProductComplexityConvergenceOwnerFact(
 ) {
   try {
     await initializeProductComplexityConvergencePreflight();
+    const state = await repository.getActivationState();
+    let currentRuntimeIdentity: ProductRuntimeIdentity | undefined;
+    let runtimeIdentityBinding;
+    if (state?.activationStateVersion
+      === PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_V2_VERSION
+      && state.runtimeIdentityBindingId) {
+      [currentRuntimeIdentity, runtimeIdentityBinding] = await Promise.all([
+        readBrowserRuntimeIdentity(),
+        repository.getRealTrialRuntimeIdentityBinding(state.runtimeIdentityBindingId),
+      ]);
+    }
     return await recordConvergenceFormalOwnerFact({
       ownerFact,
       repository,
       now: new Date().toISOString(),
       buildVersion: PRODUCT_COMPLEXITY_CONVERGENCE_PREFLIGHT_BUILD_VERSION,
+      currentRuntimeIdentity,
+      runtimeIdentityBinding,
     });
   } catch (error) {
     return {
@@ -124,6 +156,14 @@ export async function observeProductComplexityConvergenceOwnerFact(
       issueCodes: [`preflight_owner_hook_failed:${error instanceof Error ? error.message : String(error)}`],
     };
   }
+}
+
+async function readBrowserRuntimeIdentity(): Promise<ProductRuntimeIdentity | undefined> {
+  const response = await fetch('/__runtime/identity', { method: 'GET', cache: 'no-store' });
+  const body = await response.json();
+  if (!response.ok || body?.status !== 'available' || !body.identity
+    || validateProductRuntimeIdentity(body.identity).length) return undefined;
+  return body.identity as ProductRuntimeIdentity;
 }
 
 export async function forceProductComplexityConvergenceObservationOff(reasonCode: string) {
