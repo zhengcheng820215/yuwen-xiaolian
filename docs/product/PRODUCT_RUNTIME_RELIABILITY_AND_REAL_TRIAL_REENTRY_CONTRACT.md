@@ -4,9 +4,9 @@
 
 契约版本：`product_runtime_reliability_and_real_trial_reentry_v1`
 
-状态：`DESIGN BASELINE / WP-R0—R4 ENGINEERING COMPLETE / REAL TRIAL REMAINS OFF / WP-R5 AUTHORIZED`
+状态：`DESIGN BASELINE / WP-R0—R4 ENGINEERING COMPLETE / REAL TRIAL REMAINS OFF / WP-R5 DESIGN FROZEN AND AUTHORIZED`
 
-日期：2026-08-25
+日期：2026-08-26
 
 关联文档：
 
@@ -16,6 +16,7 @@
 - [WP-R3 Product Runtime Identity 与 Trial 自动失效工程实施及 Debug 验收文档](./PRODUCT_RUNTIME_RELIABILITY_WP_R3_RUNTIME_IDENTITY_AND_TRIAL_INVALIDATION_ENGINEERING_AND_DEBUG_PLAN.md)
 - [WP-R4 Trial 重新准入工程实施与 Debug 验收文档](./PRODUCT_RUNTIME_RELIABILITY_WP_R4_TRIAL_REENTRY_ENGINEERING_AND_DEBUG_PLAN.md)
 - [WP-R3 Runtime Identity、Trial 自动失效与浏览器验收记录](../education/phase/reports/product_runtime_reliability_wp_r3_runtime_identity_debug_browser_acceptance_2026-08-26.md)
+- [当前 Commit 真实 Trial 准入前执行清单](./PRODUCT_RUNTIME_RELIABILITY_CURRENT_COMMIT_ADMISSION_PREFLIGHT_CHECKLIST.md)
 - [WP-R0 基线、Debug 与浏览器只读验收记录](../education/phase/reports/product_runtime_reliability_wp_r0_baseline_debug_browser_acceptance_2026-08-25.md)
 - [WP-R1 启动器、Health、Debug 与浏览器验收记录](../education/phase/reports/product_runtime_reliability_wp_r1_launcher_health_debug_browser_acceptance_2026-08-25.md)
 - [产品复杂度收口总契约](./PRODUCT_COMPLEXITY_CONVERGENCE_CONTRACT.md)
@@ -46,7 +47,7 @@
 
 ## 二、当前基线与问题声明
 
-### 2.1 当前工程与数据基线
+### 2.1 历史工程与数据基线（2026-08-25）
 
 截至 2026-08-25，本地权威基线为：
 
@@ -66,7 +67,7 @@
 
 上述事实证明核心业务链和测试链已经具备工程基础，但不自动证明当前本地运行实例可用。
 
-### 2.2 当前运行问题
+### 2.2 初始运行问题
 
 当前浏览器 Learning 入口实际投射为：
 
@@ -90,7 +91,7 @@
 - Build Version：`product-complexity-convergence-preflight-build-v1`；
 - 激活时运行源码指纹：`14125882a782edd4489414f2e4c3bb26c03ce634f84897a91720d81643ef520b`。
 
-当前 Git HEAD 已变化为 `4d016c6`，而运行时代码仍使用固定 Build Version 字符串。根据真实 Trial 上位契约，源码、构建、Registry 或策略发生实质变化时，旧 Window 不得继续无条件接收真实分母。
+初始问题确认时 Git HEAD 已从旧激活记录变化为 `4d016c6`，且当时运行时代码仍使用固定 Build Version 字符串。该值只保留为历史问题证据，不代表后续执行时的“当前 HEAD”。每次正式重新准入都必须现场读取 clean HEAD、Production Artifact 和 Runtime Identity；根据真实 Trial 上位契约，源码、构建、Registry 或策略发生实质变化时，旧 Window 不得继续无条件接收真实分母。
 
 因此本契约冻结：
 
@@ -705,7 +706,7 @@ learning_round_completed
 | RH-I13 | Launch Record | 身份完整且 unresolvedIssues 为空 |
 | RH-I14 | 第一条事件 | 来自重新准入后的真实 Owner Fact |
 
-### 16.4 真实学习烟测 RH-L01—RH-L16
+### 16.4 真实学习烟测 RH-L01—RH-L17
 
 | ID | 验收项 | 通过标准 |
 | --- | --- | --- |
@@ -796,4 +797,4 @@ REAL TRIAL RE-ENTRY APPROVED
 16. 本轮不新增 Training Model 功能，不重构正式主链；
 17. 本轮完成只表示真实运行重新准入，不表示教育效果已经证明。
 
-本文档当前达到 `DESIGN BASELINE / WP-R0—R4 ENGINEERING COMPLETE / REAL TRIAL REMAINS OFF / WP-R5 DESIGN FROZEN`。WP-R0 已完成只读基线，WP-R1 已完成统一启动器、固定端口保护、GET-only Runtime Health、动态正式资源投射和 Internal Health，WP-R2 已完成 Learning / Workbench 故障分类、内容保留表达、单一恢复动作和普通页面内部字段隔离，WP-R3 已完成内容寻址 Runtime Identity、Launch Binding 读取契约、旧非 off Trial 自动失效、Health/Internal 投射和零写入验收，WP-R4 已完成新 Preflight、Launch Record、Identity Binding、原子 Approval Bundle、显式激活、失败回滚、零写入边界与浏览器只读验收。WP-R5 的真实学习烟测边界已经在独立工程文档中冻结；必须先提交该文档，再以最终 clean Production Artifact 重新生成 Runtime Identity、执行 R4-P01—R4-P24、保存新准入包并显式激活。第一条事件仍必须等待真实学生自然操作，不得由工程脚本制造。
+本文档当前达到 `DESIGN BASELINE / WP-R0—R4 ENGINEERING COMPLETE / REAL TRIAL REMAINS OFF / WP-R5 DESIGN FROZEN AND AUTHORIZED`。WP-R0 已完成只读基线，WP-R1 已完成统一启动器、固定端口保护、GET-only Runtime Health、动态正式资源投射和 Internal Health，WP-R2 已完成 Learning / Workbench 故障分类、内容保留表达、单一恢复动作和普通页面内部字段隔离，WP-R3 已完成内容寻址 Runtime Identity、Launch Binding 读取契约、旧非 off Trial 自动失效、Health/Internal 投射和零写入验收，WP-R4 已完成新 Preflight、Launch Record、Identity Binding、原子 Approval Bundle、显式激活、失败回滚、零写入边界与浏览器只读验收。WP-R5 的真实学习烟测边界已经在独立工程文档中冻结并获得进入准备阶段的授权；必须先提交本轮文档收口，以新的 clean HEAD 构建 Production Artifact、重新生成 Runtime Identity、执行 R4-P01—R4-P24、保存新准入包并显式激活。第一条事件仍必须等待真实学生自然操作，不得由工程脚本制造。

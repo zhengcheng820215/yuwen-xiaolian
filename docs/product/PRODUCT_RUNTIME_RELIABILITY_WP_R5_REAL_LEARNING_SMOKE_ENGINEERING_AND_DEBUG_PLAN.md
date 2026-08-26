@@ -17,6 +17,7 @@
 - [真实学习最小采集与观察契约](./REAL_LEARNING_DATA_COLLECTION_AND_OBSERVATION_CONTRACT.md)
 - [真实 Trial Window 启动与运行验收契约](./PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_REAL_TRIAL_WINDOW_OPERATION_AND_ACCEPTANCE_CONTRACT.md)
 - [真实 Trial 准入激活执行规程](./PRODUCT_RUNTIME_RELIABILITY_REAL_TRIAL_ADMISSION_ACTIVATION_RUNBOOK.md)
+- [当前 Commit 真实 Trial 准入前执行清单](./PRODUCT_RUNTIME_RELIABILITY_CURRENT_COMMIT_ADMISSION_PREFLIGHT_CHECKLIST.md)
 
 ## 一、目的与完成语义
 
@@ -101,7 +102,7 @@ type ProductRuntimeReliabilityWPR5EventIdentity = {
 
 禁止把测试事件、隔离验收事件、旧 Window 事件或无法证明 Runtime Identity 的历史事件标记为本次真实烟测事件。
 
-## 五、RH-L01—RH-L16 验收矩阵
+## 五、RH-L01—RH-L17 验收矩阵
 
 | ID | 验收项 | 通过标准 |
 | --- | --- | --- |
@@ -121,6 +122,7 @@ type ProductRuntimeReliabilityWPR5EventIdentity = {
 | RH-L14 | Observation Fail-open | Observation Repository 失败不阻断 Learning |
 | RH-L15 | Event Chain | 五项最小事件身份一致、顺序完整且无孤儿事件 |
 | RH-L16 | Forbidden Writes | 除自然 Learning Owner Fact 外未授权写入为 0 |
+| RH-L17 | Terminal Exit | 已完成结果但不存在可执行下一题、修订或恢复动作时，返回入口安全收口当前 Session；入口不得再次恢复到同一反馈页 |
 
 ### 5.1 下一题准入与页面投射边界
 
@@ -225,7 +227,7 @@ Session 收口成功后，页面必须同步清除收口前缓存的 Runtime 恢
 9. 验收 RH-L01—RH-L05，不提交答案
 10. 等待真实学生自然提交
 11. 验收 RH-L06—RH-L12
-12. 刷新恢复并验收 RH-L13—RH-L16
+12. 刷新恢复、终止阻断态退出并验收 RH-L13—RH-L17
 13. 输出只读验收报告
 ```
 
@@ -259,7 +261,7 @@ Session 收口成功后，页面必须同步清除收口前缓存的 Runtime 恢
 
 ## 十一、完成定义
 
-只有 RH-L01—RH-L16 全部具备证据，才能将 WP-R5 更新为：
+只有 RH-L01—RH-L17 全部具备证据，才能将 WP-R5 更新为：
 
 ```text
 ENGINEERING COMPLETE
@@ -278,4 +280,4 @@ AWAITING_REAL_STUDENT_ACTION
 
 ## 十二、冻结声明
 
-本文档冻结 WP-R5 的进入条件、最小事件链、身份边界、RH-L01—RH-L16、真实学生人工边界、Observation fail-open、回滚和零回归要求。任何后续实现不得用合成答案或测试事件替代真实学生行为，也不得在 Product Runtime Identity 建立后通过修改源码或文档使准入事实静默失效。
+本文档冻结 WP-R5 的进入条件、最小事件链、身份边界、RH-L01—RH-L17、真实学生人工边界、Observation fail-open、回滚和零回归要求。任何后续实现不得用合成答案或测试事件替代真实学生行为，也不得在 Product Runtime Identity 建立后通过修改源码或文档使准入事实静默失效。
