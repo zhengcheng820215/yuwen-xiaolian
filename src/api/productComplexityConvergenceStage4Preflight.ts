@@ -135,6 +135,30 @@ export async function forceProductComplexityConvergenceObservationOff(reasonCode
 }
 
 /**
+ * Ends legacy active windows before WP-R4 re-entry. Historical windows and all
+ * audits remain immutable records; only their lifecycle status is advanced.
+ */
+export async function closeLegacyProductComplexityConvergenceTrialForReentry(
+  reasonCode = 'wp_r4_reentry_legacy_identity_replaced',
+) {
+  const now = new Date().toISOString();
+  const windows = await repository.listTrialWindows();
+  const activeWindows = windows.filter((window) => window.status === 'active');
+  for (const window of activeWindows) {
+    await repository.saveTrialWindow(transitionConvergenceTrialWindow(window, {
+      status: 'invalidated',
+      closedAt: now,
+      invalidationReasons: [reasonCode],
+    }));
+  }
+  const activationState = await deactivateConvergenceObservation({ repository, now, reasonCode });
+  return {
+    activationState,
+    invalidatedTrialWindowIds: activeWindows.map((window) => window.trialWindowId),
+  };
+}
+
+/**
  * Operational activation boundary. It is intentionally not projected into any product page.
  * The caller must supply the signed participant, time-window, and source-build identity.
  */

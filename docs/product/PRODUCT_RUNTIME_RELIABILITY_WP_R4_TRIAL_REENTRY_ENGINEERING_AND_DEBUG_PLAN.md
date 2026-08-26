@@ -161,7 +161,7 @@ WP-R4 冻结以下不变量：
 
 ### 4.1 旧活动 Trial 的操作收口
 
-若 Internal 状态复读发现旧 `real_trial` 仍保留在浏览器持久化控制面，而当前 Runtime Health 已将其判为 `legacy_unverifiable / trial_reentry_required`，必须先通过既有失效服务使控制状态回落 `off`，再执行新 Preflight。Internal 状态页可以提供“关闭旧 Trial，准备重新准入”这一单向安全操作，但不得提供激活入口。该操作只追加关闭审计并改变当前 Activation State，不删除旧 Window、Launch、Audit 或 Observation。
+若 Internal 状态复读发现旧 `real_trial` 仍保留在浏览器持久化控制面，而当前 Runtime Health 已将其判为 `legacy_unverifiable / trial_reentry_required`，必须先通过既有失效服务使控制状态回落 `off`，并将仍为 `active` 的旧 Window 状态推进为 `invalidated`，再执行新 Preflight。Internal 状态页可以提供“关闭旧 Trial，准备重新准入”这一单向安全操作，但不得提供激活入口。该操作追加关闭审计并改变当前 Activation State / 旧 Window 生命周期状态；不得删除或覆盖旧 Window、Launch、Audit 或 Observation。
 
 ## 五、Owner 与事实边界
 

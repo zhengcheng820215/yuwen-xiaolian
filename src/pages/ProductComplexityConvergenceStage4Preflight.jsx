@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, CheckCircle2, CircleAlert, Database, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { forceProductComplexityConvergenceObservationOff,
+import { closeLegacyProductComplexityConvergenceTrialForReentry,
   loadProductComplexityConvergencePreflightStatus } from
   '../api/productComplexityConvergenceStage4Preflight.ts';
 
@@ -18,11 +18,12 @@ export default function ProductComplexityConvergenceStage4Preflight() {
   }, []);
   const ready = Boolean(status?.registryReady);
   const trialStarted = Boolean(status?.realTrialStarted);
+  const needsLegacyCleanup = trialStarted || status?.latestWindow?.status === 'active';
   async function closeLegacyTrial() {
     setClosing(true);
     setError('');
     try {
-      await forceProductComplexityConvergenceObservationOff(
+      await closeLegacyProductComplexityConvergenceTrialForReentry(
         'wp_r4_reentry_legacy_identity_replaced',
       );
       setStatus(await loadProductComplexityConvergencePreflightStatus());
@@ -42,11 +43,11 @@ export default function ProductComplexityConvergenceStage4Preflight() {
           <p className="mt-3 max-w-[820px] text-sm leading-6 text-slate-600">{trialStarted
             ? '当前只观察已签署学生在真实 Learning 中产生的结构化 Owner Fact；观察失败不会阻断学习，也不会自动改变产品能力。'
             : '此页只读取 Registry、预检、Launch 与激活审计，不创建正式事实，也不提供 real_trial 激活操作。完整预检签署前，Learning 始终沿用旧主链。'}</p>
-          {trialStarted ? <div className="mt-5"><button type="button" disabled={closing}
+          {needsLegacyCleanup ? <div className="mt-5"><button type="button" disabled={closing}
             onClick={closeLegacyTrial}
             className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 disabled:cursor-wait disabled:opacity-60">
             {closing ? '正在安全关闭…' : '关闭旧 Trial，准备重新准入'}
-          </button><p className="mt-2 text-xs leading-5 text-slate-500">仅使当前观察控制状态回落关闭；旧 Window、审计和 Observation 保持只读，不会删除。</p></div> : null}
+          </button><p className="mt-2 text-xs leading-5 text-slate-500">使当前观察控制状态回落关闭，并将旧活动 Window 标记为已失效；历史 Window、审计和 Observation 均保留，不会删除。</p></div> : null}
           {error ? <p role="alert" className="mt-5 rounded-md bg-red-50 p-4 text-sm text-red-700">{error}</p> : null}
         </section>
         <section className="mt-6 grid gap-4 md:grid-cols-4" aria-live="polite">
