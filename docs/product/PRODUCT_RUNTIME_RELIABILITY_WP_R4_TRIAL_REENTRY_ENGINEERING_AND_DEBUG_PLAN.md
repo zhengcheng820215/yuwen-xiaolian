@@ -159,6 +159,10 @@ WP-R4 冻结以下不变量：
 9. **不制造真实数据**：WP-R4 的 Debug、浏览器验收和激活确认均不得伪造 Owner Fact。
 10. **每个阶段证明旧主链零回归**：新语义只在 WP-R4 的 Trial 控制边界内生效。
 
+### 4.1 旧活动 Trial 的操作收口
+
+若 Internal 状态复读发现旧 `real_trial` 仍保留在浏览器持久化控制面，而当前 Runtime Health 已将其判为 `legacy_unverifiable / trial_reentry_required`，必须先通过既有失效服务使控制状态回落 `off`，再执行新 Preflight。Internal 状态页可以提供“关闭旧 Trial，准备重新准入”这一单向安全操作，但不得提供激活入口。该操作只追加关闭审计并改变当前 Activation State，不删除旧 Window、Launch、Audit 或 Observation。
+
 ## 五、Owner 与事实边界
 
 | 正式事实 | 唯一 Owner | WP-R4 权限 |

@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, CheckCircle2, CircleAlert, Database, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { loadProductComplexityConvergencePreflightStatus } from
+import { forceProductComplexityConvergenceObservationOff,
+  loadProductComplexityConvergencePreflightStatus } from
   '../api/productComplexityConvergenceStage4Preflight.ts';
 
 export default function ProductComplexityConvergenceStage4Preflight() {
   const [status, setStatus] = useState(null);
   const [error, setError] = useState('');
+  const [closing, setClosing] = useState(false);
   useEffect(() => {
     let active = true;
     loadProductComplexityConvergencePreflightStatus()
@@ -16,9 +18,23 @@ export default function ProductComplexityConvergenceStage4Preflight() {
   }, []);
   const ready = Boolean(status?.registryReady);
   const trialStarted = Boolean(status?.realTrialStarted);
+  async function closeLegacyTrial() {
+    setClosing(true);
+    setError('');
+    try {
+      await forceProductComplexityConvergenceObservationOff(
+        'wp_r4_reentry_legacy_identity_replaced',
+      );
+      setStatus(await loadProductComplexityConvergencePreflightStatus());
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setClosing(false);
+    }
+  }
   return (
     <div className="min-h-screen bg-[#f7f9fc] text-slate-950">
-      <header className="border-b border-slate-200 bg-white"><div className="mx-auto flex min-h-16 max-w-[1208px] items-center gap-4 px-5 md:px-8"><Link to="/internal" aria-label="返回内部入口" className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-700"><ArrowLeft size={18} /></Link><div><h1 className="text-lg font-semibold">{trialStarted ? '真实 Trial 运行状态' : '真实 Trial 启动前预检'}</h1><p className="text-sm text-slate-500">内部只读 · 不提供激活操作</p></div></div></header>
+      <header className="border-b border-slate-200 bg-white"><div className="mx-auto flex min-h-16 max-w-[1208px] items-center gap-4 px-5 md:px-8"><Link to="/internal" aria-label="返回内部入口" className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-700"><ArrowLeft size={18} /></Link><div><h1 className="text-lg font-semibold">{trialStarted ? '真实 Trial 运行状态' : '真实 Trial 启动前预检'}</h1><p className="text-sm text-slate-500">内部状态 · 不提供激活操作</p></div></div></header>
       <main className="mx-auto w-full max-w-[1208px] px-5 py-8 md:px-8 md:py-12">
         <section className="rounded-lg border border-slate-200 bg-white p-6 md:p-8">
           <div className="flex items-center gap-2 text-sm font-semibold text-violet-700"><ShieldCheck size={16} />启动控制面</div>
@@ -26,6 +42,11 @@ export default function ProductComplexityConvergenceStage4Preflight() {
           <p className="mt-3 max-w-[820px] text-sm leading-6 text-slate-600">{trialStarted
             ? '当前只观察已签署学生在真实 Learning 中产生的结构化 Owner Fact；观察失败不会阻断学习，也不会自动改变产品能力。'
             : '此页只读取 Registry、预检、Launch 与激活审计，不创建正式事实，也不提供 real_trial 激活操作。完整预检签署前，Learning 始终沿用旧主链。'}</p>
+          {trialStarted ? <div className="mt-5"><button type="button" disabled={closing}
+            onClick={closeLegacyTrial}
+            className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 disabled:cursor-wait disabled:opacity-60">
+            {closing ? '正在安全关闭…' : '关闭旧 Trial，准备重新准入'}
+          </button><p className="mt-2 text-xs leading-5 text-slate-500">仅使当前观察控制状态回落关闭；旧 Window、审计和 Observation 保持只读，不会删除。</p></div> : null}
           {error ? <p role="alert" className="mt-5 rounded-md bg-red-50 p-4 text-sm text-red-700">{error}</p> : null}
         </section>
         <section className="mt-6 grid gap-4 md:grid-cols-4" aria-live="polite">

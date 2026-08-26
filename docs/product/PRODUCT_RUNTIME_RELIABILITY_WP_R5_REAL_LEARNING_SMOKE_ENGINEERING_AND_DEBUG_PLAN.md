@@ -45,7 +45,8 @@ WP-R5 完成仅表示：
 7. 参与学生、开始时间、结束时间与时区均属于当前 Launch；
 8. 正式题、Frozen Resource、Registry Head 和策略身份在烟测开始前未变化；
 9. 不存在未解决 P0 / P1；
-10. 烟测开始前 Session、Attempt、Evidence、Profile、真实分母和 Observation 的保护写入基线已记录。
+10. 烟测开始前 Session、Attempt、Evidence、Profile、真实分母和 Observation 的保护写入基线已记录；
+11. 浏览器持久化控制面不存在仍处于 `real_trial` 的旧活动 Window；若存在，必须先安全关闭并保留全部历史审计。
 
 任一条件不成立时必须停止在烟测前，不得用降级 Fixture、Demo Resource 或人工拼接事件替代。
 
