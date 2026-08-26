@@ -17,6 +17,7 @@
 - [产品运行可靠性与真实 Trial 重新准入契约](./PRODUCT_RUNTIME_RELIABILITY_AND_REAL_TRIAL_REENTRY_CONTRACT.md)
 - [WP-R3 Product Runtime Identity 与 Trial 自动失效工程实施及 Debug 验收文档](./PRODUCT_RUNTIME_RELIABILITY_WP_R3_RUNTIME_IDENTITY_AND_TRIAL_INVALIDATION_ENGINEERING_AND_DEBUG_PLAN.md)
 - [真实 Trial Window 启动与运行验收契约](./PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_REAL_TRIAL_WINDOW_OPERATION_AND_ACCEPTANCE_CONTRACT.md)
+- [真实 Trial 准入激活执行规程](./PRODUCT_RUNTIME_RELIABILITY_REAL_TRIAL_ADMISSION_ACTIVATION_RUNBOOK.md)
 - [真实 Trial 启动前工程实施与 Debug 验收文档](./PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_REAL_TRIAL_PREFLIGHT_ENGINEERING_AND_DEBUG_PLAN.md)
 - [WP-R3 Runtime Identity、Trial 自动失效与浏览器验收记录](../education/phase/reports/product_runtime_reliability_wp_r3_runtime_identity_debug_browser_acceptance_2026-08-26.md)
 - [WP-R4 Trial 重新准入工程、Debug 与浏览器验收记录](../education/phase/reports/product_runtime_reliability_wp_r4_trial_reentry_debug_browser_acceptance_2026-08-26.md)
@@ -880,4 +881,4 @@ WP-R4 只有同时满足以下条件才算完成：
 11. 历史事实不回填、不覆盖、不复用；
 12. 每个工程阶段必须证明旧主链零回归，新语义只在该阶段允许的边界内生效。
 
-本文档已经达到 `ENGINEERING COMPLETE / DEBUG ACCEPTED / BROWSER ACCEPTED / REAL TRIAL REMAINS OFF / WP-R5 AUTHORIZED`。WP-R4 工程边界已经完成，但当前 dirty 工作树不具备真实重新准入资格；不得把本阶段验收解释为 Trial 已激活或真实学习烟测已经完成。
+本文档已经达到 `ENGINEERING COMPLETE / DEBUG ACCEPTED / BROWSER ACCEPTED / REAL TRIAL REMAINS OFF / WP-R5 AUTHORIZED`。WP-R4 工程边界已经完成；真实重新准入必须在最终 clean Production Artifact 上依照《真实 Trial 准入激活执行规程》重新执行 R4-P01—R4-P24、保存新准入包并显式激活。不得把本阶段工程验收解释为 Trial 已激活或真实学习烟测已经完成。
