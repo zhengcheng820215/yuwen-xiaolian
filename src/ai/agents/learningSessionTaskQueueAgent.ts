@@ -19,6 +19,40 @@ export type LearningSessionTaskQueueProgress = {
   isComplete: boolean;
 };
 
+export type LearningSessionNextTaskAdmissionSnapshot = {
+  status?: string;
+  resourceVersion?: {
+    resourceVersionId?: string;
+  };
+  taskReadiness?: {
+    canExecute?: boolean;
+  };
+};
+
+/**
+ * A queue pointer is only navigation intent. Learning may expose the next
+ * question after the exact queued Frozen Version has passed the formal match
+ * and executable-readiness boundary for this checkpoint.
+ */
+export function canAdvanceLearningSessionTaskQueue(input: {
+  hasFormalRoundResult: boolean;
+  checkpointStatus: string;
+  queueProgress: LearningSessionTaskQueueProgress;
+  nextTaskResolution?: LearningSessionNextTaskAdmissionSnapshot;
+}): boolean {
+  const expectedNextResourceVersionId = input.queueProgress.nextResourceVersionId;
+  const resolution = input.nextTaskResolution;
+  return Boolean(
+    input.hasFormalRoundResult
+    && input.checkpointStatus === 'completed'
+    && input.queueProgress.hasNextTask
+    && expectedNextResourceVersionId
+    && resolution?.status === 'matched'
+    && resolution.resourceVersion?.resourceVersionId === expectedNextResourceVersionId
+    && resolution.taskReadiness?.canExecute === true,
+  );
+}
+
 export function createLearningSessionTaskQueue(input: {
   firstResourceVersion: FrozenQuestionResourceVersion;
   currentVersions: FrozenQuestionResourceVersion[];

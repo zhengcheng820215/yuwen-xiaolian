@@ -10,7 +10,10 @@ import {
   isConvergenceFeedbackPresentation,
   isCoreAbilitySummary,
 } from '../schemas/productComplexityConvergenceFeedbackProjection.schema.ts';
-import { toConvergenceFeedbackStudentView } from '../../ui/productComplexityConvergenceStage3Presentation.ts';
+import {
+  removeDuplicateRevisionNextAction,
+  toConvergenceFeedbackStudentView,
+} from '../../ui/productComplexityConvergenceStage3Presentation.ts';
 
 type Check = { id: string; title: string; passed: boolean };
 const before = stable({ attempt: 'a1', diagnosis: 'd1', evidence: ['e1'], profile: 'p1' });
@@ -101,6 +104,17 @@ const checks: Check[] = [
   check('C3-46', 'V1 不自行生成 High Confidence', summaries.every((item) => item.confidence !== 'high') && insufficientProfile[0]?.confidence === 'low'),
   check('C3-47', 'Legacy Profile 无证据时安全隐藏', legacySummaries.length === 0),
   check('C3-48', '删除投射不影响正式 Profile', profileBefore === stable(profile) && summaries.every((item) => item.persistenceRole === 'profile_read_model')),
+  check('C3-49', '修订指令与下一步相同时只展示修订目标', (() => {
+    const view = toConvergenceFeedbackStudentView(projection);
+    const nextAction = view?.blocks.find((item) => item.kind === 'next_action')?.text;
+    const deduplicated = removeDuplicateRevisionNextAction(view, nextAction);
+    return Boolean(nextAction) && !deduplicated?.blocks.some((item) => item.kind === 'next_action');
+  })()),
+  check('C3-50', '不同的下一步动作保持展示', (() => {
+    const view = toConvergenceFeedbackStudentView(projection);
+    const deduplicated = removeDuplicateRevisionNextAction(view, '补充一个完全不同的修订重点。');
+    return deduplicated?.blocks.some((item) => item.kind === 'next_action') === true;
+  })()),
 ];
 
 checks.forEach((item) => console.log(`${item.passed ? 'PASS' : 'FAIL'} ${item.id} ${item.title}`));

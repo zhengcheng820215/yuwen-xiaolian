@@ -719,12 +719,13 @@ learning_round_completed
 | RH-L08 | Attempt Idempotency | 重复提交不重复形成 Attempt |
 | RH-L09 | Diagnosis | 正式 Diagnosis 完成并可恢复 |
 | RH-L10 | Feedback | 引用同一主要缺口 |
-| RH-L11 | Next Task | 正式结果驱动另一条 Frozen Resource |
+| RH-L11 | Next Task | 下一条 Session Frozen Resource 实际匹配并通过执行门禁后，才投射继续入口；仅有队列位置不得视为可进入 |
 | RH-L12 | Round Complete | 完成事实只形成一次 |
 | RH-L13 | Refresh Recovery | 刷新后恢复准确状态 |
 | RH-L14 | Observation Fail-open | 旁路失败不阻断 Learning |
 | RH-L15 | Event Chain | 五项最小事件身份一致、顺序完整 |
 | RH-L16 | Forbidden Writes | 烟测未授权事实写入为 0 |
+| RH-L17 | Terminal Exit | 已完成结果但无可执行下一题、修订或恢复动作时，返回入口必须安全收口当前 Session，入口不得再次恢复到同一反馈页 |
 
 ## 十七、工程工作包边界
 

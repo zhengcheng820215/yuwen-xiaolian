@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  canAdvanceLearningSessionTaskQueue,
   createRecoveredLearningSessionTaskQueue,
   createLearningSessionTaskQueue,
   LEARNING_SESSION_TASK_QUEUE_MAX_COUNT,
@@ -14,6 +15,7 @@ import type { FrozenQuestionResourceVersion } from
 import {
   formatNextTaskAction,
   formatNextTaskContinuation,
+  shouldSettleTerminalLearningSessionOnExit,
 } from '../../ui/learningSessionProgressCopy.ts';
 
 const NOW = '2026-08-19T09:00:00.000Z';
@@ -108,8 +110,72 @@ assert.equal(
   formatNextTaskContinuation(2, 6),
   '本题结果已经保存，接下来进入第 2 题（共 6 题）。',
 );
+assert.equal(shouldSettleTerminalLearningSessionOnExit({
+  canAdvance: false,
+  sessionComplete: false,
+}), true);
+assert.equal(shouldSettleTerminalLearningSessionOnExit({
+  canAdvance: false,
+  sessionComplete: false,
+  revision: { status: 'offered' },
+}), false);
+assert.equal(shouldSettleTerminalLearningSessionOnExit({
+  canAdvance: true,
+  sessionComplete: false,
+}), false);
 
-console.log('Learning session task queue debug: 24/24 passed.');
+const executableNextTask = {
+  status: 'matched',
+  resourceVersion: { resourceVersionId: 'choice-2' },
+  taskReadiness: { canExecute: true },
+};
+assert.equal(canAdvanceLearningSessionTaskQueue({
+  hasFormalRoundResult: true,
+  checkpointStatus: 'completed',
+  queueProgress: first,
+  nextTaskResolution: executableNextTask,
+}), true);
+assert.equal(canAdvanceLearningSessionTaskQueue({
+  hasFormalRoundResult: false,
+  checkpointStatus: 'completed',
+  queueProgress: first,
+  nextTaskResolution: executableNextTask,
+}), false);
+assert.equal(canAdvanceLearningSessionTaskQueue({
+  hasFormalRoundResult: true,
+  checkpointStatus: 'blocked',
+  queueProgress: first,
+  nextTaskResolution: executableNextTask,
+}), false);
+assert.equal(canAdvanceLearningSessionTaskQueue({
+  hasFormalRoundResult: true,
+  checkpointStatus: 'completed',
+  queueProgress: first,
+  nextTaskResolution: { ...executableNextTask, status: 'no_match' },
+}), false);
+assert.equal(canAdvanceLearningSessionTaskQueue({
+  hasFormalRoundResult: true,
+  checkpointStatus: 'completed',
+  queueProgress: first,
+  nextTaskResolution: { ...executableNextTask, taskReadiness: { canExecute: false } },
+}), false);
+assert.equal(canAdvanceLearningSessionTaskQueue({
+  hasFormalRoundResult: true,
+  checkpointStatus: 'completed',
+  queueProgress: first,
+  nextTaskResolution: {
+    ...executableNextTask,
+    resourceVersion: { resourceVersionId: 'different-frozen-version' },
+  },
+}), false);
+assert.equal(canAdvanceLearningSessionTaskQueue({
+  hasFormalRoundResult: true,
+  checkpointStatus: 'completed',
+  queueProgress: sixth,
+  nextTaskResolution: executableNextTask,
+}), false);
+
+console.log('Learning session task queue debug: 34/34 passed.');
 
 function version(
   resourceVersionId: string,

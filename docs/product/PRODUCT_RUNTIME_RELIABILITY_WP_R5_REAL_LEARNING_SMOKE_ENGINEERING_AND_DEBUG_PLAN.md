@@ -115,12 +115,55 @@ type ProductRuntimeReliabilityWPR5EventIdentity = {
 | RH-L08 | Attempt Idempotency | 重复点击或恢复不形成第二个正式 Attempt |
 | RH-L09 | Diagnosis | 正式 Diagnosis 完成并引用同一 Attempt |
 | RH-L10 | Feedback | Feedback 引用同一 Diagnosis 与主要缺口 |
-| RH-L11 | Next Task | 正式结果驱动下一条 Frozen Resource 或队列项 |
+| RH-L11 | Next Task | 只有下一条 Session Frozen Resource 已完成实际匹配且通过执行门禁时，才投射可点击的继续入口 |
 | RH-L12 | Round Complete | 完成事实最多形成一次 |
 | RH-L13 | Refresh Recovery | 刷新后恢复同一 Session、Round、队列与进度 |
 | RH-L14 | Observation Fail-open | Observation Repository 失败不阻断 Learning |
 | RH-L15 | Event Chain | 五项最小事件身份一致、顺序完整且无孤儿事件 |
 | RH-L16 | Forbidden Writes | 除自然 Learning Owner Fact 外未授权写入为 0 |
+
+### 5.1 下一题准入与页面投射边界
+
+Session 队列中存在 `nextResourceVersionId` 只表示队列仍有后续位置，不等于该题在当前 Runtime 中已经可执行。页面不得仅依据题号、队列长度或资源版本存在性投射“进入下一题”。
+
+继续入口必须同时满足：
+
+1. 当前 Round 已形成正式持久化结果；
+2. 队列存在下一项；
+3. 下一项精确 Resource Version 仍可按 Session 冻结身份读取；
+4. `nextTaskResolution.status = matched`；
+5. 单题身份、Validation、Review、Rubric 与 Quality Assessment 均满足执行门禁；
+6. 当前 Checkpoint 不处于 `blocked` 或 `review_required`。
+
+只要下一项返回 `blocked`、`review_required`、`candidate.rubric_not_observable`、`quality_evaluation_not_executable` 或其他不可执行结论，页面就必须：
+
+- 不投射可点击的“进入第 N 题”；
+- 保留当前 Round、Session、队列和已完成结果；
+- 在修订仍可用时保留“根据反馈修订”；
+- 将下一题状态投射为明确的准备/检查状态，不允许先推进 Round 再依靠异常回滚；
+- 不将题组目标数量误写为当前可执行题量。
+
+`canAdvance` 是正式准入结果的页面投影，不得由 `queue.hasNextTask` 单独推导。
+
+当反馈中的“下一步这样做”与修订目标文本完全相同时，默认只展示一次修订目标；不得以两个标题重复投射同一句指导，使学生误认为存在两个不同动作。
+
+### 5.2 终止阻断态退出与入口恢复边界
+
+当当前题结果已经正式保存，但下一题未通过执行门禁，且当前反馈已经不存在可继续的修订、恢复或重试动作时，该状态属于“终止阻断态”，不再属于可恢复 Session。
+
+学生点击“返回学习入口”时，系统必须：
+
+1. 保留已经完成的 Round、Attempt、Diagnosis、Feedback、Evidence、队列和审计事实；
+2. 将当前活动 Session 以 `interrupted / student_stopped` 安全收口，并将 Activity Context 标记为 `ended`；
+3. 不推进 Round，不伪造下一题完成，也不删除历史事实；
+4. 返回入口后不得再把同一 Session 投射为“可以继续上次学习”；
+5. 入口只能展示新的可用学习、明确的无任务状态或真实可恢复状态；不得形成“反馈页 → 返回入口 → 继续学习 → 同一反馈页”的循环。
+
+Session 收口成功后，页面必须同步清除收口前缓存的 Runtime 恢复投影；不得让旧的 `session_recoverable / continue_learning` 文案覆盖新的 `session_ended` 入口状态。
+
+健康且可恢复的活动 Session 应由统一学习入口的正常状态卡片承载，并同时提供“继续学习”和“结束本次学习”。不得使用仅有单一“继续学习”动作的 Runtime 故障提示覆盖正常入口，否则学生在恢复目标已经失效时没有退出路径。
+
+只有仍存在可执行下一题、可提交修订、可恢复提交，或页面实际提供且学生选择执行资源重试时，Session 才可继续保持 active。内部 `primaryAction` 仍为资源检查或重试，不得覆盖学生在反馈页明确选择“返回学习入口”的退出语义。
 
 ## 六、自然作答与人工边界
 

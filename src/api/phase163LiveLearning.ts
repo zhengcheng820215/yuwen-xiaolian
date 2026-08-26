@@ -50,6 +50,7 @@ import {
 import { buildScopedFormalResourceHistory } from '../ai/agents/formalResourceHistoryScope.ts';
 import { selectFormalResourceForLearningSequence } from '../ai/agents/learningTaskSequenceScheduler.ts';
 import {
+  canAdvanceLearningSessionTaskQueue,
   createRecoveredLearningSessionTaskQueue,
   createLearningSessionTaskQueue,
   resolveLearningSessionTaskQueueProgress,
@@ -1744,7 +1745,12 @@ async function stateFromCheckpoint(
   const sessionQueueBlocked = checkpoint.issues.includes(
     'session_task_queue_next_version_unavailable',
   );
-  const canAdvance = hasFormalRoundResult && queueProgress.hasNextTask && !sessionQueueBlocked;
+  const canAdvance = canAdvanceLearningSessionTaskQueue({
+    hasFormalRoundResult,
+    checkpointStatus: checkpoint.status,
+    queueProgress,
+    nextTaskResolution: checkpoint.nextTaskResolution,
+  });
   const sessionComplete = hasFormalRoundResult && queueProgress.isComplete;
   const learningPresentation = toStudentLearningPresentation(buildStudentLearningNarrativeProjection({
     studentId: checkpoint.studentId,
@@ -2128,7 +2134,13 @@ export async function skipPhase163FeedbackRevision(): Promise<void> {
   const context = await currentFeedbackRevisionContext();
   const revision = context.state.revision;
   if (!revision || (revision.status !== 'offered' && revision.status !== 'draft')) return;
-  const attempt = await learningTaskAttemptRepository.getById(revision.learningTaskAttemptId);
+  await skipPhase163FeedbackRevisionByAttemptId(revision.learningTaskAttemptId);
+}
+
+export async function skipPhase163FeedbackRevisionByAttemptId(
+  learningTaskAttemptId: string,
+): Promise<void> {
+  const attempt = await learningTaskAttemptRepository.getById(learningTaskAttemptId);
   if (attempt?.status === 'feedback_presented') {
     await feedbackRevisionPersistenceService.completeInitialOnly(attempt.learningTaskAttemptId);
   } else if (attempt?.status === 'revision_draft') {

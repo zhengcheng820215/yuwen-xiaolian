@@ -12,6 +12,7 @@ import {
   savePhase163LiveDraft,
   savePhase163FeedbackRevisionDraft,
   skipPhase163FeedbackRevision,
+  skipPhase163FeedbackRevisionByAttemptId,
   skipPhase163TargetedMicroTraining,
   startPhase163TargetedMicroTraining,
   startPhase163FeedbackRevision,
@@ -43,12 +44,14 @@ import {
 } from '../ui/feedbackPresentationPolicy.ts';
 import {
   formatNextTaskContinuation,
+  shouldSettleTerminalLearningSessionOnExit,
 } from '../ui/learningSessionProgressCopy.ts';
 import {
   formatStudentNextQuestionAction,
   studentConditionalTaskTitle,
 } from '../ui/productComplexityConvergencePresentation.ts';
 import {
+  removeDuplicateRevisionNextAction,
   resolveConvergenceStage3PresentationFlag,
   toConvergenceFeedbackStudentView,
 } from '../ui/productComplexityConvergenceStage3Presentation.ts';
@@ -337,16 +340,43 @@ export default function Phase163LiveLearningWorkspace({
     if (hasChangedDraft && !window.confirm('本次修订尚未提交。继续后草稿仍会保留，是否继续？')) return;
     setBusy(true);
     try {
-      if (state?.revision?.status === 'offered' || state?.revision?.status === 'draft') {
-        await skipPhase163FeedbackRevision();
-      }
+      const skippableRevisionAttemptId = state?.revision
+        && (state.revision.status === 'offered' || state.revision.status === 'draft')
+        ? state.revision.learningTaskAttemptId
+        : undefined;
       if (state?.isTargetedMicroTraining) {
         applyState(await resumePhase163CoreAfterTargetedMicroTraining());
       } else if (state?.canAdvance) {
-        applyState(await advancePhase163LiveRound());
+        const nextState = await advancePhase163LiveRound();
+        if (skippableRevisionAttemptId) {
+          await skipPhase163FeedbackRevisionByAttemptId(skippableRevisionAttemptId);
+        }
+        applyState(nextState);
       } else if (state?.sessionComplete) {
+        if (skippableRevisionAttemptId) await skipPhase163FeedbackRevision();
         if (onCompleteSession) await onCompleteSession();
         else await onReturnToEntry();
+      } else {
+        if (skippableRevisionAttemptId) await skipPhase163FeedbackRevision();
+        if (shouldSettleTerminalLearningSessionOnExit(state) && onCompleteSession) {
+          await onCompleteSession();
+        } else {
+          await onReturnToEntry();
+        }
+      }
+    } catch (error) {
+      showMessage(toMessage(error), 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function returnFromWorkspace() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (shouldSettleTerminalLearningSessionOnExit(state) && onCompleteSession) {
+        await onCompleteSession();
       } else {
         await onReturnToEntry();
       }
@@ -405,7 +435,8 @@ export default function Phase163LiveLearningWorkspace({
         <div className="mx-auto flex min-h-16 w-full max-w-[1680px] items-center justify-between gap-4 px-5 md:px-8">
           <button
             type="button"
-            onClick={onReturnToEntry}
+            disabled={busy}
+            onClick={returnFromWorkspace}
             className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
             aria-label="返回学习入口"
           >
@@ -595,9 +626,13 @@ function CompletedFeedback({
   const guidance = state.feedback?.guidance;
   const attention = guidance ? [] : state.feedback?.whatNeedsAttention?.slice(0, 1) || [];
   const hasLearningNarrative = hasOutcomeNarrative(state.learningPresentation);
-  const convergenceView = resolveConvergenceStage3PresentationFlag() === 'convergence_v1'
+  const rawConvergenceView = resolveConvergenceStage3PresentationFlag() === 'convergence_v1'
     ? toConvergenceFeedbackStudentView(state.convergenceFeedbackPresentation)
     : undefined;
+  const convergenceView = removeDuplicateRevisionNextAction(
+    rawConvergenceView,
+    state.revision?.status === 'offered' ? state.revision.revisionGoal?.instruction : undefined,
+  );
   const fallbackFeedback = resolveCompletedFeedbackFallback({
     hasOutcomeNarrative: hasLearningNarrative,
     hasThinkingReview: Boolean(thinkingReview),
@@ -786,9 +821,13 @@ function PausedWorkspace({ state, writingCorrections, busy, onReturn, onStartRev
   const guidance = state.feedback?.guidance;
   const attention = guidance ? [] : state.feedback?.whatNeedsAttention?.slice(0, 1) || [];
   const hasLearningNarrative = hasOutcomeNarrative(state.learningPresentation);
-  const convergenceView = resolveConvergenceStage3PresentationFlag() === 'convergence_v1'
+  const rawConvergenceView = resolveConvergenceStage3PresentationFlag() === 'convergence_v1'
     ? toConvergenceFeedbackStudentView(state.convergenceFeedbackPresentation)
     : undefined;
+  const convergenceView = removeDuplicateRevisionNextAction(
+    rawConvergenceView,
+    state.revision?.status === 'offered' ? state.revision.revisionGoal?.instruction : undefined,
+  );
   const showPauseMessage = !state.feedback || !['resource_unavailable', 'next_task_review'].includes(state.pauseReason);
   useEffect(() => {
     if (!state.feedback) return;

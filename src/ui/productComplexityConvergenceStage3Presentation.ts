@@ -37,6 +37,19 @@ export function toConvergenceFeedbackStudentView(
   };
 }
 
+export function removeDuplicateRevisionNextAction(
+  view: ConvergenceFeedbackStudentView | undefined,
+  revisionInstruction?: string,
+): ConvergenceFeedbackStudentView | undefined {
+  const normalizedRevisionInstruction = normalizeInstruction(revisionInstruction);
+  if (!view || !normalizedRevisionInstruction) return view;
+  const blocks = view.blocks.filter((block) => (
+    block.kind !== 'next_action'
+    || normalizeInstruction(block.text) !== normalizedRevisionInstruction
+  ));
+  return blocks.length === view.blocks.length ? view : { ...view, blocks };
+}
+
 export function toCoreAbilitySummaryStudentView(summary: CoreAbilitySummary): {
   ability: string;
   statusLabel: string;
@@ -69,4 +82,8 @@ function statusLabel(status: CoreAbilitySummary['status']): string {
   if (status === 'developing') return '正在形成';
   if (status === 'needs_attention') return '需要继续练习';
   return '还需更多练习记录';
+}
+
+function normalizeInstruction(value?: string): string {
+  return (value || '').trim().replace(/\s+/g, '');
 }

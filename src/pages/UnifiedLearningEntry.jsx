@@ -48,7 +48,7 @@ export default function UnifiedLearningEntry() {
       }
       const nextEntry = await loadUnifiedLearningEntry();
       setEntry(nextEntry);
-      setRuntimeProjection(projectProductRuntimeRecovery({
+      const nextRuntimeProjection = projectProductRuntimeRecovery({
         surface: 'learning_entry',
         operation: ['start_learning', 'start_new_session'].includes(nextEntry.primaryAction) ? 'start_learning' : 'load_entry',
         healthReadState: 'available', health: healthResult.health,
@@ -63,7 +63,13 @@ export default function UnifiedLearningEntry() {
           currentWorkbenchObjectPresent: false,
         },
         taskAvailability: nextEntry.taskAvailabilityState,
-      }));
+      });
+      // A healthy, resumable Session is an entry state, not a runtime fault
+      // notice. Keep the normal entry surface so the student can either
+      // continue or explicitly end the Session.
+      setRuntimeProjection(nextRuntimeProjection.state === 'session_recoverable'
+        ? null
+        : nextRuntimeProjection);
       setView('entry');
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : String(loadError);
@@ -102,6 +108,7 @@ export default function UnifiedLearningEntry() {
     setBusy(true);
     try {
       setEntry(await endUnifiedLearningSession());
+      setRuntimeProjection(null);
     } catch (endError) {
       setError(toMessage(endError));
     } finally {
@@ -115,6 +122,7 @@ export default function UnifiedLearningEntry() {
     setError('');
     try {
       setEntry(await endUnifiedLearningSession());
+      setRuntimeProjection(null);
       setView('entry');
     } catch (endError) {
       setError(toMessage(endError));
