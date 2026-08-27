@@ -2,6 +2,22 @@
 
 **Status:** DETERMINISTIC V1 IMPLEMENTED
 
+## Rubric 对齐反馈的阶段边界
+
+`RubricFeedbackProjection v1` 已完成阶段 1 工程验收；`StudentVisibleFeedbackGrounding v1` 的阶段 2 最小接入也已通过 30/30 专项验收、旧主链回归和 production build。当前只在显式传入合法 `projectionGrounding` 时影响 Action Plan 内部结果；尚未接入学生可见 Narrative Runtime，也不改变 Learning 页面。
+
+后续接入必须保持以下责任分离：
+
+```text
+Formal Diagnosis / Requirement Coverage
+→ RubricFeedbackProjection
+→ StudentVisibleFeedbackGrounding（最小必要裁剪）
+→ StudentFeedbackActionPlan
+→ Student Learning Narrative
+```
+
+Projection 不得成为第二个 Diagnosis；Narrative 不得读取完整 Rubric、`acceptedSignals`、权重、标准答案或正确选项身份。单选继续使用 `selectedOption → distractor rationale → 重新核对动作` 的独立反馈链，不套用文本题 Rubric 补全逻辑。
+
 ## 文档定位
 
 本文档定义系统如何把 `StudentThinkingAnalysis` 与 `Learning Gap` 转换为学生能够理解和执行的反馈，不重新诊断、不生成能力结论，也不直接给出完整答案。
@@ -140,6 +156,10 @@ Revision Evaluation 不是第二次普通 Diagnosis，也不是重复输出第�
 Revision Evaluation 形成的是 feedback-supported improvement evidence。它不得覆盖 Initial Evidence，不得直接宣布长期能力提升，也不得替代 Retest、Transfer 或 delayed retest。
 
 工程判定必须使用同一冻结题目版本下的首次与修订 Formal Diagnosis 作差异比较；Revised Diagnosis 只服务于本次评价，不再次进入普通 Feedback、Task Evidence Return 或题目校准。Formal Diagnosis 未形成或版本错位时进入待补评价，不能退化为按字数、关键词或字符串差异宣布改善。
+
+## Rubric Projection 阶段边界（2026-08-27）
+
+系统已完成 `rubric_aligned_feedback_stage1_v1` 的确定性、只读 Projection：仅在题目、回答、执行 Session 与已提交 Formal Diagnosis 身份一致时，把正式 Requirement Coverage 投射为 `achieved / partially_achieved / missing / not_assessable`，并选择一个一次行动可改善的主要断点。该层不重新诊断、不写入 Evidence 或 Profile、不投射到 Learning 学生界面；单项选择继续使用独立反馈契约。学生可见反馈接入必须等待后续阶段另行冻结与验收。
 
 ## 修订反馈校验要求
 

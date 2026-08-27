@@ -1,4 +1,8 @@
 import type { RecommendedTaskRole } from '../schemas/nextLearningStrategy.schema.ts';
+import {
+  isStudentVisibleFeedbackGrounding,
+  type StudentVisibleFeedbackGrounding,
+} from '../schemas/rubricFeedbackProjection.schema.ts';
 import type { StudentFeedbackGrounding } from '../schemas/studentFeedbackGrounding.schema.ts';
 import {
   STUDENT_FEEDBACK_ACTION_PLAN_SCHEMA_VERSION,
@@ -14,21 +18,32 @@ import type {
 import type { StudentThinkingAnalysis } from '../schemas/studentThinkingAnalysis.schema.ts';
 import type { StudentResponse } from '../schemas/taskExecution.schema.ts';
 
-type StudentFeedbackActionPlanInput = {
+export type StudentFeedbackActionPlanInput = {
   feedback: StudentLearningFeedback;
   grounding: StudentFeedbackGrounding;
   thinkingAnalysis: StudentThinkingAnalysis;
   studentResponse?: StudentResponse;
   taskRole?: RecommendedTaskRole;
+  projectionGrounding?: StudentVisibleFeedbackGrounding;
 };
 
 const GENERIC_ONLY_PATTERN = /^(?:你的回答)?(?:还)?(?:不够完整|缺少细节|需要深入分析|需要补充说明|需要加强理解)[。！]?$/;
-const EXECUTABLE_ACTION_PATTERN = /(?:想一想|比较|思考|回到|找到|找出|选择|补上|写出|改成|说明|合并|连接|保留|检查|重新|查看)/;
+const EXECUTABLE_ACTION_PATTERN = /(?:想一想|比较|思考|回到|找到|找出|定位|核对|补齐|选择|补上|写出|改成|说明|合并|连接|保留|检查|重新|查看)/;
 
 export function buildStudentFeedbackActionPlan(
   input: StudentFeedbackActionPlanInput,
 ): StudentFeedbackActionPlan {
-  const { feedback, grounding, thinkingAnalysis, studentResponse, taskRole } = input;
+  const {
+    feedback,
+    grounding,
+    thinkingAnalysis,
+    studentResponse,
+    taskRole,
+  } = input;
+  const projectionGrounding = input.projectionGrounding &&
+    isStudentVisibleFeedbackGrounding(input.projectionGrounding)
+    ? input.projectionGrounding
+    : undefined;
   const coverage = feedback.thinkingReview?.requirementCoverage || [];
   const primaryCoverage = coverage.find((item) => item.requirementId === grounding.primaryGap?.evidenceLinks[0]) ||
     coverage.find((item) => item.requirementId === feedback.thinkingReview?.primaryGapRequirementId);
@@ -41,61 +56,93 @@ export function buildStudentFeedbackActionPlan(
       : undefined);
   const observedEvidence = firstUseful(evidenceCoverage?.studentEvidence);
   const taskCue = selectTaskCue(primaryCoverage, evidenceCoverage);
-  const feedbackDepth = selectFeedbackDepth(feedback, grounding);
-  const hintLevel = selectHintLevel(feedbackDepth, taskCue);
+  const legacyFeedbackDepth = selectFeedbackDepth(feedback, grounding);
+  const feedbackDepth = projectionGrounding
+    ? mapProjectionFeedbackDepth(projectionGrounding.feedbackDepth)
+    : legacyFeedbackDepth;
+  const hintLevel = projectionGrounding
+    ? mapProjectionHintLevel(projectionGrounding)
+    : selectHintLevel(feedbackDepth, taskCue);
   const completedThinking = thinkingAnalysis.completedSteps[0];
   const supportingThinking = thinkingAnalysis.completedSteps.find((item) =>
     item.stepId.endsWith(':text_evidence'));
-  const acknowledgedAction = completedThinking && supportingThinking &&
+  const legacyAcknowledgedAction = completedThinking && supportingThinking &&
     supportingThinking.stepId !== completedThinking.stepId
     ? `你${completedThinking.action}，也${supportingThinking.action}。`
     : completedThinking
       ? `你${completedThinking.action}。`
-    : buildAcknowledgedAction(studentClaim, observedEvidence, grounding);
-  const whyItMatters = supportingThinking || completedThinking
-    ? `这一步${(supportingThinking || completedThinking)!.whyItMatters}。`
+      : buildAcknowledgedAction(studentClaim, observedEvidence, grounding);
+  const acknowledgedAction = projectionGrounding
+    ? projectionGrounding.acknowledgedStudentAction
+    : legacyAcknowledgedAction;
+  const whyItMatters = projectionGrounding
+    ? undefined
+    : supportingThinking || completedThinking
+      ? `这一步${(supportingThinking || completedThinking)!.whyItMatters}。`
+      : undefined;
+  const legacyMissingAnswerPart = buildMissingAnswerPart({
+    grounding,
+    primaryCoverage,
+    studentClaim,
+    observedEvidence,
+    taskCue,
+    hintLevel,
+  });
+  const legacyOperations = buildOperations({
+    grounding,
+    primaryCoverage,
+    studentClaim,
+    observedEvidence,
+    taskCue,
+    feedbackDepth,
+    hintLevel,
+  });
+  const projectionThinkingPrompt = projectionGrounding
+    ? buildProjectionThinkingPrompt(projectionGrounding)
     : undefined;
-  const missingAnswerPart = buildMissingAnswerPart({
-    grounding,
-    primaryCoverage,
-    studentClaim,
-    observedEvidence,
-    taskCue,
-    hintLevel,
-  });
-  const { nextOperations, scaffoldTemplate } = buildOperations({
-    grounding,
-    primaryCoverage,
-    studentClaim,
-    observedEvidence,
-    taskCue,
-    feedbackDepth,
-    hintLevel,
-  });
+  const missingAnswerPart = projectionGrounding
+    ? buildProjectionMissingAnswerPart(projectionGrounding)
+    : legacyMissingAnswerPart;
+  const nextOperations = projectionGrounding
+    ? projectionThinkingPrompt ? [projectionThinkingPrompt] : []
+    : legacyOperations.nextOperations;
+  const scaffoldTemplate = projectionGrounding
+    ? undefined
+    : legacyOperations.scaffoldTemplate;
   const problemMechanism = thinkingAnalysis.interruptedTransition?.observedProblem;
-  const thinkingPrompt = buildThinkingPrompt({
+  const legacyThinkingPrompt = buildThinkingPrompt({
     primaryCoverage,
     studentClaim,
     observedEvidence,
     taskCue,
     feedbackDepth,
   });
+  const thinkingPrompt = projectionGrounding
+    ? projectionThinkingPrompt
+    : legacyThinkingPrompt;
   const evidenceLinks = unique([
     feedback.learningRoundId,
     ...(grounding.primaryGap?.evidenceLinks || []),
     ...(conclusionCoverage ? [conclusionCoverage.requirementId] : []),
     ...(evidenceCoverage ? [evidenceCoverage.requirementId] : []),
     ...(studentResponse?.responseId ? [studentResponse.responseId] : []),
+    ...(projectionGrounding ? [projectionGrounding.sourceProjectionId] : []),
   ]);
   const issues: string[] = [];
-  const actionGrounded = !acknowledgedAction || Boolean(studentClaim || observedEvidence || grounding.achievedPoints.length);
+  const actionGrounded = !acknowledgedAction || Boolean(
+    projectionGrounding?.acknowledgedStudentAction
+    || studentClaim
+    || observedEvidence
+    || grounding.achievedPoints.length,
+  );
   if (!actionGrounded) issues.push('feedback_action_acknowledgement_not_grounded');
   const gapSpecific = !missingAnswerPart || !GENERIC_ONLY_PATTERN.test(missingAnswerPart.trim());
   if (!gapSpecific) issues.push('feedback_action_gap_not_specific');
   const operationsExecutable = nextOperations.length === 0 ||
     nextOperations.every((item) => EXECUTABLE_ACTION_PATTERN.test(item));
   if (!operationsExecutable) issues.push('feedback_action_operation_not_executable');
-  const disclosureAllowed = hintLevel !== 'explicit';
+  const disclosureAllowed = hintLevel !== 'explicit'
+    && (!projectionGrounding || isStudentVisibleFeedbackGrounding(projectionGrounding));
   if (!disclosureAllowed) issues.push('feedback_action_answer_disclosure_not_allowed');
 
   const result: StudentFeedbackActionPlan = {
@@ -162,6 +209,22 @@ function selectHintLevel(depth: StudentFeedbackDepth, taskCue?: string): Student
   return 'paraphrase';
 }
 
+function mapProjectionFeedbackDepth(
+  depth: StudentVisibleFeedbackGrounding['feedbackDepth'],
+): StudentFeedbackDepth {
+  if (depth === 'result_only') return 1;
+  if (depth === 'thinking_prompt') return 2;
+  return 3;
+}
+
+function mapProjectionHintLevel(
+  grounding: StudentVisibleFeedbackGrounding,
+): StudentFeedbackHintLevel {
+  if (grounding.feedbackDepth === 'result_only') return 'none';
+  if (grounding.feedbackDepth === 'scaffold') return 'paraphrase';
+  return grounding.safeClueLocator ? 'location' : 'none';
+}
+
 function buildAcknowledgedAction(
   studentClaim: string | undefined,
   observedEvidence: string | undefined,
@@ -170,6 +233,37 @@ function buildAcknowledgedAction(
   if (studentClaim) return `你已经写出了“${short(studentClaim)}”这个想法。`;
   if (observedEvidence) return `你已经在答案中用到了“${short(observedEvidence)}”这一具体内容。`;
   return grounding.achievedPoints[0]?.text;
+}
+
+function buildProjectionMissingAnswerPart(
+  grounding: StudentVisibleFeedbackGrounding,
+): string | undefined {
+  switch (grounding.primaryObservedGap) {
+    case 'conclusion_without_evidence':
+      return '你已经有了判断，但还需要补上一处能够支持这个判断的材料依据。';
+    case 'evidence_without_explanation':
+      return '你已经找到了相关内容，但还需要说明它为什么能支持当前判断。';
+    case 'partial_required_aspects':
+      return '当前任务要求中还有一个必要方面没有完成。';
+    case 'scope_misaligned':
+      return '当前回答还没有对准题干限定的对象或范围。';
+    case 'expression_not_organized':
+      return '已有想法还需要按照题目要求组织清楚。';
+    default:
+      return undefined;
+  }
+}
+
+function buildProjectionThinkingPrompt(
+  grounding: StudentVisibleFeedbackGrounding,
+): string | undefined {
+  if (
+    grounding.feedbackDepth === 'result_only'
+    || !grounding.primaryObservedGap
+    || !grounding.nextThinkingAction
+  ) return undefined;
+  if (!grounding.safeClueLocator) return grounding.nextThinkingAction;
+  return `回到“${short(grounding.safeClueLocator)}”这一处，${grounding.nextThinkingAction}`;
 }
 
 function buildMissingAnswerPart(input: {

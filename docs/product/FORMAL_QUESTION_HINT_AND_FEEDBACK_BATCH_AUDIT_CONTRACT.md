@@ -2,6 +2,8 @@
 
 状态：`ENGINEERING ACCEPTED`
 
+审计 Schema：`formal_question_hint_feedback_batch_audit_v2`
+
 ## 一、目标
 
 本审计用于一次性扫描 Registry 当前 Head 指向的全部正式题，识别提示生成和学生反馈投射中的同类风险，避免依靠学生逐题试用后才发现问题。
@@ -49,6 +51,18 @@
 
 学生实际回答是否覆盖 Requirement，仍由正式 Diagnosis、Evidence 和 Feedback Adapter 在运行时判断；静态审计不得提前声称学生已完成或未完成。
 
+### 4.1 Rubric 反馈投射准备度
+
+每道正式题必须额外形成一个只读的 `rubricFeedbackReadiness`，用于判断题目是否具备进入后续 Rubric 反馈投射的静态条件：
+
+- `ready`：题目、任务与 Rubric Item 身份完整，必要评分项具备可接受表达，题干、题型和 Rubric 作答责任一致；
+- `limited`：仍可安全使用现有兼容反馈，但 Rubric 信息不足以支持完整投射；
+- `blocked`：存在身份错位、Rubric 冲突或题型契约冲突，必须通过 successor Candidate 治理。
+
+该准备度只回答“正式题是否具备投射条件”，不回答“学生本次完成了什么”。静态审计严禁生成 `coverageStatus`、`primaryItemId`、虚构 Diagnosis 或学生表现结论。
+
+学生可见投射策略固定为 `minimum_necessary_only`。完整 Rubric、`acceptedSignals`、标准答案、权重和正确选项身份不得进入学生可见 Grounding。
+
 ## 五、Finding 与严重度
 
 - `blocked`：会造成错误提示、错误反馈对象或作答契约矛盾；需要 successor 治理，不能原地改写正式资源。
@@ -65,6 +79,13 @@
 npm run audit:formal-question-hint-feedback
 ```
 
+Rubric 对齐反馈阶段 0 的契约与只读边界验收命令：
+
+```bash
+npm run debug:rubric-aligned-feedback-stage0
+npm run audit:rubric-aligned-feedback-stage0
+```
+
 命令必须满足：
 
 1. 扫描数量与当前正式题基线一致；
@@ -78,6 +99,10 @@ npm run audit:formal-question-hint-feedback
 首轮执行基线与结论记录在：
 
 - `docs/education/phase/reports/formal_question_hint_feedback_batch_audit_2026-08-25.md`
+
+Rubric 对齐反馈阶段 0 的只读基线记录在：
+
+- `docs/education/phase/reports/rubric_aligned_feedback_stage0_readonly_audit_2026-08-27.md`
 
 反馈观察对象 advisory 的下一阶段工程边界记录在：
 

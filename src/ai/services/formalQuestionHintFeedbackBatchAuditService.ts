@@ -8,9 +8,11 @@ import type { FrozenQuestionResourceVersion } from
   '../schemas/questionResourceAdmission.schema.ts';
 import type { SharedFormalResourceSnapshot } from
   '../schemas/sharedFormalResourcePersistence.schema.ts';
+import { validateSingleChoiceInteraction } from
+  '../schemas/singleChoiceInteraction.schema.ts';
 
 export const FORMAL_QUESTION_HINT_FEEDBACK_AUDIT_SCHEMA_VERSION =
-  'formal_question_hint_feedback_batch_audit_v1' as const;
+  'formal_question_hint_feedback_batch_audit_v2' as const;
 
 export type FormalQuestionHintFeedbackAuditSeverity = 'blocked' | 'advisory' | 'info';
 
@@ -38,6 +40,15 @@ export type FormalQuestionHintFeedbackAuditItem = {
   };
   feedbackProjection: FeedbackObservationTargetProjection;
   feedbackTarget: string;
+  rubricFeedbackReadiness: {
+    status: 'ready' | 'limited' | 'blocked';
+    rubricItemCount: number;
+    requiredRubricItemCount: number;
+    criticalRubricItemCount: number;
+    projectionReadyItemCount: number;
+    studentVisibleProjectionPolicy: 'minimum_necessary_only';
+    limitations: string[];
+  };
   disposition: 'blocked' | 'advisory' | 'pass';
   findings: FormalQuestionHintFeedbackAuditFinding[];
 };
@@ -54,6 +65,9 @@ export type FormalQuestionHintFeedbackBatchAuditReport = {
     hintReady: number;
     hintHidden: number;
     hintSuppressed: number;
+    rubricFeedbackReady: number;
+    rubricFeedbackLimited: number;
+    rubricFeedbackBlocked: number;
   };
   findingBreakdown: Record<string, number>;
   targetBreakdown: Record<string, number>;
@@ -132,6 +146,9 @@ export function buildFormalQuestionHintFeedbackBatchAudit(
       hintReady: items.filter((item) => item.hintProjection.status === 'ready').length,
       hintHidden: items.filter((item) => item.hintProjection.status === 'hidden_by_quality_gate').length,
       hintSuppressed: items.filter((item) => item.hintProjection.status === 'suppressed_by_role').length,
+      rubricFeedbackReady: items.filter((item) => item.rubricFeedbackReadiness.status === 'ready').length,
+      rubricFeedbackLimited: items.filter((item) => item.rubricFeedbackReadiness.status === 'limited').length,
+      rubricFeedbackBlocked: items.filter((item) => item.rubricFeedbackReadiness.status === 'blocked').length,
     },
     findingBreakdown: Object.fromEntries(Object.entries(findingBreakdown).sort(([left], [right]) => (
       left.localeCompare(right)
@@ -202,6 +219,7 @@ function auditVersion(version: FrozenQuestionResourceVersion): FormalQuestionHin
   });
   auditFeedbackTarget(version, feedbackProjection, findings);
   auditRequirementContract(version, findings);
+  const rubricFeedbackReadiness = auditRubricFeedbackReadiness(version, findings);
 
   return {
     materialTitle: version.materialSnapshot?.title || '阅读材料',
@@ -215,12 +233,137 @@ function auditVersion(version: FrozenQuestionResourceVersion): FormalQuestionHin
     hintProjection,
     feedbackProjection,
     feedbackTarget: feedbackProjection.displayLabel,
+    rubricFeedbackReadiness,
     disposition: findings.some((item) => item.severity === 'blocked')
       ? 'blocked'
       : findings.some((item) => item.severity === 'advisory')
         ? 'advisory'
         : 'pass',
     findings,
+  };
+}
+
+function auditRubricFeedbackReadiness(
+  version: FrozenQuestionResourceVersion,
+  findings: FormalQuestionHintFeedbackAuditFinding[],
+): FormalQuestionHintFeedbackAuditItem['rubricFeedbackReadiness'] {
+  const limitations: string[] = [];
+  const localFindings: FormalQuestionHintFeedbackAuditFinding[] = [];
+  const add = (
+    code: string,
+    severity: FormalQuestionHintFeedbackAuditSeverity,
+    message: string,
+  ) => {
+    const item = finding('feedback', code, severity, message);
+    findings.push(item);
+    localFindings.push(item);
+    if (severity !== 'info') limitations.push(code);
+  };
+
+  const itemIds = version.rubric.map((item) => item.itemId?.trim()).filter(Boolean);
+  if (
+    !version.resourceVersionId.trim()
+    || !version.taskId.trim()
+    || itemIds.length !== version.rubric.length
+    || new Set(itemIds).size !== itemIds.length
+  ) {
+    add(
+      'rubric_feedback_identity_mismatch',
+      'blocked',
+      '题目版本、任务或 Rubric Item 身份不完整或重复，不能建立可追溯反馈投射。',
+    );
+  }
+
+  const requiredOrCritical = version.rubric.filter((item) => (
+    item.required || item.importance === 'critical'
+  ));
+  const missingSignals = requiredOrCritical.filter((item) => (
+    !Array.isArray(item.acceptedSignals)
+    || item.acceptedSignals.filter((signal) => signal.trim().length > 0).length === 0
+  ));
+  if (missingSignals.length > 0) {
+    add(
+      'rubric_missing_accepted_signals',
+      'advisory',
+      `有 ${missingSignals.length} 个必要或关键 Rubric Item 缺少可接受观察信号，只能进入受限反馈投射。`,
+    );
+  }
+
+  const minimum = version.minimumAnswerRequirement as {
+    requireTextEvidence?: boolean;
+    requireExplanation?: boolean;
+  };
+  const requiredRubric = version.rubric.filter((item) => item.required);
+  const evidenceAligned = !minimum.requireTextEvidence || requiredRubric.some((item) => (
+    item.evidenceRequirement?.requireTextEvidence
+  ));
+  const explanationAligned = !minimum.requireExplanation || requiredRubric.some((item) => (
+    item.evidenceRequirement?.requireExplanation
+  ));
+  if (!evidenceAligned || !explanationAligned) {
+    add(
+      'rubric_requirement_misaligned',
+      'advisory',
+      '最低作答要求与必要 Rubric 的证据或解释责任没有完整对齐。',
+    );
+  }
+
+  if (version.responseFormat === 'single_choice') {
+    const interaction = validateSingleChoiceInteraction(version.choiceInteraction);
+    if (!interaction.passed || minimum.requireTextEvidence || minimum.requireExplanation) {
+      add(
+        'single_choice_feedback_contract_mismatch',
+        'blocked',
+        '单选题的选项身份、干扰项解释或最低作答要求不能支持独立反馈链路。',
+      );
+    }
+  }
+
+  const projectionReadyItemCount = version.rubric.filter((item) => (
+    item.itemId.trim().length > 0
+    && item.name.trim().length > 0
+    && (
+      item.acceptedSignals.some((signal) => signal.trim().length > 0)
+      || Boolean(item.description?.trim())
+    )
+  )).length;
+  if (projectionReadyItemCount === 0 && localFindings.every((item) => item.severity !== 'blocked')) {
+    add(
+      'rubric_feedback_limited',
+      'advisory',
+      '当前 Rubric 没有足够结构化信息形成针对性反馈投射。',
+    );
+  }
+
+  const status = localFindings.some((item) => item.severity === 'blocked')
+    ? 'blocked'
+    : localFindings.some((item) => item.severity === 'advisory')
+      ? 'limited'
+      : 'ready';
+  if (status === 'ready') {
+    findings.push(finding(
+      'feedback',
+      'rubric_feedback_ready',
+      'info',
+      'Rubric 已具备反馈投射准备度；运行时仍必须经过 Formal Diagnosis 与最小必要信息裁剪。',
+    ));
+  } else if (status === 'limited' && !localFindings.some((item) => item.code === 'rubric_feedback_limited')) {
+    findings.push(finding(
+      'feedback',
+      'rubric_feedback_limited',
+      'advisory',
+      'Rubric 可进入兼容反馈，但针对性与可解释性受到已记录限制。',
+    ));
+  }
+
+  return {
+    status,
+    rubricItemCount: version.rubric.length,
+    requiredRubricItemCount: version.rubric.filter((item) => item.required).length,
+    criticalRubricItemCount: version.rubric.filter((item) => item.importance === 'critical').length,
+    projectionReadyItemCount,
+    studentVisibleProjectionPolicy: 'minimum_necessary_only',
+    limitations: [...new Set(limitations)],
   };
 }
 

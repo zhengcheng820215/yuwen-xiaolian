@@ -19,6 +19,15 @@ assert.equal(report.items.length, report.currentQuestionCount);
 assert.equal(new Set(report.items.map((item) => item.resourceVersionId)).size, report.items.length);
 assert(report.items.every((item) => item.feedbackTarget.trim().length > 0));
 assert(report.items.every((item) => item.feedbackProjection.targetCode.trim().length > 0));
+assert(report.items.every((item) => (
+  item.rubricFeedbackReadiness.studentVisibleProjectionPolicy === 'minimum_necessary_only'
+)));
+assert.equal(
+  report.summary.rubricFeedbackReady
+    + report.summary.rubricFeedbackLimited
+    + report.summary.rubricFeedbackBlocked,
+  report.currentQuestionCount,
+);
 assert(report.items
   .filter((item) => item.feedbackProjection.confidence === 'low')
   .every((item) => Boolean(item.feedbackProjection.fallbackReason)));
@@ -58,6 +67,11 @@ console.log(JSON.stringify({
   summary: report.summary,
   findingBreakdown: report.findingBreakdown,
   targetBreakdown: report.targetBreakdown,
+  rubricFeedbackReadiness: {
+    ready: report.summary.rubricFeedbackReady,
+    limited: report.summary.rubricFeedbackLimited,
+    blocked: report.summary.rubricFeedbackBlocked,
+  },
   materialBreakdown: report.materialBreakdown,
   blockedItems: report.items
     .filter((item) => item.disposition === 'blocked')
@@ -83,6 +97,7 @@ function compactItem(item: (typeof report.items)[number]) {
     questionStem: item.questionStem,
     feedbackTarget: item.feedbackTarget,
     feedbackProjection: item.feedbackProjection,
+    rubricFeedbackReadiness: item.rubricFeedbackReadiness,
     findings: item.findings.map((finding) => ({
       code: finding.code,
       severity: finding.severity,
