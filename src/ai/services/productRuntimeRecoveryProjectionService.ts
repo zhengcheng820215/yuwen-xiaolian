@@ -21,6 +21,9 @@ const ORDINARY_IGNORED: ProductRuntimeReasonCode[] = [
   'trial_identity_mismatch', 'trial_reentry_required', 'trial_observation_unavailable',
   'runtime_identity_insufficient',
 ];
+const TRIAL_REENTRY_REASONS: ProductRuntimeReasonCode[] = [
+  'trial_identity_mismatch', 'trial_reentry_required', 'runtime_identity_insufficient',
+];
 
 export function projectProductRuntimeRecovery(context: ProductRuntimeProjectionContext): ProductRuntimeUserProjection {
   const contentState = resolveContentState(context);
@@ -68,6 +71,13 @@ export function projectProductRuntimeRecovery(context: ProductRuntimeProjectionC
       '反馈服务暂时不可用', contentState === 'answer_submitted'
         ? '已经提交的回答正在等待继续处理。' : '可以保留当前输入，稍后重新尝试。',
       action(contentState === 'answer_submitted' ? 'continue_processing' : 'retry_current_operation'));
+  } else if (context.surface === 'learning_entry'
+    && context.taskAvailability && ['no_eligible_match', 'already_used'].includes(context.taskAvailability)
+    && allCodes.some((code) => TRIAL_REENTRY_REASONS.includes(code))) {
+    projection = make(context, contentState, 'trial_reentry_required', 'recoverable',
+      '真实测试尚未完成准入',
+      '正式资源可以读取，但当前运行版本需要先完成真实测试准入；完成后返回学习入口即可开始。',
+      action('open_trial_reentry'));
   } else if (context.taskAvailability && ['no_eligible_match', 'already_used'].includes(context.taskAvailability)) {
     projection = make(context, contentState, 'no_task', 'information',
       '当前暂时没有可开始的学习任务', '服务与正式资源读取正常。', action('none'));
@@ -88,7 +98,7 @@ export function projectProductRuntimeRecovery(context: ProductRuntimeProjectionC
     schemaVersion: PRODUCT_RUNTIME_USER_PROJECTION_VERSION,
     ...projection,
     internal: {
-      reasonCodes: ordinaryCodes,
+      reasonCodes: projection.state === 'trial_reentry_required' ? allCodes : ordinaryCodes,
       errorRef: context.errorRef,
       healthFactDigest: context.health?.factDigest,
     },
@@ -144,7 +154,7 @@ function action(id: ProductRuntimeUserAction['actionId']): ProductRuntimeUserAct
   const label = {
     retry_health: '重新尝试', retry_read: '重新尝试', continue_learning: '继续学习',
     continue_processing: '继续处理', retry_current_operation: '重新尝试当前操作',
-    return_to_entry: '返回学习入口', none: '',
+    return_to_entry: '返回学习入口', open_trial_reentry: '前往真实测试准入', none: '',
   }[id];
   return { actionId: id, label, emphasis: id === 'none' ? 'none' : 'primary', idempotencyRequired: ['continue_learning', 'continue_processing', 'retry_current_operation'].includes(id) };
 }

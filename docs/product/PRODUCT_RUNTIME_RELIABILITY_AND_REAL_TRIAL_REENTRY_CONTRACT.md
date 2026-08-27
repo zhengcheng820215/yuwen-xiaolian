@@ -796,5 +796,7 @@ REAL TRIAL RE-ENTRY APPROVED
 15. 当前 `24 / 81 / 81` 是基线证据，不是长期硬编码数量；
 16. 本轮不新增 Training Model 功能，不重构正式主链；
 17. 本轮完成只表示真实运行重新准入，不表示教育效果已经证明。
+18. Trial 身份问题继续对“已有正式任务可正常开始”的普通 Learning 保持 fail-open；但当 Learning 入口已经没有可开始任务，且当前运行事实同时明确要求 Trial 重新准入时，不得再投射为泛化的“暂无任务”。入口必须显示“真实测试尚未完成准入”，说明正式资源与既有数据不受影响，并提供前往 Internal R4 v2 准入控制面的单一动作。
+19. 普通 Learning 页面只负责解释与导航，不得直接保存准入包或激活 Trial；R4-P01—R4-P24、准入包保存和显式激活仍只能在 `/internal/product-complexity-convergence-stage4-preflight` 完成。
 
 本文档当前达到 `DESIGN BASELINE / WP-R0—R4 ENGINEERING COMPLETE / REAL TRIAL REMAINS OFF / WP-R5 DESIGN FROZEN AND AUTHORIZED`。WP-R0 已完成只读基线，WP-R1 已完成统一启动器、固定端口保护、GET-only Runtime Health、动态正式资源投射和 Internal Health，WP-R2 已完成 Learning / Workbench 故障分类、内容保留表达、单一恢复动作和普通页面内部字段隔离，WP-R3 已完成内容寻址 Runtime Identity、Launch Binding 读取契约、旧非 off Trial 自动失效、Health/Internal 投射和零写入验收，WP-R4 已完成新 Preflight、Launch Record、Identity Binding、原子 Approval Bundle、显式激活、失败回滚、零写入边界与浏览器只读验收。WP-R5 的真实学习烟测边界已经在独立工程文档中冻结并获得进入准备阶段的授权；必须先提交本轮文档收口，以新的 clean HEAD 构建 Production Artifact、重新生成 Runtime Identity、执行 R4-P01—R4-P24、保存新准入包并显式激活。第一条事件仍必须等待真实学生自然操作，不得由工程脚本制造。

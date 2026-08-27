@@ -66,6 +66,7 @@ const cases: Array<{ id: string; name: string; run: () => unknown | Promise<unkn
   { id: 'R2-C38', name: 'same facts yield same Projection Digest', run: () => assert.equal(project().projectionDigest, project().projectionDigest) },
   { id: 'R2-C39', name: 'pure projection creates zero writes', run: () => { project(); assert.deepEqual([0,0,0,0,0,0,0,0], Array(8).fill(0)); } },
   { id: 'R2-C40', name: 'unknown facts never claim preserved', run: () => { const value = project({ healthReadState: 'unreachable', health: undefined, ownerFacts: unknownFacts() }); assert.equal(value.contentState, 'unknown_requires_check'); assert.match(value.preservationText, /尚未确认/); } },
+  { id: 'R2-C41', name: 'no-task plus Trial reentry exposes an actionable next step', run: () => { const value = project({ taskAvailability: 'no_eligible_match', reasonCodes: ['trial_reentry_required', 'runtime_identity_insufficient'] }); assert.equal(value.state, 'trial_reentry_required'); assert.equal(value.primaryAction.actionId, 'open_trial_reentry'); assert.match(value.situationText, /完成后返回学习入口/); } },
 ];
 
 let passed = 0;

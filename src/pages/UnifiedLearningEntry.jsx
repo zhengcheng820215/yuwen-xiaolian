@@ -103,6 +103,18 @@ export default function UnifiedLearningEntry() {
     }
   }
 
+  function handleRuntimePrimaryAction() {
+    if (runtimeProjection?.primaryAction.actionId === 'continue_learning') {
+      enterWorkspace();
+      return;
+    }
+    if (runtimeProjection?.primaryAction.actionId === 'open_trial_reentry') {
+      window.location.hash = '/internal/product-complexity-convergence-stage4-preflight';
+      return;
+    }
+    refreshEntry();
+  }
+
   async function endSession() {
     if (busy) return;
     setBusy(true);
@@ -160,7 +172,7 @@ export default function UnifiedLearningEntry() {
           <ProductRuntimeRecoveryNotice
             view={toProductRuntimeRecoveryNoticeView(runtimeProjection)}
             busy={busy}
-            onPrimaryAction={runtimeProjection.primaryAction.actionId === 'continue_learning' ? enterWorkspace : refreshEntry}
+            onPrimaryAction={handleRuntimePrimaryAction}
           />
         ) : null}
         {entry && !error && (!runtimeProjection || runtimeProjection.state === 'ready') ? (

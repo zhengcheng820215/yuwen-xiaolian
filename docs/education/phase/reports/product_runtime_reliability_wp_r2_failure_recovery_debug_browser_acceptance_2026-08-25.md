@@ -30,6 +30,8 @@
 
 Trial mismatch、Trial observation failure 与不足以代表内容的固定 Build Label 不进入普通用户页面。
 
+2026-08-27 补充边界：上述 fail-open 规则继续适用于“已有正式任务可开始”的普通学习；若入口已经没有可开始任务，同时 Health 明确给出 `trial_reentry_required / runtime_identity_insufficient`，则泛化的 `no_task` 会掩盖真实下一步。此时入口投射为 `trial_reentry_required`，只展示“真实测试尚未完成准入”和“前往真实测试准入”，导航到 Internal R4 v2 控制面；普通 Learning 页面本身仍保持零 Trial 写入、零激活能力。
+
 ## 3. Debug 结果
 
 - `R2-C01—R2-C40`：`40 / 40 PASS`；
@@ -49,6 +51,8 @@ Internal 路由：`#/internal/acceptance/product-runtime-reliability-wp-r2`
 - Learning 入口真实页面显示“可以继续上次学习 / 上次学习进度已经保留 / 继续学习”，只有一个主操作；
 - Workbench 在 AI 未配置时仍可浏览与本地编辑，既有 AI 状态提示和操作门禁保持有效；
 - PC / Tablet 使用同一投射事实，不按视口改变业务结论。
+
+2026-08-27 增补 `R2-B19`：验证“无任务 + Trial 重新准入要求”能够投射唯一的 Internal 准入入口；原 `R2-B01—R2-B18` 历史签署保持不变，当前扩展矩阵目标为 `19 / 19 PASS`。
 
 ## 5. 核心回归
 

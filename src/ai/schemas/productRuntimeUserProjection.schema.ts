@@ -7,6 +7,7 @@ export const PRODUCT_RUNTIME_USER_SURFACES = ['learning_entry', 'learning_worksp
 export type ProductRuntimeUserSurface = typeof PRODUCT_RUNTIME_USER_SURFACES[number];
 export const PRODUCT_RUNTIME_USER_STATES = [
   'ready', 'runtime_unavailable', 'formal_resource_unavailable', 'no_task',
+  'trial_reentry_required',
   'ai_configuration_required', 'ai_temporarily_unavailable', 'session_recoverable',
   'submission_recoverable', 'identity_conflict', 'operation_retryable', 'operation_blocked',
 ] as const;
@@ -20,7 +21,7 @@ export type ProductRuntimeProjectionOperation =
 
 export type ProductRuntimeUserAction = {
   actionId: 'retry_health' | 'retry_read' | 'continue_learning' | 'continue_processing'
-    | 'retry_current_operation' | 'return_to_entry' | 'none';
+    | 'retry_current_operation' | 'return_to_entry' | 'open_trial_reentry' | 'none';
   label: string;
   emphasis: 'primary' | 'none';
   idempotencyRequired: boolean;

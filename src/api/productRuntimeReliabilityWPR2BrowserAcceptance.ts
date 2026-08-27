@@ -27,6 +27,18 @@ export function buildProductRuntimeReliabilityWPR2BrowserReport(input: ProductRu
     },
     summaryReasonCodes: input.health.summaryReasonCodes.filter((code) => !code.startsWith('ai_provider_')),
   };
+  const healthWithoutTrialReentry = {
+    ...healthReady,
+    trial: {
+      ...healthReady.trial,
+      requestedMode: 'off' as const,
+      effectiveMode: 'off' as const,
+      identityStatus: 'aligned' as const,
+      reasonCodes: [],
+    },
+    summaryReasonCodes: healthReady.summaryReasonCodes.filter((code) =>
+      !['trial_identity_mismatch', 'trial_reentry_required', 'runtime_identity_insufficient'].includes(code)),
+  };
   const projection = (patch: Partial<ProductRuntimeProjectionContext> = {}) => projectProductRuntimeRecovery({
     surface: 'learning_entry', operation: 'load_entry', health: healthReady,
     healthReadState: 'available', ownerFacts: facts(), taskAvailability: 'available', ...patch,
@@ -34,7 +46,8 @@ export function buildProductRuntimeReliabilityWPR2BrowserReport(input: ProductRu
   const ready = projection();
   const runtime = projection({ healthReadState: 'unreachable' });
   const store = projection({ reasonCodes: ['formal_store_unreadable'] });
-  const noTask = projection({ taskAvailability: 'no_eligible_match' });
+  const noTask = projection({ health: healthWithoutTrialReentry, taskAvailability: 'no_eligible_match' });
+  const trialReentry = projection({ taskAvailability: 'no_eligible_match', reasonCodes: ['trial_reentry_required'] });
   const draft = projection({ surface: 'learning_workspace', operation: 'submit_answer', ownerFacts: facts({ hasDraft: true }), reasonCodes: ['ai_provider_unreachable'] });
   const session = projection({ ownerFacts: facts({ hasActiveSession: true }) });
   const submitted = projection({ surface: 'learning_workspace', operation: 'resume_diagnosis', ownerFacts: facts({ attemptCommitted: true, checkpointPhase: 'diagnosis_pending' }) });
@@ -45,7 +58,7 @@ export function buildProductRuntimeReliabilityWPR2BrowserReport(input: ProductRu
   const workbenchRead = projection({ surface: 'workbench', operation: 'workbench_read', health: { ...healthReady, aiProvider: { ...healthReady.aiProvider, status: 'not_configured' } }, ownerFacts: facts({ currentWorkbenchObjectPresent: true }) });
   const publishCommitted = projection({ surface: 'workbench', operation: 'workbench_publish', ownerFacts: facts({ currentWorkbenchObjectPresent: true, publishedResourceCommitted: true }) });
   const publishRetry = projection({ surface: 'workbench', operation: 'workbench_publish', ownerFacts: facts({ currentWorkbenchObjectPresent: true }), runtimeError: { errorCode: 'formal_resource_write_conflict', errorCategory: 'concurrency', recoverability: 'retry_safe', userSafeMessage: '本次操作尚未完成。' } });
-  const views = [ready, runtime, store, noTask, draft, session, submitted, aiEntry, aiWorkbench, aiAfterAttempt, trialHidden, workbenchRead, publishCommitted, publishRetry].map(toProductRuntimeRecoveryNoticeView);
+  const views = [ready, runtime, store, noTask, trialReentry, draft, session, submitted, aiEntry, aiWorkbench, aiAfterAttempt, trialHidden, workbenchRead, publishCommitted, publishRetry].map(toProductRuntimeRecoveryNoticeView);
   const visible = views.flatMap((view) => Object.values(view)).filter(Boolean).join(' ');
   const forbidden = /(reason\s*code|error\s*ref|health\s*fact|revision|checkpoint|registry|command[_ ]?id|trial_identity|DEEPSEEK|formal_store|[A-Z_]{5,})/;
   const zeroWriteCount = Object.values(input.writeCounts).filter((count) => count === 0).length;
@@ -68,6 +81,7 @@ export function buildProductRuntimeReliabilityWPR2BrowserReport(input: ProductRu
     check('R2-B16', '普通文案净化', '普通投射不含 Reason Code、事务和内部字段。', !forbidden.test(visible)),
     check('R2-B17', '响应式语义一致', 'PC 与平板复用同一版本化投射，不按视口改业务结论。', ready.projectionDigest === projection().projectionDigest),
     check('R2-B18', '八类零写入', '浏览器验收前后正式数据不变，八类写入均为 0。', input.before.revision === input.after.revision && input.before.digest === input.after.digest && zeroWriteCount === 8),
+    check('R2-B19', '真实测试下一步', '无任务且需要重新准入时提供唯一可执行入口。', trialReentry.state === 'trial_reentry_required' && trialReentry.primaryAction.actionId === 'open_trial_reentry'),
   ];
   return { schemaVersion: 'product_runtime_reliability_wp_r2_browser_report_v1' as const, total: checks.length, passed: checks.filter((item) => item.passed).length, checks, projectionVersion: ready.schemaVersion, formalResourceRevision: input.after.revision, writeCounts: input.writeCounts };
 }
