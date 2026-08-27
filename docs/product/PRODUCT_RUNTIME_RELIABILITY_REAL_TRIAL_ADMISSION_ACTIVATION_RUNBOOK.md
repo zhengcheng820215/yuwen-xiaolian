@@ -88,6 +88,8 @@ Workbench 页面不得出现激活入口。旧 v1 全通过 Fixture 与旧激活
 
 ## 五、R4-P01—R4-P24 签署要求
 
+版本化契约和执行清单只冻结字段、顺序与门禁，不承担运行后结果回填。最终 Git Commit、Runtime Identity Digest、Provider 真实验证结果和实际检查数量必须进入不可变 Preflight / Launch / Binding / Activation Audit 与本轮只读执行报告；不得为了记录结果修改已经参与准入的文档或源码。任何此类修改都会改变 Git Commit，并要求废弃尚未激活的准入包、回到 Gate 0 重新执行。
+
 Preflight 必须由当前运行事实逐项计算，不得使用全通过 Fixture。签署至少保存：
 
 - Check ID；

@@ -12,7 +12,7 @@
 
 评估基线 Commit：`244bca2b347b618fa84a8b9fda71f5819279620f`
 
-最终准入 Commit：`TBD_AFTER_DOCUMENT_CLOSEOUT_COMMIT`
+最终准入 Commit：执行 Gate 0 时读取，并记录到不可变 Launch Record 与本轮只读执行报告；本冻结清单不回填具体值
 
 关联文档：
 
@@ -25,6 +25,8 @@
 
 本清单将 `244bca2` 作为本轮文档评估基线。由于本文件和 RH-L17 收口本身会产生新的 Git Commit，`244bca2` 不得被直接写入最终 Launch Record。完成文档提交后，必须重新读取新的 clean HEAD，并以该 HEAD 的 Production Artifact 生成 Runtime Identity。
 
+本清单是版本化的执行契约与空白模板，不是运行后回填载体。最终 Commit、Runtime Identity Digest、Provider 真实验证结果、各 Gate 实际结果和操作者签署，必须写入当前准入流程生成的不可变 Launch Record、Identity Binding、Preflight Report、Activation Audit 或对应只读执行报告；不得通过修改本文件回填运行结果。否则会改变 Git Commit、使已生成的 Runtime Identity 与准入证据失效，并要求从 Gate 0 重新开始。
+
 任何一项硬门禁失败时，准确终态都是：
 
 ```text
@@ -35,7 +37,7 @@ LEARNING OWNER FACT UNCHANGED
 
 不得跳过失败项，不得使用 Fixture、旧 Digest、旧 Window、旧 Launch、旧 Binding 或手工环境标记代替真实证据。
 
-## 二、当前现场基线
+## 二、文档创建时现场基线（2026-08-26 历史快照）
 
 | 检查项 | 2026-08-26 现场结果 | 结论 |
 | --- | --- | --- |
@@ -57,7 +59,7 @@ LEARNING OWNER FACT UNCHANGED
 - [ ] G0-04 本轮文档修改完成 `git diff --check`；
 - [ ] G0-05 提交并推送文档收口；
 - [ ] G0-06 重新拉取远端并确认无分叉；
-- [ ] G0-07 记录最终准入 Commit：`________________`；
+- [ ] G0-07 使用 `git rev-parse HEAD` 读取最终准入 Commit，并写入不可变 Launch Record 与本轮只读执行报告；不得回填本清单；
 - [ ] G0-08 `git status --porcelain` 为空。
 
 若 G0-08 不通过，允许继续文档或工程调试，但禁止生成合格 Runtime Identity、保存准入包或激活 Trial。
@@ -83,7 +85,7 @@ npm run runtime:check
 
 ## 五、Gate 2：自动化与旧主链回归
 
-以下命令必须全部退出码为 `0`，并把实际数量写入执行报告，不得复制历史报告的预期数字：
+以下命令必须全部退出码为 `0`，并把实际数量写入本轮只读执行报告，不得回填本清单，也不得复制历史报告的预期数字：
 
 ```powershell
 npm run debug:product-runtime-reliability-wp-r0
@@ -245,7 +247,9 @@ http://localhost:5174/#/internal/product-complexity-convergence-stage4-preflight
 - 出现未授权 Formal、Evidence、Profile、Observation 或真实分母写入；
 - 凭证、学生答案、材料正文、题目正文或绝对用户路径进入日志和报告。
 
-## 十四、最终签署
+## 十四、最终签署字段模板
+
+以下字段是不可变 Launch Record 与本轮只读执行报告的输出模板，不是在本文件中回填的表单：
 
 ```text
 Final Commit: ________________________________

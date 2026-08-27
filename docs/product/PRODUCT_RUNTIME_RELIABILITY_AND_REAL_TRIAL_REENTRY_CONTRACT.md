@@ -771,7 +771,7 @@ REAL TRIAL RE-ENTRY APPROVED
 12. 正式资源、Attempt、Evidence、Profile 和真实校准分母没有未授权写入；
 13. Production Build 通过；
 14. 浏览器验收覆盖 Learning、Workbench 和 Internal Health；
-15. 最终执行报告披露当前运行身份、遗留问题和真实 Trial 状态。
+15. 最终执行报告披露当前运行身份、遗留问题和真实 Trial 状态；最终 Commit、Runtime Identity Digest 与签署结果进入不可变 Launch Record 和本轮只读执行报告，不得回填已经参与准入的版本化契约或清单。
 
 完成工程验收不等于教育效果成立。只有重新准入后的真实 Learning 数据才能进入后续效果判断。
 
