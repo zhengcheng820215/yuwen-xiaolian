@@ -88,6 +88,30 @@ export function buildUnifiedLearningEntryState(
     }, [...issues, ...(active.length > 1 ? ['multiple_active_sessions_not_allowed'] : [])]);
   }
 
+  // A completed frozen task group must not be projected as an unfinished or
+  // blocked Session merely because its last operation checkpoint is retained
+  // for audit. Keep the old results immutable and offer a new Session when a
+  // new formal task is available.
+  if (input.sessionGroupCompleted && active.length === 1) {
+    if (input.hasAvailableTask) {
+      return finish({
+        ...base,
+        status: 'session_ended', priority: 2,
+        title: '上一轮学习已经完成',
+        message: '上一轮结果已经保存。现在可以开始新一轮真实学习。',
+        primaryAction: 'start_new_session', primaryActionText: '开始新的学习',
+        canEnterWorkspace: true,
+      });
+    }
+    return finish({
+      ...base,
+      status: 'no_task', priority: 7,
+      title: noTaskTitle(input.taskAvailabilityState),
+      message: input.taskAvailabilityMessage || '上一轮结果已经保存，当前暂时没有新的正式任务。',
+      primaryAction: 'none', primaryActionText: '暂无任务', canEnterWorkspace: false,
+    });
+  }
+
   if (
     checkpoint?.status === 'review_required' &&
     checkpoint.learningPersistenceRecordId &&

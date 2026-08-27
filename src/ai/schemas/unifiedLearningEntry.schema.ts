@@ -112,6 +112,11 @@ export type UnifiedLearningEntryInput = {
   taskAvailabilityState?: UnifiedLearningTaskAvailabilityState;
   taskAvailabilityMessage?: string;
   completedRoundCount: number;
+  /**
+   * The persisted Session has completed its own frozen task queue. This is a
+   * Session lifecycle fact, not a student-ability conclusion.
+   */
+  sessionGroupCompleted?: boolean;
 };
 
 export type InternalLearningReviewSummary = {

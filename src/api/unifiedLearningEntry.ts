@@ -24,7 +24,6 @@ export const UNIFIED_ENTRY_STUDENT_ID = resolvePhase163LearningStudentId();
 export const UNIFIED_LEARNING_ENTRY_READ_TIMEOUT_MS = 5_000;
 export const UNIFIED_LEARNING_ENTRY_STAGE_TIMEOUT_MS = 4_000;
 
-const MAX_ROUNDS = 5;
 const persistenceRepository = new IndexedDBLearningPersistenceRepository();
 const activityRepository = new LocalStorageUnifiedLearningEntryRepository();
 const operationRepository = new IndexedDBRealLearningOperationRepository();
@@ -50,7 +49,7 @@ async function loadUnifiedLearningEntryData(): Promise<UnifiedLearningEntryState
     && activeContext.targetedMicroTrainingOverlay.activeAssignmentId
     ? `${activeContext.learningSessionId}-targeted-${activeContext.targetedMicroTrainingOverlay.activeAssignmentId}`
     : activeContext?.currentLearningRoundId;
-  const [currentRecord, session, operationCheckpoint, delayedRetestPlans, taskAvailability] = await Promise.all([
+  const [currentRecord, session, operationCheckpoint, delayedRetestPlans] = await Promise.all([
     activeLearningRoundId
       ? readUnifiedLearningEntryStage(
           '当前学习进度',
@@ -70,13 +69,20 @@ async function loadUnifiedLearningEntryData(): Promise<UnifiedLearningEntryState
         )
       : Promise.resolve(undefined),
     readUnifiedLearningEntryStage('复测计划', loadPhase163DueRetestPlans()),
-    readUnifiedLearningEntryStage('正式任务', resolveCurrentLearningTaskAvailability()),
   ]);
   const latestRecord = activeContext?.currentLearningRoundId
     ? currentRecord
     : records.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
   const completedRoundCount = session?.completedRoundCount || 0;
-  const groupCompleted = completedRoundCount >= MAX_ROUNDS;
+  const sessionGroupCompleted = Boolean(
+    session && session.roundCount > 0 &&
+    session.completedRoundCount >= session.roundCount &&
+    !session.unfinishedRoundId,
+  );
+  const taskAvailability = await readUnifiedLearningEntryStage(
+    '正式任务',
+    resolveCurrentLearningTaskAvailability({ ignoreActiveSession: sessionGroupCompleted }),
+  );
   if (context) assertPhase163ProductRuntimeIdentity(context);
   if (latestRecord) {
     assertPhase163ProductRuntimeIdentity({
@@ -96,12 +102,11 @@ async function loadUnifiedLearningEntryData(): Promise<UnifiedLearningEntryState
     latestPersistenceRecord: latestRecord,
     delayedRetestPlans,
     operationCheckpoint: operationCheckpoint || undefined,
-    hasAvailableTask: !groupCompleted && taskAvailability.available,
-    taskAvailabilityState: groupCompleted ? 'already_used' : taskAvailability.state,
-    taskAvailabilityMessage: groupCompleted
-      ? '本轮学习已结束，暂时没有新的任务。'
-      : taskAvailability.message,
+    hasAvailableTask: taskAvailability.available,
+    taskAvailabilityState: taskAvailability.state,
+    taskAvailabilityMessage: taskAvailability.message,
     completedRoundCount,
+    sessionGroupCompleted,
   });
 }
 
@@ -157,7 +162,23 @@ export function withUnifiedLearningEntryReadDeadline<T>(
 export async function startOrResumeUnifiedLearning(): Promise<UnifiedLearningEntryState> {
   const existing = await activityRepository.getByStudent(UNIFIED_ENTRY_STUDENT_ID);
   const now = new Date().toISOString();
-  const context = existing?.status !== 'ended'
+  const existingSession = existing
+    ? await sessionRepository.getById(UNIFIED_ENTRY_STUDENT_ID, existing.learningSessionId)
+    : null;
+  const existingGroupCompleted = Boolean(
+    existingSession && existingSession.roundCount > 0 &&
+    existingSession.completedRoundCount >= existingSession.roundCount &&
+    !existingSession.unfinishedRoundId,
+  );
+  if (existing && existing.status !== 'ended' && existingGroupCompleted) {
+    if (existingSession?.status === 'in_progress') {
+      await saveLearningSessionRecord(sessionRepository, closeLearningSessionRecord(existingSession, {
+        status: 'completed', endReason: 'student_finished', endedAt: now,
+      }));
+    }
+    await activityRepository.save({ ...existing, status: 'ended', updatedAt: now });
+  }
+  const context = existing?.status !== 'ended' && !existingGroupCompleted
     ? existing
     : createUnifiedLearningActivityContext({
         studentId: UNIFIED_ENTRY_STUDENT_ID,

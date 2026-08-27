@@ -84,6 +84,23 @@ async function main(): Promise<void> {
     latestPersistenceRecord: completedRecord(),
     completedRoundCount: 1,
   }), 'session_ended');
+  checkState('B11.1 已完成活动题组忽略旧阻断快照并开放新一轮', baseInput({
+    activeContexts: [activeContext({ status: 'blocked' })],
+    latestPersistenceRecord: completedRecord(),
+    operationCheckpoint: checkpoint({
+      status: 'blocked',
+      stage: 'persisted',
+      nextAction: 'prepare_resource',
+      learningPersistenceRecordId: 'record-phase16-3b',
+    }),
+    completedRoundCount: 5,
+    sessionGroupCompleted: true,
+    hasAvailableTask: true,
+  }), 'session_ended', (state) => (
+    state.primaryAction === 'start_new_session' &&
+    state.primaryActionText === '开始新的学习' &&
+    state.canEnterWorkspace
+  ));
   checkState('B12 下一资源缺口保留正式结果并阻断新任务', baseInput({
     activeContexts: [activeContext()],
     latestPersistenceRecord: completedRecord(),

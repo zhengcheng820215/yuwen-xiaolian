@@ -173,6 +173,9 @@ Session 收口成功后，页面必须同步清除收口前缓存的 Runtime 恢
 
 固定题组续题还必须遵守以下恢复边界：
 
+- 已完成题组与可恢复题组必须分离：以 Session 冻结队列的实际完成事实为准；完成题组遗留的最后一题 Checkpoint 仅用于审计，不得阻止新 Trial 开始下一轮；
+- 新一轮准入必须忽略已完成旧 Session 的固定队列占用，但不得删除、覆盖或伪装旧 Attempt、Evidence、Diagnosis 和 Session 结果；
+
 - 当前题的正式结果已经保存且 Session Task Queue 仍有下一题时，下一题身份以队列中的 Frozen Resource Version 为准；
 - 历史自适应策略产生的 `review_required`、旧匹配快照或错误的下一题身份，不得把固定题组降级为“返回学习入口”；
 - Runtime 应使用队列目标版本派生确定性的 Task Request，重新执行下一题 Admission，而不得重新解释学生能力或重跑当前题 Diagnosis；

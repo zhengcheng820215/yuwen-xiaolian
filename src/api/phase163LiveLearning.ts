@@ -1067,9 +1067,11 @@ export async function loadPhase163DueRetestPlans(): Promise<DelayedRetestPlan[]>
   return result.plan?.status === 'available' ? [result.plan] : [];
 }
 
-export async function resolveCurrentLearningTaskAvailability(): Promise<Phase163LearningTaskAvailability> {
+export async function resolveCurrentLearningTaskAvailability(options: {
+  ignoreActiveSession?: boolean;
+} = {}): Promise<Phase163LearningTaskAvailability> {
   try {
-    const selection = await resolveCurrentFormalTaskSelection(false);
+    const selection = await resolveCurrentFormalTaskSelection(false, options);
     if (selection.currentVersions.length === 0) {
       if (selection.identityCurrentVersionCount > 0) {
         return {
@@ -1362,10 +1364,15 @@ async function buildCurrentRoundDescriptor() {
   };
 }
 
-async function resolveCurrentFormalTaskSelection(requireContext: boolean) {
+async function resolveCurrentFormalTaskSelection(
+  requireContext: boolean,
+  options: { ignoreActiveSession?: boolean } = {},
+) {
   const descriptorAt = new Date().toISOString();
   const storedContext = await activityRepository.getByStudent(PHASE163_RUNTIME_STUDENT_ID);
-  let context = storedContext?.status !== 'ended' ? storedContext : undefined;
+  let context = !options.ignoreActiveSession && storedContext?.status !== 'ended'
+    ? storedContext
+    : undefined;
   if (requireContext && !context) throw new Error('请先从学习入口开始本次学习。');
   if (context) assertPhase163ProductRuntimeIdentity(context);
   const targetedTransition = context
