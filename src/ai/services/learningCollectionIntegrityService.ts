@@ -31,6 +31,10 @@ export type LearningCollectionIntegrityInput = {
   feedbackPresentedRoundIds?: string[];
   claimedIndependentSampleCount?: number;
   scope?: LearningCollectionIntegrityScope;
+  currentCollectionStartedAt?: string;
+  trialWindowId?: string;
+  originPolicyVersion?: string;
+  internalAcceptanceSessionIds?: string[];
 };
 
 export type ScopedLearningCollectionIntegrityInput = {
@@ -38,6 +42,8 @@ export type ScopedLearningCollectionIntegrityInput = {
   scope: LearningCollectionIntegrityScope;
   includedRoundIds: Set<string>;
   currentCollectionRoundIds: Set<string>;
+  realLearningRoundIds: Set<string>;
+  internalAcceptanceRoundIds: Set<string>;
   legacyRoundIds: Set<string>;
 };
 
@@ -183,11 +189,18 @@ export class LearningCollectionIntegrityService {
       generatedAt: input.generatedAt,
       scope: scoped.scope,
       collectionGeneration: CURRENT_LEARNING_COLLECTION_GENERATION,
-      currentCollectionStartedAt: CURRENT_LEARNING_COLLECTION_STARTED_AT,
+      currentCollectionStartedAt: input.currentCollectionStartedAt || CURRENT_LEARNING_COLLECTION_STARTED_AT,
       scopeTotals: {
         includedRounds: scoped.includedRoundIds.size,
         currentCollectionRounds: scoped.currentCollectionRoundIds.size,
+        realLearningRounds: scoped.realLearningRoundIds.size,
+        internalAcceptanceRounds: scoped.internalAcceptanceRoundIds.size,
         legacyRounds: scoped.legacyRoundIds.size,
+      },
+      originPolicy: {
+        policyVersion: input.originPolicyVersion,
+        trialWindowId: input.trialWindowId,
+        evaluatedOrigin: scoped.scope === 'current_collection' ? 'real_learning' : 'mixed_history',
       },
       totals: {
         sessions: new Set(checkpoints.map((item) => item.learningSessionId)).size,
@@ -212,19 +225,30 @@ export function selectLearningCollectionIntegrityScope(
   input: LearningCollectionIntegrityInput,
 ): ScopedLearningCollectionIntegrityInput {
   const scope = input.scope || 'all_history';
+  const currentCollectionStartedAt = input.currentCollectionStartedAt
+    || CURRENT_LEARNING_COLLECTION_STARTED_AT;
   const studentCheckpoints = input.checkpoints.filter((item) => item.studentId === input.studentId);
   const currentCollectionRoundIds = new Set(studentCheckpoints
-    .filter((item) => Date.parse(item.createdAt) >= Date.parse(CURRENT_LEARNING_COLLECTION_STARTED_AT))
+    .filter((item) => Date.parse(item.createdAt) >= Date.parse(currentCollectionStartedAt))
     .map((item) => item.learningRoundId));
+  const internalAcceptanceSessionIds = new Set(input.internalAcceptanceSessionIds || []);
+  const internalAcceptanceRoundIds = new Set(studentCheckpoints
+    .filter((item) => currentCollectionRoundIds.has(item.learningRoundId)
+      && internalAcceptanceSessionIds.has(item.learningSessionId))
+    .map((item) => item.learningRoundId));
+  const realLearningRoundIds = new Set([...currentCollectionRoundIds]
+    .filter((roundId) => !internalAcceptanceRoundIds.has(roundId)));
   const allRoundIds = new Set(studentCheckpoints.map((item) => item.learningRoundId));
   const legacyRoundIds = new Set([...allRoundIds].filter((roundId) => !currentCollectionRoundIds.has(roundId)));
-  const includedRoundIds = scope === 'current_collection' ? currentCollectionRoundIds : allRoundIds;
+  const includedRoundIds = scope === 'current_collection' ? realLearningRoundIds : allRoundIds;
   if (scope === 'all_history') {
     return {
       input: { ...input, scope },
       scope,
       includedRoundIds,
       currentCollectionRoundIds,
+      realLearningRoundIds,
+      internalAcceptanceRoundIds,
       legacyRoundIds,
     };
   }
@@ -244,6 +268,8 @@ export function selectLearningCollectionIntegrityScope(
     scope,
     includedRoundIds,
     currentCollectionRoundIds,
+    realLearningRoundIds,
+    internalAcceptanceRoundIds,
     legacyRoundIds,
   };
 }

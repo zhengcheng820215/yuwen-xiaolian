@@ -295,6 +295,7 @@ export type Phase163FeedbackRevisionObservationReport = {
 
 export async function loadPhase163FeedbackRevisionObservationReport(options: {
   recoverPending?: boolean;
+  learningRoundIds?: string[];
 } = {}): Promise<Phase163FeedbackRevisionObservationReport> {
   if (options.recoverPending !== false) {
     await observationService.retryDue().catch(() => undefined);
@@ -305,9 +306,32 @@ export async function loadPhase163FeedbackRevisionObservationReport(options: {
     learningObservationOutboxRepository.listAll(),
     questionCalibrationProjectionRepository.listByStudent(PHASE163_RUNTIME_STUDENT_ID),
   ]);
+  const includedRoundIds = options.learningRoundIds
+    ? new Set(options.learningRoundIds)
+    : undefined;
+  const scopedAttempts = includedRoundIds
+    ? attempts.filter((item) => includedRoundIds.has(item.learningRoundId))
+    : attempts;
+  const scopedEvents = includedRoundIds
+    ? events.filter((item) => includedRoundIds.has(item.learningRoundId))
+    : events;
+  const scopedOutboxEntries = includedRoundIds
+    ? outboxEntries.filter((item) => includedRoundIds.has(item.learningRoundId))
+    : outboxEntries;
+  const scopedProjections = includedRoundIds
+    ? projections.filter((item) => includedRoundIds.has(item.learningRoundId))
+    : projections;
   return {
-    audit: auditLearningFeedbackRevisionObservations({ attempts, events, outboxEntries, projections }),
-    metrics: buildLearningFeedbackRevisionMetrics({ attempts, events }),
+    audit: auditLearningFeedbackRevisionObservations({
+      attempts: scopedAttempts,
+      events: scopedEvents,
+      outboxEntries: scopedOutboxEntries,
+      projections: scopedProjections,
+    }),
+    metrics: buildLearningFeedbackRevisionMetrics({
+      attempts: scopedAttempts,
+      events: scopedEvents,
+    }),
   };
 }
 

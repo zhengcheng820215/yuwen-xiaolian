@@ -73,6 +73,57 @@ function main(): void {
   check('WP6-28 无提交事件的 Projection 触发身份错误', orphanProjectionReport.status === 'fail' && orphanProjectionReport.issues.some((issue) => issue.code === 'identity_mismatch' && issue.attemptId === 'attempt-orphan'), orphanProjectionReport.issues.map((issue) => `${issue.code}:${issue.attemptId}`).join('|'));
   const repeatedSubjectReport = service.buildReport(repeatedSubjectFixture());
   check('WP6-29 同一学生多轮只计一个独立对象', repeatedSubjectReport.status === 'pass' && repeatedSubjectReport.totals.completedRounds === 2 && repeatedSubjectReport.totals.eligibleCalibrationAttempts === 2 && repeatedSubjectReport.totals.independentSubjects === 1, `${repeatedSubjectReport.status}/${JSON.stringify(repeatedSubjectReport.totals)}`);
+  const trialScoped = service.buildReport({
+    ...mixed,
+    scope: 'current_collection',
+    currentCollectionStartedAt: '2026-08-13T14:00:00.000Z',
+  });
+  check('WP6-30 Trial Window 起点覆盖静态采集边界', trialScoped.status === 'pass'
+    && trialScoped.currentCollectionStartedAt === '2026-08-13T14:00:00.000Z'
+    && trialScoped.scopeTotals.includedRounds === 1,
+  `${trialScoped.status}/${trialScoped.currentCollectionStartedAt}/${JSON.stringify(trialScoped.scopeTotals)}`);
+  const afterTrial = service.buildReport({
+    ...mixed,
+    scope: 'current_collection',
+    currentCollectionStartedAt: '2026-08-13T16:00:00.000Z',
+  });
+  check('WP6-31 Trial Window 之前的全部轮次只读隔离', afterTrial.scopeTotals.includedRounds === 0
+    && afterTrial.scopeTotals.legacyRounds === 2,
+  JSON.stringify(afterTrial.scopeTotals));
+  const layered = internalAndRealFixture();
+  const layeredCurrent = service.buildReport({
+    ...layered,
+    scope: 'current_collection',
+    currentCollectionStartedAt: '2026-08-13T14:00:00.000Z',
+    trialWindowId: 'trial-window-1',
+    originPolicyVersion: 'learning_collection_origin_policy_v1',
+    internalAcceptanceSessionIds: ['session-internal'],
+  });
+  check('WP6-32 内部验收轮次不污染真实学生完整性结论', layeredCurrent.status === 'pass'
+    && layeredCurrent.scopeTotals.includedRounds === 1
+    && layeredCurrent.scopeTotals.currentCollectionRounds === 2
+    && layeredCurrent.scopeTotals.realLearningRounds === 1
+    && layeredCurrent.scopeTotals.internalAcceptanceRounds === 1,
+  `${layeredCurrent.status}/${JSON.stringify(layeredCurrent.scopeTotals)}`);
+  const layeredHistory = service.buildReport({
+    ...layered,
+    scope: 'all_history',
+    currentCollectionStartedAt: '2026-08-13T14:00:00.000Z',
+    internalAcceptanceSessionIds: ['session-internal'],
+  });
+  check('WP6-33 全部历史仍保留内部验收缺口供追溯', layeredHistory.status === 'fail'
+    && layeredHistory.scopeTotals.includedRounds === 2
+    && layeredHistory.issues.some((issue) => issue.learningRoundId === 'round-internal'),
+  `${layeredHistory.status}/${JSON.stringify(layeredHistory.scopeTotals)}`);
+  const noOriginPolicy = service.buildReport({
+    ...layered,
+    scope: 'current_collection',
+    currentCollectionStartedAt: '2026-08-13T14:00:00.000Z',
+  });
+  check('WP6-34 未明确标记的新轮次默认进入真实学生范围', noOriginPolicy.status === 'fail'
+    && noOriginPolicy.scopeTotals.realLearningRounds === 2
+    && noOriginPolicy.scopeTotals.internalAcceptanceRounds === 0,
+  `${noOriginPolicy.status}/${JSON.stringify(noOriginPolicy.scopeTotals)}`);
 
   console.log('\nReal Learning Minimum Collection WP6 Debug');
   console.log('='.repeat(78));
@@ -141,6 +192,29 @@ function mixedHistoryFixture(): LearningCollectionIntegrityInput {
     ...current,
     checkpoints: [...legacy.checkpoints, ...current.checkpoints],
     persistenceRecords: [...legacy.persistenceRecords, ...current.persistenceRecords],
+  };
+}
+
+function internalAndRealFixture(): LearningCollectionIntegrityInput {
+  const real = currentFixture();
+  const internalCheckpoint: RealLearningOperationCheckpoint = {
+    ...structuredClone(real.checkpoints[0]),
+    operationId: 'operation-internal',
+    learningSessionId: 'session-internal',
+    learningRoundId: 'round-internal',
+    createdAt: '2026-08-13T15:10:00.000Z',
+    updatedAt: '2026-08-13T15:15:00.000Z',
+  };
+  return {
+    ...real,
+    checkpoints: [internalCheckpoint, ...real.checkpoints],
+    persistenceRecords: [{
+      ...real.persistenceRecords[0],
+      recordId: 'persistence-internal',
+      learningRoundId: 'round-internal',
+    }, ...real.persistenceRecords],
+    questionPresentedRoundIds: ['round-internal', 'round-1'],
+    feedbackPresentedRoundIds: ['round-internal', 'round-1'],
   };
 }
 

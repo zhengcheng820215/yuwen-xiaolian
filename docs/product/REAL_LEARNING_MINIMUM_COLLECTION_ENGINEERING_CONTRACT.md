@@ -477,6 +477,13 @@ export type LearningCollectionIntegrityReport = {
   generatedAt: string;
   scope: 'current_collection' | 'all_history';
   collectionGeneration: 'real_learning_collection_v1';
+  scopeTotals: {
+    includedRounds: number;
+    currentCollectionRounds: number;
+    realLearningRounds: number;
+    internalAcceptanceRounds: number;
+    legacyRounds: number;
+  };
   totals: {
     sessions: number;
     roundsWithFormalQuestion: number;
@@ -523,6 +530,19 @@ export type LearningCollectionIntegrityReport = {
 | `occurred_at_inversion` | 可比较事实时间明显逆序 | warning；若影响归属则 fail |
 | `eligible_without_completed_round` | `attemptId ∈ E` 但所属 Round 不在 `C` | fail |
 | `independent_sample_overcount` | 独立样本数大于 distinct `subjectKey` | fail |
+
+### 9.3 Trial 轮次来源分层
+
+当前 Trial Window 中的轮次必须先按来源分层，再执行完整性评价：
+
+1. `real_learning` 进入 `current_collection` 的完整性结论和真实样本分母；
+2. `internal_acceptance` 只读保留并单独展示，不得进入真实学生健康结论；
+3. Trial Window 之前的轮次归入 `legacyRounds`，只在 `all_history` 中评价；
+4. 历史记录缺少来源字段时，允许使用版本化的 Session 身份兼容策略显式归类，但不得修改原 Checkpoint、Event、Projection 或学生作答；
+5. 未被明确标记为内部验收的新正式轮次默认归入 `real_learning`，不得通过来源不明静默排除真实失败；
+6. 修订观察、开放文本过程事实和校准投影必须使用与完整性报告相同的 Round 范围，避免主报告已分层、附属指标仍混入内部验收数据。
+
+分层只改变只读报告投射，不改变 Learning 主链，也不补写“看起来完整”的内部验收事件。
 
 `status = fail` 当存在任一 fail Issue；否则有 warning 为 `warning`；无 Issue 为 `pass`。报告不得用事件存在替代权威完成事实，也不得自动修复后隐藏本次发现的 Issue。
 

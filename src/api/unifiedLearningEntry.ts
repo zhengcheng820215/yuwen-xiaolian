@@ -76,6 +76,7 @@ async function loadUnifiedLearningEntryData(): Promise<UnifiedLearningEntryState
     ? currentRecord
     : records.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
   const completedRoundCount = session?.completedRoundCount || 0;
+  const groupCompleted = completedRoundCount >= MAX_ROUNDS;
   if (context) assertPhase163ProductRuntimeIdentity(context);
   if (latestRecord) {
     assertPhase163ProductRuntimeIdentity({
@@ -95,9 +96,11 @@ async function loadUnifiedLearningEntryData(): Promise<UnifiedLearningEntryState
     latestPersistenceRecord: latestRecord,
     delayedRetestPlans,
     operationCheckpoint: operationCheckpoint || undefined,
-    hasAvailableTask: completedRoundCount < MAX_ROUNDS && taskAvailability.available,
-    taskAvailabilityState: taskAvailability.state,
-    taskAvailabilityMessage: taskAvailability.message,
+    hasAvailableTask: !groupCompleted && taskAvailability.available,
+    taskAvailabilityState: groupCompleted ? 'already_used' : taskAvailability.state,
+    taskAvailabilityMessage: groupCompleted
+      ? '本轮学习已结束，暂时没有新的任务。'
+      : taskAvailability.message,
     completedRoundCount,
   });
 }

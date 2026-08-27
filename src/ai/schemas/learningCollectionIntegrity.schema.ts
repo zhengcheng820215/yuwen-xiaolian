@@ -50,11 +50,18 @@ export type LearningCollectionIntegrityReport = {
   generatedAt: string;
   scope: LearningCollectionIntegrityScope;
   collectionGeneration: typeof CURRENT_LEARNING_COLLECTION_GENERATION;
-  currentCollectionStartedAt: typeof CURRENT_LEARNING_COLLECTION_STARTED_AT;
+  currentCollectionStartedAt: string;
   scopeTotals: {
     includedRounds: number;
     currentCollectionRounds: number;
+    realLearningRounds: number;
+    internalAcceptanceRounds: number;
     legacyRounds: number;
+  };
+  originPolicy: {
+    policyVersion?: string;
+    trialWindowId?: string;
+    evaluatedOrigin: 'real_learning' | 'mixed_history';
   };
   totals: {
     sessions: number;
