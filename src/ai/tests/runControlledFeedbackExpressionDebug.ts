@@ -111,6 +111,7 @@ async function main(): Promise<void> {
   await caseDoesNotMeetMissingEvidenceDoesNotBecomeWrongConclusion();
   await caseFullyMeetsAlternativeEvidenceIsNotTreatedAsCumulativeRequirement();
   await caseSceneryStateIsNotProjectedAsCharacterTrait();
+  await caseLocalSceneryEvidenceIsNotPromotedToOverallConclusion();
 
   printReport();
   if (cases.some((item) => !item.passed)) {
@@ -1113,6 +1114,56 @@ async function caseSceneryStateIsNotProjectedAsCharacterTrait(): Promise<void> {
       !rendered.includes('人物特点') &&
       !rendered.includes('人物的特点'),
     ),
+    rendered,
+  );
+}
+
+async function caseLocalSceneryEvidenceIsNotPromotedToOverallConclusion(): Promise<void> {
+  const input = baseInput({ evidenceTypes: ['positive', 'weakness'] });
+  const task = input.taskEvidenceReturnResult.concreteTask;
+  task.readingText = '一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。';
+  task.question = '请结合第2段的具体描写，说明这些景物如何共同表现“刚睡醒”的特点。';
+  task.answerRequirements = ['指出整体状态', '结合景物变化说明理由'];
+  task.scoringPoints = ['刚睡醒', '山朗润', '水涨', '太阳的脸红', '景物变化共同表现春天初醒'];
+  task.questionMetadata.questionType = '阅读简答';
+  task.questionMetadata.answerAcceptance = {
+    // 兼容历史资源：局部证据可能被旧数据混入 acceptedKeywords。
+    acceptedKeywords: ['山朗润', '水涨', '刚睡醒'],
+    semanticEquivalentAllowed: true,
+  };
+  input.taskContext = {
+    readingText: task.readingText,
+    questionText: task.question,
+    answerRequirements: task.answerRequirements,
+  };
+  setStudentAnswer(input, '山朗润，水涨起来。');
+  setDiagnosis(input, {
+    answerStatus: 'partially_meets',
+    surfaceError: '已经找到局部景物变化，但尚未概括共同状态。',
+    rootCause: '回答有文本依据，但缺少对景物共同状态的概括。',
+    diagnosisSummary: '局部证据已完成，整体状态尚未完成。',
+    matchedRubricItems: ['text_evidence'],
+    missingRubricItems: ['state', 'reasoning_relation'],
+  });
+  const run = await execute(input);
+  const review = run.result.finalFeedback.thinkingReview;
+  const conclusion = review?.requirementCoverage
+    .find((item) => item.requirementType === 'conclusion');
+  const evidence = review?.requirementCoverage
+    .find((item) => item.requirementType === 'text_evidence');
+  const revisionText = run.result.teachingPlan?.revisionActions.map((item) => item.text).join('\n') || '';
+  const rendered = JSON.stringify({ review, revisionText });
+  record(
+    'case_64_local_scenery_evidence_not_promoted_to_overall_conclusion',
+    '局部景物证据不会被提升为整体状态，修订动作聚焦比较变化并概括共同状态',
+    conclusion?.status === 'missing' &&
+      evidence?.studentEvidence.some((item) => item.includes('山朗润')) === true &&
+      evidence?.studentEvidence.some((item) => item.includes('水涨')) === true &&
+      review?.primaryGap?.includes('共同呈现的整体状态') === true &&
+      revisionText.includes('比较已经找到的景物变化') &&
+      revisionText.includes('共同呈现的整体状态') &&
+      !rendered.includes('为什么能体现“山朗润”') &&
+      !revisionText.includes('自己的答案'),
     rendered,
   );
 }

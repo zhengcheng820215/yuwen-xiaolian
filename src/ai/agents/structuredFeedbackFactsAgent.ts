@@ -12,6 +12,7 @@ import type {
   StudentThinkingReview,
   TaskRequirementCoverage,
 } from '../schemas/studentLearningFeedback.schema.ts';
+import { projectFeedbackObservationTarget } from './feedbackObservationTargetAdapter.ts';
 
 const UNSAFE_LONG_TERM_PATTERN = /已经掌握|长期掌握|稳定提升|能力很差|能力退化|永久|天生/;
 const PROMPT_INJECTION_PATTERN = /忽略(?:之前|前面|以上).*规则|打印.*(?:prompt|提示词)|修改.*mainAbility|判定.*掌握/i;
@@ -581,6 +582,8 @@ function buildConcreteEvidenceAction(taskFocus: StudentFeedbackTaskFocus): strin
         : '从文中找出人物的一处具体神态，写清表情或神态有什么变化。';
     case '细节':
       return '从文中找出一个与题目直接相关的细节，写清原文中发生了什么。';
+    case '变化':
+      return '比较文中景物或事物发生的具体变化，找出它们的共同方向。';
     default:
       return '从文中找出一个与题目直接相关的具体内容，写清原文中发生了什么。';
   }
@@ -593,6 +596,11 @@ function buildConclusionReconsiderationActions(
   const evidenceKind = taskFocus.evidenceKind || '具体内容';
   const target = describeAnswerTarget(taskFocus);
   const evidenceReference = describeEvidenceReference(taskFocus);
+  if (taskFocus.dimension === '整体状态') {
+    return [hasEvidence
+      ? '比较已经找到的景物变化，再概括这些变化共同呈现的整体状态。'
+      : '先找出两处景物发生的变化，再概括这些变化共同呈现的整体状态。'];
+  }
   const firstAction = hasEvidence
     ? `保留已经找到的${evidenceKind}。`
     : buildConcreteEvidenceAction(taskFocus);
@@ -609,6 +617,7 @@ function describeEvidenceReference(taskFocus: StudentFeedbackTaskFocus): string 
   if (taskFocus.evidenceKind === '语言') return '这句话';
   if (taskFocus.evidenceKind === '神态') return '这个神态';
   if (taskFocus.evidenceKind === '动作') return '这个动作';
+  if (taskFocus.evidenceKind === '变化') return '这些变化';
   return '这个具体内容';
 }
 
@@ -622,6 +631,9 @@ function describeUnderstandingTarget(taskFocus: StudentFeedbackTaskFocus): strin
 function buildEvidenceRelationAction(taskFocus: StudentFeedbackTaskFocus): string {
   const subject = taskFocus.subject;
   const evidenceReference = describeEvidenceReference(taskFocus);
+  if (taskFocus.dimension === '整体状态') {
+    return '再说明这些变化为什么能共同表现题目所问的整体状态。';
+  }
   if (subject && taskFocus.dimension === '心理') {
     return `再说明${evidenceReference}为什么能支持你对${subject}心理的理解。`;
   }
@@ -638,6 +650,7 @@ function describeAnswerTarget(taskFocus: StudentFeedbackTaskFocus): string {
   if (!taskFocus.subject || !taskFocus.dimension) return '自己的答案';
   if (taskFocus.dimension === '心理') return `${taskFocus.subject}当时的心理`;
   if (taskFocus.dimension === '人物特点') return `${taskFocus.subject}的特点`;
+  if (taskFocus.dimension === '整体状态') return `${taskFocus.subject}共同呈现的整体状态`;
   return `${taskFocus.subject}${taskFocus.dimension}`;
 }
 
@@ -683,6 +696,17 @@ function deriveTaskFocus(
   answerRequirements: string[],
 ): StudentFeedbackTaskFocus {
   const taskText = [questionText, ...answerRequirements].filter(Boolean).join('\n');
+  const observationTarget = projectFeedbackObservationTarget({
+    question: questionText,
+    answerRequirements,
+  });
+  if (observationTarget.targetCode === 'scene_or_object_state') {
+    return {
+      subject: observationTarget.subject || '这些景物',
+      dimension: '整体状态',
+      evidenceKind: '变化',
+    };
+  }
   const subjectPatterns = [
     /^([^，。；！？\n\s]{1,8}?)(?:把|将|的(?:动作|语言|神态|细节|表现))/u,
     /结合(?:文中)?([^，。；！？\n]{1,8}?)(?:的)?(?:动作|语言|神态|细节|表现)/u,

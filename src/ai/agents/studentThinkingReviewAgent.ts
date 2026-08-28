@@ -7,7 +7,7 @@ import type {
 import { projectFeedbackObservationTarget } from './feedbackObservationTargetAdapter.ts';
 import { projectSingleChoiceGapForStudent } from '../content/singleChoiceStudentFeedback.ts';
 
-const EVIDENCE_REQUIREMENT_PATTERN = /文本依据|结合(?:材料|原文|文章|文中)|结合.{0,8}(?:动作|语言|神态|细节|内容)|具体(?:动作|语句|细节)|引用/;
+const EVIDENCE_REQUIREMENT_PATTERN = /文本依据|结合(?:材料|原文|文章|文中)|结合.{0,8}(?:动作|语言|神态|细节|内容|景物|变化|描写)|具体(?:动作|语句|细节|描写|变化)|景物变化|引用/;
 const RELATION_REQUIREMENT_PATTERN = /说明.*(?:理由|关系)|依据.*结论|为什么|体现|表现|看出/;
 const RELATION_MARKER_PATTERN = /因为|所以|说明|体现|表现|看出|可见|表明|由此|这说明/;
 const FORMAL_RELATION_CONFIRMED_PATTERN = /动作.{0,8}(?:心理|情感).{0,8}(?:关系|联系)|说明.{0,12}(?:体现|表现)|推理关系(?:成立|完整)/;
@@ -17,7 +17,7 @@ const CONCLUSION_SUPPORTED_PATTERN = /(?:结论|判断|理解|心理|方向).{0,
 const INTERNAL_LANGUAGE_PATTERN = /evidence|diagnosis|root\s*cause|能力证据|置信度|inference|comprehension/i;
 const PROMPT_INJECTION_PATTERN = /忽略(?:之前|前面|以上).*规则|打印.*(?:prompt|提示词)|修改.*mainAbility|判定.*掌握/i;
 const NON_EVIDENCE_FRAGMENT_PATTERN = /^(?:自己|本人|此时|当时|这样|这个|那个|这里|那里|文中|文章中|材料中|父亲|母亲|孩子|人物|动作|细节|内容|语句)$/u;
-const EVIDENCE_PREDICATE_PATTERN = /把|被|向|朝|给|推|撑|淋|打湿|挥|放下|站|停|看|望|捏|夹|拿|握|走|跑|追|哭|笑|说|问|喊|点头|摇头|低头|抬头|转身|离开|回来|等待|沉默|保护|照顾|帮助|拒绝|收起|打开|关上|蹲|扶|抱|整理|裹|塞|扣|系|关注|检查|核对|留下|递|测量|询问|描|贴/u;
+const EVIDENCE_PREDICATE_PATTERN = /把|被|向|朝|给|推|撑|淋|打湿|挥|放下|站|停|看|望|捏|夹|拿|握|走|跑|追|哭|笑|说|问|喊|点头|摇头|低头|抬头|转身|离开|回来|等待|沉默|保护|照顾|帮助|拒绝|收起|打开|关上|蹲|扶|抱|整理|裹|塞|扣|系|关注|检查|核对|留下|递|测量|询问|描|贴|朗润|涨|变红|红起来|钻出|张开|升起|变化/u;
 
 type BuildStudentThinkingReviewOptions = {
   safeStrengths?: string[];
@@ -51,10 +51,18 @@ export function buildStudentThinkingReview(
   }).displayLabel;
   const targetSubject = describeTaskSubject(task.question);
   const relationTarget = target === '人物的心理' ? '人物心理' : target;
-  const acceptedKeywords = uniqueStrings(task.questionMetadata.answerAcceptance?.acceptedKeywords || []);
-  const matchedKeywords = acceptedKeywords.filter((keyword) => answer.includes(keyword));
   const expectedDetails = extractExpectedMaterialDetails(task.scoringPoints, task.readingText || '', task.question);
+  const acceptedKeywords = uniqueStrings(task.questionMetadata.answerAcceptance?.acceptedKeywords || []);
+  const matchedAcceptedSignals = acceptedKeywords.filter((keyword) => answer.includes(keyword));
+  const acceptedSignalRoles = classifyMatchedAcceptedSignals({
+    matchedSignals: matchedAcceptedSignals,
+    expectedDetails,
+    readingText: task.readingText || '',
+    questionText: task.question,
+  });
+  const matchedKeywords = acceptedSignalRoles.conclusionSignals;
   const matchedDetails = uniqueStrings([
+    ...acceptedSignalRoles.evidenceSignals,
     ...matchStudentEvidenceSpans(answer, expectedDetails),
     ...extractStudentMaterialEvidence(answer, task.readingText || '', task.question),
   ]).slice(0, 3);
@@ -278,6 +286,21 @@ function buildConclusionCoverage(input: {
       taskEvidence: ['正式 Diagnosis 已确认该回答方向成立'],
       source: 'formal_diagnosis',
       studentMessage: input.safeStrength || `你已经写出了对${describeUnderstandingTarget(input.target, input.targetSubject)}的理解。`,
+    });
+  }
+  if (
+    input.answerStatus === 'partially_meets' &&
+    input.hasMaterialDetail &&
+    input.matchedKeywords.length === 0
+  ) {
+    return coverageItem(input.taskId, 'conclusion', `写出${input.target}`, 'missing', {
+      studentEvidence: [input.answer],
+      taskEvidence: [`题目要求写出${input.target}`],
+      source: 'task_requirement',
+      gapMessage: input.target === '景物或事物的状态'
+        ? '你已经找到了文中的具体变化，但还没有概括这些变化共同呈现的整体状态。'
+        : `你已经找到了文中的具体内容，但还没有明确写出${input.target}。`,
+      gapReasonCode: 'incomplete_task_requirement',
     });
   }
   if (input.hasPositiveEvidence && input.answerStatus === 'fully_meets') {
@@ -536,6 +559,42 @@ function extractExpectedMaterialDetails(
     }
   }
   return uniqueStrings(details).slice(0, 3);
+}
+
+function classifyMatchedAcceptedSignals(input: {
+  matchedSignals: string[];
+  expectedDetails: string[];
+  readingText: string;
+  questionText: string;
+}): {
+  conclusionSignals: string[];
+  evidenceSignals: string[];
+} {
+  const quotedQuestionTargets = [...input.questionText.matchAll(/[“"]([^”"]{2,24})[”"]/gu)]
+    .map((match) => match[1]?.trim())
+    .filter((value): value is string => Boolean(value));
+  const conclusionSignals: string[] = [];
+  const evidenceSignals: string[] = [];
+
+  for (const signal of input.matchedSignals) {
+    const isExplicitQuestionTarget = quotedQuestionTargets.some((target) =>
+      target === signal || target.includes(signal) || signal.includes(target));
+    const matchesExpectedDetail = input.expectedDetails.some((detail) =>
+      detail === signal || detail.includes(signal) || signal.includes(detail));
+    const isLocalMaterialSignal = input.readingText.includes(signal) &&
+      !isExplicitQuestionTarget &&
+      isMeaningfulEvidencePhrase(signal);
+    if (matchesExpectedDetail || isLocalMaterialSignal) {
+      evidenceSignals.push(signal);
+    } else {
+      conclusionSignals.push(signal);
+    }
+  }
+
+  return {
+    conclusionSignals: uniqueStrings(conclusionSignals),
+    evidenceSignals: uniqueStrings(evidenceSignals),
+  };
 }
 
 function matchStudentEvidenceSpans(answer: string, expectedDetails: string[]): string[] {
