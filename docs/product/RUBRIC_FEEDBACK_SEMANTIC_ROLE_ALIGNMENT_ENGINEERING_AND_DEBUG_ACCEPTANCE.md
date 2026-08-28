@@ -1,6 +1,6 @@
 # Rubric 反馈语义角色对齐工程与 Debug 验收文档
 
-文档状态：ENGINEERING READY / NARROW SCOPE  
+文档状态：ENGINEERING ACCEPTED / NARROW SCOPE
 策略版本：`rubric_feedback_semantic_role_alignment_v1`  
 适用范围：阅读开放题的正式反馈投射、思考回顾与修订动作  
 不适用范围：单项选择反馈、正式 Diagnosis 重算、Evidence 重建、Frozen Resource 改写

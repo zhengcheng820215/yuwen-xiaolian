@@ -7,7 +7,11 @@ const STORE_NAME = 'conditional-policy-audit-decisions';
 
 export class IndexedDBProductComplexityConvergenceConditionalPolicyAuditRepository
 implements ProductComplexityConvergenceConditionalPolicyAuditRepository {
-  constructor(private readonly databaseName = DATABASE_NAME) {}
+  private readonly databaseName: string;
+
+  constructor(databaseName = DATABASE_NAME) {
+    this.databaseName = databaseName;
+  }
 
   async save(decision: ConvergenceConditionalPolicyDecision): Promise<void> {
     const database = await this.open();

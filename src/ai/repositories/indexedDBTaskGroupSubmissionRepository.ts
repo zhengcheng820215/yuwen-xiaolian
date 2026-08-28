@@ -10,7 +10,11 @@ const SUBMISSION_STORE = 'taskGroupSubmissions';
 
 export class IndexedDBTaskGroupSubmissionRepository
 implements TaskGroupSubmissionRepository {
-  constructor(private readonly databaseName = DEFAULT_DB_NAME) {}
+  private readonly databaseName: string;
+
+  constructor(databaseName = DEFAULT_DB_NAME) {
+    this.databaseName = databaseName;
+  }
 
   async save(submission: TaskGroupSubmission): Promise<TaskGroupSubmission> {
     const db = await this.openDatabase();

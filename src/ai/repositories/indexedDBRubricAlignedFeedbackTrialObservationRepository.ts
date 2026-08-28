@@ -10,7 +10,11 @@ const STORE_NAME = 'observations';
 
 export class IndexedDBRubricAlignedFeedbackTrialObservationRepository
 implements RubricAlignedFeedbackTrialObservationRepository {
-  constructor(private readonly databaseName = DATABASE_NAME) {}
+  private readonly databaseName: string;
+
+  constructor(databaseName = DATABASE_NAME) {
+    this.databaseName = databaseName;
+  }
 
   async append(observation: RubricAlignedFeedbackTrialObservation): Promise<'inserted' | 'duplicate'> {
     const issues = validateRubricAlignedFeedbackTrialObservation(observation);

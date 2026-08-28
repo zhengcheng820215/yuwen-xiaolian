@@ -473,7 +473,7 @@ Retest 与 Transfer 可以显示结果反馈，但不得提供即时完整修复
 
 ### 阶段 4：真实 Trial 校准
 
-工程与验收边界已于 2026-08-28 冻结，详见 [阶段 4：真实 Trial 校准与 Debug 验收文档](./RUBRIC_ALIGNED_FEEDBACK_STAGE4_REAL_TRIAL_CALIBRATION_AND_DEBUG_ACCEPTANCE_PLAN.md)。当前状态为 `DESIGN FROZEN / ENGINEERING READY / REAL TRIAL NOT ACTIVATED`，默认反馈模式继续保持 `shadow`。
+工程与验收边界已于 2026-08-28 冻结，详见 [阶段 4：真实 Trial 校准与 Debug 验收文档](./RUBRIC_ALIGNED_FEEDBACK_STAGE4_REAL_TRIAL_CALIBRATION_AND_DEBUG_ACCEPTANCE_PLAN.md)。当前状态为 `DESIGN FROZEN / ENGINEERING COMPLETE / AUTOMATED DEBUG ACCEPTED / ISOLATED BROWSER ACCEPTED / REAL TRIAL NOT ACTIVATED`，默认反馈模式继续保持 `shadow`。
 
 只观察：
 
@@ -561,7 +561,7 @@ Retest 与 Transfer 可以显示结果反馈，但不得提供即时完整修复
 - 历史资源兼容、失败降级和零写入边界明确；
 - 阶段 0—4 和 RF-01—RF-22 验收范围明确。
 
-结论：阶段 0、阶段 1、阶段 2 已完成并通过零写入与旧主链回归验收。阶段 3 已完成 Narrative 接口、身份 Guard、原子来源选择、Learning 运行时接入和 `RG3-01—RG3-36` 自动化验收；默认模式保持 `shadow`。在 `B3-01—B3-16` 真实浏览器签署完成前，不得切换默认 `student_visible`，也不得声明学生可见新反馈已经正式验收。
+结论：阶段 0、阶段 1、阶段 2 已完成并通过零写入与旧主链回归验收。阶段 3 已完成 Narrative 接口、身份 Guard、原子来源选择、Learning 运行时接入、`RG3-01—RG3-36` 自动化验收和 `B3-01—B3-16` 真实浏览器签署；阶段 4 控制面、`RF4-A01—RF4-A24` 自动化验收与 `RF4-B01—RF4-B16` 隔离浏览器验收也已完成。默认模式仍保持 `shadow`，真实 Rubric 对齐反馈 Trial 尚未激活；只有当前 Runtime Identity、Formal Revision、学生与时间范围全部通过 Preflight 并经独立显式激活后，才允许在限定范围使用 `student_visible`。
 
 ### 13.3 开发期间不得突破的边界
 
