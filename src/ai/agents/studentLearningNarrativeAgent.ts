@@ -19,6 +19,12 @@ import {
   type StudentLearningNarrativeStatement,
 } from '../schemas/studentLearningNarrative.schema.ts';
 import { projectSingleChoiceReviewActionForStudent } from '../content/singleChoiceStudentFeedback.ts';
+import {
+  resolveRubricAlignedFeedbackSurfaceMode,
+  validateRubricAlignedNarrativeInput,
+  type RubricAlignedFeedbackSurfaceMode,
+  type RubricAlignedNarrativeInput,
+} from './rubricAlignedNarrativeAdapter.ts';
 
 export type StudentLearningNarrativeInput = {
   studentId: string;
@@ -30,11 +36,88 @@ export type StudentLearningNarrativeInput = {
   nextLearningStrategy?: NextLearningStrategy;
   nextTaskResolution?: NextFormalTaskResolution;
   delayedRetestPlan?: DelayedRetestPlan;
+  currentQuestionVersionId?: string;
+  rubricAlignedFeedback?: RubricAlignedNarrativeInput;
+  rubricAlignedSurfaceMode?: RubricAlignedFeedbackSurfaceMode;
+};
+
+export type StudentLearningNarrativeProjectionSelection = {
+  mode: RubricAlignedFeedbackSurfaceMode;
+  selectedSource: 'legacy' | 'rubric_projection';
+  projection: StudentLearningNarrativeProjection;
+  shadowProjection?: StudentLearningNarrativeProjection;
+  fallbackUsed: boolean;
+  issues: string[];
 };
 
 const INTERNAL_LANGUAGE = /\b(?:Evidence|Diagnosis|Profile|GrowthMemory|Root Cause|confidence|evaluator|operationId|responseId|taskRole)\b/i;
 
 export function buildStudentLearningNarrativeProjection(
+  input: StudentLearningNarrativeInput,
+): StudentLearningNarrativeProjection {
+  return buildStudentLearningNarrativeProjectionSelection(input).projection;
+}
+
+export function buildStudentLearningNarrativeProjectionSelection(
+  input: StudentLearningNarrativeInput,
+): StudentLearningNarrativeProjectionSelection {
+  const mode = resolveRubricAlignedFeedbackSurfaceMode(input.rubricAlignedSurfaceMode);
+  const legacyProjection = buildLegacyStudentLearningNarrativeProjection(input);
+  if (mode === 'legacy') return {
+    mode,
+    selectedSource: 'legacy',
+    projection: legacyProjection,
+    fallbackUsed: false,
+    issues: [],
+  };
+  const guard = validateRubricAlignedNarrativeInput(input.rubricAlignedFeedback, {
+    studentId: input.studentId,
+    learningRoundId: input.feedback?.learningRoundId,
+    taskId: input.currentTask?.taskId,
+    executionSessionId: input.studentResponse?.executionSessionId,
+    responseId: input.studentResponse?.responseId,
+    questionVersionId: input.currentQuestionVersionId,
+    responseFormat: input.currentTask?.responseFormat,
+    taskRole: input.currentTask?.taskRole,
+  });
+  if (!guard.passed || !input.rubricAlignedFeedback) return {
+    mode,
+    selectedSource: 'legacy',
+    projection: legacyProjection,
+    fallbackUsed: mode === 'student_visible',
+    issues: guard.issues,
+  };
+  const rubricProjection = buildRubricAlignedStudentLearningNarrativeProjection(
+    input,
+    input.rubricAlignedFeedback,
+    legacyProjection,
+  );
+  if (!rubricProjection.validation.passed) return {
+    mode,
+    selectedSource: 'legacy',
+    projection: legacyProjection,
+    fallbackUsed: mode === 'student_visible',
+    shadowProjection: rubricProjection,
+    issues: rubricProjection.validation.issues,
+  };
+  if (mode === 'shadow') return {
+    mode,
+    selectedSource: 'legacy',
+    projection: legacyProjection,
+    shadowProjection: rubricProjection,
+    fallbackUsed: false,
+    issues: [],
+  };
+  return {
+    mode,
+    selectedSource: 'rubric_projection',
+    projection: rubricProjection,
+    fallbackUsed: false,
+    issues: [],
+  };
+}
+
+function buildLegacyStudentLearningNarrativeProjection(
   input: StudentLearningNarrativeInput,
 ): StudentLearningNarrativeProjection {
   const issues: string[] = [];
@@ -132,6 +215,93 @@ export function buildStudentLearningNarrativeProjection(
     };
   }
   return projection;
+}
+
+function buildRubricAlignedStudentLearningNarrativeProjection(
+  input: StudentLearningNarrativeInput,
+  integration: RubricAlignedNarrativeInput,
+  legacy: StudentLearningNarrativeProjection,
+): StudentLearningNarrativeProjection {
+  const actionPlan = integration.actionPlan;
+  const independentValidation = ['retest', 'transfer'].includes(integration.taskRole);
+  const sourceLinks = uniqueSourceLinks([
+    integration.projectionId,
+    integration.context.responseId,
+    ...actionPlan.evidenceLinks,
+  ]);
+  const achieved = actionPlan.acknowledgedAction
+    ? statement(
+        actionPlan.acknowledgedAction,
+        'current_response',
+        'task_requirement_coverage',
+        sourceLinks,
+      )
+    : undefined;
+  const currentGap = !independentValidation && actionPlan.missingAnswerPart
+    ? statement(
+        actionPlan.missingAnswerPart,
+        'current_response',
+        'learning_gap',
+        sourceLinks,
+      )
+    : undefined;
+  const nextActionText = independentValidation
+    ? undefined
+    : actionPlan.nextOperations[0] || actionPlan.thinkingPrompt;
+  const nextAction = nextActionText
+    ? statement(nextActionText, 'current_response', 'learning_gap', sourceLinks)
+    : undefined;
+  const statements = [
+    legacy.taskReason,
+    achieved,
+    currentGap,
+    nextAction,
+    legacy.progressMeaning,
+    legacy.nextTaskReason,
+  ].filter((item): item is StudentLearningNarrativeStatement => Boolean(item));
+  const issues: string[] = [];
+  const allStatementsTraceable = statements.every((item) => item.sourceLinks.length > 0);
+  if (!allStatementsTraceable) issues.push('rubric_narrative_statement_source_missing');
+  const noInternalLanguage = statements.every((item) => !INTERNAL_LANGUAGE.test(item.text));
+  if (!noInternalLanguage) issues.push('rubric_narrative_internal_language_detected');
+  if (unsafeAnswerComposition(achieved?.text, currentGap?.text, nextAction?.text)) {
+    issues.push('rubric_narrative_answer_composition_disclosure_blocked');
+  }
+  const projection: StudentLearningNarrativeProjection = {
+    schemaVersion: STUDENT_LEARNING_NARRATIVE_SCHEMA_VERSION,
+    studentId: input.studentId,
+    taskReason: legacy.taskReason,
+    responseAnchor: undefined,
+    achieved,
+    currentGap,
+    currentGapMode: currentGap ? buildCurrentGapMode(input.feedback) : undefined,
+    currentGapReasonCode: currentGap ? buildCurrentGapReasonCode(input.feedback) : undefined,
+    nextAction,
+    progressMeaning: legacy.progressMeaning,
+    nextTaskReason: legacy.nextTaskReason,
+    validation: {
+      passed: issues.length === 0,
+      identityAligned: true,
+      allStatementsTraceable,
+      progressComparisonEligible: legacy.validation.progressComparisonEligible,
+      noInternalLanguage,
+      issues,
+    },
+  };
+  if (isStudentLearningNarrativeProjection(projection)) return projection;
+  return {
+    ...projection,
+    achieved: undefined,
+    currentGap: undefined,
+    currentGapMode: undefined,
+    currentGapReasonCode: undefined,
+    nextAction: undefined,
+    validation: {
+      ...projection.validation,
+      passed: false,
+      issues: [...issues, 'rubric_narrative_projection_schema_invalid'],
+    },
+  };
 }
 
 function buildSingleChoiceResponseAnchor(
@@ -436,4 +606,21 @@ function safeAnswerAnchor(value: string): string | undefined {
 function isExecutableCurrentAnswerAction(value: string): boolean {
   return /(?:保留|补充|重新|找出|说明|写出|修改|检查|整理|结合)/.test(value) &&
     !/^(?:继续努力|加强理解|深入思考|认真审题)[。！]?$/.test(value.trim());
+}
+
+function uniqueSourceLinks(values: string[]): string[] {
+  return [...new Set(values.filter((value) => value.trim().length > 0))];
+}
+
+function unsafeAnswerComposition(
+  achieved?: string,
+  gap?: string,
+  action?: string,
+): boolean {
+  const combined = [achieved, gap, action].filter(Boolean).join(' ');
+  if (!combined) return false;
+  const givesConclusion = /(?:答案是|结论是|应当指出|应该指出)/.test(combined);
+  const givesEvidence = /(?:依据是|原文写道|文中明确写)/.test(combined);
+  const givesRelation = /(?:这说明|这体现|这表现|从而说明)/.test(combined);
+  return givesConclusion && givesEvidence && givesRelation;
 }

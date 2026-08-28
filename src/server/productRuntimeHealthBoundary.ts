@@ -4,8 +4,13 @@ import { buildProductRuntimeHealth } from '../ai/services/productRuntimeHealthSe
 import type { ProductRuntimeHealth, ProductRuntimeTrialMode } from '../ai/schemas/productRuntimeHealth.schema.ts';
 import { readCurrentProductRuntimeIdentity } from './productRuntimeIdentityBoundary.ts';
 import { readProductRuntimeTrialProjection } from './productRuntimeTrialControlBoundary.ts';
+import {
+  resolvePhase163DiagnosisCredential,
+  type Phase163DiagnosisCredentialResolution,
+} from './phase163DiagnosisBoundary.ts';
 
 export type ProductRuntimeHealthReader = () => Promise<ProductRuntimeHealth>;
+export type ProductRuntimeCredentialReader = () => Promise<Phase163DiagnosisCredentialResolution>;
 
 export function createProductRuntimeHealthBoundary(
   readHealth: ProductRuntimeHealthReader = readCurrentProductRuntimeHealth,
@@ -24,10 +29,11 @@ export function createProductRuntimeHealthBoundary(
       response.statusCode = health.overallStatus === 'blocked' ? 503 : 200;
       response.end(JSON.stringify(health));
     } catch {
+      const aiConfigured = await resolveProductRuntimeAiConfigured();
       const health = buildProductRuntimeHealth({
         checkedAt: new Date().toISOString(), formalStoreError: true,
-        aiConfigured: configured(process.env.DEEPSEEK_API_KEY),
-        aiAvailabilityVerified: verifiedAiAvailability(), trial: safeTrialInput(),
+        aiConfigured,
+        aiAvailabilityVerified: verifiedAiAvailability(aiConfigured), trial: safeTrialInput(),
       });
       response.statusCode = 503;
       response.end(JSON.stringify(health));
@@ -37,6 +43,7 @@ export function createProductRuntimeHealthBoundary(
 
 export async function readCurrentProductRuntimeHealth(): Promise<ProductRuntimeHealth> {
   const store = new SharedFormalResourceStore();
+  const aiConfigured = await resolveProductRuntimeAiConfigured();
   try {
     const snapshot = await store.readOnly();
     const runtimeIdentity = await readCurrentProductRuntimeIdentity(undefined, snapshot);
@@ -46,8 +53,8 @@ export async function readCurrentProductRuntimeHealth(): Promise<ProductRuntimeH
     });
     return buildProductRuntimeHealth({
       checkedAt: new Date().toISOString(), snapshot,
-      aiConfigured: configured(process.env.DEEPSEEK_API_KEY),
-      aiAvailabilityVerified: verifiedAiAvailability(),
+      aiConfigured,
+      aiAvailabilityVerified: verifiedAiAvailability(aiConfigured),
       buildIdentity: runtimeIdentity.identity?.runtimeIdentityDigest,
       buildIdentityContentAddressed: runtimeIdentity.status === 'available',
       runtimeIdentityVersion: runtimeIdentity.identity?.runtimeIdentityVersion,
@@ -57,19 +64,26 @@ export async function readCurrentProductRuntimeHealth(): Promise<ProductRuntimeH
   } catch {
     return buildProductRuntimeHealth({
       checkedAt: new Date().toISOString(), formalStoreError: true,
-      aiConfigured: configured(process.env.DEEPSEEK_API_KEY),
-      aiAvailabilityVerified: verifiedAiAvailability(), trial: safeTrialInput(),
+      aiConfigured,
+      aiAvailabilityVerified: verifiedAiAvailability(aiConfigured), trial: safeTrialInput(),
     });
   }
 }
 
-function configured(value: string | undefined): boolean {
-  return Boolean(value?.trim());
+export async function resolveProductRuntimeAiConfigured(
+  readCredential: ProductRuntimeCredentialReader = resolvePhase163DiagnosisCredential,
+): Promise<boolean | null> {
+  try {
+    const credential = await readCredential();
+    return credential.source === 'unavailable' ? false : Boolean(credential.apiKey);
+  } catch {
+    // “未能检查”不同于“确认未配置”，避免把临时 Keychain 读取失败投射成配置缺失。
+    return null;
+  }
 }
 
-function verifiedAiAvailability(): boolean {
-  return configured(process.env.DEEPSEEK_API_KEY)
-    && process.env.PRODUCT_AI_PROVIDER_AVAILABILITY_VERIFIED === 'true';
+function verifiedAiAvailability(aiConfigured: boolean | null): boolean {
+  return aiConfigured === true && process.env.PRODUCT_AI_PROVIDER_AVAILABILITY_VERIFIED === 'true';
 }
 
 function safeTrialInput(runtimeIdentityStatus?: 'available' | 'missing' | 'invalid' | 'dirty') {

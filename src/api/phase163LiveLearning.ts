@@ -30,7 +30,28 @@ import {
   type LearningFeedbackRevisionAuditReport,
   type LearningFeedbackRevisionMetrics,
 } from '../ai/agents/learningFeedbackRevisionObservationAuditAgent.ts';
-import { buildStudentLearningNarrativeProjection } from '../ai/agents/studentLearningNarrativeAgent.ts';
+import {
+  buildStudentLearningNarrativeProjection,
+  buildStudentLearningNarrativeProjectionSelection,
+} from '../ai/agents/studentLearningNarrativeAgent.ts';
+import { buildRubricFeedbackProjection } from '../ai/agents/rubricFeedbackProjectionAgent.ts';
+import { buildStudentVisibleFeedbackGroundingFromProjection } from
+  '../ai/agents/rubricFeedbackGroundingAdapter.ts';
+import { buildStudentFeedbackGrounding } from '../ai/agents/studentFeedbackGroundingAgent.ts';
+import { buildStudentThinkingAnalysis } from '../ai/agents/studentThinkingAnalysisAgent.ts';
+import { buildStudentFeedbackActionPlan } from '../ai/agents/studentFeedbackActionPlanAgent.ts';
+import {
+  RUBRIC_ALIGNED_NARRATIVE_INTEGRATION_VERSION,
+  type RubricAlignedNarrativeInput,
+} from '../ai/agents/rubricAlignedNarrativeAdapter.ts';
+import type { RubricAlignedFeedbackTrialActivation } from
+  '../ai/schemas/rubricAlignedFeedbackTrial.schema.ts';
+import {
+  buildRubricAlignedFeedbackTrialObservation,
+  resolveRubricAlignedFeedbackTrialMode,
+  type RubricAlignedFeedbackTrialModeResolution,
+} from
+  '../ai/services/rubricAlignedFeedbackTrialService.ts';
 import {
   projectConvergenceLearningFeedback,
   projectConvergenceRevisionFeedback,
@@ -81,6 +102,8 @@ import {
 import { IndexedDBRealLearningOperationRepository } from '../ai/repositories/indexedDBRealLearningOperationRepository.ts';
 import { IndexedDBReadingOpenResponseProcessFactRepository } from
   '../ai/repositories/indexedDBReadingOpenResponseProcessFactRepository.ts';
+import { IndexedDBRubricAlignedFeedbackTrialObservationRepository } from
+  '../ai/repositories/indexedDBRubricAlignedFeedbackTrialObservationRepository.ts';
 import {
   IndexedDBLearningObservationOutboxRepository,
   IndexedDBLearningObservationRepository,
@@ -138,7 +161,10 @@ import type {
   NextLearningAction,
   TaskRequest,
 } from '../ai/schemas/nextLearningStrategy.schema.ts';
-import type { FrozenQuestionResourceVersion } from '../ai/schemas/questionResourceAdmission.schema.ts';
+import type {
+  FrozenQuestionResourceVersion,
+  QuestionResourceRubricItem,
+} from '../ai/schemas/questionResourceAdmission.schema.ts';
 import type { UnifiedLearningActivityContext } from '../ai/schemas/unifiedLearningEntry.schema.ts';
 import type {
   SingleChoiceStudentAnswerValue,
@@ -207,6 +233,8 @@ const learningProgressionRuntimeService = new LearningProgressionRuntimeService(
   learningProgressionRepository,
 );
 const progressiveLoadStage4Repository = new IndexedDBProgressiveLoadStage4Repository();
+const rubricAlignedFeedbackTrialObservationRepository =
+  new IndexedDBRubricAlignedFeedbackTrialObservationRepository();
 const progressiveLoadCalibrationService = new ProgressiveLoadCalibrationService(
   progressiveLoadStage4Repository,
 );
@@ -250,6 +278,7 @@ export type Phase163LiveWorkspaceState = {
     };
   };
   learningPresentation?: StudentLearningPresentation;
+  learningPresentationSource?: 'legacy' | 'rubric_projection';
   convergenceFeedbackPresentation?: ConvergenceFeedbackPresentation;
   canAdvance: boolean;
   canRetry: boolean;
@@ -437,6 +466,7 @@ export async function recordPhase163FeedbackPresented(roundId: string): Promise<
     feedbackRequestId: feedback.feedbackRequestId,
     feedbackSchemaVersion: feedback.schemaVersion,
   }, checkpoint.updatedAt);
+  await recordRubricAlignedFeedbackTrialPresentation(descriptor, checkpoint, response, attemptId);
 }
 
 export async function savePhase163LiveDraft(
@@ -1898,7 +1928,16 @@ async function stateFromCheckpoint(
     canAdvance,
     queueBlocked: sessionQueueBlocked,
   });
-  const learningPresentation = toStudentLearningPresentation(buildStudentLearningNarrativeProjection({
+  const rubricAlignedFeedback = buildPhase163RubricAlignedNarrativeInput(
+    descriptor,
+    checkpoint,
+    feedback,
+  );
+  const rubricAlignedTrialResolution = await resolvePhase163RubricAlignedFeedbackSurfaceMode({
+    descriptor,
+    studentId: checkpoint.studentId,
+  });
+  const narrativeSelection = buildStudentLearningNarrativeProjectionSelection({
     studentId: checkpoint.studentId,
     currentTask: checkpoint.concreteTask || descriptor.concreteTask,
     studentResponse: checkpoint.taskExecutionResult?.studentResponse,
@@ -1908,7 +1947,11 @@ async function stateFromCheckpoint(
     nextLearningStrategy: checkpoint.nextLearningStrategy,
     nextTaskResolution: checkpoint.nextTaskResolution,
     delayedRetestPlan: descriptor.retestPlan,
-  }), {
+    currentQuestionVersionId: descriptor.input.resourceVersion.resourceVersionId,
+    rubricAlignedFeedback,
+    rubricAlignedSurfaceMode: rubricAlignedTrialResolution.mode,
+  });
+  const learningPresentation = toStudentLearningPresentation(narrativeSelection.projection, {
     continuationMode: canAdvance ? 'fixed_task_queue' : 'adaptive',
   });
   const primaryAction = canAdvance
@@ -1997,6 +2040,7 @@ async function stateFromCheckpoint(
       ? 'completed'
       : checkpoint.status,
     learningPresentation,
+    learningPresentationSource: narrativeSelection.selectedSource,
     convergenceFeedbackPresentation,
     feedback: feedback ? {
       headline: feedback.headline,
@@ -2038,6 +2082,227 @@ async function stateFromCheckpoint(
     isTargetedMicroTraining: descriptor.isTargetedMicroTraining,
     targetedMicroTraining,
   };
+}
+
+function buildPhase163RubricAlignedNarrativeInput(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  checkpoint: RealLearningOperationCheckpoint,
+  feedback: StudentLearningFeedback | undefined,
+): RubricAlignedNarrativeInput | undefined {
+  const task = checkpoint.concreteTask || descriptor.concreteTask;
+  const response = checkpoint.taskExecutionResult?.studentResponse;
+  const runtime = checkpoint.realDiagnosisRuntimeResult;
+  const formalCommit = runtime?.formalDiagnosisCommit;
+  const runRecord = runtime?.runRecord;
+  const resource = descriptor.input.resourceVersion;
+  const requirementCoverage = feedback?.thinkingReview?.requirementCoverage;
+  if (
+    !feedback
+    || !response
+    || !formalCommit
+    || !runRecord
+    || !requirementCoverage?.length
+    || !['short_text', 'long_text'].includes(resource.responseFormat)
+    || task.responseFormat === 'single_choice'
+  ) return undefined;
+
+  const rubricRequirementBindings = buildPhase163RubricRequirementBindings(
+    resource.rubric,
+    requirementCoverage,
+  );
+  if (rubricRequirementBindings.length === 0) return undefined;
+  const verifiedStudentEvidenceRefs: Record<string, string[]> = {};
+  const verifiedStudentEvidenceByRef: Record<string, string> = {};
+  for (const coverage of requirementCoverage) {
+    verifiedStudentEvidenceRefs[coverage.requirementId] = coverage.studentEvidence.map((evidence, index) => {
+      const reference = `${response.responseId}:${coverage.requirementId}:${index + 1}`;
+      verifiedStudentEvidenceByRef[reference] = evidence;
+      return reference;
+    });
+  }
+  const projectionResult = buildRubricFeedbackProjection({
+    projectionContext: {
+      questionVersionId: resource.resourceVersionId,
+      rubricVersion: `${resource.resourceVersionId}:rubric`,
+      taskId: task.taskId,
+      learningRoundId: descriptor.input.learningRoundId,
+      executionSessionId: runRecord.executionSessionId,
+      responseId: response.responseId,
+      formalDiagnosisId: formalCommit.formalDiagnosisId,
+    },
+    responseFormat: resource.responseFormat,
+    taskRole: task.taskRole,
+    rubric: resource.rubric,
+    formalDiagnosisCommit: formalCommit,
+    diagnosisRunRecord: runRecord,
+    requirementCoverage,
+    primaryGapRequirementId: feedback.thinkingReview?.primaryGapRequirementId,
+    verifiedStudentEvidenceRefs,
+    rubricRequirementBindings,
+  });
+  if (projectionResult.outcome !== 'projected' || !projectionResult.projection) return undefined;
+  const safeClueLocatorByRequirementId = Object.fromEntries(requirementCoverage
+    .map((coverage) => [coverage.requirementId, coverage.taskEvidence[0]?.trim()])
+    .filter((entry): entry is [string, string] => Boolean(entry[1])));
+  const groundingResult = buildStudentVisibleFeedbackGroundingFromProjection({
+    projection: projectionResult.projection,
+    context: {
+      studentId: descriptor.input.studentId,
+      learningRoundId: descriptor.input.learningRoundId,
+      taskId: task.taskId,
+      executionSessionId: runRecord.executionSessionId,
+      responseId: response.responseId,
+      questionVersionId: resource.resourceVersionId,
+    },
+    responseFormat: resource.responseFormat,
+    taskRole: task.taskRole,
+    verifiedStudentEvidenceByRef,
+    safeClueLocatorByRequirementId,
+    feedbackDepth: ['retest', 'transfer'].includes(task.taskRole)
+      ? 'result_only'
+      : 'thinking_prompt',
+  });
+  if (groundingResult.outcome !== 'grounded' || !groundingResult.grounding) return undefined;
+  const legacyGrounding = buildStudentFeedbackGrounding(feedback);
+  if (!legacyGrounding.validation.passed) return undefined;
+  const thinkingAnalysis = buildStudentThinkingAnalysis(feedback, legacyGrounding, response);
+  if (!thinkingAnalysis.validation.passed) return undefined;
+  const actionPlan = buildStudentFeedbackActionPlan({
+    feedback,
+    grounding: legacyGrounding,
+    thinkingAnalysis,
+    studentResponse: response,
+    taskRole: task.taskRole,
+    projectionGrounding: groundingResult.grounding,
+  });
+  if (!actionPlan.validation.passed) return undefined;
+  return {
+    integrationVersion: RUBRIC_ALIGNED_NARRATIVE_INTEGRATION_VERSION,
+    sourceMode: 'rubric_projection',
+    context: {
+      studentId: descriptor.input.studentId,
+      learningRoundId: descriptor.input.learningRoundId,
+      taskId: task.taskId,
+      executionSessionId: runRecord.executionSessionId,
+      responseId: response.responseId,
+      questionVersionId: resource.resourceVersionId,
+    },
+    responseFormat: resource.responseFormat,
+    taskRole: task.taskRole,
+    projectionId: projectionResult.projection.projectionId,
+    grounding: groundingResult.grounding,
+    actionPlan,
+  };
+}
+
+function buildPhase163RubricRequirementBindings(
+  rubric: QuestionResourceRubricItem[],
+  coverage: NonNullable<StudentThinkingReview['requirementCoverage']>,
+) {
+  return rubric.flatMap((item) => {
+    const supportedTypes = new Set<string>();
+    if (item.evidenceRequirement?.requireConclusion) supportedTypes.add('conclusion');
+    if (item.evidenceRequirement?.requireTextEvidence) supportedTypes.add('text_evidence');
+    if (item.evidenceRequirement?.requireExplanation) supportedTypes.add('reasoning_relation');
+    if (/(?:表达|组织|语言)/.test(`${item.name} ${item.description || ''}`)) {
+      supportedTypes.add('expression');
+    }
+    return coverage
+      .filter((requirement) => supportedTypes.has(requirement.requirementType))
+      .map((requirement) => ({
+        rubricItemId: item.itemId,
+        requirementId: requirement.requirementId,
+        bindingSource: 'frozen_contract' as const,
+      }));
+  });
+}
+
+async function resolvePhase163RubricAlignedFeedbackSurfaceMode(input: {
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>;
+  studentId: string;
+}): Promise<RubricAlignedFeedbackTrialModeResolution> {
+  try {
+    const [controlResponse, identityResponse, formalResponse, sessions] = await Promise.all([
+      fetch('/__runtime/rubric-feedback-trial-control', { method: 'GET', cache: 'no-store' }),
+      fetch('/__runtime/identity', { method: 'GET', cache: 'no-store' }),
+      fetch('/__runtime/phase17-4/formal-resources', { method: 'GET', cache: 'no-store' }),
+      sessionRepository.query({ studentId: input.studentId }),
+    ]);
+    if (!controlResponse.ok || !identityResponse.ok || !formalResponse.ok) {
+      return { mode: 'shadow', countsTowardCalibration: false, reasonCodes: ['trial_activation_missing'] };
+    }
+    const [control, identity, formal] = await Promise.all([
+      controlResponse.json(), identityResponse.json(), formalResponse.json(),
+    ]);
+    const activation = control?.activation as RubricAlignedFeedbackTrialActivation | undefined;
+    const resolution = resolveRubricAlignedFeedbackTrialMode({
+      activation,
+      context: {
+        studentId: input.studentId,
+        learningRoundId: input.descriptor.input.learningRoundId,
+        runtimeIdentityDigest: String(identity?.identity?.runtimeIdentityDigest || ''),
+        formalResourceRevision: Number(formal?.snapshot?.revision || 0),
+        sessionCount: sessions.length,
+        now: new Date().toISOString(),
+      },
+    });
+    return resolution;
+  } catch {
+    return { mode: 'shadow', countsTowardCalibration: false, reasonCodes: ['trial_activation_missing'] };
+  }
+}
+
+async function recordRubricAlignedFeedbackTrialPresentation(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  checkpoint: NonNullable<Awaited<ReturnType<IndexedDBRealLearningOperationRepository['getByOperationId']>>>,
+  response: StudentResponse,
+  attemptId: string,
+): Promise<void> {
+  try {
+    const resolution = await resolvePhase163RubricAlignedFeedbackSurfaceMode({
+      descriptor,
+      studentId: checkpoint.studentId,
+    });
+    if (resolution.mode !== 'student_visible' || !resolution.trialId) return;
+    const [identityResponse, formalResponse] = await Promise.all([
+      fetch('/__runtime/identity', { method: 'GET', cache: 'no-store' }),
+      fetch('/__runtime/phase17-4/formal-resources', { method: 'GET', cache: 'no-store' }),
+    ]);
+    if (!identityResponse.ok || !formalResponse.ok) return;
+    const [identity, formal] = await Promise.all([identityResponse.json(), formalResponse.json()]);
+    const task = checkpoint.concreteTask || descriptor.concreteTask;
+    const responseFormat = task.responseFormat === 'single_choice'
+      ? 'single_choice' as const
+      : descriptor.input.resourceVersion.responseFormat === 'long_text'
+        ? 'long_text' as const : 'short_text' as const;
+    const observation = buildRubricAlignedFeedbackTrialObservation({
+      observationId: `${resolution.trialId}:feedback_presented:${response.responseId}`,
+      trialId: resolution.trialId,
+      origin: 'real_student',
+      identity: {
+        studentId: checkpoint.studentId,
+        sessionId: descriptor.input.learningSessionId,
+        roundId: descriptor.input.learningRoundId,
+        attemptId,
+        questionId: descriptor.input.resourceVersion.resourceId,
+        questionVersion: descriptor.input.resourceVersion.resourceVersionId,
+        formalResourceRevision: Number(formal?.snapshot?.revision || 0),
+        runtimeIdentityDigest: String(identity?.identity?.runtimeIdentityDigest || ''),
+      },
+      taskContext: {
+        responseFormat,
+        taskRole: task.taskRole,
+        projectionStatus: 'ready',
+        feedbackSource: 'rubric_aligned',
+      },
+      observationCodes: ['feedback_matches_original_response'],
+      severity: 'info',
+      occurredAt: checkpoint.updatedAt,
+    });
+    await rubricAlignedFeedbackTrialObservationRepository.append(observation);
+  } catch {
+    // Trial observation is fail-open and must never block the formal learning chain.
+  }
 }
 
 export async function startPhase163FeedbackRevision(): Promise<Phase163LiveWorkspaceState> {

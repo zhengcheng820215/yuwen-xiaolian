@@ -64,6 +64,8 @@ import ProductRuntimeReliabilityWPR1Acceptance from './pages/ProductRuntimeRelia
 import ProductRuntimeReliabilityWPR2Acceptance from './pages/ProductRuntimeReliabilityWPR2Acceptance.jsx';
 import ProductRuntimeReliabilityWPR3Acceptance from './pages/ProductRuntimeReliabilityWPR3Acceptance.jsx';
 import ProductRuntimeReliabilityWPR4Acceptance from './pages/ProductRuntimeReliabilityWPR4Acceptance.jsx';
+import RubricAlignedFeedbackStage3BrowserAcceptance from './pages/RubricAlignedFeedbackStage3BrowserAcceptance.jsx';
+import RubricAlignedFeedbackStage4BrowserAcceptance from './pages/RubricAlignedFeedbackStage4BrowserAcceptance.jsx';
 
 export default function App() {
   return (
@@ -106,6 +108,8 @@ export default function App() {
         <Route path="/internal/acceptance/reading-single-choice" element={<ReadingSingleChoiceStage4Acceptance />} />
         <Route path="/internal/acceptance/reading-open-response-stage4" element={<ReadingOpenResponseStage4BrowserAcceptance />} />
         <Route path="/internal/acceptance/reading-training-progression-stage3" element={<ReadingTrainingProgressionStage3BrowserAcceptance />} />
+        <Route path="/internal/acceptance/rubric-aligned-feedback-stage3" element={<RubricAlignedFeedbackStage3BrowserAcceptance />} />
+        <Route path="/internal/acceptance/rubric-aligned-feedback-stage4" element={<RubricAlignedFeedbackStage4BrowserAcceptance />} />
         <Route path="/internal/acceptance/reading-training-progression-stage4" element={<ReadingTrainingProgressionStage4BrowserAcceptance />} />
         <Route path="/internal/acceptance/product-complexity-convergence-stage0" element={<ProductComplexityConvergenceStage0BrowserAcceptance />} />
         <Route path="/internal/acceptance/product-complexity-convergence-stage1" element={<ProductComplexityConvergenceStage1BrowserAcceptance />} />

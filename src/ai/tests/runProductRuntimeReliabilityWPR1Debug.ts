@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { SharedFormalResourceStore } from '../../server/sharedFormalResourceStore.ts';
-import { createProductRuntimeHealthBoundary } from '../../server/productRuntimeHealthBoundary.ts';
+import {
+  createProductRuntimeHealthBoundary,
+  resolveProductRuntimeAiConfigured,
+} from '../../server/productRuntimeHealthBoundary.ts';
 import {
   PRODUCT_RUNTIME_HEALTH_VERSION,
   PRODUCT_RUNTIME_ID,
@@ -63,6 +66,10 @@ const cases: Array<{ id: string; name: string; run: () => unknown | Promise<unkn
   { id: 'R1-C34', name: 'Health leaves Formal Revision and Digest unchanged', run: async () => { const store = new SharedFormalResourceStore(); const before = buildProductRuntimeProtectedSnapshot(await store.readOnly()); await boundary(healthy()); const after = buildProductRuntimeProtectedSnapshot(await store.readOnly()); assert.equal(before.formalResourceRevision, after.formalResourceRevision); assert.equal(before.formalResourceDigest, after.formalResourceDigest); } },
   { id: 'R1-C35', name: 'Health creates no student, calibration, or Trial writes', run: () => assert.deepEqual({ attempt: 0, evidence: 0, profile: 0, calibration: 0, trial: 0 }, { attempt: 0, evidence: 0, profile: 0, calibration: 0, trial: 0 }) },
   { id: 'R1-C36', name: 'unexpected Boundary error returns minimal blocked Health', run: async () => { const response = await boundary(undefined, 'GET', async () => { throw new Error('C:\\private\\secret-fixture'); }); const body = JSON.parse(response.body); assert.equal(response.statusCode, 503); assert(isProductRuntimeHealth(body)); assert(!response.body.includes('private')); } },
+  { id: 'R1-C37', name: 'environment credential projects provider configured', run: async () => assert.equal(await resolveProductRuntimeAiConfigured(async () => ({ apiKey: 'environment-secret', source: 'environment' })), true) },
+  { id: 'R1-C38', name: 'Keychain credential projects provider configured without exposing secret', run: async () => { const configured = await resolveProductRuntimeAiConfigured(async () => ({ apiKey: 'keychain-secret', source: 'macos_keychain' })); assert.equal(configured, true); assert(!JSON.stringify(buildProductRuntimeHealth({ checkedAt: TIME, snapshot, aiConfigured: configured })).includes('keychain-secret')); } },
+  { id: 'R1-C39', name: 'confirmed unavailable credential projects not configured', run: async () => assert.equal(await resolveProductRuntimeAiConfigured(async () => ({ source: 'unavailable' })), false) },
+  { id: 'R1-C40', name: 'credential read failure projects not checked instead of not configured', run: async () => { const configured = await resolveProductRuntimeAiConfigured(async () => { throw new Error('temporary keychain failure'); }); assert.equal(configured, null); assert.equal(healthy({ aiConfigured: configured }).aiProvider.status, 'not_checked'); } },
 ];
 
 let passed = 0;

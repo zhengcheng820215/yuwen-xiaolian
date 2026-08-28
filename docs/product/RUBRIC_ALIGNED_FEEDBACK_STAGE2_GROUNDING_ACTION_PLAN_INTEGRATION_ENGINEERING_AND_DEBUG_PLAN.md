@@ -474,6 +474,8 @@ Evidence / Profile 写入逻辑
 
 阶段 3 仍不得把完整 Rubric 或 acceptedSignals 发送给 Narrative Agent。
 
+阶段 3 的正式工程边界已经冻结，详见：[Rubric 对齐反馈阶段 3：Narrative 与学生页面投射工程实施与 Debug 验收文档](./RUBRIC_ALIGNED_FEEDBACK_STAGE3_NARRATIVE_AND_STUDENT_SURFACE_PROJECTION_ENGINEERING_AND_DEBUG_PLAN.md)。阶段 3 必须复用现有 Narrative Schema 与 Learning 反馈区，新旧路径按完整来源原子选择，不得逐字段混拼。
+
 ## 十七、工程验收记录（2026-08-27）
 
 - `RG2-01—RG2-30`：30/30 PASS；

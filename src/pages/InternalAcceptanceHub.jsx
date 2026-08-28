@@ -3,6 +3,20 @@ import { Link } from 'react-router-dom';
 
 const acceptanceItems = [
   {
+    to: '/internal/acceptance/rubric-aligned-feedback-stage4',
+    title: 'Rubric 对齐反馈阶段 4',
+    description: '执行 RF4-B01—RF4-B16，验证限定激活、身份绑定、单选分流、Revision、固定题组、恢复与真实分母隔离。',
+    provider: '确定性隔离 Trial 控制',
+    data: '浏览器内存 Fixture，不激活真实 Trial',
+  },
+  {
+    to: '/internal/acceptance/rubric-aligned-feedback-stage3',
+    title: 'Rubric 对齐反馈阶段 3',
+    description: '执行 B3-01—B3-16，验证 Narrative、单选分流、Revision、三态开关、恢复与连续题组。',
+    provider: '确定性隔离反馈投射',
+    data: '浏览器内存 Fixture，正式写入为 0',
+  },
+  {
     to: '/internal/acceptance/product-runtime-reliability-wp-r4',
     title: '运行可靠性 WP-R4',
     description: '执行 R4-B01—R4-B18，只读核对新 Preflight、准入包原子性、显式激活和失败保持关闭。',

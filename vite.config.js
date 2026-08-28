@@ -13,6 +13,7 @@ import { createQuestionSemanticQualityAssessmentBoundary } from './src/server/qu
 import { createProductRuntimeHealthBoundary } from './src/server/productRuntimeHealthBoundary.ts';
 import { createProductRuntimeIdentityBoundary } from './src/server/productRuntimeIdentityBoundary.ts';
 import { createProductRuntimeTrialControlBoundary } from './src/server/productRuntimeTrialControlBoundary.ts';
+import { createRubricAlignedFeedbackTrialControlBoundary } from './src/server/rubricAlignedFeedbackTrialControlBoundary.ts';
 
 const execFileAsync = promisify(execFile);
 const DEVELOPMENT_PORT = 5174;
@@ -38,6 +39,7 @@ export default defineConfig({
       server.middlewares.use('/__runtime/phase17-5/question-semantic-quality', createQuestionSemanticQualityAssessmentBoundary());
       server.middlewares.use('/__runtime/phase17-4/formal-resources', createSharedFormalResourceBoundary());
       server.middlewares.use('/__runtime/trial-control', createProductRuntimeTrialControlBoundary());
+      server.middlewares.use('/__runtime/rubric-feedback-trial-control', createRubricAlignedFeedbackTrialControlBoundary());
       server.middlewares.use('/__runtime/health', createProductRuntimeHealthBoundary());
       server.middlewares.use('/__runtime/identity', createProductRuntimeIdentityBoundary());
       server.middlewares.use('/__demo/deepseek-chat', async (req, res) => {

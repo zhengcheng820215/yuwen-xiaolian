@@ -2,9 +2,9 @@
 
 **English Name:** Rubric-aligned Student Feedback Optimization Plan
 
-**Status:** STAGE 2 ENGINEERING ACCEPTED / STAGE 3 DOCUMENTATION REQUIRED
+**Status:** STAGE 3 ENGINEERING COMPLETE / AUTOMATED DEBUG VERIFIED / BROWSER ACCEPTANCE PENDING
 
-**Version:** v0.5
+**Version:** v0.7
 
 **Date:** 2026-08-27
 
@@ -13,6 +13,8 @@
 阶段 2 最小接口、披露边界与回退策略已冻结，详见：[Rubric 对齐反馈阶段 2：Grounding 与 Action Plan 最小接入工程实施与 Debug 验收文档](./RUBRIC_ALIGNED_FEEDBACK_STAGE2_GROUNDING_ACTION_PLAN_INTEGRATION_ENGINEERING_AND_DEBUG_PLAN.md)。
 
 阶段 2 工程已通过 `RG2-01—RG2-30`、旧主链回归和 production build 验收，详见：[阶段 2 工程与 Debug 验收报告](../education/phase/reports/rubric_aligned_feedback_stage2_engineering_debug_acceptance_2026-08-27.md)。
+
+阶段 3 Narrative 接口、学生页面投射、原子回退开关和浏览器验收边界已冻结，详见：[Rubric 对齐反馈阶段 3：Narrative 与学生页面投射工程实施与 Debug 验收文档](./RUBRIC_ALIGNED_FEEDBACK_STAGE3_NARRATIVE_AND_STUDENT_SURFACE_PROJECTION_ENGINEERING_AND_DEBUG_PLAN.md)。
 
 ## 一、方案目标
 
@@ -467,7 +469,11 @@ Retest 与 Transfer 可以显示结果反馈，但不得提供即时完整修复
 - 验证连续题组、Revision、Retest、Transfer；
 - 对全部正式题执行静态审计与代表性动态样例回归。
 
+工程边界已于 2026-08-28 冻结：继续复用 `StudentLearningNarrativeProjection v1` 与现有 Learning 反馈区；Narrative 只允许接收带完整身份校验的最小 Grounding 与 Action Plan；新旧路径必须按完整来源原子选择，禁止逐字段混拼。阶段 3 采用 `legacy / shadow / student_visible` 三态开关，完成 `RG3-01—RG3-36` 和 `B3-01—B3-16` 前不得默认全量启用学生可见新路径。
+
 ### 阶段 4：真实 Trial 校准
+
+工程与验收边界已于 2026-08-28 冻结，详见 [阶段 4：真实 Trial 校准与 Debug 验收文档](./RUBRIC_ALIGNED_FEEDBACK_STAGE4_REAL_TRIAL_CALIBRATION_AND_DEBUG_ACCEPTANCE_PLAN.md)。当前状态为 `DESIGN FROZEN / ENGINEERING READY / REAL TRIAL NOT ACTIVATED`，默认反馈模式继续保持 `shadow`。
 
 只观察：
 
@@ -555,7 +561,7 @@ Retest 与 Transfer 可以显示结果反馈，但不得提供即时完整修复
 - 历史资源兼容、失败降级和零写入边界明确；
 - 阶段 0—4 和 RF-01—RF-22 验收范围明确。
 
-结论：阶段 0、阶段 1、阶段 2 已完成并通过零写入与旧主链回归验收。系统已经具备 Projection → 最小 Grounding → Action Plan 的内部可选链路，但尚未改变学生可见反馈。下一步只能先输出阶段 3 支持文档，冻结 Narrative 接口、页面投射、开关回退和浏览器验收边界；不得直接修改 Learning 页面文案。
+结论：阶段 0、阶段 1、阶段 2 已完成并通过零写入与旧主链回归验收。阶段 3 已完成 Narrative 接口、身份 Guard、原子来源选择、Learning 运行时接入和 `RG3-01—RG3-36` 自动化验收；默认模式保持 `shadow`。在 `B3-01—B3-16` 真实浏览器签署完成前，不得切换默认 `student_visible`，也不得声明学生可见新反馈已经正式验收。
 
 ### 13.3 开发期间不得突破的边界
 
@@ -577,3 +583,5 @@ Retest 与 Transfer 可以显示结果反馈，但不得提供即时完整修复
 - [Rubric 对齐反馈阶段 0 只读审计报告](../education/phase/reports/rubric_aligned_feedback_stage0_readonly_audit_2026-08-27.md)
 - [Rubric 对齐反馈阶段 1：确定性 Projection 工程实施与 Debug 验收文档](./RUBRIC_ALIGNED_FEEDBACK_STAGE1_DETERMINISTIC_PROJECTION_ENGINEERING_AND_DEBUG_PLAN.md)
 - [Rubric 对齐反馈阶段 2：Grounding 与 Action Plan 最小接入工程实施与 Debug 验收文档](./RUBRIC_ALIGNED_FEEDBACK_STAGE2_GROUNDING_ACTION_PLAN_INTEGRATION_ENGINEERING_AND_DEBUG_PLAN.md)
+- [Rubric 对齐反馈阶段 3：Narrative 与学生页面投射工程实施与 Debug 验收文档](./RUBRIC_ALIGNED_FEEDBACK_STAGE3_NARRATIVE_AND_STUDENT_SURFACE_PROJECTION_ENGINEERING_AND_DEBUG_PLAN.md)
+- [Rubric 对齐反馈阶段 3 工程与自动化 Debug 验收报告](../education/phase/reports/rubric_aligned_feedback_stage3_engineering_debug_acceptance_2026-08-28.md)

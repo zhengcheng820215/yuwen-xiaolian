@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import type { DiagnosisRunRecord, FormalDiagnosisCommit } from
   '../schemas/diagnosisRunRecord.schema.ts';
 import type {
@@ -561,8 +560,7 @@ function finalizeProjection(
   projectionStatus: RubricFeedbackProjection['projectionStatus'],
 ): RubricFeedbackProjection {
   const items = candidates.map((candidate) => candidate.item);
-  const projectionId = `rubric-projection-${createHash('sha256')
-    .update(stableStringify({
+  const projectionId = `rubric-projection-${stableProjectionDigest(stableStringify({
       projectionVersion: RUBRIC_FEEDBACK_PROJECTION_SCHEMA_VERSION,
       questionVersionId: input.projectionContext.questionVersionId,
       rubricVersion: input.projectionContext.rubricVersion,
@@ -576,9 +574,7 @@ function finalizeProjection(
         studentEvidenceRefs: item.studentEvidenceRefs,
       })),
       primaryItemId,
-    }))
-    .digest('hex')
-    .slice(0, 24)}`;
+    }))}`;
   return {
     projectionVersion: RUBRIC_FEEDBACK_PROJECTION_SCHEMA_VERSION,
     projectionId,
@@ -588,6 +584,26 @@ function finalizeProjection(
     items,
     projectionStatus,
   };
+}
+
+/**
+ * Runtime-neutral deterministic digest for projection identity.
+ *
+ * This agent runs in both the Node debug harness and the browser Learning
+ * surface, so it must not depend on `node:crypto`. Three independent FNV-1a
+ * passes preserve the existing 24-character identity shape without exposing
+ * asynchronous Web Crypto to the otherwise synchronous projection contract.
+ */
+function stableProjectionDigest(value: string): string {
+  const seeds = [0x811c9dc5, 0x9e3779b9, 0x85ebca6b];
+  return seeds.map((seed) => {
+    let hash = seed;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(16).padStart(8, '0');
+  }).join('');
 }
 
 function candidate(input: {
