@@ -99,6 +99,19 @@ type QuestionMaterialVersionTargetedUsage = {
 
 历史 Material 缺少该字段时一律按 `core_reading` 解释，不回写旧版本，不改变现有 12 篇材料及 61 道题的身份。
 
+### 3.1.1 常规新 Session 的材料准入隔离
+
+`targeted_excerpt` 是由正式缺口显式触发的即时训练资源，不是常规学习入口的启动材料。常规新 Learning Session 在建立首题和固定核心题组时，候选资源必须满足：
+
+- Material 用途投影为 `core_reading`；
+- Frozen Resource、Registry Head、Observation Link 与最新质量准入均有效；
+- 历史 Material 缺少 `usageType` 时，继续只读投影为 `core_reading`；
+- `targeted_excerpt` 即使已经发布、质量合格且当前 Registry 有效，也不得进入常规新 Session 的首题候选集或固定核心队列。
+
+`targeted_excerpt` 只允许通过身份有效的 `TargetedMicroTrainingAssignment` 与 Session Overlay 进入 Learning。它完成、跳过或失效后，必须返回原 Session 已冻结的核心游标。Retest / Transfer 继续由各自的任务角色和调度入口负责，不得仅因 Material 用途而被改写为微训练。
+
+该隔离边界只作用于尚未创建的常规 Session。已经开始并冻结了资源身份、任务队列或恢复检查点的 Session，继续消费其原有不可变版本，不得静默替换首题、重排题组或重写历史。修复不修改 Material、Question、Frozen Resource、Registry、Evidence 或学生历史，也不要求重新解析、生成或发布现有内容。
+
 ### 3.2 短片段训练元数据
 
 ```ts

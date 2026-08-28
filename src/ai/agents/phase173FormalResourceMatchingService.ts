@@ -32,6 +32,7 @@ import type {
   ResourceEligibilitySnapshot,
   ResourceMatchRecentHistory,
 } from '../schemas/resourceMatchQuality.schema.ts';
+import { projectTargetedMaterialUsage } from '../schemas/targetedMicroTraining.schema.ts';
 import type { QuestionEditableFields } from '../schemas/workingTaskContent.schema.ts';
 
 const BATCH_A_RESOURCE_PREFIX = 'phase17-batch-a-resource-';
@@ -567,10 +568,17 @@ export function evaluateCurrentFormalResourceQualityAdmission(
 export function filterCurrentFormalResourcesForNewLearningSession(
   versions: FrozenQuestionResourceVersion[],
 ): FrozenQuestionResourceVersion[] {
-  const eligibleIds = new Set(evaluateCurrentFormalResourceQualityAdmission(versions)
+  // A targeted excerpt is a published formal resource, but it enters Learning
+  // only through an explicit micro-training Assignment/Overlay. Historical
+  // versions without a material snapshot or usage type remain core-compatible.
+  const coreReadingVersions = versions.filter((version) => (
+    version.materialSnapshot === undefined ||
+    projectTargetedMaterialUsage(version.materialSnapshot).usageType === 'core_reading'
+  ));
+  const eligibleIds = new Set(evaluateCurrentFormalResourceQualityAdmission(coreReadingVersions)
     .filter((item) => item.eligibleForNewLearningSession)
     .map((item) => item.resourceVersionId));
-  return versions.filter((version) => eligibleIds.has(version.resourceVersionId));
+  return coreReadingVersions.filter((version) => eligibleIds.has(version.resourceVersionId));
 }
 
 function formalVersionAsEditableContent(

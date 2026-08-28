@@ -364,6 +364,8 @@ AI 训练的是能力，不是知识点。
 
 阶段 3 已把上述原则落实为默认关闭的条件调度：只有核心 `training` 题的正式结果完成持久化、身份对齐、唯一主要缺口属于首批四类且不存在反馈后修订入口时才生成幂等 Request；匹配只接受 Ability、Gap、Role、Frozen Head、Active Registry 与来源边界全部一致的正式短片段。Assignment 通过 Session Overlay 暂时覆盖呈现，不改写核心任务队列，完成、跳过或资源失效后均返回冻结的核心游标。工程通过不等于教学效果成立，真实效果仍由后续独立核心题、Retest 或 Transfer 验证。
 
+常规新 Learning Session 必须从 `core_reading` 正式资源建立首题与固定核心队列；`targeted_excerpt` 即使已经正式发布，也只能由有效的 Targeted Micro-training Assignment 显式调度。历史缺少用途字段的材料继续只读投影为 `core_reading`，已经冻结的 Session 不因该准入边界被替换或重排。
+
 ### 2. 渐进训练
 
 从低复杂度任务逐步进入高复杂度任务。
