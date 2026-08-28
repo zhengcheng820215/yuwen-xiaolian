@@ -21,8 +21,9 @@ import {
 } from './phase163LearningIdentity.ts';
 
 export const UNIFIED_ENTRY_STUDENT_ID = resolvePhase163LearningStudentId();
-export const UNIFIED_LEARNING_ENTRY_READ_TIMEOUT_MS = 5_000;
+export const UNIFIED_LEARNING_ENTRY_READ_TIMEOUT_MS = 10_000;
 export const UNIFIED_LEARNING_ENTRY_STAGE_TIMEOUT_MS = 4_000;
+export const UNIFIED_LEARNING_FORMAL_RESOURCE_STAGE_TIMEOUT_MS = 9_000;
 
 const persistenceRepository = new IndexedDBLearningPersistenceRepository();
 const activityRepository = new LocalStorageUnifiedLearningEntryRepository();
@@ -82,6 +83,7 @@ async function loadUnifiedLearningEntryData(): Promise<UnifiedLearningEntryState
   const taskAvailability = await readUnifiedLearningEntryStage(
     '正式任务',
     resolveCurrentLearningTaskAvailability({ ignoreActiveSession: sessionGroupCompleted }),
+    UNIFIED_LEARNING_FORMAL_RESOURCE_STAGE_TIMEOUT_MS,
   );
   if (context) assertPhase163ProductRuntimeIdentity(context);
   if (latestRecord) {

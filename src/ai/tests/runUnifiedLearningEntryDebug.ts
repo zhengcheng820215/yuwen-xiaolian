@@ -190,6 +190,9 @@ async function main(): Promise<void> {
   checkStudentStateSurface();
   await checkEntryReadDeadline();
   await checkFormalResourceRequestDeadline();
+  await checkFormalResourceReadRetryRecovery();
+  await checkFormalResourceStaleCacheFallback();
+  await checkFormalResourceAuthoritativeReadBoundary();
   await checkFormalResourceReadCoalescing();
 
   console.log('\nPhase 16.3B Unified Learning Entry Debug');
@@ -207,9 +210,13 @@ async function main(): Promise<void> {
 }
 
 async function checkFormalResourceRequestDeadline(): Promise<void> {
+  let requestCount = 0;
   const client = new LocalApiFormalResourceClient(
     '/debug/formal-resources',
-    (() => new Promise<Response>(() => {})) as typeof fetch,
+    (() => {
+      requestCount += 1;
+      return new Promise<Response>(() => {});
+    }) as typeof fetch,
     15,
   );
   const startedAt = Date.now();
@@ -224,10 +231,94 @@ async function checkFormalResourceRequestDeadline(): Promise<void> {
     const elapsedMs = Date.now() - startedAt;
     reports.push({
       name: 'B18 正式资源服务请求超时收敛',
-      passed: /读取超时/.test(error instanceof Error ? error.message : String(error)) && elapsedMs < 250,
-      detail: `elapsedMs=${elapsedMs}, message=${error instanceof Error ? error.message : String(error)}`,
+      passed: /读取超时/.test(error instanceof Error ? error.message : String(error)) &&
+        elapsedMs < 250 && requestCount === 2,
+      detail: `elapsedMs=${elapsedMs}, requestCount=${requestCount}, message=${error instanceof Error ? error.message : String(error)}`,
     });
   }
+}
+
+async function checkFormalResourceReadRetryRecovery(): Promise<void> {
+  let requestCount = 0;
+  const fetcher = (() => {
+    requestCount += 1;
+    if (requestCount === 1) return new Promise<Response>(() => {});
+    return Promise.resolve(formalResourceResponse(2, 'learning-entry-retry-debug'));
+  }) as typeof fetch;
+  const client = new LocalApiFormalResourceClient('/debug/retried-formal-resources', fetcher, 15);
+  const envelope = await client.read();
+  reports.push({
+    name: 'B18.1 正式资源普通读取单次超时自动恢复',
+    passed: requestCount === 2 && envelope.snapshot.revision === 2,
+    detail: `requestCount=${requestCount}, revision=${envelope.snapshot.revision}`,
+  });
+}
+
+async function checkFormalResourceStaleCacheFallback(): Promise<void> {
+  let requestCount = 0;
+  const fetcher = (() => {
+    requestCount += 1;
+    if (requestCount === 1) {
+      return Promise.resolve(formalResourceResponse(3, 'learning-entry-stale-fallback-debug'));
+    }
+    return new Promise<Response>(() => {});
+  }) as typeof fetch;
+  const client = new LocalApiFormalResourceClient('/debug/stale-formal-resources', fetcher, 15);
+  const initial = await client.read();
+  await new Promise((resolve) => setTimeout(resolve, 1_050));
+  const fallback = await client.read();
+  reports.push({
+    name: 'B18.2 正式资源超时回退最近有效快照',
+    passed: requestCount === 3 && initial.snapshot.revision === fallback.snapshot.revision,
+    detail: `requestCount=${requestCount}, revision=${fallback.snapshot.revision}`,
+  });
+}
+
+async function checkFormalResourceAuthoritativeReadBoundary(): Promise<void> {
+  let requestCount = 0;
+  const fetcher = (() => {
+    requestCount += 1;
+    return new Promise<Response>(() => {});
+  }) as typeof fetch;
+  const client = new LocalApiFormalResourceClient('/debug/authoritative-formal-resources', fetcher, 15);
+  try {
+    await client.read({ bypassCache: true });
+    reports.push({
+      name: 'B18.3 正式资源权威读取不重试不回退',
+      passed: false,
+      detail: 'authoritative request did not reject',
+    });
+  } catch (error) {
+    reports.push({
+      name: 'B18.3 正式资源权威读取不重试不回退',
+      passed: requestCount === 1 && /读取超时/.test(error instanceof Error ? error.message : String(error)),
+      detail: `requestCount=${requestCount}, message=${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+function formalResourceResponse(revision: number, baselineSource: string): Response {
+  return new Response(JSON.stringify({
+    snapshot: {
+      schemaVersion: SHARED_FORMAL_RESOURCE_SCHEMA_VERSION,
+      initialized: true,
+      revision,
+      baselineSource,
+      createdAt: NOW,
+      updatedAt: NOW,
+      data: createEmptySharedFormalResourceData(),
+    },
+    status: {
+      initialized: true,
+      revision,
+      baselineSource,
+      updatedAt: NOW,
+      backupAvailable: false,
+    },
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
 async function checkFormalResourceReadCoalescing(): Promise<void> {

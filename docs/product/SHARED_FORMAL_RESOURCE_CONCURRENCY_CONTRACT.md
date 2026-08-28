@@ -2,9 +2,9 @@
 
 英文名称：Shared Formal Resource Concurrency and Write Recovery Contract
 
-状态：ACTIVE ENGINEERING CONTRACT / WP-C0–C4 COMPLETE
-文档版本：`shared_formal_resource_concurrency_contract_v1.1`
-更新日期：2026-08-18
+状态：ACTIVE ENGINEERING CONTRACT / WP-C0–C7 COMPLETE
+文档版本：`shared_formal_resource_concurrency_contract_v1.2`
+更新日期：2026-08-28
 
 ## 一、目的
 
@@ -63,6 +63,23 @@ Phase 17.2 中记载的“最多 6 次”属于当时工程事实和历史验收
 8. **锁只协调执行，不改变业务状态**：排队、等待锁和冲突重试是运行状态，不进入领域生命周期，不增加 Revision 或审核记录。
 9. **排队闭包不是权威状态**：命令进入 FIFO 时可以保留目标身份和展示快照，但任何可能已被前序命令改变的 Plan、Draft、Review 或 Publication 状态，必须在命令取得执行权后按稳定 ID 重新读取；不得使用点击时捕获的 `selectedPlan.status` 决定正式状态迁移。
 10. **幂等回执不得复制业务载荷**：Command Receipt 只能保存固定长度的命令摘要、命令身份和提交 Revision，不得把完整 Patch、材料正文或整份集合序列化进 `fingerprint`。历史完整指纹在读取时必须等价转换为摘要；转换不得改变命令幂等语义、正式资源 Revision 或领域对象。
+11. **大快照读取必须有韧性但不得降低写入约束**：普通只读请求使用独立于写入的读取预算；只有明确的读取超时允许自动重试一次。存在同一运行实例内最近一次有效快照时，重试仍超时可短时回退该快照并继续展示。Mutation 的无缓存权威读取、正式写入和发布后置检查不得使用过期快照，也不得因读取回退而显示写入成功。
+
+### 4.1 正式资源读取韧性边界
+
+当前正式资源磁盘快照约 10.9MB，HTTP 紧凑响应约 7.9MB。正常读取通常低于 200ms，但开发冷启动、HMR、主线程忙碌或并发只读请求可能偶发超过原 3 秒预算。读取韧性参数冻结如下：
+
+- 普通只读总预算：8 秒，最多分为 2 次各 4 秒的尝试；
+- 只在 `SHARED_STORE_TIMEOUT` / “共享资源服务读取超时”时自动重试 1 次；
+- HTTP 非 2xx、结构校验失败、身份不一致及服务不可用不得作为超时重试；
+- 同一 `fetcher + endpoint` 的并发普通读取继续合并为一个 Pending Request；
+- 已存在最近一次有效缓存时，两次读取均超时后允许短时回退该缓存；缓存回退只保证页面连续展示，不构成最新 Revision 证明；
+- `bypassCache=true` 的权威读取保持 3 秒单次预算、无自动重试、无缓存回退；
+- POST、Atomic Command、Replace、Initialize 继续使用 3 秒单次请求预算，并受既有 Mutation 8 秒总恢复窗口约束；
+- 超时和缓存回退不得创建 Revision、Receipt、Session、Attempt、Evidence、Profile、Calibration 或 Trial 写入。
+- Unified Learning Entry 的“正式任务”阶段预算为 9 秒、入口总预算为 10 秒，必须覆盖共享读取总预算；其他 IndexedDB / LocalStorage 阶段继续保持原 4 秒边界。
+
+该机制只处理瞬时读取抖动，不替代后续按 Learning / Workbench 消费范围提供轻量投影接口的架构演进。
 
 ## 五、写入协调模型
 
@@ -290,6 +307,7 @@ POST /formal-resource-commands/recover-publication
 | WP-C4 | 服务端原子命令与整库 Replace 分阶段退出 | P1 | 已完成（2026-08-13） |
 | WP-C5 | 排队命令执行前权威业务状态重载、已完成阶段续接与中文错误投影 | P0 | 已完成（2026-08-14） |
 | WP-C6 | Plan 续接结构化结果、统一发布入口、页面反馈与可观测事件 | P1 | 已完成（2026-08-14） |
+| WP-C7 | 大快照只读预算、单次超时重试、有效缓存回退和读写边界回归 | P0 | 已完成（2026-08-28） |
 
 各工作包应独立开发和 Debug；前一工作包验收通过后再把下一层能力作为正式依赖。WP-C0 至 WP-C3 全部完成前，不得宣称多标签页并发可靠性已经工程验收。
 
@@ -403,6 +421,17 @@ WP-C6 不增加新的领域状态，不放宽 Plan 状态机，也不持久化�
 - Candidate P4 `16/16 PASS`、Material Question Review Submission `6/6 PASS`、Material Resource Workbench State `20/20 PASS`、最终集成 `26/26 suites PASS`、生产构建通过；
 - 浏览器命令 Smoke `4/4 PASS`；正式工作台只读核验成功加载 `42/42` 已发布资源和任务卡，没有执行真实发布或修改正式数据；
 - 完整验收报告见 [WP-C6 Plan 续接结构化交互与可观测性验收报告](../education/phase/reports/shared_formal_resource_plan_continuation_wp_c6_acceptance_2026-08-14.md)。
+
+### 12.8 WP-C7 读取韧性验收边界
+
+- 普通读取在第一次超时、第二次成功时对调用方透明恢复；
+- 两次均超时且存在过期有效缓存时返回缓存，不向 Learning 投射红色错误；
+- 两次均超时且不存在缓存时有界失败，继续使用 `SHARED_STORE_TIMEOUT / retry_safe`；
+- 并发普通读取仍只发起一组重试序列，不按调用方数量放大请求；
+- 权威无缓存读取与所有写请求保持原 3 秒严格边界，禁止缓存回退；
+- 真实 10.9MB 快照接口连续读取返回 `200`，并记录响应大小和耗时作为诊断证据；
+- Unified Learning Entry Debug、Mutation Queue、Structured Runtime Error 和生产构建全部通过；
+- 完整验收记录见 [WP-C7 共享正式资源读取韧性验收报告](../education/phase/reports/shared_formal_resource_read_resilience_2026-08-28.md)。
 
 ## 十三、与其他契约的关系
 

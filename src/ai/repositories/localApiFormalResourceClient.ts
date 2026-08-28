@@ -18,7 +18,10 @@ export type SharedFormalResourceEnvelope = {
 };
 
 export const LOCAL_FORMAL_RESOURCE_REQUEST_TIMEOUT_MS = 3_000;
+export const LOCAL_FORMAL_RESOURCE_READ_TIMEOUT_MS = 8_000;
+export const LOCAL_FORMAL_RESOURCE_READ_MAX_ATTEMPTS = 2;
 export const LOCAL_FORMAL_RESOURCE_READ_CACHE_TTL_MS = 1_000;
+export const LOCAL_FORMAL_RESOURCE_STALE_FALLBACK_TTL_MS = 1_000;
 export const LOCAL_FORMAL_RESOURCE_MUTATION_MAX_ATTEMPTS = 8;
 export const LOCAL_FORMAL_RESOURCE_MUTATION_TIMEOUT_MS = 8_000;
 export const LOCAL_FORMAL_RESOURCE_MUTATION_BACKOFF_MS = [100, 200, 400, 800, 1_600, 2_000, 2_000] as const;
@@ -120,7 +123,7 @@ export class LocalApiFormalResourceClient {
   constructor(
     endpoint = '/__runtime/phase17-4/formal-resources',
     fetcher: typeof fetch = fetch,
-    requestTimeoutMs = LOCAL_FORMAL_RESOURCE_REQUEST_TIMEOUT_MS,
+    requestTimeoutMs = LOCAL_FORMAL_RESOURCE_READ_TIMEOUT_MS,
     options: LocalApiFormalResourceClientOptions = {},
   ) {
     this.endpoint = endpoint;
@@ -150,7 +153,11 @@ export class LocalApiFormalResourceClient {
     const cache = this.getReadCache();
     if (options.bypassCache) {
       this.invalidateReadCache();
-      const envelope = await this.request(this.endpoint, { method: 'GET' });
+      const envelope = await this.requestOnce(
+        this.endpoint,
+        { method: 'GET' },
+        LOCAL_FORMAL_RESOURCE_REQUEST_TIMEOUT_MS,
+      );
       this.setReadCache(envelope);
       return envelope;
     }
@@ -160,8 +167,8 @@ export class LocalApiFormalResourceClient {
     }
     if (cached?.pending) return cached.pending;
 
-    const pending = this.request(this.endpoint, { method: 'GET' });
-    cache.set(this.endpoint, { pending });
+    const pending = this.requestReadWithRetry(this.endpoint);
+    cache.set(this.endpoint, { ...cached, pending });
     try {
       const envelope = await pending;
       if (cache.get(this.endpoint)?.pending === pending) {
@@ -170,6 +177,13 @@ export class LocalApiFormalResourceClient {
       return envelope;
     } catch (error) {
       if (cache.get(this.endpoint)?.pending === pending) {
+        if (cached?.value && isSharedResourceReadTimeout(error)) {
+          cache.set(this.endpoint, {
+            value: cached.value,
+            expiresAt: Date.now() + LOCAL_FORMAL_RESOURCE_STALE_FALLBACK_TTL_MS,
+          });
+          return cached.value;
+        }
         cache.delete(this.endpoint);
       }
       throw error;
@@ -190,11 +204,11 @@ export class LocalApiFormalResourceClient {
     baselineSource: string,
   ): Promise<SharedFormalResourceEnvelope> {
     this.invalidateReadCache();
-    const envelope = await this.request(this.endpoint, {
+    const envelope = await this.requestOnce(this.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'initialize', data, baselineSource }),
-    });
+    }, LOCAL_FORMAL_RESOURCE_REQUEST_TIMEOUT_MS);
     this.setReadCache(envelope);
     this.broadcastRevision(envelope.snapshot.revision);
     return envelope;
@@ -214,11 +228,11 @@ export class LocalApiFormalResourceClient {
     data: SharedFormalResourceData,
   ): Promise<SharedFormalResourceEnvelope> {
     this.invalidateReadCache();
-    const envelope = await this.request(this.endpoint, {
+    const envelope = await this.requestOnce(this.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'replace', expectedRevision, data }),
-    });
+    }, LOCAL_FORMAL_RESOURCE_REQUEST_TIMEOUT_MS);
     this.setReadCache(envelope);
     this.broadcastRevision(envelope.snapshot.revision);
     return envelope;
@@ -341,8 +355,31 @@ export class LocalApiFormalResourceClient {
     formalResourceWriteRuntimeListeners.forEach((listener) => listener(completed));
   }
 
-  private async request(url: string, init: RequestInit): Promise<SharedFormalResourceEnvelope> {
-    if (!Number.isFinite(this.requestTimeoutMs) || this.requestTimeoutMs <= 0) {
+  private async requestReadWithRetry(url: string): Promise<SharedFormalResourceEnvelope> {
+    let lastError: unknown;
+    const attemptTimeoutMs = Math.max(
+      1,
+      Math.floor(this.requestTimeoutMs / LOCAL_FORMAL_RESOURCE_READ_MAX_ATTEMPTS),
+    );
+    for (let attempt = 1; attempt <= LOCAL_FORMAL_RESOURCE_READ_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        return await this.requestOnce(url, { method: 'GET' }, attemptTimeoutMs);
+      } catch (error) {
+        lastError = error;
+        if (!isSharedResourceReadTimeout(error) || attempt === LOCAL_FORMAL_RESOURCE_READ_MAX_ATTEMPTS) {
+          throw error;
+        }
+      }
+    }
+    throw lastError;
+  }
+
+  private async requestOnce(
+    url: string,
+    init: RequestInit,
+    timeoutMs: number,
+  ): Promise<SharedFormalResourceEnvelope> {
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
       throw new Error('共享资源服务请求时限配置无效。');
     }
     const controller = new AbortController();
@@ -351,7 +388,7 @@ export class LocalApiFormalResourceClient {
       timer = setTimeout(() => {
         controller.abort();
         reject(new Error('共享资源服务读取超时，请重新尝试。'));
-      }, this.requestTimeoutMs);
+      }, timeoutMs);
     });
     const requestTask = (async () => {
       let response: Response;
@@ -433,7 +470,7 @@ export class LocalApiFormalResourceClient {
   ): Promise<SharedFormalResourceEnvelope> {
     this.invalidateReadCache();
     const commandId = createCollectionPatchCommandId(expectedRevision, patches, commandType);
-    const envelope = await this.request(this.endpoint, {
+    const envelope = await this.requestOnce(this.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -441,7 +478,7 @@ export class LocalApiFormalResourceClient {
         expectedRevision,
         command: { commandType, commandId, patches },
       }),
-    });
+    }, LOCAL_FORMAL_RESOURCE_REQUEST_TIMEOUT_MS);
     if (envelope.commandReceipt?.commandId !== commandId) {
       throw new Error('Shared formal resource command receipt mismatch.');
     }
@@ -457,6 +494,11 @@ function isSharedStoreRevisionConflict(error: unknown): boolean {
       error instanceof Error &&
       error.message.startsWith('Shared resource revision conflict:')
     );
+}
+
+function isSharedResourceReadTimeout(error: unknown): boolean {
+  return /共享资源服务读取超时|shared resource read timeout/i
+    .test(error instanceof Error ? error.message : String(error));
 }
 
 class SharedStoreRevisionConflictError extends Error {
