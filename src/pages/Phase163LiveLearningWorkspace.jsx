@@ -21,6 +21,7 @@ import {
   submitPhase163LiveAnswer,
 } from '../api/phase163LiveLearning.ts';
 import {
+  Phase163DiagnosisBoundaryError,
   getPhase163DiagnosisBoundaryStatus,
   isPhase163DiagnosisBoundaryUnavailable,
 } from '../api/phase163DiagnosisBoundary.ts';
@@ -263,7 +264,11 @@ export default function Phase163LiveLearningWorkspace({
         setAnalysisRetry(false);
         showMessage(RUNTIME_UNAVAILABLE_MESSAGE, 'error');
       } else {
-        setAnalysisRetry(isRetryableAnalysisFailure(error));
+        const retryable = isRetryableAnalysisFailure(error);
+        if (retryable) {
+          await savePhase163LiveDraft(answer, choiceAnswer).catch(() => undefined);
+        }
+        setAnalysisRetry(retryable);
         showMessage(toMessage(error), 'error');
       }
     } finally {
@@ -1232,6 +1237,9 @@ function resolveWorkspaceFailurePresentation(message) {
 }
 
 function toMessage(error) {
+  if (error instanceof Phase163DiagnosisBoundaryError && error.code === 'diagnosis_request_timeout') {
+    return error.message;
+  }
   const value = error instanceof Error ? error.message : String(error);
   if (/learning_task_attempt|feedback.*revision/i.test(value)) {
     return '本次回答已经保留，结果显示暂未完成。请点击“重新分析”继续，无需重新作答。';
@@ -1243,6 +1251,7 @@ function toMessage(error) {
 }
 
 function isRetryableAnalysisFailure(error) {
+  if (error instanceof Phase163DiagnosisBoundaryError) return error.retryable;
   const value = error instanceof Error ? error.message : String(error);
   if (/暂无符合|当前没有.*任务|任务尚未准备|resource|match|正式任务/i.test(value)) return false;
   return /api|provider|diagnosis|prompt|schema|learning_task_attempt|feedback.*revision|分析.*失败|分析.*超时/i.test(value);

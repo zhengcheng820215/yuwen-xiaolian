@@ -247,6 +247,7 @@
     "debug:phase16-3-scope-isolation": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase163ProductScopeIsolationDebug.ts",
     "debug:phase16-3-day0-integration": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase163Day0IntegrationDebug.ts",
     "debug:phase16-3-diagnosis-boundary": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase163DiagnosisBoundaryDebug.ts",
+    "debug:phase16-3-diagnosis-timeout-recovery": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPhase163DiagnosisBoundaryTimeoutRecoveryDebug.ts",
     "debug:student-writing-correction": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runStudentWritingCorrectionDebug.ts",
     "debug:learning-feedback-presentation": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runLearningFeedbackPresentationDebug.ts",
     "debug:student-learning-narrative": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runStudentLearningNarrativeDebug.ts",
