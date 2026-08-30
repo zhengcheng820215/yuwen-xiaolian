@@ -70,7 +70,7 @@ Debug / Acceptance Report
 | Phase 17.5 题目生成质量评估 | 在发布前发现结构、语义和批次质量问题 | PASS | 17.5A / B / C1 / C2 / C3A / C3B RUNTIME PASS + REVIEW / PUBLICATION WORKFLOW P0 PASS | CURRENT 81 STATIC FEEDBACK PROJECTION READY；QUALITY 65 READY / 16 GUIDANCE / 0 BLOCKED | REAL LEARNING SAMPLE CALIBRATION AWAITING DATA |
 | `/learning` 正式学习入口 | 让单学生从一个入口开始、恢复、作答、反馈并继续 | PASS | MAIN PATH PASS / SHARED FORMAL SNAPSHOT READ FIXED / WP7A 50 / 50 PASS | UNIFIED ENTRY + FORMAL ENTRY + CORE NEW-SESSION + WP7A BROWSER PASS | CURRENT TRIAL SIGNATURE RECONCILIATION REQUIRED |
 | WP0A / WP7A 唯一入口与知识练习对齐 | 在唯一学生入口中正确呈现正式阅读和轻量知识巩固，同时保持事实边界 | PASS | WP0A CONFIRMED / WP7A ENGINEERING PASS | PRODUCT ACCEPTANCE PENDING | PENDING |
-| 轻量知识练习 | 提供不生成长期能力结论的低负担基础知识巩固 | PASS | WP1 47/47、WP2 47/47、WP3 49/49、WP4 33/33、WP5 54/54、WP6 56/56、WP7A 50/50 PASS；19 approved / 3 变式组 / 6 Link | WP5—WP6 PRODUCT ACCEPTANCE PENDING；WP7B D1—D12已确认、Engineering Acceptance已授权未开始 | PENDING |
+| 轻量知识练习 | 提供不生成长期能力结论的低负担基础知识巩固 | PASS | WP1—WP6、WP7A、WP7B最低门禁443/443；追加当前Runtime后539/539；Build与浏览器全链PASS；19 approved / 3个可独立成组分类 / 3变式组 / 6 Link | WP7B ENGINEERING PASS；PRODUCT ACCEPTANCE PENDING 0/5 | PENDING |
 | Learning 反馈后一次修订 | 保留首次独立表现，并观察学生能否利用反馈完成一次改善 | PASS | STAGES 1–4 ENGINEERING + DEBUG + E2E PASS | ISOLATED BROWSER + E2E PASS / REAL STUDENT ACCEPTANCE PENDING | AWAITING REAL RETEST / TRANSFER DATA |
 | 阅读训练单项选择作答 | 用低输入成本观察基础理解，并通过可解释干扰项形成具体诊断 | PASS | STAGES 1–4 65 / 65 PASS；FINAL RESUME REGRESSION 89 / 89 PASS | REAL-MATERIAL E2E + CONTROLLED PC / TABLET + FINAL BROWSER RESUME SMOKE PASS；CAPABILITY GATE OPEN | AWAITING REAL STUDENT DATA |
 | 针对性短片段微训练 | 在正式主要缺口成立时追加一项低负担训练，并返回核心题组 | PASS | STAGE 1 16 / 16 PASS；STAGE 2 32 / 32 PASS（受控资源包 12 份材料 / 18 道题）；STAGE 3 57 / 57 PASS；STAGE 4 51 / 51 PASS；B4-01—B4-16 CONTROLLED BROWSER PASS | ENGINEERING + CONTROLLED BROWSER PASS / REAL SINGLE-STUDENT CALIBRATION PENDING | AWAITING 5—7 DAY REAL OBSERVATION |
@@ -249,7 +249,7 @@ Debug / Acceptance Report
 
 ```text
 1. WP7A 已完成：正式阅读主线和轻量知识巩固已收敛到唯一 `/learning` 产品入口，已有 PracticeSession 得到保护
-2. WP6 已 Engineering PASS；下一步进入 WP7B 全链回归与至少5次受控真实学生验收，不扩建 `/practice/knowledge` 第二产品壳
+2. WP7B 已 Engineering PASS；下一步只组织至少5次受控真实学生验收，不扩建 `/practice/knowledge` 第二产品壳
 3. 现场复读 Runtime Identity、Trial Window 与 Activation State，补齐唯一当前 Trial 状态签署
 4. 真实 Learning 继续观察反馈、Revision、Retest / Transfer 和五事件完整性，不把反馈支持下改善解释为独立掌握
 5. WP7A 通过后按 WP5 错题巩固 → WP6 结果推荐 → WP7B 全链产品验收推进

@@ -1,16 +1,18 @@
 # 知识练习可用产品第一阶段总体工程方案
 
-状态：`DESIGN PASS / WP1–WP5 + WP7A ENGINEERING PASS / WP6 AUTHORIZED BUT NOT STARTED`
+状态：`DESIGN PASS / WP1–WP6 + WP7A + WP7B ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5)`
 
 版本：`knowledge_practice_usable_product_phase1_v1.0`
 
-日期：`2026-08-28`
+日期：`2026-08-30`
 
 ## 一、文档用途
 
 本文定义现有“知识练习”从演示型刷题页升级为可连续使用的轻量辅助任务家族时，第一阶段必须统一遵守的产品边界、数据契约、运行规则、页面职责、统计口径、测试矩阵和验收标准。
 
 2026-08-29 决策更新：产品负责人已确认 [WP0A 角色对齐决策](./STUDENT_SINGLE_ENTRY_FORMAL_READING_AND_KNOWLEDGE_PRACTICE_ALIGNMENT_DECISION_WP0A.md)。`/learning` 是学生唯一入口，知识练习进入该入口内的 `knowledge_practice` 任务家族；原 WP1—WP4 资产保留，后续顺序由原 `WP5 → WP6 → WP7` 调整为 `WP7A → WP5 → WP6 → WP7B`。本文与 WP0A 不一致之处以 WP0A 为准。
+
+2026-08-30 执行更新：WP1—WP6、WP7A和WP7B Engineering Acceptance均已PASS；WP7B工程证据为最低门禁443/443、追加当前Runtime后539/539、Production Build与浏览器全链通过。真实学生Product Acceptance仍为0/5，Live保持PENDING。
 
 本文用于驱动后续工程拆分与验收，不替代以下正式来源：
 

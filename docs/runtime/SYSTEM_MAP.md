@@ -21,7 +21,7 @@
 | 学生入口 | `/learning` 是唯一学生产品入口 | [WP0A 角色对齐决策](../product/STUDENT_SINGLE_ENTRY_FORMAL_READING_AND_KNOWLEDGE_PRACTICE_ALIGNMENT_DECISION_WP0A.md) |
 | 正式题库 | 24 篇材料、81 道 Current；63 道核心阅读、18 道条件微训练 | 正式资源只读基线与 [核心阅读新会话准入报告](../education/phase/reports/core_reading_new_session_admission_boundary_fix_2026-08-28.md) |
 | 轻量知识题 | 27 道历史迁移 + 7 道 WP5 审核补充；19 approved、15 draft；3 个批准变式组、6 条有向 Link | [WP5 工程验收报告](../product/KNOWLEDGE_PRACTICE_PHASE1_WP5_ENGINEERING_ACCEPTANCE_REPORT.md) |
-| 知识练习工程 | WP1—WP6 + WP7A Engineering PASS；WP7B D1—D12已确认、Engineering Acceptance已授权未开始 | [WP7B 工程实施文档](../product/KNOWLEDGE_PRACTICE_PHASE1_WP7B_FULL_CHAIN_REGRESSION_AND_PRODUCT_ACCEPTANCE_PLAN.md) |
+| 知识练习工程 | WP1—WP6 + WP7A + WP7B Engineering PASS；最低门禁443/443、追加当前Runtime后539/539；Product Acceptance 0/5、Live PENDING | [WP7B 工程验收报告](../product/KNOWLEDGE_PRACTICE_PHASE1_WP7B_ENGINEERING_ACCEPTANCE_REPORT.md) |
 | Trial | 历史报告包含激活、失效、重新准入和新窗口样本；当前终态必须以现场 Runtime Identity、Window 与 Activation State 的最新签署为准 | [运行可靠性与重新准入契约](../product/PRODUCT_RUNTIME_RELIABILITY_AND_REAL_TRIAL_REENTRY_CONTRACT.md) |
 
 当前资源口径必须区分：库存 `81`、普通核心池 `63`、条件微训练池 `18` 和学生当下被调度的下一任务。不得把轻量知识题的 `19 approved` 表述为全项目题量。

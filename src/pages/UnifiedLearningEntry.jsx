@@ -16,6 +16,7 @@ import KnowledgePracticeEntryCard from '../components/student-learning/Knowledge
 import StudentContentInventoryNote from '../components/student-learning/StudentContentInventoryNote.jsx';
 import { usePracticeSession } from '../context/PracticeSessionContext.jsx';
 import { knowledgeQuestionRepository } from '../domain/knowledge-practice/questions/knowledgeQuestionRepository.ts';
+import { countReadyKnowledgeCategories } from '../domain/knowledge-practice/questions/knowledgeCategoryReadiness.ts';
 import {
   buildKnowledgePracticeEntryProjection,
   buildStudentContentInventoryProjection,
@@ -23,7 +24,7 @@ import {
 } from '../domain/student-learning-hub/studentLearningHubProjection.ts';
 
 const approvedKnowledgeQuestions = knowledgeQuestionRepository.listApproved();
-const approvedKnowledgeCategoryCount = new Set(approvedKnowledgeQuestions.map((question) => question.category)).size;
+const approvedKnowledgeCategoryCount = countReadyKnowledgeCategories(approvedKnowledgeQuestions);
 
 export default function UnifiedLearningEntry() {
   const navigate = useNavigate();

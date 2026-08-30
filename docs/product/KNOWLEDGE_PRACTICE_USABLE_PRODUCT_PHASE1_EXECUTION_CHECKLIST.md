@@ -1,6 +1,6 @@
 # 知识练习可用产品第一阶段执行清单
 
-状态：`ACTIVE / WP1–WP6 + WP7A ENGINEERING PASS / WP7B DESIGN CONFIRMED / ENGINEERING ACCEPTANCE AUTHORIZED BUT NOT STARTED`
+状态：`ACTIVE / WP1–WP6 + WP7A + WP7B ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5)`
 
 版本：`knowledge_practice_usable_product_phase1_execution_v1.0`
 
@@ -63,9 +63,9 @@
 | WP7A | 唯一入口最小整合 | `ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING` | WP0A、WP1—WP4 | [WP7A工程验收报告](./KNOWLEDGE_PRACTICE_PHASE1_WP7A_ENGINEERING_ACCEPTANCE_REPORT.md) | 真实学生验收待 WP7B |
 | WP5 | 错题即时巩固 | `ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING` | WP7A Engineering PASS | [WP5工程验收报告](./KNOWLEDGE_PRACTICE_PHASE1_WP5_ENGINEERING_ACCEPTANCE_REPORT.md) | 真实学生验收待 WP7B |
 | WP6 | 结果摘要与下一步推荐 | `ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING` | WP5 | [WP6工程验收报告](./KNOWLEDGE_PRACTICE_PHASE1_WP6_ENGINEERING_ACCEPTANCE_REPORT.md) | 真实学生验收待 WP7B |
-| WP7B | 全链回归与产品验收 | `DESIGN CONFIRMED / ENGINEERING ACCEPTANCE AUTHORIZED BUT NOT STARTED` | WP5、WP6 | [WP7B工程实施文档](./KNOWLEDGE_PRACTICE_PHASE1_WP7B_FULL_CHAIN_REGRESSION_AND_PRODUCT_ACCEPTANCE_PLAN.md) | 至少5次受控试用待工程验收后组织 |
+| WP7B | 全链回归与产品验收 | `ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5)` | WP5、WP6 | [WP7B工程验收报告](./KNOWLEDGE_PRACTICE_PHASE1_WP7B_ENGINEERING_ACCEPTANCE_REPORT.md) | 至少5次受控真实学生试用待产品负责人组织 |
 
-当前阶段状态：`WP1–WP6 + WP7A ENGINEERING PASS / WP7B DESIGN CONFIRMED / ENGINEERING ACCEPTANCE AUTHORIZED BUT NOT STARTED`
+当前阶段状态：`WP1–WP6 + WP7A + WP7B ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5)`
 
 ## 四、WP1：数据契约与基线迁移
 
@@ -427,48 +427,50 @@
 
 ## 十一、WP7B：全链回归与产品验收
 
-状态：`DESIGN CONFIRMED / ENGINEERING ACCEPTANCE AUTHORIZED BUT NOT STARTED`
+状态：`ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5)`
 
 工程实施文档：[`KNOWLEDGE_PRACTICE_PHASE1_WP7B_FULL_CHAIN_REGRESSION_AND_PRODUCT_ACCEPTANCE_PLAN.md`](./KNOWLEDGE_PRACTICE_PHASE1_WP7B_FULL_CHAIN_REGRESSION_AND_PRODUCT_ACCEPTANCE_PLAN.md)
 
-确认记录：2026-08-30，产品负责人确认WP7B D1—D12，授权先执行冻结基线、全量回归、浏览器矩阵和内容容量评估；Engineering Acceptance PASS前不开始计入Product Acceptance的真实学生试用。
+确认与执行记录：2026-08-30，产品负责人确认WP7B D1—D12并授权执行；WP7B-1—WP7B-4已完成并达到Engineering PASS。Product Acceptance仍为0/5，只有后续真实目标学生受控试用可以计入。
 
 目标：收敛入口体验，完成全量回归、浏览器验收和真实学生受控试用准备。
 
 ### 11.1 入口整合复核
 
-- [ ] 分类卡展示 5 题一组和预计时长。
-- [ ] 综合入口展示 10 题和覆盖说明。
-- [ ] 有 active 会话时优先展示继续入口。
-- [ ] 分类卡展示本轮或近期表现，不显示长期掌握结论。
-- [ ] 空题库和题量不足状态可理解。
-- [ ] 返回、放弃、继续和新建动作无歧义。
+- [x] 分类卡展示 5 题一组和预计时长；少于3题显示“内容准备中”。
+- [x] 综合入口展示 10 题和覆盖说明。
+- [x] 有 active 会话时优先展示继续入口。
+- [x] 分类卡不显示长期掌握结论。
+- [x] 空题库和题量不足状态可理解。
+- [x] 返回、放弃、继续和新建动作无歧义。
 
 ### 11.2 全链回归
 
-- [ ] WP1—WP6 自动化测试全部通过。
-- [ ] 现有应用构建通过。
-- [ ] 知识练习主链无控制台未处理错误。
-- [ ] 正式 `/learning` 主链回归通过。
-- [ ] 错题页与新 Response / Repository 兼容。
-- [ ] 首页现有导航不被破坏。
-- [ ] 手机、平板和 PC 关键宽度通过。
-- [ ] 键盘操作和非颜色结果表达通过。
+- [x] WP1—WP6 自动化测试全部通过。
+- [x] 现有应用构建通过。
+- [x] 知识练习冷启动主链无控制台未处理错误。
+- [x] 正式 `/learning` 主链回归通过。
+- [x] 错题页与新 Response / Repository 兼容。
+- [x] 首页现有导航不被破坏。
+- [x] 手机、平板和 PC 关键宽度通过。
+- [x] 原生键盘语义和非颜色结果表达通过；物理键盘补验记录为P3。
 
 ### 11.3 浏览器主链
 
-- [ ] 主链 A：专项练习、错题反馈、巩固、结果、推荐通过。
-- [ ] 主链 B：综合练习、分类覆盖、近期轮换通过。
-- [ ] 主链 C：刷新、关闭、恢复、完成、结果刷新通过。
-- [ ] 异常链：题目不足、存储损坏、无巩固题通过。
+- [x] 主链 A：专项练习、错题反馈、巩固、结果、推荐通过。
+- [x] 主链 B：综合练习、分类覆盖、近期轮换通过。
+- [x] 主链 C：刷新、恢复、完成、结果刷新和双标签冲突通过。
+- [x] 异常链：题目不足、存储损坏、无巩固题通过。
 
 ### 11.4 工程收口
 
-- [ ] 更新本清单所有工程证据。
-- [ ] 输出第一阶段 Engineering Acceptance Report。
-- [ ] 记录未完成项和已知限制。
-- [ ] 状态更新为 `ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING`。
-- [ ] 不提前标记 Product Acceptance 或 Live。
+- [x] 更新本清单所有工程证据。
+- [x] 输出第一阶段 Engineering Acceptance Report。
+- [x] 记录未完成项和已知限制。
+- [x] 状态更新为 `ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING`。
+- [x] 不提前标记 Product Acceptance 或 Live。
+
+工程证据：[WP7B工程验收报告](./KNOWLEDGE_PRACTICE_PHASE1_WP7B_ENGINEERING_ACCEPTANCE_REPORT.md)；最低门禁443/443、追加当前Runtime后539/539 PASS；Production Build 607 modules PASS；浏览器专项、综合、巩固、结果、推荐、错题重做、刷新恢复、双标签冲突、390/768/1366与200%等效布局通过；Product Acceptance仍为0/5。
 
 ### 11.5 真实学生受控验收
 

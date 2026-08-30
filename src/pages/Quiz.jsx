@@ -7,6 +7,7 @@ import KnowledgeAnswerInput from '../components/knowledge-practice/KnowledgeAnsw
 import KnowledgeQuestionCard, { knowledgeQuestionTypeName } from '../components/knowledge-practice/KnowledgeQuestionCard.jsx';
 import KnowledgeQuizActions from '../components/knowledge-practice/KnowledgeQuizActions.jsx';
 import { usePracticeSession } from '../context/PracticeSessionContext.jsx';
+import { isKnowledgeCategoryReady, MIN_READY_CATEGORY_QUESTION_COUNT } from '../domain/knowledge-practice/questions/knowledgeCategoryReadiness.ts';
 import { knowledgeQuestionRepository } from '../domain/knowledge-practice/questions/knowledgeQuestionRepository.ts';
 import { hasPotentialPracticeAnswer } from '../domain/knowledge-practice/response/validateSubmittedAnswer.ts';
 
@@ -34,6 +35,10 @@ export default function Quiz() {
     recoveryError,
   } = usePracticeSession();
   const decoded = decodeURIComponent(category || 'all');
+  const requestedCategoryCount = ['all', 'retry'].includes(decoded)
+    ? null
+    : knowledgeQuestionRepository.listApproved({ category: decoded }).length;
+  const requestedCategoryReady = requestedCategoryCount === null || isKnowledgeCategoryReady(requestedCategoryCount);
   const initializedRoute = useRef('');
   const submittingRef = useRef(false);
   const feedbackRef = useRef(null);
@@ -41,7 +46,7 @@ export default function Quiz() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (hydrationStatus === 'loading') return;
+    if (hydrationStatus === 'loading' || !requestedCategoryReady) return;
     if (sessionMatchesRoute(activeSession, decoded)) {
       initializedRoute.current = decoded;
       return;
@@ -53,7 +58,7 @@ export default function Quiz() {
     startPractice(decoded === 'all'
       ? { mode: 'mixed', targetCount: 10 }
       : { mode: 'category', category: decoded, targetCount: 5 });
-  }, [activeSession, decoded, hydrationStatus, startPractice]);
+  }, [activeSession, decoded, hydrationStatus, requestedCategoryReady, startPractice]);
 
   const session = sessionMatchesRoute(activeSession, decoded) ? activeSession : null;
   const currentItem = session?.queue[session.currentIndex];
@@ -80,6 +85,18 @@ export default function Quiz() {
   useEffect(() => {
     if (currentFeedback) feedbackRef.current?.focus();
   }, [currentFeedback]);
+
+  if (!requestedCategoryReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f7fb] px-5">
+        <Card className="w-full text-center">
+          <p className="font-semibold text-slate-900">这个分类还在准备中</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">当前有 {requestedCategoryCount} 道已审核题；至少准备 {MIN_READY_CATEGORY_QUESTION_COUNT} 道后再开放专项练习。你仍可在综合小练中遇到这些题。</p>
+          <button onClick={() => navigate('/learning/knowledge')} className="mt-4 min-h-11 rounded-md bg-blue-600 px-5 text-sm font-semibold text-white">返回基础知识巩固</button>
+        </Card>
+      </div>
+    );
+  }
 
   if (recoveryError) {
     return (

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
+import { isKnowledgeCategoryReady } from '../domain/knowledge-practice/questions/knowledgeCategoryReadiness.ts';
 import { knowledgeQuestionRepository } from '../domain/knowledge-practice/questions/knowledgeQuestionRepository.ts';
 import { usePracticeSession } from '../context/PracticeSessionContext.jsx';
 
@@ -13,6 +14,7 @@ const categories = categoryOrder
     name: category,
     count: questions.filter((question) => question.category === category).length,
   }))
+  .map((category) => ({ ...category, ready: isKnowledgeCategoryReady(category.count) }))
   .filter((category) => category.count > 0);
 
 export default function KnowledgePractice() {
@@ -74,12 +76,21 @@ export default function KnowledgePractice() {
         {lastBuildError ? <p className="mb-4 text-sm text-red-600">{lastBuildError.studentMessage}</p> : null}
         <div className="grid gap-3">
           {categories.map((category) => (
-            <button disabled={hydrationStatus === 'loading'} key={category.name} onClick={() => begin(category.name)} className="flex min-h-16 items-center justify-between rounded-lg bg-white px-4 text-left shadow-sm disabled:opacity-50">
+            <button
+              disabled={hydrationStatus === 'loading' || !category.ready}
+              key={category.name}
+              onClick={() => begin(category.name)}
+              className="flex min-h-16 items-center justify-between rounded-lg bg-white px-4 text-left shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-70"
+            >
               <div>
                 <p className="font-medium text-slate-900">{category.name}</p>
-                <p className="mt-1 text-xs text-slate-500">七年级上册 · 本组 {Math.min(5, category.count)} 题 · 约 {Math.max(3, Math.min(5, category.count) * 2)} 分钟</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {category.ready
+                    ? `七年级上册 · 本组 ${Math.min(5, category.count)} 题 · 约 ${Math.max(3, Math.min(5, category.count) * 2)} 分钟`
+                    : `内容准备中 · 当前 ${category.count} 道已审核题，暂不单独成组`}
+                </p>
               </div>
-              <ChevronRight className="text-slate-400" size={20} />
+              {category.ready ? <ChevronRight className="text-slate-400" size={20} /> : <span className="text-xs font-medium text-slate-500">暂不可开始</span>}
             </button>
           ))}
         </div>

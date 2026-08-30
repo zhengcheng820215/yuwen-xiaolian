@@ -110,9 +110,9 @@ function sortForNeed(
   targets: Record<1 | 2 | 3, number>,
 ): RankedQuestion[] {
   return [...pool].sort((left, right) => {
+    if (left.recentRank !== right.recentRank) return left.recentRank - right.recentRank;
     const needDifference = difficultyNeed(right.question.difficulty, selected, targets) - difficultyNeed(left.question.difficulty, selected, targets);
     if (needDifference !== 0) return needDifference;
-    if (left.recentRank !== right.recentRank) return left.recentRank - right.recentRank;
     if (left.randomRank !== right.randomRank) return left.randomRank - right.randomRank;
     return left.question.id.localeCompare(right.question.id);
   });
