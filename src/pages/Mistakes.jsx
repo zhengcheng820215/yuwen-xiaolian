@@ -3,18 +3,19 @@ import { Link } from 'react-router-dom';
 import { CheckCircle2, RotateCcw } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
 import Card from '../components/Card.jsx';
-import { useStudy } from '../context/StudyContext.jsx';
+import { usePracticeSession } from '../context/PracticeSessionContext.jsx';
 
 export default function Mistakes() {
-  const { mistakes, activeMistakes, markMastered } = useStudy();
+  const { mistakes, activeMistakes, resolveMistake, hydrationStatus, persistenceNotice } = usePracticeSession();
   const categories = useMemo(() => ['全部', ...new Set(mistakes.map((item) => item.category))], [mistakes]);
   const [active, setActive] = useState('全部');
   const list = (active === '全部' ? activeMistakes : activeMistakes.filter((item) => item.category === active));
 
   return (
     <>
-      <PageHeader title="错题本" subtitle="按知识点复习薄弱项" />
+      <PageHeader title="本机知识错题" subtitle="按知识点查看本轮需要巩固的题" back backTo="/learning/knowledge" />
       <div className="px-5">
+        {persistenceNotice ? <p role="status" className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">{persistenceNotice}</p> : null}
         <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
           {categories.map((category) => (
             <button
@@ -36,26 +37,26 @@ export default function Mistakes() {
         ) : (
           <div className="space-y-4">
             {list.map((item) => (
-              <Card key={item.id}>
+              <Card key={item.questionId}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <span className="rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-600">{item.category}</span>
-                    <h2 className="mt-3 text-base font-semibold leading-7 text-slate-900">{item.question}</h2>
+                    <h2 className="mt-3 text-base font-semibold leading-7 text-slate-900">{item.stemSnapshot}</h2>
                   </div>
                 </div>
                 <div className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
                   <p><span className="font-medium text-slate-900">错误答案：</span>{item.wrongAnswer}</p>
-                  <p><span className="font-medium text-slate-900">正确答案：</span>{item.answer}</p>
+                  <p><span className="font-medium text-slate-900">正确答案：</span>{item.correctAnswerText}</p>
                   <p><span className="font-medium text-slate-900">知识点：</span>{item.knowledgePoint}</p>
-                  <p><span className="font-medium text-slate-900">解析：</span>{item.explanation}</p>
+                  <p><span className="font-medium text-slate-900">解析：</span>{item.explanationSnapshot}</p>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3">
-                  <Link to={`/quiz/${encodeURIComponent(item.category)}`} className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-600 text-sm font-semibold text-white">
+                  <Link to={`/learning/knowledge/quiz/${encodeURIComponent(item.category)}`} className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-600 text-sm font-semibold text-white">
                     <RotateCcw size={16} />
                     重新练习
                   </Link>
-                  <button onClick={() => markMastered(item.id)} className="min-h-11 rounded-md bg-emerald-50 text-sm font-semibold text-emerald-700">
-                    标记已掌握
+                  <button disabled={hydrationStatus === 'loading'} onClick={() => resolveMistake(item.questionId)} className="min-h-11 rounded-md bg-emerald-50 text-sm font-semibold text-emerald-700 disabled:opacity-50">
+                    标记本轮已复习
                   </button>
                 </div>
               </Card>

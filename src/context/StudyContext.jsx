@@ -1,6 +1,11 @@
 import { createContext, useContext, useMemo, useState } from 'react';
-import questions from '../data/questions.json';
 import progress from '../data/userProgress.json';
+import {
+  getKnowledgeQuestionDisplayAnswer,
+  knowledgeQuestionRepository,
+} from '../domain/knowledge-practice/questions/knowledgeQuestionRepository.ts';
+
+const questions = knowledgeQuestionRepository.listApproved();
 
 const StudyContext = createContext(null);
 
@@ -8,12 +13,14 @@ export function StudyProvider({ children }) {
   const [mistakes, setMistakes] = useState(
     progress.recentMistakes.map((item) => {
       const source = questions.find((question) => question.id === item.id);
+      if (!source) return null;
       return {
         ...source,
         wrongAnswer: '未复习',
+        correctAnswerText: getKnowledgeQuestionDisplayAnswer(source),
         mastered: false,
       };
-    }),
+    }).filter(Boolean),
   );
   const [lastResult, setLastResult] = useState({
     score: 0,
@@ -28,7 +35,13 @@ export function StudyProvider({ children }) {
   const addMistake = (question, wrongAnswer) => {
     setMistakes((current) => {
       const next = current.filter((item) => item.id !== question.id);
-      return [{ ...question, wrongAnswer, mastered: false }, ...next];
+      const wrongAnswerText = question.options?.find((option) => option.id === wrongAnswer)?.text || wrongAnswer;
+      return [{
+        ...question,
+        wrongAnswer: wrongAnswerText,
+        correctAnswerText: getKnowledgeQuestionDisplayAnswer(question),
+        mastered: false,
+      }, ...next];
     });
   };
 

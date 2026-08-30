@@ -3,7 +3,7 @@
 英文名称：Product Owner Control Table
 
 状态：ACTIVE  
-更新日期：2026-08-20
+更新日期：2026-08-29
 
 ## 一、用途
 
@@ -44,13 +44,33 @@ Debug / Acceptance Report
 
 ## 三、当前总览
 
+### 3.1 当前事实基线（2026-08-29）
+
+以下数量来自正式资源只读动态基线，不替代版本化 Resource / Registry 事实：
+
+| 当前事实 | 已核验值 |
+| --- | ---: |
+| Formal Store Revision | 1963 |
+| 正式材料 | 24（Core 12 / Targeted 12） |
+| Current Frozen Resource | 81 |
+| 普通新会话核心阅读池 | 63 |
+| 条件触发微训练池 | 18 |
+| Quality Ready / Guidance / Blocked | 65 / 16 / 0 |
+| 轻量知识题 | 27 历史迁移 + 7 WP5 审核补充 / 19 approved / 15 draft / 3 变式组 / 6 Link |
+
+`81` 是正式题库库存，不等于当前学生一次可见或可自由选择的题量。正式题数量必须由运行基线读取，不再长期使用旧的 `10 篇 / 34 道` 快照。
+
+入口角色以 [WP0A 角色对齐决策](./STUDENT_SINGLE_ENTRY_FORMAL_READING_AND_KNOWLEDGE_PRACTICE_ALIGNMENT_DECISION_WP0A.md) 为准：`/learning` 是学生唯一入口；正式阅读是能力证据主线，轻量知识练习是入口内的辅助任务家族。
+
 | 模块 | 一句话职责 | Design | Engineering | Product Acceptance | Live |
 | --- | --- | --- | --- | --- | --- |
 | Phase 17.2 首批正式资源包 | 生产经过审核、能被正式学习系统使用的真实题目 | PASS | UNIFIED WORKBENCH 26 / 26 + PLAN CONTINUATION WP-C5 / WP-C6 + ASSISTED DRAFT GENERATION 38 / 38 PASS | BATCH A OWNER REVIEW / FREEZE 8 / 8 PASS；WORKBENCH READ-ONLY 42 / 42 VERIFIED | THREE-ROUND PROVIDER QUALITY REVIEW PENDING |
 | Phase 17.3 正式资源运行集成 | 证明资源目标、来源、诊断、证据和下一任务在主链中不丢失 | PASS | WORK PACKAGE A 17 / 17 PASS / WORK PACKAGE B CONTROLLED LIVE 3 / 3 PASS | BATCH A `/learning` SINGLE-ROUND PASS | CONTROLLED DEEPSEEK LIVE PASS |
 | Phase 17.4 本机共享正式资源 | 让不同本机客户端读取同一份正式资源，并保护版本与冲突 | PASS | DEBUG 10 / 10 + BASELINE CUTOVER + FRESH INITIALIZATION PASS | CONTROLLED DUAL-CLIENT + INDEPENDENT BROWSER-KERNEL CHECK PASS | RESTART PERSISTENCE PASS |
-| Phase 17.5 题目生成质量评估 | 在发布前发现结构、语义和批次质量问题 | PASS | 17.5A / B / C1 / C2 / C3A / C3B RUNTIME PASS + REVIEW / PUBLICATION WORKFLOW P0 PASS | STAGE 1–5 TEN-MATERIAL / 34-QUESTION CALIBRATION PASS | REAL LEARNING SAMPLE CALIBRATION AWAITING DATA |
-| `/learning` 正式学习入口 | 让单学生从一个入口开始、恢复、作答、反馈并继续 | PASS | MAIN PATH PASS / SHARED FORMAL SNAPSHOT READ FIXED / CONSOLIDATION IN PROGRESS | UNIFIED ENTRY 20 / 20 + FORMAL ENTRY 10 / 10 PASS | `0 / 5` |
+| Phase 17.5 题目生成质量评估 | 在发布前发现结构、语义和批次质量问题 | PASS | 17.5A / B / C1 / C2 / C3A / C3B RUNTIME PASS + REVIEW / PUBLICATION WORKFLOW P0 PASS | CURRENT 81 STATIC FEEDBACK PROJECTION READY；QUALITY 65 READY / 16 GUIDANCE / 0 BLOCKED | REAL LEARNING SAMPLE CALIBRATION AWAITING DATA |
+| `/learning` 正式学习入口 | 让单学生从一个入口开始、恢复、作答、反馈并继续 | PASS | MAIN PATH PASS / SHARED FORMAL SNAPSHOT READ FIXED / WP7A 50 / 50 PASS | UNIFIED ENTRY + FORMAL ENTRY + CORE NEW-SESSION + WP7A BROWSER PASS | CURRENT TRIAL SIGNATURE RECONCILIATION REQUIRED |
+| WP0A / WP7A 唯一入口与知识练习对齐 | 在唯一学生入口中正确呈现正式阅读和轻量知识巩固，同时保持事实边界 | PASS | WP0A CONFIRMED / WP7A ENGINEERING PASS | PRODUCT ACCEPTANCE PENDING | PENDING |
+| 轻量知识练习 | 提供不生成长期能力结论的低负担基础知识巩固 | PASS | WP1 47/47、WP2 47/47、WP3 49/49、WP4 33/33、WP5 54/54、WP6 56/56、WP7A 50/50 PASS；19 approved / 3 变式组 / 6 Link | WP5—WP6 PRODUCT ACCEPTANCE PENDING；WP7B D1—D12已确认、Engineering Acceptance已授权未开始 | PENDING |
 | Learning 反馈后一次修订 | 保留首次独立表现，并观察学生能否利用反馈完成一次改善 | PASS | STAGES 1–4 ENGINEERING + DEBUG + E2E PASS | ISOLATED BROWSER + E2E PASS / REAL STUDENT ACCEPTANCE PENDING | AWAITING REAL RETEST / TRANSFER DATA |
 | 阅读训练单项选择作答 | 用低输入成本观察基础理解，并通过可解释干扰项形成具体诊断 | PASS | STAGES 1–4 65 / 65 PASS；FINAL RESUME REGRESSION 89 / 89 PASS | REAL-MATERIAL E2E + CONTROLLED PC / TABLET + FINAL BROWSER RESUME SMOKE PASS；CAPABILITY GATE OPEN | AWAITING REAL STUDENT DATA |
 | 针对性短片段微训练 | 在正式主要缺口成立时追加一项低负担训练，并返回核心题组 | PASS | STAGE 1 16 / 16 PASS；STAGE 2 32 / 32 PASS（受控资源包 12 份材料 / 18 道题）；STAGE 3 57 / 57 PASS；STAGE 4 51 / 51 PASS；B4-01—B4-16 CONTROLLED BROWSER PASS | ENGINEERING + CONTROLLED BROWSER PASS / REAL SINGLE-STUDENT CALIBRATION PENDING | AWAITING 5—7 DAY REAL OBSERVATION |
@@ -225,17 +245,17 @@ Debug / Acceptance Report
 
 当前产品定位：
 
-> 已完成10篇材料、34道正式题的资源生产校准，以及真实 Learning 最小采集 `WP0—WP7`；具备正式资源录入、AI生成、质量门禁、采用发布、版本治理、Learning消费、本机学习记录、五事件采集、失败恢复、校准 Projection 和内部完整性审计能力。当前进入固定单学生的受控真实运行，尚缺真实样本量、多轮连续 Session 和自然日稳定性证明。
+> 已形成 24 篇正式材料、81 道 Current Frozen Resource 的正式题库，其中 63 道属于普通核心阅读池、18 道属于条件触发微训练池；正式 Learning 已具备资源消费、作答、诊断、反馈、修订、恢复和采集能力。轻量知识练习 WP1—WP6 与 WP7A 已达到 Engineering PASS，唯一入口、错题即时巩固、结果摘要和确定性下一步推荐已经完成；真实学生产品验收尚未完成。
 
 ```text
-1. 真实 Learning：由固定单学生使用当前10篇材料、34道题完成连续 Session，重点观察12道长文本提示题与4道 v4 试点题
-2. 每个新轮次后检查内部完整性页，记录五事件完整率、eligible / excluded / projection failed 闭合、Outbox 恢复、版本绑定和真实 Diagnosis 可用性
-3. 在真实 Training 轮次中观察 Revision Offer、开始、提交、评价完成和后续 Retest / Transfer；不得把反馈支持下改善直接解释为独立掌握
-4. 累积真实样本并按独立使用者口径解释；单一学生的重复作答和 Revision 均不得充当多人样本或群体校准
-5. 完成多轮连续 Session 与至少5个自然日稳定性证明，区分历史缺失记录和新链路数据
-6. 根据真实数据调整反馈、题目、Rubric 或调度策略；没有观察证据时不继续增加学生操作或第二次 Revision
-7. P4 家长报告与广泛过程指标、P5 多使用者继续后置；扩大试用前单独完成材料来源与版权核验
-8. 单项选择按独立四阶段方案实施，第一版只做 `single_choice`；它不阻塞当前文本题真实试用，也不得在完整端到端验收前进入正式 Learning 库
+1. WP7A 已完成：正式阅读主线和轻量知识巩固已收敛到唯一 `/learning` 产品入口，已有 PracticeSession 得到保护
+2. WP6 已 Engineering PASS；下一步进入 WP7B 全链回归与至少5次受控真实学生验收，不扩建 `/practice/knowledge` 第二产品壳
+3. 现场复读 Runtime Identity、Trial Window 与 Activation State，补齐唯一当前 Trial 状态签署
+4. 真实 Learning 继续观察反馈、Revision、Retest / Transfer 和五事件完整性，不把反馈支持下改善解释为独立掌握
+5. WP7A 通过后按 WP5 错题巩固 → WP6 结果推荐 → WP7B 全链产品验收推进
+6. 轻量题量由覆盖矩阵、连续5/10次使用重复率和枯竭率倒推；100道仅为内容目标
+7. Engineering、Product Acceptance、Educational Evidence 分层，不因自动化通过宣称反馈效果或能力提升成立
+8. 家长报告、多使用者和广泛过程指标继续后置；扩大试用前完成材料来源与版权核验
 ```
 
 产品负责人不需要重新掌握全部字段和对象。主要责任是守住目标、用户结果、PASS 标准、模块边界和问题分类。

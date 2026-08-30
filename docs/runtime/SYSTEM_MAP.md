@@ -12,6 +12,20 @@
 
 字段、算法、Debug Case、指标分母和验收过程，以对应 Phase、Model、Runtime 与 Acceptance 文档为准。
 
+## 零、当前事实层（2026-08-29）
+
+本节只保存当前导航事实；历史 Phase 数量和验收状态不得覆盖本节。
+
+| 主题 | 当前事实 | 权威来源 |
+| --- | --- | --- |
+| 学生入口 | `/learning` 是唯一学生产品入口 | [WP0A 角色对齐决策](../product/STUDENT_SINGLE_ENTRY_FORMAL_READING_AND_KNOWLEDGE_PRACTICE_ALIGNMENT_DECISION_WP0A.md) |
+| 正式题库 | 24 篇材料、81 道 Current；63 道核心阅读、18 道条件微训练 | 正式资源只读基线与 [核心阅读新会话准入报告](../education/phase/reports/core_reading_new_session_admission_boundary_fix_2026-08-28.md) |
+| 轻量知识题 | 27 道历史迁移 + 7 道 WP5 审核补充；19 approved、15 draft；3 个批准变式组、6 条有向 Link | [WP5 工程验收报告](../product/KNOWLEDGE_PRACTICE_PHASE1_WP5_ENGINEERING_ACCEPTANCE_REPORT.md) |
+| 知识练习工程 | WP1—WP6 + WP7A Engineering PASS；WP7B D1—D12已确认、Engineering Acceptance已授权未开始 | [WP7B 工程实施文档](../product/KNOWLEDGE_PRACTICE_PHASE1_WP7B_FULL_CHAIN_REGRESSION_AND_PRODUCT_ACCEPTANCE_PLAN.md) |
+| Trial | 历史报告包含激活、失效、重新准入和新窗口样本；当前终态必须以现场 Runtime Identity、Window 与 Activation State 的最新签署为准 | [运行可靠性与重新准入契约](../product/PRODUCT_RUNTIME_RELIABILITY_AND_REAL_TRIAL_REENTRY_CONTRACT.md) |
+
+当前资源口径必须区分：库存 `81`、普通核心池 `63`、条件微训练池 `18` 和学生当下被调度的下一任务。不得把轻量知识题的 `19 approved` 表述为全项目题量。
+
 ## 一、产品主线
 
 产品目标不是让学生完成更多题目，而是通过可追溯的真实表现，逐步形成更可靠的能力判断和下一步学习安排。
@@ -32,6 +46,18 @@
 > 发现问题，进行训练，验证变化，形成成长记忆，再决定下一步。
 
 ## 二、当前主链路
+
+学生产品入口关系：
+
+```text
+/learning（唯一学生入口）
+├─ 正式阅读与能力训练
+│  └─ Formal Resource → Learning → Diagnosis / Evidence → Retest / Transfer
+└─ 基础知识巩固（knowledge_practice 辅助任务家族）
+   └─ Knowledge Question → PracticeSession → 本轮反馈 / 短期巩固
+```
+
+两类任务共享学生入口、身份与产品表达，但第一阶段继续隔离 Session、Store、判题器和结论层级。知识练习事实不得未经新契约写入正式 Evidence、Profile 或 Trial 教育效果分母。
 
 正式内容进入链：
 

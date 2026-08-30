@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowRight, BookOpen, CheckCircle2, Clock3, RefreshCw, RotateCcw } from 'lucide-react';
 import Phase163LiveLearningWorkspace from './Phase163LiveLearningWorkspace.jsx';
 import {
@@ -11,13 +12,28 @@ import { readProductRuntimeHealth, healthReadReasonCodes } from '../api/productR
 import { projectProductRuntimeRecovery } from '../ai/services/productRuntimeRecoveryProjectionService.ts';
 import { toProductRuntimeRecoveryNoticeView } from '../ui/productRuntimeRecoveryPresentation.ts';
 import ProductRuntimeRecoveryNotice from '../components/runtime/ProductRuntimeRecoveryNotice.jsx';
+import KnowledgePracticeEntryCard from '../components/student-learning/KnowledgePracticeEntryCard.jsx';
+import StudentContentInventoryNote from '../components/student-learning/StudentContentInventoryNote.jsx';
+import { usePracticeSession } from '../context/PracticeSessionContext.jsx';
+import { knowledgeQuestionRepository } from '../domain/knowledge-practice/questions/knowledgeQuestionRepository.ts';
+import {
+  buildKnowledgePracticeEntryProjection,
+  buildStudentContentInventoryProjection,
+  projectStudentLearningHub,
+} from '../domain/student-learning-hub/studentLearningHubProjection.ts';
+
+const approvedKnowledgeQuestions = knowledgeQuestionRepository.listApproved();
+const approvedKnowledgeCategoryCount = new Set(approvedKnowledgeQuestions.map((question) => question.category)).size;
 
 export default function UnifiedLearningEntry() {
+  const navigate = useNavigate();
+  const practice = usePracticeSession();
   const [entry, setEntry] = useState(null);
   const [view, setView] = useState('entry');
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
   const [runtimeProjection, setRuntimeProjection] = useState(null);
+  const [formalInventory, setFormalInventory] = useState({ status: 'unknown' });
 
   useEffect(() => {
     refreshEntry();
@@ -29,6 +45,7 @@ export default function UnifiedLearningEntry() {
     try {
       const healthResult = await readProductRuntimeHealth();
       if (healthResult.state !== 'available') {
+        setFormalInventory({ status: 'unknown' });
         setRuntimeProjection(projectProductRuntimeRecovery({
           surface: 'learning_entry', operation: 'load_entry', healthReadState: healthResult.state,
           reasonCodes: healthReadReasonCodes(healthResult), ownerFacts: unknownOwnerFacts(),
@@ -38,6 +55,7 @@ export default function UnifiedLearningEntry() {
         return;
       }
       if (healthResult.health.formalResourceStore.status === 'blocked') {
+        setFormalInventory({ status: 'unavailable' });
         setRuntimeProjection(projectProductRuntimeRecovery({
           surface: 'learning_entry', operation: 'load_entry', healthReadState: 'available',
           health: healthResult.health, ownerFacts: unknownOwnerFacts(),
@@ -46,6 +64,12 @@ export default function UnifiedLearningEntry() {
         setView('entry');
         return;
       }
+      setFormalInventory({
+        status: 'available',
+        currentCount: healthResult.health.formalResourceStore.currentQuestionCount,
+        activeMaterialCount: healthResult.health.formalResourceStore.activeMaterialCount,
+        consumableCount: healthResult.health.formalResourceStore.learningConsumableQuestionCount,
+      });
       const nextEntry = await loadUnifiedLearningEntry();
       setEntry(nextEntry);
       const nextRuntimeProjection = projectProductRuntimeRecovery({
@@ -72,6 +96,7 @@ export default function UnifiedLearningEntry() {
         : nextRuntimeProjection);
       setView('entry');
     } catch (loadError) {
+      setFormalInventory({ status: 'unknown' });
       const message = loadError instanceof Error ? loadError.message : String(loadError);
       setRuntimeProjection(projectProductRuntimeRecovery({
         surface: 'learning_entry', operation: 'load_entry', healthReadState: 'available',
@@ -146,6 +171,38 @@ export default function UnifiedLearningEntry() {
   const canFinishReviewedSession = entry?.status === 'review_required' &&
     entry?.hasActiveSession &&
     entry?.validation?.passed;
+  const knowledgeProjection = buildKnowledgePracticeEntryProjection({
+    hydrationStatus: practice.hydrationStatus,
+    persistenceStatus: practice.persistenceStatus,
+    recoveryError: practice.recoveryError,
+    activeSession: practice.activeSession,
+    approvedQuestionCount: approvedKnowledgeQuestions.length,
+    availableCategoryCount: approvedKnowledgeCategoryCount,
+  });
+  const inventory = buildStudentContentInventoryProjection({
+    formal: formalInventory,
+    knowledge: knowledgeProjection,
+  });
+  const hubProjection = projectStudentLearningHub({
+    formal: {
+      entry: entry ? {
+        ...entry,
+        primaryActionText: canFinishReviewedSession ? '结束本次学习' : entry.primaryActionText,
+      } : null,
+      recoveryAction: runtimeProjection && runtimeProjection.state !== 'ready'
+        ? {
+          actionId: runtimeProjection.primaryAction.actionId,
+          label: runtimeProjection.primaryAction.label || '恢复阅读训练',
+          ...(runtimeProjection.primaryAction.actionId === 'open_trial_reentry'
+            ? { path: '/internal/product-complexity-convergence-stage4-preflight' }
+            : {}),
+        }
+        : null,
+    },
+    knowledge: knowledgeProjection,
+    inventory,
+  });
+  const knowledgeIsPrimary = !busy && hubProjection.primaryAction.kind.includes('knowledge');
   if (view === 'workspace') {
     return (
       <Phase163LiveLearningWorkspace
@@ -166,6 +223,15 @@ export default function UnifiedLearningEntry() {
       </header>
 
       <main className="mx-auto w-full max-w-[1200px] px-5 py-10 md:px-8 md:py-14">
+        {knowledgeIsPrimary ? (
+          <div className="mb-8 max-w-[680px]">
+            <KnowledgePracticeEntryCard
+              projection={knowledgeProjection}
+              primary
+              onOpen={() => navigate(knowledgeProjection.primaryPath)}
+            />
+          </div>
+        ) : null}
         {busy && !entry ? <LoadingState /> : null}
         {error ? <ErrorState message={error} onRetry={refreshEntry} /> : null}
         {!busy && runtimeProjection && runtimeProjection.state !== 'ready' ? (
@@ -232,6 +298,24 @@ export default function UnifiedLearningEntry() {
               </dl>
             </aside>
           </div>
+        ) : null}
+
+        {!knowledgeIsPrimary ? (
+          <div className="mt-10 grid gap-5 border-t border-slate-200 pt-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <KnowledgePracticeEntryCard
+              projection={knowledgeProjection}
+              onOpen={() => navigate(knowledgeProjection.primaryPath)}
+            />
+            <StudentContentInventoryNote inventory={inventory} />
+          </div>
+        ) : (
+          <div className="mt-6 max-w-[680px]">
+            <StudentContentInventoryNote inventory={inventory} />
+          </div>
+        )}
+
+        {hubProjection.notices.length > 1 ? (
+          <p className="mt-4 max-w-[680px] text-xs leading-5 text-slate-500">{hubProjection.notices[0]}</p>
         ) : null}
       </main>
     </div>

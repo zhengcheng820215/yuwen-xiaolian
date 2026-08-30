@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 
-export default function PageHeader({ title, subtitle, back = false }) {
+export default function PageHeader({ title, subtitle, back = false, backTo }) {
   const navigate = useNavigate();
   return (
     <header className="sticky top-0 z-20 bg-[#f5f7fb]/95 px-5 pb-3 pt-4 backdrop-blur">
@@ -8,7 +8,7 @@ export default function PageHeader({ title, subtitle, back = false }) {
         {back && (
           <button
             aria-label="返回"
-            onClick={() => navigate(-1)}
+            onClick={() => backTo ? navigate(backTo) : navigate(-1)}
             className="min-h-10 shrink-0 rounded-md bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm"
           >
             返回

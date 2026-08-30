@@ -1,13 +1,12 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
-import Practice from './pages/Practice.jsx';
 import KnowledgePractice from './pages/KnowledgePractice.jsx';
 import FunPractice from './pages/FunPractice.jsx';
 import AbilityPractice from './pages/AbilityPractice.jsx';
 import Quiz from './pages/Quiz.jsx';
 import Result from './pages/Result.jsx';
 import Mistakes from './pages/Mistakes.jsx';
-import Profile from './pages/Profile.jsx';
+import { LegacyStudentRouteRedirect } from './pages/KnowledgePracticeRouteRedirect.jsx';
 import DiagnosisDemo from './pages/DiagnosisDemo.jsx';
 import TrainingPlanDemo from './pages/TrainingPlanDemo.jsx';
 import TrainingEvidenceDemo from './pages/TrainingEvidenceDemo.jsx';
@@ -72,14 +71,14 @@ export default function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<Navigate to="/learning" replace />} />
-        <Route path="/practice" element={<Practice />} />
-        <Route path="/practice/knowledge" element={<KnowledgePractice />} />
+        <Route path="/practice" element={<LegacyStudentRouteRedirect from="/practice" />} />
+        <Route path="/practice/knowledge" element={<LegacyStudentRouteRedirect from="/practice/knowledge" />} />
         <Route path="/practice/fun" element={<FunPractice />} />
         <Route path="/practice/ability" element={<AbilityPractice />} />
-        <Route path="/quiz/:category" element={<Quiz />} />
-        <Route path="/result" element={<Result />} />
-        <Route path="/mistakes" element={<Mistakes />} />
-        <Route path="/profile" element={<Profile />} />
+        <Route path="/quiz/:category" element={<LegacyStudentRouteRedirect from="/quiz/:category" />} />
+        <Route path="/result" element={<LegacyStudentRouteRedirect from="/result" />} />
+        <Route path="/mistakes" element={<LegacyStudentRouteRedirect from="/mistakes" />} />
+        <Route path="/profile" element={<LegacyStudentRouteRedirect from="/profile" />} />
         <Route path="/diagnosis-demo" element={<DiagnosisDemo />} />
         <Route path="/training-plan-demo" element={<TrainingPlanDemo />} />
         <Route path="/training-evidence-demo" element={<TrainingEvidenceDemo />} />
@@ -103,6 +102,10 @@ export default function App() {
         <Route path="/resource-matching-quality-demo" element={<ResourceMatchingQualityDemo />} />
         <Route path="/phase16-3-real-chain-demo" element={<Phase163RealLearningChainDemo />} />
         <Route path="/learning" element={<UnifiedLearningEntry />} />
+        <Route path="/learning/knowledge" element={<KnowledgePractice />} />
+        <Route path="/learning/knowledge/quiz/:category" element={<Quiz />} />
+        <Route path="/learning/knowledge/result" element={<Result />} />
+        <Route path="/learning/knowledge/mistakes" element={<Mistakes />} />
         <Route path="/internal" element={<InternalHub />} />
         <Route path="/internal/acceptance" element={<InternalAcceptanceHub />} />
         <Route path="/internal/acceptance/reading-single-choice" element={<ReadingSingleChoiceStage4Acceptance />} />
