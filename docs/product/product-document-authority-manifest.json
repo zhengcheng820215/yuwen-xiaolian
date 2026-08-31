@@ -1007,6 +1007,23 @@
       }
     },
     {
+      "path": "PRODUCT_DOCUMENT_P4_PRODUCT_ACCEPTANCE_EVIDENCE_CLOSURE_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "P4 产品验收证据收口与 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-31",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PENDING",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
       "path": "PRODUCT_DOMAIN_SEMANTICS_AND_MAIN_CHAIN_CONTRACT.md",
       "title": "产品领域语义与主链统一契约",
       "documentType": "NORMATIVE_CONTRACT",

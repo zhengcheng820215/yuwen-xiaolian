@@ -16,6 +16,8 @@
 
 机器注册表：[`product-claim-evidence-registry.json`](./product-claim-evidence-registry.json)
 
+产品验收收口：[P4 产品验收证据收口与 Debug 验收文档](./PRODUCT_DOCUMENT_P4_PRODUCT_ACCEPTANCE_EVIDENCE_CLOSURE_ENGINEERING_AND_DEBUG_PLAN.md)
+
 ## 一、目的
 
 本契约冻结产品主张、工程证据、产品验收、实时证明和教育效果之间的证据层级与可追溯规则。
@@ -175,4 +177,3 @@ P3 完成必须同时满足：
 8. Production Build 通过；
 9. 产品代码与正式数据写入为 0；
 10. 旧主链零回归，新证据语义只在 P3 文档治理边界内生效。
-
