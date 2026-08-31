@@ -1,10 +1,12 @@
 # PC / 平板学习工作台体验校准记录
 
+状态：`ACTIVE / STUDENT LEARNING UX AUTHORITY`
+
 > 2026-08-12 规范说明：本文现作为 Learning 学生学习平台的专属 UX 权威规范。共享字体、间距、控件和无障碍底线遵循[跨平台 UX 基础规范](./CROSS_PLATFORM_UX_FOUNDATION.md)；资源录入、审核与发布页面不得直接套用本文的低密度学习布局和绿色学习动作语义。
 
 > 2026-08-13 数据说明：真实使用中的匿名身份、过程事件、作答时间、家长观察、校准样本和展示分层遵循[真实 Learning 数据采集与观察契约](./REAL_LEARNING_DATA_COLLECTION_AND_OBSERVATION_CONTRACT.md)。学生页面只呈现保存、提交、恢复和学习进度所需的轻量提示，不展示技术身份、原始事件或监控式指标。
 
-> 2026-08-14 Revision 设计增补：Training 首次反馈后的一次受控修订遵循[Learning 反馈后修订契约](./LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md)。当前为 Design Accepted、Engineering Pending；实现后反馈页可以在一个推荐修订主操作之外保留“继续下一题”次操作，但不得把 Revision 变成新的题目或覆盖首次回答。
+> 2026-08-14 Revision 设计增补：Training 首次反馈后的一次受控修订遵循[Learning 反馈后修订契约](./LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md)。该日记录的是设计决策，不继续承担即时工程状态声明；当前实现与运行状态统一读取[当前产品状态](./CURRENT_PRODUCT_STATE.md)。学生反馈页可以在一个推荐修订主操作之外保留“继续下一题”次操作，但不得把 RevisedResponse 变成新的题目或覆盖首次独立回答。
 
 > 2026-08-19 答前提示增补：按需提示采用“单一思路入口”原则。提示只指出一个最值得关注的对象、变化或关系，并给出一个推敲方向；不得把评分标准、完整解题流程或答题结构压缩成提示文本。
 

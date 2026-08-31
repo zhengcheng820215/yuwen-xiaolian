@@ -19,11 +19,11 @@
 
 本文不改变 Candidate、Question Revision、Assessment、Human Review、Freeze 和 Registry 的既有不可变边界。正文换版不能被解释为允许静默修改已冻结题目。
 
-## 二、当前语料校准基线
+## 二、历史语料校准基线
 
-2026-08-13 的本地 Shared Store 校准后包含 `9` 篇活动材料、`31` 道当前 Plan 任务，全部已有活动正式资源。当前主要校准问题为：
+2026-08-13 的本地 Shared Store 校准后包含 `9` 篇活动材料、`31` 道当时的 Plan 任务，全部已有活动正式资源。该次主要校准问题为：
 
-补充记录：同日后续录入《走一步，再走一步》并完成3道正式题发布后，阶段1只读基线已更新为 `10` 篇活动材料、`34` 道当前正式题；原 `9 / 31` 记录作为前一校准时点的历史事实保留，不再作为后续优化验收基数。
+补充记录：同日后续录入《走一步，再走一步》并完成3道正式题发布后，阶段1只读基线曾更新为 `10` 篇活动材料、`34` 道正式题；原 `9 / 31` 记录作为前一校准时点的历史事实保留，两者均不再作为当前状态或后续优化验收基数。
 
 | 类型 | 已发现问题 | 处理要求 |
 | --- | --- | --- |
@@ -215,9 +215,9 @@ Material v2
 
 ### 12.5 本轮验收指标
 
-- 当前活动材料仍为 `9` 篇，当前正式题仍为 `31` 道；
-- 当前正式题 `31/31` 同时具备 active Registry 和 active Observation Link；
-- 当前正式题 `31/31` 具备 Frozen Quality Trace；
+- 该次验收中的活动材料为 `9` 篇，正式题为 `31` 道；
+- 该次正式题 `31/31` 同时具备 active Registry 和 active Observation Link；
+- 该次正式题 `31/31` 具备 Frozen Quality Trace；
 - 三篇目标材料的机械正文问题归零，九篇材料均有结构化元数据且未虚标 `verified`；
 - 《从百草园到三味书屋》至少两道题覆盖三味书屋，《天上的街市》不再存在同证据语言题；
 - 工作台发布统计与 Learning 新任务可消费统计一致；
@@ -238,7 +238,7 @@ Material v2
 
 ## 十三、第三次质量治理补强（2026-08-13）
 
-第二次校准后的当前投影为九篇 v2 材料和31道正式题，但原始 Registry 复核发现《皇帝的新装》3条、《狼》2条旧题仍保持 `active`，其 Frozen Version 绑定已经退休的 Material v1。它们因当前页面和 Learning 同时校验材料版本而未进入31道当前投影，但依赖 Registry 单表查询的消费者仍可能误读。
+第二次校准当时的投影为九篇 v2 材料和31道正式题，但原始 Registry 复核发现《皇帝的新装》3条、《狼》2条旧题仍保持 `active`，其 Frozen Version 绑定已经退休的 Material v1。它们因当时页面和 Learning 同时校验材料版本而未进入31道投影，但依赖 Registry 单表查询的消费者仍可能误读。
 
 本轮按以下口径修复：
 
@@ -256,23 +256,23 @@ Material v2
 - Shared Store revision `729 → 730`：准确识别并退休《皇帝的新装》3条、《狼》2条绑定已退休 Material v1 的活动 Registry Entry；再次 dry-run 返回待退休 Registry `0`；
 - Shared Store revision `730 → 731`：九篇材料形成 v3，31道正式题形成对应 v3 Frozen Version、active Registry、active Observation Link 和 Frozen Quality Trace；
 - 《猫》全文比较题明确四个比较维度，《狼》行为题调整为 `comprehension / intermediate`，《皇帝的新装》骗子题调整为骗局因果链分析，《天上的街市》神话改写题补充传统故事背景并限定分析维度；
-- 当前31道题的确定性质量结果为 `31 / 31 pass`，不再保留第二次校准中的3项 warning 和1项 `revision_recommended`；
+- 该次31道题的确定性质量结果为 `31 / 31 pass`，不再保留第二次校准中的3项 warning 和1项 `revision_recommended`；
 - 九篇 v3 材料均写入 `textVerificationStatus = pending`、`rightsStatus = unknown`，没有伪造来源核验或版权授权；
 - 生产主链固定为“采用并发布 / 不采用并重新优化”，不要求审核人、审核意见或第二次确认；
 - 真实作答后台校准在0份样本时返回 `awaiting_data`，1–29份返回 `insufficient_sample`，达到30份后才计算试运行指标；
 - 本次只保留非阻断的来源信息和真实样本校准，不引入教师盲审，也不制造学生样本。
 
-补充一致性清理：Shared Store revision `731 → 732`。复核原始 Registry 时另发现1条绑定已停用 Batch A 演示素材的活动记录。它虽然已被当前 Learning 材料过滤挡住，仍按相同规则改为 `retired`，使原始活动 Registry 与31道当前正式题完全一致。
+补充一致性清理：Shared Store revision `731 → 732`。复核原始 Registry 时另发现1条绑定已停用 Batch A 演示素材的活动记录。它虽然已被当时 Learning 材料过滤挡住，仍按相同规则改为 `retired`，使原始活动 Registry 与该次31道正式题完全一致。
 
 ## 十四、阶段5收口约束（2026-08-13）
 
-阶段4后执行基线为 `10` 篇活动材料、`34` 道当前正式题。《走一步，再走一步》的机械标点和结构化元数据通过后继 Material Version 定向修复；不得原位覆盖 v1，也不得把未核验来源标为 `verified`。换版必须完整接续其3道正式题并维持全局 Registry、Observation Link、Frozen Quality Trace 与 Learning 可消费 `34 / 34`。
+阶段4后的历史执行基线为 `10` 篇活动材料、`34` 道正式题。《走一步，再走一步》的机械标点和结构化元数据通过后继 Material Version 定向修复；不得原位覆盖 v1，也不得把未核验来源标为 `verified`。该次换版必须完整接续其3道正式题并维持全局 Registry、Observation Link、Frozen Quality Trace 与 Learning 可消费 `34 / 34`。
 
 执行计划与验收记录见[AI 题目与素材优化阶段5收口计划](./AI_QUESTION_OPTIMIZATION_STAGE5_CLOSURE_PLAN_2026-08-13.md)。
 
 ### 14.1 阶段5执行记录
 
-Shared Store revision `915 → 916`。《走一步，再走一步》形成 v2，9处半角中文标点归零并补齐保守结构化元数据；其3道正式题同步形成 v2 Frozen Version。重复 apply 为 no-op。最终活动材料 `10`、当前正式题 `34`、Registry / Link / Trace / Learning `34 / 34`，素材审计可执行问题为 `0`。全部来源待核验状态仅作为后台治理信息保留。
+Shared Store revision `915 → 916`。《走一步，再走一步》形成 v2，9处半角中文标点归零并补齐保守结构化元数据；其3道正式题同步形成 v2 Frozen Version。重复 apply 为 no-op。该次执行结束时活动材料为 `10`、正式题为 `34`、Registry / Link / Trace / Learning 为 `34 / 34`，素材审计可执行问题为 `0`。全部来源待核验状态仅作为后台治理信息保留。
 
 ## 十五、P1-03 来源核验就绪度契约（2026-08-14）
 
@@ -371,7 +371,7 @@ P2-03 只采用第十七节已经通过的4个完整候选，不重新生成题�
 
 - Shared Store revision：`1046 → 1047`；
 - 新增正式题：4道，分别属于《皇帝的新装》《秋天的怀念》《散步》《狼》；
-- 当前活动材料：12篇；当前正式题：46道；
+- 该次发布结束时活动材料为12篇、正式题为46道；
 - Current Task / Registry / Observation Link / Frozen Version / Frozen Quality Trace / Learning 可消费题：`46 / 46`；
 - 新题能力与难度：2道 `comprehension / basic`、2道 `summarization / basic`；
 - 重复执行发布命令：`apply-noop`，revision保持1047；

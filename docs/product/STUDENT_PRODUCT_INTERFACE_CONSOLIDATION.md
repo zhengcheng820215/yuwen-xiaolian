@@ -1,10 +1,15 @@
 # 单学生产品界面与入口收敛
 
+状态：`ACTIVE NORMATIVE / HISTORICAL IMPLEMENTATION SNAPSHOTS PRESERVED`
+
 英文名称：Single-Student Product Interface Consolidation  
 文档定位：Phase 16 Post-Integration Product Consolidation  
-设计状态：ACCEPTED  
-工程状态：IN PROGRESS（`/learning` 学生反馈体验校准与 Product / Demo 数据隔离已完成）  
+历史设计状态（2026-07-21）：ACCEPTED
+
+历史工程快照（2026-07-21）：IN PROGRESS（`/learning` 学生反馈体验校准与 Product / Demo 数据隔离已完成）
 记录日期：2026-07-21
+
+当前 Runtime、Learning、Provider 与 Trial 状态统一读取[当前产品状态](./CURRENT_PRODUCT_STATE.md)，不得由上述历史快照推断。
 
 ## 一、文档定位
 
@@ -31,7 +36,7 @@
 - 独立内部复核入口；
 - Phase 16.3A / B `PASS / FROZEN`；
 - Phase 16.3C Engineering、Controlled Live 与 Lightweight Human Demo `PASS`；
-- Phase 16.3C 自然日验收仍为 `PENDING (0 / 5)`。
+- 该历史快照中的 Phase 16.3C 自然日验收为 `PENDING (0 / 5)`。
 - 正式 `/learning` 使用独立产品学生身份，Demo / Debug 使用独立验收身份；作用域隔离 Debug `9 / 9 PASS`。
 
 页面收敛的目标不是再次证明这些 Runtime 能力存在，而是减少真实使用中的入口分散、状态重复、工程信息暴露和操作死路。
@@ -440,7 +445,7 @@ Provider 单次尝试超时属于 Runtime 内部策略，不直接投射为学�
 
 ### 13.1 自然日验收版本冻结
 
-Phase 16.3C 自然日验收必须以页面收敛、PC / 平板人工验收和关键回归通过后的同一稳定构建为验收对象。当前记录仍为 `0 / 5`，因此应在本次入口收敛完成后记录 `acceptanceBaselineVersion`，再开始计算 5—7 个自然日。
+Phase 16.3C 自然日验收必须以页面收敛、PC / 平板人工验收和关键回归通过后的同一稳定构建为验收对象。该历史记录当时为 `0 / 5`，因此要求在入口收敛完成后记录 `acceptanceBaselineVersion`，再开始计算 5—7 个自然日。当前验收状态必须查阅现行状态页与对应运行记录。
 
 验收期间：
 

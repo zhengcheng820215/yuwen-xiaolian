@@ -1,0 +1,1900 @@
+{
+  "manifestVersion": "product_document_authority_manifest_v1",
+  "generatedAt": "2026-08-31",
+  "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+  "enums": {
+    "documentType": [
+      "CURRENT_CONTROL",
+      "NORMATIVE_CONTRACT",
+      "IMPLEMENTATION_PLAN",
+      "ACCEPTANCE_REPORT",
+      "HISTORICAL_SNAPSHOT"
+    ],
+    "authority": [
+      "CURRENT_STATE",
+      "CONTROL_PLANE",
+      "NORMATIVE",
+      "IMPLEMENTATION",
+      "EVIDENCE",
+      "REFERENCE"
+    ],
+    "lifecycle": [
+      "ACTIVE",
+      "COMPLETED",
+      "SUPERSEDED",
+      "HISTORICAL"
+    ],
+    "designStatus": [
+      "PASS",
+      "PENDING",
+      "NOT_APPLICABLE",
+      "NOT_DECLARED"
+    ],
+    "engineeringStatus": [
+      "PASS",
+      "PENDING",
+      "NOT_APPLICABLE",
+      "NOT_DECLARED"
+    ],
+    "productAcceptanceStatus": [
+      "PASS",
+      "PENDING",
+      "NOT_APPLICABLE",
+      "NOT_CLAIMED"
+    ],
+    "liveStatus": [
+      "ACTIVE",
+      "OFF",
+      "PENDING",
+      "NOT_APPLICABLE",
+      "NOT_CLAIMED",
+      "DEFER_TO_CURRENT_STATE"
+    ]
+  },
+  "entries": [
+    {
+      "path": "AI_QUESTION_ADOPTION_AND_EMPIRICAL_CALIBRATION_CONTRACT.md",
+      "title": "AI 训练任务、题目采用与真实作答校准契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-18",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "NOT_DECLARED",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md",
+      "title": "AI 题目生成质量与定向优化契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-20",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "NOT_DECLARED",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "AI_QUESTION_OPTIMIZATION_STAGE1_BASELINE_REPORT_2026-08-13.md",
+      "title": "AI 题目优化阶段1只读基线报告",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-13",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "NOT_DECLARED",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "AI_QUESTION_OPTIMIZATION_STAGE2_RULE_AUDIT_2026-08-13.md",
+      "title": "AI 题目优化阶段2规则审计",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-13",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "AI_QUESTION_OPTIMIZATION_STAGE3_CANDIDATE_REPORT_2026-08-13.md",
+      "title": "AI 题目优化阶段3候选报告",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-13",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "AI_QUESTION_OPTIMIZATION_STAGE4_PUBLICATION_REPORT_2026-08-13.md",
+      "title": "AI 题目优化阶段4采用发布报告",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-13",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "AI_QUESTION_OPTIMIZATION_STAGE5_CLOSURE_PLAN_2026-08-13.md",
+      "title": "AI 题目与素材优化阶段5收口计划",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-13",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "NOT_DECLARED",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "AI_RESOURCE_GENERATION_AND_OPTIMIZATION_WORKFLOW_CONTRACT.md",
+      "title": "Phase 17 AI 资源生成与优化工作流契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-18",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "AUTHORING_FIELD_CONTRACT.md",
+      "title": "Phase 17 录入字段契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-04",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "AUTHORING_REVIEW_PUBLICATION_RESPONSIBILITY_CONTRACT.md",
+      "title": "Phase 17 录入、审核与发布职责边界契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-04",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "CROSS_PLATFORM_UX_FOUNDATION.md",
+      "title": "跨平台 UX 基础规范",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-12",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "NOT_DECLARED",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "CURRENT_PRODUCT_STATE.md",
+      "title": "当前产品状态",
+      "documentType": "CURRENT_CONTROL",
+      "authority": "CURRENT_STATE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-31",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_APPLICABLE",
+        "engineering": "NOT_APPLICABLE",
+        "productAcceptance": "PENDING",
+        "live": "OFF"
+      }
+    },
+    {
+      "path": "FEEDBACK_OBSERVATION_TARGET_PROJECTION_CONVERGENCE_ENGINEERING_DEBUG_ACCEPTANCE.md",
+      "title": "反馈观察对象投射收口工程与 Debug 验收文档",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-25",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "FORMAL_QUESTION_HINT_AND_FEEDBACK_BATCH_AUDIT_CONTRACT.md",
+      "title": "全部正式题提示与反馈批量审计契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-25",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "FORMAL_RESOURCE_IMMUTABILITY_CONTRACT.md",
+      "title": "正式资源不可变性契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-09",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "NOT_DECLARED",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "FORMAL_RESOURCE_PRODUCTION_CONTRACT_MAP.md",
+      "title": "正式资源生产契约地图",
+      "documentType": "CURRENT_CONTROL",
+      "authority": "CONTROL_PLANE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-21",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_APPLICABLE",
+        "engineering": "NOT_APPLICABLE",
+        "productAcceptance": "PENDING",
+        "live": "DEFER_TO_CURRENT_STATE"
+      }
+    },
+    {
+      "path": "FULL_PROJECT_DOCUMENT_AUDIT_2026-08-29.md",
+      "title": "全项目文档审计报告（2026-08-29）",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-29",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP1_DATA_CONTRACT_AND_MIGRATION_PLAN.md",
+      "title": "知识练习第一阶段 WP1 数据契约与迁移工程实施文档",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-28",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PENDING",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP1_MIGRATION_REPORT.md",
+      "title": "知识练习第一阶段 WP1 迁移与工程验收报告",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-28",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP2_ENGINEERING_ACCEPTANCE_REPORT.md",
+      "title": "知识练习第一阶段 WP2 工程验收报告",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-28",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP2_SESSION_AND_SELECTION_PLAN.md",
+      "title": "知识练习第一阶段 WP2 练习会话与选题工程实施文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-28",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP3_ENGINEERING_ACCEPTANCE_REPORT.md",
+      "title": "知识练习第一阶段 WP3 工程验收报告",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-29",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP3_RESPONSE_EVALUATION_AND_FEEDBACK_PLAN.md",
+      "title": "知识练习第一阶段 WP3 判题、响应与逐题反馈工程实施文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-29",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP4_ENGINEERING_ACCEPTANCE_REPORT.md",
+      "title": "知识练习第一阶段 WP4 工程验收报告",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-29",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP4_LOCAL_PERSISTENCE_AND_RECOVERY_PLAN.md",
+      "title": "知识练习第一阶段 WP4 本地持久化与恢复工程实施文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-29",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PENDING",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP5_ENGINEERING_ACCEPTANCE_REPORT.md",
+      "title": "知识练习第一阶段 WP5 工程验收报告",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-29",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP5_WRONG_ANSWER_REINFORCEMENT_ENGINEERING_PLAN.md",
+      "title": "知识练习第一阶段 WP5 错题即时巩固工程实施文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-29",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP6_ENGINEERING_ACCEPTANCE_REPORT.md",
+      "title": "知识练习第一阶段 WP6 工程验收报告",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-30",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "PENDING"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP6_RESULT_SUMMARY_AND_NEXT_STEP_RECOMMENDATION_ENGINEERING_PLAN.md",
+      "title": "知识练习第一阶段 WP6 结果摘要与下一步推荐工程实施文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-30",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "PASS",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP7A_ENGINEERING_ACCEPTANCE_REPORT.md",
+      "title": "知识练习第一阶段 WP7A 工程验收报告",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-29",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP7A_SINGLE_ENTRY_INTEGRATION_ENGINEERING_PLAN.md",
+      "title": "知识练习第一阶段 WP7A 唯一入口最小整合工程实施文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-29",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP7B_ENGINEERING_ACCEPTANCE_REPORT.md",
+      "title": "知识练习第一阶段 WP7B 工程验收报告",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-30",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "PENDING"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP7B_FULL_CHAIN_REGRESSION_AND_PRODUCT_ACCEPTANCE_PLAN.md",
+      "title": "知识练习第一阶段 WP7B 全链回归与产品验收工程实施文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-30",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "PASS",
+        "live": "PENDING"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP7B_PRODUCT_ACCEPTANCE_REPORT.md",
+      "title": "知识练习第一阶段 WP7B 产品验收报告",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-30",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "PENDING"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_USABLE_PRODUCT_PHASE1_EXECUTION_CHECKLIST.md",
+      "title": "知识练习可用产品第一阶段执行清单",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-29",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "PASS",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "KNOWLEDGE_PRACTICE_USABLE_PRODUCT_PHASE1_PLAN.md",
+      "title": "知识练习可用产品第一阶段总体工程方案",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-30",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "PENDING"
+      }
+    },
+    {
+      "path": "LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md",
+      "title": "Learning 反馈后修订契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-18",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "LEARNING_FEEDBACK_REVISION_OBSERVATION_AND_AUDIT_CONTRACT.md",
+      "title": "Learning 反馈后修订观察、审计与指标契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-14",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "MATERIAL_CORPUS_QUALITY_AND_VERSIONING_CONTRACT.md",
+      "title": "材料语料质量与版本升级契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-13",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "NOT_DECLARED",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "MATERIAL_WORKBENCH_UX_CALIBRATION_2026-07-30.md",
+      "title": "素材资源录入平台 UX 校准记录",
+      "documentType": "HISTORICAL_SNAPSHOT",
+      "authority": "REFERENCE",
+      "lifecycle": "SUPERSEDED",
+      "asOf": "2026-08-12",
+      "supersedes": [],
+      "supersededBy": [
+        "RESOURCE_PRODUCTION_WORKBENCH_UX_STANDARD.md"
+      ],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PC_LEARNING_WORKSPACE_UX_CALIBRATION.md",
+      "title": "PC / 平板学习工作台体验校准记录",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-12",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PENDING",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_CLAIM_EVIDENCE_TRACEABILITY_CONTRACT.md",
+      "title": "产品主张与证据可追溯契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-31",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "NOT_APPLICABLE",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_COLOR_SEMANTICS.md",
+      "title": "产品颜色语义规范",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-13",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "NOT_DECLARED",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_COMPLEXITY_CONVERGENCE_CONTRACT.md",
+      "title": "产品复杂度收口契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-24",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_COMPLEXITY_CONVERGENCE_STAGE0_READ_ONLY_AUDIT_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "产品复杂度收口阶段 0：只读复杂度审计工程实施与 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-24",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_COMPLEXITY_CONVERGENCE_STAGE1_SURFACE_PROJECTION_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "产品复杂度收口阶段 1：页面投射与默认展示收口工程实施与 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-24",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_COMPLEXITY_CONVERGENCE_STAGE2_CONDITIONAL_POLICY_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "产品复杂度收口阶段 2：条件触发策略收口工程实施与 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-24",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_COMPLEXITY_CONVERGENCE_STAGE3_FEEDBACK_PROFILE_PROJECTION_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "产品复杂度收口阶段 3：反馈与 Profile 投射收口工程实施与 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-24",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_REAL_TRIAL_PREFLIGHT_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "产品复杂度收口阶段 4：真实 Trial Window 启动前工程实施与 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-25",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PENDING",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_REAL_TRIAL_WINDOW_OPERATION_AND_ACCEPTANCE_CONTRACT.md",
+      "title": "产品复杂度收口阶段 4：真实 Trial Window 启动与运行验收契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-25",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_STABLE_TRIAL_AND_RETIREMENT_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "产品复杂度收口阶段 4：稳定试用与退役决策工程实施与 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-25",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_CONTROL_TABLE.md",
+      "title": "产品负责人控制表",
+      "documentType": "CURRENT_CONTROL",
+      "authority": "CONTROL_PLANE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-31",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_APPLICABLE",
+        "engineering": "NOT_APPLICABLE",
+        "productAcceptance": "PENDING",
+        "live": "DEFER_TO_CURRENT_STATE"
+      }
+    },
+    {
+      "path": "PRODUCT_DOCUMENT_AUTHORITY_MANIFEST.md",
+      "title": "产品文档权威清单",
+      "documentType": "CURRENT_CONTROL",
+      "authority": "CONTROL_PLANE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-31",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_APPLICABLE",
+        "engineering": "NOT_APPLICABLE",
+        "productAcceptance": "PENDING",
+        "live": "DEFER_TO_CURRENT_STATE"
+      }
+    },
+    {
+      "path": "PRODUCT_DOCUMENT_GOVERNANCE_CONTRACT.md",
+      "title": "产品文档治理契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-31",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PENDING",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_DOCUMENT_P2_SEMANTIC_ALIGNMENT_AND_DEBUG_ACCEPTANCE.md",
+      "title": "P2 产品文档语义对齐与 Debug 验收",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-31",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_APPLICABLE",
+        "live": "NOT_APPLICABLE"
+      }
+    },
+    {
+      "path": "PRODUCT_DOCUMENT_P3_CLAIM_EVIDENCE_TRACEABILITY_AND_DEBUG_ACCEPTANCE.md",
+      "title": "产品文档 P3：主张与证据可追溯工程及 Debug 验收",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-31",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_APPLICABLE",
+        "live": "NOT_APPLICABLE"
+      }
+    },
+    {
+      "path": "PRODUCT_DOMAIN_SEMANTICS_AND_MAIN_CHAIN_CONTRACT.md",
+      "title": "产品领域语义与主链统一契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-31",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "NOT_APPLICABLE",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_RUNTIME_RELIABILITY_AND_REAL_TRIAL_REENTRY_CONTRACT.md",
+      "title": "产品运行可靠性与真实 Trial 重新准入契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-26",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "OFF"
+      }
+    },
+    {
+      "path": "PRODUCT_RUNTIME_RELIABILITY_CURRENT_COMMIT_ADMISSION_PREFLIGHT_CHECKLIST.md",
+      "title": "当前 Commit 真实 Trial 准入前执行清单",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-26",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "NOT_DECLARED",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "OFF"
+      }
+    },
+    {
+      "path": "PRODUCT_RUNTIME_RELIABILITY_REAL_TRIAL_ADMISSION_ACTIVATION_RUNBOOK.md",
+      "title": "真实 Trial 准入激活执行规程",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-26",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "NOT_DECLARED",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "OFF"
+      }
+    },
+    {
+      "path": "PRODUCT_RUNTIME_RELIABILITY_WP_R0_BASELINE_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "产品运行可靠性 WP-R0：运行基线、Reason Code 与只读审计工程实施及 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-25",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_RUNTIME_RELIABILITY_WP_R1_LAUNCHER_AND_HEALTH_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "产品运行可靠性 WP-R1：统一启动器与 Runtime Health 工程实施及 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-25",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_RUNTIME_RELIABILITY_WP_R2_FAILURE_CLASSIFICATION_AND_RECOVERY_PROJECTION_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "产品运行可靠性 WP-R2：Learning / Workbench 故障分类与恢复投射工程实施及 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-25",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_RUNTIME_RELIABILITY_WP_R3_RUNTIME_IDENTITY_AND_TRIAL_INVALIDATION_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "产品运行可靠性 WP-R3：Product Runtime Identity 与 Trial 自动失效工程实施及 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-26",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_RUNTIME_RELIABILITY_WP_R4_TRIAL_REENTRY_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "产品运行可靠性 WP-R4：Trial 重新准入工程实施与 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-26",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "OFF"
+      }
+    },
+    {
+      "path": "PRODUCT_RUNTIME_RELIABILITY_WP_R5_FINAL_CLOSEOUT.md",
+      "title": "WP-R5 最终收口说明",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "NOT_DECLARED",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT_RUNTIME_RELIABILITY_WP_R5_REAL_LEARNING_SMOKE_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "产品运行可靠性 WP-R5：真实学习烟测工程实施与 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-26",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PENDING",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "PRODUCT.md",
+      "title": "AI 语文能力诊断与成长系统（AI Language Ability Diagnosis & Growth System）",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "NOT_DECLARED",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "NOT_DECLARED",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "QUESTION_REVIEW_AND_PUBLICATION_WORKFLOW_CONTRACT.md",
+      "title": "Phase 17 题目审核与发布工作流契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-10",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "QUESTION_REVIEW_PLATFORM_CONTRACT_ALIGNMENT_AUDIT_2026-07-29.md",
+      "title": "题目审核平台契约对齐检查报告",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-07-29",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_OPEN_RESPONSE_DIFFICULTY_AND_INPUT_LOAD_OPTIMIZATION_CONTRACT.md",
+      "title": "阅读开放文本题难度梯度与输入负担优化契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-21",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "NOT_DECLARED",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_OPEN_RESPONSE_FORMAL_QUESTION_FOCUSED_GOVERNANCE_BATCH2_PLAN.md",
+      "title": "阅读开放文本题正式题第二批聚焦治理实施与 Debug 验收计划",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-21",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_OPEN_RESPONSE_INPUT_LOAD_STAGE1_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "阅读开放文本题输入负担阶段 1 工程实施与 Debug 验收清单",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-20",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_OPEN_RESPONSE_INPUT_LOAD_STAGE2_PLANNER_PROMPT_AND_LENGTH_ENGINEERING_PLAN.md",
+      "title": "阅读开放文本题输入负担阶段 2 Planner、Prompt 与长度策略工程实施及 Debug 验收清单",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-21",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_OPEN_RESPONSE_INPUT_LOAD_STAGE3_QUALITY_GATE_AND_SEQUENCE_ENGINEERING_PLAN.md",
+      "title": "阅读开放文本题输入负担阶段 3 质量门禁、题组顺序与发布一致性工程实施及 Debug 验收清单",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-21",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_OPEN_RESPONSE_INPUT_LOAD_STAGE4_EXISTING_QUESTION_GOVERNANCE_AND_REAL_CALIBRATION_ENGINEERING_PLAN.md",
+      "title": "阅读开放文本题输入负担阶段 4 既有题治理与真实校准工程实施及 Debug 验收清单",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-21",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md",
+      "title": "阅读训练单项选择作答契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-19",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "NOT_DECLARED",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_SINGLE_CHOICE_STAGE2_ENGINEERING_PLAN.md",
+      "title": "阅读训练单项选择阶段 2 工程实施与验收清单",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-18",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_SINGLE_CHOICE_STAGE3_ENGINEERING_PLAN.md",
+      "title": "阅读单选阶段 3 工程实施与验收清单",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-18",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_SINGLE_CHOICE_STAGE4_E2E_AND_PRODUCT_ACCEPTANCE_PLAN.md",
+      "title": "阅读单选阶段 4 端到端联调与产品验收清单",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-18",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "PASS",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_TRAINING_PROGRESSIVE_LOAD_MODEL_CONTRACT.md",
+      "title": "阅读训练递进负担模型契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-24",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_TRAINING_PROGRESSIVE_LOAD_STAGE0_CONTRACT_AND_READ_ONLY_AUDIT_PLAN.md",
+      "title": "阅读训练递进负担模型阶段 0：契约与只读审计计划",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-21",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_TRAINING_PROGRESSIVE_LOAD_STAGE1_NATIVE_SEMANTICS_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "阅读训练递进负担模型阶段 1：原生负担语义工程实施与 Debug 验收计划",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-21",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_PLANNER_PROMPT_GROUP_GATE_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "阅读训练递进负担模型阶段 2：Planner、Prompt 与题组级 Gate 工程实施与 Debug 验收计划",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-21",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_TRAINING_PROGRESSIVE_LOAD_STAGE3_LEARNING_DIAGNOSIS_EVIDENCE_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "阅读训练递进负担模型阶段 3：Learning、Diagnosis 与 Evidence 消费工程及 Debug 验收计划",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-24",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "READING_TRAINING_PROGRESSIVE_LOAD_STAGE4_SUCCESSOR_GOVERNANCE_AND_REAL_CALIBRATION_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "阅读训练递进负担阶段 4 历史资源 Successor 治理与真实校准工程实施及 Debug 验收清单",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-24",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "REAL_LEARNING_DATA_COLLECTION_AND_OBSERVATION_CONTRACT.md",
+      "title": "真实 Learning 数据采集与观察契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-13",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "REAL_LEARNING_MINIMUM_COLLECTION_ENGINEERING_CONTRACT.md",
+      "title": "真实 Learning 最小采集工程契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-13",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "RESOURCE_PRODUCTION_WORKBENCH_UX_STANDARD.md",
+      "title": "资源生产工作台 UX 规范",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-13",
+      "supersedes": [
+        "MATERIAL_WORKBENCH_UX_CALIBRATION_2026-07-30.md"
+      ],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "NOT_DECLARED",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "RUBRIC_ALIGNED_FEEDBACK_STAGE1_DETERMINISTIC_PROJECTION_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "Rubric 对齐反馈阶段 1：确定性 Projection 工程实施与 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-27",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "RUBRIC_ALIGNED_FEEDBACK_STAGE2_GROUNDING_ACTION_PLAN_INTEGRATION_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "Rubric 对齐反馈阶段 2：Grounding 与 Action Plan 最小接入工程实施与 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-27",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "RUBRIC_ALIGNED_FEEDBACK_STAGE3_NARRATIVE_AND_STUDENT_SURFACE_PROJECTION_ENGINEERING_AND_DEBUG_PLAN.md",
+      "title": "Rubric 对齐反馈阶段 3：Narrative 与学生页面投射工程实施与 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-28",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "RUBRIC_ALIGNED_FEEDBACK_STAGE4_REAL_TRIAL_CALIBRATION_AND_DEBUG_ACCEPTANCE_PLAN.md",
+      "title": "Rubric 对齐反馈阶段 4：真实 Trial 校准与 Debug 验收文档",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-28",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "OFF"
+      }
+    },
+    {
+      "path": "RUBRIC_ALIGNED_STUDENT_FEEDBACK_OPTIMIZATION_PLAN.md",
+      "title": "评分要点对齐的学生反馈优化方案",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-27",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "OFF"
+      }
+    },
+    {
+      "path": "RUBRIC_FEEDBACK_SEMANTIC_ROLE_ALIGNMENT_ENGINEERING_AND_DEBUG_ACCEPTANCE.md",
+      "title": "Rubric 反馈语义角色对齐工程与 Debug 验收文档",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "NOT_DECLARED",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "SHARED_FORMAL_RESOURCE_CONCURRENCY_CONTRACT.md",
+      "title": "共享正式资源并发与写入恢复契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-28",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md",
+      "title": "Phase 17 单训练任务重新生成契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "SUPERSEDED",
+      "asOf": "2026-08-06",
+      "supersedes": [],
+      "supersededBy": [
+        "UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md"
+      ],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "NOT_DECLARED",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "STUDENT_LEARNING_NARRATIVE_CALIBRATION.md",
+      "title": "Student Learning Narrative Calibration",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-20",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "STUDENT_PRODUCT_INTERFACE_CONSOLIDATION.md",
+      "title": "单学生产品界面与入口收敛",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-07-21",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "STUDENT_SINGLE_ENTRY_FORMAL_READING_AND_KNOWLEDGE_PRACTICE_ALIGNMENT_DECISION_WP0A.md",
+      "title": "学生唯一入口、正式阅读题库与轻量知识练习角色对齐决策（WP0A）",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-29",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "PASS",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "TARGETED_MICRO_TRAINING_MATERIAL_AND_SCHEDULING_CONTRACT.md",
+      "title": "针对性短片段微训练材料与调度契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-21",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "TARGETED_MICRO_TRAINING_QUALITY_TRACE_CONSISTENCY_REPAIR_PLAN.md",
+      "title": "针对性微训练冻结质量轨迹一致性修复计划",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-21",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "TARGETED_MICRO_TRAINING_STAGE2_PRODUCTION_ENGINEERING_PLAN.md",
+      "title": "针对性短片段微训练阶段 2：生产工作台与首批资源工程实施及验收清单",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-20",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "TARGETED_MICRO_TRAINING_STAGE3_LEARNING_SCHEDULING_ENGINEERING_PLAN.md",
+      "title": "针对性短片段微训练阶段 3：Learning 条件调度工程实施与验收清单",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-08-20",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "TARGETED_MICRO_TRAINING_STAGE4_CONTROLLED_CALIBRATION_CONTRACT.md",
+      "title": "针对性短片段微训练阶段 4：受控启用与真实校准契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-20",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "TARGETED_MICRO_TRAINING_STAGE4_ENGINEERING_AND_ACCEPTANCE_PLAN.md",
+      "title": "针对性短片段微训练阶段 4：工程实施与验收清单",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-20",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "TRAINING_TASK_GROUP_AI_PLANNING_CONTRACT.md",
+      "title": "Phase 17 训练任务组 AI 规划契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-13",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PENDING",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md",
+      "title": "统一资源生产工作台契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-19",
+      "supersedes": [
+        "SINGLE_TRAINING_TASK_REGENERATION_CONTRACT.md"
+      ],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    }
+  ]
+}

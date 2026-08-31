@@ -8,6 +8,8 @@
 
 日期：2026-08-26
 
+状态解释：上述内容是 WP-R0—R4 完成时点的包状态，不作为当前 Runtime、Provider 或 Trial 的即时事实来源。唯一当前状态见：[当前产品状态](./CURRENT_PRODUCT_STATE.md)；实时 Runtime Health 与身份绑定事实优先于本文的历史阶段结论。
+
 关联文档：
 
 - [WP-R0 运行基线、Reason Code 与只读审计工程实施及 Debug 验收文档](./PRODUCT_RUNTIME_RELIABILITY_WP_R0_BASELINE_ENGINEERING_AND_DEBUG_PLAN.md)

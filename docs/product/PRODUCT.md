@@ -1,5 +1,11 @@
 # AI 语文能力诊断与成长系统（AI Language Ability Diagnosis & Growth System）
 
+文档类型：`NORMATIVE_CONTRACT`
+
+状态：`ACTIVE / PRODUCT PRINCIPLE AUTHORITY`
+
+当前 Runtime、正式资源、Learning、Provider、Trial 与产品验收状态的唯一来源见：[当前产品状态](./CURRENT_PRODUCT_STATE.md)。文档分类、生命周期与冲突规则见[产品文档治理契约](./PRODUCT_DOCUMENT_GOVERNANCE_CONTRACT.md)和[产品文档权威清单](./PRODUCT_DOCUMENT_AUTHORITY_MANIFEST.md)；领域对象、完整主链和简写边界见[产品领域语义与主链统一契约](./PRODUCT_DOMAIN_SEMANTICS_AND_MAIN_CHAIN_CONTRACT.md)；长期主张、工程证据、产品验收、实时证明和教育效果之间的层级见[产品主张与证据可追溯契约](./PRODUCT_CLAIM_EVIDENCE_TRACEABILITY_CONTRACT.md)。本文只冻结长期产品原则，不声明即时运行状态。
+
 ## 一、产品定位
 
 本产品不是刷题工具，也不是单纯的提分工具。

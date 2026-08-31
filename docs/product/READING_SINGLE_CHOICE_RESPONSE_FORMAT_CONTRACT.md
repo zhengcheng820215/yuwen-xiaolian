@@ -860,7 +860,7 @@ AI 选择 `single_choice` 时必须同时生成题干、完整选项、正确答
 
 2026-08-18 顺序规划工程最终收口：`training_task_sequence_planning_v2` 将进入层身份从位置推断升级为显式的 `preludeCandidateIds`，正式资源保存并恢复 `sequence-strategy / sequence-reason / sequence-rank / sequence-prelude / sequence-prelude-count`。默认 `entry_first` 最多只提前 `1–2` 道合格基础单选；即使题组包含第 `3` 道单选，只要存在文本任务，首个文本任务也必须紧随进入层，其余单选留在后续训练。`holistic_first` 必须确定性把首个文本任务置于本轮新候选首位，不能只依赖 Provider 原始返回顺序；`role_driven` 与 Retest / Transfer 保持时间依赖。Learning 优先级只作用于显式进入层，旧版无标记资源按同材料最多前置 `2` 道的保守兼容规则处理。顺序元数据必须在保存、权威刷新和再次保存后保持不变；补充采用继续追加，不重排已发布任务。执行证据见[单选进入层顺序规划与 Learning 调度验收报告](../education/phase/reports/reading_single_choice_sequence_planning_learning_scheduling_acceptance_2026-08-18.md)。
 
-2026-08-18 正式匹配题型收口：显式 Resource Version 匹配已按冻结 `responseFormat` 生成 `questionType / responseMode / requiredCapabilities`，并按冻结 Rubric 推导文本证据与推理链要求；单选可观察性不再依赖文本型 Rubric 字段，允许区间内的锁定版本难度软偏好同步对齐。当前真实正式资源只读验收已从 `39` 个可消费版本中正确命中 `single_choice`，Stage 4 E2E `13 / 13 PASS`。执行证据见[单选正式资源匹配与 Learning 投放修复验收](../education/phase/reports/reading_single_choice_formal_matching_response_format_acceptance_2026-08-18.md)。
+2026-08-18 正式匹配题型收口：显式 Resource Version 匹配已按冻结 `responseFormat` 生成 `questionType / responseMode / requiredCapabilities`，并按冻结 Rubric 推导文本证据与推理链要求；单选可观察性不再依赖文本型 Rubric 字段，允许区间内的锁定版本难度软偏好同步对齐。该次真实正式资源只读验收从 `39` 个可消费版本中正确命中 `single_choice`，Stage 4 E2E `13 / 13 PASS`。执行证据见[单选正式资源匹配与 Learning 投放修复验收](../education/phase/reports/reading_single_choice_formal_matching_response_format_acceptance_2026-08-18.md)。
 
 门禁开启仅表示正式发布的合格单选资源可以被 Learning 消费，不表示真实教育效果已经成立。后续仍需按 Resource Version 与 Option Set Version 分组采集真实 Attempt，并用文本互补任务、Retest 或 Transfer 校准解释边界。
 

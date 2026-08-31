@@ -1,5 +1,7 @@
 # 跨平台 UX 基础规范
 
+状态：`ACTIVE / SHARED UX FOUNDATION`
+
 文档版本：`v1.1`
 
 生效日期：`2026-08-12`

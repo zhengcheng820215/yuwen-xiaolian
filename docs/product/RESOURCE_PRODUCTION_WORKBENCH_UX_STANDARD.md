@@ -1,5 +1,7 @@
 # 资源生产工作台 UX 规范
 
+状态：`ACTIVE / RESOURCE PRODUCTION UX AUTHORITY`
+
 文档版本：`v1.5`
 
 生效日期：`2026-08-13`

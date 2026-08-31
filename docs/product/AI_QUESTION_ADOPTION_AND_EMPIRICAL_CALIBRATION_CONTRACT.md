@@ -8,6 +8,8 @@
 
 生效日期：`2026-08-18`
 
+核心对象、完整领域主链、Revision 与历史数量口径统一遵循[产品领域语义与主链契约](./PRODUCT_DOMAIN_SEMANTICS_AND_MAIN_CHAIN_CONTRACT.md)。
+
 ## 一、适用边界
 
 本契约同时约束两层 AI 结果：
@@ -125,17 +127,19 @@ awaiting_data
 - 训练任务采用后自动保存，不显示删除任务、逐项勾选或“保存任务组修改”；
 - 采用时不要求审核人、审核意见或第二次确认；
 - 不采用不会改变当前正式版本和 Learning；
-- 当前正式题严格保持46道，无历史 Registry 泄漏；
+- 未采用候选不得改变命令执行前复读到的正式题集合，不得造成历史 Registry 泄漏；
 - 自动质量检查通过不显示为“教师已审核”；
 - 空作答样本返回 `awaiting_data`，未达到当前版本化试运行阈值时返回 `insufficient_sample`；
 - 后台校准状态不阻断采用、发布或 Learning。
-- 定向优化只生成候选，未采用时不得改变当前46道正式题及 Learning 消费。
+- 定向优化只生成候选，未采用时不得改变当前正式题集合及 Learning 消费。
 
-阶段4真实采用发布已验证上述边界：四道试点均通过单次“采用并发布”形成 v4 后继版本，当前 Formal Version、Registry、Observation Link、Frozen Quality Trace 与 Learning 可消费题目仍为 `34 / 34`。内部断点与修复记录见[AI 题目优化阶段4采用发布报告](./AI_QUESTION_OPTIMIZATION_STAGE4_PUBLICATION_REPORT_2026-08-13.md)。
+历史阶段4真实采用发布曾验证上述边界：四道试点均通过单次“采用并发布”形成 v4 后继版本；该次验收时 Formal Version、Registry、Observation Link、Frozen Quality Trace 与 Learning 可消费题目为 `34 / 34`。内部断点与修复记录见[AI 题目优化阶段4采用发布报告](./AI_QUESTION_OPTIMIZATION_STAGE4_PUBLICATION_REPORT_2026-08-13.md)。
 
-阶段5再次验证材料换版不增加人工决定：《走一步，再走一步》v2 与3道正式题 v2 由一次原子维护命令完成接续，未要求用户填写来源说明、审核人或意见；来源待核验只作为治理信息，Learning 可消费仍为 `34 / 34`。
+历史阶段5再次验证材料换版不增加人工决定：《走一步，再走一步》v2 与3道正式题 v2 由一次原子维护命令完成接续，未要求用户填写来源说明、审核人或意见；该次验收的 Learning 可消费基线为 `34 / 34`。
 
-P2首批补题已经验证上述边界：四道基础理解/概括候选分别形成后继 Plan Task 与完整正式题链，当前 Formal Version、Registry、Observation Link、Frozen Quality Trace 与 Learning 可消费题统一为 `46 / 46`；重复发布为 `apply-noop`。详细记录见[P2-03 基础能力补充正式发布验收记录](../education/phase/reports/question_portfolio_supplement_p2_03_acceptance_2026-08-14.md)。
+历史 P2 首批补题也验证了上述边界：四道基础理解/概括候选分别形成后继 Plan Task 与完整正式题链；该次验收的 Formal Version、Registry、Observation Link、Frozen Quality Trace 与 Learning 可消费题为 `46 / 46`，重复发布为 `apply-noop`。详细记录见[P2-03 基础能力补充正式发布验收记录](../education/phase/reports/question_portfolio_supplement_p2_03_acceptance_2026-08-14.md)。
+
+以上数量只属于对应历史时点，不构成当前题量门槛。当前正式资源数量统一读取[当前产品状态](./CURRENT_PRODUCT_STATE.md)及实时 Formal Store / Registry 复读结果。
 
 ## 八、禁止做法
 

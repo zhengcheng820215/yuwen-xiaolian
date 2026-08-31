@@ -270,6 +270,9 @@
     "debug:learning-entry": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runLearningEntryDebug.ts",
     "debug:personalized-training-flow": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runPersonalizedTrainingFlowDebug.ts",
     "debug:beta-learning-session-result": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runBetaLearningSessionResultDebug.ts",
+    "audit:product-doc-governance": "node scripts/audit-product-document-governance.mjs",
+    "audit:product-doc-semantics": "node scripts/audit-product-document-semantics.mjs",
+    "audit:product-claim-evidence": "node scripts/audit-product-claim-evidence.mjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

@@ -398,7 +398,7 @@ StudentLearningNarrative
 npm run debug:student-feedback-grounding
 ```
 
-当前专项结果：`6 / 6 PASS`；Narrative 回归：`24 / 24 PASS`；Production Build：`PASS`。
+该次专项结果：`6 / 6 PASS`；Narrative 回归：`24 / 24 PASS`；Production Build：`PASS`。
 
 当前仍未完成：6—10 组真实样例冻结、旧版与新版并排人工评审、真实学生理解验收。未完成上述工作前，不宣称“学习叙事体验已经正式通过”。
 

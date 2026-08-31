@@ -476,7 +476,7 @@ Assignment 不插入、不重排、不覆盖核心 `resourceVersionIds`。调度
 
 验收：不会重排核心题组、不会重复 Assignment、不会形成循环或空白页。
 
-阶段 3 的触发事实、与反馈后修订互斥、确定性资源匹配、原子 Request / Assignment、追加式 Session Overlay、末题返回游标、失败恢复、专项 Debug 和浏览器验收，冻结在[阶段 3：Learning 条件调度工程实施与验收清单](./TARGETED_MICRO_TRAINING_STAGE3_LEARNING_SCHEDULING_ENGINEERING_PLAN.md)。当前已完成工程与 `57 / 57` 自动化 Debug，并通过默认关闭及无匹配浏览器安全冒烟；完整 targeted Assignment 浏览器联调仍需在受控导入资源后完成。
+阶段 3 的触发事实、与反馈后修订互斥、确定性资源匹配、原子 Request / Assignment、追加式 Session Overlay、末题返回游标、失败恢复、专项 Debug 和浏览器验收，冻结在[阶段 3：Learning 条件调度工程实施与验收清单](./TARGETED_MICRO_TRAINING_STAGE3_LEARNING_SCHEDULING_ENGINEERING_PLAN.md)。阶段 3 已完成工程与 `57 / 57` 自动化 Debug，并通过默认关闭及无匹配浏览器安全冒烟；完整 targeted Assignment 浏览器联调仍需在受控导入资源后完成。
 
 ### 阶段 4：端到端与真实校准
 
@@ -524,13 +524,13 @@ Assignment 不插入、不重排、不覆盖核心 `resourceVersionIds`。调度
 
 ## 十四、增补记录
 
-2026-08-21 质量轨迹边界与数据收口：明确 Frozen Resource、Registry 与 Observation Link 之外，当前正式微训练题还必须具有身份一致的 Frozen Quality Trace 才能进入 Learning。Trace 缺失与结构身份错位分开计数；已从完整既有审核证据为 18 道受控微训练题原子补齐质量工件，Shared Store `1957 → 1958`，当前正式任务 / Trace / Learning Consumable 达到 `79 / 79 / 79`，重复执行 no-op，未重建题目或切换正式版本。
+2026-08-21 质量轨迹边界与数据收口：明确 Frozen Resource、Registry 与 Observation Link 之外，正式微训练题还必须具有身份一致的 Frozen Quality Trace 才能进入 Learning。Trace 缺失与结构身份错位分开计数；该次从完整既有审核证据为 18 道受控微训练题原子补齐质量工件，Shared Store `1957 → 1958`，正式任务 / Trace / Learning Consumable 达到 `79 / 79 / 79`，重复执行 no-op，未重建题目或切换正式版本。
 
 2026-08-20 设计增补：将 `100–300` 字明确为推荐区间而非结构门禁；默认优先不同证据情境，`same_material_excerpt` 只在不同 Anchor、重新执行价值和无答案泄露同时成立时使用；请求从粗粒度排除整个 Material 调整为 `materialRelationPolicy + excludedSourceAnchors`；第一版 Gap 固定为四类具体动作缺口，不接纳宏观能力弱项；补充三层训练结构、单选分层职责和后续独立任务效果口径，并冻结首批约 12 份片段在真实数据形成前不继续扩容。
 
-2026-08-20 阶段 1 工程收口：完成 Material 用途兼容投影、短片段元数据、四类 Gap、Request / Assignment、Source Anchor、确定性幂等身份和三类正式资源 Repository 写入校验。历史 Material 不迁移、不回写，工作台、资源匹配和 Learning 动态调度尚未接入；专项 Debug `16 / 16`、正式资源与 Learning 回归、当前 `12` 个活动 Material Version / `61` 个活动 Registry 快照校验和生产构建均通过。详见[阶段 1 工程与 Debug 验收](../education/phase/reports/targeted_micro_training_stage1_engineering_debug_acceptance_2026-08-20.md)。
+2026-08-20 阶段 1 工程收口：完成 Material 用途兼容投影、短片段元数据、四类 Gap、Request / Assignment、Source Anchor、确定性幂等身份和三类正式资源 Repository 写入校验。历史 Material 不迁移、不回写，工作台、资源匹配和 Learning 动态调度尚未接入；专项 Debug `16 / 16`、正式资源与 Learning 回归、该时点 `12` 个活动 Material Version / `61` 个活动 Registry 快照校验和生产构建均通过。详见[阶段 1 工程与 Debug 验收](../education/phase/reports/targeted_micro_training_stage1_engineering_debug_acceptance_2026-08-20.md)。
 
-2026-08-20 阶段 2 工程收口：完成 Material 创建/修订、工作台用途展示、AI 规划、Candidate、Frozen Version、Registry 与 Observation Link 的专项身份贯通；建立 `12` 份受控短片段、`18` 道隔离验收资源，四类 Gap 均达到最小覆盖；专项 Debug `32 / 32`、正式资源回归、Learning 固定队列回归和生产构建通过。当前正式 12 篇核心材料、61 道活动题目未迁移，阶段 3 Learning 条件调度尚未开始。
+2026-08-20 阶段 2 工程收口：完成 Material 创建/修订、工作台用途展示、AI 规划、Candidate、Frozen Version、Registry 与 Observation Link 的专项身份贯通；建立 `12` 份受控短片段、`18` 道隔离验收资源，四类 Gap 均达到最小覆盖；专项 Debug `32 / 32`、正式资源回归、Learning 固定队列回归和生产构建通过。该时点的12篇核心材料与61道活动题目未迁移，阶段 3 Learning 条件调度尚未开始。
 
 2026-08-20 阶段 3 工程收口：完成正式触发适配、确定性精确匹配、Request / Assignment 原子幂等、核心队列不可变的 Session Overlay、Learning 接入和学生过渡交互；专项 Debug `57 / 57`、关键回归与生产构建通过，默认关闭和无匹配浏览器安全冒烟通过。受控资源尚未导入，完整 targeted Assignment 浏览器路径仍待阶段 4 前半段验收。
 

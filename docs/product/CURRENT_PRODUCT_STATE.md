@@ -1,10 +1,26 @@
 # 当前产品状态
 
+英文名称：Current Product State
+
+文档类型：`CURRENT_CONTROL`
+
 状态：`CURRENT / ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5) / LIVE PENDING`
+
+状态轴：`Design = NOT_APPLICABLE / Engineering = PASS / Product Acceptance = PENDING / Live = PENDING`
 
 更新日期：2026-08-31
 
-本文是当前事实的唯一快速入口。它不替代产品契约、工程实施文档或历史验收报告；当历史快照与当前事实冲突时，先以本文和 [`PRODUCT_CONTROL_TABLE.md`](./PRODUCT_CONTROL_TABLE.md) 为准，再核对相应原始证据。
+本文是当前事实的唯一快速入口。产品文档的类型、生命周期和权威顺序遵循[产品文档治理契约](./PRODUCT_DOCUMENT_GOVERNANCE_CONTRACT.md)，完整登记见[产品文档权威清单](./PRODUCT_DOCUMENT_AUTHORITY_MANIFEST.md)。它不替代产品契约、工程实施文档或历史验收报告；当历史快照与当前事实冲突时，按以下顺序裁决：
+
+```text
+实时 Runtime Health / 当前 Runtime Identity / 当前 Trial Binding
+→ 本文最近一次采样结论
+→ 产品负责人控制表
+→ 阶段契约与验收报告
+→ 历史激活、审计与校准记录
+```
+
+实时事实高于文档快照；本文不能凭文档描述重新激活 Trial。
 
 ## 一、当前裁决
 
@@ -32,7 +48,7 @@
 - WP1—WP7B、Unified Entry、Day0、Runtime R2/R3/R4 与 Trial Control：539/539 PASS；
 - Vite Production Build：607 modules transformed，PASS；
 - `git diff --check`：PASS；
-- 本地 `HEAD` 与 `origin/main` 均为该提交。
+- 本轮受控 Trial 仍以该冻结 Build Identity 为准；后续文档提交不得被解释为新的 Trial Build 已自动准入。
 
 工程通过不自动升级 Product Acceptance。
 
@@ -67,3 +83,7 @@
 - 学生能力已经改善；
 - 系统已经进入Live；
 - 100道内容目标已经成为固定产品门禁。
+
+## 七、更新触发条件
+
+Git Commit、Production Artifact、Formal Store、Provider、Runtime、Trial Binding 或 Product Acceptance 任一发生变化时，必须重新采样相应状态。更新必须记录事实来源，不得复制历史 PASS 或历史 Trial 结论作为当前证明。

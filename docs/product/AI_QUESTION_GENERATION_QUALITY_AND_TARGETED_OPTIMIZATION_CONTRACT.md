@@ -316,9 +316,9 @@ adoption_completed
 
 ## 九、首批4道定向试点
 
-执行状态：阶段3已于 `2026-08-13` 形成 `10` 个合格候选；阶段4已从每道试点中采用一个完整方案并发布四个 v4 后继版本。执行完成后当前正式题、Active Registry、Active Observation Link、Frozen Quality Trace 和 Learning 可消费题目均保持 `34 / 34`，一致性问题为 `0`。候选记录见 `AI_QUESTION_OPTIMIZATION_STAGE3_CANDIDATE_REPORT_2026-08-13.md`，采用发布记录见 `AI_QUESTION_OPTIMIZATION_STAGE4_PUBLICATION_REPORT_2026-08-13.md`。
+历史执行记录：阶段3曾于 `2026-08-13` 形成 `10` 个合格候选；阶段4从每道试点中采用一个完整方案并发布四个 v4 后继版本。该次执行结束时，正式题、Active Registry、Active Observation Link、Frozen Quality Trace 和 Learning 可消费题目均为 `34 / 34`，一致性问题为 `0`。候选记录见 `AI_QUESTION_OPTIMIZATION_STAGE3_CANDIDATE_REPORT_2026-08-13.md`，采用发布记录见 `AI_QUESTION_OPTIMIZATION_STAGE4_PUBLICATION_REPORT_2026-08-13.md`。
 
-阶段5已将能力、难度等组合建议改为材料级聚合口径；逐题审计只保留作答负荷等题目自身提示。当前34道正式题阻断为 `0`，不因非阻断 guidance 进入待处理或批量重写。执行记录见 `AI_QUESTION_OPTIMIZATION_STAGE5_CLOSURE_PLAN_2026-08-13.md`。
+阶段5已将能力、难度等组合建议改为材料级聚合口径；逐题审计只保留作答负荷等题目自身提示。该次阶段5验收的34道正式题阻断为 `0`，不因非阻断 guidance 进入待处理或批量重写。执行记录见 `AI_QUESTION_OPTIMIZATION_STAGE5_CLOSURE_PLAN_2026-08-13.md`。
 
 本轮只对以下题目生成替代候选；阶段4由用户逐题执行一次“采用并发布”，系统完成后继版本切换：
 
@@ -354,7 +354,7 @@ adoption_completed
 - 采用成功后当前卡片原位变为“已发布”；
 - 采用失败时旧正式版本仍为 Active；
 - 重试不产生重复正式版本或活动关系；
-- 当前正式题、Registry、Link 和 Frozen Quality Trace 均保持 `34 / 34`；
+- 该次验收中的正式题、Registry、Link 和 Frozen Quality Trace 均保持 `34 / 34`；
 - Learning 启动、刷新和新任务匹配继续成功。
 
 ### 10.3 回滚口径
@@ -378,7 +378,7 @@ adoption_completed
 
 ## 十二、P0—P2 收口后的生成机制稳定期（2026-08-14）
 
-P0—P2 完成后，当前正式基线为12篇活动材料、46道 Learning 可消费题。四道基础能力补充题已经通过完整内容方案、质量检查、正式发布、幂等回归和浏览器验收。现阶段没有需要立即重写生成主链或 Prompt 的 P0 缺陷。
+P0—P2 完成时的历史正式基线为12篇活动材料、46道 Learning 可消费题。四道基础能力补充题已经通过完整内容方案、质量检查、正式发布、幂等回归和浏览器验收。现阶段是否仍存在需要立即处理的 P0 缺陷，必须以当前状态页和运行时审计为准，不由该历史数量快照决定。
 
 后续生成机制进入“保持主链稳定、由真实数据触发小步校准”的观察期：
 
@@ -451,7 +451,7 @@ P0—P2 完成后，当前正式基线为12篇活动材料、46道 Learning 可�
 3. Current Head 总数保持 `81`，不得把版本治理误计为新增题量；Registry、Link、Quality Trace 与 Plan 必须在同一次受控提交中切换；
 4. 《春》后继版本必须完整保留 `choiceInteraction`，且 `acceptedOptionIds` 必须与 `correctOptionIds` 一致；补充生成发布器必须将该字段同时投影到 Draft 与 Frozen Version，避免同类缺陷复发；
 5. 《女娲造人》后继版本只显式化原 Rubric 已要求的因果关系，不扩充新的观察动作，不改变题型、任务角色或能力结论；
-6. 治理完成后，当前质量重新准入必须达到 `0 blocked`，正式身份与 Learning 消费继续保持 `81 / 81`。
+6. 该次治理验收达到 `0 blocked`，正式身份与 Learning 消费为 `81 / 81`；后续重新准入继续要求 `0 blocked` 和运行时身份数量一致，但不得把 `81` 固化为永久总量。
 
 递进负担审计中的 `unexplained_responsibility_jump` 属于题组级治理提示，不等于单题内容错误或学生能力不足。系统不得为了消除提示机械补齐全部负担等级，也不得批量改写既有正式题。只有在能够证明缺少过渡理由、真实 Learning 出现同层级失稳，且 successor 能增加独立观察价值时，才进入后继候选治理；否则保留为 advisory 并记录处置理由。
 

@@ -6,9 +6,15 @@
 文档版本：`formal_resource_production_contract_map_v4.6`
 更新日期：2026-08-21
 
+状态轴：`Design = PASS / Engineering = PASS / Product Acceptance = PASS（资源生产职责范围） / Live = DEFER_TO_CURRENT_STATE`
+
+当前正式资源与运行状态只以[当前产品状态](./CURRENT_PRODUCT_STATE.md)和实时 Runtime/Store 复读为准；本文中的数量与阶段结论属于相应更新时点的契约或验收基线。
+
 ## 一、目标与权威边界
 
 本文说明素材录入、训练任务规划、题目审核与正式发布相关契约的职责关系、阅读顺序和问题路由。
+
+跨文档对象名称、完整领域主链、Task Candidate / Question Candidate、采用、Revision 与学生修订的统一语义，遵循[产品领域语义与主链统一契约](./PRODUCT_DOMAIN_SEMANTICS_AND_MAIN_CHAIN_CONTRACT.md)。本文为了导航可以使用概念简写，但不得据此跳过 Adoption、Revision、Validation、Assessment、Review、Freeze、Registry 或 Learning Consumable 等正式化阶段。
 
 材料正文、来源元数据、题组覆盖和历史质量证据的版本化校准，统一遵循 [MATERIAL_CORPUS_QUALITY_AND_VERSIONING_CONTRACT.md](./MATERIAL_CORPUS_QUALITY_AND_VERSIONING_CONTRACT.md)。该合同禁止原地覆盖 Material Version 或 Frozen Question Version，并定义生产端与 Learning 的共同当前资源口径。
 

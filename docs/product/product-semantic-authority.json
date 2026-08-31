@@ -1,0 +1,73 @@
+{
+  "registryVersion": "product_semantic_authority_v1",
+  "generatedAt": "2026-08-31",
+  "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+  "concepts": [
+    {
+      "id": "current_runtime_state",
+      "authority": "CURRENT_PRODUCT_STATE.md",
+      "supportingDocuments": ["PRODUCT_CONTROL_TABLE.md"],
+      "requiredTokens": ["唯一文档入口", "Runtime Identity", "REAL TRIAL ACTIVE"]
+    },
+    {
+      "id": "document_governance_and_status_axes",
+      "authority": "PRODUCT_DOCUMENT_GOVERNANCE_CONTRACT.md",
+      "supportingDocuments": ["PRODUCT_DOCUMENT_AUTHORITY_MANIFEST.md"],
+      "requiredTokens": ["CURRENT_CONTROL", "Product Acceptance", "DEFER_TO_CURRENT_STATE"]
+    },
+    {
+      "id": "domain_objects_and_main_chain",
+      "authority": "PRODUCT_DOMAIN_SEMANTICS_AND_MAIN_CHAIN_CONTRACT.md",
+      "supportingDocuments": ["FORMAL_RESOURCE_PRODUCTION_CONTRACT_MAP.md"],
+      "requiredTokens": ["完整领域主链", "TrainingTaskCandidate", "QuestionCandidate", "RevisedResponse"]
+    },
+    {
+      "id": "candidate_adoption",
+      "authority": "AI_QUESTION_ADOPTION_AND_EMPIRICAL_CALIBRATION_CONTRACT.md",
+      "supportingDocuments": ["AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md"],
+      "requiredTokens": ["采用当前任务方案", "采用并发布", "ResourceReviewDecision"]
+    },
+    {
+      "id": "formal_resource_immutability",
+      "authority": "FORMAL_RESOURCE_IMMUTABILITY_CONTRACT.md",
+      "supportingDocuments": ["MATERIAL_CORPUS_QUALITY_AND_VERSIONING_CONTRACT.md"],
+      "requiredTokens": ["不可原地", "Frozen", "Active Registry"]
+    },
+    {
+      "id": "feedback_guided_revision",
+      "authority": "LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md",
+      "supportingDocuments": ["LEARNING_FEEDBACK_REVISION_OBSERVATION_AND_AUDIT_CONTRACT.md"],
+      "requiredTokens": ["一次反馈、一次修订、一次评价", "首次独立表现", "Revised Response"]
+    },
+    {
+      "id": "single_choice_response",
+      "authority": "READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md",
+      "supportingDocuments": ["AI_QUESTION_GENERATION_QUALITY_AND_TARGETED_OPTIMIZATION_CONTRACT.md"],
+      "requiredTokens": ["single_choice", "distractorRationale", "correctOptionIds"]
+    },
+    {
+      "id": "progressive_load",
+      "authority": "READING_TRAINING_PROGRESSIVE_LOAD_MODEL_CONTRACT.md",
+      "supportingDocuments": ["READING_OPEN_RESPONSE_DIFFICULTY_AND_INPUT_LOAD_OPTIMIZATION_CONTRACT.md"],
+      "requiredTokens": ["TaskLoadSemantics", "负担", "能力"]
+    },
+    {
+      "id": "targeted_micro_training",
+      "authority": "TARGETED_MICRO_TRAINING_MATERIAL_AND_SCHEDULING_CONTRACT.md",
+      "supportingDocuments": ["TARGETED_MICRO_TRAINING_STAGE4_CONTROLLED_CALIBRATION_CONTRACT.md"],
+      "requiredTokens": ["targeted_excerpt", "Gap", "Session"]
+    },
+    {
+      "id": "real_learning_data",
+      "authority": "REAL_LEARNING_DATA_COLLECTION_AND_OBSERVATION_CONTRACT.md",
+      "supportingDocuments": ["REAL_LEARNING_MINIMUM_COLLECTION_ENGINEERING_CONTRACT.md"],
+      "requiredTokens": ["Attempt", "匿名", "真实"]
+    },
+    {
+      "id": "trial_reentry",
+      "authority": "PRODUCT_RUNTIME_RELIABILITY_AND_REAL_TRIAL_REENTRY_CONTRACT.md",
+      "supportingDocuments": ["PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_REAL_TRIAL_WINDOW_OPERATION_AND_ACCEPTANCE_CONTRACT.md"],
+      "requiredTokens": ["Runtime Identity", "重新准入", "Trial"]
+    }
+  ]
+}

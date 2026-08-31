@@ -1,0 +1,134 @@
+{
+  "registryVersion": "product_claim_evidence_registry_v1",
+  "generatedAt": "2026-08-31",
+  "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+  "zeroUpwardInference": true,
+  "enums": {
+    "engineeringStatus": ["PASS", "PENDING", "NOT_APPLICABLE", "NOT_CLAIMED"],
+    "productAcceptanceStatus": ["PASS", "PENDING", "NOT_APPLICABLE", "NOT_CLAIMED"],
+    "liveStatus": ["DEFER_TO_CURRENT_STATE", "NOT_APPLICABLE", "NOT_CLAIMED"],
+    "educationalEffectStatus": ["PASS_REAL_DATA", "PENDING_REAL_DATA", "NOT_APPLICABLE", "NOT_CLAIMED"]
+  },
+  "claims": [
+    {
+      "claimId": "domain_main_chain",
+      "title": "产品领域主链与对象语义已统一",
+      "authority": "PRODUCT_DOMAIN_SEMANTICS_AND_MAIN_CHAIN_CONTRACT.md",
+      "requiredTokens": ["MaterialVersion", "QuestionCandidate", "FrozenResourceVersion", "LearningSessionTaskQueue", "AbilityEvidence", "Retest / Transfer"],
+      "engineering": {"status": "NOT_APPLICABLE", "evidence": []},
+      "productAcceptance": {"status": "NOT_APPLICABLE", "scope": "", "evidence": []},
+      "live": {"status": "NOT_APPLICABLE", "source": "", "runtimeProofRequired": false, "proofTypes": []},
+      "educationalEffect": {"status": "NOT_APPLICABLE", "evidence": []}
+    },
+    {
+      "claimId": "formal_resource_production",
+      "title": "统一工作台可以完成正式资源生产工程主链",
+      "authority": "UNIFIED_RESOURCE_PRODUCTION_WORKBENCH_CONTRACT.md",
+      "requiredTokens": ["QuestionCandidate", "采用并发布", "FrozenQuestionResourceVersion", "Registry"],
+      "engineering": {"status": "PASS", "evidence": ["../education/phase/reports/phase17_unified_resource_production_p0_p7_final_integration_acceptance_2026-08-03.md"]},
+      "productAcceptance": {"status": "PENDING", "scope": "真实内容生产连续操作", "evidence": []},
+      "live": {"status": "DEFER_TO_CURRENT_STATE", "source": "CURRENT_PRODUCT_STATE.md", "runtimeProofRequired": true, "proofTypes": ["formal_store_identity", "active_registry", "learning_consumable"]},
+      "educationalEffect": {"status": "NOT_APPLICABLE", "evidence": []}
+    },
+    {
+      "claimId": "single_choice_learning",
+      "title": "单项选择可以作为正式阅读训练作答形式",
+      "authority": "READING_SINGLE_CHOICE_RESPONSE_FORMAT_CONTRACT.md",
+      "requiredTokens": ["responseFormat = single_choice", "distractor", "Diagnosis", "Learning"],
+      "engineering": {"status": "PASS", "evidence": ["../education/phase/reports/reading_single_choice_stage4_e2e_product_acceptance_2026-08-18.md"]},
+      "productAcceptance": {"status": "PASS", "scope": "受控 PC / Tablet", "evidence": ["../education/phase/reports/reading_single_choice_stage4_e2e_product_acceptance_2026-08-18.md"], "requiredTokens": ["Product Acceptance = PASS（受控 PC / Tablet）"]},
+      "live": {"status": "DEFER_TO_CURRENT_STATE", "source": "CURRENT_PRODUCT_STATE.md", "runtimeProofRequired": true, "proofTypes": ["formal_store_identity", "active_registry", "learning_consumable"]},
+      "educationalEffect": {"status": "PENDING_REAL_DATA", "evidence": []}
+    },
+    {
+      "claimId": "progressive_load_training",
+      "title": "阅读任务组支持非机械的递进负担治理",
+      "authority": "READING_TRAINING_PROGRESSIVE_LOAD_MODEL_CONTRACT.md",
+      "requiredTokens": ["loadLevel", "entry_short", "focused_short", "developing", "integrated"],
+      "engineering": {"status": "PASS", "evidence": ["../education/phase/reports/reading_training_progressive_load_stage4_engineering_debug_acceptance_2026-08-24.md", "../education/phase/reports/reading_training_progressive_load_stage4_full_browser_acceptance_2026-08-24.md"]},
+      "productAcceptance": {"status": "PENDING", "scope": "真实学生题组难度与连续完成体验", "evidence": []},
+      "live": {"status": "DEFER_TO_CURRENT_STATE", "source": "CURRENT_PRODUCT_STATE.md", "runtimeProofRequired": true, "proofTypes": ["formal_store_identity", "active_registry", "learning_consumable"]},
+      "educationalEffect": {"status": "PENDING_REAL_DATA", "evidence": []}
+    },
+    {
+      "claimId": "open_response_input_load",
+      "title": "开放文本题支持输入负担与难度梯度治理",
+      "authority": "READING_OPEN_RESPONSE_DIFFICULTY_AND_INPUT_LOAD_OPTIMIZATION_CONTRACT.md",
+      "requiredTokens": ["loadLevel", "expectedAnswerLengthBand", "entry_short", "integrated"],
+      "engineering": {"status": "PASS", "evidence": ["../education/phase/reports/reading_open_response_input_load_stage4_engineering_debug_acceptance_2026-08-21.md", "../education/phase/reports/reading_open_response_input_load_stage4_full_browser_acceptance_2026-08-21.md"]},
+      "productAcceptance": {"status": "PENDING", "scope": "真实学生开放文本作答负担", "evidence": []},
+      "live": {"status": "DEFER_TO_CURRENT_STATE", "source": "CURRENT_PRODUCT_STATE.md", "runtimeProofRequired": true, "proofTypes": ["formal_store_identity", "active_registry", "learning_consumable"]},
+      "educationalEffect": {"status": "PENDING_REAL_DATA", "evidence": []}
+    },
+    {
+      "claimId": "feedback_guided_revision",
+      "title": "正式反馈后支持一次受控修订",
+      "authority": "LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md",
+      "requiredTokens": ["Initial Response", "Revised Response", "一次反馈、一次修订、一次评价", "Retest", "Transfer"],
+      "engineering": {"status": "PASS", "evidence": ["../education/phase/reports/learning_feedback_revision_stage4_engineering_debug_acceptance_2026-08-14.md", "../education/phase/reports/learning_feedback_revision_end_to_end_integration_debug_2026-08-14.md"]},
+      "productAcceptance": {"status": "PENDING", "scope": "真实学生理解反馈并完成一次修订", "evidence": []},
+      "live": {"status": "DEFER_TO_CURRENT_STATE", "source": "CURRENT_PRODUCT_STATE.md", "runtimeProofRequired": true, "proofTypes": ["runtime_identity", "provider_health", "learning_consumable"]},
+      "educationalEffect": {"status": "PENDING_REAL_DATA", "evidence": []}
+    },
+    {
+      "claimId": "targeted_micro_training",
+      "title": "明确缺口可触发短片段针对性微训练",
+      "authority": "TARGETED_MICRO_TRAINING_MATERIAL_AND_SCHEDULING_CONTRACT.md",
+      "requiredTokens": ["targeted_excerpt", "TargetedGapReasonCode", "Retest", "Transfer"],
+      "engineering": {"status": "PASS", "evidence": ["../education/phase/reports/targeted_micro_training_stage4_engineering_debug_acceptance_2026-08-20.md", "../education/phase/reports/targeted_micro_training_stage4_full_browser_acceptance_2026-08-20.md"]},
+      "productAcceptance": {"status": "PENDING", "scope": "真实学生微训练匹配、完成与返回核心题组", "evidence": []},
+      "live": {"status": "DEFER_TO_CURRENT_STATE", "source": "CURRENT_PRODUCT_STATE.md", "runtimeProofRequired": true, "proofTypes": ["formal_store_identity", "active_registry", "learning_consumable"]},
+      "educationalEffect": {"status": "PENDING_REAL_DATA", "evidence": []}
+    },
+    {
+      "claimId": "rubric_aligned_student_feedback",
+      "title": "学生反馈可以消费正式诊断与评分要点形成行动指引",
+      "authority": "LEARNING_FEEDBACK_GUIDED_REVISION_CONTRACT.md",
+      "requiredTokens": ["Requirement Coverage", "可执行反馈", "反馈与操作必须一致"],
+      "engineering": {"status": "PASS", "evidence": ["RUBRIC_ALIGNED_STUDENT_FEEDBACK_OPTIMIZATION_PLAN.md", "../education/phase/reports/rubric_aligned_feedback_stage3_full_browser_acceptance_2026-08-28.md", "../education/phase/reports/rubric_aligned_feedback_stage4_engineering_debug_acceptance_2026-08-28.md"]},
+      "productAcceptance": {"status": "PENDING", "scope": "真实学生反馈理解与行动有效性", "evidence": []},
+      "live": {"status": "DEFER_TO_CURRENT_STATE", "source": "CURRENT_PRODUCT_STATE.md", "runtimeProofRequired": true, "proofTypes": ["runtime_identity", "provider_health", "learning_consumable"]},
+      "educationalEffect": {"status": "PENDING_REAL_DATA", "evidence": []}
+    },
+    {
+      "claimId": "knowledge_practice_single_entry",
+      "title": "轻量知识练习可以在统一学生入口中承担补充角色",
+      "authority": "STUDENT_SINGLE_ENTRY_FORMAL_READING_AND_KNOWLEDGE_PRACTICE_ALIGNMENT_DECISION_WP0A.md",
+      "requiredTokens": ["/learning", "唯一学生入口", "正式阅读题库角色", "轻量知识练习角色"],
+      "engineering": {"status": "PASS", "evidence": ["KNOWLEDGE_PRACTICE_PHASE1_WP7A_ENGINEERING_ACCEPTANCE_REPORT.md", "KNOWLEDGE_PRACTICE_PHASE1_WP7B_ENGINEERING_ACCEPTANCE_REPORT.md"]},
+      "productAcceptance": {"status": "PENDING", "scope": "真实学生知识练习统一入口与完整会话", "evidence": ["KNOWLEDGE_PRACTICE_PHASE1_WP7B_PRODUCT_ACCEPTANCE_REPORT.md"]},
+      "live": {"status": "DEFER_TO_CURRENT_STATE", "source": "CURRENT_PRODUCT_STATE.md", "runtimeProofRequired": true, "proofTypes": ["runtime_identity", "learning_consumable"]},
+      "educationalEffect": {"status": "PENDING_REAL_DATA", "evidence": []}
+    },
+    {
+      "claimId": "runtime_trial_reentry",
+      "title": "真实 Trial 准入由当前 Runtime Identity 与可用性证明约束",
+      "authority": "PRODUCT_RUNTIME_RELIABILITY_AND_REAL_TRIAL_REENTRY_CONTRACT.md",
+      "requiredTokens": ["Runtime Identity", "Trial", "Provider", "重新准入"],
+      "engineering": {"status": "PASS", "evidence": ["../education/phase/reports/product_runtime_reliability_wp_r4_trial_reentry_debug_browser_acceptance_2026-08-26.md"]},
+      "productAcceptance": {"status": "NOT_APPLICABLE", "scope": "", "evidence": []},
+      "live": {"status": "DEFER_TO_CURRENT_STATE", "source": "CURRENT_PRODUCT_STATE.md", "runtimeProofRequired": true, "proofTypes": ["runtime_health", "runtime_identity", "provider_health", "formal_store_identity", "launch_record", "trial_binding"]},
+      "educationalEffect": {"status": "NOT_APPLICABLE", "evidence": []}
+    },
+    {
+      "claimId": "real_learning_collection",
+      "title": "真实 Learning 支持最小事件链与可恢复采集",
+      "authority": "REAL_LEARNING_DATA_COLLECTION_AND_OBSERVATION_CONTRACT.md",
+      "requiredTokens": ["question_presented", "answer_submitted", "diagnosis_completed", "feedback_presented", "learning_round_completed"],
+      "engineering": {"status": "PASS", "evidence": ["../education/phase/reports/real_learning_minimum_collection_wp7_final_acceptance_2026-08-13.md"]},
+      "productAcceptance": {"status": "PENDING", "scope": "真实学生自然作答采集完整性", "evidence": []},
+      "live": {"status": "DEFER_TO_CURRENT_STATE", "source": "CURRENT_PRODUCT_STATE.md", "runtimeProofRequired": true, "proofTypes": ["runtime_identity", "provider_health", "learning_consumable", "trial_binding"]},
+      "educationalEffect": {"status": "PENDING_REAL_DATA", "evidence": []}
+    },
+    {
+      "claimId": "student_learning_interface",
+      "title": "学生可以通过统一 Learning 入口连续完成正式学习",
+      "authority": "STUDENT_PRODUCT_INTERFACE_CONSOLIDATION.md",
+      "requiredTokens": ["/learning", "学生唯一正式入口", "继续未完成回合", "进入下一轮"],
+      "engineering": {"status": "PASS", "evidence": ["../education/phase/reports/phase17_3_batch_a_learning_demo_acceptance_2026-07-23.md", "KNOWLEDGE_PRACTICE_PHASE1_WP7A_ENGINEERING_ACCEPTANCE_REPORT.md"]},
+      "productAcceptance": {"status": "PENDING", "scope": "真实学生连续 5—6 题与恢复体验", "evidence": []},
+      "live": {"status": "DEFER_TO_CURRENT_STATE", "source": "CURRENT_PRODUCT_STATE.md", "runtimeProofRequired": true, "proofTypes": ["runtime_health", "runtime_identity", "provider_health", "formal_store_identity", "active_registry", "learning_consumable"]},
+      "educationalEffect": {"status": "NOT_CLAIMED", "evidence": []}
+    }
+  ]
+}

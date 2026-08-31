@@ -5,6 +5,10 @@
 状态：ACTIVE  
 更新日期：2026-08-31
 
+状态轴：`Design = PASS / Engineering = PASS / Product Acceptance = PENDING / Live = DEFER_TO_CURRENT_STATE`
+
+当前运行状态唯一来源：[当前产品状态](./CURRENT_PRODUCT_STATE.md)。本文负责产品职责、阶段边界与验收控制，不再单独声明 Runtime、Provider 或 Trial 的即时状态。
+
 ## 一、用途
 
 本文是产品负责人的只读控制面，只回答：

@@ -6,6 +6,8 @@
 生效范围：资源录入端、Learning、内部观察与既有训练调度链
 日期：2026-08-24
 
+状态解释：上述状态是本契约工程验收时点的阶段状态，不是当前 Runtime 或 Trial 的即时状态。唯一当前状态见：[当前产品状态](./CURRENT_PRODUCT_STATE.md)。2026-08-25 的激活签署保留为历史执行事实，不自动批准后续代码与运行身份。
+
 ## 一、契约定位
 
 本契约是跨阶段的产品投射、触发策略和维护复杂度治理，不是阶段 5 Training Model 功能开发。
@@ -557,7 +559,7 @@ type CoreAbilitySummary = {
 
 冻结新增能力，运行 2—4 周真实试用。只对具有真实证据的能力执行保留、默认关闭或退役决策。
 
-阶段 4 已完成来源隔离、只读观察、样本充分性、版本化聚合和内部决策提案；Decision Agent 只能生成提案，不能直接修改 Feature Flag、停止写入或删除能力。`C4-01—C4-64` 为 `64 / 64 PASS`，`B4-01—B4-20` 为 `20 / 20 PASS`，阶段 0—3 与 Revision、Targeted、Reading Progression、Learning Queue 旧主链专项回归为 `295 / 295 PASS`，Production Build PASS；浏览器验收中正式资源、Attempt、Evidence、Profile 与真实试用分母写入均为 `0`。上述结论证明隔离观察工程基线就绪，不代表生产 Owner Fact Adapter 和显式激活控制已经通过启动预检。当前状态统一为 `ENGINEERING COMPLETE / DEBUG ACCEPTED / FULL BROWSER ACCEPTED / ISOLATED OBSERVATION READY / ACTIVATION PREFLIGHT REQUIRED / REAL TRIAL NOT STARTED`。验收事实见：[阶段 4 工程、Debug 与浏览器验收报告](../education/phase/reports/product_complexity_convergence_stage4_engineering_debug_browser_acceptance_2026-08-25.md)。
+阶段 4 已完成来源隔离、只读观察、样本充分性、版本化聚合和内部决策提案；Decision Agent 只能生成提案，不能直接修改 Feature Flag、停止写入或删除能力。`C4-01—C4-64` 为 `64 / 64 PASS`，`B4-01—B4-20` 为 `20 / 20 PASS`，阶段 0—3 与 Revision、Targeted、Reading Progression、Learning Queue 旧主链专项回归为 `295 / 295 PASS`，Production Build PASS；浏览器验收中正式资源、Attempt、Evidence、Profile 与真实试用分母写入均为 `0`。上述结论证明隔离观察工程基线就绪，不代表生产 Owner Fact Adapter 和显式激活控制已经通过启动预检。该次工程验收时点状态为 `ENGINEERING COMPLETE / DEBUG ACCEPTED / FULL BROWSER ACCEPTED / ISOLATED OBSERVATION READY / ACTIVATION PREFLIGHT REQUIRED / REAL TRIAL NOT STARTED`；后续历史激活与当前运行状态应分别读取对应签署记录和 `CURRENT_PRODUCT_STATE.md`。验收事实见：[阶段 4 工程、Debug 与浏览器验收报告](../education/phase/reports/product_complexity_convergence_stage4_engineering_debug_browser_acceptance_2026-08-25.md)。
 
 ## 十七、跨阶段验收原则
 
