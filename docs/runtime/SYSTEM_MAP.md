@@ -1,5 +1,7 @@
 # 系统地图（System Map）
 
+当前产品状态入口：[`CURRENT_PRODUCT_STATE.md`](../product/CURRENT_PRODUCT_STATE.md)。历史 Phase 状态与当前事实冲突时，以该页和产品控制表为准。
+
 本文档是系统的总导航，不是 Schema、实现说明或验收日志。
 
 它只回答五个问题：

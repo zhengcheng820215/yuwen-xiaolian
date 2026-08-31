@@ -10,15 +10,19 @@
 
 工程实施文档：[`KNOWLEDGE_PRACTICE_PHASE1_WP7B_FULL_CHAIN_REGRESSION_AND_PRODUCT_ACCEPTANCE_PLAN.md`](./KNOWLEDGE_PRACTICE_PHASE1_WP7B_FULL_CHAIN_REGRESSION_AND_PRODUCT_ACCEPTANCE_PLAN.md)
 
+试用准备与执行包：[`KNOWLEDGE_PRACTICE_PHASE1_WP7B5_CONTROLLED_STUDENT_TRIAL_PREPARATION.md`](./KNOWLEDGE_PRACTICE_PHASE1_WP7B5_CONTROLLED_STUDENT_TRIAL_PREPARATION.md)
+
 ## 一、当前结论
 
 WP7B Engineering Acceptance 已PASS，但真实学生Product Acceptance尚未开始，当前有效试用为 `0 / 5`。
+
+2026-08-31更新：WP7B-5试用材料、T1—T5场景、候选Build Identity、隐私规则、停止规则和汇总门禁已经准备完成；现场物理键盘/真实200% Zoom、干净试用工作区、参与者与时间安排仍待完成，因此有效试用计数保持0/5。
 
 开发者自测、自动化脚本和浏览器控制验收均不计入真实学生试用。因此本报告当前只作为统一试用包和证据容器，不输出PASS、CONDITIONAL PASS或NEEDS REVISION结论。
 
 开始计数前必须满足：
 
-1. 使用WP7B工程报告对应的新clean Git检查点；
+1. 使用工程基线 `5a6892e30d29634d007f2102aef481d6cd61f156` 的clean checkout；
 2. 记录Build Identity、设备、浏览器与视口；
 3. 产品负责人完成必要的未成年人参与授权与现场安排；
 4. 使用参与者编号，不记录真实姓名；
@@ -29,10 +33,10 @@ WP7B Engineering Acceptance 已PASS，但真实学生Product Acceptance尚未开
 
 | 试用 | 必含场景 | 设备要求 | 状态 |
 | --- | --- | --- | --- |
-| T1 | 首次从 `/learning` 找到专项；至少一次答错反馈 | PC或手机 | PENDING |
+| T1 | 首次从 `/learning` 找到专项；至少一次答错反馈 | 手机 | PENDING |
 | T2 | 综合10题、分类覆盖、结果与新综合推荐 | PC | PENDING |
 | T3 | 错题巩固、基础/巩固分账和专项推荐 | 任一 | PENDING |
-| T4 | 中途刷新或关闭后恢复并完成 | 平板或PC | PENDING |
+| T4 | 中途刷新或关闭后恢复并完成 | 平板 | PENDING |
 | T5 | 错题重做或内容准备中分类理解 | 手机或平板 | PENDING |
 
 最低设备覆盖：手机1次、平板1次、PC1次。建议至少3名不同目标学生。
@@ -115,7 +119,7 @@ Build Identity：
 
 产品负责人需要：
 
-1. 确认最终试用Build Identity；
+1. 从冻结提交建立clean checkout并核对Build Identity；
 2. 安排T1—T5参与者、设备和时间；
 3. 每次试用复制一份观察表；
 4. 发现P0/P1立即停止该批次；

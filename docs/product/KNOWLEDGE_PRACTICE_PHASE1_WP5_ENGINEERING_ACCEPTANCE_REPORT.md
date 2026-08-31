@@ -1,10 +1,12 @@
 # 知识练习第一阶段 WP5 工程验收报告
 
-状态：`ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING / WP6 AUTHORIZED BUT NOT STARTED`
+状态：`ENGINEERING PASS / WP6 + WP7B ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5)`
 
 版本：`knowledge_practice_phase1_wp5_engineering_acceptance_v1.0`
 
 日期：2026-08-29
+
+执行更新：2026-08-31，WP6与WP7B Engineering Acceptance均已PASS；正文中的后继工作包状态保留为验收时历史快照，当前状态以 [`CURRENT_PRODUCT_STATE.md`](./CURRENT_PRODUCT_STATE.md) 为准。
 
 对应实施文档：[WP5 错题即时巩固工程实施文档](./KNOWLEDGE_PRACTICE_PHASE1_WP5_WRONG_ANSWER_REINFORCEMENT_ENGINEERING_PLAN.md)
 

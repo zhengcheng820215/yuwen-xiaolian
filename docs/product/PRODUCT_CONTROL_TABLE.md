@@ -3,11 +3,13 @@
 英文名称：Product Owner Control Table
 
 状态：ACTIVE  
-更新日期：2026-08-29
+更新日期：2026-08-31
 
 ## 一、用途
 
 本文是产品负责人的只读控制面，只回答：
+
+当前事实快速入口：[`CURRENT_PRODUCT_STATE.md`](./CURRENT_PRODUCT_STATE.md)。
 
 1. 模块为什么存在；
 2. 使用者能感受到什么；
@@ -245,14 +247,14 @@ Debug / Acceptance Report
 
 当前产品定位：
 
-> 已形成 24 篇正式材料、81 道 Current Frozen Resource 的正式题库，其中 63 道属于普通核心阅读池、18 道属于条件触发微训练池；正式 Learning 已具备资源消费、作答、诊断、反馈、修订、恢复和采集能力。轻量知识练习 WP1—WP6 与 WP7A 已达到 Engineering PASS，唯一入口、错题即时巩固、结果摘要和确定性下一步推荐已经完成；真实学生产品验收尚未完成。
+> 已形成 24 篇正式材料、81 道 Current Frozen Resource 的正式题库，其中 63 道属于普通核心阅读池、18 道属于条件触发微训练池；正式 Learning 已具备资源消费、作答、诊断、反馈、修订、恢复和采集能力。轻量知识练习 WP1—WP6、WP7A 与 WP7B 已达到 Engineering PASS，唯一入口、错题即时巩固、结果摘要、确定性下一步推荐和全链工程验收已经完成；真实学生产品验收尚未完成，当前为 0/5。
 
 ```text
 1. WP7A 已完成：正式阅读主线和轻量知识巩固已收敛到唯一 `/learning` 产品入口，已有 PracticeSession 得到保护
 2. WP7B 已 Engineering PASS；下一步只组织至少5次受控真实学生验收，不扩建 `/practice/knowledge` 第二产品壳
 3. 现场复读 Runtime Identity、Trial Window 与 Activation State，补齐唯一当前 Trial 状态签署
 4. 真实 Learning 继续观察反馈、Revision、Retest / Transfer 和五事件完整性，不把反馈支持下改善解释为独立掌握
-5. WP7A 通过后按 WP5 错题巩固 → WP6 结果推荐 → WP7B 全链产品验收推进
+5. 当前只进入 WP7B-5：按冻结 Build Identity 组织 T1—T5 真实学生受控试用，试用中不修改代码或 approved 内容
 6. 轻量题量由覆盖矩阵、连续5/10次使用重复率和枯竭率倒推；100道仅为内容目标
 7. Engineering、Product Acceptance、Educational Evidence 分层，不因自动化通过宣称反馈效果或能力提升成立
 8. 家长报告、多使用者和广泛过程指标继续后置；扩大试用前完成材料来源与版权核验

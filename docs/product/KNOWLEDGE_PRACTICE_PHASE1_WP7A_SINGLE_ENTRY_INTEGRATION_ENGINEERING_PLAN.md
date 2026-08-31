@@ -1,12 +1,14 @@
 # 知识练习第一阶段 WP7A 唯一入口最小整合工程实施文档
 
-状态：`ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING / WP5 AUTHORIZED BUT NOT STARTED`
+状态：`ENGINEERING PASS / WP5 + WP6 + WP7B ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5)`
 
 工程证据：[WP7A 工程验收报告](./KNOWLEDGE_PRACTICE_PHASE1_WP7A_ENGINEERING_ACCEPTANCE_REPORT.md)
 
 版本：`knowledge_practice_phase1_wp7a_single_entry_integration_v1.0`
 
 日期：2026-08-29
+
+执行更新：2026-08-31，WP5、WP6与WP7B Engineering Acceptance均已PASS；正文中的后继工作包状态保留为验收时历史快照，当前状态以 [`CURRENT_PRODUCT_STATE.md`](./CURRENT_PRODUCT_STATE.md) 为准。
 
 上位决策：
 

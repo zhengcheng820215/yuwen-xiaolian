@@ -1,12 +1,14 @@
 # 学生唯一入口、正式阅读题库与轻量知识练习角色对齐决策（WP0A）
 
-状态：`DECISION CONFIRMED / WP7A + WP5 ENGINEERING PASS / WP6 AUTHORIZED BUT NOT STARTED`
+状态：`DECISION CONFIRMED / WP1—WP6 + WP7A + WP7B ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5)`
 
 版本：`student_single_entry_resource_role_alignment_wp0a_v1.0`
 
 日期：2026-08-29
 
 确认记录：2026-08-29，产品负责人确认 D1—D8，授权输出 WP7A 工程实施文档并同步中央产品控制文档；在 WP7A `ENGINEERING PASS` 前不进入 WP5 代码开发。
+
+执行更新：2026-08-31，WP7A、WP5、WP6 与 WP7B Engineering Acceptance 均已 PASS；当前只进入 WP7B-5 真实学生受控产品验收，Product Acceptance 仍为 `0 / 5`，Live 与 Educational Evidence 继续 PENDING。
 
 上位依据：
 
