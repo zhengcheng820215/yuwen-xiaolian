@@ -4,6 +4,7 @@ import {
   createRecoveredLearningSessionTaskQueue,
   createLearningSessionTaskQueue,
   LEARNING_SESSION_TASK_QUEUE_MAX_COUNT,
+  resolveLearningSessionEntryResourceVersion,
   resolveLearningSessionTaskQueueProgress,
 } from '../agents/learningSessionTaskQueueAgent.ts';
 import {
@@ -45,6 +46,22 @@ assert.deepEqual(queue.resourceVersionIds, [
   'choice-1', 'choice-2', 'text-1', 'text-2', 'text-3', 'text-4',
 ]);
 assert.ok(isLearningSessionTaskQueue(queue));
+
+const textMatchedAtNewSession = resolveLearningSessionEntryResourceVersion({
+  firstResourceVersion: text1,
+  currentVersions: [text1, choice2, text2, choice1],
+  currentTaskNumber: 1,
+});
+assert.equal(textMatchedAtNewSession.resourceVersionId, 'choice-1');
+const realignedNewSessionQueue = createLearningSessionTaskQueue({
+  firstResourceVersion: text1,
+  currentVersions: [text1, choice2, text2, choice1],
+  currentTaskNumber: 1,
+  createdAt: NOW,
+});
+assert.deepEqual(realignedNewSessionQueue.resourceVersionIds, [
+  'choice-1', 'choice-2', 'text-1', 'text-2',
+]);
 
 const first = resolveLearningSessionTaskQueueProgress(queue, 1);
 assert.equal(first.currentResourceVersionId, 'choice-1');
@@ -320,7 +337,7 @@ assert.equal(deterministicQueueAdmission.status, 'matched');
 assert.equal(deterministicQueueAdmission.resourceVersion?.resourceVersionId, 'text-1');
 assert.equal(deterministicQueueAdmission.taskReadiness?.canExecute, true);
 
-console.log('Learning session task queue debug: 49/49 passed.');
+console.log('Learning session task queue debug: 51/51 passed.');
 
 function version(
   resourceVersionId: string,

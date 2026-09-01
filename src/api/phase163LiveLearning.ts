@@ -77,6 +77,7 @@ import {
   canAdvanceLearningSessionTaskQueue,
   createRecoveredLearningSessionTaskQueue,
   createLearningSessionTaskQueue,
+  resolveLearningSessionEntryResourceVersion,
   resolveLearningSessionTaskQueueProgress,
 } from '../ai/agents/learningSessionTaskQueueAgent.ts';
 import {
@@ -1191,6 +1192,16 @@ async function ensureActiveSessionTaskQueue(
     createdAt,
     currentTaskNumber,
   });
+  const expectedCurrentResourceVersionId =
+    taskQueue.resourceVersionIds[currentTaskNumber - 1];
+  if (
+    expectedCurrentResourceVersionId &&
+    expectedCurrentResourceVersionId !== firstResourceVersion.resourceVersionId
+  ) {
+    throw new Error(
+      "Learning session task queue current resource identity mismatch.",
+    );
+  }
   const nextContext: UnifiedLearningActivityContext = {
     ...context,
     taskQueue,
@@ -1567,6 +1578,30 @@ async function resolveCurrentFormalTaskSelection(
     eligibleResourceVersionIds: currentVersions.map((version) => version.resourceVersionId),
     evaluatedAt: descriptorAt,
   });
+  if (
+    !context?.taskQueue &&
+    number === 1 &&
+    !currentVersion &&
+    !effectiveRetestPlan &&
+    !plannedResolution &&
+    matched.status === 'matched' &&
+    matched.resourceVersion?.abilityMetadata.taskRole === 'training'
+  ) {
+    const sessionEntryVersion = resolveLearningSessionEntryResourceVersion({
+      firstResourceVersion: matched.resourceVersion,
+      currentVersions,
+      currentTaskNumber: 1,
+      progressionArtifacts,
+    });
+    if (sessionEntryVersion.resourceVersionId !== matched.resourceVersion.resourceVersionId) {
+      taskRequest = taskRequestForExistingVersion(sessionEntryVersion, descriptorAt);
+      matched = buildFixedQueueAdmissionFromFrozenResource({
+        resourceVersion: sessionEntryVersion,
+        taskRequest,
+        createdAt: descriptorAt,
+      });
+    }
+  }
   if (
     matched.status !== 'matched' &&
     effectiveRetestPlan &&

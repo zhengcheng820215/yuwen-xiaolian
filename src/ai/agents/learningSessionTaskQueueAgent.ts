@@ -29,6 +29,31 @@ export type LearningSessionNextTaskAdmissionSnapshot = {
   };
 };
 
+export function resolveLearningSessionEntryResourceVersion(input: {
+  firstResourceVersion: FrozenQuestionResourceVersion;
+  currentVersions: FrozenQuestionResourceVersion[];
+  currentTaskNumber?: number;
+  preserveFirstResourceVersion?: boolean;
+  progressionArtifacts?: FormalTaskGroupProgressionArtifact[];
+}): FrozenQuestionResourceVersion {
+  const first = input.firstResourceVersion;
+  const currentTaskNumber = Math.max(1, Math.floor(input.currentTaskNumber || 1));
+  if (
+    input.preserveFirstResourceVersion ||
+    first.abilityMetadata.taskRole !== 'training' ||
+    currentTaskNumber > 1
+  ) return first;
+  const candidates = input.currentVersions.filter((version) => (
+    version.status === 'frozen' &&
+    version.materialId === first.materialId &&
+    version.abilityMetadata.taskRole === 'training'
+  ));
+  return orderFormalResourcesForLearningSequence(candidates, {
+    taskRole: 'training',
+    progressionArtifacts: input.progressionArtifacts,
+  })[0] || first;
+}
+
 /**
  * A queue pointer is only navigation intent. Learning may expose the next
  * question after the exact queued Frozen Version has passed the formal match
@@ -59,13 +84,14 @@ export function createLearningSessionTaskQueue(input: {
   createdAt: string;
   maxTaskCount?: number;
   currentTaskNumber?: number;
+  preserveFirstResourceVersion?: boolean;
   progressionArtifacts?: FormalTaskGroupProgressionArtifact[];
 }): LearningSessionTaskQueue {
   const maxTaskCount = Math.min(
     LEARNING_SESSION_TASK_QUEUE_MAX_COUNT,
     Math.max(1, Math.floor(input.maxTaskCount || LEARNING_SESSION_TASK_QUEUE_MAX_COUNT)),
   );
-  const first = input.firstResourceVersion;
+  const first = resolveLearningSessionEntryResourceVersion(input);
   const candidates = input.currentVersions.filter((version) => (
     version.status === 'frozen' &&
     version.materialId === first.materialId &&
@@ -132,6 +158,7 @@ export function createRecoveredLearningSessionTaskQueue(input: {
     currentVersions: recoveryVersions,
     createdAt: input.createdAt,
     currentTaskNumber: input.currentTaskNumber,
+    preserveFirstResourceVersion: true,
     maxTaskCount: input.maxTaskCount,
     progressionArtifacts: input.progressionArtifacts,
   });
