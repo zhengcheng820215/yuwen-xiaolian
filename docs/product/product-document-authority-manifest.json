@@ -580,6 +580,23 @@
       }
     },
     {
+      "path": "KNOWLEDGE_PRACTICE_PHASE1_WP7B5_CONTROLLED_STUDENT_TRIAL_PREPARATION.md",
+      "title": "知识练习第一阶段 WP7B-5 真实学生受控产品验收准备与执行包",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-08-31",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "PENDING",
+        "live": "PENDING"
+      }
+    },
+    {
       "path": "KNOWLEDGE_PRACTICE_PHASE1_WP7B_ENGINEERING_ACCEPTANCE_REPORT.md",
       "title": "知识练习第一阶段 WP7B 工程验收报告",
       "documentType": "ACCEPTANCE_REPORT",

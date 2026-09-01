@@ -10,7 +10,7 @@
 
 更新日期：2026-08-31
 
-本文是当前事实的唯一快速入口。产品文档的类型、生命周期和权威顺序遵循[产品文档治理契约](./PRODUCT_DOCUMENT_GOVERNANCE_CONTRACT.md)，完整登记见[产品文档权威清单](./PRODUCT_DOCUMENT_AUTHORITY_MANIFEST.md)。它不替代产品契约、工程实施文档或历史验收报告；当历史快照与当前事实冲突时，按以下顺序裁决：
+本文是当前事实的唯一快速入口，也是当前运行状态的唯一文档入口。产品文档的类型、生命周期和权威顺序遵循[产品文档治理契约](./PRODUCT_DOCUMENT_GOVERNANCE_CONTRACT.md)，完整登记见[产品文档权威清单](./PRODUCT_DOCUMENT_AUTHORITY_MANIFEST.md)。它不替代产品契约、工程实施文档或历史验收报告；当历史快照与当前事实冲突时，按以下顺序裁决：
 
 ```text
 实时 Runtime Health / 当前 Runtime Identity / 当前 Trial Binding
@@ -20,7 +20,7 @@
 → 历史激活、审计与校准记录
 ```
 
-实时事实高于文档快照；本文不能凭文档描述重新激活 Trial。
+实时事实高于文档快照；本文不能凭文档描述重新激活 Trial。只有当前 Runtime Identity、Provider、Formal Store、Launch Record 与 Trial Binding 联合复读通过后，才允许将状态更新为 `REAL TRIAL ACTIVE`。
 
 ## 一、当前裁决
 
