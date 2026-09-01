@@ -4,7 +4,7 @@
 
 文档类型：`CURRENT_CONTROL`
 
-状态：`CURRENT / ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5) / LIVE PENDING`
+状态：`CURRENT / ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5) / LIVE NOT STARTED`
 
 状态轴：`Design = NOT_APPLICABLE / Engineering = PASS / Product Acceptance = PENDING / Live = PENDING`
 
@@ -30,7 +30,7 @@
 - 可独立成组的轻量分类：3个；
 - 知识练习 WP1—WP6、WP7A、WP7B：Engineering PASS；
 - WP7B Product Acceptance：0/5；
-- Live / Natural-day：PENDING；
+- Live / Natural-day：`NOT STARTED / PENDING PRODUCT ACCEPTANCE`；
 - Educational Evidence：PENDING。
 
 ## 二、角色边界
@@ -63,6 +63,8 @@
 5. 按统一观察表记录入口、反馈、推荐、恢复、重复感受与内容问题；
 6. 独立裁决 Product Acceptance；
 7. Product PASS后再决定是否进入5—7个自然日Live观察。
+
+WP7B-5 是 P4 `knowledge_practice_single_entry` 主张及 Batch E01—E02 的限定验收子批次，不代表 P4 总体完成，也不替代 P4 Batch B、C、D 对核心阅读连续题组、反馈修订、微训练、事件链和恢复能力的独立验收。这里的“当前唯一主任务”只表示当前执行焦点，不改变 P4 中 P0—P2 的产品风险分级。
 
 试用执行包：[`KNOWLEDGE_PRACTICE_PHASE1_WP7B5_CONTROLLED_STUDENT_TRIAL_PREPARATION.md`](./KNOWLEDGE_PRACTICE_PHASE1_WP7B5_CONTROLLED_STUDENT_TRIAL_PREPARATION.md)
 

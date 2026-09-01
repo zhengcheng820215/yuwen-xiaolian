@@ -1,6 +1,6 @@
 # 知识练习第一阶段 WP7B 全链回归与产品验收工程实施文档
 
-状态：`ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5) / LIVE PENDING`
+状态：`ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5) / LIVE NOT STARTED`
 
 版本：`knowledge_practice_phase1_wp7b_acceptance_plan_v1.0`
 

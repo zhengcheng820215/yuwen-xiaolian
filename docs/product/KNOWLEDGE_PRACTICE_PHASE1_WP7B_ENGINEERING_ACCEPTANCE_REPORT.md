@@ -1,6 +1,6 @@
 # 知识练习第一阶段 WP7B 工程验收报告
 
-状态：`ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5) / LIVE PENDING`
+状态：`ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5) / LIVE NOT STARTED`
 
 版本：`knowledge_practice_phase1_wp7b_engineering_acceptance_v1.0`
 

@@ -1,6 +1,6 @@
 # 知识练习第一阶段 WP7B 产品验收报告
 
-状态：`PRODUCT ACCEPTANCE PENDING / VALID TRIALS 0 / 5 / LIVE PENDING`
+状态：`PRODUCT ACCEPTANCE PENDING / VALID TRIALS 0 / 5 / LIVE NOT STARTED`
 
 版本：`knowledge_practice_phase1_wp7b_product_acceptance_v1.0`
 
@@ -28,12 +28,15 @@ WP7B Engineering Acceptance 已PASS，但真实学生Product Acceptance尚未开
 4. 使用参与者编号，不记录真实姓名；
 5. 默认不录音、不录像、不采集联系方式；
 6. 同一批次不修改代码或approved内容。
+7. 完成 P4-A01—A06 对应的 Commit、Runtime、Provider、Formal Store、Session恢复、Launch Record 与 Trial Binding 前检。
+
+本报告只裁决 `knowledge_practice_single_entry` 的限定范围及 P4 Batch E01—E02，不代表 P4 总体完成，也不替代核心阅读 Batch B、C、D 的独立产品验收。
 
 ## 二、试用计划与完成状态
 
 | 试用 | 必含场景 | 设备要求 | 状态 |
 | --- | --- | --- | --- |
-| T1 | 首次从 `/learning` 找到专项；至少一次答错反馈 | 手机 | PENDING |
+| T1 | 先无指向观察默认入口理解，再从 `/learning` 找到专项；至少一次答错反馈 | 手机 | PENDING |
 | T2 | 综合10题、分类覆盖、结果与新综合推荐 | PC | PENDING |
 | T3 | 错题巩固、基础/巩固分账和专项推荐 | 任一 | PENDING |
 | T4 | 中途刷新或关闭后恢复并完成 | 平板 | PENDING |
@@ -73,6 +76,12 @@ WP7B Engineering Acceptance 已PASS，但真实学生Product Acceptance尚未开
 ```text
 批次ID：
 Build Identity：
+Commit / 工作树状态：
+Runtime Health / Runtime Identity：
+Provider Health / 是否为本场景必要依赖：
+Formal Store Identity / Registry / Learning Consumer核对：
+Launch Record摘要 / Trial Binding：
+Session ID Digest：
 试用编号：T1 / T2 / T3 / T4 / T5 / 扩展
 参与者编号：
 日期与时区：
@@ -81,6 +90,8 @@ Build Identity：
 任务类型：专项 / 综合 / 错题重做 / 恢复
 
 独立找到 /learning 入口：是 / 否
+无指向状态下首先选择的学习区域及理由：
+是否把核心阅读识别为默认主要学习：是 / 否 / 无法判断
 独立开始练习：是 / 否
 独立完成：是 / 否
 提示次数与原话：
@@ -126,3 +137,5 @@ Build Identity：
 5. 完成5次后逐项填写第三节分子、分母和证据；
 6. 最终单独确认Product状态；
 7. Product PASS后再另行决定是否进入5—7个自然日Live观察。
+
+观察记录的存放、访问、脱敏、30天最长保留与删除规则统一遵循 WP7B-5 执行包第 6.1 节。
