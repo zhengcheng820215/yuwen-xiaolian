@@ -35,6 +35,10 @@ import type {
 } from './readingTaskGroupProgression.schema.ts';
 import type { READING_TRAINING_PROGRESSIVE_LOAD_POLICY_VERSION } from
   './readingTrainingProgressionAudit.schema.ts';
+import type {
+  ReadingCurriculumCalibrationContext,
+  ReadingCurriculumCalibrationRole,
+} from './readingCurriculumCalibration.schema.ts';
 
 export const MATERIAL_OBSERVATION_DRAFT_GENERATOR_VERSION = 'material_observation_draft_generator_v1_11' as const;
 
@@ -112,6 +116,8 @@ export type MaterialObservationDraftGeneratorPreferences = {
   sequencePlanning?: TrainingTaskSequencePlanningPreference;
   /** Stable Plan revision identity used by the Stage 2 group progression plan. */
   observationPlanRevisionId?: string;
+  /** New task-group planning calibration; never projected into Learning UI. */
+  curriculumCalibration?: ReadingCurriculumCalibrationContext;
   targetedTrainingPlanning?: TargetedTrainingResourceMetadata;
 };
 
@@ -170,6 +176,8 @@ export type MaterialObservationPlanningCandidate = {
   primaryAbilityId: PrimaryAbilityId;
   supportingAbilityIds: PrimaryAbilityId[];
   observationDimension: ObservationDimension;
+  /** Internal curriculum role consumed by group planning and admission only. */
+  curriculumCalibrationRole?: ReadingCurriculumCalibrationRole;
   observationFocus: {
     displayName: string;
     definition: string;

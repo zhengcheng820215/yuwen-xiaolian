@@ -1533,6 +1533,10 @@ export default function MaterialResourceProductionWorkbench() {
             reason: 'default_foundation_entry',
             preferredPreludeChoiceCount,
           },
+          curriculumCalibration: buildCurriculumCalibrationContext({
+            material: selectedMaterial,
+            candidateCount: generationRequest.candidateCount,
+          }),
           observationPlanRevisionId: `observation-plan:${selectedPlan
             ? ['draft', 'revision_required'].includes(selectedPlan.status)
               ? selectedPlan.revision
@@ -4494,6 +4498,24 @@ function taskWorkingIdentity(task) {
   return task?.taskRevisionRootId || task?.observationTaskPlanId || task?.localId || '';
 }
 
+function buildCurriculumCalibrationContext({ material, candidateCount }) {
+  if (!material || material.usageType === 'targeted_excerpt' || candidateCount < 1) return undefined;
+  const paragraphCount = String(material.content || '')
+    .split(/\n\s*\n|\r?\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean).length;
+  if (paragraphCount < 4) return undefined;
+  return {
+    policyVersion: 'textbook_objective_calibration_v1',
+    requiresWholeTextOrientation: true,
+    // Paragraph structure is only an inference signal. Explicitly curated
+    // textbook objectives may opt into enforced mode through formal metadata.
+    enforcementMode: 'advisory',
+    basisCodes: ['whole_text_organization'],
+    deferredActivityCodes: ['oral_reading', 'recitation', 'vocabulary_accumulation'],
+  };
+}
+
 function planTaskToEditableTask(task, index, anchors) {
   const specification = task.resourceDraftSpecification;
   const tags = specification?.tags || [];
@@ -4565,6 +4587,7 @@ function planTaskToEditableTask(task, index, anchors) {
     taskLoadSemantics: task.taskLoadSemantics,
     planningTaskKey: task.planningTaskKey,
     taskGroupProgressionPlanHash: task.taskGroupProgressionPlanHash,
+    curriculumCalibrationRole: task.curriculumCalibrationRole,
   };
 }
 
@@ -4650,6 +4673,7 @@ function generatorCandidateToEditableTask(
     taskLoadSemantics: candidate.taskLoadSemantics,
     planningTaskKey: candidate.planningTaskKey,
     taskGroupProgressionPlanHash: candidate.taskGroupProgressionPlanHash,
+    curriculumCalibrationRole: candidate.curriculumCalibrationRole,
   };
 }
 
@@ -4972,6 +4996,7 @@ function toTaskInput(task) {
     taskLoadSemantics: task.taskLoadSemantics,
     planningTaskKey: task.planningTaskKey,
     taskGroupProgressionPlanHash: task.taskGroupProgressionPlanHash,
+    curriculumCalibrationRole: task.curriculumCalibrationRole,
   };
 }
 
@@ -5132,6 +5157,7 @@ function buildTaskCandidateRuntimeContext({
             scoringTargetIds: (planTask.resourceDraftSpecification?.rubric || []).map(
               (rubric) => `${rubric.abilityId}:${rubric.name}`,
             ),
+            curriculumCalibrationRole: planTask.curriculumCalibrationRole,
           })),
       }
       : {}),

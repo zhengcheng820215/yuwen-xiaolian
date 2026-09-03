@@ -36,6 +36,12 @@ import {
   type TrainingTaskSequenceReason,
   type TrainingTaskSequenceStrategy,
 } from './trainingTaskSequencePlanning.schema.ts';
+import {
+  isReadingCurriculumCalibrationContext,
+  isReadingCurriculumCalibrationRole,
+  type ReadingCurriculumCalibrationContext,
+  type ReadingCurriculumCalibrationRole,
+} from './readingCurriculumCalibration.schema.ts';
 
 export const TASK_GROUP_PROGRESSION_PLAN_SCHEMA_VERSION =
   'task_group_progression_plan_v1' as const;
@@ -58,6 +64,7 @@ export type ReadingTaskPlanningSeed = {
   primaryAbilityId: PrimaryAbilityId;
   taskRole: RecommendedTaskRole;
   responseFormat: QuestionResponseFormat;
+  curriculumCalibrationRole?: ReadingCurriculumCalibrationRole;
   loadIntent: {
     primaryAction: CanonicalTextResponseAction;
     supportingAction?: CanonicalTextResponseAction;
@@ -108,6 +115,7 @@ export type TaskGroupProgressionPlan = {
     planningTaskKey: string;
     taskLoadSemanticsHash: string;
     sequenceRank: number;
+    curriculumCalibrationRole?: ReadingCurriculumCalibrationRole;
   }>;
   accessibleEntryTaskKeys: string[];
   protectedHigherOrderTaskKeys: string[];
@@ -115,6 +123,7 @@ export type TaskGroupProgressionPlan = {
   exceptionReason?: string;
   planHash: string;
   derivationSource: 'planned' | 'legacy_projection';
+  curriculumCalibration?: ReadingCurriculumCalibrationContext;
 };
 
 export type TaskGroupProgressionPlanningResult = {
@@ -135,6 +144,8 @@ export const READING_TASK_GROUP_PROGRESSION_BLOCKER_CODES = [
   'invalid_strategy_exception',
   'duplicate_observation_value',
   'protected_higher_order_observation_missing',
+  'required_whole_text_orientation_missing',
+  'local_close_reading_before_whole_text_orientation',
 ] as const;
 
 export const READING_TASK_GROUP_PROGRESSION_ADVISORY_CODES = [
@@ -144,6 +155,8 @@ export const READING_TASK_GROUP_PROGRESSION_ADVISORY_CODES = [
   'load_direction_decreases',
   'higher_order_coverage_thin',
   'legacy_peer_context',
+  'whole_text_orientation_missing',
+  'local_close_reading_precedes_orientation',
 ] as const;
 
 export type ReadingTaskGroupProgressionBlockerCode =
@@ -197,6 +210,9 @@ export function calculateTaskGroupProgressionPlanHash(
     })),
     exceptionReason: plan.exceptionReason,
     derivationSource: plan.derivationSource,
+    ...(plan.curriculumCalibration
+      ? { curriculumCalibration: plan.curriculumCalibration }
+      : {}),
   }));
 }
 
@@ -222,7 +238,9 @@ export function isReadingTaskPlanningSeed(value: unknown): value is ReadingTaskP
     ))
     && (seed.responseFormat === 'short_text' || seed.responseFormat === 'long_text'
       ? isTextResponseLoadProfile(seed.loadIntent.textResponseLoadProfile)
-      : seed.loadIntent.textResponseLoadProfile === undefined);
+      : seed.loadIntent.textResponseLoadProfile === undefined)
+    && (seed.curriculumCalibrationRole === undefined
+      || isReadingCurriculumCalibrationRole(seed.curriculumCalibrationRole));
 }
 
 export function isTaskGroupProgressionPlan(value: unknown): value is TaskGroupProgressionPlan {
@@ -238,13 +256,17 @@ export function isTaskGroupProgressionPlan(value: unknown): value is TaskGroupPr
     || !Array.isArray(plan.orderedTasks)
     || !Array.isArray(plan.accessibleEntryTaskKeys)
     || !Array.isArray(plan.protectedHigherOrderTaskKeys)
-    || !Array.isArray(plan.transitions)) return false;
+    || !Array.isArray(plan.transitions)
+    || (plan.curriculumCalibration !== undefined
+      && !isReadingCurriculumCalibrationContext(plan.curriculumCalibration))) return false;
   const keys = plan.orderedTasks.map((item) => item.planningTaskKey);
   if (new Set(keys).size !== keys.length
     || plan.orderedTasks.some((item, index) => (
       !item.planningTaskKey?.trim()
       || !item.taskLoadSemanticsHash?.trim()
       || item.sequenceRank !== index + 1
+      || (item.curriculumCalibrationRole !== undefined
+        && !isReadingCurriculumCalibrationRole(item.curriculumCalibrationRole))
     ))) return false;
   if (new Set(plan.accessibleEntryTaskKeys).size !== plan.accessibleEntryTaskKeys.length
     || new Set(plan.protectedHigherOrderTaskKeys).size

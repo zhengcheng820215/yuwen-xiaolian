@@ -87,6 +87,8 @@ import {
   planReadingTaskGroupProgressionSeeds,
 } from
   './readingTaskGroupProgressionPlanner.ts';
+import { isReadingCurriculumCalibrationRole } from
+  '../schemas/readingCurriculumCalibration.schema.ts';
 
 const ASSESSMENT_MODES: AssessmentMode[] = [
   'exact_match',
@@ -235,6 +237,7 @@ async function generateMaterialObservationDraftCandidatesTwoPass(
         || `draft:${input.requestId}`,
       seeds: seedResult.seeds,
       preference: providerSequenceDecision.preference,
+      curriculumCalibration: input.preferences?.curriculumCalibration,
     });
     const authoritative: AuthoritativeProgressionRealization = {
       seeds: seedResult.seeds,
@@ -316,6 +319,9 @@ function parseStage2PlanningSeeds(
       primaryAbilityId: rawSeed.primaryAbilityId as ReadingTaskPlanningSeed['primaryAbilityId'],
       taskRole: (rawSeed.taskRole || 'training') as ReadingTaskPlanningSeed['taskRole'],
       responseFormat: rawSeed.responseFormat as ReadingTaskPlanningSeed['responseFormat'],
+      curriculumCalibrationRole: isReadingCurriculumCalibrationRole(
+        rawSeed.curriculumCalibrationRole,
+      ) ? rawSeed.curriculumCalibrationRole : undefined,
       loadIntent: {
         primaryAction: loadIntent.primaryAction as ReadingTaskPlanningSeed['loadIntent']['primaryAction'],
         supportingAction: loadIntent.supportingAction as ReadingTaskPlanningSeed['loadIntent']['supportingAction'],
@@ -898,6 +904,7 @@ function evaluateProviderCandidates(
           taskGroupProgressionPlanHash:
             runtime.authoritativeProgression!.progressionPlanning.planningResult.progressionPlan.planHash,
           taskLoadSemantics: authoritativeSemantics.taskLoadSemantics,
+          curriculumCalibrationRole: authoritativeSeed.curriculumCalibrationRole,
         }
       : parsed.candidate);
     else rejectedCandidates.push({
@@ -986,6 +993,7 @@ function evaluateProviderCandidates(
           || `draft:${input.requestId}`,
         candidates: newObservationCandidates,
         preference: providerSequenceDecision.preference,
+        curriculumCalibration: input.preferences?.curriculumCalibration,
       });
   const progressionPlanning = runtime.authoritativeProgression?.progressionPlanning;
   const orderedObservationCandidates = progressionPlanning
@@ -1270,6 +1278,12 @@ function parseCandidate(
   const questionDraft = readQuestionDraft(value.questionDraft, issues);
   const primaryAbilityId = readEnum(value.primaryAbilityId, PRIMARY_ABILITY_IDS, 'primary_ability_invalid', issues);
   const observationDimension = readEnum(value.observationDimension, OBSERVATION_DIMENSIONS, 'observation_dimension_invalid', issues);
+  const curriculumCalibrationRole = isReadingCurriculumCalibrationRole(
+    value.curriculumCalibrationRole,
+  ) ? value.curriculumCalibrationRole : undefined;
+  if (input.preferences?.curriculumCalibration && !curriculumCalibrationRole) {
+    issues.push('curriculum_calibration_role_invalid');
+  }
   const difficultySuggestion = readEnum(value.difficultySuggestion, QUESTION_RESOURCE_DIFFICULTIES, 'difficulty_invalid', issues);
   const assessmentMode = readEnum(value.assessmentMode, ASSESSMENT_MODES, 'assessment_mode_invalid', issues);
   const expectedStudentAction = readString(value.expectedStudentAction, 'expected_student_action_missing', issues);

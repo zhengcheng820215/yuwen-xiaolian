@@ -28,6 +28,8 @@ AI 题目的完整生成、作答格式匹配、同篇去重、能力梯度与�
 
 当题组需要通过不同负担层级的表现差异识别学生从哪一层开始失稳时，必须进一步遵循[阅读训练递进负担模型契约](./READING_TRAINING_PROGRESSIVE_LOAD_MODEL_CONTRACT.md)。这是不重建现有主链的 Training Model 兼容式核心升级，不得简化为 Prompt 偏好。阶段 0 只允许执行版本化 `legacy_projection` 与真实题库只读审计；工程边界和 `S0-01—S0-24` 验收见[阶段 0 契约与只读审计计划](./READING_TRAINING_PROGRESSIVE_LOAD_STAGE0_CONTRACT_AND_READ_ONLY_AUDIT_PLAN.md)，真实结果见[阶段 0 真实题库只读审计报告](../education/phase/reports/reading_training_progressive_load_stage0_read_only_audit_2026-08-21.md)。
 
+当教材中的整体感知、局部品味、关系解释与综合理解目标用于校正正式题组时，还必须遵循[教材目标校准与题组规划校正契约](./TEXTBOOK_OBJECTIVE_CALIBRATION_AND_TASK_GROUP_PLANNING_CORRECTION_CONTRACT.md)。教材活动只作为结构化校准信号，不直接复制为正式题；多场景或整体结构明显的核心材料必须审查是否存在全文定向入口，历史 Frozen Resource 只读，校正通过 successor Candidate 完成。
+
 阶段 1 的原生 `TaskLoadSemantics`、Observation Thread 身份、PlanningCandidate → TrainingTask → QuestionCandidate 所有权、历史兼容、语义 Hash 与 `S1-01—S1-40` 验收边界见[阶段 1 原生负担语义工程实施与 Debug 验收计划](./READING_TRAINING_PROGRESSIVE_LOAD_STAGE1_NATIVE_SEMANTICS_ENGINEERING_AND_DEBUG_PLAN.md)。阶段 1 不授权题组级发布阻断、Learning 调度或学生能力归因。
 
 阅读训练递进负担模型的所有阶段共同遵循“双证据门”：**每个阶段都必须证明旧主链零回归，并且新语义只在该阶段允许的边界内生效。** 阶段执行报告必须同时包含旧主链回归清单和阶段授权/禁止生效面清单；缺少任一项时不得宣称阶段完成或进入下一阶段。

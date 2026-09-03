@@ -30,6 +30,10 @@ import type {
   READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_RULE_VERSION,
   TaskGroupProgressionPlan,
 } from './readingTaskGroupProgression.schema.ts';
+import {
+  isReadingCurriculumCalibrationRole,
+  type ReadingCurriculumCalibrationRole,
+} from './readingCurriculumCalibration.schema.ts';
 
 export const MATERIAL_OBSERVATION_PLAN_SCHEMA_VERSION = 'material_observation_plan_v1' as const;
 export const RESOURCE_OBSERVATION_LINK_SCHEMA_VERSION = 'resource_observation_link_v1' as const;
@@ -145,6 +149,7 @@ export type ObservationTaskPlan = {
   taskLoadSemantics?: TaskLoadSemantics;
   planningTaskKey?: string;
   taskGroupProgressionPlanHash?: string;
+  curriculumCalibrationRole?: ReadingCurriculumCalibrationRole;
   linkedDraftId?: string;
   linkedResourceId?: string;
   status: ObservationTaskPlanStatus;
@@ -307,6 +312,8 @@ export function isObservationTaskPlan(value: unknown): value is ObservationTaskP
       task.taskLoadSemantics,
       task.resourceDraftSpecification?.responseFormat,
     )) &&
+    (task.curriculumCalibrationRole === undefined
+      || isReadingCurriculumCalibrationRole(task.curriculumCalibrationRole)) &&
     ['planned', 'draft_linked', 'frozen_linked', 'revision_required', 'cancelled'].includes(task.status)
   );
 }

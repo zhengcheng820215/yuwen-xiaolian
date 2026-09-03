@@ -239,6 +239,7 @@
     "debug:reading-training-progression-stage2": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runReadingTrainingProgressionStage2Debug.ts",
     "debug:reading-training-progression-stage3": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runReadingTrainingProgressionStage3Debug.ts",
     "debug:reading-training-progression-stage4": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runReadingTrainingProgressionStage4Debug.ts",
+    "debug:textbook-objective-calibration": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runTextbookObjectiveCalibrationTaskGroupCorrectionDebug.ts",
     "audit:reading-training-progression-stage0": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runReadingTrainingProgressionStage0Debug.ts --report",
     "debug:reading-open-response-load-stage1": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runReadingOpenResponseInputLoadStage1Debug.ts",
     "debug:reading-open-response-load-stage2": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runReadingOpenResponseInputLoadStage2Debug.ts",

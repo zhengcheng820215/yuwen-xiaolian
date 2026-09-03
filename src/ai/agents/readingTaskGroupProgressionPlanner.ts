@@ -40,6 +40,10 @@ import {
   planTrainingTaskSequence,
 } from './trainingTaskSequencePlanner.ts';
 import { buildPlannedTaskLoadSemantics } from './readingTaskLoadSemanticsAgent.ts';
+import type {
+  ReadingCurriculumCalibrationContext,
+  ReadingCurriculumCalibrationRole,
+} from '../schemas/readingCurriculumCalibration.schema.ts';
 
 const ROLE_RANK: Record<TaskLoadSequenceRole, number> = {
   foundation_entry: 0,
@@ -47,6 +51,14 @@ const ROLE_RANK: Record<TaskLoadSequenceRole, number> = {
   development: 2,
   integration: 3,
   independent_validation: 4,
+};
+
+const CURRICULUM_ROLE_RANK: Record<ReadingCurriculumCalibrationRole, number> = {
+  whole_text_orientation: 0,
+  local_close_reading: 1,
+  relation_explanation: 2,
+  integrated_understanding: 3,
+  optional_transfer: 4,
 };
 
 function sequenceRoleForSeed(
@@ -101,6 +113,7 @@ export type PlannedMaterialObservationTask = {
   planningTaskKey: string;
   taskLoadSemantics: TaskLoadSemantics;
   taskLoadSemanticsHash: string;
+  curriculumCalibrationRole?: ReadingCurriculumCalibrationRole;
 };
 
 export function planReadingTaskGroupProgressionSeeds(input: {
@@ -109,6 +122,7 @@ export function planReadingTaskGroupProgressionSeeds(input: {
   seeds: ReadingTaskPlanningSeed[];
   preference: TrainingTaskSequencePlanningPreference;
   protectedHigherOrderTaskKeys?: string[];
+  curriculumCalibration?: ReadingCurriculumCalibrationContext;
 }): {
   orderedSeeds: ReadingTaskPlanningSeed[];
   sequencePlanningResult: TrainingTaskSequencePlanningResult;
@@ -135,6 +149,9 @@ export function planReadingTaskGroupProgressionSeeds(input: {
   ]));
   const orderedSeeds = input.preference.strategy === 'entry_first'
     ? [...preliminary.tasks].sort((left, right) => (
+        curriculumRoleOrder(left.curriculumCalibrationRole, input.curriculumCalibration)
+        - curriculumRoleOrder(right.curriculumCalibrationRole, input.curriculumCalibration)
+        ||
         ROLE_RANK[preliminaryRoles.get(left.planningTaskKey) || 'integration']
         - ROLE_RANK[preliminaryRoles.get(right.planningTaskKey) || 'integration']
         || left.planningTaskKey.localeCompare(right.planningTaskKey)
@@ -160,6 +177,7 @@ export function planReadingTaskGroupProgressionSeeds(input: {
       planningTaskKey: seed.planningTaskKey,
       taskLoadSemantics,
       taskLoadSemanticsHash: calculateTaskLoadSemanticsHash(taskLoadSemantics),
+      curriculumCalibrationRole: seed.curriculumCalibrationRole,
     };
   });
   const progressionPlan = buildProgressionPlan({
@@ -168,6 +186,7 @@ export function planReadingTaskGroupProgressionSeeds(input: {
     plannedTasks,
     sequencePlanningResult: compatibilityProjection.result,
     protectedHigherOrderTaskKeys: input.protectedHigherOrderTaskKeys,
+    curriculumCalibration: input.curriculumCalibration,
   });
   const seedByKey = new Map(input.seeds.map((seed) => [seed.planningTaskKey, seed]));
   return {
@@ -192,6 +211,7 @@ export function planReadingTaskGroupProgression(input: {
   taskRole?: RecommendedTaskRole;
   protectedHigherOrderTaskKeys?: string[];
   existingFixedTaskKeys?: string[];
+  curriculumCalibration?: ReadingCurriculumCalibrationContext;
 }): {
   orderedCandidates: MaterialObservationPlanningCandidate[];
   sequencePlanningResult: TrainingTaskSequencePlanningResult;
@@ -220,6 +240,7 @@ export function planReadingTaskGroupProgression(input: {
     semanticsByCandidateId: preliminarySemantics,
     preference: input.preference,
     preludeCandidateIds: preliminary.result.preludeCandidateIds,
+    curriculumCalibration: input.curriculumCalibration,
   });
   const compatibilityProjection = planTrainingTaskSequence({
     tasks: ordered,
@@ -243,6 +264,7 @@ export function planReadingTaskGroupProgression(input: {
       planningTaskKey,
       taskLoadSemantics,
       taskLoadSemanticsHash: calculateTaskLoadSemanticsHash(taskLoadSemantics),
+      curriculumCalibrationRole: candidate.curriculumCalibrationRole,
     };
   });
   const seeds = plannedTasks.map((item) => createSeed(item, taskRole));
@@ -255,6 +277,7 @@ export function planReadingTaskGroupProgression(input: {
     plannedTasks,
     sequencePlanningResult: compatibilityProjection.result,
     protectedHigherOrderTaskKeys: input.protectedHigherOrderTaskKeys,
+    curriculumCalibration: input.curriculumCalibration,
   });
   return {
     orderedCandidates: plannedTasks.map((item) => ({
@@ -289,6 +312,7 @@ export function assessReadingTaskGroupProgression(input: {
     observationObject: string;
     sourceAnchorIdentity: string;
     scoringTargetIds: string[];
+    curriculumCalibrationRole?: ReadingCurriculumCalibrationRole;
   }>;
   assessedAt?: string;
 }): ReadingTaskGroupProgressionGateAssessment {
@@ -359,6 +383,7 @@ export function assessReadingTaskGroupProgression(input: {
     if (plan.protectedHigherOrderTaskKeys.length === 0 && plan.orderedTasks.length >= 4) {
       advisories.push('higher_order_coverage_thin');
     }
+    assessCurriculumCalibration({ plan, blockers, advisories });
   }
   const uniqueBlockers = [...new Set(blockers)];
   const uniqueAdvisories = [...new Set(advisories)];
@@ -394,6 +419,7 @@ function buildProgressionPlan(input: {
   plannedTasks: PlannedMaterialObservationTask[];
   sequencePlanningResult: TrainingTaskSequencePlanningResult;
   protectedHigherOrderTaskKeys?: string[];
+  curriculumCalibration?: ReadingCurriculumCalibrationContext;
 }): TaskGroupProgressionPlan {
   const transitions = input.plannedTasks.slice(1).map((current, index) => (
     buildTransition(input.plannedTasks[index]!, current, input.sequencePlanningResult)
@@ -413,6 +439,9 @@ function buildProgressionPlan(input: {
       planningTaskKey: item.planningTaskKey,
       taskLoadSemanticsHash: item.taskLoadSemanticsHash,
       sequenceRank: index + 1,
+      ...(item.curriculumCalibrationRole
+        ? { curriculumCalibrationRole: item.curriculumCalibrationRole }
+        : {}),
     })),
     accessibleEntryTaskKeys: input.plannedTasks
       .filter((item) => ['foundation_entry', 'bridge'].includes(item.taskLoadSemantics.sequenceRole))
@@ -427,6 +456,9 @@ function buildProgressionPlan(input: {
       ? { exceptionReason: input.sequencePlanningResult.reason }
       : {}),
     derivationSource: 'planned',
+    ...(input.curriculumCalibration
+      ? { curriculumCalibration: structuredClone(input.curriculumCalibration) }
+      : {}),
   };
   const plan: TaskGroupProgressionPlan = {
     ...planWithoutHash,
@@ -515,10 +547,19 @@ function orderCandidatesByProgression(input: {
   semanticsByCandidateId: Map<string, TaskLoadSemantics>;
   preference: TrainingTaskSequencePlanningPreference;
   preludeCandidateIds: string[];
+  curriculumCalibration?: ReadingCurriculumCalibrationContext;
 }): MaterialObservationPlanningCandidate[] {
   if (input.preference.strategy !== 'entry_first') return [...input.candidates];
   const prelude = new Set(input.preludeCandidateIds);
   return [...input.candidates].sort((left, right) => {
+    const curriculumRank = curriculumRoleOrder(
+      left.curriculumCalibrationRole,
+      input.curriculumCalibration,
+    ) - curriculumRoleOrder(
+      right.curriculumCalibrationRole,
+      input.curriculumCalibration,
+    );
+    if (curriculumRank !== 0) return curriculumRank;
     const leftPrelude = prelude.has(left.candidateId) ? 0 : 1;
     const rightPrelude = prelude.has(right.candidateId) ? 0 : 1;
     if (leftPrelude !== rightPrelude) return leftPrelude - rightPrelude;
@@ -541,6 +582,7 @@ function createSeed(
     primaryAbilityId: task.candidate.primaryAbilityId,
     taskRole,
     responseFormat: task.candidate.questionDraft.responseFormat,
+    curriculumCalibrationRole: task.curriculumCalibrationRole,
     loadIntent: {
       primaryAction: task.taskLoadSemantics.primaryAction,
       supportingAction: task.taskLoadSemantics.supportingAction,
@@ -548,6 +590,45 @@ function createSeed(
       textResponseLoadProfile: task.taskLoadSemantics.textResponseLoadProfile,
     },
   };
+}
+
+function curriculumRoleOrder(
+  role: ReadingCurriculumCalibrationRole | undefined,
+  context: ReadingCurriculumCalibrationContext | undefined,
+): number {
+  if (!context || !role) return context ? 5 : 0;
+  return CURRICULUM_ROLE_RANK[role];
+}
+
+function assessCurriculumCalibration(input: {
+  plan: TaskGroupProgressionPlan;
+  blockers: ReadingTaskGroupProgressionBlockerCode[];
+  advisories: ReadingTaskGroupProgressionAdvisoryCode[];
+}): void {
+  const context = input.plan.curriculumCalibration;
+  if (!context?.requiresWholeTextOrientation) return;
+  const orientationIndex = input.plan.orderedTasks.findIndex(
+    (task) => task.curriculumCalibrationRole === 'whole_text_orientation',
+  );
+  const firstDependentIndex = input.plan.orderedTasks.findIndex((task) => (
+    ['local_close_reading', 'relation_explanation', 'integrated_understanding']
+      .includes(task.curriculumCalibrationRole || '')
+  ));
+  if (orientationIndex < 0) {
+    if (context.enforcementMode === 'enforced') {
+      input.blockers.push('required_whole_text_orientation_missing');
+    } else {
+      input.advisories.push('whole_text_orientation_missing');
+    }
+    return;
+  }
+  if (firstDependentIndex >= 0 && firstDependentIndex < orientationIndex) {
+    if (context.enforcementMode === 'enforced') {
+      input.blockers.push('local_close_reading_before_whole_text_orientation');
+    } else {
+      input.advisories.push('local_close_reading_precedes_orientation');
+    }
+  }
 }
 
 function buildPlanningTaskKey(
