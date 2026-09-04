@@ -50,9 +50,10 @@
 - Formal Resource Snapshot Digest：`sha256:8aab84fdc5139dd1364ea73b1de34d5a239fbe638549b5d6ddbe0eefc2bb87cf`；
 - Formal Store Revision：`1964`；
 - Trial requested / effective：`off / off`。
+- Runtime 启动预检：`CHECK_DEGRADED`，唯一原因码为 `ai_provider_not_configured`。
 
 Runtime Identity 的工作树状态只检查实际身份输入路径；仓库根目录中与产品构建无关的个人未跟踪文件不参与身份，也不因此阻断可复现构建。未跟踪产品源码仍会被判为 `dirty`。
 
 ## 五、裁决
 
-P4 当前本地基线收口达到 Engineering 与 Runtime Identity PASS。旧 Runtime Identity、Launch Record 与 Trial Binding 继续失效；Provider 真实可用性和 Trial Identity Binding 仍为独立 `PENDING` 门禁，不能由本记录上推为真实 Trial 已准入、学生体验已通过或教育效果成立。
+P4 当前本地基线收口达到 Engineering 与 Runtime Identity PASS。旧 Runtime Identity、Launch Record 与 Trial Binding 继续失效；当前运行预检因 Provider 未配置保持 `CHECK_DEGRADED`。Provider 真实可用性和 Trial Identity Binding 仍为独立 `PENDING` 门禁，不能由本记录上推为真实 Trial 已准入、学生体验已通过或教育效果成立。

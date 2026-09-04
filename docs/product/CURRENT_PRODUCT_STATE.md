@@ -78,7 +78,7 @@
 - 四份负担规划、教材校准与任务原子性 Debug 已移除开发机绝对路径，当前工作区复读为 `48 / 48`、`59 / 59`、`22 / 22`、`8 / 8 PASS`；
 - 本地 Formal Store 已从 Revision `1963` 原子治理到 `1964`，重复执行为 `apply-noop`；当前仍为 `24` 篇材料、`81` 道题、`66 ready / 15 guided / 0 blocked`；
 - Vite Production Build 为 `608 modules transformed`，Runtime Identity 内容摘要为 `sha256:07be4093a008c15535d1735752982831d0e41e1d1ba9f5c805b78f94e5f8da6a`；
-- 本地基线收口只恢复可复现 Engineering / Runtime Identity 前提，Provider 与 Trial Identity Binding 仍为 `PENDING`，Trial 保持 `off`。
+- Runtime 启动预检为 `CHECK_DEGRADED`，唯一原因是 `ai_provider_not_configured`；本地基线收口只恢复可复现 Engineering / Runtime Identity 前提，Provider 与 Trial Identity Binding 仍为 `PENDING`，Trial 保持 `off`。
 
 工程通过不自动升级 Product Acceptance。
 
