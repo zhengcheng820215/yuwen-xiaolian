@@ -90,7 +90,11 @@ async function walk(directory: string, files: string[]): Promise<void> {
 
 function currentWorktreeIsDirty(): boolean {
   try {
-    return execFileSync('git', ['status', '--porcelain'], {
+    return execFileSync('git', [
+      'status', '--porcelain', '--untracked-files=all', '--',
+      'src', 'scripts/start-product-runtime.mjs', 'vite.config.js', 'package.json',
+      'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml',
+    ], {
       cwd: process.cwd(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
     }).trim().length > 0;
   } catch {
