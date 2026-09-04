@@ -50,7 +50,7 @@
 - WP1—WP7B、Unified Entry、Day0、Runtime R2/R3/R4 与 Trial Control：539/539 PASS；
 - Vite Production Build：607 modules transformed，PASS；
 - `git diff --check`：PASS；
-- 本轮受控 Trial 仍以该冻结 Build Identity 为准；后续文档提交不得被解释为新的 Trial Build 已自动准入。
+- 该次受控 Trial 当时以该冻结 Build Identity 为准；Revision 1964 正式治理后该身份已失效，当前不得继续作为 Trial 准入身份。
 
 2026-09-04 文档治理采样：
 
@@ -73,19 +73,25 @@
 - 治理后全量正式题 `blocked = 0`、`guided = 15`、`ready = 66`，两道 successor 不再命中复合核心动作或负担身份风险；
 - 原版本已转为 `superseded`，既有历史身份继续可追溯；本次正式资源身份变化使旧 Runtime Identity、Launch Record 与 Trial Binding 失效，不构成 Trial 自动重新激活。
 
+2026-09-04 当前本地基线收口：
+
+- 四份负担规划、教材校准与任务原子性 Debug 已移除开发机绝对路径，当前工作区复读为 `48 / 48`、`59 / 59`、`22 / 22`、`8 / 8 PASS`；
+- 本地 Formal Store 已从 Revision `1963` 原子治理到 `1964`，重复执行为 `apply-noop`；当前仍为 `24` 篇材料、`81` 道题、`66 ready / 15 guided / 0 blocked`；
+- Vite Production Build 为 `608 modules transformed`，Runtime Identity 内容摘要为 `sha256:07be4093a008c15535d1735752982831d0e41e1d1ba9f5c805b78f94e5f8da6a`；
+- 本地基线收口只恢复可复现 Engineering / Runtime Identity 前提，Provider 与 Trial Identity Binding 仍为 `PENDING`，Trial 保持 `off`。
+
 工程通过不自动升级 Product Acceptance。
 
 ## 四、当前唯一主任务
 
-执行 WP7B-5 真实学生受控产品验收：
+完成 P4 Trial 重新准入门禁，再执行 WP7B-5 真实学生受控产品验收：
 
-1. 使用冻结Build Identity的干净试用工作区；
-2. 完成物理键盘Enter/Space和真实浏览器200%缩放现场补验；
-3. 至少完成5次有效试用，建议至少3名不同目标学生；
-4. 覆盖手机、平板、PC；
-5. 按统一观察表记录入口、反馈、推荐、恢复、重复感受与内容问题；
-6. 独立裁决 Product Acceptance；
-7. Product PASS后再决定是否进入5—7个自然日Live观察。
+1. 复读当前 clean Runtime Identity 与 Revision 1964 Formal Store；
+2. 经独立授权完成 Provider 真实可用性检查；
+3. 创建与当前 Runtime Identity 一致的 Preflight、Launch Record 与 Trial Identity Binding；
+4. 在显式激活前保持 Trial `off`；
+5. 准入通过后完成物理键盘、真实浏览器200%缩放及至少5次受控学生试用；
+6. 独立裁决 Product Acceptance，PASS 后再决定是否进入5—7个自然日 Live 观察。
 
 WP7B-5 是 P4 `knowledge_practice_single_entry` 主张及 Batch E01—E02 的限定验收子批次，不代表 P4 总体完成，也不替代 P4 Batch B、C、D 对核心阅读连续题组、反馈修订、微训练、事件链和恢复能力的独立验收。这里的“当前唯一主任务”只表示当前执行焦点，不改变 P4 中 P0—P2 的产品风险分级。
 

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   assessReadingTaskGroupProgression,
   planReadingTaskGroupProgressionSeeds,
@@ -20,8 +22,8 @@ import {
   type ReadingCurriculumCalibrationRole,
 } from '../schemas/readingCurriculumCalibration.schema.ts';
 
-const ROOT = '/Users/chengzheng/Desktop/web/yuwen-xiaolian/System';
-const STORE = `${ROOT}/.local-data/formal-resource-store.json`;
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const STORE = resolve(ROOT, '.local-data/formal-resource-store.json');
 const tests: Array<{ id: string; name: string; run: () => void }> = [];
 
 function test(id: string, name: string, run: () => void) {
@@ -187,7 +189,7 @@ test('TC-10', '不要求机械补齐全部角色', () => {
   assert.equal(plan(['whole_text_orientation', 'integrated_understanding']).orderedSeeds.length, 2);
 });
 test('TC-11', '专项片段可不建立校准上下文', () => {
-  const source = readFileSync(`${ROOT}/src/pages/MaterialResourceProductionWorkbench.jsx`, 'utf8');
+  const source = readFileSync(resolve(ROOT, 'src/pages/MaterialResourceProductionWorkbench.jsx'), 'utf8');
   assert(source.includes("material.usageType === 'targeted_excerpt'"));
 });
 test('TC-12', '校准上下文进入新 Plan Hash', () => {
@@ -239,15 +241,15 @@ test('TC-17', '只读审计不修改 Formal Store', () => {
   assert.equal(storeHash(), before);
 });
 test('TC-18', '自动结构推断只启用 advisory', () => {
-  const source = readFileSync(`${ROOT}/src/pages/MaterialResourceProductionWorkbench.jsx`, 'utf8');
+  const source = readFileSync(resolve(ROOT, 'src/pages/MaterialResourceProductionWorkbench.jsx'), 'utf8');
   assert.match(source, /Paragraph structure is only an inference signal[\s\S]*enforcementMode: 'advisory'/);
 });
 test('TC-19', '新校准语义不写入学生能力画像', () => {
-  const source = readFileSync(`${ROOT}/src/ai/schemas/readingCurriculumCalibration.schema.ts`, 'utf8');
+  const source = readFileSync(resolve(ROOT, 'src/ai/schemas/readingCurriculumCalibration.schema.ts'), 'utf8');
   assert(!source.includes('studentAbilityProfile'));
 });
 test('TC-20', '内部校准角色未投射到 Learning 页面', () => {
-  const source = readFileSync(`${ROOT}/src/pages/UnifiedLearningEntry.jsx`, 'utf8');
+  const source = readFileSync(resolve(ROOT, 'src/pages/UnifiedLearningEntry.jsx'), 'utf8');
   assert(!source.includes('curriculumCalibrationRole'));
 });
 test('TC-21', 'Pass A 冻结低负担任务原子性', () => {
@@ -264,10 +266,10 @@ test('TC-21', 'Pass A 冻结低负担任务原子性', () => {
   assert(prompt.includes('不得伪装成入口题'));
 });
 test('TC-22', '基础练习校准契约明确排除字词与默写模块', () => {
-  const source = readFileSync(
-    `${ROOT}/docs/product/FOUNDATIONAL_EXERCISE_TASK_ATOMICITY_CALIBRATION_CONTRACT.md`,
-    'utf8',
-  );
+  const source = readFileSync(resolve(
+    ROOT,
+    'docs/product/FOUNDATIONAL_EXERCISE_TASK_ATOMICITY_CALIBRATION_CONTRACT.md',
+  ), 'utf8');
   assert(source.includes('拼音、字形、词语听写'));
   assert(source.includes('历史 Frozen Resource 只读'));
   assert(source.includes('low_load_atomicity_violation'));

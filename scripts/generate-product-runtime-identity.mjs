@@ -28,7 +28,13 @@ if (!lockPath) throw new Error('Dependency lockfile is missing.');
 
 const snapshot = await new SharedFormalResourceStore().readOnly();
 const gitCommit = safeGit(['rev-parse', 'HEAD']);
-const worktreeState = safeGit(['status', '--porcelain']) ? 'dirty' : 'clean';
+// Runtime eligibility follows the files that can change the product identity.
+// Unrelated local artifacts outside these paths must not make an otherwise
+// reproducible product build appear dirty, while untracked product source does.
+const worktreeState = safeGit([
+  'status', '--porcelain', '--untracked-files=all', '--',
+  'src', 'scripts/start-product-runtime.mjs', 'vite.config.js', 'package.json', lockPath,
+]) ? 'dirty' : 'clean';
 const identityInputs = {
   applicationContentDigest: buildManifestDigest(sourceFiles),
   dependencyLockDigest: sha256(await readText(lockPath)),

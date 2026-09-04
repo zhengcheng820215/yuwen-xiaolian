@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   assessReadingTaskGroupProgression,
   planReadingTaskGroupProgression,
@@ -36,7 +38,7 @@ import {
 import type { MaterialObservationPlanningCandidate } from
   '../schemas/materialObservationDraftGenerator.schema.ts';
 
-const ROOT = '/Users/chengzheng/Desktop/web/yuwen-xiaolian/System';
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const tests: Array<{ id: string; name: string; run: () => void | Promise<void> }> = [];
 function test(id: string, name: string, run: () => void | Promise<void>) {
   tests.push({ id, name, run });
@@ -272,7 +274,7 @@ test('S2-47', '旧主链未重建', () => assert.deepEqual(['Material', 'Plan', 
 test('S2-48', '阶段 2 验收边界文档完整', () => { const doc = read('docs/product/READING_TRAINING_PROGRESSIVE_LOAD_STAGE2_PLANNER_PROMPT_GROUP_GATE_ENGINEERING_AND_DEBUG_PLAN.md'); assert(doc.includes('S2-01—S2-48') && doc.includes('旧主链零回归')); });
 
 function read(relative: string) {
-  return readFileSync(`${ROOT}/${relative}`, 'utf8');
+  return readFileSync(resolve(ROOT, relative), 'utf8');
 }
 function find(fileName: string): string[] {
   const candidates = [

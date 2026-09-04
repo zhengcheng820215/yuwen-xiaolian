@@ -56,17 +56,17 @@ Debug / Acceptance Report
 
 | 当前事实 | 已核验值 |
 | --- | ---: |
-| Formal Store Revision | 1963 |
+| Formal Store Revision | 1964 |
 | 正式材料 | 24（Core 12 / Targeted 12） |
 | Current Frozen Resource | 81 |
 | 普通新会话核心阅读池 | 63 |
 | 条件触发微训练池 | 18 |
-| Quality Ready / Guidance / Blocked | 65 / 16 / 0 |
+| Quality Ready / Guidance / Blocked | 66 / 15 / 0 |
 | 轻量知识题 | 27 历史迁移 + 7 WP5 审核补充 / 19 approved / 15 draft / 3 变式组 / 6 Link |
 
 `81` 是正式题库库存，不等于当前学生一次可见或可自由选择的题量。正式题数量必须由运行基线读取，不再长期使用旧的 `10 篇 / 34 道` 快照。
 
-当前已提交源码为 `39518036429d02822f84733693791bfcacd18758`，最近一次完整冻结验收基线仍为 `5a6892e30d29634d007f2102aef481d6cd61f156`。本地未提交改动不构成新的 Trial Build，也不得把局部 Debug PASS 上推为当前 Product Acceptance 或 Live 结论；即时状态继续唯一服从[当前产品状态](./CURRENT_PRODUCT_STATE.md)。
+当前已提交源码身份统一以 `git rev-parse HEAD` 复读，不再在本控制表复制易漂移的固定提交号。最近一次历史完整冻结验收基线为 `5a6892e30d29634d007f2102aef481d6cd61f156`；当前本地基线已完成 Revision 1964 收口，但尚未完成 Provider 与 Trial Binding 重新准入。本地未提交改动不构成新的 Trial Build，也不得把局部 Debug PASS 上推为当前 Product Acceptance 或 Live 结论；即时状态继续唯一服从[当前产品状态](./CURRENT_PRODUCT_STATE.md)。
 
 入口角色以 [WP0A 角色对齐决策](./STUDENT_SINGLE_ENTRY_FORMAL_READING_AND_KNOWLEDGE_PRACTICE_ALIGNMENT_DECISION_WP0A.md) 为准：`/learning` 是学生唯一入口；正式阅读是能力证据主线，轻量知识练习是入口内的辅助任务家族。
 
@@ -75,7 +75,7 @@ Debug / Acceptance Report
 | Phase 17.2 首批正式资源包 | 生产经过审核、能被正式学习系统使用的真实题目 | PASS | UNIFIED WORKBENCH 26 / 26 + PLAN CONTINUATION WP-C5 / WP-C6 + ASSISTED DRAFT GENERATION 38 / 38 PASS | BATCH A OWNER REVIEW / FREEZE 8 / 8 PASS；WORKBENCH READ-ONLY 42 / 42 VERIFIED | THREE-ROUND PROVIDER QUALITY REVIEW PENDING |
 | Phase 17.3 正式资源运行集成 | 证明资源目标、来源、诊断、证据和下一任务在主链中不丢失 | PASS | WORK PACKAGE A 17 / 17 PASS / WORK PACKAGE B CONTROLLED LIVE 3 / 3 PASS | BATCH A `/learning` SINGLE-ROUND PASS | CONTROLLED DEEPSEEK LIVE PASS |
 | Phase 17.4 本机共享正式资源 | 让不同本机客户端读取同一份正式资源，并保护版本与冲突 | PASS | DEBUG 10 / 10 + BASELINE CUTOVER + FRESH INITIALIZATION PASS | CONTROLLED DUAL-CLIENT + INDEPENDENT BROWSER-KERNEL CHECK PASS | RESTART PERSISTENCE PASS |
-| Phase 17.5 题目生成质量评估 | 在发布前发现结构、语义和批次质量问题 | PASS | 17.5A / B / C1 / C2 / C3A / C3B RUNTIME PASS + REVIEW / PUBLICATION WORKFLOW P0 PASS | CURRENT 81 STATIC FEEDBACK PROJECTION READY；QUALITY 65 READY / 16 GUIDANCE / 0 BLOCKED | REAL LEARNING SAMPLE CALIBRATION AWAITING DATA |
+| Phase 17.5 题目生成质量评估 | 在发布前发现结构、语义和批次质量问题 | PASS | 17.5A / B / C1 / C2 / C3A / C3B RUNTIME PASS + REVIEW / PUBLICATION WORKFLOW P0 PASS | CURRENT 81 STATIC FEEDBACK PROJECTION READY；QUALITY 66 READY / 15 GUIDANCE / 0 BLOCKED | REAL LEARNING SAMPLE CALIBRATION AWAITING DATA |
 | `/learning` 正式学习入口 | 让单学生从一个入口开始、恢复、作答、反馈并继续 | PASS | MAIN PATH PASS / SHARED FORMAL SNAPSHOT READ FIXED / WP7A 50 / 50 PASS | UNIFIED ENTRY + FORMAL ENTRY + CORE NEW-SESSION + WP7A BROWSER PASS | CURRENT TRIAL SIGNATURE RECONCILIATION REQUIRED |
 | WP0A / WP7A 唯一入口与知识练习对齐 | 在唯一学生入口中正确呈现正式阅读和轻量知识巩固，同时保持事实边界 | PASS | WP0A CONFIRMED / WP7A ENGINEERING PASS | PRODUCT ACCEPTANCE PENDING | PENDING |
 | 轻量知识练习 | 提供不生成长期能力结论的低负担基础知识巩固 | PASS | WP1—WP6、WP7A、WP7B最低门禁443/443；追加当前Runtime后539/539；Build与浏览器全链PASS；19 approved / 3个可独立成组分类 / 3变式组 / 6 Link | WP7B ENGINEERING PASS；PRODUCT ACCEPTANCE PENDING 0/5 | PENDING |
