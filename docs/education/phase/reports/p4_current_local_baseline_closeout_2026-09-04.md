@@ -2,11 +2,11 @@
 
 日期：2026-09-04
 
-状态轴：`Engineering = PASS / Runtime Identity = PASS / Provider = PENDING / Trial Binding = PENDING / Product Acceptance = PENDING / Live = OFF`
+状态轴：`Engineering = PASS / Runtime Identity = PASS / Provider = PASS / Preflight + Launch + Trial Binding = PASS / Trial Activation = OFF / Product Acceptance = PENDING / Live = OFF`
 
 ## 一、收口范围
 
-本次只完成当前本地工作区的跨机器可复现性、Formal Store Revision 1964 对齐、中央控制面同步、Production Build 与 Runtime Identity 复读。未执行外部 Provider 调用，未创建或激活 Trial Window，未提交真实学生答案。
+本记录先完成当前本地工作区的跨机器可复现性、Formal Store Revision 1964 对齐、Production Build 与 Runtime Identity 复读；随后在独立授权下执行 1 次 DeepSeek 真实 Provider Smoke，并且创建新的 Preflight、Launch Record 和 Trial Identity Binding。未提交真实学生答案，未激活 Trial。
 
 ## 二、路径可复现性
 
@@ -46,14 +46,37 @@
 
 - Vite Production Build：`608 modules transformed / PASS`；
 - `git diff --check`：`PASS`；
-- Runtime Identity Digest：`sha256:07be4093a008c15535d1735752982831d0e41e1d1ba9f5c805b78f94e5f8da6a`；
+- Runtime Identity Digest：`sha256:62056231c38d1463e7870f9b7b29ea7c3dfec4142fa9158fdf3b639190ee7197`；
 - Formal Resource Snapshot Digest：`sha256:8aab84fdc5139dd1364ea73b1de34d5a239fbe638549b5d6ddbe0eefc2bb87cf`；
 - Formal Store Revision：`1964`；
 - Trial requested / effective：`off / off`。
-- Runtime 启动预检：`CHECK_DEGRADED`，唯一原因码为 `ai_provider_not_configured`。
+- Runtime 核心健康：`instance = ready / formalResourceStore = ready / aiProvider = configured + live_verified / learning = ready`；由于 Trial 按授权保持关闭，整体健康投影仍为 `degraded`，仅保留 `audit_evidence_incomplete` 与 `trial_reentry_required`。
 
 Runtime Identity 的工作树状态只检查实际身份输入路径；仓库根目录中与产品构建无关的个人未跟踪文件不参与身份，也不因此阻断可复现构建。未跟踪产品源码仍会被判为 `dirty`。
 
-## 五、裁决
+## 五、Provider Smoke 与重新准入
 
-P4 当前本地基线收口达到 Engineering 与 Runtime Identity PASS。旧 Runtime Identity、Launch Record 与 Trial Binding 继续失效；当前运行预检因 Provider 未配置保持 `CHECK_DEGRADED`。Provider 真实可用性和 Trial Identity Binding 仍为独立 `PENDING` 门禁，不能由本记录上推为真实 Trial 已准入、学生体验已通过或教育效果成立。
+DeepSeek 真实 Provider Smoke 使用虚构、非学生数据输入，仅发起 1 次真实生成调用：
+
+| 项目 | 结果 |
+| --- | --- |
+| Provider / Model | `deepseek / deepseek-v4-flash` |
+| Model discovery | HTTP `200`，账户模型列表包含目标模型 |
+| 真实调用 | `1` |
+| 延迟 / Token | `2078 ms / 2377 total tokens` |
+| Smoke 门禁 | `LIVE-001—LIVE-005 = 5 / 5 PASS` |
+| 隐私 | 日志未输出 API Key、完整 Prompt、原始模型输出或学生答案 |
+
+Provider 通过后，R4-P01—R4-P24 以当前 clean Runtime Identity 执行为 `24 / 24 PASS`，并原子保存：
+
+- Trial Window：`real-trial-639190ee7197-1788529876297`；
+- Preflight：与上述 Window 及 Runtime Identity 交叉绑定，`eligibleForActivation = true`；
+- Launch Record：`trial-reentry-launch-44259789`，`status = approved_to_activate`；
+- Trial Identity Binding：`trial-runtime-binding-6133bed3`；
+- 页面刷新后仍可复读 Preflight 与 Launch Record；
+- 服务端 `product-runtime-trial-control.json` 不存在，Runtime Health 为 `requestedMode = off / effectiveMode = off`；
+- 激活确认框未选中，激活按钮未执行，Observation Event 为 `0`。
+
+## 六、裁决
+
+P4 当前本地基线、Runtime Identity、DeepSeek 真实 Provider 可用性与未激活准入包均达到对应工程门禁。当前仅能表述为“已批准可激活”，不得表述为 Trial 已激活、真实学生体验已通过或教育效果成立。下一独立决策是否显式激活 Trial；本次按用户授权明确保持 `off`。

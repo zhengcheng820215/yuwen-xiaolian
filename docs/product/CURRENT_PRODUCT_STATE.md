@@ -77,8 +77,10 @@
 
 - 四份负担规划、教材校准与任务原子性 Debug 已移除开发机绝对路径，当前工作区复读为 `48 / 48`、`59 / 59`、`22 / 22`、`8 / 8 PASS`；
 - 本地 Formal Store 已从 Revision `1963` 原子治理到 `1964`，重复执行为 `apply-noop`；当前仍为 `24` 篇材料、`81` 道题、`66 ready / 15 guided / 0 blocked`；
-- Vite Production Build 为 `608 modules transformed`，Runtime Identity 内容摘要为 `sha256:07be4093a008c15535d1735752982831d0e41e1d1ba9f5c805b78f94e5f8da6a`；
-- Runtime 启动预检为 `CHECK_DEGRADED`，唯一原因是 `ai_provider_not_configured`；本地基线收口只恢复可复现 Engineering / Runtime Identity 前提，Provider 与 Trial Identity Binding 仍为 `PENDING`，Trial 保持 `off`。
+- Vite Production Build 为 `608 modules transformed`，当前 clean Runtime Identity 内容摘要为 `sha256:62056231c38d1463e7870f9b7b29ea7c3dfec4142fa9158fdf3b639190ee7197`；
+- DeepSeek 目标模型 `deepseek-v4-flash` 已完成 1 次真实 Provider Smoke，`LIVE-001—LIVE-005 = 5 / 5 PASS`，Provider 状态为 `configured / live_verified / trialEligible`；
+- R4-P01—R4-P24 为 `24 / 24 PASS`；新 Launch Record `trial-reentry-launch-44259789` 和 Trial Identity Binding `trial-runtime-binding-6133bed3` 已原子保存，刷新后可复读；
+- Trial 未激活，Runtime Health 仍明确为 `requestedMode = off / effectiveMode = off`，Observation Event 为 `0`。
 
 工程通过不自动升级 Product Acceptance。
 
@@ -86,12 +88,10 @@
 
 完成 P4 Trial 重新准入门禁，再执行 WP7B-5 真实学生受控产品验收：
 
-1. 复读当前 clean Runtime Identity 与 Revision 1964 Formal Store；
-2. 经独立授权完成 Provider 真实可用性检查；
-3. 创建与当前 Runtime Identity 一致的 Preflight、Launch Record 与 Trial Identity Binding；
-4. 在显式激活前保持 Trial `off`；
-5. 准入通过后完成物理键盘、真实浏览器200%缩放及至少5次受控学生试用；
-6. 独立裁决 Product Acceptance，PASS 后再决定是否进入5—7个自然日 Live 观察。
+1. 当前 clean Runtime Identity、Revision 1964 Formal Store、Provider Smoke 与未激活准入包已复读通过；
+2. 由产品负责人独立决定是否对当前 Launch Record 执行显式激活；未获新授权前 Trial 必须保持 `off`；
+3. 激活后再完成物理键盘、真实浏览器 200% 缩放及至少 5 次受控学生试用；
+4. 独立裁决 Product Acceptance，PASS 后再决定是否进入 5—7 个自然日 Live 观察。
 
 WP7B-5 是 P4 `knowledge_practice_single_entry` 主张及 Batch E01—E02 的限定验收子批次，不代表 P4 总体完成，也不替代 P4 Batch B、C、D 对核心阅读连续题组、反馈修订、微训练、事件链和恢复能力的独立验收。这里的“当前唯一主任务”只表示当前执行焦点，不改变 P4 中 P0—P2 的产品风险分级。
 

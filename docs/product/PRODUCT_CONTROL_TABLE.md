@@ -66,7 +66,7 @@ Debug / Acceptance Report
 
 `81` 是正式题库库存，不等于当前学生一次可见或可自由选择的题量。正式题数量必须由运行基线读取，不再长期使用旧的 `10 篇 / 34 道` 快照。
 
-当前已提交源码身份统一以 `git rev-parse HEAD` 复读，不再在本控制表复制易漂移的固定提交号。最近一次历史完整冻结验收基线为 `5a6892e30d29634d007f2102aef481d6cd61f156`；当前本地基线已完成 Revision 1964 收口，但尚未完成 Provider 与 Trial Binding 重新准入。本地未提交改动不构成新的 Trial Build，也不得把局部 Debug PASS 上推为当前 Product Acceptance 或 Live 结论；即时状态继续唯一服从[当前产品状态](./CURRENT_PRODUCT_STATE.md)。
+当前已提交源码身份统一以 `git rev-parse HEAD` 复读，不再在本控制表复制易漂移的固定提交号。最近一次历史完整冻结验收基线为 `5a6892e30d29634d007f2102aef481d6cd61f156`；当前本地基线已完成 Revision 1964 收口、DeepSeek 真实 Provider Smoke 和新 Preflight / Launch Record / Trial Identity Binding 重新准入，但 Trial 按授权保持 `off`。本地未提交改动不构成新的 Trial Build，也不得把局部 Debug PASS 上推为当前 Product Acceptance 或 Live 结论；即时状态继续唯一服从[当前产品状态](./CURRENT_PRODUCT_STATE.md)。
 
 入口角色以 [WP0A 角色对齐决策](./STUDENT_SINGLE_ENTRY_FORMAL_READING_AND_KNOWLEDGE_PRACTICE_ALIGNMENT_DECISION_WP0A.md) 为准：`/learning` 是学生唯一入口；正式阅读是能力证据主线，轻量知识练习是入口内的辅助任务家族。
 
@@ -257,8 +257,8 @@ Debug / Acceptance Report
 
 ```text
 1. WP7A 已完成：正式阅读主线和轻量知识巩固已收敛到唯一 `/learning` 产品入口，已有 PracticeSession 得到保护
-2. WP7B 已 Engineering PASS；下一步只组织至少5次受控真实学生验收，不扩建 `/practice/knowledge` 第二产品壳
-3. 现场复读 Runtime Identity、Trial Window 与 Activation State，补齐唯一当前 Trial 状态签署
+2. WP7B 已 Engineering PASS；当前 Preflight / Launch / Binding 已准备且 Trial 仍为 `off`，下一步需独立授权显式激活
+3. 激活后只组织至少 5 次受控真实学生验收，不扩建 `/practice/knowledge` 第二产品壳
 4. 真实 Learning 继续观察反馈、Revision、Retest / Transfer 和五事件完整性，不把反馈支持下改善解释为独立掌握
 5. 当前只进入 WP7B-5：按冻结 Build Identity 组织 T1—T5 真实学生受控试用，试用中不修改代码或 approved 内容
 6. 轻量题量由覆盖矩阵、连续5/10次使用重复率和枯竭率倒推；100道仅为内容目标
