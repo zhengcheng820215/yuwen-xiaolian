@@ -232,8 +232,20 @@ implements ProductComplexityConvergenceObservationRepository {
   async getRealTrialReentryPreflightReport(reportId: string): Promise<RealTrialReentryPreflightReportV2 | undefined> {
     return this.readOne(REENTRY_PREFLIGHT_REPORT_STORE, reportId);
   }
+  async listRealTrialReentryPreflightReports(
+    trialWindowId?: string,
+  ): Promise<RealTrialReentryPreflightReportV2[]> {
+    const values = await this.readAll<RealTrialReentryPreflightReportV2>(REENTRY_PREFLIGHT_REPORT_STORE);
+    return values.filter((item) => !trialWindowId || item.trialWindowId === trialWindowId);
+  }
   async getRealTrialReentryLaunchRecord(launchRecordId: string): Promise<RealTrialWindowLaunchRecordV2 | undefined> {
     return this.readOne(REENTRY_LAUNCH_RECORD_STORE, launchRecordId);
+  }
+  async listRealTrialReentryLaunchRecords(
+    trialWindowId?: string,
+  ): Promise<RealTrialWindowLaunchRecordV2[]> {
+    const values = await this.readAll<RealTrialWindowLaunchRecordV2>(REENTRY_LAUNCH_RECORD_STORE);
+    return values.filter((item) => !trialWindowId || item.trialWindowId === trialWindowId);
   }
   async getRealTrialRuntimeIdentityBinding(bindingId: string): Promise<RealTrialRuntimeIdentityBinding | undefined> {
     return this.readOne(RUNTIME_IDENTITY_BINDING_STORE, bindingId);

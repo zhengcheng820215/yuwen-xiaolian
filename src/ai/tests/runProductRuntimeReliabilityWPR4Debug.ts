@@ -121,6 +121,8 @@ test('R4-C45', '激活不创建真实分母', async () => { const f = fixtures('
 test('R4-C46', '旧 Preflight Store 保持不变', async () => { const repo = repoFresh(); await commit(repo, fixtures('46')); assert.equal((await repo.listPreflightReports()).length, 0); });
 test('R4-C47', '旧 Launch Store 保持不变', async () => { const repo = repoFresh(); await commit(repo, fixtures('47')); assert.equal((await repo.listLaunchRecords()).length, 0); });
 test('R4-C48', 'Learning 主链不受拒绝影响', async () => { const f = fixtures('48'); const repo = repoFresh(); await commit(repo, f); const result = await activate(repo, f, { runtimeHealthReady: false }); assert.equal(result.effectiveMode, 'off'); assert.equal((await repo.listEvents()).length, 0); });
+test('R4-C49', '未激活 Preflight 可在刷新后列出', async () => { const f = fixtures('49'); const repo = repoFresh(); await commit(repo, f); assert.deepEqual((await repo.listRealTrialReentryPreflightReports()).map((item) => item.reportId), [f.bundle.preflightReport.reportId]); });
+test('R4-C50', '未激活 Launch Record 可在刷新后列出', async () => { const f = fixtures('50'); const repo = repoFresh(); await commit(repo, f); assert.deepEqual((await repo.listRealTrialReentryLaunchRecords()).map((item) => item.launchRecordId), [f.bundle.launchRecord.launchRecordId]); });
 
 for (const current of tests) { await current.run(); console.log(`PASS ${current.id} ${current.title}`); }
 console.log(`WP-R4 DEBUG ACCEPTED ${tests.length}/${tests.length}`);

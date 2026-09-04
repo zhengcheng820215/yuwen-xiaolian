@@ -196,8 +196,20 @@ implements ProductComplexityConvergenceObservationRepository {
   async getRealTrialReentryPreflightReport(reportId: string): Promise<RealTrialReentryPreflightReportV2 | undefined> {
     return cloneOptional(this.reentryPreflightReports.get(reportId));
   }
+  async listRealTrialReentryPreflightReports(
+    trialWindowId?: string,
+  ): Promise<RealTrialReentryPreflightReportV2[]> {
+    return [...this.reentryPreflightReports.values()]
+      .filter((item) => !trialWindowId || item.trialWindowId === trialWindowId).map(clone);
+  }
   async getRealTrialReentryLaunchRecord(launchRecordId: string): Promise<RealTrialWindowLaunchRecordV2 | undefined> {
     return cloneOptional(this.reentryLaunchRecords.get(launchRecordId));
+  }
+  async listRealTrialReentryLaunchRecords(
+    trialWindowId?: string,
+  ): Promise<RealTrialWindowLaunchRecordV2[]> {
+    return [...this.reentryLaunchRecords.values()]
+      .filter((item) => !trialWindowId || item.trialWindowId === trialWindowId).map(clone);
   }
   async getRealTrialRuntimeIdentityBinding(bindingId: string): Promise<RealTrialRuntimeIdentityBinding | undefined> {
     return cloneOptional(this.runtimeIdentityBindings.get(bindingId));

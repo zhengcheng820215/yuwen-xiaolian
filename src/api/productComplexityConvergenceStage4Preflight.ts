@@ -84,13 +84,16 @@ export async function loadProductComplexityConvergencePreflightStatus() {
     : await recoverConvergenceActivation({
       repository, now, buildVersion: PRODUCT_COMPLEXITY_CONVERGENCE_PREFLIGHT_BUILD_VERSION,
     });
-  const [registries, windows, reports, launches, audits, events, reentryAudits] = await Promise.all([
+  const [registries, windows, reports, launches, audits, events, reentryReports,
+    reentryLaunches, reentryAudits] = await Promise.all([
     repository.listSourceRegistrySnapshots(),
     repository.listTrialWindows(),
     repository.listPreflightReports(),
     repository.listLaunchRecords(),
     repository.listActivationAudits(),
     repository.listEvents(),
+    repository.listRealTrialReentryPreflightReports(),
+    repository.listRealTrialReentryLaunchRecords(),
     repository.listRealTrialReentryActivationAudits(),
   ]);
   const registry = [...registries].sort((left, right) =>
@@ -101,6 +104,14 @@ export async function loadProductComplexityConvergencePreflightStatus() {
     right.completedAt.localeCompare(left.completedAt))[0];
   let latestLaunch = [...launches].sort((left, right) =>
     right.recordedAt.localeCompare(left.recordedAt))[0];
+  const latestReentryReport = [...reentryReports].sort((left, right) =>
+    right.completedAt.localeCompare(left.completedAt))[0];
+  const latestReentryLaunch = [...reentryLaunches].sort((left, right) =>
+    right.recordedAt.localeCompare(left.recordedAt))[0];
+  if (latestReentryReport && (!latestReport
+    || latestReentryReport.completedAt > latestReport.completedAt)) latestReport = latestReentryReport;
+  if (latestReentryLaunch && (!latestLaunch
+    || latestReentryLaunch.recordedAt > latestLaunch.recordedAt)) latestLaunch = latestReentryLaunch;
   if (currentState?.activationStateVersion
     === PRODUCT_COMPLEXITY_CONVERGENCE_STAGE4_ACTIVATION_STATE_V2_VERSION
     && currentState.launchRecordId) {
@@ -130,7 +141,7 @@ export async function loadProductComplexityConvergencePreflightStatus() {
     activationAuditCount: audits.length + reentryAudits.length,
     observationEventCount: events.length,
     approvedToActivate: Boolean(
-      latestWindow?.status === 'active'
+      latestWindow?.status === 'draft'
       && latestReport?.eligibleForActivation
       && latestLaunch?.status === 'approved_to_activate',
     ),
