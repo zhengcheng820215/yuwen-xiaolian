@@ -126,10 +126,15 @@ async function main(): Promise<void> {
   for (const token of [
     '训练计划状态已同步，正在继续发布…',
     'data-plan-continuation-code={taskCardFeedback.continuationCode || undefined}',
-    '错误码：{taskCardFeedback.errorCode}',
+    'taskCardFeedback.recoveryMessage',
   ]) {
     assert.equal(source.includes(token), true, `P1 continuation projection is missing: ${token}`);
   }
+  assert.equal(
+    source.includes('错误码：{taskCardFeedback.errorCode}'),
+    false,
+    'content operator feedback must not expose an internal error code on the workbench surface',
+  );
   for (const token of [
     "reasonSource?: 'fixed' | 'generated' | 'manual'",
     'structuredReason?: string',
