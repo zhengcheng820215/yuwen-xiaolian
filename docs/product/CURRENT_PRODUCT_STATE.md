@@ -4,11 +4,11 @@
 
 文档类型：`CURRENT_CONTROL`
 
-状态：`CURRENT / ENGINEERING PASS / PRODUCT ACCEPTANCE PENDING (0 / 5) / LIVE NOT STARTED`
+状态：`CURRENT / ENGINEERING PASS / CURRENT GOVERNANCE BATCH FROZEN IN GIT / PRODUCT ACCEPTANCE PENDING (0 / 5) / LIVE NOT STARTED`
 
 状态轴：`Design = NOT_APPLICABLE / Engineering = PASS / Product Acceptance = PENDING / Live = PENDING`
 
-更新日期：2026-08-31
+更新日期：2026-09-04
 
 本文是当前事实的唯一快速入口，也是当前运行状态的唯一文档入口。产品文档的类型、生命周期和权威顺序遵循[产品文档治理契约](./PRODUCT_DOCUMENT_GOVERNANCE_CONTRACT.md)，完整登记见[产品文档权威清单](./PRODUCT_DOCUMENT_AUTHORITY_MANIFEST.md)。它不替代产品契约、工程实施文档或历史验收报告；当历史快照与当前事实冲突时，按以下顺序裁决：
 
@@ -41,14 +41,37 @@
 
 ## 三、当前工程证据
 
-冻结工程基线提交：`5a6892e30d29634d007f2102aef481d6cd61f156`
+最近一次完整冻结验收基线提交：`5a6892e30d29634d007f2102aef481d6cd61f156`
 
-2026-08-31 在该提交上复核：
+本轮教材目标校准、基础练习任务原子性校准、正式内容窄范围治理及关联实现，随本文所在 Git Commit 一并冻结。当前可复读源码身份以 `git rev-parse HEAD` 与干净工作区联合确认；该 Commit 不自动成为新的 Trial Build，只有重新执行 Runtime / Provider / Formal Store / Launch Record / Trial Binding 准入后，才能替代最近一次完整冻结验收基线。
+
+2026-08-31 在最近一次完整冻结验收基线上复核：
 
 - WP1—WP7B、Unified Entry、Day0、Runtime R2/R3/R4 与 Trial Control：539/539 PASS；
 - Vite Production Build：607 modules transformed，PASS；
 - `git diff --check`：PASS；
 - 本轮受控 Trial 仍以该冻结 Build Identity 为准；后续文档提交不得被解释为新的 Trial Build 已自动准入。
+
+2026-09-04 文档治理采样：
+
+- `docs/product` 共112份 Markdown，机器治理审计确认112/112唯一登记、相对链接有效且当前状态入口唯一；
+- 文档语义审计与产品主张证据审计均为 PASS，向上推断继续被阻断，文档治理写入正式产品数据为0；
+- 当前正式资源仍为24篇材料、81道 Current Frozen Resource；文档治理不得写入或覆盖 Formal Store；
+- 本轮治理提交与最近一次完整冻结验收基线不同，且尚未重新完成 Trial 准入；
+- 最新局部工程通过不能替代统一主链、Production Build 与真实 Trial 的重新准入。
+
+2026-09-04 基础练习任务原子性工程验收：
+
+- `FA-01—FA-08` 专项 `8 / 8 PASS`，关联负担规划、题组梯度、教材校准、草稿生成与单选回归合计 `326 / 326 PASS`；
+- Production Build 通过，Formal Store 前后哈希一致，正式数据写入为 `0`，Live Provider 调用为 `0`；
+- 该结果只关闭本轮 Engineering 验收门，并随本文所在 Git Commit 冻结；Product Acceptance 仍为 `0 / 5`，Live 仍未开始。
+
+2026-09-04 正式内容窄范围治理：
+
+- 只治理《皇帝的新装》两道命中 `composite_core_actions` 的 Current Frozen Resource，以 successor 版本分别收敛为“共同反应—社会风气”和“威胁性话术—隐瞒附和—骗局持续”单一观察链；
+- Formal Store Revision 由 `1963` 原子更新为 `1964`，当前正式资源仍为 `24` 篇材料、`81` 道 Current Frozen Resource、`81` 条 Frozen Quality Trace、`81` 道 Learning 可消费题目；
+- 治理后全量正式题 `blocked = 0`、`guided = 15`、`ready = 66`，两道 successor 不再命中复合核心动作或负担身份风险；
+- 原版本已转为 `superseded`，既有历史身份继续可追溯；本次正式资源身份变化使旧 Runtime Identity、Launch Record 与 Trial Binding 失效，不构成 Trial 自动重新激活。
 
 工程通过不自动升级 Product Acceptance。
 

@@ -2,11 +2,17 @@
 
 英文名称：Textbook Objective Calibration and Task Group Planning Correction Contract
 
+文档类型：`NORMATIVE_CONTRACT`
+
 状态：DESIGN FROZEN / ENGINEERING IMPLEMENTED / DEBUG ACCEPTED
+
+状态轴：`Design = PASS / Engineering = PASS / Product Acceptance = NOT_CLAIMED / Live = NOT_CLAIMED`
 
 版本：`textbook_objective_calibration_v1`
 
 日期：2026-09-03
+
+当前状态来源：[当前产品状态](./CURRENT_PRODUCT_STATE.md)
 
 上位契约：[阅读训练递进负担模型契约](./READING_TRAINING_PROGRESSIVE_LOAD_MODEL_CONTRACT.md)
 

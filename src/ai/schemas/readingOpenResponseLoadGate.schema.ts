@@ -22,6 +22,7 @@ export const READING_OPEN_RESPONSE_LOAD_BLOCKER_CODES = [
   'response_format_load_mismatch',
   'minimum_requirement_overweighted',
   'hint_creates_hidden_task',
+  'low_load_atomicity_violation',
   'load_identity_mismatch',
 ] as const;
 

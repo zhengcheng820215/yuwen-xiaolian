@@ -1,6 +1,6 @@
 {
   "manifestVersion": "product_document_authority_manifest_v1",
-  "generatedAt": "2026-08-31",
+  "generatedAt": "2026-09-04",
   "currentStateSource": "CURRENT_PRODUCT_STATE.md",
   "enums": {
     "documentType": [
@@ -245,7 +245,7 @@
       "documentType": "CURRENT_CONTROL",
       "authority": "CURRENT_STATE",
       "lifecycle": "ACTIVE",
-      "asOf": "2026-08-31",
+      "asOf": "2026-09-04",
       "supersedes": [],
       "supersededBy": [],
       "currentStateSource": "CURRENT_PRODUCT_STATE.md",
@@ -313,7 +313,7 @@
       "documentType": "CURRENT_CONTROL",
       "authority": "CONTROL_PLANE",
       "lifecycle": "ACTIVE",
-      "asOf": "2026-08-21",
+      "asOf": "2026-09-04",
       "supersedes": [],
       "supersededBy": [],
       "currentStateSource": "CURRENT_PRODUCT_STATE.md",
@@ -322,6 +322,23 @@
         "engineering": "NOT_APPLICABLE",
         "productAcceptance": "PENDING",
         "live": "DEFER_TO_CURRENT_STATE"
+      }
+    },
+    {
+      "path": "FOUNDATIONAL_EXERCISE_TASK_ATOMICITY_CALIBRATION_CONTRACT.md",
+      "title": "基础练习样本与低负担任务原子性校准契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-09-04",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
       }
     },
     {
@@ -944,7 +961,7 @@
       "documentType": "CURRENT_CONTROL",
       "authority": "CONTROL_PLANE",
       "lifecycle": "ACTIVE",
-      "asOf": "2026-08-31",
+      "asOf": "2026-09-04",
       "supersedes": [],
       "supersededBy": [],
       "currentStateSource": "CURRENT_PRODUCT_STATE.md",
@@ -961,7 +978,7 @@
       "documentType": "CURRENT_CONTROL",
       "authority": "CONTROL_PLANE",
       "lifecycle": "ACTIVE",
-      "asOf": "2026-08-31",
+      "asOf": "2026-09-04",
       "supersedes": [],
       "supersededBy": [],
       "currentStateSource": "CURRENT_PRODUCT_STATE.md",
@@ -1891,6 +1908,23 @@
         "design": "NOT_DECLARED",
         "engineering": "PASS",
         "productAcceptance": "PENDING",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "TEXTBOOK_OBJECTIVE_CALIBRATION_AND_TASK_GROUP_PLANNING_CORRECTION_CONTRACT.md",
+      "title": "教材目标校准与题组规划校正契约",
+      "documentType": "NORMATIVE_CONTRACT",
+      "authority": "NORMATIVE",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-09-03",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
         "live": "NOT_CLAIMED"
       }
     },

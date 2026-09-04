@@ -273,6 +273,31 @@ const cases: DebugCase[] = [
     assert(groupPass.groupSnapshotHash.startsWith('fnv1a-'));
     assert.equal(stableHash({ b: 2, a: 1 }), stableHash({ a: 1, b: 2 }));
   }),
+  test('P3-49', '低负担计划被实现为复合负担时给出原子性阻断', () => {
+    const compoundContent = fixture({
+      questionStem: '概括第2段的景物变化，并分析这些变化如何表现春天的特点。',
+      rubric: [
+        rubric('内容概括', '概括第2段的景物变化'),
+        rubric('特点分析', '分析变化如何表现春天的特点'),
+      ],
+    });
+    const compoundTrace = traceFor(compoundContent, 'task-49');
+    compoundTrace.planningIntent.targetLoadLevel = 'focused_short';
+    const result = gate(compoundContent, 'task-49', compoundTrace, true);
+    assert(result.blockerCodes.includes('low_load_atomicity_violation'));
+    assert.equal(result.blockerCodes.includes('load_identity_mismatch'), false);
+  }),
+  test('P3-50', '合理 developing 计划不被低负担原子性规则误伤', () => {
+    const compoundContent = fixture({
+      questionStem: '概括第2段的景物变化，并分析这些变化如何表现春天的特点。',
+      rubric: [
+        rubric('内容概括', '概括第2段的景物变化'),
+        rubric('特点分析', '分析变化如何表现春天的特点'),
+      ],
+    });
+    const result = gate(compoundContent, 'task-50', traceFor(compoundContent, 'task-50'), true);
+    assert.equal(result.blockerCodes.includes('low_load_atomicity_violation'), false);
+  }),
 ];
 
 let passed = 0;

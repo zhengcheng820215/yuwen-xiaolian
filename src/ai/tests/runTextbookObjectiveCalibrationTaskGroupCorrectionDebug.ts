@@ -250,6 +250,28 @@ test('TC-20', '内部校准角色未投射到 Learning 页面', () => {
   const source = readFileSync(`${ROOT}/src/pages/UnifiedLearningEntry.jsx`, 'utf8');
   assert(!source.includes('curriculumCalibrationRole'));
 });
+test('TC-21', 'Pass A 冻结低负担任务原子性', () => {
+  const prompt = buildMaterialObservationDraftPlanningPrompt({
+    requestId: 'foundational-atomicity',
+    material: {
+      materialVersionId: 'spring:v3',
+      title: '《春》',
+      content: '第一段。\n\n第二段。',
+    },
+  });
+  assert(prompt.includes('一次只承担一个主要观察动作'));
+  assert(prompt.includes('不能独立形成评分项'));
+  assert(prompt.includes('不得伪装成入口题'));
+});
+test('TC-22', '基础练习校准契约明确排除字词与默写模块', () => {
+  const source = readFileSync(
+    `${ROOT}/docs/product/FOUNDATIONAL_EXERCISE_TASK_ATOMICITY_CALIBRATION_CONTRACT.md`,
+    'utf8',
+  );
+  assert(source.includes('拼音、字形、词语听写'));
+  assert(source.includes('历史 Frozen Resource 只读'));
+  assert(source.includes('low_load_atomicity_violation'));
+});
 
 let passed = 0;
 console.log('\nTextbook Objective Calibration & Task Group Correction Debug');

@@ -92,7 +92,9 @@ export function assessReadingOpenResponseLoadGate(
   });
 
   if (trace && !loadIdentityMatches(trace, audit.profile, input)) {
-    blockers.add('load_identity_mismatch');
+    blockers.add(isLowLoadAtomicityViolation(trace, audit.profile)
+      ? 'low_load_atomicity_violation'
+      : 'load_identity_mismatch');
     evidencePaths.add('generationTrace.planningIntent');
     evidencePaths.add('recomputedLoadProfile');
   }
@@ -166,6 +168,17 @@ export function isReadingOpenResponseLoadGateCurrent(input: {
     && assessment.materialVersionId === input.content.materialVersionId
     && assessment.subject.contentHash === calculateQuestionEditableFieldsHash(input.content),
   );
+}
+
+function isLowLoadAtomicityViolation(
+  trace: TextResponseCandidateGenerationTrace,
+  profile: TextResponseLoadProfile,
+): boolean {
+  const plannedLowLoad = trace.planningIntent.targetLoadLevel === 'entry_short'
+    || trace.planningIntent.targetLoadLevel === 'focused_short';
+  const realizedCompositeLoad = profile.loadLevel === 'developing'
+    || profile.loadLevel === 'integrated';
+  return plannedLowLoad && realizedCompositeLoad;
 }
 
 function loadIdentityMatches(

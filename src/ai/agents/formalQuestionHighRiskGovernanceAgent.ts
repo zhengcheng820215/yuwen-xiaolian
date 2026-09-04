@@ -28,6 +28,8 @@ export const FORMAL_QUESTION_HIGH_RISK_GOVERNANCE_MARKER =
   'formal-question-high-risk-governance:2026-08-21-batch-1-v1' as const;
 export const FORMAL_QUESTION_FOCUSED_GOVERNANCE_BATCH2_MARKER =
   'formal-question-focused-governance:2026-08-21-batch-2-v1' as const;
+export const FORMAL_QUESTION_FOUNDATIONAL_ATOMICITY_GOVERNANCE_MARKER =
+  'formal-question-foundational-atomicity-governance:2026-09-04-v1' as const;
 
 export type GovernanceSpecification = {
   materialTitle: string;
@@ -231,6 +233,63 @@ const FOCUSED_GOVERNANCE_BATCH2_SPECS: GovernanceSpecification[] = [
   },
 ];
 
+const FOUNDATIONAL_ATOMICITY_GOVERNANCE_SPECS: GovernanceSpecification[] = [
+  {
+    materialTitle: '《皇帝的新装》',
+    resourceId: 'question-observation-task-plan-19178y4',
+    expectedSourceVersionId: 'question-observation-task-plan-19178y4:v4',
+    anchor: { startParagraph: 5, endParagraph: 35 },
+    title: '分析 · 共同反应与社会风气',
+    questionStem: '第5至35段中，许多人明明看不见新衣服，却都选择称赞。请分析这种共同反应反映了怎样的社会风气。',
+    responseFormat: 'long_text',
+    assessmentMode: 'reasoning_chain',
+    expectedStudentAction: '抓住人们共同附和、隐瞒真相的表现，说明这种反应所反映的社会风气。',
+    designReason: '保留社会现象分析目标，将三类人物心理从并列核心要求降为共同反应的文本依据，只观察“共同反应—社会风气”这一条关系。',
+    answerAcceptance: acceptance(['看不见', '称赞', '不敢说真话', '虚伪', '盲从', '畏惧权威']),
+    rubric: [rubric(
+      '共同反应与社会风气',
+      'analysis',
+      '联系人们明明看不见却共同称赞、隐瞒真相的反应，说明社会中存在虚伪、盲从或畏惧权威的风气。',
+      ['明明看不见', '共同称赞', '不敢说真话', '虚伪', '盲从', '畏惧权威'],
+    )],
+    minimumAnswerRequirement: minimum(50),
+    calibrationCases: calibrationCases(
+      '共同反应与社会风气',
+      '皇帝、大臣和百姓明明看不见衣服，却因害怕显得愚蠢或不称职而共同称赞，反映了社会中虚伪、盲从和畏惧权威的风气。',
+      '他们都不敢说真话，说明社会很虚伪。',
+      '他们称赞新衣服是因为衣服非常漂亮。',
+      '所有人都用假话迎合权威，说明这种环境会让人放弃独立判断并随众附和。',
+    ),
+  },
+  {
+    materialTitle: '《皇帝的新装》',
+    resourceId: 'question-observation-task-plan-z8hqcb',
+    expectedSourceVersionId: 'question-observation-task-plan-z8hqcb:v5',
+    anchor: { startParagraph: 2, endParagraph: 23 },
+    title: '推理 · 骗子话术与骗局持续',
+    questionStem: '骗子为什么要宣称“愚蠢或不称职的人看不见这衣服”？请结合皇帝或大臣的反应，说明这句话怎样帮助骗局持续。',
+    responseFormat: 'short_text',
+    assessmentMode: 'reasoning_chain',
+    expectedStudentAction: '从皇帝或大臣害怕被认为愚蠢、不称职的反应出发，说明骗子的话术迫使他们隐瞒真相、相互附和，从而让骗局持续。',
+    designReason: '保留行骗机制推理目标，只观察“威胁性话术—害怕暴露—隐瞒附和—骗局持续”这一条因果链，不再并列概括多类人物心理。',
+    answerAcceptance: acceptance(['愚蠢', '不称职', '害怕', '隐瞒', '附和', '骗局持续']),
+    rubric: [rubric(
+      '骗子话术与骗局持续',
+      'inference',
+      '说明骗子把“看不见”与愚蠢、不称职绑定，使皇帝或大臣因害怕暴露而隐瞒真相、相互附和，骗局因此得以持续。',
+      ['看不见等于愚蠢或不称职', '害怕暴露', '隐瞒真相', '相互附和', '骗局持续'],
+    )],
+    minimumAnswerRequirement: minimum(30),
+    calibrationCases: calibrationCases(
+      '骗子话术与骗局持续',
+      '骗子把看不见衣服说成愚蠢或不称职，使皇帝和大臣害怕暴露自己，只能假装看见并相互称赞，因此骗局不断延续。',
+      '他们怕别人说自己愚蠢，所以不敢说看不见。',
+      '骗子这样说是为了让衣服显得更漂亮。',
+      '这句话把承认真相变成承认自己不称职，皇帝和大臣只好说假话，后面的人也继续附和。',
+    ),
+  },
+];
+
 export function prepareFormalQuestionHighRiskGovernance(
   source: SharedFormalResourceData,
   now: string,
@@ -254,6 +313,19 @@ export function prepareFormalQuestionFocusedGovernanceBatch2(
     FORMAL_QUESTION_FOCUSED_GOVERNANCE_BATCH2_MARKER,
     FOCUSED_GOVERNANCE_BATCH2_SPECS,
     'formal-focused-governance-batch2',
+  );
+}
+
+export function prepareFormalQuestionFoundationalAtomicityGovernance(
+  source: SharedFormalResourceData,
+  now: string,
+): { data: SharedFormalResourceData; report: FormalQuestionHighRiskGovernanceReport } {
+  return prepareFormalQuestionGovernanceBatch(
+    source,
+    now,
+    FORMAL_QUESTION_FOUNDATIONAL_ATOMICITY_GOVERNANCE_MARKER,
+    FOUNDATIONAL_ATOMICITY_GOVERNANCE_SPECS,
+    'formal-foundational-atomicity-governance',
   );
 }
 

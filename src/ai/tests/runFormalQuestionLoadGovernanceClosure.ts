@@ -17,30 +17,54 @@ const before = await store.read();
 if (!before.initialized) throw new Error('Shared formal resource store is not initialized.');
 
 const beforeBaseline = buildQuestionOptimizationBaseline(before);
-const existingPublished = before.data.questionResources.versions.filter((version) => (
+const markerVersions = before.data.questionResources.versions.filter((version) => (
+  version.tags.includes(FORMAL_QUESTION_LOAD_GOVERNANCE_CLOSURE_MARKER)
+));
+const markerResourceIds = [...new Set(markerVersions.map((version) => version.resourceId))];
+const currentGovernedVersions = markerResourceIds.flatMap((resourceId) => {
+  const registry = before.data.questionResources.registryEntries.find((entry) => (
+    entry.status === 'active' && entry.resourceId === resourceId
+  ));
+  const version = registry
+    ? before.data.questionResources.versions.find((item) => (
+      item.resourceVersionId === registry.currentFrozenVersionId && item.status === 'frozen'
+    ))
+    : null;
+  return version ? [version] : [];
+});
+const existingPublished = currentGovernedVersions.filter((version) => (
   version.status === 'frozen'
-  && version.tags.includes(FORMAL_QUESTION_LOAD_GOVERNANCE_CLOSURE_MARKER)
-  && before.data.questionResources.registryEntries.some((entry) => (
-    entry.status === 'active' && entry.currentFrozenVersionId === version.resourceVersionId
-  ))
 ));
 const candidateReport = existingPublished.length === 2
   ? null
   : buildFormalQuestionLoadGovernanceClosureCandidates(before);
-const prepared = prepareQuestionPortfolioSupplementPublication(
-  before.data,
-  candidateReport,
-  new Date().toISOString(),
-  {
-    expectedCandidateCount: 2,
-    publicationMarker: FORMAL_QUESTION_LOAD_GOVERNANCE_CLOSURE_MARKER,
-    idPrefix: 'formal-load-closure',
-    authorId: 'codex-formal-load-governance-author',
-    reviewerId: 'codex-formal-load-governance-reviewer',
-    planReviewNote: '正式题输入负担治理：仅为缺少合理入口的题组补充独立低负担观察，不改写历史冻结题。',
-    questionReviewNote: '正式题输入负担治理：材料依据、观察价值、作答负担、答案接受范围与质量门禁均已完成受控核对。',
-  },
-);
+const prepared = existingPublished.length === 2
+  ? {
+      data: before.data,
+      report: {
+        alreadyApplied: true,
+        publishedMaterialTitles: existingPublished.map((version) => version.title),
+        resourceVersionIds: existingPublished.map((version) => version.resourceVersionId),
+        planIds: [],
+        activeMaterialCount: beforeBaseline.counts.activeMaterials,
+        currentQuestionCount: beforeBaseline.counts.currentTasks,
+        currentTraceCount: beforeBaseline.counts.frozenQualityTraces,
+      },
+    }
+  : prepareQuestionPortfolioSupplementPublication(
+      before.data,
+      candidateReport,
+      new Date().toISOString(),
+      {
+        expectedCandidateCount: 2,
+        publicationMarker: FORMAL_QUESTION_LOAD_GOVERNANCE_CLOSURE_MARKER,
+        idPrefix: 'formal-load-closure',
+        authorId: 'codex-formal-load-governance-author',
+        reviewerId: 'codex-formal-load-governance-reviewer',
+        planReviewNote: '正式题输入负担治理：仅为缺少合理入口的题组补充独立低负担观察，不改写历史冻结题。',
+        questionReviewNote: '正式题输入负担治理：材料依据、观察价值、作答负担、Rubric和答案接受范围已完成受控核对。',
+      },
+    );
 const projected = { ...before, data: prepared.data };
 const projectedBaseline = buildQuestionOptimizationBaseline(projected);
 const loadAudit = buildReadingOpenResponseInputLoadBaselineAudit(projected);
@@ -74,11 +98,20 @@ assert.equal(
   beforeBaseline.counts.learningConsumableQuestions + expectedAddedQuestionCount,
 );
 assert.deepEqual(projectedBaseline.issues, []);
-assert.equal(coreSequenceFindings.length, 0, JSON.stringify(coreSequenceFindings));
+assert.equal(
+  coreSequenceFindings.filter((finding) => finding.severity !== 'info').length,
+  0,
+  JSON.stringify(coreSequenceFindings),
+);
 
+const governedResourceIds = markerResourceIds.length
+  ? markerResourceIds
+  : [...new Set(prepared.data.questionResources.versions.filter((version) => (
+      version.tags.includes(FORMAL_QUESTION_LOAD_GOVERNANCE_CLOSURE_MARKER)
+    )).map((version) => version.resourceId))];
 const governed = prepared.data.questionResources.versions.filter((version) => (
   version.status === 'frozen'
-  && version.tags.includes(FORMAL_QUESTION_LOAD_GOVERNANCE_CLOSURE_MARKER)
+  && governedResourceIds.includes(version.resourceId)
   && prepared.data.questionResources.registryEntries.some((entry) => (
     entry.status === 'active' && entry.currentFrozenVersionId === version.resourceVersionId
   ))

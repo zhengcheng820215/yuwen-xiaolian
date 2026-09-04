@@ -6,7 +6,7 @@
 
 状态：`ACTIVE / COMPLETE INVENTORY`
 
-更新日期：2026-08-31
+更新日期：2026-09-04
 
 状态轴：`Design = NOT_APPLICABLE / Engineering = NOT_APPLICABLE / Product Acceptance = PENDING / Live = DEFER_TO_CURRENT_STATE`
 
@@ -20,17 +20,17 @@
 
 本文不声明 Runtime、Provider、正式资源或 Trial 当前可用。
 
-本次清单共登记 `110` 份 Markdown：
+本次清单共登记 `112` 份 Markdown：
 
 | 文档类型 | 数量 |
 | --- | ---: |
 | `CURRENT_CONTROL` | 4 |
-| `NORMATIVE_CONTRACT` | 37 |
+| `NORMATIVE_CONTRACT` | 39 |
 | `IMPLEMENTATION_PLAN` | 50 |
 | `ACCEPTANCE_REPORT` | 18 |
 | `HISTORICAL_SNAPSHOT` | 1 |
 
-生命周期分布为：`ACTIVE 53 / COMPLETED 55 / SUPERSEDED 2`。其中历史快照可以同时处于 `SUPERSEDED`，表示原始记录保留但当前职责已被后继文档接管。
+生命周期分布为：`ACTIVE 55 / COMPLETED 55 / SUPERSEDED 2`。其中历史快照可以同时处于 `SUPERSEDED`，表示原始记录保留但当前职责已被后继文档接管。
 
 ## 二、当前控制层
 
@@ -55,6 +55,8 @@
 - [真实 Learning 数据采集与观察契约](./REAL_LEARNING_DATA_COLLECTION_AND_OBSERVATION_CONTRACT.md)
 - [产品复杂度收口契约](./PRODUCT_COMPLEXITY_CONVERGENCE_CONTRACT.md)
 - [运行可靠性与真实 Trial 重新准入契约](./PRODUCT_RUNTIME_RELIABILITY_AND_REAL_TRIAL_REENTRY_CONTRACT.md)
+- [教材目标校准与题组规划校正契约](./TEXTBOOK_OBJECTIVE_CALIBRATION_AND_TASK_GROUP_PLANNING_CORRECTION_CONTRACT.md)
+- [基础练习样本与低负担任务原子性校准契约](./FOUNDATIONAL_EXERCISE_TASK_ATOMICITY_CALIBRATION_CONTRACT.md)
 
 完整规范列表以机器清单为准。
 

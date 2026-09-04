@@ -3,7 +3,7 @@
 英文名称：Product Owner Control Table
 
 状态：ACTIVE  
-更新日期：2026-08-31
+更新日期：2026-09-04
 
 状态轴：`Design = PASS / Engineering = PASS / Product Acceptance = PENDING / Live = DEFER_TO_CURRENT_STATE`
 
@@ -50,7 +50,7 @@ Debug / Acceptance Report
 
 ## 三、当前总览
 
-### 3.1 当前事实基线（2026-08-29）
+### 3.1 当前事实基线（2026-09-04）
 
 以下数量来自正式资源只读动态基线，不替代版本化 Resource / Registry 事实：
 
@@ -65,6 +65,8 @@ Debug / Acceptance Report
 | 轻量知识题 | 27 历史迁移 + 7 WP5 审核补充 / 19 approved / 15 draft / 3 变式组 / 6 Link |
 
 `81` 是正式题库库存，不等于当前学生一次可见或可自由选择的题量。正式题数量必须由运行基线读取，不再长期使用旧的 `10 篇 / 34 道` 快照。
+
+当前已提交源码为 `39518036429d02822f84733693791bfcacd18758`，最近一次完整冻结验收基线仍为 `5a6892e30d29634d007f2102aef481d6cd61f156`。本地未提交改动不构成新的 Trial Build，也不得把局部 Debug PASS 上推为当前 Product Acceptance 或 Live 结论；即时状态继续唯一服从[当前产品状态](./CURRENT_PRODUCT_STATE.md)。
 
 入口角色以 [WP0A 角色对齐决策](./STUDENT_SINGLE_ENTRY_FORMAL_READING_AND_KNOWLEDGE_PRACTICE_ALIGNMENT_DECISION_WP0A.md) 为准：`/learning` 是学生唯一入口；正式阅读是能力证据主线，轻量知识练习是入口内的辅助任务家族。
 
