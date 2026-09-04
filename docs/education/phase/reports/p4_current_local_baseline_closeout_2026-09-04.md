@@ -2,11 +2,11 @@
 
 日期：2026-09-04
 
-状态轴：`Engineering = PASS / Runtime Identity = PASS / Provider = PASS / Preflight + Launch + Trial Binding = PASS / Trial Activation = OFF / Product Acceptance = PENDING / Live = OFF`
+状态轴：`Engineering = PASS / Runtime Identity = PASS / Provider = PASS / Preflight + Launch + Trial Binding = PASS / Trial Activation = ACTIVE / Product Acceptance = PENDING / Live = NOT STARTED`
 
 ## 一、收口范围
 
-本记录先完成当前本地工作区的跨机器可复现性、Formal Store Revision 1964 对齐、Production Build 与 Runtime Identity 复读；随后在独立授权下执行 1 次 DeepSeek 真实 Provider Smoke，并且创建新的 Preflight、Launch Record 和 Trial Identity Binding。未提交真实学生答案，未激活 Trial。
+本记录先完成当前本地工作区的跨机器可复现性、Formal Store Revision 1964 对齐、Production Build 与 Runtime Identity 复读；随后在独立授权下执行 1 次 DeepSeek 真实 Provider Smoke，创建 Preflight、Launch Record 和 Trial Identity Binding，并在第二次独立授权下显式激活同范围 Trial。未提交真实学生答案，未生成 Observation Event。
 
 ## 二、路径可复现性
 
@@ -49,8 +49,8 @@
 - Runtime Identity Digest：`sha256:62056231c38d1463e7870f9b7b29ea7c3dfec4142fa9158fdf3b639190ee7197`；
 - Formal Resource Snapshot Digest：`sha256:8aab84fdc5139dd1364ea73b1de34d5a239fbe638549b5d6ddbe0eefc2bb87cf`；
 - Formal Store Revision：`1964`；
-- Trial requested / effective：`off / off`。
-- Runtime 核心健康：`instance = ready / formalResourceStore = ready / aiProvider = configured + live_verified / learning = ready`；由于 Trial 按授权保持关闭，整体健康投影仍为 `degraded`，仅保留 `audit_evidence_incomplete` 与 `trial_reentry_required`。
+- Trial requested / effective：`real_trial / real_trial`。
+- Runtime Health：`overallStatus = ready / instance = ready / formalResourceStore = ready / aiProvider = configured + live_verified / learning = ready / trial identity = aligned`，`summaryReasonCodes = []`。
 
 Runtime Identity 的工作树状态只检查实际身份输入路径；仓库根目录中与产品构建无关的个人未跟踪文件不参与身份，也不因此阻断可复现构建。未跟踪产品源码仍会被判为 `dirty`。
 
@@ -69,14 +69,15 @@ DeepSeek 真实 Provider Smoke 使用虚构、非学生数据输入，仅发起 
 
 Provider 通过后，R4-P01—R4-P24 以当前 clean Runtime Identity 执行为 `24 / 24 PASS`，并原子保存：
 
-- Trial Window：`real-trial-639190ee7197-1788529876297`；
+- Trial Window：`real-trial-639190ee7197-1788530431552`；
 - Preflight：与上述 Window 及 Runtime Identity 交叉绑定，`eligibleForActivation = true`；
-- Launch Record：`trial-reentry-launch-44259789`，`status = approved_to_activate`；
-- Trial Identity Binding：`trial-runtime-binding-6133bed3`；
+- Launch Record：`trial-reentry-launch-814804ae`，`status = approved_to_activate`；
+- Trial Identity Binding：`trial-runtime-binding-c7b800c3`；
 - 页面刷新后仍可复读 Preflight 与 Launch Record；
-- 服务端 `product-runtime-trial-control.json` 不存在，Runtime Health 为 `requestedMode = off / effectiveMode = off`；
-- 激活确认框未选中，激活按钮未执行，Observation Event 为 `0`。
+- 经用户独立授权后执行显式确认，服务端 `product-runtime-trial-control.json` 已持久化上述三项身份，`activatedAt = 2026-09-04T14:01:09.526Z`；
+- 页面刷新与 Runtime Health 均复读为 `requestedMode = real_trial / effectiveMode = real_trial / identityAlignment = aligned`；
+- Formal Store 保持 Revision `1964`、24 篇材料和 81 道题；Observation Event 保持 `0`，激活未创建 Session、Attempt、Diagnosis、Evidence 或学生作答。Activation Audit 按契约追加 1 条。
 
 ## 六、裁决
 
-P4 当前本地基线、Runtime Identity、DeepSeek 真实 Provider 可用性与未激活准入包均达到对应工程门禁。当前仅能表述为“已批准可激活”，不得表述为 Trial 已激活、真实学生体验已通过或教育效果成立。下一独立决策是否显式激活 Trial；本次按用户授权明确保持 `off`。
+P4 当前本地基线、Runtime Identity、DeepSeek 真实 Provider 可用性、准入包与显式激活均达到对应工程门禁。当前只能表述为“限定范围 Trial 已激活”，不得表述为真实学生体验已通过、已进入自然日 Live 或教育效果成立。下一主任务是 WP7B-5 真实学生受控产品验收。

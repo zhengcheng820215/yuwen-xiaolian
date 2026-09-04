@@ -79,8 +79,8 @@
 - 本地 Formal Store 已从 Revision `1963` 原子治理到 `1964`，重复执行为 `apply-noop`；当前仍为 `24` 篇材料、`81` 道题、`66 ready / 15 guided / 0 blocked`；
 - Vite Production Build 为 `608 modules transformed`，当前 clean Runtime Identity 内容摘要为 `sha256:62056231c38d1463e7870f9b7b29ea7c3dfec4142fa9158fdf3b639190ee7197`；
 - DeepSeek 目标模型 `deepseek-v4-flash` 已完成 1 次真实 Provider Smoke，`LIVE-001—LIVE-005 = 5 / 5 PASS`，Provider 状态为 `configured / live_verified / trialEligible`；
-- R4-P01—R4-P24 为 `24 / 24 PASS`；新 Launch Record `trial-reentry-launch-44259789` 和 Trial Identity Binding `trial-runtime-binding-6133bed3` 已原子保存，刷新后可复读；
-- Trial 未激活，Runtime Health 仍明确为 `requestedMode = off / effectiveMode = off`，Observation Event 为 `0`。
+- R4-P01—R4-P24 为 `24 / 24 PASS`；当前 Launch Record `trial-reentry-launch-814804ae` 和 Trial Identity Binding `trial-runtime-binding-c7b800c3` 已原子保存，刷新后可复读；
+- 限定范围 Trial 已经独立授权显式激活，Runtime Health 为 `overallStatus = ready / requestedMode = real_trial / effectiveMode = real_trial / identityAlignment = aligned`；所有 8 项 Adapter 保持 `observe_only`，Observation Event 为 `0`。
 
 工程通过不自动升级 Product Acceptance。
 
@@ -88,9 +88,9 @@
 
 完成 P4 Trial 重新准入门禁，再执行 WP7B-5 真实学生受控产品验收：
 
-1. 当前 clean Runtime Identity、Revision 1964 Formal Store、Provider Smoke 与未激活准入包已复读通过；
-2. 由产品负责人独立决定是否对当前 Launch Record 执行显式激活；未获新授权前 Trial 必须保持 `off`；
-3. 激活后再完成物理键盘、真实浏览器 200% 缩放及至少 5 次受控学生试用；
+1. 当前 clean Runtime Identity、Revision 1964 Formal Store、Provider Smoke、准入包与显式激活已复读通过；
+2. 保持当前单学生、14 天、8 项 `observe_only` Adapter 范围，不扩大 Trial 对象或写入边界；
+3. 完成物理键盘、真实浏览器 200% 缩放及至少 5 次受控学生试用；
 4. 独立裁决 Product Acceptance，PASS 后再决定是否进入 5—7 个自然日 Live 观察。
 
 WP7B-5 是 P4 `knowledge_practice_single_entry` 主张及 Batch E01—E02 的限定验收子批次，不代表 P4 总体完成，也不替代 P4 Batch B、C、D 对核心阅读连续题组、反馈修订、微训练、事件链和恢复能力的独立验收。这里的“当前唯一主任务”只表示当前执行焦点，不改变 P4 中 P0—P2 的产品风险分级。
