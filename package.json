@@ -148,6 +148,8 @@
     "debug:wrong-answer-feedback-action-contract-stage2": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runWrongAnswerFeedbackActionContractStage2Debug.ts",
     "audit:wrong-answer-feedback-stage3-wave-a": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runWrongAnswerFeedbackStage3WaveAAcceptance.ts",
     "govern:wrong-answer-feedback-stage3-wave-a": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runWrongAnswerFeedbackStage3WaveAAcceptance.ts --apply",
+    "audit:wrong-answer-feedback-stage3-wave-b": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runWrongAnswerFeedbackStage3WaveBAcceptance.ts",
+    "govern:wrong-answer-feedback-stage3-wave-b": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runWrongAnswerFeedbackStage3WaveBAcceptance.ts --apply",
     "debug:feedback-observation-target-projection": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runFeedbackObservationTargetProjectionDebug.ts",
     "govern:formal-question-focused-governance-batch2": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runFormalQuestionFocusedGovernanceBatch2.ts --apply",
     "govern:formal-question-foundational-atomicity-governance": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runFormalQuestionFoundationalAtomicityGovernance.ts --apply",
