@@ -166,6 +166,8 @@ import type {
   FrozenQuestionResourceVersion,
   QuestionResourceRubricItem,
 } from '../ai/schemas/questionResourceAdmission.schema.ts';
+import { isRubricFeedbackActionContract } from
+  '../ai/schemas/questionResourceAdmission.schema.ts';
 import type { UnifiedLearningActivityContext } from '../ai/schemas/unifiedLearningEntry.schema.ts';
 import type {
   SingleChoiceStudentAnswerValue,
@@ -2248,6 +2250,9 @@ function buildPhase163RubricRequirementBindings(
         rubricItemId: item.itemId,
         requirementId: requirement.requirementId,
         bindingSource: 'frozen_contract' as const,
+        feedbackActionCode: isRubricFeedbackActionContract(item.feedbackActionContract)
+          ? item.feedbackActionContract.actionCode
+          : undefined,
       }));
   });
 }

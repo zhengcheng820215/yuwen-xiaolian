@@ -1,0 +1,42 @@
+{
+  "fixtureVersion": "wrong_answer_stage2_action_contract_fixture_v1",
+  "sourceFindingId": "WA-S1-F01",
+  "privacy": "deidentified_offline_fixture",
+  "samples": [
+    {
+      "sampleId": "WA-02",
+      "requirementId": "WA-02-R2",
+      "actionCode": "verify_scope",
+      "safeClueLocator": "题干横线前后的季节、地点和对象",
+      "expectedAction": "核对这一处是否符合题干限定的语境和对象。"
+    },
+    {
+      "sampleId": "WA-06",
+      "requirementId": "WA-06-R2",
+      "actionCode": "compare_elements",
+      "safeClueLocator": "两个短语的中心语",
+      "expectedAction": "比较两个对象及其关键差异。"
+    },
+    {
+      "sampleId": "WA-07",
+      "requirementId": "WA-07-R2",
+      "actionCode": "reclassify_by_cue",
+      "safeClueLocator": "声音与皮肤感受的触发词",
+      "expectedAction": "根据触发词重新核对分类。"
+    },
+    {
+      "sampleId": "WA-09",
+      "requirementId": "WA-09-R2",
+      "actionCode": "identify_object_action",
+      "safeClueLocator": "句中具有人的动作的对象",
+      "expectedAction": "指出这一处被写成人的对象及其动作。"
+    },
+    {
+      "sampleId": "WA-10",
+      "requirementId": "WA-10-R2",
+      "actionCode": "add_required_dimension",
+      "safeClueLocator": "标题形式及其与全文的关系",
+      "expectedAction": "选择一个尚未完成的要求维度补充说明。"
+    }
+  ]
+}

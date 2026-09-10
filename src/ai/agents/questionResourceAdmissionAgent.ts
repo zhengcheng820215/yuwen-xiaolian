@@ -9,6 +9,7 @@ import {
   QUESTION_RESOURCE_ADMISSION_SCHEMA_VERSION,
   QUESTION_RESOURCE_ADMISSION_VERSION,
   cloneQuestionResourceValue,
+  isRubricFeedbackActionContract,
   isPrimaryAbilityId,
   isQuestionResourceDifficulty,
   isQuestionResourceTaskRole,
@@ -1241,6 +1242,17 @@ function validateRubric(draft: StructuredQuestionDraft, issues: ResourceValidati
     }
     if (containsDiagnosisClaim([item.name, item.description || '', ...item.acceptedSignals])) {
       error(issues, 'rubric.diagnosis_claim', `rubric.${index}`, 'Rubric must not contain fixed student diagnosis conclusions.');
+    }
+    if (
+      item.feedbackActionContract !== undefined
+      && !isRubricFeedbackActionContract(item.feedbackActionContract)
+    ) {
+      error(
+        issues,
+        'rubric.feedback_action_contract_invalid',
+        `rubric.${index}.feedbackActionContract`,
+        'Rubric feedback action contract must use a registered action code and operation-only disclosure.',
+      );
     }
     if (draft.responseFormat === 'single_choice' && item.required && (
       item.evidenceRequirement?.requireTextEvidence

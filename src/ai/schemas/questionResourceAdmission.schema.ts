@@ -142,6 +142,47 @@ export type QuestionRubricEvidenceRequirement = {
   requireConclusion?: boolean;
 };
 
+export const RUBRIC_FEEDBACK_ACTION_CONTRACT_SCHEMA_VERSION =
+  'rubric_feedback_action_contract_v1' as const;
+
+export const RUBRIC_FEEDBACK_ACTION_CODES = [
+  'verify_scope',
+  'compare_elements',
+  'reclassify_by_cue',
+  'identify_object_action',
+  'add_required_dimension',
+] as const;
+
+export type RubricFeedbackActionCode = typeof RUBRIC_FEEDBACK_ACTION_CODES[number];
+
+/**
+ * Frozen, operator-authored intent for one bounded feedback action.
+ *
+ * The code is consumed only by deterministic Rubric Projection. It is never
+ * copied into student-visible grounding or narrative payloads.
+ */
+export type RubricFeedbackActionContract = {
+  schemaVersion: typeof RUBRIC_FEEDBACK_ACTION_CONTRACT_SCHEMA_VERSION;
+  actionCode: RubricFeedbackActionCode;
+  disclosurePolicy: 'operation_only';
+};
+
+export function isRubricFeedbackActionCode(value: unknown): value is RubricFeedbackActionCode {
+  return typeof value === 'string'
+    && (RUBRIC_FEEDBACK_ACTION_CODES as readonly string[]).includes(value);
+}
+
+export function isRubricFeedbackActionContract(
+  value: unknown,
+): value is RubricFeedbackActionContract {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<RubricFeedbackActionContract>;
+  return Object.keys(value).length === 3
+    && candidate.schemaVersion === RUBRIC_FEEDBACK_ACTION_CONTRACT_SCHEMA_VERSION
+    && isRubricFeedbackActionCode(candidate.actionCode)
+    && candidate.disclosurePolicy === 'operation_only';
+}
+
 export type QuestionResourceRubricItem = {
   itemId: string;
   name: string;
@@ -150,6 +191,7 @@ export type QuestionResourceRubricItem = {
   importance: 'critical' | 'important' | 'supporting';
   required: boolean;
   evidenceRequirement?: QuestionRubricEvidenceRequirement;
+  feedbackActionContract?: RubricFeedbackActionContract;
   acceptedSignals: string[];
 };
 

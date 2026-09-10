@@ -3,7 +3,13 @@ import type { DiagnosisRunRecord, FormalDiagnosisCommit } from
 import type {
   QuestionResourceRubricItem,
   QuestionResponseFormat,
+  RubricFeedbackActionCode,
 } from '../schemas/questionResourceAdmission.schema.ts';
+import {
+  isRubricFeedbackActionCode,
+  isRubricFeedbackActionContract,
+} from
+  '../schemas/questionResourceAdmission.schema.ts';
 import type { RecommendedTaskRole } from '../schemas/nextLearningStrategy.schema.ts';
 import {
   RUBRIC_FEEDBACK_PROJECTION_SCHEMA_VERSION,
@@ -29,6 +35,8 @@ export const RUBRIC_FEEDBACK_PROJECTION_ISSUE_CODES = [
   'rubric_identity_invalid',
   'rubric_requirement_binding_missing',
   'rubric_requirement_binding_invalid',
+  'feedback_action_contract_invalid',
+  'feedback_action_contract_conflict',
   'coverage_source_not_formal',
   'coverage_evidence_missing',
   'coverage_gap_not_structured',
@@ -68,6 +76,7 @@ export type RubricFeedbackProjectionBuildInput = {
     rubricItemId: string;
     requirementId: string;
     bindingSource: 'frozen_contract' | 'formal_diagnosis';
+    feedbackActionCode?: RubricFeedbackActionCode;
   }>;
 };
 
@@ -84,6 +93,11 @@ type ProjectionCandidate = {
   decisiveRequirement?: TaskRequirementCoverage;
   earliestRequirementIndex: number;
   independentGapCount: number;
+};
+
+type ValidatedRubricBinding = {
+  requirementIds: string[];
+  feedbackActionCode?: RubricFeedbackActionCode;
 };
 
 export function buildRubricFeedbackProjection(
@@ -127,7 +141,7 @@ export function buildRubricFeedbackProjection(
     input,
     rubric,
     rubricIndex,
-    requirementIds: bindings.get(rubric.itemId) || [],
+    binding: bindings.get(rubric.itemId) || { requirementIds: [] },
     coverageById,
     issues,
   }));
@@ -234,15 +248,36 @@ function validateBindings(
   input: RubricFeedbackProjectionBuildInput,
   coverageById: Map<string, TaskRequirementCoverage>,
   issues: RubricFeedbackProjectionIssue[],
-): Map<string, string[]> {
+): Map<string, ValidatedRubricBinding> {
   const rubricIds = new Set(input.rubric.map((item) => item.itemId));
-  const result = new Map<string, string[]>();
+  const rubricById = new Map(input.rubric.map((item) => [item.itemId, item]));
+  const result = new Map<string, ValidatedRubricBinding>();
   const seen = new Set<string>();
+  const seenActionCodeByBinding = new Map<string, RubricFeedbackActionCode | undefined>();
+  const invalidActionRubricIds = new Set<string>();
   for (const binding of input.rubricRequirementBindings || []) {
     const identity = `${binding.rubricItemId}:${binding.requirementId}`;
+    if (seen.has(identity)) {
+      const previousActionCode = seenActionCodeByBinding.get(identity);
+      if (previousActionCode !== undefined || binding.feedbackActionCode !== undefined) {
+        invalidActionRubricIds.add(binding.rubricItemId);
+      }
+      if (previousActionCode !== binding.feedbackActionCode) {
+        issues.push(issue(
+          'feedback_action_contract_conflict',
+          'warning',
+          [`rubricRequirementBindings.${binding.rubricItemId}`],
+        ));
+      }
+      issues.push(issue(
+        'rubric_requirement_binding_invalid',
+        'error',
+        ['rubricRequirementBindings'],
+      ));
+      continue;
+    }
     if (
-      seen.has(identity)
-      || !rubricIds.has(binding.rubricItemId)
+      !rubricIds.has(binding.rubricItemId)
       || !coverageById.has(binding.requirementId)
       || !['frozen_contract', 'formal_diagnosis'].includes(binding.bindingSource)
     ) {
@@ -254,10 +289,48 @@ function validateBindings(
       continue;
     }
     seen.add(identity);
-    result.set(binding.rubricItemId, [
-      ...(result.get(binding.rubricItemId) || []),
-      binding.requirementId,
-    ]);
+    seenActionCodeByBinding.set(identity, binding.feedbackActionCode);
+    const current = result.get(binding.rubricItemId) || { requirementIds: [] };
+    current.requirementIds.push(binding.requirementId);
+    if (binding.feedbackActionCode !== undefined) {
+      const rubricContract = rubricById.get(binding.rubricItemId)?.feedbackActionContract;
+      if (
+        binding.bindingSource !== 'frozen_contract'
+        || !isRubricFeedbackActionCode(binding.feedbackActionCode)
+        || !isRubricFeedbackActionContract(rubricContract)
+      ) {
+        invalidActionRubricIds.add(binding.rubricItemId);
+        issues.push(issue(
+          'feedback_action_contract_invalid',
+          'warning',
+          ['rubricRequirementBindings'],
+        ));
+      } else if (
+        current.feedbackActionCode
+        && current.feedbackActionCode !== binding.feedbackActionCode
+      ) {
+        invalidActionRubricIds.add(binding.rubricItemId);
+        issues.push(issue(
+          'feedback_action_contract_conflict',
+          'warning',
+          [`rubricRequirementBindings.${binding.rubricItemId}`],
+        ));
+      } else if (rubricContract.actionCode !== binding.feedbackActionCode) {
+        invalidActionRubricIds.add(binding.rubricItemId);
+        issues.push(issue(
+          'feedback_action_contract_invalid',
+          'warning',
+          [`rubricRequirementBindings.${binding.rubricItemId}`],
+        ));
+      } else {
+        current.feedbackActionCode = binding.feedbackActionCode;
+      }
+    }
+    result.set(binding.rubricItemId, current);
+  }
+  for (const rubricItemId of invalidActionRubricIds) {
+    const current = result.get(rubricItemId);
+    if (current) current.feedbackActionCode = undefined;
   }
   return result;
 }
@@ -266,7 +339,7 @@ function projectRubricItem(input: {
   input: RubricFeedbackProjectionBuildInput;
   rubric: QuestionResourceRubricItem;
   rubricIndex: number;
-  requirementIds: string[];
+  binding: ValidatedRubricBinding;
   coverageById: Map<string, TaskRequirementCoverage>;
   issues: RubricFeedbackProjectionIssue[];
 }): ProjectionCandidate {
@@ -280,7 +353,7 @@ function projectRubricItem(input: {
     learningRoundId: input.input.projectionContext.learningRoundId,
     executionSessionId: input.input.projectionContext.executionSessionId,
   };
-  if (input.requirementIds.length === 0) {
+  if (input.binding.requirementIds.length === 0) {
     input.issues.push(issue(
       'rubric_requirement_binding_missing',
       'warning',
@@ -299,7 +372,7 @@ function projectRubricItem(input: {
     });
   }
 
-  const boundCoverage = input.requirementIds
+  const boundCoverage = input.binding.requirementIds
     .map((id) => input.coverageById.get(id))
     .filter((coverage): coverage is TaskRequirementCoverage => Boolean(coverage));
   const earliestRequirementIndex = Math.min(...boundCoverage.map((coverage) => (
@@ -387,7 +460,9 @@ function projectRubricItem(input: {
       studentEvidenceRefs: evidenceRefs,
       taskRelation: rubric.description?.trim() || rubric.name,
       observedGap,
-      nextThinkingAction: observedGap ? actionForGap(observedGap) : undefined,
+      nextThinkingAction: observedGap
+        ? actionForGap(observedGap, input.binding.feedbackActionCode)
+        : undefined,
       sourceLinks: {
         ...sourceBase,
         requirementId: decisiveRequirement?.requirementId,
@@ -467,7 +542,13 @@ function hasCoveredRequirement(
   ));
 }
 
-function actionForGap(gap: RubricFeedbackObservedGap): string {
+function actionForGap(
+  gap: RubricFeedbackObservedGap,
+  feedbackActionCode?: RubricFeedbackActionCode,
+): string {
+  if (gap === 'partial_required_aspects' && feedbackActionCode) {
+    return actionForFeedbackCode(feedbackActionCode);
+  }
   switch (gap) {
     case 'conclusion_without_evidence':
       return '定位一条能够支持当前判断的文本依据。';
@@ -479,6 +560,21 @@ function actionForGap(gap: RubricFeedbackObservedGap): string {
       return '重新核对题干限定的对象和范围。';
     case 'expression_not_organized':
       return '按照题目要求组织已有观点、依据和说明。';
+  }
+}
+
+function actionForFeedbackCode(code: RubricFeedbackActionCode): string {
+  switch (code) {
+    case 'verify_scope':
+      return '核对这一处是否符合题干限定的语境和对象。';
+    case 'compare_elements':
+      return '比较两个对象及其关键差异。';
+    case 'reclassify_by_cue':
+      return '根据触发词重新核对分类。';
+    case 'identify_object_action':
+      return '指出这一处被写成人的对象及其动作。';
+    case 'add_required_dimension':
+      return '选择一个尚未完成的要求维度补充说明。';
   }
 }
 
@@ -572,6 +668,10 @@ function finalizeProjection(
         coverageStatus: item.coverageStatus,
         observedGap: item.observedGap,
         studentEvidenceRefs: item.studentEvidenceRefs,
+        ...(item.observedGap === 'partial_required_aspects'
+          && item.nextThinkingAction !== actionForGap('partial_required_aspects')
+          ? { contractedNextThinkingAction: item.nextThinkingAction }
+          : {}),
       })),
       primaryItemId,
     }))}`;
