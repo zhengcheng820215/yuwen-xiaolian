@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   buildFormalTaskGroupProgressionArtifact,
   buildFormalTaskProgressionMetadata,
@@ -52,7 +54,7 @@ import { LearningProgressionRuntimeService } from
 import type { DiagnosisResult } from '../schemas/diagnosis.schema.ts';
 import type { AbilityEvidence } from '../schemas/abilityEvidence.schema.ts';
 
-const ROOT = '/Users/chengzheng/Desktop/web/yuwen-xiaolian/System';
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const NOW = '2026-08-24T00:00:00.000Z';
 const tests: Array<{ id: string; name: string; run: () => void | Promise<void> }> = [];
 function test(id: string, name: string, run: () => void | Promise<void>) {
@@ -293,7 +295,7 @@ test('S3-R1', 'Context Guard 与 Runtime 持久化闭环', async () => { const r
 test('S3-R2', 'Assessment Guard 可消费', () => assert(isProgressionInstabilityAssessment(boundary())));
 test('S3-R3', '原生 Authority 可解析', () => assert(resolveFormalProgressionAuthority(frozen('low'), [set.artifact])));
 
-function read(relative: string) { return readFileSync(`${ROOT}/${relative}`, 'utf8'); }
+function read(relative: string) { return readFileSync(resolve(ROOT, relative), 'utf8'); }
 let passed = 0;
 console.log('\nReading Training Progressive Load Stage 3 Debug');
 console.log('='.repeat(78));

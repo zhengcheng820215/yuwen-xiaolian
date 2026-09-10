@@ -50,7 +50,7 @@
 - WP1—WP7B、Unified Entry、Day0、Runtime R2/R3/R4 与 Trial Control：539/539 PASS；
 - Vite Production Build：607 modules transformed，PASS；
 - `git diff --check`：PASS；
-- 本轮受控 Trial 仍以该冻结 Build Identity 为准；后续文档提交不得被解释为新的 Trial Build 已自动准入。
+- 该次受控 Trial 当时以该冻结 Build Identity 为准；Revision 1964 正式治理后该身份已失效，当前不得继续作为 Trial 准入身份。
 
 2026-09-04 文档治理采样：
 
@@ -73,19 +73,25 @@
 - 治理后全量正式题 `blocked = 0`、`guided = 15`、`ready = 66`，两道 successor 不再命中复合核心动作或负担身份风险；
 - 原版本已转为 `superseded`，既有历史身份继续可追溯；本次正式资源身份变化使旧 Runtime Identity、Launch Record 与 Trial Binding 失效，不构成 Trial 自动重新激活。
 
+2026-09-04 当前本地基线收口：
+
+- 四份负担规划、教材校准与任务原子性 Debug 已移除开发机绝对路径，当前工作区复读为 `48 / 48`、`59 / 59`、`22 / 22`、`8 / 8 PASS`；
+- 本地 Formal Store 已从 Revision `1963` 原子治理到 `1964`，重复执行为 `apply-noop`；当前仍为 `24` 篇材料、`81` 道题、`66 ready / 15 guided / 0 blocked`；
+- Vite Production Build 为 `608 modules transformed`，当前 clean Runtime Identity 内容摘要为 `sha256:62056231c38d1463e7870f9b7b29ea7c3dfec4142fa9158fdf3b639190ee7197`；
+- DeepSeek 目标模型 `deepseek-v4-flash` 已完成 1 次真实 Provider Smoke，`LIVE-001—LIVE-005 = 5 / 5 PASS`，Provider 状态为 `configured / live_verified / trialEligible`；
+- R4-P01—R4-P24 为 `24 / 24 PASS`；当前 Launch Record `trial-reentry-launch-814804ae` 和 Trial Identity Binding `trial-runtime-binding-c7b800c3` 已原子保存，刷新后可复读；
+- 限定范围 Trial 已经独立授权显式激活，Runtime Health 为 `overallStatus = ready / requestedMode = real_trial / effectiveMode = real_trial / identityAlignment = aligned`；所有 8 项 Adapter 保持 `observe_only`，Observation Event 为 `0`。
+
 工程通过不自动升级 Product Acceptance。
 
 ## 四、当前唯一主任务
 
-执行 WP7B-5 真实学生受控产品验收：
+完成 P4 Trial 重新准入门禁，再执行 WP7B-5 真实学生受控产品验收：
 
-1. 使用冻结Build Identity的干净试用工作区；
-2. 完成物理键盘Enter/Space和真实浏览器200%缩放现场补验；
-3. 至少完成5次有效试用，建议至少3名不同目标学生；
-4. 覆盖手机、平板、PC；
-5. 按统一观察表记录入口、反馈、推荐、恢复、重复感受与内容问题；
-6. 独立裁决 Product Acceptance；
-7. Product PASS后再决定是否进入5—7个自然日Live观察。
+1. 当前 clean Runtime Identity、Revision 1964 Formal Store、Provider Smoke、准入包与显式激活已复读通过；
+2. 保持当前单学生、14 天、8 项 `observe_only` Adapter 范围，不扩大 Trial 对象或写入边界；
+3. 完成物理键盘、真实浏览器 200% 缩放及至少 5 次受控学生试用；
+4. 独立裁决 Product Acceptance，PASS 后再决定是否进入 5—7 个自然日 Live 观察。
 
 WP7B-5 是 P4 `knowledge_practice_single_entry` 主张及 Batch E01—E02 的限定验收子批次，不代表 P4 总体完成，也不替代 P4 Batch B、C、D 对核心阅读连续题组、反馈修订、微训练、事件链和恢复能力的独立验收。这里的“当前唯一主任务”只表示当前执行焦点，不改变 P4 中 P0—P2 的产品风险分级。
 

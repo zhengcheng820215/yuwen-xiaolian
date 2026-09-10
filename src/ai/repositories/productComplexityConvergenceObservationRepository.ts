@@ -51,7 +51,9 @@ export interface ProductComplexityConvergenceObservationRepository {
     bundle: RealTrialReentryApprovalBundle,
   ): Promise<RealTrialReentryApprovalBundleCommitResult>;
   getRealTrialReentryPreflightReport(reportId: string): Promise<RealTrialReentryPreflightReportV2 | undefined>;
+  listRealTrialReentryPreflightReports(trialWindowId?: string): Promise<RealTrialReentryPreflightReportV2[]>;
   getRealTrialReentryLaunchRecord(launchRecordId: string): Promise<RealTrialWindowLaunchRecordV2 | undefined>;
+  listRealTrialReentryLaunchRecords(trialWindowId?: string): Promise<RealTrialWindowLaunchRecordV2[]>;
   getRealTrialRuntimeIdentityBinding(bindingId: string): Promise<RealTrialRuntimeIdentityBinding | undefined>;
   activateRealTrialReentryAtomically(
     activation: RealTrialReentryAtomicActivation,

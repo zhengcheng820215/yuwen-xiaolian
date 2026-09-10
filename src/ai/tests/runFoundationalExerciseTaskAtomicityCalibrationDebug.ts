@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   assessReadingOpenResponseLoadGate,
 } from '../agents/readingOpenResponseLoadQualityGate.ts';
@@ -18,9 +20,12 @@ import type { QuestionEditableFields } from
 
 type DebugCase = { id: string; name: string; run: () => void };
 
-const ROOT = '/Users/chengzheng/Desktop/web/yuwen-xiaolian/System';
-const STORE = `${ROOT}/.local-data/formal-resource-store.json`;
-const CONTRACT = `${ROOT}/docs/product/FOUNDATIONAL_EXERCISE_TASK_ATOMICITY_CALIBRATION_CONTRACT.md`;
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const STORE = resolve(ROOT, '.local-data/formal-resource-store.json');
+const CONTRACT = resolve(
+  ROOT,
+  'docs/product/FOUNDATIONAL_EXERCISE_TASK_ATOMICITY_CALIBRATION_CONTRACT.md',
+);
 const storeHashBefore = fileHash(STORE);
 
 const cases: DebugCase[] = [

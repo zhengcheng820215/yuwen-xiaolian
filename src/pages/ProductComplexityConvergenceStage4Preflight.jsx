@@ -57,7 +57,10 @@ export default function ProductComplexityConvergenceStage4Preflight() {
   async function saveBundle() {
     if (!prepared) return;
     setRunning(true); setError('');
-    try { setBundle(await saveRealTrialReentryBundle(prepared)); }
+    try {
+      setBundle(await saveRealTrialReentryBundle(prepared));
+      setStatus(await loadProductComplexityConvergencePreflightStatus());
+    }
     catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
     finally { setRunning(false); }
   }
