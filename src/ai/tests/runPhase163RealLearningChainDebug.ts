@@ -90,6 +90,8 @@ async function main(): Promise<void> {
   await caseA18();
   await caseA19();
   await caseA20();
+  await caseA21();
+  await caseA22();
 
   console.log('\nPhase 16.3A Real Learning Chain Debug');
   console.log('='.repeat(78));
@@ -304,6 +306,54 @@ async function caseA20(): Promise<void> {
       recovered.checkpoint.nextTaskResolution?.taskReadiness?.canExecute === true &&
       env.provider.callCount === providerCalls,
     `status=${recovered.status}, next=${recovered.checkpoint.nextTaskResolution?.resourceVersion?.resourceVersionId}, providerCalls=${env.provider.callCount}`);
+}
+
+async function caseA21(): Promise<void> {
+  const env = await createEnvironment('a21', [
+    { type: 'error', category: 'provider_unavailable', retryable: false },
+    responseStep(validDiagnosis()),
+  ], 'matched');
+  const first = await runPhase163RealLearningChain(env.input, env.dependencies);
+  const responseId = first.checkpoint.taskExecutionResult?.studentResponse?.responseId;
+  const second = await runPhase163RealLearningChain(env.input, env.dependencies);
+  const third = await runPhase163RealLearningChain(env.input, env.dependencies);
+  record('A21 Provider 失败结果不阻断同一作答恢复',
+    first.status === 'retry_required' && first.checkpoint.nextAction === 'retry_provider' &&
+      second.status === 'completed' && third.status === 'completed' &&
+      second.checkpoint.taskExecutionResult?.studentResponse?.responseId === responseId &&
+      third.checkpoint.taskEvidenceReturnResult?.returnId === second.checkpoint.taskEvidenceReturnResult?.returnId &&
+      env.provider.callCount === 2,
+    `first=${first.status}/${first.checkpoint.nextAction}, second=${second.status}, providerCalls=${env.provider.callCount}`);
+}
+
+async function caseA22(): Promise<void> {
+  const env = await createEnvironment('a22', [responseStep(validDiagnosis())], 'matched');
+  let interrupted = false;
+  try {
+    await runPhase163RealLearningChain(env.input, {
+      ...env.dependencies,
+      runDiagnosisRuntime: async () => { throw new Error('diagnosis_request_timeout'); },
+    });
+  } catch {
+    interrupted = true;
+  }
+  const saved = await env.dependencies.operationRepository.getByOperationId(env.input.operationId);
+  const response = saved?.taskExecutionResult?.studentResponse;
+  expect(Boolean(response), 'A22 submitted response checkpoint is missing.');
+  const recovered = await runPhase163RealLearningChain({
+    ...env.input,
+    answerText: response!.answerText,
+    singleChoiceAnswer: response!.singleChoiceAnswer,
+    usedHint: response!.usedHint,
+    hintCount: response!.hintCount,
+    submittedAt: response!.submittedAt,
+  }, env.dependencies);
+  record('A22 诊断请求中断后从已提交作答恢复',
+    interrupted && saved?.status === 'retry_required' && saved.nextAction === 'retry_provider' &&
+      recovered.status === 'completed' &&
+      recovered.checkpoint.taskExecutionResult?.studentResponse?.responseId === response?.responseId &&
+      env.provider.callCount === 1,
+    `saved=${saved?.stage}/${saved?.nextAction}, recovered=${recovered.status}, providerCalls=${env.provider.callCount}`);
 }
 
 async function caseA11(): Promise<void> {

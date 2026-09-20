@@ -188,7 +188,9 @@ export async function runPhase163RealLearningChain(
     return resultFromCheckpoint(input, checkpoint, Boolean(existing));
   }
 
-  if (!checkpoint.realDiagnosisRuntimeResult) {
+  if (!checkpoint.realDiagnosisRuntimeResult || (
+    checkpoint.status === 'retry_required' && checkpoint.nextAction === 'retry_provider'
+  )) {
     const diagnosisInput: RealLLMRuntimeFoundationInput = {
       concreteTask: checkpoint.concreteTask,
       taskExecutionResult: checkpoint.taskExecutionResult,

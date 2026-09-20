@@ -8,7 +8,10 @@ import {
   createPhase163MultiDayRun,
   recordPhase163DailyOperation,
 } from '../ai/agents/phase163MultiDayOperationAgent.ts';
-import { runPhase163RealLearningChain } from '../ai/agents/phase163RealLearningChainAgent.ts';
+import {
+  runPhase163RealLearningChain,
+  type Phase163RealLearningChainInput,
+} from '../ai/agents/phase163RealLearningChainAgent.ts';
 import {
   resolveStudentRuntimePausePresentation,
   type StudentRuntimePauseReason,
@@ -289,6 +292,7 @@ export type Phase163LiveWorkspaceState = {
   isTargetedMicroTraining?: boolean;
   targetedMicroTraining?: TargetedMicroTrainingLearningTransition;
   primaryAction: 'submit_answer' | 'resume_processing' | 'retry_resource' | 'start_next_task' | 'return_to_entry';
+  recoveryNeedsDiagnosis?: boolean;
   pauseReason?: StudentRuntimePauseReason;
   studentTitle?: string;
   studentMessage?: string;
@@ -378,10 +382,10 @@ export async function loadPhase163LiveWorkspace(): Promise<Phase163LiveWorkspace
     });
   }
   if (checkpoint) assertPhase163ProductRuntimeIdentity(checkpoint);
-  await recoverPhase163LearningObservations(descriptor, checkpoint, persisted).catch(() => {
+  void recoverPhase163LearningObservations(descriptor, checkpoint, persisted).catch(() => {
     // Observation recovery is non-critical and must never block workspace loading.
   });
-  await progressiveLoadCalibrationService.retryDue().catch(() => {
+  void progressiveLoadCalibrationService.retryDue().catch(() => {
     // Progressive-load calibration recovery is also non-critical.
   });
   if (!checkpoint) return readyState(descriptor, persisted?.answerDraft || '', persisted?.singleChoiceDraft);
@@ -545,7 +549,7 @@ export async function submitPhase163LiveAnswer(
     const validity = validityPreflight.taskExecutionResult?.responseValidity;
     const copiedMaterial = validity?.reasons.some((reason) => reason.includes('复制阅读材料'));
     await savePhase163LiveDraft(answerText, singleChoiceAnswer);
-    await observationService.retryDue().catch(() => undefined);
+    void observationService.retryDue().catch(() => undefined);
     return {
       ...readyState(descriptor, answerText, singleChoiceAnswer),
       status: 'retry_required',
@@ -563,7 +567,40 @@ export async function submitPhase163LiveAnswer(
     singleChoiceAnswer,
     submittedAt,
   };
-  const result = await runPhase163RealLearningChain(input, {
+  const result = await runLiveLearningChain(input, descriptor);
+  return finalizeLiveSubmission(descriptor, result, answerText, singleChoiceAnswer);
+}
+
+export async function resumePhase163LiveSubmission(): Promise<Phase163LiveWorkspaceState> {
+  const descriptor = await buildCurrentRoundDescriptor();
+  const checkpoint = await operationRepository.getByOperationId(descriptor.input.operationId);
+  const persistence = await persistenceRepository.loadByRound(
+    PHASE163_RUNTIME_STUDENT_ID,
+    descriptor.input.learningRoundId,
+  );
+  const response = checkpoint?.taskExecutionResult?.studentResponse;
+  if (!checkpoint || !response || checkpoint.nextAction === 'submit_answer') {
+    throw new Error('未找到可恢复的已提交回答，请返回学习入口检查本次学习。');
+  }
+  if (checkpoint.status !== 'retry_required') {
+    return stateFromCheckpoint(descriptor, checkpoint, response.answerText, response.singleChoiceAnswer, persistence);
+  }
+  const result = await runLiveLearningChain({
+    ...descriptor.input,
+    answerText: response.answerText,
+    singleChoiceAnswer: response.singleChoiceAnswer,
+    usedHint: response.usedHint,
+    hintCount: response.hintCount,
+    submittedAt: response.submittedAt,
+  }, descriptor);
+  return finalizeLiveSubmission(descriptor, result, response.answerText, response.singleChoiceAnswer);
+}
+
+async function runLiveLearningChain(
+  input: Phase163RealLearningChainInput,
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+) {
+  return runPhase163RealLearningChain(input, {
     formalDiagnosisRepository: new InMemoryFormalDiagnosisRepository(),
     controlledFeedbackRepository: new InMemoryControlledFeedbackRepository(),
     learningPersistenceRepository: persistenceRepository,
@@ -577,17 +614,27 @@ export async function submitPhase163LiveAnswer(
           issues: [],
         })
       : resolveNextFormalTask(taskRequest, previousResourceVersion),
-    now: () => submittedAt,
+    now: () => input.submittedAt,
   });
+}
 
+async function finalizeLiveSubmission(
+  descriptor: Awaited<ReturnType<typeof buildCurrentRoundDescriptor>>,
+  result: Awaited<ReturnType<typeof runPhase163RealLearningChain>>,
+  answerText: string,
+  singleChoiceAnswer?: SingleChoiceStudentAnswerValue,
+): Promise<Phase163LiveWorkspaceState> {
   if (result.checkpoint.nextAction === 'submit_answer') {
     await savePhase163LiveDraft(answerText, singleChoiceAnswer);
   }
 
-  const persistence = await persistenceRepository.loadByRound(PHASE163_RUNTIME_STUDENT_ID, input.learningRoundId);
+  const persistence = await persistenceRepository.loadByRound(
+    PHASE163_RUNTIME_STUDENT_ID,
+    descriptor.input.learningRoundId,
+  );
   await recordRuntimeCompletionObservations(descriptor, result.checkpoint, persistence);
   await projectPhase163CalibrationAttempt(descriptor, result.checkpoint.taskExecutionResult, result.checkpoint, persistence);
-  await observationService.retryDue().catch(() => undefined);
+  void observationService.retryDue().catch(() => undefined);
   if (persistence?.learningRoundResult) await appendRoundToCurrentSession(persistence);
   await recordNaturalDay(result, descriptor.retestPlan);
   return await stateFromCheckpoint(descriptor, result.checkpoint, answerText, singleChoiceAnswer, persistence);
@@ -2098,8 +2145,12 @@ async function stateFromCheckpoint(
     sessionComplete: descriptor.isTargetedMicroTraining ? targetedSessionComplete : sessionComplete,
     canRetry: checkpoint.status === 'retry_required',
     primaryAction,
+    recoveryNeedsDiagnosis: checkpoint.status === 'retry_required' && checkpoint.nextAction === 'retry_provider',
     pauseReason: pausePresentation?.reason,
-    studentTitle: pausePresentation?.title,
+    studentTitle: pausePresentation?.title || (checkpoint.status === 'retry_required'
+      && checkpoint.nextAction !== 'submit_answer'
+      ? checkpoint.nextAction === 'retry_provider' ? '分析未完成' : '正在完成学习结果'
+      : undefined),
     studentMessage: pausePresentation
       ? pausePresentation.message
       : checkpoint.status === 'blocked'
@@ -2113,7 +2164,9 @@ async function stateFromCheckpoint(
             ? checkpoint.issues.includes('semantic_answer_validity_insufficient')
               ? '这段内容没有回应当前题目。请围绕题目写出你的判断，并结合材料说明理由。'
               : '请补充回答后重新提交。'
-            : '已提交的回答正在恢复处理，不需要重新作答。'
+            : checkpoint.nextAction === 'retry_provider'
+              ? '回答已保存，分析暂未完成。请重试处理，无需重新作答。'
+              : '回答已保存，学习结果尚未处理完成。请继续处理，无需重新作答。'
           : undefined,
     revision: descriptor.isTargetedMicroTraining ? undefined : revision,
     isTargetedMicroTraining: descriptor.isTargetedMicroTraining,

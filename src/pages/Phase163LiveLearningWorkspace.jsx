@@ -8,6 +8,7 @@ import {
   recordPhase163PreAnswerHintOpened,
   recordPhase163QuestionPresented,
   recoverPhase163FixedQueueContinuation,
+  resumePhase163LiveSubmission,
   resumePhase163CoreAfterTargetedMicroTraining,
   resumePhase163FeedbackRevisionEvaluation,
   savePhase163LiveDraft,
@@ -58,6 +59,7 @@ import {
   toConvergenceFeedbackStudentView,
 } from '../ui/productComplexityConvergenceStage3Presentation.ts';
 import { readProductRuntimeHealth } from '../api/productRuntimeHealthClient.ts';
+import { LearningSubmissionDeadlineError, waitForLearningSubmission } from '../ui/learningSubmissionDeadline.ts';
 
 const RUNTIME_UNAVAILABLE_MESSAGE = '分析服务尚未就绪。你可以继续编辑或保存回答，服务准备好后再提交。';
 const FEEDBACK_PRESENTATION_KEY_PREFIX = 'qingzhou:feedback-presentation:';
@@ -107,7 +109,8 @@ export default function Phase163LiveLearningWorkspace({
           && healthResult.state === 'available'
           && healthResult.health.learning.canSubmitForDiagnosis ? 'ready' : 'unavailable';
         setRuntimeAvailability(runtimeStatus);
-        if (runtimeStatus === 'unavailable' && next.task.responseFormat !== 'single_choice' && (next.status === 'ready' || next.status === 'retry_required')) {
+        if (runtimeStatus === 'unavailable' && next.task.responseFormat !== 'single_choice'
+          && (next.status === 'ready' || next.recoveryNeedsDiagnosis)) {
           showMessage(RUNTIME_UNAVAILABLE_MESSAGE, 'error');
         }
       })
@@ -240,6 +243,11 @@ export default function Phase163LiveLearningWorkspace({
       showMessage(state.task.responseFormat === 'single_choice' ? '请先选择一个答案。' : '请先输入回答再提交。');
       return;
     }
+    if (state.task.responseFormat !== 'single_choice'
+      && Array.from(answer.trim()).length < state.task.minimumAnswerLength) {
+      showMessage(`请先完成不少于 ${state.task.minimumAnswerLength} 字的回答。`);
+      return;
+    }
     if (state.task.responseFormat !== 'single_choice' && runtimeAvailability !== 'ready') {
       showMessage(RUNTIME_UNAVAILABLE_MESSAGE, 'error');
       return;
@@ -249,7 +257,7 @@ export default function Phase163LiveLearningWorkspace({
     setBusy(true);
     setAnalysisRetry(false);
     try {
-      const nextState = await submitPhase163LiveAnswer(choiceAnswer || answer);
+      const nextState = await waitForLearningSubmission(submitPhase163LiveAnswer(choiceAnswer || answer));
       applyState(nextState);
       if (
         nextState.status === 'retry_required' &&
@@ -259,16 +267,25 @@ export default function Phase163LiveLearningWorkspace({
         showMessage(nextState.studentMessage);
       }
     } catch (error) {
+      const recovered = await waitForLearningSubmission(loadPhase163LiveWorkspace(), 8_000).catch(() => null);
+      const hasSubmittedCheckpoint = Boolean(
+        recovered && recovered.status !== 'ready' && recovered.primaryAction !== 'submit_answer',
+      );
+      if (hasSubmittedCheckpoint) applyState(recovered);
+      if (hasSubmittedCheckpoint && recovered.status === 'completed') {
+        showMessage('本题结果已保存。', 'success');
+        return;
+      }
       if (isPhase163DiagnosisBoundaryUnavailable(error)) {
         setRuntimeAvailability('unavailable');
         setAnalysisRetry(false);
         showMessage(RUNTIME_UNAVAILABLE_MESSAGE, 'error');
       } else {
         const retryable = isRetryableAnalysisFailure(error);
-        if (retryable) {
-          await savePhase163LiveDraft(answer, choiceAnswer).catch(() => undefined);
+        if (retryable && !hasSubmittedCheckpoint) {
+          await waitForLearningSubmission(savePhase163LiveDraft(answer, choiceAnswer), 5_000).catch(() => undefined);
         }
-        setAnalysisRetry(retryable);
+        setAnalysisRetry(retryable && !hasSubmittedCheckpoint);
         showMessage(toMessage(error), 'error');
       }
     } finally {
@@ -278,10 +295,9 @@ export default function Phase163LiveLearningWorkspace({
   }
 
   async function resumeProcessing() {
-    const choiceAnswer = buildChoiceAnswer(state, selectedOptionId) || state?.singleChoiceDraft;
     const resourceOnlyRetry = state?.primaryAction === 'retry_resource';
-    if (busy || (!resourceOnlyRetry && (state?.task?.responseFormat === 'single_choice' ? !choiceAnswer : !answer.trim()))) return;
-    if (!resourceOnlyRetry && state?.task?.responseFormat !== 'single_choice' && runtimeAvailability !== 'ready') {
+    if (busy) return;
+    if (state?.recoveryNeedsDiagnosis && state?.task?.responseFormat !== 'single_choice' && runtimeAvailability !== 'ready') {
       showMessage(RUNTIME_UNAVAILABLE_MESSAGE, 'error');
       return;
     }
@@ -289,8 +305,8 @@ export default function Phase163LiveLearningWorkspace({
     showMessage(resourceOnlyRetry ? '正在检查符合要求的下一任务。' : '正在恢复已经提交的结果，请稍候。');
     try {
       applyState(resourceOnlyRetry
-        ? await recoverPhase163FixedQueueContinuation()
-        : await submitPhase163LiveAnswer(choiceAnswer || answer));
+        ? await waitForLearningSubmission(recoverPhase163FixedQueueContinuation())
+        : await waitForLearningSubmission(resumePhase163LiveSubmission()));
     } catch (error) {
       if (isPhase163DiagnosisBoundaryUnavailable(error)) {
         setRuntimeAvailability('unavailable');
@@ -903,16 +919,16 @@ function PausedWorkspace({ state, writingCorrections, busy, onReturn, onStartRev
 }
 
 function RecoveringWorkspace({ state, busy, runtimeAvailability, onResume, onReturn }) {
-  const unavailable = runtimeAvailability === 'unavailable' && state.task.responseFormat !== 'single_choice';
+  const unavailable = runtimeAvailability === 'unavailable' && state.recoveryNeedsDiagnosis;
   return (
     <main className="mx-auto flex min-h-[calc(100vh-65px)] max-w-[720px] flex-col justify-center px-6 py-12">
       <RefreshCw size={24} className={busy ? 'animate-spin text-emerald-600' : 'text-slate-500'} />
-      <h1 className="mt-4 text-lg font-semibold">{unavailable ? '分析服务尚未就绪' : '恢复本次提交'}</h1>
+      <h1 className="mt-4 text-lg font-semibold">{unavailable ? '分析服务尚未就绪' : state.studentTitle || '恢复本次提交'}</h1>
       <p className="mt-3 text-base leading-7 text-slate-600">{unavailable ? RUNTIME_UNAVAILABLE_MESSAGE : state.studentMessage}</p>
       <div className="mt-8 flex flex-wrap gap-3">
-        <button type="button" disabled={busy || (state.task.responseFormat !== 'single_choice' && runtimeAvailability !== 'ready')} onClick={onResume} className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-600 px-5 text-sm text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40">
+        <button type="button" disabled={busy || (state.recoveryNeedsDiagnosis && runtimeAvailability !== 'ready')} onClick={onResume} className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-600 px-5 text-sm text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40">
           {busy ? <RefreshCw size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-          {unavailable ? '分析服务尚未就绪' : '继续处理'}
+          {unavailable ? '分析服务尚未就绪' : state.recoveryNeedsDiagnosis ? '重试分析' : '继续处理'}
         </button>
         <button type="button" disabled={busy} onClick={onReturn} className="min-h-11 rounded-md border border-emerald-600 bg-white px-5 text-sm text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-40">稍后继续</button>
       </div>
@@ -1237,6 +1253,7 @@ function resolveWorkspaceFailurePresentation(message) {
 }
 
 function toMessage(error) {
+  if (error instanceof LearningSubmissionDeadlineError) return error.message;
   if (error instanceof Phase163DiagnosisBoundaryError && error.code === 'diagnosis_request_timeout') {
     return error.message;
   }
@@ -1251,6 +1268,7 @@ function toMessage(error) {
 }
 
 function isRetryableAnalysisFailure(error) {
+  if (error instanceof LearningSubmissionDeadlineError) return true;
   if (error instanceof Phase163DiagnosisBoundaryError) return error.retryable;
   const value = error instanceof Error ? error.message : String(error);
   if (/暂无符合|当前没有.*任务|任务尚未准备|resource|match|正式任务/i.test(value)) return false;

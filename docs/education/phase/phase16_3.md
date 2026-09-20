@@ -231,6 +231,8 @@ Student View State
 
 工程实现使用 `RealLearningOperationCheckpoint` 记录编排阶段、恢复位置和下一流程动作。该对象只是运行控制与恢复快照，不是新的教育判断对象，也不替代 `FormalDiagnosisCommit`、`AbilityEvidence`、`ProfileUpdateDecision` 或 `GrowthMemoryRecord` 的权威地位。
 
+正式 `/learning` 提交后的阶段恢复、失败重试和页面展示遵循 [提交后恢复契约](./phase16_3_submission_recovery_contract.md)。
+
 `RealLearningChainAcceptanceReport` 只是运行验收与追溯对象，不是新的能力事实：
 
 ```ts

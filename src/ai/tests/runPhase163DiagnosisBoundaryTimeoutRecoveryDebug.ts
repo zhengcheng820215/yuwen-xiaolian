@@ -5,6 +5,7 @@ import {
   runDiagnosisThroughPhase163Boundary,
 } from '../../api/phase163DiagnosisBoundary.ts';
 import type { RealLLMRuntimeFoundationInput } from '../agents/realLLMRuntimeFoundationAgent.ts';
+import { LearningSubmissionDeadlineError, waitForLearningSubmission } from '../../ui/learningSubmissionDeadline.ts';
 
 type Check = { name: string; passed: boolean; details: string };
 const checks: Check[] = [];
@@ -94,12 +95,41 @@ try {
   ));
 
   const pageSource = await readFile(new URL('../../pages/Phase163LiveLearningWorkspace.jsx', import.meta.url), 'utf8');
+  const apiSource = await readFile(new URL('../../api/phase163LiveLearning.ts', import.meta.url), 'utf8');
   checks.push(check(
-    'T06 Learning 可重试失败先保存草稿，再开放重新分析/返回修改',
-    pageSource.includes('await savePhase163LiveDraft(answer, choiceAnswer).catch(() => undefined)') &&
-      pageSource.includes("analysisRetry ? '返回修改'") &&
-      pageSource.includes("analysisRetry ? '重新分析'"),
-    'draft preservation and both recovery actions are present',
+    'T06 已提交作答进入独立恢复，缺少 checkpoint 时保留草稿重提',
+    pageSource.includes("recovered.primaryAction !== 'submit_answer'") &&
+      pageSource.includes('await waitForLearningSubmission(resumePhase163LiveSubmission())') &&
+      pageSource.includes('waitForLearningSubmission(savePhase163LiveDraft(answer, choiceAnswer), 5_000)') &&
+      apiSource.includes('export async function resumePhase163LiveSubmission()') &&
+      apiSource.includes('const response = checkpoint?.taskExecutionResult?.studentResponse'),
+    'checkpoint recovery is separate from draft resubmission',
+  ));
+  let submissionDeadlineError: unknown;
+  try {
+    await waitForLearningSubmission(new Promise<never>(() => {}), 10);
+  } catch (error) {
+    submissionDeadlineError = error;
+  }
+  const fastSubmission = await waitForLearningSubmission(Promise.resolve('completed'), 100);
+  checks.push(check(
+    'T07 整条提交流程有有限等待且正常完成不受影响',
+    submissionDeadlineError instanceof LearningSubmissionDeadlineError && fastSubmission === 'completed',
+    `timeout=${submissionDeadlineError instanceof LearningSubmissionDeadlineError}, fast=${fastSubmission}`,
+  ));
+  checks.push(check(
+    'T08 不足最低字数时在调用 AI 前提示补充',
+    pageSource.includes('Array.from(answer.trim()).length < state.task.minimumAnswerLength') &&
+      pageSource.includes('await waitForLearningSubmission(submitPhase163LiveAnswer(choiceAnswer || answer))'),
+    'minimum length is checked before bounded submission',
+  ));
+  checks.push(check(
+    'T09 非关键补偿不阻塞页面恢复与提交结果',
+    apiSource.includes('void recoverPhase163LearningObservations(descriptor, checkpoint, persisted).catch') &&
+      apiSource.includes('void progressiveLoadCalibrationService.retryDue().catch') &&
+      apiSource.includes('void observationService.retryDue().catch(() => undefined)') &&
+      pageSource.includes('await waitForLearningSubmission(resumePhase163LiveSubmission())'),
+    'observation retries run outside the critical UI path',
   ));
 } finally {
   globalThis.fetch = originalFetch;
