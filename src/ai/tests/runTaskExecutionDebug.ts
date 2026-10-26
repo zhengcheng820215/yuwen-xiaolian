@@ -187,7 +187,7 @@ function runTaskExecutionDebug(): void {
     },
     {
       id: 'case_10_copied_material_excerpt',
-      title: 'verbatim material excerpt without an independent response',
+      title: 'selected material evidence reaches diagnosis for missing explanation',
       result: runTaskExecutionAgent({
         concreteTask: task,
         readiness,
@@ -195,9 +195,9 @@ function runTaskExecutionDebug(): void {
           answerText: (task.readingText || '').slice(0, 24),
         },
       }),
-      expectedResultStatus: 'submitted_invalid',
-      expectedValidityStatus: 'insufficient',
-      expectedCanEnterDiagnosis: false,
+      expectedResultStatus: 'submitted_valid',
+      expectedValidityStatus: 'valid',
+      expectedCanEnterDiagnosis: true,
     },
     {
       id: 'case_11_material_excerpt_with_explanation',

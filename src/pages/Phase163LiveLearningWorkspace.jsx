@@ -244,7 +244,8 @@ export default function Phase163LiveLearningWorkspace({
       return;
     }
     if (state.task.responseFormat !== 'single_choice'
-      && Array.from(answer.trim()).length < state.task.minimumAnswerLength) {
+      && state.task.answerLengthMode === 'required'
+      && Array.from(answer.replace(/\s/g, '')).length < state.task.minimumAnswerLength) {
       showMessage(`请先完成不少于 ${state.task.minimumAnswerLength} 字的回答。`);
       return;
     }
@@ -595,6 +596,7 @@ export default function Phase163LiveLearningWorkspace({
               <AnswerLengthIndicator
                 answer={answer}
                 minimumLength={state.task.minimumAnswerLength}
+                mode={state.task.answerLengthMode}
               />
               ) : null}
 

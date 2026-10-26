@@ -1,4 +1,5 @@
 import type { DiagnosisInput } from '../schemas/diagnosis.schema.ts';
+import { READING_RESPONSE_CALIBRATION_CONTRACT } from './readingResponseCalibrationContract.ts';
 
 export const REAL_AI_DIAGNOSIS_PROMPT_VERSION = 'real_ai_diagnosis_prompt_v3' as const;
 
@@ -31,6 +32,8 @@ export function buildRealAIDiagnosisPrompt(input: DiagnosisInput): string {
 16. 所有必填字符串字段都必须是非空字符串，不得使用空字符串或 null。
 17. 当 answerStatus="fully_meets" 且本次作答没有明确错误时，不要虚构能力缺口：surfaceError 使用“本次作答未发现明确表面错误”，rootCause 使用“本次作答未暴露明确能力缺口，后续仍需通过新情境观察稳定性”，errorType 使用“待验证”。
 
+${READING_RESPONSE_CALIBRATION_CONTRACT}
+
 <question_metadata>
 ${metadataBlock}
 </question_metadata>
@@ -42,6 +45,9 @@ ${metadataBlock}
   "strategyUsed": string,
   "answerStatus": "fully_meets" | "partially_meets" | "does_not_meet" | "insufficient_evidence",
   "scoreBand": "high" | "medium" | "low" | "invalid",
+  "rubricItems": [{ "id": string, "label": string, "ability": string, "required": boolean, "matched": boolean, "evidence": string, "missingReason": string }],
+  "matchedRubricItems": string[],
+  "missingRubricItems": string[],
   "mainAbility": string,
   "relatedAbilities": string[],
   "surfaceError": string,

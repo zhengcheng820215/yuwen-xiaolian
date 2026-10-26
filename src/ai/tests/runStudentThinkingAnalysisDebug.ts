@@ -18,11 +18,11 @@ function main(): void {
     evidenceMissing.completedSteps[0]?.action.includes('父亲很喜欢这片旧叶子') === true &&
     evidenceMissing.completedSteps[0]?.whyItMatters.includes('回应题目') === true,
     JSON.stringify(evidenceMissing.completedSteps));
-  check('TA02 文本依据缺口定位动作到心理的可观察断点',
-    evidenceMissing.interruptedTransition?.fromStep === '材料中的人物动作或语句' &&
-    evidenceMissing.interruptedTransition.toStep === '人物心理判断' &&
-    evidenceMissing.interruptedTransition.observedProblem.includes('直接写出了') &&
-    evidenceMissing.interruptedTransition.observedProblem.includes('没有呈现人物做了什么'),
+  check('TA02 文本依据缺口锚定学生结论与当前题目目标',
+    evidenceMissing.interruptedTransition?.fromStep === '材料中的具体内容' &&
+    evidenceMissing.interruptedTransition.toStep === '人物心理' &&
+    evidenceMissing.interruptedTransition.observedProblem.includes('父亲很喜欢这片旧叶子') &&
+    evidenceMissing.interruptedTransition.observedProblem.includes('没有呈现支持它的文本内容'),
     JSON.stringify(evidenceMissing.interruptedTransition));
 
   const relationMissing = analyze(feedback([

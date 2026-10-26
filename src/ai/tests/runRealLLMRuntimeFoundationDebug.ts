@@ -69,6 +69,7 @@ async function caseValidLiveCommit(): Promise<void> {
       run.result.canEnterEvidenceReturn &&
       isFormalDiagnosisCommit(run.result.formalDiagnosisCommit) &&
       isDiagnosisRunRecord(run.result.runRecord) &&
+      run.result.runRecord.promptCalibrationVersion === 'reading_response_calibration_p0_v1' &&
       isRealLLMDiagnosisRuntimeResult(run.result) &&
       run.result.runRecord.tokenUsage?.totalTokens === 30,
     `status=${run.result.status}, attempts=${run.result.runRecord.attemptCount}`,

@@ -1,3 +1,4 @@
+import { READING_RESPONSE_CALIBRATION_VERSION } from '../prompts/readingResponseCalibrationContract.ts';
 import {
   DEFAULT_REAL_AI_DIAGNOSIS_PROMPT_VERSION,
   buildVersionedRealAIDiagnosisPrompt,
@@ -141,6 +142,7 @@ export async function runRealLLMRuntimeFoundation(
         status: 'formal_result_committed',
         attemptCount: 0,
         issues: ['Existing Formal Diagnosis Commit was reused.', ...evidenceReturnIssue],
+        promptCalibrationVersion: undefined,
         completedAt: now(),
       },
       status: 'formal_result_committed',
@@ -691,6 +693,7 @@ function buildBaseRunRecord(
     attemptCount: 0,
     repairOperations: [],
     promptVersion: input.providerConfig.promptVersion,
+    promptCalibrationVersion: READING_RESPONSE_CALIBRATION_VERSION,
     diagnosisSchemaVersion: input.providerConfig.diagnosisSchemaVersion,
     issues: [],
     startedAt,

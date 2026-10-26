@@ -78,6 +78,7 @@ export type DiagnosisRunRecord = {
   attemptCount: number;
   repairOperations: DiagnosisRepairOperation[];
   promptVersion: string;
+  promptCalibrationVersion?: string;
   diagnosisSchemaVersion: string;
   tokenUsage?: DiagnosisTokenUsage;
   latencyMs?: number;
@@ -189,6 +190,7 @@ export function isDiagnosisRunRecord(value: unknown): value is DiagnosisRunRecor
     Array.isArray(record.repairOperations) &&
     record.repairOperations.every(isDiagnosisRepairOperation) &&
     isNonEmptyString(record.promptVersion) &&
+    (record.promptCalibrationVersion === undefined || isNonEmptyString(record.promptCalibrationVersion)) &&
     isNonEmptyString(record.diagnosisSchemaVersion) &&
     Array.isArray(record.issues) &&
     record.issues.every(isNonEmptyString) &&

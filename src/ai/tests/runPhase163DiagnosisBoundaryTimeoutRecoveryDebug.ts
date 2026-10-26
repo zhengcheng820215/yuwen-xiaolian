@@ -118,8 +118,9 @@ try {
     `timeout=${submissionDeadlineError instanceof LearningSubmissionDeadlineError}, fast=${fastSubmission}`,
   ));
   checks.push(check(
-    'T08 不足最低字数时在调用 AI 前提示补充',
-    pageSource.includes('Array.from(answer.trim()).length < state.task.minimumAnswerLength') &&
+    'T08 只有题干明确字数要求时才在调用 AI 前提示补充',
+    pageSource.includes("state.task.answerLengthMode === 'required'") &&
+      pageSource.includes("Array.from(answer.replace(/\\s/g, '')).length < state.task.minimumAnswerLength") &&
       pageSource.includes('await waitForLearningSubmission(submitPhase163LiveAnswer(choiceAnswer || answer))'),
     'minimum length is checked before bounded submission',
   ));

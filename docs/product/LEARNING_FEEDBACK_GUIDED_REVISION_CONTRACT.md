@@ -567,6 +567,16 @@ P0 已按第 7.1 节收口：Attempt 创建接口不再接受独立 `taskId`，�
 
 详细记录见[Learning Attempt 任务身份 P0 修复验收](../education/phase/reports/learning_attempt_task_identity_p0_fix_acceptance_2026-08-15.md)。
 
+### 15.7 P0 聚焦修订校准（2026-10-25）
+
+- Offer 与 Evaluation 策略更新为 v3。`RevisionGoal` 增补可选 `primaryRequirementId` 与 `issueRubricBindings`，绑定反馈主要求及冻结资源评分项；旧记录保持可读，不回写初答或历史证据。
+- 优先使用正式反馈的主要缺口，而不是按 Coverage 数组顺序另选目标。只有绑定评分项从未达成变为明确达成，才记录该 Issue 已解决；缺项总数减少、其他项改善和字数增加不能代替目标改善。
+- 相同答案、仅改空白或标点不生成改善结论。旧记录无可靠绑定时保持保守，不能按缺项数量补造目标映射。
+- UI 消费同一 Evaluation 的观察结论及下一步动作，不再用另一套文案推断原缺口已解决。支持性修订只追加证据，不升级长期能力。
+- 诊断 Prompt 的 P0 补充版本为 `reading_response_calibration_p0_v1`，新 Provider 运行记录使用 `promptCalibrationVersion` 标识；历史记录不补写该字段，复用旧 Commit 不伪造新补充版本已执行。校准比较必须同时核对基础 Prompt 与补充版本。
+
+验收记录：[阅读训练 P0 工程与 Debug 验收](../education/phase/reports/reading_training_p0_debug_acceptance_2026-10-25.md)。
+
 ## 十六、冻结结论
 
 第一版正式定义为：

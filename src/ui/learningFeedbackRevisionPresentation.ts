@@ -62,7 +62,7 @@ export function presentLearningFeedbackRevision(
   evaluation: Pick<
     RevisionEvaluation,
     'outcome' | 'resolvedIssueCodes' | 'remainingIssueCodes' | 'newIssueCodes'
-  >,
+  > & Partial<Pick<RevisionEvaluation, 'improvedObservation' | 'nextSimilarTaskAction'>>,
 ): LearningFeedbackRevisionPresentation {
   const resolved = issuePresentation(evaluation.resolvedIssueCodes[0]);
   const remainingCode = evaluation.newIssueCodes[0] || evaluation.remainingIssueCodes[0];
@@ -72,9 +72,9 @@ export function presentLearningFeedbackRevision(
   return {
     eyebrow: '本题修订完成',
     title: outcomeTitle(evaluation.outcome),
-    summary: outcomeSummary(evaluation.outcome, resolved),
+    summary: evaluation.improvedObservation || outcomeSummary(evaluation.outcome, resolved),
     remainingFocus: remaining?.remainingFocus,
-    methodReminder: method.methodReminder,
+    methodReminder: evaluation.nextSimilarTaskAction || method.methodReminder,
   };
 }
 

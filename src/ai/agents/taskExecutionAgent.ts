@@ -1,4 +1,5 @@
 import type { ConcreteLearningTask } from '../schemas/concreteLearningTask.schema.ts';
+import { answerMeetsRequiredLength, resolveReadingAnswerLengthPolicy } from './readingAnswerLengthPolicy.ts';
 import type {
   ResponseValidityResult,
   StudentResponse,
@@ -177,12 +178,13 @@ export function evaluateResponseValidity(
     };
   }
 
-  if (requiresSubstantiveOpenResponse(task) && compactAnswer.length < 8) {
+  const lengthPolicy = resolveReadingAnswerLengthPolicy(task.question);
+  if (!answerMeetsRequiredLength(answer, lengthPolicy)) {
     return {
       responseId: response.responseId,
       status: 'insufficient',
       canDiagnose: false,
-      reasons: ['答案过短，尚未提供可分析的判断、依据或说明。'],
+      reasons: [`题干要求不少于 ${lengthPolicy.minimumLength} 字，请完成后再提交。`],
     };
   }
 
@@ -263,9 +265,9 @@ function isMaterialOnlyResponse(value: string, task: ConcreteLearningTask): bool
   const material = compact(task.readingText || '');
   if (!requiresSubstantiveOpenResponse(task) || value.length < 8 || material.length < 8) return false;
 
-  // An exact excerpt is valid evidence material, but it is not an independent
-  // answer to a task that explicitly requires judgment or explanation.
-  if (material.includes(value)) return true;
+  // A selected excerpt may be meaningful but incomplete. Diagnosis determines
+  // its relevance and missing explanation; wholesale copying is still blocked.
+  if (value === material) return true;
 
   if (value.length < 48 || material.length < 48) return false;
 

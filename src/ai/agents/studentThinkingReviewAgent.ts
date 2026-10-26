@@ -14,6 +14,7 @@ const FORMAL_RELATION_CONFIRMED_PATTERN = /动作.{0,8}(?:心理|情感).{0,8}(?
 const FORMAL_RELATION_MISSING_PATTERN = /没有.{0,12}说明|未.{0,12}说明|关系.{0,8}(?:不完整|缺少)|缺少.{0,8}(?:关系|联系)/;
 const CONCLUSION_INCONSISTENCY_PATTERN = /(?:结论|判断|理解|心理|特点|概括|原因).{0,20}(?:与.{0,20})?(?:不一致|冲突|错误|不准确|偏差|不成立|误判|偏离)|(?:不一致|冲突).{0,16}(?:结论|判断|理解|心理|材料|事实)|(?:把|将).{1,24}(?:理解|判断)为/;
 const CONCLUSION_SUPPORTED_PATTERN = /(?:结论|判断|理解|心理|方向).{0,16}(?:成立|正确|合理|相符|一致)|(?:方向|结论).{0,8}基本(?:成立|正确)/;
+const SCOPE_MISMATCH_PATTERN = /(?:对象|范围|说话者).{0,16}(?:错误|错位|不一致|混淆|认错|误认)|答非所问/;
 const INTERNAL_LANGUAGE_PATTERN = /evidence|diagnosis|root\s*cause|能力证据|置信度|inference|comprehension/i;
 const PROMPT_INJECTION_PATTERN = /忽略(?:之前|前面|以上).*规则|打印.*(?:prompt|提示词)|修改.*mainAbility|判定.*掌握/i;
 const NON_EVIDENCE_FRAGMENT_PATTERN = /^(?:自己|本人|此时|当时|这样|这个|那个|这里|那里|文中|文章中|材料中|父亲|母亲|孩子|人物|动作|细节|内容|语句)$/u;
@@ -60,7 +61,7 @@ export function buildStudentThinkingReview(
     readingText: task.readingText || '',
     questionText: task.question,
   });
-  const matchedKeywords = acceptedSignalRoles.conclusionSignals;
+  const matchedKeywords = acceptedSignalRoles.conclusionSignals.filter((keyword) => !task.question.includes(keyword));
   const matchedDetails = uniqueStrings([
     ...acceptedSignalRoles.evidenceSignals,
     ...matchStudentEvidenceSpans(answer, expectedDetails),
@@ -79,6 +80,13 @@ export function buildStudentThinkingReview(
   const safeStrength = options.safeStrengths
     ?.map((item) => item.trim())
     .find((item) => item && !INTERNAL_LANGUAGE_PATTERN.test(item));
+  const rubricSignals = (ids: string[]) => uniqueStrings(ids.flatMap((id) => [
+    id,
+    diagnosis.rubricItems?.find((item) => item.id === id)?.label || '',
+    task.rubric.find((item) => item.id === id)?.name || '',
+  ]));
+  const matchedSignals = rubricSignals(diagnosis.matchedRubricItems || []);
+  const missingSignals = rubricSignals(diagnosis.missingRubricItems || []);
 
   const coverage: TaskRequirementCoverage[] = [];
   coverage.push(buildConclusionCoverage({
@@ -106,8 +114,8 @@ export function buildStudentThinkingReview(
       expectedDetails,
       formalText,
       answerStatus: diagnosis.answerStatus,
-      matchedRubricItems: diagnosis.matchedRubricItems || [],
-      missingRubricItems: diagnosis.missingRubricItems || [],
+      matchedRubricItems: matchedSignals,
+      missingRubricItems: missingSignals,
     }));
   }
 
@@ -120,8 +128,8 @@ export function buildStudentThinkingReview(
       hasMaterialDetail: matchedDetails.length > 0,
       formalText,
       answerStatus: diagnosis.answerStatus,
-      matchedRubricItems: diagnosis.matchedRubricItems || [],
-      missingRubricItems: diagnosis.missingRubricItems || [],
+      matchedRubricItems: matchedSignals,
+      missingRubricItems: missingSignals,
     }));
   }
 
@@ -253,6 +261,14 @@ function buildConclusionCoverage(input: {
       source: 'formal_diagnosis',
       gapMessage: `目前的回答信息还不足以判断是否已经写清${input.target}。`,
       gapReasonCode: 'insufficient_to_judge',
+    });
+  }
+  if (SCOPE_MISMATCH_PATTERN.test(input.formalText)) {
+    return coverageItem(input.taskId, 'conclusion', `回应${input.target}`, 'missing', {
+      taskEvidence: [`题目要求说明${input.target}`],
+      source: 'formal_diagnosis',
+      gapMessage: '这次回答的对象或范围与题目要求不一致，需要先核对题目问谁、问什么。',
+      gapReasonCode: 'conclusion_inconsistent',
     });
   }
   if (CONCLUSION_INCONSISTENCY_PATTERN.test(input.formalText)) {

@@ -39,6 +39,8 @@ export type RevisionOutcome =
 export type RevisionGoal = {
   primaryIssueCode: string;
   relatedIssueCodes: string[];
+  primaryRequirementId?: string;
+  issueRubricBindings?: Array<{ issueCode: string; rubricItemIds: string[] }>;
   instruction: string;
   sourceDiagnosisId: string;
   sourceFeedbackId: string;
@@ -334,6 +336,13 @@ function isRevisionGoal(value: unknown): value is RevisionGoal {
     isNonEmptyString(goal.primaryIssueCode)
     && isStringArray(goal.relatedIssueCodes)
     && goal.relatedIssueCodes.length <= 2
+    && (goal.primaryRequirementId === undefined || isNonEmptyString(goal.primaryRequirementId))
+    && (goal.issueRubricBindings === undefined || (
+      Array.isArray(goal.issueRubricBindings)
+      && goal.issueRubricBindings.every((binding) => binding && typeof binding === 'object'
+        && [goal.primaryIssueCode, ...goal.relatedIssueCodes].includes(binding.issueCode)
+        && isStringArray(binding.rubricItemIds) && binding.rubricItemIds.length > 0)
+    ))
     && isNonEmptyString(goal.instruction)
     && isNonEmptyString(goal.sourceDiagnosisId)
     && isNonEmptyString(goal.sourceFeedbackId)

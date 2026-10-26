@@ -573,6 +573,15 @@ Retest 与 Transfer 可以显示结果反馈，但不得提供即时完整修复
 
 ## 十四、关联文档
 
+### P0 阅读短答案校准补充（2026-10-25）
+
+- 优先使用现有 `scope_misaligned / conclusion_without_evidence / evidence_without_explanation / partial_required_aspects` 投射，不另建一套能力诊断。
+- 诊断必须区分题目要求、学生实际回答与缺少的内容。判断对象错位不能用泛化的表达问题代替；题干已给出的“思念、悔恨”等结论不能自动当作学生独立完成的推断。
+- 同一次反馈与修订目标使用同一个主要要求；修订成功必须由绑定评分项的前后变化证明，不能用缺项总数减少代替。
+- `shadow` 默认值及 Trial 身份、正式版本、学生和有效期门禁保持不变。本轮隔离测试不等于真实学生试验已激活，也不等于训练有效性已经证明。
+- P0 验收覆盖：短答案放行与无效输入保护、四类缺口、语气/标点题型、未改变答案、仅改标点、无关项改善、原目标改善、初答冻结及 Profile 不升级。
+
+
 - [题目元数据模型](../education/QUESTION_METADATA_MODEL.md)
 - [反馈行动转换模型](../education/FEEDBACK_ACTION_MODEL.md)
 - [Learning Gap 模型](../education/LEARNING_GAP_MODEL.md)

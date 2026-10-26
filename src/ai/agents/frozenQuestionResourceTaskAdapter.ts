@@ -1,4 +1,5 @@
 import { instantiateConcreteLearningTask } from './concreteLearningTaskAgent.ts';
+import { resolveReadingAnswerLengthPolicy } from './readingAnswerLengthPolicy.ts';
 import type {
   ConcreteLearningTask,
   ConcreteLearningTaskInstantiationResult,
@@ -153,7 +154,10 @@ function buildAnswerRequirements(version: FrozenQuestionResourceVersion): string
   if (version.responseFormat === 'single_choice') {
     return ['请选择一个最符合材料和题意的答案。'];
   }
-  const requirements = [`至少作答 ${version.minimumAnswerRequirement.minLength} 个字。`];
+  const policy = resolveReadingAnswerLengthPolicy(version.questionStem, version.minimumAnswerRequirement.minLength);
+  const requirements = [policy.mode === 'required'
+    ? `至少作答 ${policy.minimumLength} 个字。`
+    : `建议作答 ${policy.minimumLength} 字左右，按实际内容判断完成度。`];
   if (version.minimumAnswerRequirement.requireTextEvidence) requirements.push('需要提供文本依据。');
   if (version.minimumAnswerRequirement.requireExplanation) requirements.push('需要说明依据与结论的关系。');
   return requirements;

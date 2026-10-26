@@ -29,13 +29,13 @@ function main(): void {
     `${evidencePlan.acknowledgedAction} ${evidencePlan.whyItMatters}`);
   check('FA02 问题机制指出思考链在哪里中断',
     evidencePlan.problemMechanism?.includes('父亲珍惜这片树叶') === true &&
-    evidencePlan.problemMechanism.includes('没有呈现人物做了什么'),
+    evidencePlan.problemMechanism.includes('没有呈现支持它的文本内容'),
     evidencePlan.problemMechanism);
   check('FA03 首次正式反馈只提供思考问题，不默认提供句式支架',
     evidencePlan.feedbackDepth === 4 &&
     evidencePlan.hintLevel === 'paraphrase' &&
     evidencePlan.nextOperations.length === 1 &&
-    evidencePlan.nextOperations[0]?.includes('这个动作说明父亲当时在想什么') === true &&
+    evidencePlan.nextOperations[0]?.includes('为什么能支持“父亲珍惜这片树叶”') === true &&
     evidencePlan.scaffoldTemplate === undefined,
     JSON.stringify({ operations: evidencePlan.nextOperations, scaffold: evidencePlan.scaffoldTemplate }));
 
@@ -95,8 +95,8 @@ function main(): void {
     mismatchPlan.problemMechanism?.includes('周老师只是想休息') === true &&
     mismatchPlan.problemMechanism.includes('在留言旁停留') &&
     mismatchPlan.nextOperations.length === 1 &&
-    mismatchPlan.nextOperations[0]?.includes('真的能说明') === true &&
-    mismatchPlan.nextOperations[0]?.includes('先别急着改结论') === true &&
+    mismatchPlan.nextOperations[0]?.includes('核实“周老师只是想休息”是否成立') === true &&
+    mismatchPlan.nextOperations[0]?.includes('题目所问的对象') === true &&
     mismatchPlan.scaffoldTemplate === undefined,
     JSON.stringify({ mechanism: mismatchPlan.problemMechanism, operations: mismatchPlan.nextOperations }));
 

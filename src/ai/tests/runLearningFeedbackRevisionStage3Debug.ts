@@ -134,7 +134,7 @@ function diagnosis(answerStatus: OpenResponseAnswerStatus, missingRubricItems: s
     answerStatus,
     scoreBand: answerStatus === 'fully_meets' ? 'high' : answerStatus === 'does_not_meet' ? 'low' : 'medium',
     rubricItems: [],
-    matchedRubricItems: ['judgement'],
+    matchedRubricItems: ['judgement', ...['evidence', 'relation'].filter((id) => !missingRubricItems.includes(id))],
     missingRubricItems,
     mainAbility: 'analysis-reasoning',
     relatedAbilities: [],

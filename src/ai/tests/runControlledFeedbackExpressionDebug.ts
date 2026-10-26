@@ -35,6 +35,7 @@ import type { ConcreteLearningTask } from '../schemas/concreteLearningTask.schem
 import type { DiagnosisResult } from '../schemas/diagnosis.schema.ts';
 import type { TaskEvidenceReturnResult } from '../schemas/taskEvidenceReturn.schema.ts';
 import type { TaskExecutionResult } from '../schemas/taskExecution.schema.ts';
+import { buildStudentThinkingReview } from '../agents/studentThinkingReviewAgent.ts';
 
 const FIXED_AT = '2026-07-17T12:00:00.000Z';
 
@@ -112,6 +113,7 @@ async function main(): Promise<void> {
   await caseFullyMeetsAlternativeEvidenceIsNotTreatedAsCumulativeRequirement();
   await caseSceneryStateIsNotProjectedAsCharacterTrait();
   await caseLocalSceneryEvidenceIsNotPromotedToOverallConclusion();
+  caseReadingP0ScopeAndRepeatedConclusion();
 
   printReport();
   if (cases.some((item) => !item.passed)) {
@@ -1478,6 +1480,31 @@ async function caseDoesNotMeetMissingEvidenceDoesNotBecomeWrongConclusion(): Pro
       !review.primaryGap.includes('不一致'),
     JSON.stringify({ conclusion, primary, review }),
   );
+}
+
+function caseReadingP0ScopeAndRepeatedConclusion(): void {
+  const scope = baseInput({ evidenceTypes: [] });
+  scope.taskEvidenceReturnResult.concreteTask.question = '比较两句话的语气有什么不同。';
+  setStudentAnswer(scope, '第二句话是妹妹说的。');
+  setDiagnosis(scope, { answerStatus: 'does_not_meet', surfaceError: '说话者认错，没有比较语气。',
+    rootCause: '回答的对象或范围错位。', diagnosisSummary: '尚未完成语气比较。' });
+  const scopeReview = buildStudentThinkingReview(scope);
+  record('p0_scope_mismatch', '语气比较答成身份，不改写为表达薄弱',
+    scopeReview?.primaryGap?.includes('对象或范围') === true && !scopeReview.primaryGap.includes('表达能力'),
+    scopeReview?.primaryGap || 'missing');
+
+  const repeated = baseInput({ evidenceTypes: [] });
+  const task = repeated.taskEvidenceReturnResult.concreteTask;
+  task.question = '结合原文解释“怀念”和“悔恨”的具体含义。';
+  task.questionMetadata.answerAcceptance = { acceptedKeywords: ['怀念', '悔恨'], semanticEquivalentAllowed: true };
+  setStudentAnswer(repeated, '作者怀念，也很悔恨。');
+  setDiagnosis(repeated, { answerStatus: 'partially_meets', surfaceError: '只重复了题干中的情感词。',
+    rootCause: '尚未解释具体内容。', diagnosisSummary: '需要解释情感的具体含义。', abilityEvidence: [] });
+  const repeatedReview = buildStudentThinkingReview(repeated);
+  const conclusion = repeatedReview?.requirementCoverage?.find((item) => item.requirementType === 'conclusion');
+  record('p0_repeated_question_conclusion', '复述题干结论不自动判定独立完成',
+    conclusion?.status !== 'covered' && conclusion?.studentEvidence.length === 0,
+    JSON.stringify(conclusion));
 }
 
 function umbrellaThinkingInput(answer: string): ControlledFeedbackExpressionInput {

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5174 --strictPort",
     "build": "vite build",
+    "debug:reading-training-p0": "node --experimental-strip-types src/ai/tests/runReadingTrainingP0Debug.ts",
     "debug:knowledge-practice-wp1": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runKnowledgePracticeWP1Debug.ts",
     "validate:knowledge-questions": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runKnowledgePracticeWP1Debug.ts --validate-data",
     "debug:knowledge-practice-wp2": "node --experimental-strip-types --experimental-specifier-resolution=node src/ai/tests/runKnowledgePracticeWP2Debug.ts",

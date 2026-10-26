@@ -8,7 +8,7 @@ import type {
 } from '../schemas/studentLearningFeedback.schema.ts';
 
 export const LEARNING_FEEDBACK_REVISION_OFFER_POLICY_VERSION =
-  'learning_feedback_revision_offer_policy_v2' as const;
+  'learning_feedback_revision_offer_policy_v3' as const;
 
 export type LearningFeedbackRevisionOfferLevel = 'none' | 'optional' | 'recommended';
 
@@ -37,6 +37,8 @@ export type LearningFeedbackRevisionOfferInput = {
   formalFeedbackId?: string;
   formalFeedbackReady: boolean;
   requirementCoverage?: TaskRequirementCoverage[];
+  primaryGapRequirementId?: string;
+  rubricRequirementBindings?: Array<{ requirementId: string; rubricItemId: string }>;
   guidance?: StudentFeedbackGuidance;
 };
 
@@ -58,7 +60,7 @@ export function decideLearningFeedbackRevisionOffer(
     .filter((item) => item.status === 'missing' || item.status === 'partially_covered')
     .filter((item) => item.gapReasonCode !== 'insufficient_to_judge')
     .sort((left, right) => priority(left.status) - priority(right.status));
-  const primary = actionable[0];
+  const primary = actionable.find((item) => item.requirementId === input.primaryGapRequirementId) || actionable[0];
   if (!primary) return none('no_actionable_revision_goal');
   if (input.answerStatus === 'does_not_meet' && !hasRequiredFoundation(coverage)) {
     return none('initial_response_not_revision_eligible');
@@ -69,7 +71,7 @@ export function decideLearningFeedbackRevisionOffer(
     : 'optional';
   const primaryIssueCode = issueCode(primary);
   const relatedIssueCodes = actionable
-    .slice(1)
+    .filter((item) => item !== primary)
     .map(issueCode)
     .filter((code, index, codes) => code !== primaryIssueCode && codes.indexOf(code) === index)
     .slice(0, 2);
@@ -85,6 +87,13 @@ export function decideLearningFeedbackRevisionOffer(
     revisionGoal: {
       primaryIssueCode,
       relatedIssueCodes,
+      primaryRequirementId: primary.requirementId,
+      issueRubricBindings: [primaryIssueCode, ...relatedIssueCodes].flatMap((code) => {
+        const requirementIds = new Set(actionable.filter((item) => issueCode(item) === code).map((item) => item.requirementId));
+        const rubricItemIds = [...new Set((input.rubricRequirementBindings || [])
+          .filter((binding) => requirementIds.has(binding.requirementId)).map((binding) => binding.rubricItemId))];
+        return rubricItemIds.length ? [{ issueCode: code, rubricItemIds }] : [];
+      }),
       instruction: revisionInstruction(primary, input.guidance),
       sourceDiagnosisId: input.formalDiagnosisId,
       sourceFeedbackId: input.formalFeedbackId,

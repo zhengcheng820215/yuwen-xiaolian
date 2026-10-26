@@ -2,6 +2,7 @@ import { ArrowRight, BookOpen, RefreshCw, Save } from 'lucide-react';
 import { StudentFeedbackPanel } from './StudentFeedbackPanel.jsx';
 import ReadingMaterialText from './ReadingMaterialText.jsx';
 import AnswerLengthIndicator, { readMinimumAnswerLength } from './AnswerLengthIndicator.jsx';
+import { resolveReadingAnswerLengthPolicy } from '../../ai/agents/readingAnswerLengthPolicy.ts';
 
 export default function LearningTaskWorkspace({
   state,
@@ -13,6 +14,7 @@ export default function LearningTaskWorkspace({
   onSubmit,
 }) {
   const entry = state.entryState;
+  const lengthPolicy = resolveReadingAnswerLengthPolicy(entry?.questionText || '', readMinimumAnswerLength(entry?.answerRequirements));
 
   return (
     <div className="learning-workspace-split-background relative bg-[#f7f9fc] min-[1060px]:h-[calc(100vh-64px)] min-[1060px]:min-h-[620px]">
@@ -48,7 +50,8 @@ export default function LearningTaskWorkspace({
             />
             <AnswerLengthIndicator
               answer={answer}
-              minimumLength={readMinimumAnswerLength(entry?.answerRequirements)}
+              minimumLength={lengthPolicy.minimumLength}
+              mode={lengthPolicy.mode}
             />
             <div className="mt-3 flex flex-col-reverse gap-3 sm:grid sm:grid-cols-2">
               <button

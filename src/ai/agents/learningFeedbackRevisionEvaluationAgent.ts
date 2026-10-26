@@ -21,7 +21,7 @@ import type { ProfileUpdateDecision } from '../schemas/profileUpdateDecision.sch
 import type { StudentAbilityProfile } from '../schemas/studentAbilityProfile.schema.ts';
 
 export const LEARNING_FEEDBACK_REVISION_EVALUATION_POLICY_VERSION =
-  'learning_feedback_revision_evaluation_policy_v2' as const;
+  'learning_feedback_revision_evaluation_policy_v3' as const;
 
 export type LearningFeedbackRevisionEvaluationInput = {
   revisionId: string;
@@ -65,25 +65,27 @@ export function evaluateLearningFeedbackRevision(
   const initialMissing = unique(input.initialDiagnosis.missingRubricItems || []);
   const revisedMissing = unique(input.revisedDiagnosis.missingRubricItems || []);
   const newDiagnosisIssues = revisedMissing.filter((item) => !initialMissing.includes(item));
-  const resolvedDiagnosisCount = initialMissing.filter((item) => !revisedMissing.includes(item)).length;
   const substantiveChange = hasSubstantiveChange(input.initialAnswer, input.revisedAnswer);
-  const outcome = decideOutcome({
+  const overallOutcome = decideOutcome({
     initialRank,
     revisedRank,
     initialMissingCount: initialMissing.length,
     revisedMissingCount: revisedMissing.length,
     newIssueCount: newDiagnosisIssues.length,
   });
-  const feedbackRespondedTo = substantiveChange
-    && outcome !== 'regressed'
-    && (revisedRank > initialRank || resolvedDiagnosisCount > 0 || outcome === 'improved');
-  const resolvedCount = outcome === 'improved'
-    ? goalCodes.length
-    : outcome === 'partially_improved'
-      ? Math.max(1, Math.min(goalCodes.length, resolvedDiagnosisCount || 1))
-      : 0;
-  const resolvedIssueCodes = goalCodes.slice(0, resolvedCount);
-  const remainingIssueCodes = goalCodes.filter((code) => !resolvedIssueCodes.includes(code));
+  const progress = goalCodes.map((code) => compareGoalItems(input, code));
+  const primaryProgress = progress[0];
+  const feedbackRespondedTo = substantiveChange && overallOutcome !== 'regressed' && primaryProgress.improved;
+  const outcome: RevisionOutcome = !substantiveChange ? 'unchanged'
+    : overallOutcome === 'regressed' ? 'regressed'
+      : !primaryProgress.improved ? 'unchanged'
+        : primaryProgress.resolved && overallOutcome === 'improved' ? 'improved' : 'partially_improved';
+  const resolvedIssueCodes = substantiveChange
+    ? progress.filter((item) => item.resolved).map((item) => item.code)
+    : [];
+  const remainingIssueCodes = progress
+    .filter((item) => substantiveChange ? !item.satisfied : !item.initiallySatisfied)
+    .map((item) => item.code);
   const newIssueCodes = newDiagnosisIssues.length
     ? newDiagnosisIssues
     : outcome === 'regressed'
@@ -93,7 +95,7 @@ export function evaluateLearningFeedbackRevision(
     revisionId: input.revisionId,
     policyVersion: LEARNING_FEEDBACK_REVISION_EVALUATION_POLICY_VERSION,
   });
-  const improvedObservation = buildObservation(input, outcome);
+  const improvedObservation = buildObservation(input, outcome, primaryProgress.resolved, substantiveChange);
   const nextSimilarTaskAction = buildNextAction(input, outcome);
   const evaluation: RevisionEvaluation = {
     schemaVersion: REVISION_EVALUATION_SCHEMA_VERSION,
@@ -184,17 +186,46 @@ function decideOutcome(input: {
 function buildObservation(
   input: LearningFeedbackRevisionEvaluationInput,
   outcome: RevisionOutcome,
+  primaryResolved: boolean,
+  substantiveChange: boolean,
 ): string {
   if (outcome === 'improved' || outcome === 'partially_improved') {
     const focus = issueFocus(input.revisionGoal.primaryIssueCode);
     return outcome === 'improved'
       ? `修订回答已经补充${focus}，主要要求已经完成。`
-      : `修订回答已经补充${focus}，仍有部分要求需要完善。`;
+      : primaryResolved
+        ? `修订回答已经补充${focus}，仍有部分要求需要完善。`
+        : `本次围绕${focus}的修改已有部分进展，还需要继续核对这一要求。`;
   }
   if (outcome === 'regressed') {
     return '修订回答影响了原来已经满足的要求，需要保留正确内容后再修改。';
   }
-  return '修订回答已有变化，但题目需要的关键内容仍未补充完整。';
+  return substantiveChange
+    ? '回答已有变化，但还没有足够证据确认本次反馈指出的主要问题已经改善。'
+    : '回答内容没有实质变化，本次反馈指出的主要问题尚未改善。';
+}
+
+function compareGoalItems(input: LearningFeedbackRevisionEvaluationInput, code: string) {
+  // Older records may bind by exact rubric ID only. Never infer a goal from
+  // the number of disappearing issues or their position in an array.
+  const ids = input.revisionGoal.issueRubricBindings?.find((binding) => binding.issueCode === code)?.rubricItemIds
+    || [code === input.revisionGoal.primaryIssueCode && input.revisionGoal.primaryRequirementId
+      ? input.revisionGoal.primaryRequirementId : code];
+  const before = ids.map((id) => rubricItemState(input.initialDiagnosis, id));
+  const after = ids.map((id) => rubricItemState(input.revisedDiagnosis, id, input.initialDiagnosis));
+  const improved = before.some((state, index) => state === 'missing' && after[index] === 'matched');
+  const satisfied = after.every((state) => state === 'matched');
+  return { code, improved, satisfied, initiallySatisfied: before.every((state) => state === 'matched'), resolved: improved && satisfied };
+}
+
+function rubricItemState(diagnosis: DiagnosisResult, id: string, initial?: DiagnosisResult): 'matched' | 'missing' | 'unknown' {
+  const item = diagnosis.rubricItems?.find((entry) => entry.id === id);
+  const label = item?.label || initial?.rubricItems?.find((entry) => entry.id === id)?.label;
+  const keys = [id, label].filter((value): value is string => Boolean(value));
+  if (item?.matched === false || diagnosis.missingRubricItems?.some((value) => keys.includes(value))) return 'missing';
+  if (item?.matched === true || diagnosis.matchedRubricItems?.some((value) => keys.includes(value))) return 'matched';
+  if (initial && rubricItemState(initial, id) === 'missing' && diagnosis.answerStatus === 'fully_meets') return 'matched';
+  return 'unknown';
 }
 
 function buildNextAction(
@@ -294,7 +325,7 @@ function hasSubstantiveChange(initialAnswer: string, revisedAnswer: string): boo
   const initial = normalize(initialAnswer);
   const revised = normalize(revisedAnswer);
   if (initial === revised) return false;
-  return Math.abs(revised.length - initial.length) >= 4 || revised !== initial;
+  return revised !== initial;
 }
 
 function compact(value: string, maxLength: number): string {
@@ -327,7 +358,7 @@ function issueMethodReminder(issueCode: string): string {
 }
 
 function normalize(value: string): string {
-  return value.replace(/[\s，。！？；：“”‘’、,.!?;:'"()-]/g, '').toLowerCase();
+  return value.replace(/[\s\p{P}\p{S}]/gu, '').toLowerCase();
 }
 
 function unique(values: string[]): string[] {

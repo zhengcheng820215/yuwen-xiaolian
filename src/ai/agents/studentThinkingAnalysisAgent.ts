@@ -19,7 +19,11 @@ export function buildStudentThinkingAnalysis(
   grounding: StudentFeedbackGrounding,
   studentResponse?: StudentResponse,
 ): StudentThinkingAnalysis {
-  const coverage = feedback.thinkingReview?.requirementCoverage || [];
+  const coverage = (feedback.thinkingReview?.requirementCoverage || []).map((item) => ({
+    ...item,
+    studentEvidence: item.studentEvidence.filter((span) => !studentResponse
+      || studentResponse.answerText.replace(/\s/g, '').includes(span.replace(/\s/g, ''))),
+  }));
   const completedSteps = buildCompletedSteps(coverage);
   const primaryCoverage = coverage.find((item) =>
     item.requirementId === feedback.thinkingReview?.primaryGapRequirementId);
@@ -85,7 +89,9 @@ function buildCompletedSteps(coverage: TaskRequirementCoverage[]): StudentThinki
       steps.push({
         stepId: item.requirementId,
         action: `写出了“${evidence}”这一想法`,
-        whyItMatters: `没有只停留在复述材料内容，已经开始回应题目要求说明${taskTarget}的方向`,
+        whyItMatters: item.status === 'covered'
+          ? `这个判断回应题目要求说明${taskTarget}的方向`
+          : `这部分内容可以继续对照题目要求核实，尚不代表已经完成${taskTarget}的说明`,
         evidenceLinks: [item.requirementId, `student-evidence:${item.requirementId}`],
         verificationStatus: item.status === 'covered' ? 'supported' : 'observed',
       });
@@ -112,8 +118,12 @@ function buildCompletedSteps(coverage: TaskRequirementCoverage[]): StudentThinki
 
 function describeCoverageTarget(coverage: TaskRequirementCoverage[]): string {
   const requirement = coverage.find((item) => item.requirementType === 'conclusion')?.requirementText || '';
+  if (/语气/.test(requirement)) return '语气差异';
+  if (/标点/.test(requirement)) return '标点的表达效果';
+  if (/结构/.test(requirement)) return '文章结构';
   if (/人物的特点|人物特点|人物形象/.test(requirement)) return '人物特点';
-  if (/人物的心理|人物心理|心情|情感/.test(requirement)) return '人物心理';
+  if (/人物的心理|人物心理|心情/.test(requirement)) return '人物心理';
+  if (/情感/.test(requirement)) return '情感的具体含义';
   if (/事情的原因|原因/.test(requirement)) return '事情原因';
   return '题目结论';
 }
@@ -137,38 +147,39 @@ function buildInterruptedTransition(
     ...(studentResponse?.responseId ? [studentResponse.responseId] : []),
   ]);
   const certainty = grounding.primaryGap.verificationStatus;
+  const target = describeCoverageTarget(coverage);
 
   if (primaryCoverage.gapReasonCode === 'missing_text_evidence') {
     return {
-      fromStep: '材料中的人物动作或语句',
-      toStep: '人物心理判断',
+      fromStep: '材料中的具体内容',
+      toStep: target,
       observedProblem: conclusion
-        ? `答案直接写出了“${short(conclusion)}”这个结论，却没有呈现人物做了什么，因此读者看不出这个判断来自材料中的哪一处。`
-        : '答案没有呈现人物的具体动作或语句，因此人物心理判断缺少可以核对的材料起点。',
+        ? `答案写出了“${short(conclusion)}”这个结论，却没有呈现支持它的文本内容，因此读者看不出这个判断来自材料中的哪一处。`
+        : `答案没有呈现具体文本依据，因此${target}的判断缺少可以核对的材料起点。`,
       evidenceLinks: links,
       certainty,
     };
   }
   if (primaryCoverage.gapReasonCode === 'missing_reasoning_relation') {
     return {
-      fromStep: '已经找到的材料动作',
-      toStep: '动作所表现的人物心理',
+      fromStep: '已经找到的材料依据',
+      toStep: target,
       observedProblem: materialEvidence && conclusion
-        ? `答案同时写出了“${short(materialEvidence)}”和“${short(conclusion)}”，但省略了这个动作为什么能表现这种心理的解释。`
-        : '答案已经出现材料依据和人物心理，但两者之间的解释没有写出来。',
+        ? `答案同时写出了“${short(materialEvidence)}”和“${short(conclusion)}”，但省略了这处依据为什么能支持这个判断的解释。`
+        : '答案尚未说明文本依据怎样支持题目要求的判断。',
       evidenceLinks: links,
       certainty,
     };
   }
   if (primaryCoverage.gapReasonCode === 'conclusion_inconsistent') {
     return {
-      fromStep: '材料中人物前后的表现',
-      toStep: '人物此时的心理',
+      fromStep: '材料内容与题目要求',
+      toStep: target,
       observedProblem: conclusion && taskCue
-        ? `你写的是“${short(conclusion)}”，但材料重点呈现的是“${short(taskCue)}”。这个动作不能直接说明“${short(conclusion)}”，所以需要重新判断人物当时的心理。`
+        ? `你写的是“${short(conclusion)}”，但需对照“${short(taskCue)}”核实这一判断是否符合题目要求。`
         : conclusion
-          ? `你写的是“${short(conclusion)}”，但这个判断还不能解释材料中人物前后的表现，所以需要重新判断人物当时的心理。`
-        : '答案中的人物心理结论与材料表现出的意思不一致。',
+          ? `你写的是“${short(conclusion)}”，但这个判断与题目要求不一致，需要回到原文核对。`
+        : '答案中的结论与材料或题目要求不一致。',
       evidenceLinks: links,
       certainty,
     };

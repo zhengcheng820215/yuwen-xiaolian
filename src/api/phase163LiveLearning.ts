@@ -1,4 +1,5 @@
 import { prepareConcreteLearningTaskFromFrozenResource } from '../ai/agents/frozenQuestionResourceTaskAdapter.ts';
+import { resolveReadingAnswerLengthPolicy } from '../ai/agents/readingAnswerLengthPolicy.ts';
 import {
   appendLearningRoundToSession,
   queryLearningSessionHistory,
@@ -266,6 +267,7 @@ export type Phase163LiveWorkspaceState = {
     questionText: string;
     responseFormat: 'text' | 'single_choice';
     minimumAnswerLength: number;
+    answerLengthMode?: 'advisory' | 'required';
     singleChoice?: StudentSingleChoiceDelivery;
   };
   answerDraft: string;
@@ -1863,6 +1865,7 @@ function readyState(
   singleChoiceDraft?: SingleChoiceStudentAnswerValue,
 ): Phase163LiveWorkspaceState {
   const task = descriptor.concreteTask;
+  const lengthPolicy = resolveReadingAnswerLengthPolicy(task.question, descriptor.input.resourceVersion.minimumAnswerRequirement.minLength);
   const learningPresentation = toStudentLearningPresentation(buildStudentLearningNarrativeProjection({
     studentId: descriptor.input.studentId,
     currentTask: task,
@@ -1884,7 +1887,8 @@ function readyState(
       readingText: task.readingText || '',
       questionText: task.question,
       responseFormat: task.responseFormat === 'single_choice' ? 'single_choice' : 'text',
-      minimumAnswerLength: descriptor.input.resourceVersion.minimumAnswerRequirement.minLength,
+      minimumAnswerLength: lengthPolicy.minimumLength,
+      answerLengthMode: lengthPolicy.mode,
       singleChoice: task.singleChoiceDelivery,
     },
     answerDraft,
@@ -2712,6 +2716,11 @@ async function resolveFeedbackRevisionState(
       && feedback,
     ),
     requirementCoverage: feedback?.thinkingReview?.requirementCoverage,
+    primaryGapRequirementId: feedback?.thinkingReview?.primaryGapRequirementId,
+    rubricRequirementBindings: buildPhase163RubricRequirementBindings(
+      descriptor.input.resourceVersion.rubric,
+      feedback?.thinkingReview?.requirementCoverage || [],
+    ),
     guidance: feedback?.guidance,
   });
   if (!attempt.revisionOfferDecision) {

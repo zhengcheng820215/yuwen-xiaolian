@@ -71,7 +71,7 @@ export function FeedbackRevisionWorkspace({
             placeholder="请根据上面的重点完善回答。"
             className="mt-7 min-h-[220px] max-h-[400px] w-full resize-none rounded-md border border-slate-300 bg-[#f8fafc] px-4 py-4 text-base leading-7 text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:cursor-wait disabled:opacity-70"
           />
-          <AnswerLengthIndicator answer={draftAnswer} minimumLength={task.minimumAnswerLength} />
+          <AnswerLengthIndicator answer={draftAnswer} minimumLength={task.minimumAnswerLength} mode={task.answerLengthMode} />
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <button

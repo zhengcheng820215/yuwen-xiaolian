@@ -28,7 +28,7 @@ export type StudentFeedbackActionPlanInput = {
 };
 
 const GENERIC_ONLY_PATTERN = /^(?:你的回答)?(?:还)?(?:不够完整|缺少细节|需要深入分析|需要补充说明|需要加强理解)[。！]?$/;
-const EXECUTABLE_ACTION_PATTERN = /(?:想一想|比较|思考|回到|找到|找出|定位|核对|补齐|选择|补上|写出|改成|说明|合并|连接|保留|检查|重新|查看)/;
+const EXECUTABLE_ACTION_PATTERN = /(?:想一想|比较|思考|回到|找到|找出|定位|核对|核实|对照|补齐|选择|补上|写出|改成|说明|合并|连接|保留|检查|重新|查看)/;
 
 export function buildStudentFeedbackActionPlan(
   input: StudentFeedbackActionPlanInput,
@@ -44,7 +44,11 @@ export function buildStudentFeedbackActionPlan(
     isStudentVisibleFeedbackGrounding(input.projectionGrounding)
     ? input.projectionGrounding
     : undefined;
-  const coverage = feedback.thinkingReview?.requirementCoverage || [];
+  const coverage = (feedback.thinkingReview?.requirementCoverage || []).map((item) => ({
+    ...item,
+    studentEvidence: item.studentEvidence.filter((span) => !studentResponse
+      || studentResponse.answerText.replace(/\s/g, '').includes(span.replace(/\s/g, ''))),
+  }));
   const primaryCoverage = coverage.find((item) => item.requirementId === grounding.primaryGap?.evidenceLinks[0]) ||
     coverage.find((item) => item.requirementId === feedback.thinkingReview?.primaryGapRequirementId);
   const conclusionCoverage = coverage.find((item) =>
@@ -71,7 +75,8 @@ export function buildStudentFeedbackActionPlan(
     ? `你${completedThinking.action}，也${supportingThinking.action}。`
     : completedThinking
       ? `你${completedThinking.action}。`
-      : buildAcknowledgedAction(studentClaim, observedEvidence, grounding);
+      : studentResponse && !studentClaim && !observedEvidence ? undefined
+        : buildAcknowledgedAction(studentClaim, observedEvidence, grounding);
   const acknowledgedAction = projectionGrounding
     ? projectionGrounding.acknowledgedStudentAction
     : legacyAcknowledgedAction;
@@ -279,24 +284,25 @@ function buildMissingAnswerPart(input: {
   if (grounding.status === 'cannot_assess') return grounding.primaryGap.feedbackText;
 
   if (primaryCoverage?.gapReasonCode === 'missing_text_evidence') {
+    if (!studentClaim) return '当前回答还缺少能支持判断的具体文本依据。';
     const claim = studentClaim ? `“${short(studentClaim)}”这个判断` : '你的判断';
     const cue = taskCue && hintLevel === 'paraphrase'
-      ? `材料中“${short(taskCue)}”这一处动作还没有写进答案。`
-      : '答案里还没有写出人物做了什么来支持这个判断。';
+      ? `材料中“${short(taskCue)}”这一处内容还没有写进答案。`
+      : '答案里还没有写出能支持这个判断的具体文本内容。';
     return `你现在已经有${claim}，但还缺少支持它的材料依据。${cue}`;
   }
 
   if (primaryCoverage?.gapReasonCode === 'missing_reasoning_relation') {
     if (observedEvidence && studentClaim) {
-      return `你已经写到“${short(observedEvidence)}”，也提出了“${short(studentClaim)}”，但还没有说明这个动作为什么能支持这个判断。`;
+      return `你已经写到“${short(observedEvidence)}”，也提出了“${short(studentClaim)}”，但还没有说明这处依据为什么能支持这个判断。`;
     }
     if (observedEvidence) {
-      return `你已经找到了“${short(observedEvidence)}”这一处内容，但还没有说明它表现了人物怎样的心理。`;
+      return `你已经找到了“${short(observedEvidence)}”这一处内容，但还没有说明它怎样支持题目要求的判断。`;
     }
   }
 
   if (primaryCoverage?.gapReasonCode === 'conclusion_inconsistent' && studentClaim) {
-    return `你写出了“${short(studentClaim)}”这个判断，但它还不能准确概括材料中人物此时的心理。`;
+    return `你写出了“${short(studentClaim)}”这个判断，但它与材料或题目要求不一致。`;
   }
   return grounding.primaryGap.feedbackText;
 }
@@ -313,7 +319,7 @@ function buildOperations(input: {
   const { grounding, primaryCoverage, observedEvidence, taskCue, feedbackDepth } = input;
   if (!grounding.primaryGap) return { nextOperations: [] };
   if (grounding.status === 'cannot_assess') {
-    return { nextOperations: ['请重新写出人物此时的心理，并至少说明一条理由。'] };
+    return { nextOperations: ['请围绕题目所问的内容，写出你的判断和一条理由。'] };
   }
 
   if (primaryCoverage?.gapReasonCode === 'missing_text_evidence') {
@@ -347,12 +353,12 @@ function buildOperations(input: {
       feedbackDepth,
     });
     return {
-      nextOperations: prompt ? [prompt] : ['重新比较人物的动作和你写出的心理判断。'],
+      nextOperations: prompt ? [prompt] : ['对照题目所问的对象和原文，核对你写出的判断。'],
     };
   }
 
   const fallback = grounding.actions.map((item) => item.text).filter((item) => EXECUTABLE_ACTION_PATTERN.test(item));
-  return { nextOperations: fallback };
+  return { nextOperations: fallback.slice(0, 1) };
 }
 
 function buildThinkingPrompt(input: {
@@ -364,38 +370,25 @@ function buildThinkingPrompt(input: {
 }): string | undefined {
   const { primaryCoverage, studentClaim, observedEvidence, taskCue, feedbackDepth } = input;
   if (feedbackDepth <= 1 || !primaryCoverage) return undefined;
-  const subject = inferSubject(studentClaim, observedEvidence, taskCue);
-  const pronoun = subject.includes('母') || subject.includes('她') ? '她' : '他';
-  const cue = removeLeadingSubject(observedEvidence || taskCue, subject);
+  const cue = observedEvidence || taskCue;
 
   if (['missing_text_evidence', 'missing_reasoning_relation'].includes(primaryCoverage.gapReasonCode || '')) {
     if (cue && studentClaim) {
-      return `先别急着改答案。看看材料中的“${short(cue)}”，想一想：这个动作说明${subject}当时在想什么？再根据这个心理重新组织答案。`;
+      return `看看材料中的“${short(cue)}”，补一句说明：这一处为什么能支持“${short(studentClaim)}”？`;
     }
-    if (cue) return `先看看材料中的“${short(cue)}”，想一想：这个动作说明${subject}当时在想什么？`;
-    return `先回到材料中找一个${subject}的动作，再问自己：这个动作说明${pronoun}当时在想什么？`;
+    if (cue) return `看看材料中的“${short(cue)}”，说明它与题目所问的内容有什么联系。`;
+    return studentClaim
+      ? `回到原文，找一处能支持“${short(studentClaim)}”的内容，补进回答。`
+      : '回到原文，找一处能支持你的判断的内容，补进回答。';
   }
   if (primaryCoverage.gapReasonCode === 'conclusion_inconsistent') {
     return cue && studentClaim
-      ? `先别急着改结论。看看材料中的“${short(cue)}”，想一想：这个动作真的能说明“${short(studentClaim)}”吗？如果不能，它更接近怎样的心理？`
+      ? `对照“${short(cue)}”和题目所问的对象，核实“${short(studentClaim)}”是否成立。`
       : cue
-        ? `先别急着改结论。看看“${short(cue)}”，想一想：这个动作更接近${subject}怎样的心理？`
-        : `重新查看${subject}前后的动作和语气：哪些词能同时解释${pronoun}为什么这样做？`;
+        ? `对照“${short(cue)}”，重新核对题目所问的对象和你的判断。`
+        : '先核对题目问谁、问什么，再对照原文修正不一致的判断。';
   }
   return undefined;
-}
-
-function removeLeadingSubject(value: string | undefined, subject: string): string | undefined {
-  if (!value) return undefined;
-  const normalized = value.trim();
-  return normalized.startsWith(subject)
-    ? normalized.slice(subject.length).trim()
-    : normalized;
-}
-
-function inferSubject(...values: Array<string | undefined>): string {
-  const text = values.filter(Boolean).join(' ');
-  return text.match(/父亲|母亲|小林|周老师|老师|孩子|人物/)?.[0] || '人物';
 }
 
 function selectTaskCue(
