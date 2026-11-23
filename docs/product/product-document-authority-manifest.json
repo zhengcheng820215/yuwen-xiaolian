@@ -682,6 +682,23 @@
       }
     },
     {
+      "path": "KNOWLEDGE_PRACTICE_PROGRESSIVE_DIFFICULTY_REVIEW_AND_ADVANCEMENT_PLAN.md",
+      "title": "知识练习渐进难度与间隔复练及能力进阶优化方案",
+      "documentType": "IMPLEMENTATION_PLAN",
+      "authority": "IMPLEMENTATION",
+      "lifecycle": "ACTIVE",
+      "asOf": "2026-11-23",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "PENDING",
+        "engineering": "PENDING",
+        "productAcceptance": "PENDING",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
       "path": "KNOWLEDGE_PRACTICE_USABLE_PRODUCT_PHASE1_PLAN.md",
       "title": "知识练习可用产品第一阶段总体工程方案",
       "documentType": "IMPLEMENTATION_PLAN",
@@ -1959,6 +1976,40 @@
       "currentStateSource": "CURRENT_PRODUCT_STATE.md",
       "statusAxes": {
         "design": "PASS",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "WRONG_ANSWER_FEEDBACK_STAGE3_WAVE_A_ACCEPTANCE_REPORT_2026-09-10.md",
+      "title": "错题反馈 Stage 3 Wave A 内容迁移与 Debug 验收报告",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-09-10",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
+        "engineering": "PASS",
+        "productAcceptance": "NOT_CLAIMED",
+        "live": "NOT_CLAIMED"
+      }
+    },
+    {
+      "path": "WRONG_ANSWER_FEEDBACK_STAGE3_WAVE_B_ACCEPTANCE_REPORT_2026-09-10.md",
+      "title": "错题反馈 Stage 3 Wave B 受控原创内容生产与准入验收报告",
+      "documentType": "ACCEPTANCE_REPORT",
+      "authority": "EVIDENCE",
+      "lifecycle": "COMPLETED",
+      "asOf": "2026-09-10",
+      "supersedes": [],
+      "supersededBy": [],
+      "currentStateSource": "CURRENT_PRODUCT_STATE.md",
+      "statusAxes": {
+        "design": "NOT_DECLARED",
         "engineering": "PASS",
         "productAcceptance": "NOT_CLAIMED",
         "live": "NOT_CLAIMED"
