@@ -6,7 +6,7 @@
 
 状态：`ACTIVE / COMPLETE INVENTORY`
 
-更新日期：2026-09-04
+更新日期：2026-11-23
 
 状态轴：`Design = NOT_APPLICABLE / Engineering = NOT_APPLICABLE / Product Acceptance = PENDING / Live = DEFER_TO_CURRENT_STATE`
 
@@ -20,17 +20,17 @@
 
 本文不声明 Runtime、Provider、正式资源或 Trial 当前可用。
 
-本次清单共登记 `112` 份 Markdown：
+本次清单共登记 `115` 份 Markdown：
 
 | 文档类型 | 数量 |
 | --- | ---: |
 | `CURRENT_CONTROL` | 4 |
 | `NORMATIVE_CONTRACT` | 39 |
-| `IMPLEMENTATION_PLAN` | 50 |
-| `ACCEPTANCE_REPORT` | 18 |
+| `IMPLEMENTATION_PLAN` | 51 |
+| `ACCEPTANCE_REPORT` | 20 |
 | `HISTORICAL_SNAPSHOT` | 1 |
 
-生命周期分布为：`ACTIVE 55 / COMPLETED 55 / SUPERSEDED 2`。其中历史快照可以同时处于 `SUPERSEDED`，表示原始记录保留但当前职责已被后继文档接管。
+生命周期分布为：`ACTIVE 56 / COMPLETED 57 / SUPERSEDED 2`。其中历史快照可以同时处于 `SUPERSEDED`，表示原始记录保留但当前职责已被后继文档接管。
 
 ## 二、当前控制层
 
@@ -63,6 +63,8 @@
 ## 四、阶段计划与验收证据
 
 `IMPLEMENTATION_PLAN` 说明某一阶段准备如何实现；`ACCEPTANCE_REPORT` 记录该阶段曾经验证过什么。两者均不能覆盖当前状态来源。
+
+[知识练习渐进难度与间隔复练及能力进阶优化方案](./KNOWLEDGE_PRACTICE_PROGRESSIVE_DIFFICULTY_REVIEW_AND_ADVANCEMENT_PLAN.md)是待确认的后续阶段方案，不改变第一阶段或正式能力主链的既有权威边界。
 
 阶段计划即使标记 `COMPLETED`，也只表示其工程责任已经完成；验收报告即使写有 `PASS`，也不自动表示当前 Runtime、Provider 或 Trial 仍然有效。
 
